@@ -1,0 +1,68 @@
+---
+name: API
+
+on:
+  pull_request:
+    paths: ["api/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+  push:
+    branches: [main]
+    paths: ["api/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+
+env:
+  CI: "true"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - uses: extractions/setup-just@v4
+      - run: uv sync --all-groups
+      - run: just api::lint
+      - name: prek
+        working-directory: .
+        run: |
+          uv run --project api prek run --all-files --config .pre-commit-config.yaml
+        env:
+          PREK_SKIP: pytest,ty
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - uses: extractions/setup-just@v4
+      - run: uv sync --all-groups
+      - run: docker info
+      - run: just api::test
+
+  contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - uses: extractions/setup-just@v4
+      - run: uv sync --all-groups
+      - run: just api::contract
+      - name: fail if the committed contract is stale
+        working-directory: .
+        run: git diff --exit-code -- web/src/api/openapi.json
