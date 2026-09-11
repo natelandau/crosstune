@@ -1,0 +1,42 @@
+"""Resolve a pasted URL before the client saves it."""
+
+from __future__ import annotations
+
+import dataclasses
+
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, Field
+
+from crosstune.auth.deps import (
+    CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
+)
+from crosstune.errors import VALIDATION_RESPONSE
+from crosstune.links.resolve import resolve_link
+
+router = APIRouter(prefix="/v1/links", tags=["links"])
+
+
+class ResolveRequest(BaseModel):
+    """Body of a resolve request: the URL the user just pasted."""
+
+    url: str = Field(min_length=1, max_length=2048)
+
+
+class ResolveResponse(BaseModel):
+    """Provider, canonical URL, title, and artwork for a resolved link."""
+
+    url: str
+    provider: str
+    provider_ref: str | None
+    title: str | None
+    artwork_url: str | None
+
+
+@router.post("/resolve", responses=VALIDATION_RESPONSE)
+async def resolve(body: ResolveRequest, request: Request, _: CurrentUser) -> ResolveResponse:
+    """Provider, canonical URL, title, and artwork for a pasted link."""
+    settings = request.app.state.settings
+    link = await resolve_link(
+        body.url, request.app.state.http_client, settings.resolver_timeout_seconds
+    )
+    return ResolveResponse(**dataclasses.asdict(link))
