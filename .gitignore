@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+*.egg-info
+.venv/
+.cache/
+.coverage*
+
+# Node
+node_modules/
+web/dist/
+
+# Local dev
+.dev/
+.env
+.env.local
+.env.*.local
+tmp/
+
+# Tooling
+.claude/
+.worktrees/
+.superpowers/
+docs/superpowers/

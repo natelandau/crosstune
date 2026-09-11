@@ -1,0 +1,164 @@
+[project]
+    authors = [{ name = "Nate Landau" }]
+    dependencies = [
+        "alembic>=1.19.2",
+        "asyncpg>=0.31.0",
+        "fastapi>=0.141.1",
+        "httpx2>=2.12.0",
+        "pydantic-settings>=2.15.0",
+        "pydantic>=2.13.5",
+        "pyjwt[crypto]>=2.14.0",
+        "python-json-logger>=4.2.0",
+        "sentry-sdk[fastapi]>=2.69.1",
+        "sqlalchemy[asyncio]>=2.0.52",
+        "uuid-utils>=1.0.0",
+        "uvicorn[standard]>=0.52.4",
+    ]
+    description = "Crosstune API"
+    name = "crosstune"
+    requires-python = ">=3.13,<3.14"
+    version = "0.1.0"
+
+[build-system]
+    build-backend = "uv_build"
+    requires      = ["uv_build>=0.11.0,<0.13.0"]
+
+[dependency-groups]
+    dev = [
+        "anyio>=4.15.1",
+        "commitizen>=4.18.0",
+        "prek>=0.5.2",
+        "pytest-cov>=7.1.0",
+        "pytest-databases[postgres]>=0.19.0",
+        "pytest-env>=1.7.1",
+        "pytest-mock>=3.15.1",
+        "pytest-xdist>=3.8.0",
+        "pytest>=9.1.1",
+        "ruff>=0.16.7",
+        "shellcheck-py>=0.11.0.1",
+        "ty>=0.0.80",
+        "typos>=1.50.1",
+        "yamllint>=1.38.0",
+]
+
+[tool.commitizen]
+    bump_message             = "bump(release): v$current_version → v$new_version"
+    tag_format               = "v$version"
+    update_changelog_on_bump = true
+    version_files            = ["src/crosstune/__init__.py:__version__"]
+    version_provider         = "uv"
+
+[tool.coverage.report]
+    exclude_lines = ['def __repr__', 'if TYPE_CHECKING', 'pragma: no cover']
+    fail_under    = 80
+    show_missing  = true
+    skip_covered  = true
+    skip_empty    = true
+
+[tool.coverage.run]
+    branch = true
+    # SQLAlchemy's asyncio layer runs orm code inside greenlets, which coverage misses otherwise.
+    concurrency      = ["greenlet"]
+    data_file        = ".cache/coverage"
+    disable_warnings = ["no-data-collected"]
+    omit             = ["src/crosstune/db/migrations/*", "tests/*"]
+    source           = ["src"]
+
+[tool.coverage.xml]
+    output = ".cache/coverage.xml"
+
+[tool.pytest.ini_options]
+    addopts        = "--color=yes --strict-config --strict-markers -n auto --dist loadfile"
+    cache_dir      = ".cache/pytest"
+    filterwarnings = ["error", "ignore::DeprecationWarning:"]
+    testpaths      = ["tests"]
+    xfail_strict   = true
+
+[tool.pytest_env]
+    CROSSTUNE_CLERK_AUTHORIZED_PARTIES = '["http://testclient"]'
+    CROSSTUNE_CLERK_ISSUER             = "https://test.clerk.accounts.dev"
+    CROSSTUNE_CLERK_WEBHOOK_SECRET     = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="
+    CROSSTUNE_CORS_ORIGINS             = '["http://testclient"]'
+    CROSSTUNE_DEBUG                    = "true"
+
+[tool.ruff]
+    cache-dir = ".cache/ruff"
+    exclude = [
+        ".cache",
+        ".dev",
+        ".git",
+        ".venv",
+        "build",
+        "dist",
+        "src/crosstune/db/migrations/versions",
+    ]
+    fix = true
+    line-length = 100
+    output-format = "grouped"
+    src = ["src", "tests"]
+    target-version = "py313"
+
+    [tool.ruff.lint]
+        ignore = [
+            "ANN002",
+            "ANN003",
+            "ANN204",
+            "ANN401",
+            "B008",   # FastAPI Depends() in defaults
+            "COM812",
+            "CPY001",
+            "D107",
+            "E501",
+            "FIX002",
+            "TD001",
+            "TD002",
+            "TD003",
+        ]
+        per-file-ignores = { "tests/**/*.py" = [
+            "ANN001",
+            "ANN201",
+            "ARG001",
+            "ARG002",
+            "D102",
+            "D103",
+            "PLR2004",
+            "S101",
+            "S105",
+            "S106",
+            "SLF001",
+        ], "src/crosstune/db/migrations/env.py" = [
+            "INP001",
+        ] }
+        select = ["ALL"]
+        unfixable = ["ERA001", "F401", "F841"]
+
+        [tool.ruff.lint.mccabe]
+            max-complexity = 10
+
+        [tool.ruff.lint.pydocstyle]
+            convention = "google"
+
+        [tool.ruff.lint.pylint]
+            max-args = 7
+
+        [tool.ruff.lint.flake8-type-checking]
+            runtime-evaluated-base-classes = [
+                "crosstune.db.base.Base",
+                "pydantic.BaseModel",
+                "sqlalchemy.orm.DeclarativeBase",
+            ]
+
+    [tool.ruff.format]
+        indent-style              = "space"
+        line-ending               = "auto"
+        quote-style               = "double"
+        skip-magic-trailing-comma = false
+
+[tool.ty.terminal]
+    error-on-warning = true
+
+[tool.ty.environment]
+    python-version = "3.13"
+
+[tool.ty.src]
+    exclude = ["**/migrations/**", "**/tests/**"]

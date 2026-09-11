@@ -1,0 +1,4 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/api/.venv/bin/python",
+  "python.testing.cwd": "${workspaceFolder}/api"
+}

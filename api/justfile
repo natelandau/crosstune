@@ -1,0 +1,95 @@
+# Recipes for the API. Loaded as the `api` module by the root justfile and run
+# from this directory: `just api::test` from anywhere in the repository.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+py_src := "src/ tests/"
+
+[private]
+default:
+    @just --list api
+
+# Lint with ruff
+[group('lint')]
+ruff:
+    uv run ruff check --no-fix --config pyproject.toml {{ py_src }}
+
+# Check formatting with ruff
+[group('lint')]
+format:
+    uv run ruff format --check --config pyproject.toml {{ py_src }}
+
+# Type check with ty
+[group('lint')]
+ty:
+    uv run ty check
+
+# Spell check with typos
+[group('lint')]
+typos:
+    uv run typos --config ../.typos.toml
+
+# Run every prek hook against all files (prek runs its own job in CI)
+[group('lint')]
+precommit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "${CI:-}" in 1|true|yes) echo "skipping prek hooks: CI runs them as their own job"; exit 0 ;; esac
+    cd .. && PREK_SKIP=pytest uv run --project api prek run --all-files --config .pre-commit-config.yaml
+
+# Run all linters
+[group('lint')]
+lint: ruff format ty typos precommit
+
+# Run the test suite against a Postgres container; extra args go to pytest
+[group('test')]
+test *args:
+    docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
+    uv run pytest tests/ -c pyproject.toml --color=yes --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term {{ args }}
+
+# Run the API with reload
+[group('run')]
+run:
+    uv run uvicorn crosstune.main:app --reload --reload-dir src --port 8000
+
+# Apply pending migrations
+[group('db')]
+migrate:
+    uv run alembic upgrade head
+
+# Generate a migration from model changes; review it before committing
+[group('db')]
+makemigrations message='auto':
+    uv run alembic revision --autogenerate -m '{{ message }}'
+
+# Export the OpenAPI schema for the web client
+[group('contract')]
+contract:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=../web/src/api/openapi.json
+    mkdir -p "$(dirname "$out")"
+    # Written aside and moved into place, so a failed export leaves the committed
+    # contract intact instead of truncating it.
+    staged="$out.tmp"
+    trap 'rm -f "$staged"' EXIT
+    uv run python -c "import json; from crosstune.main import create_app; print(json.dumps(create_app().openapi(), indent=2, sort_keys=True))" > "$staged"
+    mv "$staged" "$out"
+
+# Upgrade dependencies
+[group('maintenance')]
+update:
+    uv lock --upgrade
+    uv sync
+
+# Remove build artifacts and caches
+[group('maintenance')]
+clean:
+    rm -rf .cache .coverage .coverage.* build dist *.egg-info
+    find src tests -type d -name __pycache__ -prune -exec rm -rf {} +
+
+# Install dependencies and create .env from the example if absent
+[group('maintenance')]
+setup:
+    uv sync
+    test -e .env || cp .env.example .env
