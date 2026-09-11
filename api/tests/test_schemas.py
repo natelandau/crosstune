@@ -1,0 +1,52 @@
+"""Row schemas reject what the database would reject, before the database sees it."""
+
+from datetime import UTC, datetime
+
+import pytest
+from pydantic import ValidationError
+
+from crosstune.schemas.rows import DATA_SCHEMAS, RecordingLinkData, SongData, UserSongData
+from crosstune.sync.tables import TABLE_ORDER, TABLES
+
+NOW = datetime(2026, 9, 11, tzinfo=UTC)
+
+
+def test_song_requires_title() -> None:
+    with pytest.raises(ValidationError):
+        SongData(created_at=NOW)
+
+
+def test_song_rejects_unknown_mode() -> None:
+    with pytest.raises(ValidationError):
+        SongData(title="Sally Ann", mode="lydian", created_at=NOW)
+
+
+def test_song_rejects_unknown_time_signature() -> None:
+    with pytest.raises(ValidationError):
+        SongData(title="Sally Ann", time_signature="7/8", created_at=NOW)
+
+
+def test_song_rejects_owner_field() -> None:
+    with pytest.raises(ValidationError):
+        SongData(title="Sally Ann", owner_user_id="abc", created_at=NOW)
+
+
+def test_user_song_rejects_unknown_status() -> None:
+    with pytest.raises(ValidationError):
+        UserSongData(
+            song_id="018f0000-0000-7000-8000-000000000002", status="mastered", created_at=NOW
+        )
+
+
+def test_recording_link_rejects_unknown_provider() -> None:
+    with pytest.raises(ValidationError):
+        RecordingLinkData(
+            song_id="018f0000-0000-7000-8000-000000000002",
+            url="https://example.com",
+            provider="napster",
+            created_at=NOW,
+        )
+
+
+def test_every_table_has_a_schema_and_a_spec() -> None:
+    assert set(DATA_SCHEMAS) == set(TABLE_ORDER) == set(TABLES)
