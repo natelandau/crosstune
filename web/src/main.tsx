@@ -8,7 +8,13 @@ import { APP_VERSION } from './version'
 import './app.css'
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN
-if (sentryDsn) Sentry.init({ dsn: sentryDsn, release: APP_VERSION })
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    release: APP_VERSION,
+    environment: import.meta.env.VITE_SENTRY_ENVIRONMENT ?? 'development',
+  })
+}
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 if (!publishableKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
