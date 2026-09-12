@@ -5,29 +5,32 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 mod api
-mod? web
+mod web
 
 [private]
 default:
     @just --list
 
 # Run every linter in every module
-lint: api::lint
+lint: api::lint web::lint
 
 # Check formatting in every module
-format: api::format
+format: api::format web::format
 
 # Run every test suite
-test: api::test
+test: api::test web::test
 
 # Remove build artifacts and caches everywhere
-clean: api::clean
+clean: api::clean web::clean
+
+# Regenerate the OpenAPI contract and the typed web client from it
+contract: api::contract web::contract
 
 # Install dependencies, git hooks, and start local services
-dev-setup: api::setup
+dev-setup: api::setup web::setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
 # Upgrade dependencies and hook versions
-update: api::update
+update: api::update web::update
     uv run --project api prek autoupdate --config .pre-commit-config.yaml

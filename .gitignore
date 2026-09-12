@@ -11,6 +11,10 @@ dist/
 # Node
 node_modules/
 web/dist/
+web/dev-dist/
+web/playwright-report/
+web/test-results/
+web/coverage/
 
 # Local dev
 .dev/

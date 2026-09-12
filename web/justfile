@@ -1,0 +1,87 @@
+# Recipes for the web client. Loaded as the `web` module by the root justfile and run
+# from this directory: `just web::test` from anywhere in the repository.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+[private]
+default:
+    @just --list web
+
+# Lint with eslint
+[group('lint')]
+eslint:
+    pnpm eslint --max-warnings 0 .
+
+# Check formatting with prettier
+[group('lint')]
+format:
+    pnpm prettier --check .
+
+# Type check with tsc
+[group('lint')]
+tsc:
+    pnpm tsc --noEmit
+
+# Spell check with typos
+[group('lint')]
+typos:
+    uvx typos --config ../.typos.toml .
+
+# Run all linters
+[group('lint')]
+lint: eslint format tsc typos
+
+# Fix lint and formatting where tools can
+[group('lint')]
+fix:
+    pnpm eslint --fix .
+    pnpm prettier --write .
+
+# Run the unit tests; extra args go to vitest
+[group('test')]
+test *args:
+    pnpm vitest run {{ args }}
+
+# Run the Playwright suite against a production build; needs the API on :8000 and Clerk env
+[group('test')]
+e2e *args:
+    curl -fsS http://localhost:8000/healthz > /dev/null || { echo "API is not running on :8000 (just api::run)" >&2; exit 1; }
+    pnpm playwright test {{ args }}
+
+# Run the dev server with the /v1 proxy
+[group('run')]
+run:
+    pnpm vite
+
+# Serve the production build with the /v1 proxy
+[group('run')]
+preview:
+    pnpm vite build
+    pnpm vite preview
+
+# Build for production
+[group('build')]
+build:
+    pnpm vite build
+
+# Regenerate the typed client from the committed OpenAPI contract
+[group('contract')]
+contract:
+    pnpm openapi-typescript src/api/openapi.json -o src/api/schema.d.ts
+
+# Upgrade dependencies
+[group('maintenance')]
+update:
+    pnpm update --latest
+
+# Remove build artifacts and caches
+[group('maintenance')]
+clean:
+    rm -rf dist dev-dist coverage playwright-report test-results node_modules/.vite
+
+# Install dependencies, browsers, and create .env.local from the example if absent
+[group('maintenance')]
+setup:
+    pnpm install --frozen-lockfile
+    pnpm exec playwright install chromium
+    test -e .env.local || cp .env.example .env.local

@@ -17,6 +17,7 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
+        exclude: ^web/pnpm-lock\.yaml$
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
@@ -95,3 +96,32 @@ repos:
         stages: [pre-push]
         pass_filenames: false
         always_run: true
+
+      - id: web-eslint
+        name: eslint
+        entry: bash -c 'cd web && pnpm eslint --max-warnings 0 .'
+        language: system
+        pass_filenames: false
+        files: ^web/.*\.(ts|tsx|js|cjs|mjs)$
+
+      - id: web-prettier
+        name: prettier
+        entry: bash -c 'cd web && pnpm prettier --check .'
+        language: system
+        pass_filenames: false
+        files: ^web/
+
+      - id: web-tsc
+        name: tsc
+        entry: bash -c 'cd web && pnpm tsc --noEmit'
+        language: system
+        pass_filenames: false
+        files: ^web/.*\.(ts|tsx)$
+
+      - id: web-vitest
+        name: vitest
+        entry: just web::test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^web/
