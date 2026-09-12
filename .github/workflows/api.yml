@@ -3,10 +3,15 @@ name: API
 
 on:
   pull_request:
-    paths: ["api/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+    paths:
+      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
   push:
     branches: [main]
-    paths: ["api/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+    paths:
+      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+
+permissions:
+  contents: read
 
 env:
   CI: "true"
@@ -26,6 +31,10 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just api::lint
+      - name: validate railway.json against the published schema
+        continue-on-error: true
+        run: uv run --with check-jsonschema check-jsonschema --schemafile https://railway.com/railway.schema.json railway.json
+      - run: uv run shellcheck ../scripts/smoke.sh
       - name: prek
         working-directory: .
         run: |

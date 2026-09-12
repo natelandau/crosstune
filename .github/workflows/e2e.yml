@@ -1,0 +1,80 @@
+---
+name: E2E
+
+# On demand only. The suite signs in through the live Clerk development instance, so a
+# Clerk outage would block unrelated merges if this gated pull requests.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: crosstune
+          POSTGRES_PASSWORD: crosstune
+          POSTGRES_DB: crosstune
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U crosstune -d crosstune"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CROSSTUNE_DATABASE_URL: postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune
+      CROSSTUNE_CLERK_ISSUER: ${{ vars.CLERK_ISSUER }}
+      CROSSTUNE_CLERK_AUTHORIZED_PARTIES: '["http://localhost:4173"]'
+      VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: extractions/setup-just@v4
+      - run: uv sync --all-groups
+        working-directory: api
+      - run: just migrate
+        working-directory: api
+      - name: start the api
+        working-directory: api
+        run: |
+          nohup uv run uvicorn crosstune.main:app --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8000/healthz > /dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api.log"
+          exit 1
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: web
+      - run: just e2e
+        working-directory: web
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore

@@ -8,6 +8,9 @@ on:
     branches: [main]
     paths: ["web/**", ".github/workflows/web.yml", "justfile"]
 
+permissions:
+  contents: read
+
 env:
   CI: "true"
 
