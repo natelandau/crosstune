@@ -35,6 +35,17 @@ dev-setup: api::setup web::setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
+# Start Postgres, apply migrations, then run the API and web client together
+dev:
+    docker compose up -d --wait
+    just api::migrate
+    # Ctrl-C ends the session with 130, which is the normal way out, not a failure
+    uv run --project api honcho start -f Procfile.dev || [ $? -eq 130 ]
+
+# Stop Postgres; the API and web client stop with Ctrl-C in `just dev`
+dev-down:
+    docker compose down
+
 # Upgrade dependencies and hook versions
 update: api::update web::update
     uv run --project api prek autoupdate --config .pre-commit-config.yaml

@@ -1,0 +1,2 @@
+api: cd api && uv run uvicorn crosstune.main:app --reload --reload-dir src --port 8000
+web: cd web && pnpm vite

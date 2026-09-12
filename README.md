@@ -53,29 +53,31 @@ Complete these steps once.
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key
    of your Clerk instance. Leave `VITE_API_URL` empty, because the dev server
    proxies `/v1` to the API on the same origin.
-5. Create the database tables:
 
-   ```
-   just api::migrate
-   ```
-
-Run `just api::migrate` again whenever a migration lands on `main`.
+You do not create the database tables by hand. `just dev` applies the
+migrations every time it starts.
 
 ### Run
 
-Start the API. It reloads when a file under `api/src` changes.
+Start the whole stack with one command. It starts Postgres, applies pending
+migrations, then runs the API and the web client in the foreground with
+prefixed logs. Ctrl-C stops the API and the web client. Postgres keeps
+running until you run `just dev-down`.
 
-    just api::run
+    just dev
+
+Open http://localhost:5173 and sign in with an email address. Clerk sends the
+magic link to that address.
 
 Make sure that the API answers. The response is `{"status":"ok"}`.
 
     curl http://localhost:8000/healthz
 
-In a second terminal, start the web client and open http://localhost:5173.
+To run one side alone, use its own recipe. The API reloads when a file under
+`api/src` changes.
 
+    just api::run
     just web::run
-
-Sign in with an email address. Clerk sends the magic link to that address.
 
 To serve a production build on port 4173 with the same `/v1` proxy, run
 `just web::preview`.
@@ -99,8 +101,9 @@ Run every linter, or every test suite, across both modules.
 The end-to-end tests sign in through your Clerk instance. Before you run them,
 set two more values in `web/.env`: `CLERK_SECRET_KEY`, the instance's
 secret key that starts with `sk_test_`, and `E2E_CLERK_USER_EMAIL`, the address
-of a user that exists in that instance. Start the API with `just api::run`,
-then run the suite. It builds the web client and serves it on port 4173 itself.
+of a user that exists in that instance. Start the stack with `just dev`, or the
+API alone with `just api::run`, then run the suite in a second terminal. It
+builds the web client and serves it on port 4173 itself.
 
     just web::e2e
 
