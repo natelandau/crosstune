@@ -7,7 +7,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}', 'pwa.test.ts'],
+      include: ['src/**/*.test.{ts,tsx}', 'pwa.test.ts', 'headers.test.ts'],
       restoreMocks: true,
     },
   }),

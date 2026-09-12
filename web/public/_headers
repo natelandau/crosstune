@@ -1,0 +1,13 @@
+# An update sits behind the browser cache until the service worker and the
+# manifest are refetched, so they are never served stale. Hashed assets never
+# change, so a year is safe.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
