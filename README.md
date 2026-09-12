@@ -10,43 +10,107 @@ what the product is and why it is shaped this way.
 
 ## Local development
 
-Tasks run through [just](https://just.systems) from anywhere in the
-repository. `just --list` shows them all; each deployable has its own module
-(`just api::test`), and the unprefixed recipes run every module.
+On a developer machine, the API runs on port 8000, the web client on port
+5173, and Postgres in Docker on port 5432. Tasks run through
+[just](https://just.systems) from anywhere in the repository. `just --list`
+shows them all. Each deployable has its own module, such as `just api::test`,
+and the unprefixed recipes run every module.
 
-Install dependencies, git hooks, and a local `.env` copied from
-`.env.example`, and start Postgres:
+### Prerequisites
 
-    just dev-setup
+Install these tools before you start.
 
-Run the API:
+| Tool                                          | Version        | Notes                                                                                       |
+| --------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------- |
+| [uv](https://docs.astral.sh/uv/)              | any            | Installs Python 3.13 and the API's dependencies. Git hooks come from the same dependencies. |
+| [Node.js](https://nodejs.org/)                | 22.12 or newer | Runs the web toolchain.                                                                     |
+| [pnpm](https://pnpm.io/)                      | 12.4.1         | The version is pinned in `web/package.json`. `corepack enable` installs it from that pin.   |
+| [just](https://just.systems)                  | any            | The task runner.                                                                            |
+| [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 for development and for the API tests. Docker must be running.             |
+
+You also need a [Clerk](https://clerk.com) development instance, which is free.
+From its dashboard, copy the Frontend API URL, which looks like
+`https://<slug>.clerk.accounts.dev`, and the publishable key, which starts with
+`pk_test_`. Enable email magic link sign-in on the instance.
+
+### Set up
+
+Complete these steps once.
+
+1. Start Docker.
+2. From the repository root, run the setup recipe:
+
+   ```
+   just dev-setup
+   ```
+
+   This installs the Python and JavaScript dependencies, installs Chromium for
+   the end-to-end tests, installs the git hooks, creates `api/.env` and
+   `web/.env.local` from their `.env.example` files, and starts Postgres.
+
+3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL of your
+   Clerk instance. Leave the other values as they are.
+4. In `web/.env.local`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key
+   of your Clerk instance. Leave `VITE_API_URL` empty, because the dev server
+   proxies `/v1` to the API on the same origin.
+5. Create the database tables:
+
+   ```
+   just api::migrate
+   ```
+
+Run `just api::migrate` again whenever a migration lands on `main`.
+
+### Run
+
+Start the API. It reloads when a file under `api/src` changes.
 
     just api::run
 
-Run the API tests (Docker must be running):
+Make sure that the API answers. The response is `{"status":"ok"}`.
 
-    just api::test
+    curl http://localhost:8000/healthz
 
-Run the web client (proxies `/v1` to the API on port 8000):
+In a second terminal, start the web client and open http://localhost:5173.
 
     just web::run
 
-Run the web unit tests:
+Sign in with an email address. Clerk sends the magic link to that address.
+
+To serve a production build on port 4173 with the same `/v1` proxy, run
+`just web::preview`.
+
+### Test
+
+Run the API tests. They start their own Postgres 18 container, so Docker must
+be running.
+
+    just api::test
+
+Run the web unit tests.
 
     just web::test
 
-The web client needs a Clerk publishable key in `web/.env.local`; `just dev-setup`
-creates the file from `web/.env.example`.
+Run every linter, or every test suite, across both modules.
 
-A production build reads the API origin from `VITE_API_URL` at build time, so set that
-variable to the API origin in the Cloudflare Pages build environment. An empty value
-means the API is on the same origin as the client, which is what the dev and preview
-servers give you through their `/v1` proxy.
+    just lint
+    just test
 
-Run the end-to-end tests. They need the API on port 8000 (`just api::run`),
-a Clerk development instance, and in `web/.env.local`: `VITE_CLERK_PUBLISHABLE_KEY`,
-`CLERK_SECRET_KEY`, and `E2E_CLERK_USER_EMAIL` for a user that exists in that
-instance. The API's `CROSSTUNE_CLERK_AUTHORIZED_PARTIES` must list
-`http://localhost:4173`.
+The end-to-end tests sign in through your Clerk instance. Before you run them,
+set two more values in `web/.env.local`: `CLERK_SECRET_KEY`, the instance's
+secret key that starts with `sk_test_`, and `E2E_CLERK_USER_EMAIL`, the address
+of a user that exists in that instance. Start the API with `just api::run`,
+then run the suite. It builds the web client and serves it on port 4173 itself.
 
     just web::e2e
+
+## Hosting
+
+The API runs on Railway, the database on Neon, the web client on Cloudflare
+Pages, sign-in on Clerk, and errors go to Sentry. `docs/deployment.md` is the
+runbook: every account, setting, and variable, in the order they depend on
+each other, and the smoke check to run afterwards.
+
+A production build reads the API origin from `VITE_API_URL` at build time. The
+hosted builds set it to the API origin. An empty value means the API is on the
+same origin as the client, which only the dev and preview proxies provide.
