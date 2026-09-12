@@ -26,6 +26,10 @@ clean: api::clean web::clean
 # Regenerate the OpenAPI contract and the typed web client from it
 contract: api::contract web::contract
 
+# Smoke-check a deployed API origin and web origin; needs no credentials
+smoke api_origin web_origin:
+    scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}'
+
 # Install dependencies, git hooks, and start local services
 dev-setup: api::setup web::setup
     uv run --project api prek install --config .pre-commit-config.yaml

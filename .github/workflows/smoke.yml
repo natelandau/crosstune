@@ -1,0 +1,27 @@
+---
+name: Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: API origin; blank uses the PRODUCTION_API_ORIGIN repository variable
+        required: false
+        type: string
+      web_origin:
+        description: Web origin; blank uses the PRODUCTION_WEB_ORIGIN repository variable
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/smoke.sh "$API_ORIGIN" "$WEB_ORIGIN"
+        env:
+          API_ORIGIN: ${{ inputs.api_origin || vars.PRODUCTION_API_ORIGIN }}
+          WEB_ORIGIN: ${{ inputs.web_origin || vars.PRODUCTION_WEB_ORIGIN }}
