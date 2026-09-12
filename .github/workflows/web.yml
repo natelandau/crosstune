@@ -1,0 +1,57 @@
+---
+name: Web
+
+on:
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml", "justfile"]
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/web.yml", "justfile"]
+
+env:
+  CI: "true"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: astral-sh/setup-uv@v7
+      - uses: extractions/setup-just@v4
+      - run: pnpm install --frozen-lockfile
+      - run: just lint
+      - run: just test
+      - run: just build
+
+  contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: extractions/setup-just@v4
+      - run: pnpm install --frozen-lockfile
+      - run: just contract
+      - name: fail if the committed client types are stale
+        working-directory: .
+        run: git diff --exit-code -- web/src/api/schema.d.ts

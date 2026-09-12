@@ -31,7 +31,7 @@ jobs:
         run: |
           uv run --project api prek run --all-files --config .pre-commit-config.yaml
         env:
-          PREK_SKIP: pytest,ty
+          PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc
 
   test:
     runs-on: ubuntu-latest
