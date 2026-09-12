@@ -9,6 +9,10 @@ import pytest
 
 from crosstune.auth import jwks as jwks_module
 from crosstune.auth.jwks import JwksCache
+from crosstune.auth.tokens import party_allowed, verify_clerk_token
+from crosstune.db.engine import make_sessionmaker
+from crosstune.errors import UnauthorizedError
+from crosstune.main import create_app
 
 pytestmark = pytest.mark.anyio
 
@@ -72,3 +76,42 @@ async def test_concurrent_lookups_fetch_the_jwks_once_and_both_see_the_key(
 
     assert all(key is not None for key in keys)
     assert len(mock_http.calls) == 1
+
+
+PREVIEW_REGEX = r"^https://[a-z0-9-]+\.crosstune\.pages\.dev$"
+
+
+def test_party_allowed_rejects_a_non_string_party() -> None:
+    assert party_allowed(None, [], PREVIEW_REGEX) is False
+    assert party_allowed(42, ["http://testclient"], "") is False
+
+
+async def test_party_matching_the_regex_is_200(
+    settings, engine, mock_http, make_token, truncate_all
+) -> None:
+    """A token whose azp matches the regex, but is not in the explicit list, is accepted."""
+    preview = settings.model_copy(update={"clerk_authorized_party_regex": PREVIEW_REGEX})
+    app = create_app(preview)
+    app.state.engine = engine
+    app.state.sessionmaker = make_sessionmaker(engine)
+    app.state.http_client = mock_http.client()
+    app.state.jwks = JwksCache(preview.clerk_jwks_url, app.state.http_client)
+    token = make_token("user_a", azp="https://abc123.crosstune.pages.dev")
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
+    ) as client:
+        response = await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+
+
+async def test_party_matching_neither_list_nor_regex_is_401(
+    settings, mock_http, make_token
+) -> None:
+    """A token whose azp matches neither the list nor the regex is rejected."""
+    token = make_token("user_a", azp="https://evil.example")
+    async with mock_http.client() as http:
+        jwks = JwksCache(settings.clerk_jwks_url, http)
+        with pytest.raises(UnauthorizedError, match="not issued for this application"):
+            await verify_clerk_token(
+                token, jwks, settings.clerk_issuer, settings.clerk_authorized_parties, PREVIEW_REGEX
+            )

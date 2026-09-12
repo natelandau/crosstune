@@ -52,7 +52,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(debug=settings.debug)
     if settings.sentry_dsn:
-        sentry_sdk.init(dsn=settings.sentry_dsn, release=__version__, traces_sample_rate=0.0)
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            release=__version__,
+            environment=settings.environment,
+            traces_sample_rate=0.0,
+        )
 
     app = FastAPI(
         title="Crosstune API", version=__version__, debug=settings.debug, lifespan=_lifespan
@@ -63,10 +68,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.http_client = None
     app.state.jwks = None
 
-    if settings.cors_origins:
+    if settings.cors_origins or settings.cors_origin_regex:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=settings.cors_origins,
+            allow_origin_regex=settings.cors_origin_regex or None,
             allow_methods=["GET", "POST", "OPTIONS"],
             allow_headers=["*"],
         )

@@ -28,7 +28,11 @@ async def current_user(
         raise UnauthorizedError
     settings = request.app.state.settings
     claims = await verify_clerk_token(
-        token, request.app.state.jwks, settings.clerk_issuer, settings.clerk_authorized_parties
+        token,
+        request.app.state.jwks,
+        settings.clerk_issuer,
+        settings.clerk_authorized_parties,
+        settings.clerk_authorized_party_regex,
     )
     email = claims.get("email")
     return await get_or_create_user(

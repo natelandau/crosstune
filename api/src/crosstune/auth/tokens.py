@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import jwt
@@ -14,8 +15,21 @@ if TYPE_CHECKING:
 CLOCK_LEEWAY_SECONDS = 5
 
 
+def party_allowed(azp: object, parties: list[str], pattern: str) -> bool:
+    """True when the token's authorized party is listed or matches the pattern."""
+    if not isinstance(azp, str):
+        return False
+    if azp in parties:
+        return True
+    return bool(pattern) and re.fullmatch(pattern, azp) is not None
+
+
 async def verify_clerk_token(
-    token: str, jwks: JwksCache, issuer: str, authorized_parties: list[str]
+    token: str,
+    jwks: JwksCache,
+    issuer: str,
+    authorized_parties: list[str],
+    authorized_party_regex: str = "",
 ) -> dict:
     """Return the claims of a valid token or raise UnauthorizedError."""
     try:
@@ -49,8 +63,9 @@ async def verify_clerk_token(
         msg = "Invalid token"
         raise UnauthorizedError(msg) from exc
 
-    azp = claims.get("azp")
-    if authorized_parties and azp not in authorized_parties:
+    if (authorized_parties or authorized_party_regex) and not party_allowed(
+        claims.get("azp"), authorized_parties, authorized_party_regex
+    ):
         msg = "Token not issued for this application"
         raise UnauthorizedError(msg)
     return claims
