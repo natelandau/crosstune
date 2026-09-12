@@ -46,11 +46,11 @@ Complete these steps once.
 
    This installs the Python and JavaScript dependencies, installs Chromium for
    the end-to-end tests, installs the git hooks, creates `api/.env` and
-   `web/.env.local` from their `.env.example` files, and starts Postgres.
+   `web/.env` from their `.env.example` files, and starts Postgres.
 
 3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL of your
    Clerk instance. Leave the other values as they are.
-4. In `web/.env.local`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key
+4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key
    of your Clerk instance. Leave `VITE_API_URL` empty, because the dev server
    proxies `/v1` to the API on the same origin.
 5. Create the database tables:
@@ -97,7 +97,7 @@ Run every linter, or every test suite, across both modules.
     just test
 
 The end-to-end tests sign in through your Clerk instance. Before you run them,
-set two more values in `web/.env.local`: `CLERK_SECRET_KEY`, the instance's
+set two more values in `web/.env`: `CLERK_SECRET_KEY`, the instance's
 secret key that starts with `sk_test_`, and `E2E_CLERK_USER_EMAIL`, the address
 of a user that exists in that instance. Start the API with `just api::run`,
 then run the suite. It builds the web client and serves it on port 4173 itself.

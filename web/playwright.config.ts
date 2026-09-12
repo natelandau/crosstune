@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 try {
-  process.loadEnvFile('.env.local')
+  process.loadEnvFile('.env')
 } catch {
   // CI and fresh clones set the variables another way or skip e2e.
 }
