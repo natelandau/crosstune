@@ -42,13 +42,6 @@
         "yamllint>=1.38.0",
 ]
 
-[tool.commitizen]
-    bump_message             = "bump(release): v$current_version → v$new_version"
-    tag_format               = "v$version"
-    update_changelog_on_bump = true
-    version_files            = ["src/crosstune/__init__.py:__version__"]
-    version_provider         = "uv"
-
 [tool.coverage.report]
     exclude_lines = ['def __repr__', 'if TYPE_CHECKING', 'pragma: no cover']
     fail_under    = 80

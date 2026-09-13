@@ -249,9 +249,9 @@ Rollback on either host is one click to redeploy an earlier build. A bad
 commit is undone in minutes, and the outbox means a client outage loses no
 edits.
 
-Version numbers come from two places. `cz bump` in `api/` updates the API
-package version and creates the git tag. The `version` field in
-`web/package.json` is bumped by hand as part of the same release. Each value
+One command sets both version numbers. `just bump` at the repository root
+runs commitizen from `.cz.toml`, which updates the API package version, the
+`version` field in `web/package.json`, and creates the git tag. Each value
 becomes the Sentry release tag for its side. Tags trigger nothing.
 
 ## Environments
@@ -566,9 +566,9 @@ A merge to `main` deploys the API in both environments and the production
 web client. Railway skips the deploy when nothing under `api/` changed. Pages
 skips the deploy when nothing under `web/` changed.
 
-To cut a version, run `cz bump` in `api/`, which updates the API version and
-tags the commit. Bump the `version` field in `web/package.json` by hand in
-the same change, so the web Sentry release tag changes too.
+To cut a version, run `just bump` at the repository root. It updates the
+API version and the `version` field in `web/package.json` in one commit,
+then tags it, so both Sentry release tags change together.
 
 When you bump pnpm in the `packageManager` field of `web/package.json`,
 update `PNPM_VERSION` in both Pages environments in the same change. A Node

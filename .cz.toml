@@ -1,0 +1,20 @@
+# Commitizen runs from the repository root so one bump moves every deployable.
+# `cz` itself is an API dev dependency: `just commit`, `just bump`, or
+# `uv run --project api cz ...`.
+[tool.commitizen]
+    bump_message             = "bump(release): v$current_version → v$new_version"
+    changelog_file           = "CHANGELOG.md"
+    name                     = "cz_conventional_commits"
+    tag_format               = "v$version"
+    update_changelog_on_bump = true
+    version                  = "0.1.0"
+    version_provider         = "commitizen"
+    # Regexes pick the line in each file that carries the version.
+    version_files = [
+        "api/pyproject.toml:^\\s*version\\s*=",
+        "api/src/crosstune/__init__.py:__version__",
+        'web/package.json:"version"',
+    ]
+    # uv.lock records the API package's own version, so refresh it after the
+    # version files change and stage it so the bump commit carries it.
+    pre_bump_hooks = ["scripts/bump-lock.sh"]

@@ -107,6 +107,26 @@ builds the web client and serves it on port 4173 itself.
 
     just web::e2e
 
+### Commit and release
+
+Commit messages follow the conventional commits format, and the commit-msg
+hook rejects any that do not. Commitizen is configured in `.cz.toml` at the
+repository root, so every `cz` command runs from the root, whichever side
+the change touches. To write a commit interactively, run:
+
+    just commit
+
+To cut a release, run the bump recipe from the root. It reads the commits
+since the last tag to choose the increment, writes the new version to the
+API package, the web client, and `.cz.toml`, refreshes `api/uv.lock`,
+updates `CHANGELOG.md`, commits, and tags. Each version becomes the Sentry
+release tag for its side.
+
+    just bump
+
+Both recipes pass extra arguments through, so `just bump --dry-run` shows
+what a release would do.
+
 ## Hosting
 
 The API runs on Railway, the database on Neon, the web client on Cloudflare

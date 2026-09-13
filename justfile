@@ -46,6 +46,14 @@ dev:
 dev-down:
     docker compose down
 
+# Write a conventional commit interactively; extra args go to cz commit
+commit *args:
+    uv run --project api cz commit {{ args }}
+
+# Bump both package versions, update the changelog, and tag; extra args go to cz bump
+bump *args:
+    uv run --project api cz bump {{ args }}
+
 # Upgrade dependencies and hook versions
 update: api::update web::update
     uv run --project api prek autoupdate --config .pre-commit-config.yaml

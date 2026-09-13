@@ -91,7 +91,7 @@ repos:
 
       - id: commitizen-branch
         name: commitizen check branch
-        entry: bash -c 'cd api && uv run --quiet cz check --rev-range "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
+        entry: bash -c 'uv run --project api --quiet cz check --rev-range "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
         language: system
         stages: [pre-push]
         pass_filenames: false
