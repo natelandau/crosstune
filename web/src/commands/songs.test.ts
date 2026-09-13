@@ -62,13 +62,19 @@ describe('updateSong / updateUserSong', () => {
       { status: 'known' },
     )
     vi.setSystemTime(new Date('2026-09-11T10:05:00.000Z'))
-    await updateSong(db, songId, { tuning: 'AEAE', key: undefined })
+    await updateSong(db, songId, { violin_tuning: 'AEAE', banjo_tuning: 'gDGBD', key: undefined })
     await updateUserSong(db, userSongId, { notes: 'from Bruce' })
     const song = await db.songs.get(songId)
-    expect(song).toMatchObject({ key: 'A', tuning: 'AEAE', updated_at: '2026-09-11T10:05:00.000Z' })
+    expect(song).toMatchObject({
+      key: 'A',
+      violin_tuning: 'AEAE',
+      banjo_tuning: 'gDGBD',
+      updated_at: '2026-09-11T10:05:00.000Z',
+    })
     expect((await db.user_songs.get(userSongId))?.notes).toBe('from Bruce')
     expect(await pendingBatch(db)).toHaveLength(2)
-    expect((await pendingFor(db, 'songs', songId))?.data?.tuning).toBe('AEAE')
+    expect((await pendingFor(db, 'songs', songId))?.data?.violin_tuning).toBe('AEAE')
+    expect((await pendingFor(db, 'songs', songId))?.data?.banjo_tuning).toBe('gDGBD')
   })
 
   it('archives and unarchives through archived_at', async () => {

@@ -1,15 +1,27 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import type {
-  LocalList,
-  LocalListItem,
-  LocalRecordingLink,
-  LocalRows,
-  LocalSong,
-  LocalUserSong,
-  MetaEntry,
-  OutboxEntry,
-  TableName,
+import {
+  TABLE_NAMES,
+  type LocalList,
+  type LocalListItem,
+  type LocalRecordingLink,
+  type LocalRows,
+  type LocalSong,
+  type LocalUserSettings,
+  type LocalUserSong,
+  type MetaEntry,
+  type OutboxEntry,
+  type TableName,
 } from './types'
+
+/** Move a song's single tuning into violin_tuning and give both instruments a slot. */
+function splitTuning(song: Record<string, unknown>): void {
+  if ('tuning' in song) {
+    song.violin_tuning = song.tuning
+    delete song.tuning
+  }
+  song.violin_tuning ??= null
+  song.banjo_tuning ??= null
+}
 
 export class CrosstuneDb extends Dexie {
   // EntityTable<T, K> makes the key property K optional on insert, Dexie's convention for
@@ -20,6 +32,7 @@ export class CrosstuneDb extends Dexie {
   recording_links!: Table<LocalRecordingLink, string>
   lists!: Table<LocalList, string>
   list_items!: Table<LocalListItem, string>
+  user_settings!: Table<LocalUserSettings, string>
   outbox!: EntityTable<OutboxEntry, 'seq'>
   meta!: Table<MetaEntry, string>
 
@@ -36,6 +49,22 @@ export class CrosstuneDb extends Dexie {
       outbox: '++seq, &[table+row_id]',
       meta: 'key',
     })
+    // Cached songs must change shape with the server, which rejects unknown fields on push.
+    this.version(2)
+      .stores({ user_settings: 'id' })
+      .upgrade((tx) =>
+        Promise.all([
+          tx.table('songs').toCollection().modify(splitTuning),
+          // A queued songs upsert still carries the old field shape and is rejected on push otherwise.
+          tx
+            .table('outbox')
+            .where('[table+row_id]')
+            .between(['songs', Dexie.minKey], ['songs', Dexie.maxKey])
+            .modify((entry: { data: Record<string, unknown> | null }) => {
+              if (entry.data && 'tuning' in entry.data) splitTuning(entry.data)
+            }),
+        ]),
+      )
   }
 }
 
@@ -59,5 +88,5 @@ export function rowsTable<T extends TableName>(
 }
 
 export function syncTables(db: CrosstuneDb): Table[] {
-  return [db.songs, db.user_songs, db.lists, db.list_items, db.recording_links]
+  return TABLE_NAMES.map((name) => db[name])
 }

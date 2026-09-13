@@ -4,12 +4,12 @@ import { openTestDb } from '../test/db'
 import { getMeta, getPullCursor, setMeta, setPullCursor } from './meta'
 import { dropPending, enqueue, pendingBatch, pendingFor } from './outbox'
 import {
+  CrosstuneDb,
   databaseName,
   deleteDatabase,
   openDatabase,
   rowsTable,
   syncTables,
-  type CrosstuneDb,
 } from './schema'
 import { stripOwnership, toChangeData, type LocalList, type LocalSong } from './types'
 
@@ -36,7 +36,8 @@ const song: LocalSong = {
   has_lyrics: null,
   key: 'D',
   mode: 'major',
-  tuning: null,
+  violin_tuning: null,
+  banjo_tuning: null,
   part_structure: 'AABB',
   time_signature: '4/4',
   is_crooked: false,
@@ -52,6 +53,7 @@ describe('schema', () => {
       'outbox',
       'recording_links',
       'songs',
+      'user_settings',
       'user_songs',
     ])
   })
@@ -63,6 +65,49 @@ describe('schema', () => {
     expect(databaseName('user_abc')).toBe('crosstune-user_abc')
     await deleteDatabase('user_abc')
     expect(await Dexie.exists('crosstune-user_abc')).toBe(false)
+  })
+
+  it('upgrades a version 1 database by giving each instrument its own tuning', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v1 = new Dexie(name)
+    v1.version(1).stores({
+      songs: 'id, title',
+      user_songs: 'id, song_id',
+      recording_links: 'id, song_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_song_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const legacy: Record<string, unknown> = { ...song, tuning: 'AEAE' }
+    delete legacy.violin_tuning
+    delete legacy.banjo_tuning
+    await v1.table('songs').put(legacy)
+    const legacyChangeData: Record<string, unknown> = { ...toChangeData(song), tuning: 'AEAE' }
+    delete legacyChangeData.violin_tuning
+    delete legacyChangeData.banjo_tuning
+    // Version 1's outbox store is '++seq, &[table+row_id]': seq is autoincrement, so omit it on insert.
+    await v1.table('outbox').add({
+      table: 'songs',
+      row_id: song.id,
+      op: 'upsert',
+      updated_at: song.updated_at,
+      data: legacyChangeData,
+    })
+    v1.close()
+
+    const upgraded = new CrosstuneDb(name)
+    try {
+      const row = await upgraded.songs.get(song.id)
+      expect(row).toMatchObject({ violin_tuning: 'AEAE', banjo_tuning: null })
+      expect(row !== undefined && 'tuning' in row).toBe(false)
+      expect(upgraded.tables.map((t) => t.name)).toContain('user_settings')
+      const entry = await pendingFor(upgraded, 'songs', song.id)
+      expect(entry?.data).toMatchObject({ violin_tuning: 'AEAE', banjo_tuning: null })
+      expect(entry?.data && 'tuning' in entry.data).toBe(false)
+    } finally {
+      await upgraded.delete()
+    }
   })
 })
 
@@ -139,6 +184,7 @@ describe('table helpers', () => {
       'lists',
       'list_items',
       'recording_links',
+      'user_settings',
     ])
   })
 })
@@ -148,6 +194,7 @@ describe('row shaping', () => {
     const data = toChangeData(song)
     expect(Object.keys(data).sort()).toEqual([
       'alternate_titles',
+      'banjo_tuning',
       'created_at',
       'feel',
       'genre',
@@ -158,7 +205,7 @@ describe('row shaping', () => {
       'part_structure',
       'time_signature',
       'title',
-      'tuning',
+      'violin_tuning',
     ])
     const local = stripOwnership({ ...song, owner_user_id: 'u', server_seq: 9 })
     expect('owner_user_id' in local).toBe(false)
