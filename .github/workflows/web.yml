@@ -16,6 +16,7 @@ env:
 
 jobs:
   check:
+    name: Web check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,7 +28,7 @@ jobs:
           package_json_file: web/package.json
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: web/.node-version
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - uses: astral-sh/setup-uv@v7
@@ -38,6 +39,7 @@ jobs:
       - run: just build
 
   contract:
+    name: Web contract
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,7 +51,7 @@ jobs:
           package_json_file: web/package.json
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: web/.node-version
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - uses: extractions/setup-just@v4

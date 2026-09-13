@@ -1,6 +1,6 @@
 # Crosstune
 
-A song catalog for old-time and bluegrass musicians. Read `PRODUCT.md` for
+A song catalog for old-time and bluegrass musicians. Read `docs/PRODUCT.md` for
 what the product is and why it is shaped this way.
 
 ## Layout
@@ -110,9 +110,10 @@ builds the web client and serves it on port 4173 itself.
 ## Hosting
 
 The API runs on Railway, the database on Neon, the web client on Cloudflare
-Pages, sign-in on Clerk, and errors go to Sentry. `docs/deployment.md` is the
-runbook: every account, setting, and variable, in the order they depend on
-each other, and the smoke check to run afterwards.
+Pages, sign-in on Clerk, and errors go to Sentry. `docs/ARCHITECTURE.md`
+describes what each system does, how they depend on each other, every
+setting and variable each host holds, and the smoke check to run after a
+deploy.
 
 A production build reads the API origin from `VITE_API_URL` at build time. The
 hosted builds set it to the API origin. An empty value means the API is on the
