@@ -52,11 +52,11 @@ on a phone home screen. It contains these features.
 - Accounts. Sign in with an email magic link, Google, or Apple. Each catalog is
   private to its owner.
 - Song catalog. Create, edit, and archive songs.
-- Song attributes. Title, alternate titles, key, mode, tuning, genre, feel,
-  time signature, crooked, part structure, has lyrics, learned from, date
-  learned, and freeform notes. Time signature is a fixed set of values that the
-  web client defaults to 4/4. All other attributes except the title are
-  optional.
+- Song attributes. Title, alternate titles, key, mode, violin tuning, banjo
+  tuning, genre, feel, time signature, crooked, part structure, has lyrics,
+  learned from, date learned, and freeform notes. Time signature is a fixed
+  set of values that the web client defaults to 4/4. All other attributes
+  except the title are optional.
 - Status. Every song is known, learning, or want to learn.
 - Named lists. A user creates ordered lists such as "Tuesday jam" or "Square
   dance set". A song can be in many lists.
@@ -65,8 +65,14 @@ on a phone home screen. It contains these features.
   song can have many links, each with an optional label.
 - Playback. YouTube links play inside the app. Other links open the streaming
   app or website.
-- Browse. The home screen is the catalog filtered by status, key, mode, tuning,
-  and genre, with a text search. Filters persist between visits.
+- Browse. The home screen is the catalog filtered by status, key, mode, violin
+  tuning, banjo tuning, and genre, with a text search. Filters persist between
+  visits. A filter appears only when the catalog has values for it.
+- Instruments. A user records in settings which instruments they play. A
+  tuning field appears only for those instruments, or for a song that already
+  carries a value. A tuning filter appears only for those instruments. A new
+  account starts as violin only until a later onboarding flow asks the
+  question.
 - Offline. The full catalog is cached on the device. Reads and writes work
   without a connection. Writes sync when the connection returns.
 

@@ -16,7 +16,13 @@ beforeEach(async () => {
   db = openTestDb()
   const created = await createSong(
     db,
-    { title: 'Cluck Old Hen', key: 'A', mode: 'mixolydian', tuning: 'AEAE', is_crooked: true },
+    {
+      title: 'Cluck Old Hen',
+      key: 'A',
+      mode: 'mixolydian',
+      violin_tuning: 'AEAE',
+      is_crooked: true,
+    },
     { status: 'learning', notes: 'Watch the B part' },
   )
   songId = created.songId
@@ -45,6 +51,7 @@ describe('SongDetail', () => {
     renderDetail()
     expect(await screen.findByRole('heading', { name: 'Cluck Old Hen' })).toBeInTheDocument()
     expect(screen.getByText('A mixolydian')).toBeInTheDocument()
+    expect(screen.getByText('AEAE')).toBeInTheDocument()
     expect(screen.getByText('Crooked')).toBeInTheDocument()
     expect(screen.getByTitle('Fiddle version')).toHaveAttribute(
       'src',

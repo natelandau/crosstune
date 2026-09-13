@@ -16,6 +16,7 @@ export type UserSongRow = Schemas['UserSongRow']
 export type RecordingLinkRow = Schemas['RecordingLinkRow']
 export type ListRow = Schemas['ListRow']
 export type ListItemRow = Schemas['ListItemRow']
+export type UserSettingsRow = Schemas['UserSettingsRow']
 
 export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>

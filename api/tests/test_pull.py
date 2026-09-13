@@ -129,3 +129,16 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
         for row in body["rows"]:
             by_table.setdefault(row["table"], set()).add(row["row"]["id"])
         assert by_table == expected
+
+
+async def test_pull_includes_user_settings(client, auth_headers) -> None:
+    settings_id = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change("user_settings", settings_id, T0, instruments=["banjo"]),
+    )
+    body = await pull(client, auth_headers("user_a"))
+    assert [(r["table"], r["row"]["instruments"]) for r in body["rows"]] == [
+        ("user_settings", ["banjo"])
+    ]

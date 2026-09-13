@@ -4,6 +4,7 @@ import { useAction } from '../../components/useAction'
 import {
   MODES,
   TIME_SIGNATURES,
+  type Instrument,
   type LocalSong,
   type LocalUserSong,
   type Mode,
@@ -11,15 +12,17 @@ import {
   type TimeSignature,
 } from '../../db/types'
 import { isSongStatus } from '../catalog/StatusBadge'
+import { TUNING_FIELDS, visibleTunings } from '../settings/instruments'
 import { StatusPicker } from './StatusPicker'
-import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNINGS } from './suggestions'
+import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNING_SUGGESTIONS } from './suggestions'
 
 export interface SongFormValues {
   title: string
   alternate_titles: string
   key: string
   mode: Mode | ''
-  tuning: string
+  violin_tuning: string
+  banjo_tuning: string
   genre: string
   feel: string
   part_structure: string
@@ -39,7 +42,8 @@ export function emptyValues(): SongFormValues {
     alternate_titles: '',
     key: '',
     mode: '',
-    tuning: '',
+    violin_tuning: '',
+    banjo_tuning: '',
     genre: '',
     feel: '',
     part_structure: '',
@@ -68,7 +72,8 @@ export function valuesFromRows(song: LocalSong, userSong: LocalUserSong): SongFo
     alternate_titles: song.alternate_titles.join(', '),
     key: song.key ?? '',
     mode: asMode(song.mode),
-    tuning: song.tuning ?? '',
+    violin_tuning: song.violin_tuning ?? '',
+    banjo_tuning: song.banjo_tuning ?? '',
     genre: song.genre ?? '',
     feel: song.feel ?? '',
     part_structure: song.part_structure ?? '',
@@ -86,7 +91,8 @@ export function valuesFromRows(song: LocalSong, userSong: LocalUserSong): SongFo
 const LIMITS = {
   title: 200,
   key: 10,
-  tuning: 100,
+  violin_tuning: 100,
+  banjo_tuning: 100,
   genre: 100,
   feel: 100,
   part_structure: 100,
@@ -110,7 +116,8 @@ export function inputsFromValues(values: SongFormValues): {
         .filter(Boolean),
       key: blankToNull(values.key),
       mode: values.mode || null,
-      tuning: blankToNull(values.tuning),
+      violin_tuning: blankToNull(values.violin_tuning),
+      banjo_tuning: blankToNull(values.banjo_tuning),
       genre: blankToNull(values.genre),
       feel: blankToNull(values.feel),
       part_structure: blankToNull(values.part_structure),
@@ -132,6 +139,7 @@ interface Props {
   submitLabel: string
   onSubmit: (song: SongInput, userSong: UserSongInput) => Promise<void>
   onCancel?: () => void
+  instruments: ReadonlySet<Instrument>
 }
 
 function TextField({
@@ -209,13 +217,26 @@ function SelectField<Value extends string>({
   )
 }
 
-export function SongForm({ initial, submitLabel, onSubmit, onCancel }: Props) {
+export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments }: Props) {
   const [values, setValues] = useState<SongFormValues>(initial ?? emptyValues())
   const [validation, setValidation] = useState<string | null>(null)
   const { error: rejection, pending, run } = useAction()
   const error = validation ?? rejection
   const set = <K extends keyof SongFormValues>(key: K, value: SongFormValues[K]) =>
     setValues((v) => ({ ...v, [key]: value }))
+  // Decided once, like `values`: a field must not vanish mid-edit when its text is cleared
+  // or the instrument list changes elsewhere, since whatever it holds is still submitted.
+  const [tunings] = useState(() =>
+    visibleTunings(
+      instruments,
+      initial
+        ? {
+            violin_tuning: initial.violin_tuning || null,
+            banjo_tuning: initial.banjo_tuning || null,
+          }
+        : null,
+    ),
+  )
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -259,14 +280,17 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel }: Props) {
           onChange={(v) => set('mode', v)}
         />
       </div>
-      <TextField
-        label="Tuning"
-        name="tuning"
-        value={values.tuning}
-        onChange={(v) => set('tuning', v)}
-        maxLength={LIMITS.tuning}
-        suggestions={TUNINGS}
-      />
+      {tunings.map((field) => (
+        <TextField
+          key={field}
+          label={TUNING_FIELDS[field].label}
+          name={field}
+          value={values[field]}
+          onChange={(v) => set(field, v)}
+          maxLength={LIMITS[field]}
+          suggestions={TUNING_SUGGESTIONS[field]}
+        />
+      ))}
       <div className="grid grid-cols-2 gap-2">
         <TextField
           label="Genre"

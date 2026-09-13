@@ -1,12 +1,30 @@
-import { STATUSES, type LocalSong, type LocalUserSong, type SongStatus } from '../../db/types'
+import { TUNING_FIELDS } from '../settings/instruments'
+import {
+  STATUSES,
+  type Instrument,
+  type LocalSong,
+  type LocalUserSong,
+  type SongStatus,
+} from '../../db/types'
 
-export interface CatalogFilters {
+export const FACETS = ['key', 'mode', 'violin_tuning', 'banjo_tuning', 'genre'] as const
+export type Facet = (typeof FACETS)[number]
+
+export const FACET_LABELS: Record<Facet, string> = {
+  key: 'Key',
+  mode: 'Mode',
+  violin_tuning: TUNING_FIELDS.violin_tuning.label,
+  banjo_tuning: TUNING_FIELDS.banjo_tuning.label,
+  genre: 'Genre',
+}
+
+const FACET_INSTRUMENT: Partial<Record<Facet, Instrument>> = Object.fromEntries(
+  Object.entries(TUNING_FIELDS).map(([field, { instrument }]) => [field, instrument]),
+)
+
+export type CatalogFilters = Record<Facet, string> & {
   query: string
   status: SongStatus | 'all'
-  key: string
-  mode: string
-  tuning: string
-  genre: string
   archived: boolean
 }
 
@@ -15,7 +33,8 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   status: 'all',
   key: 'all',
   mode: 'all',
-  tuning: 'all',
+  violin_tuning: 'all',
+  banjo_tuning: 'all',
   genre: 'all',
   archived: false,
 }
@@ -36,15 +55,16 @@ export function normalizeFilters(value: unknown): CatalogFilters {
     string,
     unknown
   >
-  const text = (key: keyof CatalogFilters) =>
+  const text = (key: Facet | 'query') =>
     typeof stored[key] === 'string' ? (stored[key] as string) : DEFAULT_FILTERS[key]
   return {
-    query: text('query') as string,
+    query: text('query'),
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
-    key: text('key') as string,
-    mode: text('mode') as string,
-    tuning: text('tuning') as string,
-    genre: text('genre') as string,
+    key: text('key'),
+    mode: text('mode'),
+    violin_tuning: text('violin_tuning'),
+    banjo_tuning: text('banjo_tuning'),
+    genre: text('genre'),
     archived: stored.archived === true,
   }
 }
@@ -71,10 +91,9 @@ export function filterCatalog(entries: CatalogEntry[], filters: CatalogFilters):
   return entries.filter(({ song, userSong }) => {
     if (!filters.archived && userSong.archived_at) return false
     if (filters.status !== 'all' && userSong.status !== filters.status) return false
-    if (!facetMatches(filters.key, song.key)) return false
-    if (!facetMatches(filters.mode, song.mode)) return false
-    if (!facetMatches(filters.tuning, song.tuning)) return false
-    if (!facetMatches(filters.genre, song.genre)) return false
+    for (const facet of FACETS) {
+      if (!facetMatches(filters[facet], song[facet])) return false
+    }
     if (!query) return true
     const haystack = [song.title, ...song.alternate_titles].map((t) => t.toLocaleLowerCase())
     return haystack.some((t) => t.includes(query))
@@ -90,11 +109,28 @@ function distinct(values: (string | null | undefined)[]): string[] {
   return seen.sort(collator.compare)
 }
 
-export function facetValues(entries: CatalogEntry[]) {
-  return {
-    keys: distinct(entries.map((e) => e.song.key)),
-    modes: distinct(entries.map((e) => e.song.mode)),
-    tunings: distinct(entries.map((e) => e.song.tuning)),
-    genres: distinct(entries.map((e) => e.song.genre)),
+export type FacetValues = Record<Facet, string[]>
+
+export function facetValues(entries: CatalogEntry[]): FacetValues {
+  return Object.fromEntries(
+    FACETS.map((facet) => [facet, distinct(entries.map((e) => e.song[facet]))]),
+  ) as FacetValues
+}
+
+/** Facets worth offering: those with values, minus tunings for instruments the user does not play. */
+export function visibleFacets(facets: FacetValues, instruments: ReadonlySet<Instrument>): Facet[] {
+  return FACETS.filter((facet) => {
+    if (facets[facet].length === 0) return false
+    const instrument = FACET_INSTRUMENT[facet]
+    return instrument === undefined || instruments.has(instrument)
+  })
+}
+
+/** A patch that resets every hidden facet, so a change never carries a stale filter along. */
+export function hiddenResets(visible: readonly Facet[]): Partial<CatalogFilters> {
+  const resets: Partial<CatalogFilters> = {}
+  for (const facet of FACETS) {
+    if (!visible.includes(facet)) resets[facet] = 'all'
   }
+  return resets
 }

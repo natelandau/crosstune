@@ -17,6 +17,7 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   lists: 'user_id',
   list_items: null,
   recording_links: 'added_by_user_id',
+  user_settings: 'user_id',
 }
 
 export function createFakeApi() {
@@ -93,7 +94,8 @@ export function serverSong(overrides: Partial<SongRow> & { id: string }): SongRo
     has_lyrics: null,
     key: null,
     mode: null,
-    tuning: null,
+    violin_tuning: null,
+    banjo_tuning: null,
     part_structure: null,
     time_signature: null,
     is_crooked: false,

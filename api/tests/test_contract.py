@@ -16,7 +16,14 @@ def test_openapi_is_deterministic() -> None:
 
 def test_openapi_types_every_table_row() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
-    assert {"SongRow", "UserSongRow", "RecordingLinkRow", "ListRow", "ListItemRow"} <= set(schemas)
+    assert {
+        "SongRow",
+        "UserSongRow",
+        "RecordingLinkRow",
+        "ListRow",
+        "ListItemRow",
+        "UserSettingsRow",
+    } <= set(schemas)
 
 
 def test_openapi_documents_validation_failures_as_problems() -> None:

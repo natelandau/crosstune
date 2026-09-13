@@ -4,6 +4,7 @@ import type {
   RecordingLinkRow,
   SongRow,
   TableName,
+  UserSettingsRow,
   UserSongRow,
 } from '../api/types'
 
@@ -15,6 +16,7 @@ export const TABLE_NAMES = [
   'lists',
   'list_items',
   'recording_links',
+  'user_settings',
 ] as const satisfies readonly TableName[]
 
 export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
@@ -36,6 +38,26 @@ export const PROVIDERS = [
 ] as const
 export type Provider = (typeof PROVIDERS)[number]
 
+export const INSTRUMENTS = [
+  'violin',
+  'banjo',
+  'guitar',
+  'mandolin',
+  'ukulele',
+  'bass',
+  'dulcimer',
+  'accordion',
+  'other',
+] as const
+export type Instrument = (typeof INSTRUMENTS)[number]
+
+export function isInstrument(value: unknown): value is Instrument {
+  return typeof value === 'string' && (INSTRUMENTS as readonly string[]).includes(value)
+}
+
+// Placeholder until onboarding asks the question.
+export const DEFAULT_INSTRUMENTS: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
+
 // The server sets ownership from the token; local rows never carry it.
 export const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
 type OwnershipKey = (typeof OWNERSHIP_KEYS)[number]
@@ -47,6 +69,15 @@ export type LocalUserSong = Local<UserSongRow>
 export type LocalRecordingLink = Local<RecordingLinkRow>
 export type LocalList = Local<ListRow>
 export type LocalListItem = Local<ListItemRow>
+export type LocalUserSettings = Local<UserSettingsRow>
+
+/** The instruments a settings row holds, or null when there is no usable row. */
+export function storedInstruments(
+  row: LocalUserSettings | null | undefined,
+): readonly string[] | null {
+  if (!row || row.deleted_at || !Array.isArray(row.instruments)) return null
+  return row.instruments
+}
 
 export interface LocalRows {
   songs: LocalSong
@@ -54,6 +85,7 @@ export interface LocalRows {
   lists: LocalList
   list_items: LocalListItem
   recording_links: LocalRecordingLink
+  user_settings: LocalUserSettings
 }
 export type LocalRow = LocalRows[TableName]
 

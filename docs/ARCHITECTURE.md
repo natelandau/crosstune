@@ -136,10 +136,11 @@ the database is idle. The first request after a pause takes a few seconds,
 and the pool's pre-ping reconnects on its own.
 
 The schema uses no vendor extensions, so the host can change with a
-connection string. Six tables hold users, songs, each user's relationship to
-a song, recording links, lists, and list items. Every synced table carries
-`created_at`, `updated_at`, `deleted_at`, and `server_seq`. Deletes are soft,
-and tombstones are kept forever, so a deletion reaches every device.
+connection string. Seven tables hold users, each user's settings, songs, each
+user's relationship to a song, recording links, lists, and list items. Every
+synced table carries `created_at`, `updated_at`, `deleted_at`, and
+`server_seq`. Deletes are soft, and tombstones are kept forever, so a deletion
+reaches every device.
 
 ## Authentication
 

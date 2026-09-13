@@ -10,7 +10,8 @@ export interface SongInput {
   has_lyrics?: boolean | null
   key?: string | null
   mode?: Mode | null
-  tuning?: string | null
+  violin_tuning?: string | null
+  banjo_tuning?: string | null
   part_structure?: string | null
   time_signature?: TimeSignature | null
   is_crooked?: boolean
@@ -47,7 +48,8 @@ export async function createSong(
       has_lyrics: song.has_lyrics ?? null,
       key: song.key ?? null,
       mode: song.mode ?? null,
-      tuning: song.tuning ?? null,
+      violin_tuning: song.violin_tuning ?? null,
+      banjo_tuning: song.banjo_tuning ?? null,
       part_structure: song.part_structure ?? null,
       time_signature: song.time_signature ?? null,
       is_crooked: song.is_crooked ?? false,

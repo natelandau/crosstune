@@ -190,7 +190,10 @@ async def truncate_all(engine) -> AsyncIterator[None]:
     yield
     async with engine.begin() as conn:
         await conn.execute(
-            text("truncate list_items, lists, recording_links, user_songs, songs, users cascade")
+            text(
+                "truncate list_items, lists, recording_links, user_songs, songs, "
+                "user_settings, users cascade"
+            )
         )
 
 

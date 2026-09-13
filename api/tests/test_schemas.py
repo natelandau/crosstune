@@ -5,7 +5,13 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from crosstune.schemas.rows import DATA_SCHEMAS, RecordingLinkData, SongData, UserSongData
+from crosstune.schemas.rows import (
+    DATA_SCHEMAS,
+    RecordingLinkData,
+    SongData,
+    UserSettingsData,
+    UserSongData,
+)
 from crosstune.sync.tables import TABLE_ORDER, TABLES
 
 NOW = datetime(2026, 9, 11, tzinfo=UTC)
@@ -50,3 +56,27 @@ def test_recording_link_rejects_unknown_provider() -> None:
 
 def test_every_table_has_a_schema_and_a_spec() -> None:
     assert set(DATA_SCHEMAS) == set(TABLE_ORDER) == set(TABLES)
+
+
+def test_song_rejects_the_retired_tuning_field() -> None:
+    with pytest.raises(ValidationError):
+        SongData(title="Sally Ann", tuning="AEAE", created_at=NOW)
+
+
+def test_song_accepts_a_tuning_per_instrument() -> None:
+    song = SongData(title="Sally Ann", violin_tuning="AEAE", banjo_tuning="gDGBD", created_at=NOW)
+    assert (song.violin_tuning, song.banjo_tuning) == ("AEAE", "gDGBD")
+
+
+def test_user_settings_rejects_unknown_instrument() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(instruments=["kazoo"], created_at=NOW)
+
+
+def test_user_settings_rejects_a_repeated_instrument() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(instruments=["violin", "violin"], created_at=NOW)
+
+
+def test_user_settings_defaults_to_no_instruments() -> None:
+    assert UserSettingsData(created_at=NOW).instruments == []

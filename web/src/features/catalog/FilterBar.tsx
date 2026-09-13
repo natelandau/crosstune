@@ -1,10 +1,11 @@
 import { STATUSES } from '../../db/types'
 import { STATUS_LABELS } from './StatusBadge'
-import type { CatalogFilters } from './filters'
+import { FACET_LABELS, type CatalogFilters, type Facet, type FacetValues } from './filters'
 
 interface Props {
   filters: CatalogFilters
-  facets: { keys: string[]; modes: string[]; tunings: string[]; genres: string[] }
+  facets: FacetValues
+  visible: readonly Facet[]
   onChange: (patch: Partial<CatalogFilters>) => void
 }
 
@@ -36,7 +37,7 @@ function FacetSelect({
   )
 }
 
-export function FilterBar({ filters, facets, onChange }: Props) {
+export function FilterBar({ filters, facets, visible, onChange }: Props) {
   return (
     <div className="space-y-2">
       <div className="join w-full" role="group" aria-label="Status">
@@ -61,30 +62,19 @@ export function FilterBar({ filters, facets, onChange }: Props) {
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        <FacetSelect
-          label="Key"
-          value={filters.key}
-          options={facets.keys}
-          onChange={(key) => onChange({ key })}
-        />
-        <FacetSelect
-          label="Mode"
-          value={filters.mode}
-          options={facets.modes}
-          onChange={(mode) => onChange({ mode })}
-        />
-        <FacetSelect
-          label="Tuning"
-          value={filters.tuning}
-          options={facets.tunings}
-          onChange={(tuning) => onChange({ tuning })}
-        />
-        <FacetSelect
-          label="Genre"
-          value={filters.genre}
-          options={facets.genres}
-          onChange={(genre) => onChange({ genre })}
-        />
+        {visible.map((facet) => (
+          <FacetSelect
+            key={facet}
+            label={FACET_LABELS[facet]}
+            value={filters[facet]}
+            options={facets[facet]}
+            onChange={(value) => {
+              const patch: Partial<CatalogFilters> = {}
+              patch[facet] = value
+              onChange(patch)
+            }}
+          />
+        ))}
         <label className="label cursor-pointer gap-2 text-sm">
           <input
             type="checkbox"
