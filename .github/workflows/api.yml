@@ -18,6 +18,7 @@ env:
 
 jobs:
   lint:
+    name: API lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,10 +31,7 @@ jobs:
           python-version: "3.13"
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
-      - run: just api::lint
-      - name: validate railway.json against the published schema
-        continue-on-error: true
-        run: uv run --with check-jsonschema check-jsonschema --schemafile https://railway.com/railway.schema.json railway.json
+      - run: just lint
       - run: uv run shellcheck ../scripts/smoke.sh
       - name: prek
         working-directory: .
@@ -43,6 +41,7 @@ jobs:
           PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc
 
   test:
+    name: API test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,9 +55,10 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: docker info
-      - run: just api::test
+      - run: just test
 
   contract:
+    name: API contract
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -71,7 +71,7 @@ jobs:
           python-version: "3.13"
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
-      - run: just api::contract
+      - run: just contract
       - name: fail if the committed contract is stale
         working-directory: .
         run: git diff --exit-code -- web/src/api/openapi.json
