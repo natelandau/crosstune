@@ -103,14 +103,18 @@ jobs:
               "$RAILWAY_CLI_IMAGE" railway "$@"
           }
           first_domain='[.. | objects | select(has("domain")) | .domain] | first // empty'
-          hostname="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json \
-            | jq -r "$first_domain" || true)"
+          # The raw CLI output is kept so a failed read shows what the CLI said.
+          listed="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
+          hostname="$(jq -r "$first_domain" <<<"$listed" 2>/dev/null || true)"
+          created=""
           if [ -z "$hostname" ]; then
-            hostname="$(railway domain --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json \
-              | jq -r "$first_domain")"
+            created="$(railway domain --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
+            hostname="$(jq -r "$first_domain" <<<"$created" 2>/dev/null || true)"
           fi
           if [ -z "$hostname" ]; then
             echo "::error::no Railway domain for $PR_NAME"
+            echo "domain list output: $listed"
+            echo "domain create output: $created"
             exit 1
           fi
           echo "hostname=$hostname" >> "$GITHUB_OUTPUT"
