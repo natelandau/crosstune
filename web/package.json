@@ -11,7 +11,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:hosted": "bash scripts/hosted-build.sh",
-    "deploy:preview": "wrangler versions upload --preview-alias \"$(node scripts/branch-slug.mjs)\"",
+    "deploy:preview": "slug=\"$(node scripts/branch-slug.mjs)\" && wrangler versions upload --preview-alias \"$slug\"",
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint --max-warnings 0 .",

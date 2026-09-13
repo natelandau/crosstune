@@ -76,6 +76,21 @@ describe('handleRequest', () => {
     expect(await response.text()).toBe('{"status":401}')
   })
 
+  it('answers a failed upstream fetch with a problem document', async () => {
+    const upstream = vi.fn(async () => {
+      throw new Error('network down')
+    })
+    const response = await handleRequest(
+      new Request('https://example.com/v1/me'),
+      makeEnv(),
+      upstream,
+    )
+    expect(response.status).toBe(502)
+    expect(response.headers.get('content-type')).toBe('application/problem+json')
+    const body = await response.json()
+    expect(body).toMatchObject({ status: 502 })
+  })
+
   it('serves every other path from the assets binding', async () => {
     const upstream = vi.fn(async () => new Response('should not be called'))
     const assets = vi.fn(async () => new Response('<div id="root">', { status: 200 }))

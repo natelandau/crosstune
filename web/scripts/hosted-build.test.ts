@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,17 +17,21 @@ function run(env: Record<string, string>) {
     '#!/usr/bin/env bash\necho "$1 $VITE_CLERK_PUBLISHABLE_KEY $VITE_SENTRY_ENVIRONMENT $VITE_SENTRY_DSN"\n',
   )
   chmodSync(shim, 0o755)
-  const result = spawnSync('bash', [SCRIPT], {
-    encoding: 'utf8',
-    env: {
-      PATH: `${bin}:${process.env.PATH ?? ''}`,
-      CLERK_PUBLISHABLE_KEY_PRODUCTION: 'pk_live_x',
-      CLERK_PUBLISHABLE_KEY_DEVELOPMENT: 'pk_test_x',
-      VITE_SENTRY_DSN: 'https://dsn.example',
-      ...env,
-    },
-  })
-  return { status: result.status, stdout: result.stdout.trim(), stderr: result.stderr }
+  try {
+    const result = spawnSync('bash', [SCRIPT], {
+      encoding: 'utf8',
+      env: {
+        PATH: `${bin}:${process.env.PATH ?? ''}`,
+        CLERK_PUBLISHABLE_KEY_PRODUCTION: 'pk_live_x',
+        CLERK_PUBLISHABLE_KEY_DEVELOPMENT: 'pk_test_x',
+        VITE_SENTRY_DSN: 'https://dsn.example',
+        ...env,
+      },
+    })
+    return { status: result.status, stdout: result.stdout.trim(), stderr: result.stderr }
+  } finally {
+    rmSync(bin, { recursive: true, force: true })
+  }
 }
 
 describe('hosted-build', () => {

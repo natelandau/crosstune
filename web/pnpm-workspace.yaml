@@ -1,4 +1,6 @@
 allowBuilds:
+  # Both resolve their platform binary from optional dependencies at runtime, and
+  # the postinstall only hardlinks and checks the version, so denying it is safe.
   esbuild: false
   sharp: true
   workerd: false

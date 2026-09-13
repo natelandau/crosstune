@@ -3,7 +3,7 @@ export interface OriginEnv {
   WORKER_NAME: string
   API_ORIGIN_PRODUCTION: string
   API_ORIGIN_DEVELOPMENT: string
-  PREVIEW_API_ORIGINS: { get(key: string): Promise<string | null> }
+  PREVIEW_API_ORIGINS: { get(key: string, options?: { cacheTtl?: number }): Promise<string | null> }
 }
 
 const WORKERS_DEV = '.workers.dev'
@@ -24,13 +24,14 @@ export function previewAlias(hostname: string, workerName: string): string | nul
 
 /**
  * The API origin to proxy `/v1` to. Only aliased previews consult KV; a missing
- * entry or a failed read means the development API, which is what every preview
- * used before per-PR APIs existed.
+ * entry or a failed read means the development API.
  */
 export async function apiOrigin(hostname: string, env: OriginEnv): Promise<string> {
   if (!hostname.endsWith(WORKERS_DEV)) return env.API_ORIGIN_PRODUCTION
   const alias = previewAlias(hostname, env.WORKER_NAME)
   if (alias === null) return env.API_ORIGIN_DEVELOPMENT
-  const stored = await env.PREVIEW_API_ORIGINS.get(alias).catch(() => null)
+  // The value changes at most once per pull request, so a five-minute edge cache
+  // saves a KV round trip on every request.
+  const stored = await env.PREVIEW_API_ORIGINS.get(alias, { cacheTtl: 300 }).catch(() => null)
   return stored ?? env.API_ORIGIN_DEVELOPMENT
 }
