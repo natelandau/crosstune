@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from crosstune.models import MODES, PROVIDERS, STATUSES, TIME_SIGNATURES
+from crosstune.models import INSTRUMENTS, MODES, PROVIDERS, STATUSES, TIME_SIGNATURES
 
 if TYPE_CHECKING:
     from crosstune.schemas.common import TableName
@@ -28,6 +28,14 @@ Mode = Annotated[str, AfterValidator(_one_of(MODES))]
 TimeSignature = Annotated[str, AfterValidator(_one_of(TIME_SIGNATURES))]
 StatusValue = Annotated[str, AfterValidator(_one_of(STATUSES))]
 Provider = Annotated[str, AfterValidator(_one_of(PROVIDERS))]
+Instrument = Annotated[str, AfterValidator(_one_of(INSTRUMENTS))]
+
+
+def _distinct(values: list[str]) -> list[str]:
+    if len(set(values)) != len(values):
+        msg = "must not repeat a value"
+        raise ValueError(msg)
+    return values
 
 
 class _Data(BaseModel):
@@ -46,7 +54,8 @@ class SongData(_Data):
     has_lyrics: bool | None = None
     key: str | None = Field(default=None, max_length=10)
     mode: Mode | None = None
-    tuning: str | None = Field(default=None, max_length=100)
+    violin_tuning: str | None = Field(default=None, max_length=100)
+    banjo_tuning: str | None = Field(default=None, max_length=100)
     part_structure: str | None = Field(default=None, max_length=100)
     time_signature: TimeSignature | None = None
     is_crooked: bool = False
@@ -89,6 +98,12 @@ class ListItemData(_Data):
     list_id: uuid.UUID
     user_song_id: uuid.UUID
     position: int = 0
+
+
+class UserSettingsData(_Data):
+    """Client-editable fields of a user's settings."""
+
+    instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
 
 
 class _Row(BaseModel):
@@ -144,12 +159,21 @@ class ListItemRow(ListItemData, _Row):
     model_config = ConfigDict(extra="ignore")
 
 
+class UserSettingsRow(UserSettingsData, _Row):
+    """A stored settings row, as push and pull return it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: uuid.UUID
+
+
 DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "songs": SongData,
     "user_songs": UserSongData,
     "lists": ListData,
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
+    "user_settings": UserSettingsData,
 }
 
 ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
@@ -158,4 +182,5 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "lists": ListRow,
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,
+    "user_settings": UserSettingsRow,
 }

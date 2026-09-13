@@ -312,3 +312,45 @@ async def test_delete_is_idempotent(client, auth_headers) -> None:
 async def test_push_requires_auth(client) -> None:
     response = await client.post("/v1/sync/push", json={"changes": []})
     assert response.status_code == 401
+
+
+async def test_user_settings_upsert_applies_and_a_second_row_is_invalid(
+    client, auth_headers
+) -> None:
+    first, second = uid(), uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("user_settings", first, T0, instruments=["violin", "banjo"]),
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["instruments"] == ["violin", "banjo"]
+    results = await push(
+        client, auth_headers("user_a"), change("user_settings", second, T1, instruments=["guitar"])
+    )
+    assert results[0]["status"] == "invalid"
+    assert "constraint violation" in results[0]["reason"]
+
+
+async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
+    settings_id = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change("user_settings", settings_id, T1, instruments=["violin"]),
+    )
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("user_settings", settings_id, T0, instruments=["banjo"]),
+    )
+    assert results[0]["status"] == "stale"
+    assert results[0]["row"]["instruments"] == ["violin"]
+
+
+async def test_user_settings_rejects_an_unknown_instrument(client, auth_headers) -> None:
+    results = await push(
+        client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["kazoo"])
+    )
+    assert results[0]["status"] == "invalid"
+    assert "instruments" in results[0]["reason"]

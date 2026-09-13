@@ -13,10 +13,13 @@ from crosstune.schemas.rows import (
     ListRow,
     RecordingLinkRow,
     SongRow,
+    UserSettingsRow,
     UserSongRow,
 )
 
-TableName = Literal["songs", "user_songs", "lists", "list_items", "recording_links"]
+TableName = Literal[
+    "songs", "user_songs", "lists", "list_items", "recording_links", "user_settings"
+]
 Op = Literal["upsert", "delete"]
 Status = Literal["applied", "stale", "invalid"]
 
@@ -76,12 +79,20 @@ class RecordingLinkChangeResult(_ChangeResult):
     row: RecordingLinkRow | None = None
 
 
+class UserSettingsChangeResult(_ChangeResult):
+    """The outcome of one change to a user's settings."""
+
+    table: Literal["user_settings"]
+    row: UserSettingsRow | None = None
+
+
 ChangeResult = Annotated[
     SongChangeResult
     | UserSongChangeResult
     | ListChangeResult
     | ListItemChangeResult
-    | RecordingLinkChangeResult,
+    | RecordingLinkChangeResult
+    | UserSettingsChangeResult,
     Field(discriminator="table"),
 ]
 
@@ -91,6 +102,7 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "lists": ListChangeResult,
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
+    "user_settings": UserSettingsChangeResult,
 }
 
 
@@ -129,8 +141,20 @@ class RecordingLinkPullRow(BaseModel):
     row: RecordingLinkRow
 
 
+class UserSettingsPullRow(BaseModel):
+    """A settings row in a pull page."""
+
+    table: Literal["user_settings"]
+    row: UserSettingsRow
+
+
 PullRow = Annotated[
-    SongPullRow | UserSongPullRow | ListPullRow | ListItemPullRow | RecordingLinkPullRow,
+    SongPullRow
+    | UserSongPullRow
+    | ListPullRow
+    | ListItemPullRow
+    | RecordingLinkPullRow
+    | UserSettingsPullRow,
     Field(discriminator="table"),
 ]
 
@@ -140,6 +164,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "lists": ListPullRow,
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,
+    "user_settings": UserSettingsPullRow,
 }
 
 
