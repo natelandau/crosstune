@@ -186,7 +186,10 @@ remains a fallback if a WebView proves limiting.
   client SDKs, which does not fit an API-first design, and its free tier pauses
   idle projects.
 - The Neon database and the Railway container must be in the same region.
-- The static web client is served from Cloudflare Pages.
+- The web client is served by a Cloudflare Worker with static assets. The
+  Worker also proxies API calls, so the client is always same-origin and the
+  API needs no CORS. Cloudflare labels Pages legacy, and only a Worker can run
+  code in front of the assets.
 - Audio storage, when it arrives, is Cloudflare R2, because it charges no egress
   and streaming recordings is all egress.
 
