@@ -78,7 +78,7 @@ async def test_concurrent_lookups_fetch_the_jwks_once_and_both_see_the_key(
     assert len(mock_http.calls) == 1
 
 
-PREVIEW_REGEX = r"^https://[a-z0-9-]+\.crosstune\.pages\.dev$"
+PREVIEW_REGEX = r"^https://[a-z0-9-]+-crosstune-web\.example\.workers\.dev$"
 
 
 def test_party_allowed_rejects_a_non_string_party() -> None:
@@ -96,7 +96,7 @@ async def test_party_matching_the_regex_is_200(
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.http_client = mock_http.client()
     app.state.jwks = JwksCache(preview.clerk_jwks_url, app.state.http_client)
-    token = make_token("user_a", azp="https://abc123.crosstune.pages.dev")
+    token = make_token("user_a", azp="https://feat-x-crosstune-web.example.workers.dev")
     async with httpx2.AsyncClient(
         transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
     ) as client:
