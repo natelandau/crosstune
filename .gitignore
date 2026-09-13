@@ -24,7 +24,8 @@ web/coverage/
 tmp/
 
 # Tooling
-.claude/
+.claude/*
+!.claude/settings.json
 .worktrees/
 .superpowers/
 docs/superpowers/

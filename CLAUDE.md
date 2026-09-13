@@ -27,4 +27,6 @@ aggregate across modules (`just test` runs `api::test` and `web::test`).
   root aggregate recipe should call both `api::<name>` and `web::<name>`.
 - Tag recipes with `[group('api')]`, `[group('web')]`, or `[group('all')]` so
   `just --list` reads in blocks.
+- Spell check with `just typos [paths]` (for example `just typos docs`). typos
+  is a pinned API dev dependency; never run it, or any other tool, through `uvx`.
 - Do not add duty or any other task runner.

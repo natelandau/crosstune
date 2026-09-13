@@ -14,6 +14,10 @@ default:
 # Run every linter in every module
 lint: api::lint web::lint
 
+# Spell check the whole repository, or only the given paths
+typos *paths:
+    uv run --project api typos --config .typos.toml {{ paths }}
+
 # Check formatting in every module
 format: api::format web::format
 

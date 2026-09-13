@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just typos:*)",
+      "Bash(just lint:*)",
+      "Bash(just test:*)"
+    ]
+  }
+}

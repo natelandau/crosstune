@@ -25,7 +25,7 @@ tsc:
 # Spell check with typos
 [group('lint')]
 typos:
-    uvx typos --config ../.typos.toml .
+    uv run --project ../api typos --config ../.typos.toml .
 
 # Run all linters
 [group('lint')]
