@@ -1,0 +1,148 @@
+---
+name: Preview
+
+# Every pull request gets its own API and database. Workers Builds deploys the
+# web preview on its own; this workflow provides the Railway environment and
+# the Neon branch behind it and tells the Worker where the API is.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PR_NAME: pr-${{ github.event.pull_request.number }}
+  RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:latest
+  RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+  RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+  RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_DEV_ENVIRONMENT_ID }}
+  RAILWAY_API_SERVICE_ID: ${{ vars.RAILWAY_API_SERVICE_ID }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  CLOUDFLARE_KV_NAMESPACE_ID: ${{ vars.CLOUDFLARE_KV_NAMESPACE_ID }}
+
+jobs:
+  up:
+    name: Create or refresh the preview environment
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: compute the preview alias
+        id: slug
+        run: echo "slug=$(node web/scripts/branch-slug.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: create the Neon branch from development
+        if: github.event.action != 'synchronize'
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ${{ env.PR_NAME }}
+          parent_branch: production
+          database: crosstune
+          role: ${{ vars.NEON_DATABASE_ROLE }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      # A reset keeps the branch's endpoint, so the connection string stored in
+      # Railway at creation stays valid and every push migrates a clean copy.
+      - name: reset the Neon branch to its parent
+        if: github.event.action == 'synchronize'
+        uses: neondatabase/reset-branch-action@v1
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ env.PR_NAME }}
+          parent: true
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      # Railway's built-in PR environments copy the base environment's variables
+      # and would reuse the development database; the CLI accepts the branch's
+      # connection string at creation.
+      - name: create the Railway environment
+        if: github.event.action != 'synchronize'
+        env:
+          NEON_DB_URL: ${{ steps.neon.outputs.db_url }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          railway() {
+            docker run --rm \
+              -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
+              "$RAILWAY_CLI_IMAGE" "$@"
+          }
+          railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
+            --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_DATABASE_URL=$NEON_DB_URL" \
+            --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_ENVIRONMENT=$PR_NAME" \
+            --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF"
+
+      - name: read the API hostname
+        id: railway
+        run: |
+          railway() {
+            docker run --rm \
+              -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
+              "$RAILWAY_CLI_IMAGE" "$@"
+          }
+          first_domain='[.. | objects | select(has("domain")) | .domain] | first // empty'
+          hostname="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json \
+            | jq -r "$first_domain")"
+          if [ -z "$hostname" ]; then
+            hostname="$(railway domain --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json \
+              | jq -r "$first_domain")"
+          fi
+          if [ -z "$hostname" ]; then
+            echo "::error::no Railway domain for $PR_NAME" >&2
+            exit 1
+          fi
+          echo "hostname=$hostname" >> "$GITHUB_OUTPUT"
+
+      - name: point the preview at its API
+        env:
+          SLUG: ${{ steps.slug.outputs.slug }}
+          HOSTNAME: ${{ steps.railway.outputs.hostname }}
+        run: |
+          npx --yes wrangler@4 kv key put "$SLUG" "https://$HOSTNAME" \
+            --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote
+
+  down:
+    name: Tear down the preview environment
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: compute the preview alias
+        id: slug
+        run: echo "slug=$(node web/scripts/branch-slug.mjs)" >> "$GITHUB_OUTPUT"
+
+      # Each delete tolerates a missing resource so a PR whose `up` never
+      # finished still tears down cleanly.
+      - name: delete the Railway environment
+        run: |
+          railway() {
+            docker run --rm \
+              -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
+              "$RAILWAY_CLI_IMAGE" "$@"
+          }
+          railway environment delete "$PR_NAME" --yes || echo "no Railway environment named $PR_NAME"
+
+      - name: delete the Neon branch
+        continue-on-error: true
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ env.PR_NAME }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: delete the preview's API entry
+        env:
+          SLUG: ${{ steps.slug.outputs.slug }}
+        run: |
+          npx --yes wrangler@4 kv key delete "$SLUG" \
+            --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
+            || echo "no KV entry for $SLUG"
