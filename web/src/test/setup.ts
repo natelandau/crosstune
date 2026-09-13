@@ -10,5 +10,6 @@ afterEach(() => {
 })
 
 // jsdom has no layout engine, so it doesn't implement scrollTo; the router calls
-// it on every route mount to reset scroll position.
-window.scrollTo = () => {}
+// it on every route mount to reset scroll position. Worker and script tests run
+// in the node environment, where there is no window at all.
+if (typeof window !== 'undefined') window.scrollTo = () => {}
