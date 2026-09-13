@@ -57,7 +57,8 @@ def _next_seq():  # noqa: ANN202
 
 def _advisory_lock_key(user_id: uuid.UUID) -> int:
     """A stable signed 64-bit key derived from a user id, for pg_advisory_xact_lock."""
-    return int.from_bytes(user_id.bytes[:8], "big", signed=True)
+    # UUIDv7 leads with a millisecond timestamp, so the trailing bytes carry the entropy.
+    return int.from_bytes(user_id.bytes[8:], "big", signed=True)
 
 
 async def apply_push(
