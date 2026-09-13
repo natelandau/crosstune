@@ -1,12 +1,13 @@
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { createSong } from '../../commands/songs'
 import { useDb } from '../../db/DbProvider'
 import { useInstruments } from '../settings/useInstruments'
-import { SongForm } from './SongForm'
+import { emptyValues, SongForm } from './SongForm'
 
 export function NewSongScreen() {
   const db = useDb()
   const navigate = useNavigate()
+  const { title } = useSearch({ from: '/songs/new' })
   const instruments = useInstruments()
   if (instruments === undefined) return null
   return (
@@ -15,6 +16,7 @@ export function NewSongScreen() {
       <SongForm
         submitLabel="Add song"
         instruments={instruments}
+        initial={title ? { ...emptyValues(), title } : undefined}
         onCancel={() => void navigate({ to: '/' })}
         onSubmit={async (song, userSong) => {
           const { songId } = await createSong(db, song, userSong)

@@ -82,6 +82,14 @@ export function catalogEntries(songs: LocalSong[], userSongs: LocalUserSong[]): 
   return entries.sort((a, b) => collator.compare(a.song.title, b.song.title))
 }
 
+/** True when the trimmed query equals the song's title or an alternate title, ignoring case and accents. */
+export function titleMatches(song: LocalSong, query: string): boolean {
+  const q = query.trim()
+  return (
+    q !== '' && [song.title, ...song.alternate_titles].some((t) => collator.compare(t, q) === 0)
+  )
+}
+
 function facetMatches(filter: string, value: string | null | undefined): boolean {
   return filter === 'all' || (value != null && collator.compare(filter, value) === 0)
 }
@@ -96,7 +104,8 @@ export function filterCatalog(entries: CatalogEntry[], filters: CatalogFilters):
     }
     if (!query) return true
     const haystack = [song.title, ...song.alternate_titles].map((t) => t.toLocaleLowerCase())
-    return haystack.some((t) => t.includes(query))
+    // An exact match ignoring accents must stay visible, or the search would call it hidden.
+    return haystack.some((t) => t.includes(query)) || titleMatches(song, filters.query)
   })
 }
 
