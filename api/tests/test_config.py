@@ -50,13 +50,7 @@ def test_invalid_party_regex_is_rejected_at_startup() -> None:
         Settings(clerk_authorized_party_regex="(")
 
 
-def test_invalid_cors_regex_is_rejected_at_startup() -> None:
-    with pytest.raises(ValidationError):
-        Settings(cors_origin_regex="[")
-
-
-def test_valid_regexes_are_kept_verbatim() -> None:
-    pattern = r"^https://[a-z0-9-]+\.crosstune\.pages\.dev$"
-    settings = Settings(clerk_authorized_party_regex=pattern, cors_origin_regex=pattern)
+def test_valid_party_regex_is_kept_verbatim() -> None:
+    pattern = r"^https://[a-z0-9-]+-crosstune-web\.example\.workers\.dev$"
+    settings = Settings(clerk_authorized_party_regex=pattern)
     assert settings.clerk_authorized_party_regex == pattern
-    assert settings.cors_origin_regex == pattern

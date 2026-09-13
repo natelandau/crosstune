@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import httpx2
 import sentry_sdk
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from crosstune import __version__
 from crosstune.auth.jwks import JwksCache
@@ -67,15 +66,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = None
     app.state.http_client = None
     app.state.jwks = None
-
-    if settings.cors_origins or settings.cors_origin_regex:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=settings.cors_origins,
-            allow_origin_regex=settings.cors_origin_regex or None,
-            allow_methods=["GET", "POST", "OPTIONS"],
-            allow_headers=["*"],
-        )
 
     install_error_handlers(app)
     app.include_router(users_router)
