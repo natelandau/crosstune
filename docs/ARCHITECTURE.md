@@ -520,8 +520,11 @@ value is the pull request's API origin, `https://<railway hostname>`. The
 `Preview` workflow writes and deletes the keys with `wrangler kv key`. The
 Worker reads them at request time. A missing key means the development API.
 
-Under Domains & Routes, the custom domain `<domain>` is attached to the Worker
-and Cloudflare manages its DNS record and certificate. The Clerk production
+On the Worker's Domains tab, the Worker URL rows carry two toggles. The
+production `workers.dev` toggle is off and the preview toggle is on; a branch
+upload never changes them, and previews return a 404 while the preview
+toggle is off. The custom domain `<domain>` is attached on the same tab and
+Cloudflare manages its DNS record and certificate. The Clerk production
 instance is bound to that domain. `web/public/_headers` ships in the assets
 directory and sets `X-Content-Type-Options`, `X-Frame-Options`, and
 `Referrer-Policy` on every response, plus `no-cache` on the service worker and
