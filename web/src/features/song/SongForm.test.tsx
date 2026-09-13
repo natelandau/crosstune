@@ -1,12 +1,19 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import type { Instrument } from '../../db/types'
 import { emptyValues, inputsFromValues, SongForm, valuesFromRows } from './SongForm'
 
 describe('SongForm', () => {
   it('defaults the time signature to 4/4 and requires a title', async () => {
     const onSubmit = vi.fn(async () => {})
-    render(<SongForm submitLabel="Save" onSubmit={onSubmit} />)
+    render(
+      <SongForm
+        submitLabel="Save"
+        onSubmit={onSubmit}
+        instruments={new Set<Instrument>(['violin'])}
+      />,
+    )
     expect(screen.getByRole('combobox', { name: 'Time signature' })).toHaveValue('4/4')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(onSubmit).not.toHaveBeenCalled()
@@ -14,7 +21,13 @@ describe('SongForm', () => {
 
   it('submits normalized inputs', async () => {
     const onSubmit = vi.fn(async () => {})
-    render(<SongForm submitLabel="Save" onSubmit={onSubmit} />)
+    render(
+      <SongForm
+        submitLabel="Save"
+        onSubmit={onSubmit}
+        instruments={new Set<Instrument>(['violin'])}
+      />,
+    )
     await userEvent.type(screen.getByRole('textbox', { name: 'Title' }), '  Cluck Old Hen ')
     await userEvent.type(
       screen.getByRole('textbox', { name: 'Alternate titles' }),
@@ -33,7 +46,8 @@ describe('SongForm', () => {
         key: 'A',
         mode: 'mixolydian',
         is_crooked: true,
-        tuning: null,
+        violin_tuning: null,
+        banjo_tuning: null,
         time_signature: '4/4',
       }),
       expect.objectContaining({ status: 'learning', learned_from: 'Bruce', notes: null }),
@@ -55,7 +69,8 @@ describe('SongForm', () => {
         has_lyrics: true,
         key: 'D',
         mode: 'major',
-        tuning: 'ADAE',
+        violin_tuning: 'ADAE',
+        banjo_tuning: null,
         part_structure: 'AABB',
         time_signature: '3/4',
         is_crooked: false,
@@ -76,6 +91,8 @@ describe('SongForm', () => {
     )
     expect(values.alternate_titles).toBe('Y, Z')
     expect(values.time_signature).toBe('3/4')
+    expect(values.violin_tuning).toBe('ADAE')
+    expect(values.banjo_tuning).toBe('')
     const { song, userSong } = inputsFromValues(values)
     expect(song).toMatchObject({
       alternate_titles: ['Y', 'Z'],
@@ -101,7 +118,8 @@ describe('SongForm', () => {
         has_lyrics: null,
         key: null,
         mode: 'lydian',
-        tuning: null,
+        violin_tuning: null,
+        banjo_tuning: null,
         part_structure: null,
         time_signature: '7/8',
         is_crooked: false,
@@ -123,5 +141,40 @@ describe('SongForm', () => {
     expect(values.mode).toBe('')
     expect(values.time_signature).toBe('')
     expect(values.status).toBe('want_to_learn')
+  })
+
+  it('shows one tuning field per played instrument', () => {
+    render(
+      <SongForm
+        submitLabel="Save"
+        onSubmit={vi.fn(async () => {})}
+        instruments={new Set<Instrument>(['violin', 'banjo'])}
+      />,
+    )
+    expect(screen.getByRole('combobox', { name: 'Violin tuning' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Banjo tuning' })).toBeInTheDocument()
+  })
+
+  it('hides a tuning for an unplayed instrument unless the song has a value', () => {
+    const { unmount } = render(
+      <SongForm
+        submitLabel="Save"
+        onSubmit={vi.fn(async () => {})}
+        instruments={new Set<Instrument>(['guitar'])}
+      />,
+    )
+    expect(screen.queryByRole('combobox', { name: 'Violin tuning' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: 'Banjo tuning' })).toBeNull()
+    unmount()
+    render(
+      <SongForm
+        submitLabel="Save"
+        onSubmit={vi.fn(async () => {})}
+        instruments={new Set<Instrument>(['guitar'])}
+        initial={{ ...emptyValues(), banjo_tuning: 'gDGBD' }}
+      />,
+    )
+    expect(screen.queryByRole('combobox', { name: 'Violin tuning' })).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'Banjo tuning' })).toHaveValue('gDGBD')
   })
 })

@@ -9,6 +9,7 @@ import { LinkList } from '../links/LinkList'
 import { youtubeId } from '../links/detect'
 import { AddToListMenu } from '../lists/AddToListMenu'
 import { YouTubePlayer } from '../player/YouTubePlayer'
+import { useInstruments } from '../settings/useInstruments'
 import { SongForm, valuesFromRows } from './SongForm'
 import { StatusPicker } from './StatusPicker'
 import { useSong } from './useSong'
@@ -23,10 +24,11 @@ interface Props {
 export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const db = useDb()
   const view = useSong(songId)
+  const instruments = useInstruments()
   const [playingId, setPlayingId] = useState<string | null>(null)
   const { error, run, runThen } = useAction()
 
-  if (view === undefined) return null
+  if (view === undefined || instruments === undefined) return null
   if (view === null) return <EmptyState title="This song is gone" />
   const { song, userSong, links } = view
 
@@ -37,6 +39,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
         <SongForm
           initial={valuesFromRows(song, userSong)}
           submitLabel="Save"
+          instruments={instruments}
           onCancel={() => onEditChange(false)}
           onSubmit={async (songInput, userSongInput) => {
             await updateSong(db, song.id, songInput)
@@ -52,7 +55,8 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const playingVideo = playing ? youtubeId(playing) : null
   const keyLine = [song.key, song.mode].filter(Boolean).join(' ')
   const chips = [
-    { key: 'tuning', label: song.tuning },
+    { key: 'violin_tuning', label: song.violin_tuning },
+    { key: 'banjo_tuning', label: song.banjo_tuning },
     { key: 'time_signature', label: song.time_signature },
     { key: 'is_crooked', label: song.is_crooked ? 'Crooked' : null },
     { key: 'feel', label: song.feel },
