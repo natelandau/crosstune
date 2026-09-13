@@ -81,6 +81,8 @@
     CROSSTUNE_CLERK_WEBHOOK_SECRET     = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="
     CROSSTUNE_CORS_ORIGINS             = '["http://testclient"]'
     CROSSTUNE_DEBUG                    = "true"
+    # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
+    CROSSTUNE_SENTRY_DSN               = ""
 
 [tool.ruff]
     cache-dir = ".cache/ruff"
