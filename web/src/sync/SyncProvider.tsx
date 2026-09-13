@@ -26,7 +26,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       createSyncEngine({
         db,
         api: createApiClient({
-          baseUrl: import.meta.env.VITE_API_URL ?? '',
+          baseUrl: '',
           getToken,
           clientVersion: APP_VERSION,
         }),

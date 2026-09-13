@@ -47,10 +47,10 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
   }
 
   const client = createClient<paths>({
-    // The dev and preview servers proxy /v1 on the same origin, so the baseUrl is
-    // empty there; production sets VITE_API_URL. A browser resolves an empty baseUrl
-    // against the page location on its own, but the fetch client here needs an
-    // absolute URL, so mirror that resolution.
+    // The client always calls /v1 on its own origin: the Vite proxy locally, the
+    // Worker when hosted. A browser resolves an empty baseUrl against the page
+    // location on its own, but the fetch client needs an absolute URL, so mirror
+    // that resolution.
     baseUrl: options.baseUrl || globalThis.location?.origin || '',
     // fetch signals an unreachable server with a bare TypeError, which is also what any
     // programming error throws; give the network case its own type so callers can tell.
