@@ -89,10 +89,12 @@ server refused, as a warning. The release tag is the `version` field in
 
 The API is one FastAPI process in a Railway container, built from the
 Dockerfile in `api/`. Railway rebuilds it on a push to `main` that changes a
-file under `api/`. The container runs the Alembic migrations before it starts
-uvicorn, so the schema is never older than the code that serves it. That
-ordering is safe with one replica. A second replica needs the migration moved
-to a pre-deploy command.
+file under `api/`. Railway's pre-deploy command runs the Alembic migrations
+in a separate container from the same image before the new deployment
+starts, so the schema is never older than the code that serves it. A failed
+migration cancels the deploy and the previous deployment keeps serving. The
+container itself only starts uvicorn, so a restart never touches the schema
+and a second replica needs no change here.
 
 The API knows nothing about the web client. Its OpenAPI schema is the
 contract, and the client's TypeScript types are generated from it. A CI job
@@ -373,6 +375,7 @@ from `main`.
 | Root directory      | `api`                                            |
 | Branch              | `main`                                           |
 | Watch paths         | `/api/**`                                        |
+| Pre-deploy command  | `alembic upgrade head`                           |
 | Healthcheck path    | `/healthz`                                       |
 | Healthcheck timeout | 300 seconds, the default                         |
 | Replicas            | 1, the default                                   |
@@ -383,9 +386,9 @@ from `main`.
 
 Railway detects the Dockerfile in the root directory on its own and injects
 `PORT`, which the container reads. Wait for CI holds a deploy until the
-GitHub workflows for that commit pass. Before a second replica, the
-migration moves from the container's start command to the Pre-deploy command
-field.
+GitHub workflows for that commit pass. The pre-deploy command runs from the
+image's working directory, where `alembic.ini` sits, with the service
+variables, so it reaches the database the same way the API does.
 
 Production variables:
 

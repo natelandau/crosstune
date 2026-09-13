@@ -19,4 +19,4 @@ ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 USER appuser
 EXPOSE 8000
 ENTRYPOINT ["tini", "--"]
-CMD ["sh", "-c", "alembic upgrade head && uvicorn crosstune.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec uvicorn crosstune.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
