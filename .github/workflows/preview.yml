@@ -36,10 +36,13 @@ jobs:
 
       - name: compute the preview alias
         id: slug
-        run: echo "slug=$(node web/scripts/branch-slug.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          slug="$(node web/scripts/branch-slug.mjs)"
+          echo "slug=$slug" >> "$GITHUB_OUTPUT"
 
+      # Runs on every event and returns the existing branch if one is already
+      # there, so a run cancelled after this step is healed by the next push.
       - name: create the Neon branch from development
-        if: github.event.action != 'synchronize'
         id: neon
         uses: neondatabase/create-branch-action@v6
         with:
@@ -63,22 +66,31 @@ jobs:
 
       # Railway's built-in PR environments copy the base environment's variables
       # and would reuse the development database; the CLI accepts the branch's
-      # connection string at creation.
+      # connection string at creation. The existence check, rather than the
+      # event type, decides whether to create: a cancelled or failed first run
+      # must be healed by the next push.
       - name: create the Railway environment
-        if: github.event.action != 'synchronize'
         env:
           NEON_DB_URL: ${{ steps.neon.outputs.db_url }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
+          echo "::add-mask::$NEON_DB_URL"
+          : "${NEON_DB_URL:?the Neon create step produced no db_url}"
           railway() {
             docker run --rm \
               -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
               "$RAILWAY_CLI_IMAGE" "$@"
           }
-          railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
-            --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_DATABASE_URL=$NEON_DB_URL" \
-            --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_ENVIRONMENT=$PR_NAME" \
-            --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF"
+          exists="$(railway environment list --json \
+            | jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' || true)"
+          if [ "$exists" = "true" ]; then
+            echo "Railway environment $PR_NAME already exists"
+          else
+            railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
+              --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_DATABASE_URL=$NEON_DB_URL" \
+              --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_ENVIRONMENT=$PR_NAME" \
+              --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF"
+          fi
 
       - name: read the API hostname
         id: railway
@@ -90,13 +102,13 @@ jobs:
           }
           first_domain='[.. | objects | select(has("domain")) | .domain] | first // empty'
           hostname="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json \
-            | jq -r "$first_domain")"
+            | jq -r "$first_domain" || true)"
           if [ -z "$hostname" ]; then
             hostname="$(railway domain --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json \
               | jq -r "$first_domain")"
           fi
           if [ -z "$hostname" ]; then
-            echo "::error::no Railway domain for $PR_NAME" >&2
+            echo "::error::no Railway domain for $PR_NAME"
             exit 1
           fi
           echo "hostname=$hostname" >> "$GITHUB_OUTPUT"
@@ -118,10 +130,13 @@ jobs:
 
       - name: compute the preview alias
         id: slug
-        run: echo "slug=$(node web/scripts/branch-slug.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          slug="$(node web/scripts/branch-slug.mjs)"
+          echo "slug=$slug" >> "$GITHUB_OUTPUT"
 
       # Each delete tolerates a missing resource so a PR whose `up` never
-      # finished still tears down cleanly.
+      # finished still tears down cleanly, but a real failure must surface as
+      # a warning rather than pass silently.
       - name: delete the Railway environment
         run: |
           railway() {
@@ -129,9 +144,11 @@ jobs:
               -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
               "$RAILWAY_CLI_IMAGE" "$@"
           }
-          railway environment delete "$PR_NAME" --yes || echo "no Railway environment named $PR_NAME"
+          railway environment delete "$PR_NAME" --yes \
+            || echo "::warning::could not delete Railway environment $PR_NAME; it may still exist"
 
       - name: delete the Neon branch
+        id: neon-delete
         continue-on-error: true
         uses: neondatabase/delete-branch-action@v3
         with:
@@ -139,10 +156,14 @@ jobs:
           branch: ${{ env.PR_NAME }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
+      - name: warn if the Neon branch was not deleted
+        if: steps.neon-delete.outcome == 'failure'
+        run: echo "::warning::could not delete Neon branch $PR_NAME; it may still exist"
+
       - name: delete the preview's API entry
         env:
           SLUG: ${{ steps.slug.outputs.slug }}
         run: |
           npx --yes wrangler@4 kv key delete "$SLUG" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
-            || echo "no KV entry for $SLUG"
+            || echo "::warning::could not delete KV entry $SLUG; it may still exist"
