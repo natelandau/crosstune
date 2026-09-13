@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Smoke check for a deployed Crosstune. It needs no credentials: it proves the API is
-# up and configured for the web origin, and that the web origin serves the app shell.
+# up, that the web origin serves the app shell, and that the web origin reaches the API.
 set -euo pipefail
 
 usage="usage: $0 <api-origin> <web-origin>"
@@ -26,12 +26,13 @@ else
   fail "$name"
 fi
 
-name="API grants CORS to $web"
-h="$(headers_of -X OPTIONS "$api/v1/sync/push" \
-  -H "Origin: $web" \
-  -H 'Access-Control-Request-Method: POST' \
-  -H 'Access-Control-Request-Headers: authorization,content-type' || true)"
-if grep -qixF "access-control-allow-origin: $web" <<<"$h"; then pass "$name"; else fail "$name"; fi
+name="web proxies /v1/me to the API and returns its 401 problem document"
+h="$(headers_of "$web/v1/me" || true)"
+if grep -q '^HTTP/[0-9.]* 401' <<<"$h" && grep -qi '^content-type: application/problem+json' <<<"$h"; then
+  pass "$name"
+else
+  fail "$name"
+fi
 
 name="web serves the app shell"
 if curl -sS "$web/" | grep -q '<div id="root">'; then pass "$name"; else fail "$name"; fi
