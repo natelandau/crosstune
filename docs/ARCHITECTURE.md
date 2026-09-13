@@ -9,7 +9,7 @@ the stack, read `docs/PRODUCT.md`.
 
 ## The systems
 
-Crosstune is two deployables and five hosted services.
+Crosstune is two deployables and six hosted services.
 
 ```
                  GitHub (source, CI)
@@ -62,11 +62,12 @@ zone.
 
 The web client is a single-page React application. Workers Builds builds it
 from `web/` with Vite and uploads the output as the static assets of a Worker
-named `crosstune-web`. The Worker itself is one small file. It runs only for
-`/v1/*` requests and proxies them to the API, keeping the path, query, method,
-headers, and body and dropping the site's cookie. Every other path is served
-from the assets without running code, and a path that matches no file gets
-`index.html`, so a client route loads directly.
+named `crosstune-web`. The Worker itself is two small files under
+`web/worker/`: the fetch handler and the origin selection. It runs only
+for `/v1/*` requests and proxies them to the API, keeping the path, query,
+method, headers, and body and dropping the site's cookie. Every other path
+is served from the assets without running code, and a path that matches no
+file gets `index.html`, so a client route loads directly.
 
 The Worker chooses the API from the request hostname. The custom domain goes
 to the production API. A `workers.dev` preview hostname carries the branch
@@ -298,7 +299,10 @@ the development variables and its own database. In every environment the
 client reaches the API on its own origin.
 
 Sentry receives events from both hosted environments in both projects. Each
-event carries an environment tag of `production` or `development`.
+event carries an environment tag of `production` or `development`, except
+the API in a pull request environment, which tags its events `pr-<number>`
+because `CROSSTUNE_ENVIRONMENT` is set per environment; the web preview
+still tags `development`.
 
 ## When a system is unavailable
 
@@ -595,10 +599,10 @@ uses the `PRODUCTION_API_ORIGIN` and `PRODUCTION_WEB_ORIGIN` variables.
 
 The script proves seven things. The API answers `{"status":"ok"}` at
 `/healthz`. It refuses an anonymous call to `/v1/me` with a 401 and a
-problem-details body. The web origin proxies /v1/me to the API and returns its
-401 problem document. The web origin serves the app shell, a manifest that
-names Crosstune, the service worker, and the app shell again for a
-client-side route.
+problem-details body. The web origin proxies `/v1/me` to the API and
+returns its 401 problem document. The web origin serves the app shell, a
+manifest that names Crosstune, the service worker, and the app shell again
+for a client-side route.
 
 For a pull request, point it at the PR's Railway hostname and its preview URL.
 
