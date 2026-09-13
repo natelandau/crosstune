@@ -7,16 +7,27 @@ name: Preview
 on:
   pull_request:
     types: [opened, reopened, synchronize, closed]
+  # Manual teardown for a pull request whose close event never cleaned up.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number whose preview environment to tear down
+        required: true
+        type: string
+      branch:
+        description: The pull request's head branch name, used to compute the preview alias
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group: preview-${{ inputs.pr_number || github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
-  PR_NAME: pr-${{ github.event.pull_request.number }}
+  PR_NAME: pr-${{ inputs.pr_number || github.event.pull_request.number }}
   RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:latest
   RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
@@ -29,7 +40,7 @@ env:
 jobs:
   up:
     name: Create or refresh the preview environment
-    if: github.event.action != 'closed'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -131,19 +142,22 @@ jobs:
 
   down:
     name: Tear down the preview environment
-    if: github.event.action == 'closed'
+    if: github.event_name == 'workflow_dispatch' || github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
-      # The merge ref does not exist for a conflicted or deleted-branch PR,
-      # and teardown must still run, so pin the checkout to the base commit.
+      # The merge ref does not exist for a conflicted or deleted-branch PR, and
+      # the base commit may predate the scripts this job runs, so pin the
+      # checkout to the PR's head commit. A manual run checks out main.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: compute the preview alias
         id: slug
+        env:
+          BRANCH: ${{ inputs.branch }}
         run: |
-          slug="$(node web/scripts/branch-slug.mjs)"
+          slug="$(node web/scripts/branch-slug.mjs "$BRANCH")"
           echo "slug=$slug" >> "$GITHUB_OUTPUT"
 
       # Each delete tolerates a missing resource so a PR whose `up` never
