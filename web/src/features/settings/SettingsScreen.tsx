@@ -2,11 +2,15 @@ import { useAuth, useUser } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useAction } from '../../components/useAction'
+import { toggleInstrumentSetting } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'
 import { getInvalidChangeCount } from '../../db/meta'
+import { INSTRUMENTS } from '../../db/types'
 import { useSyncEngine, useSyncStatus } from '../../sync/SyncProvider'
 import { APP_VERSION } from '../../version'
+import { INSTRUMENT_LABELS } from './instruments'
 import { signOutAndForget } from './signOut'
+import { useInstruments } from './useInstruments'
 
 export function SettingsScreen() {
   const db = useDb()
@@ -17,6 +21,8 @@ export function SettingsScreen() {
   const status = useSyncStatus()
   const rejected = useLiveQuery(() => getInvalidChangeCount(db), [db]) ?? 0
   const { error, pending, run } = useAction()
+  const instruments = useInstruments()
+  const instrumentAction = useAction()
 
   return (
     <div className="space-y-6">
@@ -43,6 +49,36 @@ export function SettingsScreen() {
           </p>
         ) : null}
       </section>
+      {instruments ? (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase opacity-60">Instruments</h2>
+          <p className="text-sm opacity-70">
+            Tuning fields appear only for the instruments you play.
+          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {INSTRUMENTS.map((instrument) => (
+              <label key={instrument} className="label cursor-pointer gap-2">
+                <input
+                  type="checkbox"
+                  className="checkbox"
+                  checked={instruments.has(instrument)}
+                  onChange={(e) =>
+                    instrumentAction.run(() =>
+                      toggleInstrumentSetting(db, userId, instrument, e.target.checked),
+                    )
+                  }
+                />
+                {INSTRUMENT_LABELS[instrument]}
+              </label>
+            ))}
+          </div>
+          {instrumentAction.error ? (
+            <p role="alert" className="text-error text-sm">
+              {instrumentAction.error}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase opacity-60">Sync</h2>
         <p>Status: {status}</p>

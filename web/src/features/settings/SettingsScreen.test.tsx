@@ -1,11 +1,12 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthProvider } from '../../auth/AuthContext'
+import { settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { countInvalidChanges } from '../../db/meta'
+import { pendingBatch } from '../../db/outbox'
 import { openTestDb } from '../../test/db'
-import { fakeEngine, renderWithProviders } from '../../test/render'
+import { fakeEngine, renderWithProviders, testSession } from '../../test/render'
 import { SettingsScreen } from './SettingsScreen'
 import * as signOutModule from './signOut'
 
@@ -30,12 +31,7 @@ describe('SettingsScreen', () => {
     const spy = vi.spyOn(signOutModule, 'signOutAndForget').mockResolvedValue()
     const sync = vi.fn(async () => {})
     const engine = fakeEngine({ sync })
-    renderWithProviders(
-      <AuthProvider value={{ userId: 'user_1', getToken: async () => 't', offline: false }}>
-        <SettingsScreen />
-      </AuthProvider>,
-      { db, engine },
-    )
+    renderWithProviders(<SettingsScreen />, { db, engine })
     expect(await screen.findByText('nate@example.com')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Sync now' }))
     expect(sync).toHaveBeenCalled()
@@ -45,35 +41,36 @@ describe('SettingsScreen', () => {
 
   it('tells the user how many changes the server rejected', async () => {
     await countInvalidChanges(db, 2)
-    renderWithProviders(
-      <AuthProvider value={{ userId: 'user_1', getToken: async () => 't', offline: false }}>
-        <SettingsScreen />
-      </AuthProvider>,
-      { db },
-    )
+    renderWithProviders(<SettingsScreen />, { db })
     expect(await screen.findByText(/2 changes were rejected/)).toBeInTheDocument()
   })
 
   it('shows an error and re-enables sign out when it fails', async () => {
     vi.spyOn(signOutModule, 'signOutAndForget').mockRejectedValue(new Error('Clerk unreachable'))
-    renderWithProviders(
-      <AuthProvider value={{ userId: 'user_1', getToken: async () => 't', offline: false }}>
-        <SettingsScreen />
-      </AuthProvider>,
-      { db },
-    )
+    renderWithProviders(<SettingsScreen />, { db })
     await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Clerk unreachable')
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
 
   it('disables sign out while the session is offline', async () => {
-    renderWithProviders(
-      <AuthProvider value={{ userId: 'user_1', getToken: async () => null, offline: true }}>
-        <SettingsScreen />
-      </AuthProvider>,
-      { db },
-    )
+    renderWithProviders(<SettingsScreen />, {
+      db,
+      session: { ...testSession, getToken: async () => null, offline: true },
+    })
     expect(await screen.findByRole('button', { name: 'Sign out' })).toBeDisabled()
+  })
+
+  it('records the instruments the user plays', async () => {
+    renderWithProviders(<SettingsScreen />, { db })
+    const violin = await screen.findByRole('checkbox', { name: 'Violin' })
+    expect(violin).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Banjo' })).not.toBeChecked()
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Banjo' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Banjo' })).toBeChecked())
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row?.instruments).toEqual(['violin', 'banjo'])
+    const batch = await pendingBatch(db, 10)
+    expect(batch.map((e) => e.table)).toEqual(['user_settings'])
   })
 })
