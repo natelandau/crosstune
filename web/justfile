@@ -59,10 +59,11 @@ preview:
     pnpm vite build
     pnpm vite preview
 
-# Build for production
+# Build for production and validate the Worker config and bundle without uploading
 [group('build')]
 build:
     pnpm vite build
+    pnpm wrangler deploy --dry-run
 
 # Regenerate the typed client from the committed OpenAPI contract
 [group('contract')]

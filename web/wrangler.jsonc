@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "crosstune-web",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  // Production is served only on the custom domain; non-production versions
+  // still get workers.dev preview URLs because Cloudflare treats the two
+  // switches independently.
+  "workers_dev": false,
+  "preview_urls": true,
+  "routes": [{ "pattern": "crosstune.app", "custom_domain": true }],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Only API paths invoke the Worker; every other request is served from the
+    // assets directory without counting against the request quota.
+    "run_worker_first": ["/v1/*"],
+  },
+  "kv_namespaces": [{ "binding": "PREVIEW_API_ORIGINS", "id": "043d121be1454f958d5d85b64b671926" }],
+  "vars": {
+    "WORKER_NAME": "crosstune-web",
+    "API_ORIGIN_PRODUCTION": "https://api.crosstune.app",
+    "API_ORIGIN_DEVELOPMENT": "https://crosstune-development.up.railway.app",
+  },
+}
