@@ -1,9 +1,10 @@
-import { Link } from '@tanstack/react-router'
-import { useCallback, useMemo, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { EmptyState } from '../../components/EmptyState'
 import type { Instrument } from '../../db/types'
 import { useInstruments } from '../settings/useInstruments'
 import { FilterBar } from './FilterBar'
+import { SearchSuggestion } from './SearchSuggestion'
 import { SongCard } from './SongCard'
 import {
   DEFAULT_FILTERS,
@@ -14,6 +15,7 @@ import {
   type CatalogEntry,
   type CatalogFilters,
 } from './filters'
+import { enterAction, searchOutcome } from './searchIntent'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
 
@@ -46,6 +48,8 @@ function Catalog({
   // The search box holds its own state so typing filters immediately instead of
   // waiting on the persisted round trip through the meta table.
   const [query, setQuery] = useState(filters.query)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
 
   const facets = useMemo(() => facetValues(entries), [entries])
   const visibleFacetList = useMemo(() => visibleFacets(facets, instruments), [facets, instruments])
@@ -59,29 +63,56 @@ function Catalog({
   )
   const activeFilters = useMemo(() => ({ ...effectiveFilters, query }), [effectiveFilters, query])
   const visible = useMemo(() => filterCatalog(entries, activeFilters), [entries, activeFilters])
-  const filtering = JSON.stringify(activeFilters) !== JSON.stringify(DEFAULT_FILTERS)
+  const outcome = useMemo(
+    () => searchOutcome(entries, visible, query, effectiveFilters.archived),
+    [entries, visible, query, effectiveFilters.archived],
+  )
+  const filtering =
+    JSON.stringify({ ...effectiveFilters, query: DEFAULT_FILTERS.query }) !==
+    JSON.stringify(DEFAULT_FILTERS)
 
+  // The query stays: it names the song the user is looking for, and clearing the other
+  // filters is what brings a hidden match into view.
   const clearFilters = () => {
-    setQuery(DEFAULT_FILTERS.query)
-    void updateFilters(DEFAULT_FILTERS)
+    void updateFilters({ ...DEFAULT_FILTERS, query })
   }
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault()
+    const action = enterAction(query, visible, outcome)
+    if (action.kind === 'open') {
+      void navigate({ to: '/songs/$id', params: { id: action.songId } })
+    } else if (action.kind === 'create') {
+      void navigate({ to: '/songs/new', search: { title: action.title } })
+    } else {
+      searchRef.current?.blur()
+    }
+  }
+
+  const noSongs = entries.length === 0 && !query.trim()
+  let emptyTitle = noSongs ? 'No songs yet' : 'Nothing matches'
+  if (outcome.kind === 'create') emptyTitle = `No song called "${outcome.title}"`
 
   return (
     <div className="space-y-3">
       <h1 className="sr-only">Catalog</h1>
-      <label className="input w-full">
-        <input
-          type="search"
-          className="grow"
-          placeholder="Search songs"
-          aria-label="Search songs"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            void update({ query: e.target.value })
-          }}
-        />
-      </label>
+      <form role="search" onSubmit={submitSearch}>
+        <label className="input w-full">
+          <input
+            ref={searchRef}
+            type="search"
+            className="grow"
+            placeholder="Search songs"
+            aria-label="Search songs"
+            enterKeyHint="search"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              void update({ query: e.target.value })
+            }}
+          />
+        </label>
+      </form>
       <FilterBar
         filters={effectiveFilters}
         facets={facets}
@@ -90,24 +121,32 @@ function Catalog({
       />
       {visible.length === 0 ? (
         <EmptyState
-          title={entries.length === 0 ? 'No songs yet' : 'Nothing matches'}
-          hint={entries.length === 0 ? 'Add the first tune you know.' : undefined}
+          title={emptyTitle}
+          hint={noSongs ? 'Add the first tune you know.' : undefined}
           action={
-            filtering ? (
-              <button type="button" className="btn btn-sm" onClick={clearFilters}>
-                Clear filters
-              </button>
-            ) : null
+            outcome.kind === 'none' && !filtering ? null : (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <SearchSuggestion outcome={outcome} placement="empty" />
+                {filtering ? (
+                  <button type="button" className="btn btn-sm" onClick={clearFilters}>
+                    Clear filters
+                  </button>
+                ) : null}
+              </div>
+            )
           }
         />
       ) : (
-        <ul className="space-y-2">
-          {visible.map((entry) => (
-            <li key={entry.userSong.id}>
-              <SongCard entry={entry} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {visible.map((entry) => (
+              <li key={entry.userSong.id}>
+                <SongCard entry={entry} />
+              </li>
+            ))}
+          </ul>
+          <SearchSuggestion outcome={outcome} placement="list" />
+        </>
       )}
       <Link
         to="/songs/new"

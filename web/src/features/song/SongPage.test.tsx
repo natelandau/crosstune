@@ -1,15 +1,11 @@
-import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
-import { render, screen, waitFor } from '@testing-library/react'
+import { createMemoryHistory } from '@tanstack/react-router'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AuthProvider } from '../../auth/AuthContext'
 import { createSong } from '../../commands/songs'
-import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
-import { routeTree } from '../../routeTree.gen'
-import { SyncContext } from '../../sync/SyncProvider'
 import { openTestDb } from '../../test/db'
-import { fakeEngine, testSession } from '../../test/render'
+import { renderApp } from '../../test/render'
 
 let db: CrosstuneDb
 let songId: string
@@ -24,17 +20,7 @@ afterEach(async () => {
 })
 
 function renderSongRoute(history = createMemoryHistory({ initialEntries: [`/songs/${songId}`] })) {
-  const router = createRouter({ routeTree, history })
-  const view = render(
-    <AuthProvider value={testSession}>
-      <DbContext.Provider value={db}>
-        <SyncContext.Provider value={fakeEngine()}>
-          <RouterProvider router={router} />
-        </SyncContext.Provider>
-      </DbContext.Provider>
-    </AuthProvider>,
-  )
-  return { router, unmount: view.unmount }
+  return renderApp({ db, history })
 }
 
 describe('SongPage', () => {

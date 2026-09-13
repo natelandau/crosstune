@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Instrument, LocalSong, LocalUserSong } from '../../db/types'
+import type { Instrument } from '../../db/types'
+import { songRow as song, userSongRow as userSong } from '../../test/rows'
 import {
   catalogEntries,
   DEFAULT_FILTERS,
@@ -10,46 +11,6 @@ import {
   normalizeFilters,
   visibleFacets,
 } from './filters'
-
-function song(id: string, title: string, extra: Partial<LocalSong> = {}): LocalSong {
-  return {
-    id,
-    created_at: 't',
-    updated_at: 't',
-    deleted_at: null,
-    server_seq: 0,
-    title,
-    alternate_titles: [],
-    genre: null,
-    feel: null,
-    has_lyrics: null,
-    key: null,
-    mode: null,
-    violin_tuning: null,
-    banjo_tuning: null,
-    part_structure: null,
-    time_signature: null,
-    is_crooked: false,
-    ...extra,
-  }
-}
-
-function userSong(id: string, songId: string, extra: Partial<LocalUserSong> = {}): LocalUserSong {
-  return {
-    id,
-    created_at: 't',
-    updated_at: 't',
-    deleted_at: null,
-    server_seq: 0,
-    song_id: songId,
-    status: 'known',
-    learned_from: null,
-    learned_on: null,
-    notes: null,
-    archived_at: null,
-    ...extra,
-  }
-}
 
 const songs = [
   song('s1', "soldier's joy", {
@@ -95,6 +56,13 @@ describe('filterCatalog', () => {
     expect(
       filterCatalog(entries, { ...DEFAULT_FILTERS, query: 'cluck' }).map((e) => e.song.id),
     ).toEqual(['s2'])
+  })
+
+  it('keeps a title that matches the query exactly apart from accents', () => {
+    const accented = catalogEntries([song('s6', 'Été Waltz')], [userSong('u6', 's6')])
+    expect(
+      filterCatalog(accented, { ...DEFAULT_FILTERS, query: 'ete waltz' }).map((e) => e.song.id),
+    ).toEqual(['s6'])
   })
 
   it('filters by status and facets', () => {

@@ -1,5 +1,6 @@
 import {
   createMemoryHistory,
+  type RouterHistory,
   createRootRoute,
   createRoute,
   createRouter,
@@ -11,6 +12,7 @@ import type { ReactElement } from 'react'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
+import { routeTree } from '../routeTree.gen'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
 
@@ -60,4 +62,31 @@ export function renderWithProviders(
     history: createMemoryHistory({ initialEntries: [path] }),
   })
   return render(<RouterProvider router={router} />)
+}
+
+/** Renders the real route tree, for tests that navigate between screens. */
+export function renderApp({
+  db,
+  path = '/',
+  history = createMemoryHistory({ initialEntries: [path] }),
+  engine = fakeEngine(),
+  session = testSession,
+}: {
+  db: CrosstuneDb
+  path?: string
+  history?: RouterHistory
+  engine?: SyncEngine
+  session?: AuthSession
+}) {
+  const router = createRouter({ routeTree, history })
+  const view = render(
+    <AuthProvider value={session}>
+      <DbContext.Provider value={db}>
+        <SyncContext.Provider value={engine}>
+          <RouterProvider router={router} />
+        </SyncContext.Provider>
+      </DbContext.Provider>
+    </AuthProvider>,
+  )
+  return { router, unmount: view.unmount }
 }

@@ -13,6 +13,7 @@ import {
 } from '../../db/types'
 import { isSongStatus } from '../catalog/StatusBadge'
 import { TUNING_FIELDS, visibleTunings } from '../settings/instruments'
+import { SONG_LIMITS } from './limits'
 import { StatusPicker } from './StatusPicker'
 import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNING_SUGGESTIONS } from './suggestions'
 
@@ -86,19 +87,6 @@ export function valuesFromRows(song: LocalSong, userSong: LocalUserSong): SongFo
     notes: userSong.notes ?? '',
   }
 }
-
-// The server's row schema limits, so a long entry is stopped here instead of rejected on push.
-const LIMITS = {
-  title: 200,
-  key: 10,
-  violin_tuning: 100,
-  banjo_tuning: 100,
-  genre: 100,
-  feel: 100,
-  part_structure: 100,
-  learned_from: 200,
-  notes: 20_000,
-} as const
 
 const blankToNull = (value: string): string | null => (value.trim() ? value.trim() : null)
 
@@ -256,7 +244,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
         name="title"
         value={values.title}
         onChange={(v) => set('title', v)}
-        maxLength={LIMITS.title}
+        maxLength={SONG_LIMITS.title}
       />
       <TextField
         label="Alternate titles"
@@ -270,7 +258,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           name="key"
           value={values.key}
           onChange={(v) => set('key', v)}
-          maxLength={LIMITS.key}
+          maxLength={SONG_LIMITS.key}
           suggestions={KEYS}
         />
         <SelectField
@@ -287,7 +275,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           name={field}
           value={values[field]}
           onChange={(v) => set(field, v)}
-          maxLength={LIMITS[field]}
+          maxLength={SONG_LIMITS[field]}
           suggestions={TUNING_SUGGESTIONS[field]}
         />
       ))}
@@ -297,7 +285,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           name="genre"
           value={values.genre}
           onChange={(v) => set('genre', v)}
-          maxLength={LIMITS.genre}
+          maxLength={SONG_LIMITS.genre}
           suggestions={GENRES}
         />
         <TextField
@@ -305,7 +293,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           name="feel"
           value={values.feel}
           onChange={(v) => set('feel', v)}
-          maxLength={LIMITS.feel}
+          maxLength={SONG_LIMITS.feel}
           suggestions={FEELS}
         />
       </div>
@@ -321,7 +309,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           name="part_structure"
           value={values.part_structure}
           onChange={(v) => set('part_structure', v)}
-          maxLength={LIMITS.part_structure}
+          maxLength={SONG_LIMITS.part_structure}
           suggestions={PART_STRUCTURES}
         />
       </div>
@@ -352,7 +340,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           name="learned_from"
           value={values.learned_from}
           onChange={(v) => set('learned_from', v)}
-          maxLength={LIMITS.learned_from}
+          maxLength={SONG_LIMITS.learned_from}
         />
         <TextField
           label="Learned on"
@@ -368,7 +356,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           className="textarea w-full"
           aria-label="Notes"
           rows={4}
-          maxLength={LIMITS.notes}
+          maxLength={SONG_LIMITS.notes}
           value={values.notes}
           onChange={(e) => set('notes', e.target.value)}
         />
