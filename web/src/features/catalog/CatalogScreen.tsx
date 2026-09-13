@@ -1,12 +1,16 @@
 import { Link } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { EmptyState } from '../../components/EmptyState'
+import type { Instrument } from '../../db/types'
+import { useInstruments } from '../settings/useInstruments'
 import { FilterBar } from './FilterBar'
 import { SongCard } from './SongCard'
 import {
   DEFAULT_FILTERS,
   facetValues,
   filterCatalog,
+  hiddenResets,
+  visibleFacets,
   type CatalogEntry,
   type CatalogFilters,
 } from './filters'
@@ -16,29 +20,45 @@ import { useCatalogFilters } from './useCatalogFilters'
 export function CatalogScreen() {
   const entries = useCatalog()
   const [filters, updateFilters] = useCatalogFilters()
-  if (filters === undefined) return null
-  return <Catalog entries={entries} filters={filters} updateFilters={updateFilters} />
+  const instruments = useInstruments()
+  if (entries === undefined || filters === undefined || instruments === undefined) return null
+  return (
+    <Catalog
+      entries={entries}
+      filters={filters}
+      instruments={instruments}
+      updateFilters={updateFilters}
+    />
+  )
 }
 
 function Catalog({
   entries,
   filters,
+  instruments,
   updateFilters,
 }: {
-  entries: CatalogEntry[] | undefined
+  entries: CatalogEntry[]
   filters: CatalogFilters
+  instruments: ReadonlySet<Instrument>
   updateFilters: (patch: Partial<CatalogFilters>) => Promise<void>
 }) {
   // The search box holds its own state so typing filters immediately instead of
   // waiting on the persisted round trip through the meta table.
   const [query, setQuery] = useState(filters.query)
 
-  const activeFilters = useMemo(() => ({ ...filters, query }), [filters, query])
-  const facets = useMemo(() => facetValues(entries ?? []), [entries])
-  const visible = useMemo(
-    () => filterCatalog(entries ?? [], activeFilters),
-    [entries, activeFilters],
+  const facets = useMemo(() => facetValues(entries), [entries])
+  const visibleFacetList = useMemo(() => visibleFacets(facets, instruments), [facets, instruments])
+  // A facet the bar does not show must not narrow the list, whatever storage holds, and
+  // every write forgets it so re-enabling the instrument later does not resurrect it.
+  const resets = useMemo(() => hiddenResets(visibleFacetList), [visibleFacetList])
+  const effectiveFilters = useMemo(() => ({ ...filters, ...resets }), [filters, resets])
+  const update = useCallback(
+    (patch: Partial<CatalogFilters>) => updateFilters({ ...resets, ...patch }),
+    [resets, updateFilters],
   )
+  const activeFilters = useMemo(() => ({ ...effectiveFilters, query }), [effectiveFilters, query])
+  const visible = useMemo(() => filterCatalog(entries, activeFilters), [entries, activeFilters])
   const filtering = JSON.stringify(activeFilters) !== JSON.stringify(DEFAULT_FILTERS)
 
   const clearFilters = () => {
@@ -58,16 +78,17 @@ function Catalog({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
-            void updateFilters({ query: e.target.value })
+            void update({ query: e.target.value })
           }}
         />
       </label>
       <FilterBar
-        filters={filters}
+        filters={effectiveFilters}
         facets={facets}
-        onChange={(patch) => void updateFilters(patch)}
+        visible={visibleFacetList}
+        onChange={(patch) => void update(patch)}
       />
-      {entries === undefined ? null : visible.length === 0 ? (
+      {visible.length === 0 ? (
         <EmptyState
           title={entries.length === 0 ? 'No songs yet' : 'Nothing matches'}
           hint={entries.length === 0 ? 'Add the first tune you know.' : undefined}

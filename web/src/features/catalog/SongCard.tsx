@@ -3,7 +3,9 @@ import { StatusBadge } from './StatusBadge'
 import type { CatalogEntry } from './filters'
 
 export function SongCard({ entry: { song, userSong } }: { entry: CatalogEntry }) {
-  const facets = [song.mode, song.tuning, song.feel].filter(Boolean).join(' · ')
+  const facets = [song.mode, song.violin_tuning, song.banjo_tuning, song.feel]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <Link
       to="/songs/$id"
