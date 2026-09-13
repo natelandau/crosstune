@@ -35,7 +35,8 @@
               "user_songs",
               "lists",
               "list_items",
-              "recording_links"
+              "recording_links",
+              "user_settings"
             ],
             "title": "Table",
             "type": "string"
@@ -423,6 +424,7 @@
                   "lists": "#/components/schemas/ListPullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
                   "songs": "#/components/schemas/SongPullRow",
+                  "user_settings": "#/components/schemas/UserSettingsPullRow",
                   "user_songs": "#/components/schemas/UserSongPullRow"
                 },
                 "propertyName": "table"
@@ -442,6 +444,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLinkPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/UserSettingsPullRow"
                 }
               ]
             },
@@ -486,6 +491,7 @@
                   "lists": "#/components/schemas/ListChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
                   "songs": "#/components/schemas/SongChangeResult",
+                  "user_settings": "#/components/schemas/UserSettingsChangeResult",
                   "user_songs": "#/components/schemas/UserSongChangeResult"
                 },
                 "propertyName": "table"
@@ -505,6 +511,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLinkChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/UserSettingsChangeResult"
                 }
               ]
             },
@@ -865,6 +874,18 @@
             "title": "Alternate Titles",
             "type": "array"
           },
+          "banjo_tuning": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banjo Tuning"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -995,7 +1016,12 @@
             "title": "Title",
             "type": "string"
           },
-          "tuning": {
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "violin_tuning": {
             "anyOf": [
               {
                 "maxLength": 100,
@@ -1005,12 +1031,7 @@
                 "type": "null"
               }
             ],
-            "title": "Tuning"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
+            "title": "Violin Tuning"
           }
         },
         "required": [
@@ -1023,6 +1044,136 @@
           "owner_user_id"
         ],
         "title": "SongRow",
+        "type": "object"
+      },
+      "UserSettingsChangeResult": {
+        "description": "The outcome of one change to a user's settings.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserSettingsRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "user_settings",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "UserSettingsChangeResult",
+        "type": "object"
+      },
+      "UserSettingsPullRow": {
+        "description": "A settings row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/UserSettingsRow"
+          },
+          "table": {
+            "const": "user_settings",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "UserSettingsPullRow",
+        "type": "object"
+      },
+      "UserSettingsRow": {
+        "description": "A stored settings row, as push and pull return it.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruments": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "user_id"
+        ],
+        "title": "UserSettingsRow",
         "type": "object"
       },
       "UserSongChangeResult": {

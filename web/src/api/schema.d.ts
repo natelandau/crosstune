@@ -111,7 +111,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "songs" | "user_songs" | "lists" | "list_items" | "recording_links";
+            table: "songs" | "user_songs" | "lists" | "list_items" | "recording_links" | "user_settings";
             /**
              * Updated At
              * Format: date-time
@@ -318,7 +318,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["SongPullRow"] | components["schemas"]["UserSongPullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"])[];
+            rows: (components["schemas"]["SongPullRow"] | components["schemas"]["UserSongPullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
         };
         /**
          * PushRequest
@@ -334,7 +334,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["SongChangeResult"] | components["schemas"]["UserSongChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"])[];
+            results: (components["schemas"]["SongChangeResult"] | components["schemas"]["UserSongChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
         };
         /**
          * RecordingLinkChangeResult
@@ -494,6 +494,8 @@ export interface components {
              * @default []
              */
             alternate_titles: string[];
+            /** Banjo Tuning */
+            banjo_tuning?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -531,13 +533,84 @@ export interface components {
             time_signature?: string | null;
             /** Title */
             title: string;
-            /** Tuning */
-            tuning?: string | null;
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
+            /** Violin Tuning */
+            violin_tuning?: string | null;
+        };
+        /**
+         * UserSettingsChangeResult
+         * @description The outcome of one change to a user's settings.
+         */
+        UserSettingsChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["UserSettingsRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "user_settings";
+        };
+        /**
+         * UserSettingsPullRow
+         * @description A settings row in a pull page.
+         */
+        UserSettingsPullRow: {
+            row: components["schemas"]["UserSettingsRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "user_settings";
+        };
+        /**
+         * UserSettingsRow
+         * @description A stored settings row, as push and pull return it.
+         */
+        UserSettingsRow: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Instruments
+             * @default []
+             */
+            instruments: string[];
+            /** Server Seq */
+            server_seq: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * UserSongChangeResult
