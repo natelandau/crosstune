@@ -9,27 +9,29 @@ the stack, read `docs/PRODUCT.md`.
 
 ## The systems
 
-Crosstune is two deployables and five hosted services.
+Crosstune is two deployables and six hosted services.
 
 ```
                  GitHub (source, CI)
                   |              |
-       push to main under web/   push to main under api/
+       push under web/      push under api/, pull request events
                   |              |
                   v              v
    +-------------------+     +-------------------+      +-------------+
-   | Cloudflare Pages  |     | Railway           |      | Neon        |
-   | static web client |     | API container     |<---->| Postgres    |
+   | Cloudflare Worker |     | Railway           |      | Neon        |
+   | web client assets |---->| API container     |<---->| Postgres    |
+   | /v1 proxy, KV     |     | one env per PR    |      | branch/PR   |
    +-------------------+     +-------------------+      +-------------+
-            |                  ^      |     ^
-   app shell, assets           |      |     | jwks.json, user.deleted webhook
-            v                  |      |     v
-   +-------------------+       |      |  +-------------+
-   | Browser           |-------+      |  | Clerk       |
-   | React app         | JSON over    |  | sign-in     |
-   | IndexedDB, outbox | HTTPS with   |  +-------------+
-   | service worker    | a Clerk JWT  |         ^
-   +-------------------+              |         | sign-in UI, session, token
+            ^                         |     ^
+   app shell, assets,                 |     | jwks.json, user.deleted webhook
+   /v1 JSON with a Clerk JWT          |     v
+            |                         |  +-------------+
+   +-------------------+              |  | Clerk       |
+   | Browser           |              |  | sign-in     |
+   | React app         |              |  +-------------+
+   | IndexedDB, outbox |              |         ^
+   | service worker    |              |         | sign-in UI, session, token
+   +-------------------+              |         |
             |                         |         |
             +-------------------------+---------+
             |                         |
@@ -41,25 +43,37 @@ Crosstune is two deployables and five hosted services.
    +-------------------+     +-----------------------------+
 ```
 
-| System           | What it does                                                               | Needs                              |
-| ---------------- | -------------------------------------------------------------------------- | ---------------------------------- |
-| Web client       | The app the musician uses. Reads and writes a local copy of the catalog.   | Pages, Clerk, API                  |
-| API              | Owns the schema, the sync protocol, ownership rules, and link metadata.    | Neon, Clerk public keys, providers |
-| Neon             | Stores every catalog. One database per environment.                        | Nothing                            |
-| Clerk            | Signs users in and issues the tokens the API verifies.                     | Cloudflare DNS for its hostnames   |
-| Cloudflare Pages | Builds and serves the web client. Terminates HTTPS for the product domain. | GitHub                             |
-| Railway          | Builds and runs the API container. Terminates HTTPS for the API domain.    | GitHub, Neon                       |
-| Sentry           | Receives errors from the web client and the API.                           | Nothing                            |
-| GitHub           | Holds the source and runs the checks. The hosts deploy from it.            | Nothing                            |
+| System     | What it does                                                                                         | Needs                              |
+| ---------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Web client | The app the musician uses. Reads and writes a local copy of the catalog.                             | Worker, Clerk, API                 |
+| API        | Owns the schema, the sync protocol, ownership rules, and link metadata.                              | Neon, Clerk public keys, providers |
+| Neon       | Stores every catalog. One database per environment.                                                  | Nothing                            |
+| Clerk      | Signs users in and issues the tokens the API verifies.                                               | Cloudflare DNS for its hostnames   |
+| Cloudflare | Builds and serves the web client, proxies `/v1` to the API, terminates HTTPS for the product domain. | GitHub, Railway                    |
+| Railway    | Builds and runs the API container. Terminates HTTPS for the API domain.                              | GitHub, Neon                       |
+| Sentry     | Receives errors from the web client and the API.                                                     | Nothing                            |
+| GitHub     | Holds the source and runs the checks. The hosts deploy from it.                                      | Nothing                            |
 
-Cloudflare also hosts the DNS zone for the product domain. The Pages site,
-the API hostname, and the Clerk hostnames are all records in that zone.
+Cloudflare also hosts the DNS zone for the product domain. The Worker's custom
+domain, the API hostname, and the Clerk hostnames are all records in that
+zone.
 
 ## The web client
 
-The web client is a single-page React application. Pages builds it from
-`web/` with Vite and serves the output as static files. There is no server
-side rendering and no server code in the client.
+The web client is a single-page React application. Workers Builds builds it
+from `web/` with Vite and uploads the output as the static assets of a Worker
+named `crosstune-web`. The Worker itself is two small files under
+`web/worker/`: the fetch handler and the origin selection. It runs only
+for `/v1/*` requests and proxies them to the API, keeping the path, query,
+method, headers, and body and dropping the site's cookie. Every other path
+is served from the assets without running code, and a path that matches no
+file gets `index.html`, so a client route loads directly.
+
+The Worker chooses the API from the request hostname. The custom domain goes
+to the production API. A `workers.dev` preview hostname carries the branch
+alias, and the Worker looks that alias up in a KV namespace to find the pull
+request's own API. No entry, or a failed read, means the development API. So
+the client never knows an API origin; it always calls `/v1` on its own origin.
 
 The client keeps a full copy of the user's catalog in IndexedDB, through
 Dexie. The screens read only that copy, through live queries. A user action
@@ -74,10 +88,10 @@ while the outbox holds unsent changes, so no edit is lost with it.
 A service worker precaches the app shell, the scripts, the styles, the icons,
 and the fonts. The router ships as one bundle, so an offline reload never
 needs a chunk the shell did not load. Responses from the API are never cached
-and never fall back to the shell. The `_headers` file makes Pages serve the
-service worker and the manifest with `no-cache`. A new build therefore
-reaches an installed app on its next load. The same file marks the hashed
-assets immutable for a year.
+and never fall back to the shell. The `_headers` file makes the assets layer
+serve the service worker and the manifest with `no-cache`. A new build
+therefore reaches an installed app on its next load. The same file marks the
+hashed assets immutable for a year.
 
 The client sends every error the sync engine meets to the `crosstune-web`
 Sentry project, once per failure streak. It also reports each change the
@@ -122,9 +136,12 @@ that commitizen maintains.
 The API writes JSON log lines to standard output. Railway's log explorer
 indexes the fields. There is no separate log drain.
 
-Cross-origin requests are allowed from the product origin in production, and
-from the local origins plus the Pages preview hostnames in development. The
-same two lists govern which token audiences the API accepts.
+The API has no CORS configuration. Every browser client reaches it on the
+client's own origin, through the Vite proxy locally and the Worker when
+hosted, and a native client sends no `Origin` header. The token audience check
+still lists the allowed client origins: the product origin in production, and
+the local origins plus a regex for the `workers.dev` preview hostnames in
+development and in every pull request environment.
 
 ## The database
 
@@ -232,11 +249,23 @@ GitHub holds the source, and both hosts deploy from it. Every commit that
 lands on `main` is deployed. There is no release branch, no promotion step,
 and no batching.
 
-- Railway builds the API service in both of its environments on a push to
-  `main` that touches a file under `api/`.
-- Pages builds the production site on a push to `main` that touches a file
-  under `web/`. It builds a preview site for every other branch, at a
-  hostname derived from the branch name.
+- Railway builds the API service in the `production` and `development`
+  environments on a push to `main` that touches a file under `api/`. A pull
+  request environment follows its PR branch instead and rebuilds on every push
+  to it.
+- Workers Builds builds the web client on every push under `web/`. A push to
+  `main` deploys production. A push to any other branch uploads a version
+  under the branch's alias, at
+  `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`, and Workers
+  Builds comments the URL on the pull request.
+- The `Preview` workflow gives each pull request its own API and database.
+  When a PR opens, it creates a Neon branch `pr-<number>` from the development
+  database, creates a Railway environment `pr-<number>` copied from
+  `development` with that branch as its database and the PR branch as its
+  source, reads the environment's generated hostname, and stores it in KV under
+  the branch alias. On every push it resets the Neon branch to its parent, so
+  each build migrates a clean copy of the development data and test data
+  entered in the preview is lost. When the PR closes, it deletes all three.
 
 GitHub Actions runs on every pull request and on every push to `main`. The
 `API` workflow lints, type checks, tests against a real Postgres 18, and
@@ -257,34 +286,39 @@ becomes the Sentry release tag for its side. Tags trigger nothing.
 
 ## Environments
 
-| Environment | API                         | Database           | Clerk instance | Web client                        |
-| ----------- | --------------------------- | ------------------ | -------------- | --------------------------------- |
-| Local       | uvicorn on port 8000        | Postgres in Docker | Development    | Vite dev server, proxies `/v1`    |
-| Development | Railway, generated hostname | Neon development   | Development    | Pages preview sites               |
-| Production  | Railway, `api.<domain>`     | Neon production    | Production     | Pages production site, `<domain>` |
+| Environment  | API                         | Database             | Clerk instance | Web client                                |
+| ------------ | --------------------------- | -------------------- | -------------- | ----------------------------------------- |
+| Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`            |
+| Development  | Railway, generated hostname | Neon development     | Development    | Worker previews without a KV entry        |
+| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` |
+| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                      |
 
 The development and production API services run the same commit. They differ
-only in their variables. Locally, the Vite dev server proxies `/v1` to the
-API on the same origin, so no CORS is involved.
+only in their variables. A pull request environment runs the PR branch with
+the development variables and its own database. In every environment the
+client reaches the API on its own origin.
 
 Sentry receives events from both hosted environments in both projects. Each
-event carries an environment tag of `production` or `development`.
+event carries an environment tag of `production` or `development`, except
+the API in a pull request environment, which tags its events `pr-<number>`
+because `CROSSTUNE_ENVIRONMENT` is set per environment; the web preview
+still tags `development`.
 
 ## When a system is unavailable
 
 Each row describes what a musician sees when one system is down and the
 others are up.
 
-| Unavailable          | Effect                                                                                                          |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.              |
-| Cloudflare Pages     | An installed app loads from the service worker. A first visit fails.                                            |
-| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail. |
-| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.       |
-| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                      |
-| A streaming provider | A pasted link is saved without a title. Playback of an existing YouTube link fails until YouTube returns.       |
-| Sentry               | Nothing visible. Errors are dropped.                                                                            |
-| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                      |
+| Unavailable          | Effect                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                         |
+| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails. |
+| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.            |
+| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                  |
+| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                 |
+| A streaming provider | A pasted link is saved without a title. Playback of an existing YouTube link fails until YouTube returns.                  |
+| Sentry               | Nothing visible. Errors are dropped.                                                                                       |
+| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                 |
 
 ## Hosting reference
 
@@ -293,20 +327,24 @@ Railway's `railway.json` config files are deprecated, and a service created
 after 2026-08-28 cannot use them, so the dashboards are the source of truth.
 Values pass between hosts as follows.
 
-| Value                                                     | Produced by    | Consumed by                   |
-| --------------------------------------------------------- | -------------- | ----------------------------- |
-| Neon production and development connection strings        | Neon           | Railway                       |
-| `crosstune-api` and `crosstune-web` DSNs                  | Sentry         | Railway, Pages                |
-| Clerk development issuer, publishable key, and secret key | Clerk          | Railway, Pages, GitHub        |
-| Clerk production issuer and publishable key               | Clerk          | Railway, Pages                |
-| Clerk webhook signing secrets, one per instance           | Clerk          | Railway                       |
-| Railway development hostname                              | Railway        | Clerk webhooks, Pages preview |
-| Pages subdomain (`<pages-subdomain>.pages.dev`)           | Pages          | Railway development regexes   |
-| CNAME targets for `api.<domain>` and the Clerk hostnames  | Railway, Clerk | Cloudflare DNS                |
+| Value                                                     | Produced by    | Consumed by                          |
+| --------------------------------------------------------- | -------------- | ------------------------------------ |
+| Neon production and development connection strings        | Neon           | Railway                              |
+| Neon development project ID and database role             | Neon           | GitHub                               |
+| `crosstune-api` and `crosstune-web` DSNs                  | Sentry         | Railway, Workers Builds              |
+| Clerk development issuer, publishable key, and secret key | Clerk          | Railway, Workers Builds, GitHub      |
+| Clerk production issuer and publishable key               | Clerk          | Railway, Workers Builds              |
+| Clerk webhook signing secrets, one per instance           | Clerk          | Railway                              |
+| Railway development hostname                              | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
+| Railway project, development environment, and service IDs | Railway        | GitHub                               |
+| `workers.dev` subdomain                                   | Cloudflare     | Railway development regex            |
+| KV namespace ID                                           | Cloudflare     | `web/wrangler.jsonc`, GitHub         |
+| Cloudflare account ID                                     | Cloudflare     | GitHub                               |
+| CNAME targets for `api.<domain>` and the Clerk hostnames  | Railway, Clerk | Cloudflare DNS                       |
 
 A rebuild from nothing works through the hosts in the order Neon, Sentry,
-Clerk, Railway, Pages, GitHub, then the smoke check. It returns to Clerk for
-the webhooks once Railway has hostnames.
+Clerk, Railway, Cloudflare, GitHub, then the smoke check. It returns to Clerk
+for the webhooks once Railway has hostnames.
 
 ### Neon
 
@@ -391,6 +429,17 @@ GitHub workflows for that commit pass. The pre-deploy command runs from the
 image's working directory, where `alembic.ini` sits, with the service
 variables, so it reaches the database the same way the API does.
 
+A pull request environment is a third kind, named `pr-<number>`. The `Preview`
+workflow creates it with the Railway CLI, as a copy of `development`, on the
+first run that finds it missing, then overrides two variables and one
+setting: `CROSSTUNE_DATABASE_URL` is the Neon branch's direct connection
+string, `CROSSTUNE_ENVIRONMENT` is `pr-<number>`, and the service's branch is
+the PR branch. Railway generates a public domain for it, and the workflow
+reads that domain back. The workflow deletes the environment when the PR
+closes. The account token it uses must belong to an account without
+two-factor authentication, because the CLI cannot answer the prompt and the
+delete hangs.
+
 Production variables:
 
 | Variable                             | Value                              |
@@ -400,92 +449,94 @@ Production variables:
 | `CROSSTUNE_DATABASE_URL`             | Neon production string, as printed |
 | `CROSSTUNE_CLERK_ISSUER`             | `https://clerk.<domain>`           |
 | `CROSSTUNE_CLERK_AUTHORIZED_PARTIES` | `["https://<domain>"]`             |
-| `CROSSTUNE_CORS_ORIGINS`             | `["https://<domain>"]`             |
 | `CROSSTUNE_CLERK_WEBHOOK_SECRET`     | Production endpoint signing secret |
 | `CROSSTUNE_SENTRY_DSN`               | `crosstune-api` DSN                |
 
 Development variables:
 
-| Variable                                 | Value                                                 |
-| ---------------------------------------- | ----------------------------------------------------- |
-| `CROSSTUNE_ENVIRONMENT`                  | `development`                                         |
-| `CROSSTUNE_DEBUG`                        | `false`                                               |
-| `CROSSTUNE_DATABASE_URL`                 | Neon development string, as printed                   |
-| `CROSSTUNE_CLERK_ISSUER`                 | `https://<slug>.clerk.accounts.dev`                   |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["http://localhost:5173","http://localhost:4173"]`   |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | `^https://[a-z0-9-]+\.<pages-subdomain>\.pages\.dev$` |
-| `CROSSTUNE_CORS_ORIGINS`                 | `["http://localhost:5173","http://localhost:4173"]`   |
-| `CROSSTUNE_CORS_ORIGIN_REGEX`            | `^https://[a-z0-9-]+\.<pages-subdomain>\.pages\.dev$` |
-| `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Development endpoint signing secret                   |
-| `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                                   |
+| Variable                                 | Value                                                                   |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| `CROSSTUNE_ENVIRONMENT`                  | `development`                                                           |
+| `CROSSTUNE_DEBUG`                        | `false`                                                                 |
+| `CROSSTUNE_DATABASE_URL`                 | Neon development string, as printed                                     |
+| `CROSSTUNE_CLERK_ISSUER`                 | `https://<slug>.clerk.accounts.dev`                                     |
+| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["http://localhost:5173","http://localhost:4173"]`                     |
+| `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | `^https://[a-z0-9-]+-crosstune-web\.<workers-subdomain>\.workers\.dev$` |
+| `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Development endpoint signing secret                                     |
+| `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                                                     |
 
-The two regex values write the Pages subdomain literally, hyphen included.
-A subdomain of `crosstune-1dw` gives
-`^https://[a-z0-9-]+\.crosstune-1dw\.pages\.dev$`.
+The regex writes the account's `workers.dev` subdomain literally. A subdomain
+of `acme` gives `^https://[a-z0-9-]+-crosstune-web\.acme\.workers\.dev$`. It
+admits every preview alias and every version preview of the Worker, and a PR
+environment inherits it from the copy.
 
-### Cloudflare Pages
+### Cloudflare Workers
 
-One Pages project, `crosstune`, connected to the GitHub repository with the
-production branch `main`. Project names are unique across Cloudflare, so the
-subdomain carries a suffix when the name is taken, such as `crosstune-1dw`.
-Every preview deployment lives at `<branch>.<pages-subdomain>.pages.dev`.
+One Worker, `crosstune-web`, connected to the GitHub repository through
+Workers Builds with the production branch `main`. The configuration that
+Cloudflare reads from the repository is `web/wrangler.jsonc`: the entry point
+`worker/index.ts`, the assets directory `dist` with the single-page fallback
+and `run_worker_first` limited to `/v1/*`, the custom domain route, the KV
+binding `PREVIEW_API_ORIGINS`, and three runtime variables, `WORKER_NAME`,
+`API_ORIGIN_PRODUCTION`, and `API_ORIGIN_DEVELOPMENT`. The product domain and
+the Railway development hostname are literal in that file because the runtime
+needs them and both are public in DNS already.
 
-> **Note:** The dashboard's Create application page opens on Workers, and its
-> Import a repository button creates a Worker. The Pages flow is behind the
-> link labeled "Need to use the legacy Pages workflow?". Cloudflare calls
-> Pages legacy and steers new projects toward Workers. The preview hostnames,
-> the `_headers` file, and the single-page fallback all rely on Pages, so a
-> move to Workers is a design change and sits on the backlog.
+`workers_dev` is off and `preview_urls` is on. The bare
+`crosstune-web.<workers-subdomain>.workers.dev` hostname serves nothing, and
+every non-production version gets a preview URL. The deploy command for a
+non-production branch passes `--preview-alias` with the slug that
+`web/scripts/branch-slug.mjs` prints, so a branch has one stable URL across
+pushes: `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`.
+Cloudflare keeps the newest thousand aliases; nothing retires them.
 
-| Build setting          | Value        |
-| ---------------------- | ------------ |
-| Framework preset       | None         |
-| Build command          | `pnpm build` |
-| Build output directory | `dist`       |
-| Root directory         | `web`        |
-| Build watch paths      | `web/*`      |
+| Build setting                        | Value                 |
+| ------------------------------------ | --------------------- |
+| Root directory                       | `web`                 |
+| Build command                        | `pnpm build:hosted`   |
+| Deploy command                       | `npx wrangler deploy` |
+| Non-production branch deploy command | `pnpm deploy:preview` |
+| Build watch paths                    | `web/*`               |
+| Builds for non-production branches   | On                    |
 
-Pages reads the Node version from `web/.node-version`, the same file the
-GitHub workflows read, so Node needs no variable. Pages ignores the
-`packageManager` field and cannot read a pnpm 12 lockfile with its default
-pnpm, so `PNPM_VERSION` is set in both environments. A stale value fails the
-next build on the lockfile version and leaves the previous deployment
-serving.
+Build variables, shared by every branch:
 
-Production variables:
+| Variable                            | Value               |
+| ----------------------------------- | ------------------- |
+| `CLERK_PUBLISHABLE_KEY_PRODUCTION`  | `pk_live_...`       |
+| `CLERK_PUBLISHABLE_KEY_DEVELOPMENT` | `pk_test_...`       |
+| `VITE_SENTRY_DSN`                   | `crosstune-web` DSN |
+| `PNPM_VERSION`                      | `12.4.1`            |
 
-| Variable                     | Value                  |
-| ---------------------------- | ---------------------- |
-| `VITE_API_URL`               | `https://api.<domain>` |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_live_...`          |
-| `VITE_SENTRY_DSN`            | `crosstune-web` DSN    |
-| `VITE_SENTRY_ENVIRONMENT`    | `production`           |
-| `PNPM_VERSION`               | `12.4.1`               |
+`web/scripts/hosted-build.sh` picks the Clerk key and sets
+`VITE_SENTRY_ENVIRONMENT` from the branch: `main` gets the production key and
+`production`, every other branch the development key and `development`.
+Workers Builds reads the Node version from `web/.node-version`. It ignores
+the `packageManager` field, so `PNPM_VERSION` must match it; a stale value
+fails the next build on the lockfile version.
 
-Preview variables:
+The KV namespace `crosstune-preview-api` holds one key per preview alias whose
+value is the pull request's API origin, `https://<railway hostname>`. The
+`Preview` workflow writes and deletes the keys with `wrangler kv key`. The
+Worker reads them at request time. A missing key means the development API.
 
-| Variable                     | Value                          |
-| ---------------------------- | ------------------------------ |
-| `VITE_API_URL`               | `https://<railway-dev-domain>` |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_...`                  |
-| `VITE_SENTRY_DSN`            | `crosstune-web` DSN            |
-| `VITE_SENTRY_ENVIRONMENT`    | `development`                  |
-| `PNPM_VERSION`               | `12.4.1`                       |
+On the Worker's Domains tab, the Worker URL rows carry two toggles. The
+production `workers.dev` toggle is off and the preview toggle is on; a branch
+upload never changes them, and previews return a 404 while the preview
+toggle is off. The custom domain `<domain>` is attached on the same tab and
+Cloudflare manages its DNS record and certificate. The Clerk production
+instance is bound to that domain. `web/public/_headers` ships in the assets
+directory and sets `X-Content-Type-Options`, `X-Frame-Options`, and
+`Referrer-Policy` on every response, plus `no-cache` on the service worker and
+the manifest.
 
-A saved variable applies to builds that start after it. Pages has no build
-button, so a change takes effect on a retry of the most recent deployment
-or on the next push.
-
-The custom domain `<domain>` is attached to the Pages project, and Cloudflare
-creates its DNS record. The Clerk production instance is bound to that
-domain. `web/public/_headers` sets `X-Content-Type-Options`,
-`X-Frame-Options`, and `Referrer-Policy` on every response. The project has
-no `404.html`, so Pages serves `index.html` for any path that matches no
-file, which is what lets a client-side route load directly.
+The API token the workflow uses has one permission, Workers KV Storage Edit,
+on this account only.
 
 ### Cloudflare zone
 
-The zone for `<domain>` holds the DNS records for Pages, the API, and Clerk.
+The zone for `<domain>` holds the DNS records for the Worker, the API, and
+Clerk.
 Every record that Railway or Clerk validates has the proxy off. Under
 SSL/TLS, Always Use HTTPS is on and the encryption mode is Full (strict).
 HTTP Strict Transport Security is on with these settings: a max age of six
@@ -501,19 +552,29 @@ later drops HTTPS is unreachable until the max age expires.
 
 Actions variables:
 
-| Variable                | Value                  |
-| ----------------------- | ---------------------- |
-| `PRODUCTION_API_ORIGIN` | `https://api.<domain>` |
-| `PRODUCTION_WEB_ORIGIN` | `https://<domain>`     |
-| `CLERK_ISSUER`          | The development issuer |
+| Variable                     | Value                                         |
+| ---------------------------- | --------------------------------------------- |
+| `PRODUCTION_API_ORIGIN`      | `https://api.<domain>`                        |
+| `PRODUCTION_WEB_ORIGIN`      | `https://<domain>`                            |
+| `CLERK_ISSUER`               | The development issuer                        |
+| `NEON_PROJECT_ID`            | The `crosstune-development` project ID        |
+| `NEON_DATABASE_ROLE`         | The role in the development connection string |
+| `RAILWAY_PROJECT_ID`         | The `crosstune` project ID                    |
+| `RAILWAY_DEV_ENVIRONMENT_ID` | The `development` environment ID              |
+| `RAILWAY_API_SERVICE_ID`     | The `api` service ID                          |
+| `CLOUDFLARE_ACCOUNT_ID`      | The account ID                                |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | The `crosstune-preview-api` namespace ID      |
 
-Actions secrets, used only by the `E2E` workflow:
+Actions secrets:
 
-| Secret                       | Value                                                       |
-| ---------------------------- | ----------------------------------------------------------- |
-| `CLERK_SECRET_KEY`           | The development instance's `sk_test_...` key                |
-| `VITE_CLERK_PUBLISHABLE_KEY` | The development instance's `pk_test_...` key                |
-| `E2E_CLERK_USER_EMAIL`       | The email of a user that exists in the development instance |
+| Secret                       | Used by   | Value                                                       |
+| ---------------------------- | --------- | ----------------------------------------------------------- |
+| `CLERK_SECRET_KEY`           | `E2E`     | The development instance's `sk_test_...` key                |
+| `VITE_CLERK_PUBLISHABLE_KEY` | `E2E`     | The development instance's `pk_test_...` key                |
+| `E2E_CLERK_USER_EMAIL`       | `E2E`     | The email of a user that exists in the development instance |
+| `NEON_API_KEY`               | `Preview` | A Neon API key                                              |
+| `RAILWAY_API_TOKEN`          | `Preview` | A Railway account token, not a project token                |
+| `CLOUDFLARE_API_TOKEN`       | `Preview` | The KV-only token described under Cloudflare Workers        |
 
 The repository allows only squash merges, with the pull request title and
 body as the commit message, and deletes head branches after merge. A branch
@@ -541,15 +602,15 @@ uses the `PRODUCTION_API_ORIGIN` and `PRODUCTION_WEB_ORIGIN` variables.
 
 The script proves seven things. The API answers `{"status":"ok"}` at
 `/healthz`. It refuses an anonymous call to `/v1/me` with a 401 and a
-problem-details body. It grants CORS to the web origin on a preflight. The
-web origin serves the app shell, a manifest that names Crosstune, the service
-worker, and the app shell again for a client-side route.
+problem-details body. The web origin proxies `/v1/me` to the API and
+returns its 401 problem document. The web origin serves the app shell, a
+manifest that names Crosstune, the service worker, and the app shell again
+for a client-side route.
 
-For the development environment, point it at the Railway development
-hostname and a preview site.
+For a pull request, point it at the PR's Railway hostname and its preview URL.
 
 ```bash
-just smoke https://<railway-dev-domain> https://<branch>.<pages-subdomain>.pages.dev
+just smoke https://<railway-dev-domain> https://<alias>-crosstune-web.<workers-subdomain>.workers.dev
 ```
 
 The manual test on a phone covers what the script cannot.
@@ -564,16 +625,16 @@ The manual test on a phone covers what the script cannot.
 ## Releasing
 
 A merge to `main` deploys the API in both environments and the production
-web client. Railway skips the deploy when nothing under `api/` changed. Pages
-skips the deploy when nothing under `web/` changed.
+web client. Railway skips the deploy when nothing under `api/` changed.
+Workers Builds skips the deploy when nothing under `web/` changed.
 
 To cut a version, run `just bump` at the repository root. It updates the
 API version and the `version` field in `web/package.json` in one commit,
 then tags it, so both Sentry release tags change together.
 
 When you bump pnpm in the `packageManager` field of `web/package.json`,
-update `PNPM_VERSION` in both Pages environments in the same change. A Node
-bump is one edit to `web/.node-version`.
+update `PNPM_VERSION` in the Worker's build variables in the same change. A
+Node bump is one edit to `web/.node-version`.
 
 The `E2E` workflow runs from the Actions tab on demand. It signs in through
 the live Clerk development instance. If it gated pull requests, an outage or

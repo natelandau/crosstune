@@ -51,8 +51,8 @@ Complete these steps once.
 3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL of your
    Clerk instance. Leave the other values as they are.
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key
-   of your Clerk instance. Leave `VITE_API_URL` empty, because the dev server
-   proxies `/v1` to the API on the same origin.
+   of your Clerk instance. The dev server proxies `/v1` to the API on the
+   same origin, so there is no API URL to set.
 
 You do not create the database tables by hand. `just dev` applies the
 migrations every time it starts.
@@ -129,12 +129,13 @@ what a release would do.
 
 ## Hosting
 
-The API runs on Railway, the database on Neon, the web client on Cloudflare
-Pages, sign-in on Clerk, and errors go to Sentry. `docs/ARCHITECTURE.md`
+The API runs on Railway, the database on Neon, the web client on a Cloudflare
+Worker, sign-in on Clerk, and errors go to Sentry. `docs/ARCHITECTURE.md`
 describes what each system does, how they depend on each other, every
 setting and variable each host holds, and the smoke check to run after a
 deploy.
 
-A production build reads the API origin from `VITE_API_URL` at build time. The
-hosted builds set it to the API origin. An empty value means the API is on the
-same origin as the client, which only the dev and preview proxies provide.
+The client always calls `/v1` on its own origin. Locally the Vite dev server
+proxies it to the API on port 8000. When hosted, the Worker proxies it to the
+API for that environment, and every pull request gets its own API and database
+behind its preview URL. `docs/ARCHITECTURE.md` describes the flow.

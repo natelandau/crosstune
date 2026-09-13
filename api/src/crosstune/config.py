@@ -40,8 +40,6 @@ class Settings(BaseSettings):
     clerk_authorized_parties: list[str] = []
     clerk_authorized_party_regex: str = ""
     clerk_webhook_secret: str = ""
-    cors_origins: list[str] = []
-    cors_origin_regex: str = ""
     sentry_dsn: str = ""
     resolver_timeout_seconds: float = 5.0
     pull_page_size: int = 500
@@ -52,7 +50,7 @@ class Settings(BaseSettings):
         """Hand asyncpg the URL shape it accepts, whatever shape the host printed."""
         return normalize_database_url(value)
 
-    @field_validator("clerk_authorized_party_regex", "cors_origin_regex")
+    @field_validator("clerk_authorized_party_regex")
     @classmethod
     def _validate_regex(cls, value: str, info: ValidationInfo) -> str:
         """Fail fast on a bad pattern, rather than 500 every request that reaches it."""
