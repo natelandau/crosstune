@@ -266,6 +266,8 @@ and no batching.
   the branch alias. On every push it resets the Neon branch to its parent, so
   each build migrates a clean copy of the development data and test data
   entered in the preview is lost. When the PR closes, it deletes all three.
+  If a close event ever fails to clean up, the same workflow runs from the
+  Actions tab with the PR number and branch name and deletes them.
 
 GitHub Actions runs on every pull request and on every push to `main`. The
 `API` workflow lints, type checks, tests against a real Postgres 18, and
