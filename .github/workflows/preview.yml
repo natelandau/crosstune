@@ -109,7 +109,9 @@ jobs:
           created=""
           if [ -z "$hostname" ]; then
             created="$(railway domain --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
-            hostname="$(jq -r "$first_domain" <<<"$created" 2>/dev/null || true)"
+            # The create call's output is not relied on; the list is the source of truth.
+            listed="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
+            hostname="$(jq -r "$first_domain" <<<"$listed" 2>/dev/null || true)"
           fi
           if [ -z "$hostname" ]; then
             echo "::error::no Railway domain for $PR_NAME"
