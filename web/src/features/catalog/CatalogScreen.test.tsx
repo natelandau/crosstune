@@ -180,15 +180,19 @@ describe('CatalogScreen search or create', () => {
     expect(screen.getByRole('link', { name: 'Add "Ashokan"' })).toBeInTheDocument()
   })
 
-  it('offers no add row when a visible title matches exactly', async () => {
+  it('offers to add another song when a visible title matches exactly', async () => {
     renderWithProviders(<CatalogScreen />, { db })
     await screen.findByRole('link', { name: /Soldier's Joy/ })
-    await userEvent.type(searchbox(), 'cluck old hen')
+    await userEvent.type(searchbox(), 'Cluck Old Hen')
     await waitFor(() => expect(screen.queryByRole('link', { name: /Soldier's Joy/ })).toBeNull())
+    expect(screen.getByRole('link', { name: 'Add another "Cluck Old Hen"' })).toHaveAttribute(
+      'href',
+      '/songs/new?title=Cluck+Old+Hen',
+    )
     expect(screen.queryByRole('link', { name: /^Add "/ })).toBeNull()
   })
 
-  it('points to an archived exact match instead of offering a duplicate', async () => {
+  it('points to an archived exact match beside the offer to add another', async () => {
     const { songId, userSongId } = await createSong(
       db,
       { title: 'Ashokan Farewell' },
@@ -203,7 +207,8 @@ describe('CatalogScreen search or create', () => {
       'href',
       `/songs/${songId}`,
     )
-    expect(screen.queryByRole('link', { name: /^Add "/ })).toBeNull()
+    expect(screen.getByText('Nothing matches')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Add another "ashokan farewell"' })).toBeInTheDocument()
   })
 
   it('keeps the query when clearing filters that hide an exact match', async () => {
@@ -240,6 +245,14 @@ describe('CatalogScreen search box Enter', () => {
     expect(router.state.location.pathname).toBe('/songs/new')
   })
 
+  it('opens the existing song rather than adding one with the same title', async () => {
+    const { router } = renderApp({ db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.type(searchbox(), 'Cluck Old Hen{Enter}')
+    expect(await screen.findByRole('heading', { name: 'Cluck Old Hen' })).toBeInTheDocument()
+    expect(router.state.location.pathname).not.toBe('/songs/new')
+  })
+
   it('stays on the catalog and releases focus when several songs match', async () => {
     const { router } = renderApp({ db })
     await screen.findByRole('link', { name: /Soldier's Joy/ })
@@ -273,6 +286,19 @@ describe('CatalogScreen search across navigation', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(await screen.findByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
     expect(searchbox()).toHaveValue('')
+  })
+
+  it('saves a second song that shares a title with an existing one', async () => {
+    const { router } = renderApp({ db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.type(searchbox(), "Soldier's Joy")
+    await userEvent.click(await screen.findByRole('link', { name: 'Add another "Soldier\'s Joy"' }))
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue("Soldier's Joy")
+    await userEvent.click(screen.getByRole('button', { name: 'Add song' }))
+    await screen.findByRole('heading', { name: "Soldier's Joy" })
+    router.history.back()
+    await screen.findByRole('link', { name: /Cluck Old Hen/ })
+    expect(screen.getAllByRole('link', { name: /^Soldier's Joy/ })).toHaveLength(2)
   })
 
   it('ends the search when the user saves a song created from it and goes back', async () => {
