@@ -1,10 +1,14 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 
-function renderRow({ open = false }: { open?: boolean } = {}) {
+function renderRow({
+  open = false,
+  otherOpen = false,
+}: { open?: boolean; otherOpen?: boolean } = {}) {
   const onOpenChange = vi.fn()
+  const closeOpenRow = vi.fn()
   const onEdit = vi.fn()
   const onLink = vi.fn()
   const actions: [SwipeAction, SwipeAction] = [
@@ -16,8 +20,10 @@ function renderRow({ open = false }: { open?: boolean } = {}) {
       name="Soldier's Joy"
       actions={actions}
       open={open}
+      otherOpen={otherOpen}
       onOpenChange={onOpenChange}
       onSwipeStart={vi.fn()}
+      closeOpenRow={closeOpenRow}
     >
       <a
         href="#song"
@@ -30,7 +36,7 @@ function renderRow({ open = false }: { open?: boolean } = {}) {
       </a>
     </SwipeRow>,
   )
-  return { onOpenChange, onEdit, onLink }
+  return { onOpenChange, closeOpenRow, onEdit, onLink }
 }
 
 // jsdom ignores inert, so these buttons stay queryable; browsers act on the attribute.
@@ -42,10 +48,16 @@ describe('SwipeRow', () => {
     expect(editButton().parentElement).toHaveAttribute('inert')
   })
 
-  it('makes the actions usable while open', () => {
+  it('hides the actions while the row rests closed, so their color cannot edge its corners', () => {
+    renderRow()
+    expect(editButton().parentElement).toHaveStyle({ opacity: '0' })
+  })
+
+  it('makes the actions usable while open', async () => {
     renderRow({ open: true })
     expect(editButton().parentElement).not.toHaveAttribute('inert')
     expect(screen.getByRole('button', { name: "Archive Soldier's Joy" })).toBeInTheDocument()
+    await waitFor(() => expect(editButton().parentElement).toHaveStyle({ opacity: '1' }))
   })
 
   it('passes a tap on a closed row through to the link', async () => {
@@ -56,10 +68,17 @@ describe('SwipeRow', () => {
   })
 
   it('closes an open row on tap without following the link', async () => {
-    const { onLink, onOpenChange } = renderRow({ open: true })
+    const { onLink, closeOpenRow } = renderRow({ open: true })
     await userEvent.click(screen.getByRole('link', { name: "Soldier's Joy" }))
     expect(onLink).not.toHaveBeenCalled()
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(closeOpenRow).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes the open row instead of following the link when another row is open', async () => {
+    const { onLink, closeOpenRow } = renderRow({ otherOpen: true })
+    await userEvent.click(screen.getByRole('link', { name: "Soldier's Joy" }))
+    expect(onLink).not.toHaveBeenCalled()
+    expect(closeOpenRow).toHaveBeenCalledTimes(1)
   })
 
   it('runs an action and closes the row', async () => {

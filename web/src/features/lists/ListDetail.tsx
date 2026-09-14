@@ -1,10 +1,14 @@
-import { Link } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
-import { addToList, deleteList, moveItem, removeFromList, renameList } from '../../commands/lists'
+import { addToList, deleteList, renameList } from '../../commands/lists'
 import { EmptyState } from '../../components/EmptyState'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
+import { hideArchived } from '../catalog/filters'
+import { ShowArchivedToggle } from '../catalog/ShowArchivedToggle'
+import { useInstruments } from '../settings/useInstruments'
+import { ListSongs } from './ListSongs'
 import { SongPicker } from './SongPicker'
+import { useListShowArchived } from './useListShowArchived'
 import { useListView } from './useLists'
 
 interface Props {
@@ -17,12 +21,15 @@ interface Props {
 export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
   const db = useDb()
   const view = useListView(listId)
+  const instruments = useInstruments()
+  const [showArchived, setShowArchived] = useListShowArchived()
   const { error, pending, run, runThen } = useAction()
 
-  if (view === undefined) return null
+  if (view === undefined || instruments === undefined || showArchived === undefined) return null
   if (view === null) return <EmptyState title="This list is gone" />
   const { list, items } = view
   const inList = new Set(items.map((i) => i.userSong.id))
+  const visible = hideArchived(items, showArchived)
 
   return (
     <div className="space-y-4">
@@ -47,55 +54,25 @@ export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
         </div>
       )}
 
+      {items.length > 0 ? (
+        <ShowArchivedToggle
+          checked={showArchived}
+          onChange={(show) => run(() => setShowArchived(show))}
+        />
+      ) : null}
+
       {items.length === 0 ? (
         <EmptyState title="Nothing in this list" hint="Search below to add songs." />
+      ) : visible.length === 0 ? (
+        <EmptyState title="Every song here is archived" hint="Turn on Show archived to see them." />
       ) : (
-        <ol className="space-y-2">
-          {items.map(({ item, song }, index) => (
-            <li
-              key={item.id}
-              className="bg-base-200 rounded-box flex min-h-14 items-center gap-2 px-3 py-2"
-            >
-              <span className="w-6 text-sm opacity-60">{index + 1}</span>
-              <span className="badge badge-primary w-12 justify-center font-bold">
-                {song.key ?? '·'}
-              </span>
-              <Link
-                to="/songs/$id"
-                params={{ id: song.id }}
-                className="min-w-0 flex-1 truncate font-medium"
-              >
-                {song.title}
-              </Link>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                disabled={index === 0}
-                aria-label={`Move ${song.title} up`}
-                onClick={() => run(() => moveItem(db, listId, item.id, -1))}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                disabled={index === items.length - 1}
-                aria-label={`Move ${song.title} down`}
-                onClick={() => run(() => moveItem(db, listId, item.id, 1))}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                aria-label={`Remove ${song.title}`}
-                onClick={() => run(() => removeFromList(db, item.id))}
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ol>
+        <ListSongs
+          listId={listId}
+          items={items}
+          visible={visible}
+          instruments={instruments}
+          runThen={runThen}
+        />
       )}
 
       <SongPicker

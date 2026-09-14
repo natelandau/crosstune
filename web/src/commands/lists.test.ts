@@ -60,7 +60,7 @@ describe('lists', () => {
     const ib = await addToList(db, listId, b)
     const ic = await addToList(db, listId, c)
     const untouched = (await pendingFor(db, 'list_items', ia))!.updated_at
-    await moveItem(db, listId, ic, -1)
+    await moveItem(db, listId, ic, ib)
     expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ia, ic, ib])
     expect((await activeItems(db, listId)).map((i) => i.position)).toEqual([0, 1, 2])
     expect((await pendingFor(db, 'list_items', ia))!.updated_at).toBe(untouched)
@@ -72,18 +72,44 @@ describe('lists', () => {
     await expect(createList(db, '   ')).rejects.toThrow('A list needs a name')
   })
 
-  it('moves an item nowhere at either end of the list', async () => {
+  it.each([
+    ['down past the next item', 'a', 'b', ['b', 'a', 'c']],
+    ['up past the previous item', 'c', 'b', ['a', 'c', 'b']],
+    ['to the bottom', 'a', 'c', ['b', 'c', 'a']],
+    ['to the top', 'c', 'a', ['c', 'a', 'b']],
+  ] as const)('moves an item %s', async (_name, moved, target, expected) => {
+    const [a, b, c] = await threeSongs()
+    const listId = await createList(db, 'L')
+    const ids = {
+      a: await addToList(db, listId, a),
+      b: await addToList(db, listId, b),
+      c: await addToList(db, listId, c),
+    }
+    await moveItem(db, listId, ids[moved], ids[target])
+    expect((await activeItems(db, listId)).map((i) => i.id)).toEqual(expected.map((k) => ids[k]))
+  })
+
+  it('moves past an item between it and the target, landing beside the target', async () => {
     const [a, b, c] = await threeSongs()
     const listId = await createList(db, 'L')
     const ia = await addToList(db, listId, a)
     const ib = await addToList(db, listId, b)
     const ic = await addToList(db, listId, c)
-    await moveItem(db, listId, ia, -1)
+    await moveItem(db, listId, ia, ic)
+    expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ib, ic, ia])
+    await moveItem(db, listId, ia, ib)
     expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ia, ib, ic])
-    await moveItem(db, listId, ic, 1)
-    expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ia, ib, ic])
-    await moveItem(db, listId, ic, -1)
-    expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ia, ic, ib])
+  })
+
+  it('moves nothing for a missing target or the item itself', async () => {
+    const [a, b] = await threeSongs()
+    const listId = await createList(db, 'L')
+    const ia = await addToList(db, listId, a)
+    const ib = await addToList(db, listId, b)
+    await moveItem(db, listId, ia, 'missing')
+    await moveItem(db, listId, ia, ia)
+    await moveItem(db, listId, 'missing', ib)
+    expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ia, ib])
   })
 
   it('deletes a list and tombstones its items without queuing them', async () => {
