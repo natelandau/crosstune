@@ -30,19 +30,53 @@ afterEach(async () => {
   await db.delete()
 })
 
+// jsdom hides an unopened popover but cannot open one, so the menu's buttons are reached while hidden.
+const moveButton = (row: HTMLElement, name: string) =>
+  within(row).getByRole('button', { name, hidden: true })
+
 describe('ListDetail', () => {
-  it('renders items in order and moves them', async () => {
+  it('renders items in order and moves one from its handle menu', async () => {
     renderWithProviders(
       <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
       { db },
     )
     const items = await screen.findAllByRole('listitem')
     expect(items[0]).toHaveTextContent('Angeline')
-    await userEvent.click(screen.getByRole('button', { name: 'Move Angeline down' }))
+    expect(within(items[0]!).getByRole('button', { name: 'Reorder Angeline' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Move Angeline up' })).toBeNull()
+    await userEvent.click(moveButton(items[0]!, 'Move down'))
     await waitFor(async () => {
       const ordered = await activeItems(db, listId)
       expect(ordered.map((i) => i.user_song_id)).toEqual([b, a])
     })
+    expect(await screen.findByText('Moved Angeline to position 2 of 2')).toHaveAttribute(
+      'role',
+      'status',
+    )
+  })
+
+  it('moves a song to the top or bottom, and disables moves that go nowhere', async () => {
+    const c = (await createSong(db, { title: 'Cotton-Eyed Joe' }, { status: 'known' })).userSongId
+    await addToList(db, listId, c)
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    const items = await screen.findAllByRole('listitem')
+    expect(moveButton(items[0]!, 'Move to top')).toBeDisabled()
+    expect(moveButton(items[0]!, 'Move up')).toBeDisabled()
+    expect(moveButton(items[2]!, 'Move down')).toBeDisabled()
+    expect(moveButton(items[2]!, 'Move to bottom')).toBeDisabled()
+    await userEvent.click(moveButton(items[2]!, 'Move to top'))
+    await waitFor(async () =>
+      expect((await activeItems(db, listId)).map((i) => i.user_song_id)).toEqual([c, a, b]),
+    )
+    const reordered = await screen.findAllByRole('listitem')
+    await waitFor(() => expect(reordered[0]).toHaveTextContent('Cotton-Eyed Joe'))
+    await userEvent.click(moveButton(screen.getAllByRole('listitem')[0]!, 'Move to bottom'))
+    await waitFor(async () =>
+      expect((await activeItems(db, listId)).map((i) => i.user_song_id)).toEqual([a, b, c]),
+    )
   })
 
   it('shows each song as a two-row item with its position, key, and status', async () => {
@@ -104,7 +138,8 @@ describe('ListDetail', () => {
       <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
       { db },
     )
-    await userEvent.click(await screen.findByRole('button', { name: 'Move Angeline down' }))
+    const [first] = await screen.findAllByRole('listitem')
+    await userEvent.click(moveButton(first!, 'Move down'))
     await waitFor(async () => {
       const ordered = await activeItems(db, listId)
       expect(ordered.map((i) => i.user_song_id)).toEqual([b, c, a])
