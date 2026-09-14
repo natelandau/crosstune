@@ -13,7 +13,7 @@ export function SongPicker({
   const [query, setQuery] = useState('')
   const matches = useMemo(() => {
     if (!entries || !query.trim()) return []
-    return filterCatalog(entries, { ...DEFAULT_FILTERS, query, archived: true })
+    return filterCatalog(entries, { ...DEFAULT_FILTERS, archived: true }, query)
       .filter((e) => !excludeUserSongIds.has(e.userSong.id))
       .slice(0, 8)
   }, [entries, query, excludeUserSongIds])

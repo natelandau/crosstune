@@ -9,6 +9,7 @@ import { openTestDb } from '../../test/db'
 import { renderApp, renderWithProviders } from '../../test/render'
 import { CatalogScreen } from './CatalogScreen'
 import { META_CATALOG_FILTERS } from './filters'
+import { readSearchQuery, writeSearchQuery } from './searchSession'
 
 let db: CrosstuneDb
 let soldiersJoy: string
@@ -104,17 +105,56 @@ describe('CatalogScreen', () => {
     expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({ key: 'D' })
   })
 
-  it('keeps a just-typed query when a facet changes before the write settles', async () => {
+  it('keeps the query for the session instead of in the meta table', async () => {
     renderWithProviders(<CatalogScreen />, { db })
     await screen.findByRole('link', { name: /Soldier's Joy/ })
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search songs' }), 'sold')
     await userEvent.click(screen.getByRole('button', { name: 'Known' }))
     await waitFor(async () =>
-      expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({
-        query: 'sold',
-        status: 'known',
-      }),
+      expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({ status: 'known' }),
     )
+    expect(await getMeta(db, META_CATALOG_FILTERS, null)).not.toHaveProperty('query')
+    expect(readSearchQuery()).toBe('sold')
+  })
+
+  it('restores the session query and ignores one left in the meta table', async () => {
+    await setMeta(db, META_CATALOG_FILTERS, { query: 'soldier' })
+    writeSearchQuery('cluck')
+    renderWithProviders(<CatalogScreen />, { db })
+    expect(await screen.findByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: 'Search songs' })).toHaveValue('cluck')
+    expect(screen.queryByRole('link', { name: /Soldier's Joy/ })).toBeNull()
+  })
+})
+
+describe('CatalogScreen clear controls', () => {
+  const searchbox = () => screen.getByRole('searchbox', { name: 'Search songs' })
+
+  it('clears only the search text with the clear search button', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Known' }))
+    await userEvent.type(searchbox(), 'cluck')
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear search' }))
+    expect(searchbox()).toHaveValue('')
+    expect(searchbox()).toHaveFocus()
+    expect(readSearchQuery()).toBe('')
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({ status: 'known' })
+    expect(await screen.findByRole('link', { name: /Soldier's Joy/ })).toBeInTheDocument()
+  })
+
+  it('offers Clear filters beside the filters only while one is set', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Learning' }))
+    await userEvent.type(searchbox(), 'o')
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear filters' }))
+    expect(await screen.findByRole('link', { name: /Soldier's Joy/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
+    expect(searchbox()).toHaveValue('o')
   })
 })
 
@@ -175,7 +215,8 @@ describe('CatalogScreen search or create', () => {
       await screen.findByText('"Soldier\'s Joy" is hidden by your filters.'),
     ).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    expect(await screen.findByRole('link', { name: /Soldier's Joy/ })).toBeInTheDocument()
+    // Anchored so the hidden-song note's "Open Soldier's Joy" link, gone once the filter clears, cannot match.
+    expect(await screen.findByRole('link', { name: /^Soldier's Joy/ })).toBeInTheDocument()
     expect(searchbox()).toHaveValue("soldier's joy")
   })
 })
@@ -206,6 +247,44 @@ describe('CatalogScreen search box Enter', () => {
     expect(router.state.location.pathname).toBe('/')
     expect(searchbox()).not.toHaveFocus()
     expect(screen.getByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+  })
+})
+
+describe('CatalogScreen search across navigation', () => {
+  const searchbox = () => screen.getByRole('searchbox', { name: 'Search songs' })
+
+  it('keeps the search after opening a song and going back', async () => {
+    const { router } = renderApp({ db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.type(searchbox(), 'cluck{Enter}')
+    await screen.findByRole('heading', { name: 'Cluck Old Hen' })
+    router.history.back()
+    expect(await screen.findByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+    expect(searchbox()).toHaveValue('cluck')
+    expect(screen.queryByRole('link', { name: /Soldier's Joy/ })).toBeNull()
+  })
+
+  it('ends the search when the user cancels a song created from it', async () => {
+    const { router } = renderApp({ db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.type(searchbox(), 'Soldier')
+    await userEvent.click(await screen.findByRole('link', { name: 'Add "Soldier"' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(await screen.findByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+    expect(searchbox()).toHaveValue('')
+  })
+
+  it('ends the search when the user saves a song created from it and goes back', async () => {
+    const { router } = renderApp({ db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.type(searchbox(), 'Ashokan Farewell{Enter}')
+    await screen.findByRole('textbox', { name: 'Title' })
+    await userEvent.click(screen.getByRole('button', { name: 'Add song' }))
+    await screen.findByRole('heading', { name: 'Ashokan Farewell' })
+    router.history.back()
+    expect(await screen.findByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+    expect(searchbox()).toHaveValue('')
   })
 })
 

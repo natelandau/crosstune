@@ -23,13 +23,11 @@ const FACET_INSTRUMENT: Partial<Record<Facet, Instrument>> = Object.fromEntries(
 )
 
 export type CatalogFilters = Record<Facet, string> & {
-  query: string
   status: SongStatus | 'all'
   archived: boolean
 }
 
 export const DEFAULT_FILTERS: CatalogFilters = {
-  query: '',
   status: 'all',
   key: 'all',
   mode: 'all',
@@ -55,10 +53,9 @@ export function normalizeFilters(value: unknown): CatalogFilters {
     string,
     unknown
   >
-  const text = (key: Facet | 'query') =>
+  const text = (key: Facet) =>
     typeof stored[key] === 'string' ? (stored[key] as string) : DEFAULT_FILTERS[key]
   return {
-    query: text('query'),
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
     key: text('key'),
     mode: text('mode'),
@@ -94,18 +91,22 @@ function facetMatches(filter: string, value: string | null | undefined): boolean
   return filter === 'all' || (value != null && collator.compare(filter, value) === 0)
 }
 
-export function filterCatalog(entries: CatalogEntry[], filters: CatalogFilters): CatalogEntry[] {
-  const query = filters.query.trim().toLocaleLowerCase()
+export function filterCatalog(
+  entries: CatalogEntry[],
+  filters: CatalogFilters,
+  query = '',
+): CatalogEntry[] {
+  const needle = query.trim().toLocaleLowerCase()
   return entries.filter(({ song, userSong }) => {
     if (!filters.archived && userSong.archived_at) return false
     if (filters.status !== 'all' && userSong.status !== filters.status) return false
     for (const facet of FACETS) {
       if (!facetMatches(filters[facet], song[facet])) return false
     }
-    if (!query) return true
+    if (!needle) return true
     const haystack = [song.title, ...song.alternate_titles].map((t) => t.toLocaleLowerCase())
     // An exact match ignoring accents must stay visible, or the search would call it hidden.
-    return haystack.some((t) => t.includes(query)) || titleMatches(song, filters.query)
+    return haystack.some((t) => t.includes(needle)) || titleMatches(song, query)
   })
 }
 
