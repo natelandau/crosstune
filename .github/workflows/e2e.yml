@@ -1,10 +1,17 @@
 ---
 name: E2E
 
-# On demand only. The suite signs in through the live Clerk development instance, so a
-# Clerk outage would block unrelated merges if this gated pull requests.
+# Not a required status check. The suite signs in through the live Clerk development
+# instance, so a Clerk outage would block unrelated merges if this gated pull requests.
 on:
+  pull_request:
+    paths: ["web/**", "api/**", ".github/workflows/e2e.yml"]
   workflow_dispatch:
+
+# Each run spends sign-ins against the Clerk development instance's usage limits.
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
