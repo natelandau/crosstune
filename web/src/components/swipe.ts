@@ -20,6 +20,48 @@ export function settleOpen({
   return x <= -revealWidth / 2
 }
 
+const OVERSHOOT = 0.1
+
+/** A drag offset past closed or past fully open, eased so the row stretches rather than slides. */
+export function resist(x: number, revealWidth: number): number {
+  if (x > 0) return x * OVERSHOOT
+  if (x < -revealWidth) return -revealWidth + (x + revealWidth) * OVERSHOOT
+  return x
+}
+
+export interface SwipeSample {
+  time: number
+  x: number
+}
+
+const VELOCITY_WINDOW_MS = 80
+
+/** Release speed in px/s over the last moments of a drag, so an early pause does not mask a final flick. */
+export function releaseVelocity(samples: readonly SwipeSample[]): number {
+  const last = samples.at(-1)
+  if (!last) return 0
+  const first = samples.find((s) => s.time >= last.time - VELOCITY_WINDOW_MS) ?? last
+  const elapsed = last.time - first.time
+  return elapsed > 0 ? ((last.x - first.x) / elapsed) * 1000 : 0
+}
+
+export const CLICK_GUARD_MS = 50
+
+/**
+ * Block the click a mouse drag leaves behind until shortly after the returned release runs.
+ * dnd-kit only stops that click's propagation, so a link or popover button would still act on it.
+ */
+export function guardTrailingClick(): () => void {
+  const block = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  window.addEventListener('click', block, { capture: true })
+  return () => {
+    setTimeout(() => window.removeEventListener('click', block, { capture: true }), CLICK_GUARD_MS)
+  }
+}
+
 export interface SwipeRowState {
   open: boolean
   onOpenChange: (open: boolean) => void

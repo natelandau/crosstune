@@ -1,76 +1,24 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { MotionValue, PanInfo } from 'motion/react'
-import type * as MotionReactModule from 'motion/react'
-import type { ComponentProps } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { REVEAL_WIDTH } from './swipe'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CLICK_GUARD_MS } from './swipe'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 
-type DragProps = {
-  onDirectionLock: (axis: 'x' | 'y') => void
-  onDragStart: () => void
-  onDragEnd: (event: PointerEvent, info: PanInfo) => void
-}
+// The clock the row reads to measure release speed, advanced by each move.
+let now = 0
 
-const gesture = vi.hoisted(() => ({ props: null as DragProps | null }))
-
-// jsdom cannot run Motion's pointer tracking, so the tests drive its drag callbacks in the order a browser produces them.
-vi.mock('motion/react-m', () => ({
-  div: ({
-    onPointerDownCapture,
-    onClickCapture,
-    className,
-    children,
-    ...rest
-  }: ComponentProps<'div'> & DragProps) => {
-    gesture.props = rest
-    return (
-      <div
-        className={className}
-        onPointerDownCapture={onPointerDownCapture}
-        onClickCapture={onClickCapture}
-      >
-        {children}
-      </div>
-    )
-  },
-}))
-
-// jsdom can't run a real spring, so the fallback for a press that never becomes a
-// drag is checked by watching what it asks Motion to animate towards, using the
-// real motion value so it can be set off target the way an interrupted snap would.
-const motion = vi.hoisted(() => ({
-  x: null as MotionValue<number> | null,
-  animate: vi.fn(),
-}))
-
-vi.mock('motion/react', async (importOriginal) => {
-  const actual = await importOriginal<typeof MotionReactModule>()
-  return {
-    ...actual,
-    animate: motion.animate,
-    useMotionValue: (initial: number) => {
-      const value = actual.useMotionValue(initial)
-      motion.x = value
-      return value
-    },
-  }
+beforeEach(() => {
+  now = 0
+  vi.spyOn(performance, 'now').mockImplementation(() => now)
 })
 
-function drag() {
-  if (!gesture.props) throw new Error('SwipeRow did not render its drag layer')
-  return gesture.props
-}
+afterEach(async () => {
+  vi.restoreAllMocks()
+  // A swipe's click guard outlives the gesture briefly and would swallow the next test's click.
+  await waitOutClickGuard()
+})
 
-function panInfo(velocityX: number): PanInfo {
-  return {
-    point: { x: 0, y: 0 },
-    delta: { x: 0, y: 0 },
-    offset: { x: 0, y: 0 },
-    velocity: { x: velocityX, y: 0 },
-  }
-}
+const waitOutClickGuard = () => new Promise((resolve) => setTimeout(resolve, CLICK_GUARD_MS + 10))
 
 function renderRow({ open = false }: { open?: boolean } = {}) {
   const onOpenChange = vi.fn()
@@ -102,116 +50,142 @@ function renderRow({ open = false }: { open?: boolean } = {}) {
   return { onOpenChange, onSwipeStart, onLink, link: screen.getByRole('link') }
 }
 
+const START_X = 300
+
+function press(target: Element, { isPrimary = true, pointerId = 1 } = {}) {
+  fireEvent.pointerDown(target, { clientX: START_X, clientY: 100, isPrimary, button: 0, pointerId })
+}
+
+/**
+ * Move the pointer to an offset from where it went down, `ms` after the previous move.
+ * dnd-kit spends the move that crosses the activation distance on starting the drag, so a
+ * gesture needs a move past 10px before any move the row follows.
+ */
+function moveTo(dx: number, { dy = 0, ms = 100, pointerId = 1 } = {}) {
+  now += ms
+  act(() => {
+    fireEvent.pointerMove(document, {
+      clientX: START_X + dx,
+      clientY: 100 + dy,
+      isPrimary: true,
+      pointerId,
+    })
+  })
+}
+
+function release() {
+  act(() => {
+    fireEvent.pointerUp(document, { isPrimary: true, button: 0, pointerId: 1 })
+  })
+}
+
+const actionLayer = () => screen.getByRole('button', { name: "Edit Soldier's Joy" }).parentElement
+
 describe('SwipeRow gestures', () => {
-  beforeEach(() => {
-    motion.animate.mockClear()
-  })
-
-  it('follows the link after a tap that drifted without locking to an axis', () => {
-    const { onLink, onOpenChange, onSwipeStart, link } = renderRow()
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    fireEvent.click(link)
-    act(() => drag().onDragEnd(new PointerEvent('pointerup'), panInfo(-800)))
+  it('opens after a sideways swipe past half the reveal width', () => {
+    const { onOpenChange, onSwipeStart, link } = renderRow()
+    press(link)
+    moveTo(-20)
+    moveTo(-80)
+    moveTo(-120)
     expect(onSwipeStart).toHaveBeenCalledTimes(1)
-    expect(onLink).toHaveBeenCalledTimes(1)
-    expect(onOpenChange).not.toHaveBeenCalled()
-  })
-
-  it('closes an open row once when a drifting tap lands on it', () => {
-    const { onLink, onOpenChange, link } = renderRow({ open: true })
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    fireEvent.click(link)
-    act(() => drag().onDragEnd(new PointerEvent('pointerup'), panInfo(0)))
-    expect(onLink).not.toHaveBeenCalled()
-    expect(onOpenChange).toHaveBeenCalledTimes(1)
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-  })
-
-  it('ignores a vertical gesture when it ends', () => {
-    const { onOpenChange, link } = renderRow()
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    act(() => drag().onDirectionLock('y'))
-    act(() => drag().onDragEnd(new PointerEvent('pointercancel'), panInfo(-800)))
-    expect(onOpenChange).not.toHaveBeenCalled()
-  })
-
-  it('swallows the click that trails a sideways swipe and settles the row', () => {
-    const { onLink, onOpenChange, link } = renderRow()
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    act(() => drag().onDirectionLock('x'))
-    fireEvent.click(link)
-    act(() => drag().onDragEnd(new PointerEvent('pointerup'), panInfo(-800)))
-    expect(onLink).not.toHaveBeenCalled()
-    expect(onOpenChange).toHaveBeenCalledTimes(1)
+    release()
     expect(onOpenChange).toHaveBeenCalledWith(true)
   })
 
-  it('lets a keyboard activation through after a swipe that fired no click', async () => {
+  it('settles closed after a short, slow swipe', () => {
+    const { onOpenChange, link } = renderRow()
+    press(link)
+    moveTo(-20)
+    moveTo(-50)
+    release()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('opens on a fast flick that travels less than half', () => {
+    const { onOpenChange, link } = renderRow()
+    press(link)
+    moveTo(-15, { ms: 10 })
+    moveTo(-25, { ms: 10 })
+    moveTo(-45, { ms: 20 })
+    release()
+    expect(onOpenChange).toHaveBeenCalledWith(true)
+  })
+
+  it('shows the actions as soon as the row moves', () => {
+    const { link } = renderRow()
+    expect(actionLayer()).toHaveStyle({ opacity: '0' })
+    press(link)
+    moveTo(-20)
+    moveTo(-30)
+    try {
+      expect(actionLayer()).toHaveStyle({ opacity: '1' })
+    } finally {
+      release()
+    }
+  })
+
+  it('leaves a gesture that moves vertically first to page scroll', () => {
+    const { onOpenChange, onSwipeStart, link } = renderRow()
+    press(link)
+    moveTo(-5, { dy: 20 })
+    moveTo(-120, { dy: 20 })
+    release()
+    expect(onSwipeStart).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('follows the link after a tap that drifted short of a swipe', () => {
+    const { onLink, onSwipeStart, link } = renderRow()
+    press(link)
+    moveTo(-6)
+    release()
+    fireEvent.click(link)
+    expect(onSwipeStart).not.toHaveBeenCalled()
+    expect(onLink).toHaveBeenCalledTimes(1)
+  })
+
+  it('swallows the click that trails a mouse swipe, default action included', () => {
     const { onLink, link } = renderRow()
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    act(() => drag().onDirectionLock('x'))
-    act(() => drag().onDragEnd(new PointerEvent('pointerup'), panInfo(0)))
+    press(link)
+    moveTo(-20)
+    moveTo(-120)
+    release()
+    const notPrevented = fireEvent.click(link)
+    expect(notPrevented).toBe(false)
+    expect(onLink).not.toHaveBeenCalled()
+  })
+
+  it('lets a keyboard activation through once the swipe is over', async () => {
+    const { onLink, link } = renderRow()
+    press(link)
+    moveTo(-20)
+    moveTo(-120)
+    release()
+    await waitOutClickGuard()
     link.focus()
     await userEvent.keyboard('{Enter}')
     expect(onLink).toHaveBeenCalledTimes(1)
   })
 
-  it('settles a closed row left mid-snap when a press never becomes a drag', () => {
-    const { link } = renderRow({ open: false })
-    motion.x?.set(-40)
-    motion.animate.mockClear()
-    fireEvent.pointerDown(link, { isPrimary: true })
-    window.dispatchEvent(new Event('pointerup'))
-    expect(motion.animate).toHaveBeenCalledTimes(1)
-    expect(motion.animate).toHaveBeenCalledWith(motion.x, 0, expect.anything())
-  })
-
-  it('settles an open row left mid-snap when a press ends outside it', () => {
-    const { link } = renderRow({ open: true })
-    motion.animate.mockClear()
-    motion.x?.set(-40)
-    fireEvent.pointerDown(link, { isPrimary: true })
-    // A pointercancel, dispatched on window rather than the row, stands in for a
-    // release that lands outside it; Motion's own gesture listens on window too.
-    window.dispatchEvent(new Event('pointercancel'))
-    expect(motion.animate).toHaveBeenCalledTimes(1)
-    expect(motion.animate).toHaveBeenCalledWith(motion.x, -REVEAL_WIDTH, expect.anything())
-  })
-
-  it('leaves the row for onDragEnd to settle once a drag has started', () => {
-    const { link } = renderRow({ open: false })
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    motion.animate.mockClear()
-    window.dispatchEvent(new Event('pointerup'))
-    expect(motion.animate).not.toHaveBeenCalled()
-  })
-
-  it('keeps a swipe in progress when a second finger lands on the row', () => {
-    const { onOpenChange, link } = renderRow()
-    fireEvent.pointerDown(link, { isPrimary: true })
-    act(() => drag().onDragStart())
-    act(() => drag().onDirectionLock('x'))
-    fireEvent.pointerDown(link, { isPrimary: false })
-    motion.animate.mockClear()
-    window.dispatchEvent(new Event('pointerup'))
-    expect(motion.animate).not.toHaveBeenCalled()
-    act(() => drag().onDragEnd(new PointerEvent('pointerup'), panInfo(-800)))
+  it('ignores a second finger landing on a row mid-swipe', () => {
+    const { onOpenChange, onSwipeStart, link } = renderRow()
+    press(link)
+    moveTo(-20)
+    press(link, { isPrimary: false, pointerId: 2 })
+    moveTo(-120)
+    release()
+    expect(onSwipeStart).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).toHaveBeenCalledTimes(1)
     expect(onOpenChange).toHaveBeenCalledWith(true)
   })
 
-  it('stops listening for the release once it has settled a press', () => {
-    const { link } = renderRow({ open: false })
-    motion.x?.set(-40)
-    fireEvent.pointerDown(link, { isPrimary: true })
-    window.dispatchEvent(new Event('pointerup'))
-    motion.animate.mockClear()
-    window.dispatchEvent(new Event('pointerup'))
-    expect(motion.animate).not.toHaveBeenCalled()
+  it('closes an open row swiped back to the right', () => {
+    const { onOpenChange, link } = renderRow({ open: true })
+    press(link)
+    moveTo(20)
+    moveTo(120)
+    release()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })

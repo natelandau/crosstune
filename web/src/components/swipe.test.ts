@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { settleOpen, useOpenRow } from './swipe'
+import { releaseVelocity, resist, settleOpen, useOpenRow } from './swipe'
 
 describe('settleOpen', () => {
   it.each([
@@ -15,6 +15,44 @@ describe('settleOpen', () => {
     ['a slow release just short of half closes', { x: -79, velocityX: 499 }, false],
   ])('%s', (_name, input, expected) => {
     expect(settleOpen({ ...input, revealWidth: 160 })).toBe(expected)
+  })
+})
+
+describe('resist', () => {
+  it.each([
+    ['inside the reveal range moves one to one', -90, -90],
+    ['at rest stays put', 0, 0],
+    ['fully open stays put', -160, -160],
+    ['past closed moves a tenth of the overshoot', 50, 5],
+    ['past open moves a tenth of the overshoot', -260, -170],
+  ])('%s', (_name, x, expected) => {
+    expect(resist(x, 160)).toBeCloseTo(expected)
+  })
+})
+
+describe('releaseVelocity', () => {
+  it('is zero with fewer than two samples', () => {
+    expect(releaseVelocity([])).toBe(0)
+    expect(releaseVelocity([{ time: 0, x: -40 }])).toBe(0)
+  })
+
+  it('measures px/s over the last 80ms, ignoring older movement', () => {
+    const samples = [
+      { time: 0, x: 0 },
+      { time: 100, x: -10 },
+      { time: 150, x: -20 },
+      { time: 200, x: -60 },
+    ]
+    expect(releaseVelocity(samples)).toBeCloseTo(-800)
+  })
+
+  it('is zero when every sample lands in the same instant', () => {
+    expect(
+      releaseVelocity([
+        { time: 5, x: 0 },
+        { time: 5, x: -60 },
+      ]),
+    ).toBe(0)
   })
 })
 
