@@ -1,5 +1,5 @@
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 export function unique(name: string): string {
   return `${name} ${Date.now().toString(36)}`
@@ -42,4 +42,16 @@ export async function addSong(page: Page, title: string, key: string): Promise<v
   await page.getByRole('radio', { name: 'Learning' }).check({ force: true })
   await page.getByRole('button', { name: 'Add song' }).click()
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
+}
+
+/** Drag a row left with the mouse, far and fast enough to open its swipe actions. */
+export async function swipeLeft(page: Page, target: Locator): Promise<void> {
+  const box = await target.boundingBox()
+  if (!box) throw new Error('swipe target is not visible')
+  const y = box.y + box.height / 2
+  const startX = box.x + box.width - 16
+  await page.mouse.move(startX, y)
+  await page.mouse.down()
+  await page.mouse.move(startX - 200, y, { steps: 12 })
+  await page.mouse.up()
 }
