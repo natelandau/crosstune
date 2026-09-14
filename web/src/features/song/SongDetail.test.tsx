@@ -1,16 +1,25 @@
-import { screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AuthProvider } from '../../auth/AuthContext'
 import { addLink } from '../../commands/links'
 import { createSong } from '../../commands/songs'
+import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
+import { SyncContext } from '../../sync/SyncProvider'
 import { openTestDb } from '../../test/db'
-import { renderWithProviders } from '../../test/render'
+import { fakeEngine, renderWithProviders, testSession } from '../../test/render'
+import { PlayerDock } from '../player/PlayerDock'
+import { PlayerProvider } from '../player/PlayerProvider'
+import { usePlayer, type Player } from '../player/usePlayer'
 import { SongDetail } from './SongDetail'
+
+type Props = Parameters<typeof SongDetail>[0]
 
 let db: CrosstuneDb
 let songId: string
 let userSongId: string
+let fiddleId: string
 
 beforeEach(async () => {
   db = openTestDb()
@@ -27,7 +36,7 @@ beforeEach(async () => {
   )
   songId = created.songId
   userSongId = created.userSongId
-  await addLink(db, songId, {
+  fiddleId = await addLink(db, songId, {
     url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     provider: 'youtube',
     provider_ref: 'dQw4w9WgXcQ',
@@ -40,25 +49,123 @@ afterEach(async () => {
   await db.delete()
 })
 
-function renderDetail(overrides: Partial<Parameters<typeof SongDetail>[0]> = {}) {
+function playerProbe() {
+  const seen: { current: Player | null } = { current: null }
+  function Probe() {
+    seen.current = usePlayer()
+    return null
+  }
+  const player = () => {
+    if (!seen.current) throw new Error('the player probe did not render')
+    return seen.current
+  }
+  return { Probe, player }
+}
+
+function renderDetail(overrides: Partial<Props> = {}) {
   const props = { songId, edit: false, onEditChange: vi.fn(), onDeleted: vi.fn(), ...overrides }
-  const result = renderWithProviders(<SongDetail {...props} />, { db })
-  return { props, result }
+  const { Probe, player } = playerProbe()
+  const result = renderWithProviders(
+    <PlayerProvider>
+      <Probe />
+      <SongDetail {...props} />
+      <PlayerDock />
+    </PlayerProvider>,
+    { db },
+  )
+  return { props, result, player }
+}
+
+// renderWithProviders builds a fresh router (and route component) per call, so it
+// cannot rerender an existing instance with new props. This bypasses the router to
+// keep one SongDetail instance and one player alive across prop changes.
+function renderDetailDirect(initial: Props) {
+  const engine = fakeEngine()
+  const { Probe, player } = playerProbe()
+  const wrap = (p: Props) => (
+    <AuthProvider value={testSession}>
+      <DbContext.Provider value={db}>
+        <SyncContext.Provider value={engine}>
+          <PlayerProvider>
+            <Probe />
+            <SongDetail {...p} />
+            <PlayerDock />
+          </PlayerProvider>
+        </SyncContext.Provider>
+      </DbContext.Provider>
+    </AuthProvider>
+  )
+  const result = render(wrap(initial))
+  return { player, rerenderWith: (p: Props) => result.rerender(wrap(p)) }
+}
+
+function detailProps(id: string): Props {
+  return { songId: id, edit: false, onEditChange: vi.fn(), onDeleted: vi.fn() }
+}
+
+// The dock mounts a fresh iframe when the embed changes, so query it from the region each time.
+function frameIn(region: HTMLElement): HTMLIFrameElement {
+  const frame = region.querySelector('iframe')
+  if (!frame) throw new Error('no iframe in the player')
+  return frame
 }
 
 describe('SongDetail', () => {
-  it('shows facets, embeds the first youtube link, and changes status', async () => {
+  it('shows facets and changes status', async () => {
     renderDetail()
     expect(await screen.findByRole('heading', { name: 'Cluck Old Hen' })).toBeInTheDocument()
     expect(screen.getByText('A mixolydian')).toBeInTheDocument()
     expect(screen.getByText('AEAE')).toBeInTheDocument()
     expect(screen.getByText('Crooked')).toBeInTheDocument()
-    expect(screen.getByTitle('Fiddle version')).toHaveAttribute(
-      'src',
-      expect.stringContaining('dQw4w9WgXcQ'),
-    )
+
     await userEvent.click(screen.getByRole('radio', { name: 'Known' }))
     await waitFor(async () => expect((await db.user_songs.get(userSongId))?.status).toBe('known'))
+  })
+
+  it('opens the player only when a row Play is tapped', async () => {
+    await addLink(db, songId, {
+      url: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
+      provider: 'youtube',
+      provider_ref: 'M7lc1UVf-VE',
+      title: 'Banjo version',
+    })
+    await addLink(db, songId, {
+      url: 'https://example.com/tune.mp3',
+      provider: 'other',
+      title: 'Jam recording',
+    })
+    const { player } = renderDetail()
+    await screen.findByRole('heading', { name: 'Cluck Old Hen' })
+    // A settled interaction gives any effect that could open the player time to run.
+    await userEvent.click(screen.getByRole('radio', { name: 'Known' }))
+    await waitFor(async () => expect((await db.user_songs.get(userSongId))?.status).toBe('known'))
+    expect(screen.getByRole('button', { name: 'Play Fiddle version' })).toBeInTheDocument()
+    expect(player().linkId).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^(Play|Close) Jam recording/ })).toBeNull()
+    expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(3)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Play Banjo version' }))
+    const region = await screen.findByRole('region', { name: 'Player' })
+    await waitFor(() => expect(frameIn(region).src).toContain('M7lc1UVf-VE'))
+    expect(frameIn(region).src).toContain('autoplay=1')
+    expect(screen.getByRole('button', { name: 'Close Banjo version player' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Play Fiddle version' }))
+    await waitFor(() => expect(frameIn(region).src).toContain('dQw4w9WgXcQ'))
+    expect(screen.getByRole('button', { name: 'Play Banjo version' })).toBeInTheDocument()
+  })
+
+  it('keeps the dock loaded through edit mode', async () => {
+    const props = detailProps(songId)
+    const { player, rerenderWith } = renderDetailDirect(props)
+    await userEvent.click(await screen.findByRole('button', { name: 'Play Fiddle version' }))
+    await screen.findByRole('region', { name: 'Player' })
+
+    rerenderWith({ ...props, edit: true })
+    await screen.findByRole('textbox', { name: 'Title' })
+    expect(player().linkId).toBe(fiddleId)
+    expect(screen.getByRole('region', { name: 'Player' })).toBeInTheDocument()
   })
 
   it('enters edit mode through the callback and saves changes', async () => {

@@ -62,11 +62,15 @@ function subscribeOnline(callback: () => void) {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
+export function useOnline(): boolean {
+  return useSyncExternalStore(subscribeOnline, () => navigator.onLine)
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSyncStatus(): SyncStatus {
   const engine = useSyncEngine()
   const status = useSyncExternalStore(engine.subscribe, engine.status)
-  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine)
-  return online ? status : 'offline'
+  return useOnline() ? status : 'offline'
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

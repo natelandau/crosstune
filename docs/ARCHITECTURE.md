@@ -38,8 +38,10 @@ Crosstune is two deployables and six hosted services.
             v                         v
    +-------------------+     +-----------------------------+
    | Sentry            |     | YouTube, Spotify, Bandcamp, |
-   | crosstune-web     |     | SoundCloud, Apple           |
-   | crosstune-api     |     | oEmbed, iTunes, Open Graph  |
+   | crosstune-web     |     | SoundCloud, Apple, TIDAL,   |
+   | crosstune-api     |     | Internet Archive            |
+   |                   |     | oEmbed, iTunes, Open Graph, |
+   |                   |     | Archive metadata            |
    +-------------------+     +-----------------------------+
 ```
 
@@ -228,10 +230,13 @@ It exposes one status value, which the app bar shows.
 
 A recording link is a URL on a streaming service. The API resolves a title
 and artwork for it. YouTube, Spotify, and SoundCloud answer oEmbed requests
-with no key. Apple Music resolves through the public iTunes lookup. Any other
-URL, Bandcamp included, is fetched and read for Open Graph tags, capped at
-512 KB. Each request times out after five seconds. A failure yields a link
-with no title, never an error.
+with no key. Apple Music resolves through the public iTunes lookup, and the
+Internet Archive through its public metadata API. Any other URL, Bandcamp and
+TIDAL included, is fetched and read for Open Graph tags, capped at 512 KB. A
+Bandcamp page also carries the numeric album or track id that its embedded
+player needs, and the API stores that id as the link's provider ref. Each
+request times out after five seconds. A failure yields a link with no title,
+never an error.
 
 Online, the client calls the resolve route as the user pastes, so the title
 shows before the save. Offline, the client detects the provider from the URL
@@ -240,8 +245,13 @@ the API resolves every untitled link before the transaction opens. It
 resolves eight at a time, with a 20 second budget for the whole batch. A link
 the budget cuts off is stored untitled.
 
-YouTube links play inside the app through an embedded player on
-`youtube-nocookie.com`. Other links open the provider's app or site.
+The web client builds each embed URL from the stored provider, provider ref,
+and URL with no network call. One app-wide player docked above the navigation
+holds at most one recording at its service's compact size. The player opens
+only when the user taps Play on a recording, which loads it with autoplay
+requested; opening a song never loads a player. A YouTube player is 200px
+tall because YouTube requires at least 200 by 200 pixels. Every link also
+opens the provider's app or site.
 
 ## Delivery
 
@@ -311,16 +321,16 @@ still tags `development`.
 Each row describes what a musician sees when one system is down and the
 others are up.
 
-| Unavailable          | Effect                                                                                                                     |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                         |
-| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails. |
-| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.            |
-| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                  |
-| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                 |
-| A streaming provider | A pasted link is saved without a title. Playback of an existing YouTube link fails until YouTube returns.                  |
-| Sentry               | Nothing visible. Errors are dropped.                                                                                       |
-| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                 |
+| Unavailable          | Effect                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                               |
+| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails.       |
+| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.                  |
+| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                        |
+| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                       |
+| A streaming provider | A pasted link is saved without a title. In-app playback of an existing link from that provider fails until the provider returns. |
+| Sentry               | Nothing visible. Errors are dropped.                                                                                             |
+| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                       |
 
 ## Hosting reference
 
