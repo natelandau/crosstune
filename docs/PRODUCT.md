@@ -71,7 +71,9 @@ on a phone home screen. It contains these features.
   service. Every link also opens the streaming app or website.
 - Browse. The home screen is the catalog filtered by status, key, mode, violin
   tuning, banjo tuning, and genre, with a text search. Filters persist between
-  visits. A filter appears only when the catalog has values for it.
+  visits. The search text lasts only while the app is open, and it clears when
+  the user starts a new song. A filter appears only when the catalog has values
+  for it.
 - Instruments. A user records in settings which instruments they play. A
   tuning field appears only for those instruments, or for a song that already
   carries a value. A tuning filter appears only for those instruments. A new
