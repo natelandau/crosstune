@@ -1,0 +1,28 @@
+---
+name: Development
+
+# The `development` branch mirrors `main` so Workers Builds keeps one preview
+# alias, `development`, pointed at the development API and database. A pull
+# request from that branch would give the alias a KV entry and a PR database.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Queue rather than cancel, so an older run never lands after a newer one.
+concurrency:
+  group: development-branch
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Move the development branch to main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Force so a stray commit on `development` never blocks the mirror.
+      - run: git push --force origin "$GITHUB_SHA:refs/heads/development"

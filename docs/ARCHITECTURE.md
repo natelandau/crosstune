@@ -268,6 +268,14 @@ and no batching.
   under the branch's alias, at
   `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`, and Workers
   Builds comments the URL on the pull request.
+- The `Development` workflow force-pushes every commit on `main` to the
+  `development` branch. Workers Builds uploads that branch under the alias
+  `development`, which has no KV entry. The result is one stable URL for the
+  development environment,
+  `https://development-crosstune-web.<workers-subdomain>.workers.dev`. The
+  branch rebuilds only when a push changes a file under `web/`. Do not open a
+  pull request from `development`, because the `Preview` workflow then gives
+  the alias its own API and database.
 - The `Preview` workflow gives each pull request its own API and database.
   When a PR opens, it creates a Neon branch `pr-<number>` from the development
   database, creates a Railway environment `pr-<number>` copied from
@@ -298,12 +306,12 @@ becomes the Sentry release tag for its side. Tags trigger nothing.
 
 ## Environments
 
-| Environment  | API                         | Database             | Clerk instance | Web client                                |
-| ------------ | --------------------------- | -------------------- | -------------- | ----------------------------------------- |
-| Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`            |
-| Development  | Railway, generated hostname | Neon development     | Development    | Worker previews without a KV entry        |
-| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` |
-| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                      |
+| Environment  | API                         | Database             | Clerk instance | Web client                                    |
+| ------------ | --------------------------- | -------------------- | -------------- | --------------------------------------------- |
+| Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`                |
+| Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `development-crosstune-web` |
+| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web`     |
+| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                          |
 
 The development and production API services run the same commit. They differ
 only in their variables. A pull request environment runs the PR branch with
