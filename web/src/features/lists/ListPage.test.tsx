@@ -2,7 +2,8 @@ import { createMemoryHistory } from '@tanstack/react-router'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createList } from '../../commands/lists'
+import { addToList, createList } from '../../commands/lists'
+import { createSong } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderApp } from '../../test/render'
@@ -53,6 +54,17 @@ describe('ListPage', () => {
     expect(router.state.location.pathname).toBe(`/lists/${listId}`)
     expect(router.history.canGoBack()).toBe(false)
     expect(await screen.findByRole('heading', { name: 'Tuesday jam' })).toBeInTheDocument()
+  })
+
+  it('edits a song from its row and returns to the list on cancel', async () => {
+    const { userSongId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+    await addToList(db, listId, userSongId)
+    const { router } = renderListRoute()
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Angeline' }))
+    expect(await screen.findByRole('heading', { name: 'Edit song' })).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ edit: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/lists/${listId}`))
   })
 
   it('offers no delete while renaming', async () => {

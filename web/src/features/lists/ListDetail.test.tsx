@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { activeItems, addToList, createList } from '../../commands/lists'
@@ -41,6 +41,31 @@ describe('ListDetail', () => {
       const ordered = await activeItems(db, listId)
       expect(ordered.map((i) => i.user_song_id)).toEqual([b, a])
     })
+  })
+
+  it('shows each song as a two-row item with its position, key, and status', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    const items = await screen.findAllByRole('listitem')
+    expect(within(items[1]!).getByText('2')).toBeInTheDocument()
+    const link = within(items[0]!).getByRole('link', { name: /Angeline/ })
+    expect(link).toHaveTextContent('Key D')
+    expect(link).toHaveTextContent('Known')
+  })
+
+  it('removes a song from its row swipe action', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await screen.findAllByRole('listitem')
+    expect(screen.getByRole('button', { name: 'Edit Angeline' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Angeline' }))
+    await waitFor(async () =>
+      expect((await activeItems(db, listId)).map((i) => i.user_song_id)).toEqual([b]),
+    )
   })
 
   it('adds a song through the picker and removes one', async () => {
