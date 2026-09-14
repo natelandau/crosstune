@@ -70,8 +70,14 @@ describe('SongCard', () => {
     expect(screen.getByText('AEAE · gDGBD')).toBeInTheDocument()
   })
 
-  it('marks an archived song', async () => {
-    await renderCard({}, { archived_at: '2026-09-01T00:00:00.000Z' })
+  it('marks an archived song and dims its row', async () => {
+    const link = await renderCard({}, { archived_at: '2026-09-01T00:00:00.000Z' })
     expect(screen.getByText('Archived')).toBeInTheDocument()
+    expect(link).toHaveClass('opacity-60')
+  })
+
+  it('leaves an active song at full tone', async () => {
+    const link = await renderCard({})
+    expect(link).not.toHaveClass('opacity-60')
   })
 })

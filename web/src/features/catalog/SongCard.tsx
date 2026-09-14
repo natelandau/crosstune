@@ -17,12 +17,14 @@ export function SongCard({
     .map((field) => song[field])
     .filter(Boolean)
     .join(' · ')
+  const archived = userSong.archived_at !== null
   return (
+    // Dim the link, not SwipeRow's front layer, which must stay opaque over the action buttons.
     <Link
       to="/songs/$id"
       params={{ id: song.id }}
       draggable={false}
-      className="flex min-h-16 flex-col justify-center gap-0.5 px-3 py-2"
+      className={`flex min-h-16 flex-col justify-center gap-0.5 px-3 py-2 ${archived ? 'opacity-60' : ''}`}
     >
       <span className="truncate text-lg font-semibold">{song.title}</span>
       <span className="flex min-w-0 items-center gap-3 text-sm">
@@ -34,7 +36,7 @@ export function SongCard({
         ) : null}
         <StatusDot status={userSong.status} />
         {tunings ? <span className="truncate opacity-70">{tunings}</span> : null}
-        {userSong.archived_at ? <span className="opacity-60">Archived</span> : null}
+        {archived ? <span>Archived</span> : null}
       </span>
     </Link>
   )
