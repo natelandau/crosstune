@@ -1,5 +1,8 @@
 """Migrations produce the expected schema."""
 
+import importlib.util
+from pathlib import Path
+
 import anyio
 import pytest
 from alembic import command
@@ -150,3 +153,155 @@ async def test_downgrade_to_0002_and_back_restores_head_shape(
         text("select table_name from information_schema.tables where table_schema = 'public'")
     )
     assert "user_settings" in {row[0] for row in result}
+
+
+MIGRATION_0005 = (
+    Path(__file__).parents[1]
+    / "src/crosstune/db/migrations/versions/0005_tidal_and_internet_archive.py"
+)
+
+
+def load_0005():
+    spec = importlib.util.spec_from_file_location("migration_0005", MIGRATION_0005)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "https://tidal.com/track/45670321/u",
+            ("tidal", "track:45670321", "https://tidal.com/track/45670321"),
+        ),
+        (
+            "https://listen.tidal.com/album/45670320/track/45670321",
+            ("tidal", "track:45670321", "https://tidal.com/track/45670321"),
+        ),
+        (
+            "https://tidal.com/artist/4831953",
+            ("tidal", None, "https://tidal.com/artist/4831953"),
+        ),
+        (
+            "https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=x",
+            ("youtube", "dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+        ),
+        ("https://example.com/tune.mp3", None),
+        ("https://archive.org/details/afc1937001_1535B2", None),
+    ],
+)
+def test_0005_redetects_only_tidal_and_youtube_music(url: str, expected) -> None:
+    assert load_0005().redetect(url) == expected
+
+
+async def test_recording_links_accept_the_new_providers(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+        )
+    )
+    await session.execute(
+        text(
+            "insert into songs (id, owner_user_id, title, is_crooked, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000002', "
+            "'018f0000-0000-7000-8000-000000000001', 'Ground Hog', false, now(), now())"
+        )
+    )
+    new_links = {
+        "018f0000-0000-7000-8000-000000000011": "tidal",
+        "018f0000-0000-7000-8000-000000000012": "internet_archive",
+    }
+    for link_id, provider in new_links.items():
+        await session.execute(
+            text(
+                "insert into recording_links "
+                "(id, song_id, added_by_user_id, url, provider, created_at, updated_at) "
+                "values (:id, '018f0000-0000-7000-8000-000000000002', "
+                "'018f0000-0000-7000-8000-000000000001', 'https://x', :provider, now(), now())"
+            ),
+            {"id": link_id, "provider": provider},
+        )
+    stored = await session.execute(
+        text("select id::text, provider from recording_links where id = any(:ids)"),
+        {"ids": list(new_links)},
+    )
+    assert dict(stored.all()) == new_links
+
+
+async def test_0005_backfills_tidal_and_youtube_music_links_saved_as_other(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    song = "018f0000-0000-7000-8000-000000000002"
+    links = {
+        "018f0000-0000-7000-8000-000000000011": "https://tidal.com/track/45670321/u",
+        "018f0000-0000-7000-8000-000000000012": "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+        "018f0000-0000-7000-8000-000000000013": "https://example.com/tune.mp3",
+    }
+    try:
+        # env.py drives migrations through asyncio.run(); a worker thread keeps that
+        # from colliding with the loop this test itself is already running on.
+        await anyio.to_thread.run_sync(command.downgrade, config, "0004")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into songs "
+                    "(id, owner_user_id, title, is_crooked, created_at, updated_at) "
+                    "values (:id, :owner, 'Ground Hog', false, now(), now())"
+                ),
+                {"id": song, "owner": user},
+            )
+            for link_id, url in links.items():
+                await conn.execute(
+                    text(
+                        "insert into recording_links "
+                        "(id, song_id, added_by_user_id, url, provider, created_at, updated_at) "
+                        "values (:id, :song, :user, :url, 'other', now(), now())"
+                    ),
+                    {"id": link_id, "song": song, "user": user, "url": url},
+                )
+            before = dict(
+                (await conn.execute(text("select id::text, server_seq from recording_links")))
+                .tuples()
+                .all()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text(
+                    "select id::text as id, provider, provider_ref, url, server_seq "
+                    "from recording_links"
+                )
+            )
+        }
+    tidal = rows["018f0000-0000-7000-8000-000000000011"]
+    assert (tidal.provider, tidal.provider_ref, tidal.url) == (
+        "tidal",
+        "track:45670321",
+        "https://tidal.com/track/45670321",
+    )
+    assert tidal.server_seq > before[tidal.id]
+    music = rows["018f0000-0000-7000-8000-000000000012"]
+    assert (music.provider, music.provider_ref, music.url) == (
+        "youtube",
+        "dQw4w9WgXcQ",
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    )
+    assert music.server_seq > before[music.id]
+    plain = rows["018f0000-0000-7000-8000-000000000013"]
+    assert (plain.provider, plain.server_seq) == ("other", before[plain.id])

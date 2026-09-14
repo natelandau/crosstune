@@ -17,6 +17,8 @@ PROVIDERS: tuple[str, ...] = (
     "apple_music",
     "bandcamp",
     "soundcloud",
+    "tidal",
+    "internet_archive",
     "other",
 )
 
