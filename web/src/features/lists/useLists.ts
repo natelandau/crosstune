@@ -4,17 +4,29 @@ import { activeByPosition } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
 import type { LocalList, LocalListItem, LocalSong, LocalUserSong } from '../../db/types'
 
-export type ListSummary = LocalList & { count: number }
+export type ListSummary = LocalList & { count: number; lastEditedAt: string }
+
+/** The newest updated_at across a list and its item rows; removed items count, since removing a song edits the list. */
+function lastEdited(list: LocalList, items: LocalListItem[]): string {
+  return items.reduce(
+    (latest, item) => (Date.parse(item.updated_at) > Date.parse(latest) ? item.updated_at : latest),
+    list.updated_at,
+  )
+}
 
 export function useLists(): ListSummary[] | undefined {
   const db = useDb()
   return useLiveQuery(async () => {
     const lists = activeByPosition(await db.lists.toArray())
-    const items = (await db.list_items.toArray()).filter((i) => !i.deleted_at)
-    return lists.map((list) => ({
-      ...list,
-      count: items.filter((i) => i.list_id === list.id).length,
-    }))
+    const items = await db.list_items.toArray()
+    return lists.map((list) => {
+      const own = items.filter((i) => i.list_id === list.id)
+      return {
+        ...list,
+        count: own.filter((i) => !i.deleted_at).length,
+        lastEditedAt: lastEdited(list, own),
+      }
+    })
   }, [db])
 }
 

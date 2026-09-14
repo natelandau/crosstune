@@ -30,7 +30,10 @@ afterEach(async () => {
 
 describe('ListDetail', () => {
   it('renders items in order and moves them', async () => {
-    renderWithProviders(<ListDetail listId={listId} onDeleted={() => {}} />, { db })
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
     const items = await screen.findAllByRole('listitem')
     expect(items[0]).toHaveTextContent('Angeline')
     await userEvent.click(screen.getByRole('button', { name: 'Move Angeline down' }))
@@ -41,7 +44,10 @@ describe('ListDetail', () => {
   })
 
   it('adds a song through the picker and removes one', async () => {
-    renderWithProviders(<ListDetail listId={listId} onDeleted={() => {}} />, { db })
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
     await screen.findAllByRole('listitem')
     await userEvent.type(screen.getByRole('searchbox', { name: 'Add a song' }), 'cumber')
     await userEvent.click(await screen.findByRole('button', { name: 'Add Cumberland Gap' }))
@@ -50,17 +56,47 @@ describe('ListDetail', () => {
     await waitFor(async () => expect(await activeItems(db, listId)).toHaveLength(2))
   })
 
-  it('renames and deletes the list', async () => {
-    const onDeleted = vi.fn()
-    renderWithProviders(<ListDetail listId={listId} onDeleted={onDeleted} />, { db })
-    await screen.findByRole('heading', { name: 'Tuesday jam' })
-    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
-    const input = screen.getByRole('textbox', { name: 'List name' })
+  it('asks for edit mode from Rename', async () => {
+    const onEditChange = vi.fn()
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={onEditChange} onDeleted={() => {}} />,
+      { db },
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Rename' }))
+    expect(onEditChange).toHaveBeenCalledWith(true)
+  })
+
+  it('renames in edit mode and leaves it on save', async () => {
+    const onEditChange = vi.fn()
+    renderWithProviders(
+      <ListDetail listId={listId} edit onEditChange={onEditChange} onDeleted={() => {}} />,
+      { db },
+    )
+    const input = await screen.findByRole('textbox', { name: 'List name' })
+    expect(input).toHaveValue('Tuesday jam')
     await userEvent.clear(input)
     await userEvent.type(input, 'Thursday jam')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByRole('heading', { name: 'Thursday jam' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Delete list' }))
+    await waitFor(async () => expect((await db.lists.get(listId))?.name).toBe('Thursday jam'))
+    expect(onEditChange).toHaveBeenCalledWith(false)
+  })
+
+  it('hides Delete list in edit mode', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await screen.findByRole('textbox', { name: 'List name' })
+    expect(screen.queryByRole('button', { name: 'Delete list' })).toBeNull()
+  })
+
+  it('deletes the list', async () => {
+    const onDeleted = vi.fn()
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={onDeleted} />,
+      { db },
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete list' }))
     await waitFor(async () => expect((await db.lists.get(listId))?.deleted_at).not.toBeNull())
     expect(onDeleted).toHaveBeenCalled()
   })
