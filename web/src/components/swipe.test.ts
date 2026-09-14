@@ -88,6 +88,17 @@ describe('useOpenRow', () => {
     expect(result.current('a').open).toBe(true)
   })
 
+  it('tells the other rows that a row is open, and lets any of them close it', () => {
+    const { result } = renderHook(() => useOpenRow())
+    expect(result.current('b').otherOpen).toBe(false)
+    act(() => result.current('a').onOpenChange(true))
+    expect(result.current('a').otherOpen).toBe(false)
+    expect(result.current('b').otherOpen).toBe(true)
+    act(() => result.current('b').closeOpenRow())
+    expect(result.current('a').open).toBe(false)
+    expect(result.current('b').otherOpen).toBe(false)
+  })
+
   it('closes the open row when the page scrolls', () => {
     const { result } = renderHook(() => useOpenRow())
     act(() => result.current('a').onOpenChange(true))

@@ -51,7 +51,16 @@ type Props = SwipeRowState & {
 }
 
 // Each row owns its context: inside a sortable list the nearest context must be the swipe's, not the list's.
-export function SwipeRow({ name, actions, open, onOpenChange, onSwipeStart, children }: Props) {
+export function SwipeRow({
+  name,
+  actions,
+  open,
+  otherOpen,
+  onOpenChange,
+  onSwipeStart,
+  closeOpenRow,
+  children,
+}: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: SWIPE_ACTIVATION }))
   const [dragX, setDragX] = useState<number | null>(null)
   const samples = useRef<SwipeSample[]>([])
@@ -98,7 +107,9 @@ export function SwipeRow({ name, actions, open, onOpenChange, onSwipeStart, chil
         name={name}
         actions={actions}
         open={open}
+        otherOpen={otherOpen}
         onOpenChange={onOpenChange}
+        closeOpenRow={closeOpenRow}
         x={dragX ?? rest}
         dragging={dragX !== null}
       >
@@ -112,11 +123,16 @@ function SwipeLayers({
   name,
   actions,
   open,
+  otherOpen,
   onOpenChange,
+  closeOpenRow,
   x,
   dragging,
   children,
-}: Pick<Props, 'name' | 'actions' | 'open' | 'onOpenChange' | 'children'> & {
+}: Pick<
+  Props,
+  'name' | 'actions' | 'open' | 'otherOpen' | 'onOpenChange' | 'closeOpenRow' | 'children'
+> & {
   x: number
   dragging: boolean
 }) {
@@ -160,11 +176,11 @@ function SwipeLayers({
         }`}
         style={{ transform: `translateX(${x}px)`, touchAction: 'pan-y' }}
         onClickCapture={(event: MouseEvent) => {
-          if (!open) return
-          // A tap that closes an open row must not also follow the link inside.
+          if (!open && !otherOpen) return
+          // While any row is open, a tap on a row only closes it, as on iOS, rather than also following the link.
           event.preventDefault()
           event.stopPropagation()
-          onOpenChange(false)
+          closeOpenRow()
         }}
       >
         {children}

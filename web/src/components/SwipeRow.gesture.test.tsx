@@ -33,8 +33,10 @@ function renderRow({ open = false }: { open?: boolean } = {}) {
       name="Soldier's Joy"
       actions={actions}
       open={open}
+      otherOpen={false}
       onOpenChange={onOpenChange}
       onSwipeStart={onSwipeStart}
+      closeOpenRow={vi.fn()}
     >
       <a
         href="#song"

@@ -64,8 +64,11 @@ export function guardTrailingClick(): () => void {
 
 export interface SwipeRowState {
   open: boolean
+  /** Another row on the screen is open, so a tap on this one should only close that one. */
+  otherOpen: boolean
   onOpenChange: (open: boolean) => void
   onSwipeStart: () => void
+  closeOpenRow: () => void
 }
 
 /** Tracks the one open swipe row on a screen and closes it when the page scrolls. */
@@ -82,9 +85,11 @@ export function useOpenRow(): (id: string) => SwipeRowState {
   return useCallback(
     (id: string) => ({
       open: openRowId === id,
+      otherOpen: openRowId !== null && openRowId !== id,
       onOpenChange: (next: boolean) =>
         setOpenRowId((current) => (next ? id : current === id ? null : current)),
       onSwipeStart: () => setOpenRowId((current) => (current === id ? current : null)),
+      closeOpenRow: () => setOpenRowId(null),
     }),
     [openRowId],
   )
