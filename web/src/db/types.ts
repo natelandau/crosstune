@@ -34,6 +34,8 @@ export const PROVIDERS = [
   'apple_music',
   'bandcamp',
   'soundcloud',
+  'tidal',
+  'internet_archive',
   'other',
 ] as const
 export type Provider = (typeof PROVIDERS)[number]

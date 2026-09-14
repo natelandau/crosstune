@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { addSong, expectSynced, signIn, unique } from './helpers'
 
-test('add a tune, link a recording, find it by key, and play it', async ({ page }) => {
+test('add a tune, link a recording, find it by key, and play it in the player', async ({
+  page,
+}) => {
   await signIn(page)
   const title = unique("Soldier's Joy")
   const since = new Date().toISOString()
@@ -19,5 +21,10 @@ test('add a tune, link a recording, find it by key, and play it', async ({ page 
   const card = page.getByRole('link', { name: new RegExp(title) })
   await expect(card).toBeVisible()
   await card.click()
-  await expect(page.locator('iframe[src*="dQw4w9WgXcQ"]')).toBeVisible()
+  const play = page.getByRole('button', { name: /^Play / })
+  await expect(play).toBeVisible()
+  await play.click()
+  const frame = page.getByRole('region', { name: 'Player' }).locator('iframe[src*="dQw4w9WgXcQ"]')
+  await expect(frame).toBeVisible()
+  expect((await frame.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(199)
 })

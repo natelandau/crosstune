@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 SPOTIFY_PATH = re.compile(r"^/(?:intl-[a-z]{2}/)?(track|album|episode|playlist)/([A-Za-z0-9]+)")
+# listen.tidal.com nests a track under its album; the track is the recording.
+TIDAL_PATH = re.compile(
+    r"^/(?:browse/)?(?:album/\d+/)?(track|album|playlist|video)/([0-9A-Fa-f-]+)"
+)
+ARCHIVE_PATH = re.compile(r"^/details/([A-Za-z0-9._-]+)")
 TRACKING_PARAMS = {
     "utm_source",
     "utm_medium",
@@ -40,9 +45,17 @@ def _youtube_short_ref(parts: ParseResult) -> str | None:
     return _valid_youtube(parts.path.strip("/"))
 
 
-def _spotify_ref(parts: ParseResult) -> str | None:
-    match = SPOTIFY_PATH.match(parts.path)
-    return f"{match.group(1)}:{match.group(2)}" if match else None
+def _typed_ref(pattern: re.Pattern[str]) -> Callable[[ParseResult], str | None]:
+    def ref(parts: ParseResult) -> str | None:
+        match = pattern.match(parts.path)
+        return f"{match.group(1)}:{match.group(2)}" if match else None
+
+    return ref
+
+
+def _archive_ref(parts: ParseResult) -> str | None:
+    match = ARCHIVE_PATH.match(parts.path)
+    return match.group(1) if match else None
 
 
 def _apple_music_ref(parts: ParseResult) -> str | None:
@@ -62,12 +75,18 @@ def _is_bandcamp(host: str) -> bool:
 _PROVIDER_MATCHERS: tuple[
     tuple[Callable[[str], bool], str, Callable[[ParseResult], str | None] | None], ...
 ] = (
-    (lambda host: host in {"youtube.com", "youtube-nocookie.com"}, "youtube", _youtube_watch_ref),
+    (
+        lambda host: host in {"youtube.com", "youtube-nocookie.com", "music.youtube.com"},
+        "youtube",
+        _youtube_watch_ref,
+    ),
     (lambda host: host == "youtu.be", "youtube", _youtube_short_ref),
-    (lambda host: host == "open.spotify.com", "spotify", _spotify_ref),
+    (lambda host: host == "open.spotify.com", "spotify", _typed_ref(SPOTIFY_PATH)),
     (lambda host: host == "music.apple.com", "apple_music", _apple_music_ref),
     (_is_bandcamp, "bandcamp", None),
     (lambda host: host == "soundcloud.com", "soundcloud", None),
+    (lambda host: host in {"tidal.com", "listen.tidal.com"}, "tidal", _typed_ref(TIDAL_PATH)),
+    (lambda host: host == "archive.org", "internet_archive", _archive_ref),
 )
 
 
@@ -94,9 +113,18 @@ def detect_provider(url: str) -> tuple[str, str | None]:
 
 
 def normalize_url(url: str, provider: str, provider_ref: str | None) -> str:
-    """Canonical form for storage. YouTube collapses to the watch URL; others drop tracking params."""
+    """Canonical form for storage.
+
+    YouTube, TIDAL, and Internet Archive URLs collapse to one URL per recording; all others
+    drop their tracking parameters.
+    """
     if provider == "youtube" and provider_ref:
         return f"https://www.youtube.com/watch?v={provider_ref}"
+    if provider == "tidal" and provider_ref:
+        kind, _, item_id = provider_ref.partition(":")
+        return f"https://tidal.com/{kind}/{item_id}"
+    if provider == "internet_archive" and provider_ref:
+        return f"https://archive.org/details/{provider_ref}"
     parts = urlparse(url)
     kept = [
         (k, v)

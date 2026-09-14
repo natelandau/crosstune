@@ -6,7 +6,7 @@ import httpx2
 import pytest
 
 from crosstune.links import resolve as resolve_module
-from crosstune.links.opengraph import parse_open_graph
+from crosstune.links.opengraph import PageMeta, parse_open_graph
 from crosstune.links.resolve import MAX_PAGE_BYTES, resolve_link
 from tests.test_push import T0, change, push, uid
 
@@ -32,14 +32,31 @@ OG_HTML = """<html><head><title>fallback</title>
 
 
 def test_parse_open_graph_prefers_og_title() -> None:
-    assert parse_open_graph(OG_HTML) == ("Sally Ann | Fiddler", "https://f4.bcbits.com/img/a.jpg")
+    assert parse_open_graph(OG_HTML) == PageMeta(
+        title="Sally Ann | Fiddler", image="https://f4.bcbits.com/img/a.jpg", bandcamp_ref=None
+    )
 
 
 def test_parse_open_graph_falls_back_to_title_tag() -> None:
-    assert parse_open_graph("<html><head><title>Just a title</title></head></html>") == (
-        "Just a title",
-        None,
+    assert parse_open_graph("<html><head><title>Just a title</title></head></html>") == PageMeta(
+        title="Just a title", image=None, bandcamp_ref=None
     )
+
+
+@pytest.mark.parametrize(
+    ("content", "ref"),
+    [
+        ("{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:84352595}", "album:84352595"),
+        ("{&quot;item_type&quot;:&quot;t&quot;,&quot;item_id&quot;:2417374}", "track:2417374"),
+        ("{&quot;item_type&quot;:&quot;b&quot;,&quot;item_id&quot;:1}", None),
+        ("{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:&quot;x&quot;}", None),
+        ("{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:true}", None),
+        ("not json", None),
+    ],
+)
+def test_parse_open_graph_reads_the_bandcamp_item(content: str, ref: str | None) -> None:
+    html = f'<html><head><meta name="bc-page-properties" content="{content}"></head></html>'
+    assert parse_open_graph(html).bandcamp_ref == ref
 
 
 async def test_youtube_uses_oembed(mock_http) -> None:
@@ -88,7 +105,7 @@ async def test_open_graph_reads_no_more_than_the_byte_cap(mock_http, monkeypatch
     parsed: list[int] = []
     real_parse = resolve_module.parse_open_graph
 
-    def spy(html: str) -> tuple[str | None, str | None]:
+    def spy(html: str) -> PageMeta:
         parsed.append(len(html))
         return real_parse(html)
 
@@ -238,3 +255,141 @@ async def test_push_stores_the_canonical_url_of_an_enriched_link(client, auth_he
     assert row["url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     assert row["provider_ref"] == "dQw4w9WgXcQ"
     assert row["title"] == OEMBED["title"]
+
+
+BANDCAMP_HTML = """<html><head>
+<meta property="og:title" content="Live On Red Barn Radio II, by Tyler Childers">
+<meta name="bc-page-properties" content="{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:84352595}">
+</head></html>"""
+ARCHIVE_ID = "78_soldiers-joy_sleepy-marlin_gbia0506187b"
+
+
+async def test_bandcamp_resolution_stores_the_embed_id(mock_http) -> None:
+    mock_http.add(
+        "https://tylerchilders.bandcamp.com/album/live", httpx2.Response(200, text=BANDCAMP_HTML)
+    )
+    async with mock_http.client() as client:
+        link = await resolve_link(
+            "https://tylerchilders.bandcamp.com/album/live", client, timeout=5.0
+        )
+    assert link.provider == "bandcamp"
+    assert link.provider_ref == "album:84352595"
+    assert link.title == "Live On Red Barn Radio II, by Tyler Childers"
+
+
+async def test_tidal_uses_open_graph(mock_http) -> None:
+    mock_http.add(
+        "https://tidal.com/track/45670321",
+        httpx2.Response(200, text=og_html("The Doc Watson Family &amp; Doc Watson - Ground Hog")),
+    )
+    async with mock_http.client() as client:
+        link = await resolve_link("https://tidal.com/track/45670321/u", client, timeout=5.0)
+    assert link.provider == "tidal"
+    assert link.provider_ref == "track:45670321"
+    assert link.url == "https://tidal.com/track/45670321"
+    assert link.title == "The Doc Watson Family & Doc Watson - Ground Hog"
+
+
+async def test_internet_archive_uses_the_metadata_api(mock_http) -> None:
+    mock_http.add(
+        f"https://archive.org/metadata/{ARCHIVE_ID}/metadata",
+        httpx2.Response(
+            200, json={"result": {"title": "SOLDIER'S JOY", "creator": "SLEEPY MARLIN"}}
+        ),
+    )
+    async with mock_http.client() as client:
+        link = await resolve_link(
+            f"https://archive.org/details/{ARCHIVE_ID}/file.flac", client, timeout=5.0
+        )
+    assert link.provider == "internet_archive"
+    assert link.provider_ref == ARCHIVE_ID
+    assert link.url == f"https://archive.org/details/{ARCHIVE_ID}"
+    assert link.title == "SOLDIER'S JOY - SLEEPY MARLIN"
+    assert link.artwork_url == f"https://archive.org/services/img/{ARCHIVE_ID}"
+
+
+async def test_internet_archive_takes_the_first_of_array_fields(mock_http) -> None:
+    mock_http.add(
+        f"https://archive.org/metadata/{ARCHIVE_ID}/metadata",
+        httpx2.Response(200, json={"result": {"title": ["Soldier's Joy", "Alternate"]}}),
+    )
+    async with mock_http.client() as client:
+        link = await resolve_link(f"https://archive.org/details/{ARCHIVE_ID}", client, timeout=5.0)
+    assert link.title == "Soldier's Joy"
+
+
+@pytest.mark.parametrize(
+    "body", [{"result": {}}, {"error": f"Couldn't locate item '{ARCHIVE_ID}'"}]
+)
+async def test_internet_archive_yields_nothing_for_a_missing_item(mock_http, body) -> None:
+    mock_http.add(
+        f"https://archive.org/metadata/{ARCHIVE_ID}/metadata", httpx2.Response(200, json=body)
+    )
+    async with mock_http.client() as client:
+        link = await resolve_link(f"https://archive.org/details/{ARCHIVE_ID}", client, timeout=5.0)
+    assert link.title is None
+    assert link.artwork_url is None
+
+
+@pytest.mark.parametrize(
+    "response",
+    [httpx2.Response(500), httpx2.Response(200, json=["not", "an", "object"])],
+    ids=["server error", "non-object json"],
+)
+async def test_internet_archive_failure_yields_no_title_or_artwork(mock_http, response) -> None:
+    mock_http.add(f"https://archive.org/metadata/{ARCHIVE_ID}/metadata", response)
+    async with mock_http.client() as client:
+        link = await resolve_link(f"https://archive.org/details/{ARCHIVE_ID}", client, timeout=5.0)
+    assert link.provider_ref == ARCHIVE_ID
+    assert link.title is None
+    assert link.artwork_url is None
+
+
+async def test_bandcamp_page_failure_yields_no_title_or_ref(mock_http) -> None:
+    mock_http.add("https://tylerchilders.bandcamp.com/album/live", httpx2.Response(500))
+    async with mock_http.client() as client:
+        link = await resolve_link(
+            "https://tylerchilders.bandcamp.com/album/live", client, timeout=5.0
+        )
+    assert link.provider == "bandcamp"
+    assert link.title is None
+    assert link.provider_ref is None
+
+
+async def test_push_detects_the_provider_of_a_titled_link_sent_as_other(
+    client, auth_headers, mock_http
+):
+    song = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="X"),
+        change(
+            "recording_links",
+            uid(),
+            T0,
+            song_id=song,
+            url="https://tidal.com/browse/track/45670321/u",
+            provider="other",
+            title="Ground Hog",
+        ),
+    )
+    row = results[1]["row"]
+    assert row["provider"] == "tidal"
+    assert row["provider_ref"] == "track:45670321"
+    assert row["url"] == "https://tidal.com/track/45670321"
+    assert row["title"] == "Ground Hog"
+    assert not any("tidal" in str(call.url) for call in mock_http.calls)
+
+
+async def test_push_stores_the_bandcamp_embed_id(client, auth_headers, mock_http):
+    url = "https://tylerchilders.bandcamp.com/album/live"
+    mock_http.add(url, httpx2.Response(200, text=BANDCAMP_HTML))
+    song = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="X"),
+        change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp"),
+    )
+    assert results[1]["row"]["provider_ref"] == "album:84352595"

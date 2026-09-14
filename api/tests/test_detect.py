@@ -34,6 +34,32 @@ from crosstune.links.detect import detect_provider, normalize_url
         ),
         ("https://fiddler.bandcamp.com/track/sally-ann", "bandcamp", None),
         ("https://soundcloud.com/someone/some-tune", "soundcloud", None),
+        ("https://tidal.com/track/45670321/u", "tidal", "track:45670321"),
+        ("https://tidal.com/browse/album/45670320", "tidal", "album:45670320"),
+        (
+            "https://listen.tidal.com/album/45670320/track/45670321",
+            "tidal",
+            "track:45670321",
+        ),
+        (
+            "https://tidal.com/playlist/748d84d2-37dc-4900-9bc5-68d8ac89d354",
+            "tidal",
+            "playlist:748d84d2-37dc-4900-9bc5-68d8ac89d354",
+        ),
+        ("https://tidal.com/video/97770920", "tidal", "video:97770920"),
+        ("https://tidal.com/artist/4831953", "tidal", None),
+        ("https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=x", "youtube", "dQw4w9WgXcQ"),
+        (
+            "https://archive.org/details/78_soldiers-joy_sleepy-marlin_gbia0506187b",
+            "internet_archive",
+            "78_soldiers-joy_sleepy-marlin_gbia0506187b",
+        ),
+        (
+            "https://archive.org/details/afc1937001_1535B2/track01.mp3",
+            "internet_archive",
+            "afc1937001_1535B2",
+        ),
+        ("https://archive.org/search?query=fiddle", "internet_archive", None),
         ("https://example.com/recording.mp3", "other", None),
         ("not a url", "other", None),
     ],
@@ -55,3 +81,32 @@ def test_normalize_strips_tracking_params_for_others() -> None:
         )
         == "https://fiddler.bandcamp.com/track/sally-ann?from=embed"
     )
+
+
+@pytest.mark.parametrize(
+    ("url", "provider", "ref", "expected"),
+    [
+        (
+            "https://listen.tidal.com/album/1/track/45670321?u",
+            "tidal",
+            "track:45670321",
+            "https://tidal.com/track/45670321",
+        ),
+        (
+            "https://archive.org/details/afc1937001_1535B2/track01.mp3",
+            "internet_archive",
+            "afc1937001_1535B2",
+            "https://archive.org/details/afc1937001_1535B2",
+        ),
+        (
+            "https://music.youtube.com/watch?v=dQw4w9WgXcQ&si=x",
+            "youtube",
+            "dQw4w9WgXcQ",
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        ),
+    ],
+)
+def test_normalize_collapses_tidal_and_archive_urls(
+    url: str, provider: str, ref: str, expected: str
+) -> None:
+    assert normalize_url(url, provider, ref) == expected

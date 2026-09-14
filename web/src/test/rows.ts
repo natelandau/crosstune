@@ -1,4 +1,4 @@
-import type { LocalSong, LocalUserSong } from '../db/types'
+import type { LocalRecordingLink, LocalSong, LocalUserSong } from '../db/types'
 
 export function songRow(id: string, title: string, extra: Partial<LocalSong> = {}): LocalSong {
   return {
@@ -40,6 +40,29 @@ export function userSongRow(
     learned_on: null,
     notes: null,
     archived_at: null,
+    ...extra,
+  }
+}
+
+export function linkRow(
+  id: string,
+  songId: string,
+  extra: Partial<LocalRecordingLink> = {},
+): LocalRecordingLink {
+  return {
+    id,
+    created_at: 't',
+    updated_at: 't',
+    deleted_at: null,
+    server_seq: 0,
+    song_id: songId,
+    url: 'https://example.com/x',
+    provider: 'other',
+    provider_ref: null,
+    title: null,
+    artwork_url: null,
+    label: null,
+    position: 0,
     ...extra,
   }
 }

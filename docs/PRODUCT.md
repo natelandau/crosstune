@@ -60,11 +60,15 @@ on a phone home screen. It contains these features.
 - Status. Every song is known, learning, or want to learn.
 - Named lists. A user creates ordered lists such as "Tuesday jam" or "Square
   dance set". A song can be in many lists.
-- Linked recordings. A user pastes a YouTube, Spotify, Apple Music, Bandcamp, or
-  other URL. Crosstune resolves the title and artwork and stores the link. A
-  song can have many links, each with an optional label.
-- Playback. YouTube links play inside the app. Other links open the streaming
-  app or website.
+- Linked recordings. A user pastes a URL from YouTube, Spotify, Apple Music,
+  TIDAL, Bandcamp, SoundCloud, the Internet Archive, or any other site.
+  Crosstune resolves the title and artwork and stores the link. A song can have
+  many links, each with an optional label.
+- Playback. Links from YouTube, Spotify, Apple Music, TIDAL, Bandcamp,
+  SoundCloud, and the Internet Archive play inside the app, in one player
+  docked above the navigation that stays loaded while the user browses.
+  Streaming services play a preview unless the listener is signed in to the
+  service. Every link also opens the streaming app or website.
 - Browse. The home screen is the catalog filtered by status, key, mode, violin
   tuning, banjo tuning, and genre, with a text search. Filters persist between
   visits. A filter appears only when the catalog has values for it.

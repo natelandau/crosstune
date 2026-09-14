@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { removeLink } from '../../commands/links'
 import { deleteSong, setArchived, updateSong, updateUserSong } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
@@ -6,9 +5,7 @@ import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import { AddLinkForm } from '../links/AddLinkForm'
 import { LinkList } from '../links/LinkList'
-import { youtubeId } from '../links/detect'
 import { AddToListMenu } from '../lists/AddToListMenu'
-import { YouTubePlayer } from '../player/YouTubePlayer'
 import { useInstruments } from '../settings/useInstruments'
 import { SongForm, valuesFromRows } from './SongForm'
 import { StatusPicker } from './StatusPicker'
@@ -25,7 +22,6 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const db = useDb()
   const view = useSong(songId)
   const instruments = useInstruments()
-  const [playingId, setPlayingId] = useState<string | null>(null)
   const { error, run, runThen } = useAction()
 
   if (view === undefined || instruments === undefined) return null
@@ -51,8 +47,6 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
     )
   }
 
-  const playing = links.find((l) => l.id === playingId) ?? links.find((l) => youtubeId(l))
-  const playingVideo = playing ? youtubeId(playing) : null
   const keyLine = [song.key, song.mode].filter(Boolean).join(' ')
   const chips = [
     { key: 'violin_tuning', label: song.violin_tuning },
@@ -83,10 +77,6 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
         </div>
       </header>
 
-      {playing && playingVideo ? (
-        <YouTubePlayer videoId={playingVideo} title={playing.title ?? song.title} />
-      ) : null}
-
       <StatusPicker
         value={userSong.status}
         onChange={(status) => run(() => updateUserSong(db, userSong.id, { status }))}
@@ -94,12 +84,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
-        <LinkList
-          links={links}
-          playingId={playing?.id ?? null}
-          onPlay={setPlayingId}
-          onRemove={(id) => run(() => removeLink(db, id))}
-        />
+        <LinkList links={links} onRemove={(id) => run(() => removeLink(db, id))} />
         <AddLinkForm songId={song.id} />
       </section>
 
