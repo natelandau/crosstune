@@ -10,6 +10,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
+from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.models import List, ListItem, RecordingLink, UserSong
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
@@ -146,6 +147,15 @@ async def _upsert(
         data["provider_ref"] = resolved.provider_ref or data.get("provider_ref")
         data["title"] = resolved.title
         data["artwork_url"] = data.get("artwork_url") or resolved.artwork_url
+
+    if spec.name == "recording_links" and data["provider"] == "other":
+        # A client that predates a provider saves its links as other, and a titled link is
+        # never resolved, so detect it here, without a fetch.
+        provider, ref = detect_provider(data["url"])
+        if provider != "other":
+            data["url"] = normalize_url(data["url"], provider, ref)
+            data["provider"] = provider
+            data["provider_ref"] = ref
 
     values = {**data, "id": change.id, "updated_at": change.updated_at, "deleted_at": None}
     if spec.owner_column:
