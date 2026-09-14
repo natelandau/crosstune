@@ -1,4 +1,5 @@
 import { forgetUser } from '../../auth/session'
+import { clearSearchQuery } from '../catalog/searchSession'
 import { deleteDatabase, type CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
 
@@ -30,4 +31,5 @@ export async function signOutAndForget({
   db.close()
   await deleteDatabase(userId)
   forgetUser()
+  clearSearchQuery()
 }

@@ -21,6 +21,7 @@ import {
   type CatalogFilters,
 } from './filters'
 import { enterAction, searchOutcome } from './searchIntent'
+import { readSearchQuery, writeSearchQuery } from './searchSession'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
 
@@ -50,9 +51,7 @@ function Catalog({
   instruments: ReadonlySet<Instrument>
   updateFilters: (patch: Partial<CatalogFilters>) => Promise<void>
 }) {
-  // The search box holds its own state so typing filters immediately instead of
-  // waiting on the persisted round trip through the meta table.
-  const [query, setQuery] = useState(filters.query)
+  const [query, setQuery] = useState(readSearchQuery)
   const searchRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const db = useDb()
@@ -69,20 +68,19 @@ function Catalog({
     (patch: Partial<CatalogFilters>) => updateFilters({ ...resets, ...patch }),
     [resets, updateFilters],
   )
-  const activeFilters = useMemo(() => ({ ...effectiveFilters, query }), [effectiveFilters, query])
-  const visible = useMemo(() => filterCatalog(entries, activeFilters), [entries, activeFilters])
+  const visible = useMemo(
+    () => filterCatalog(entries, effectiveFilters, query),
+    [entries, effectiveFilters, query],
+  )
   const outcome = useMemo(
     () => searchOutcome(entries, visible, query, effectiveFilters.archived),
     [entries, visible, query, effectiveFilters.archived],
   )
-  const filtering =
-    JSON.stringify({ ...effectiveFilters, query: DEFAULT_FILTERS.query }) !==
-    JSON.stringify(DEFAULT_FILTERS)
+  const filtering = JSON.stringify(effectiveFilters) !== JSON.stringify(DEFAULT_FILTERS)
 
-  // The query stays: it names the song the user is looking for, and clearing the other
-  // filters is what brings a hidden match into view.
-  const clearFilters = () => {
-    void updateFilters({ ...DEFAULT_FILTERS, query })
+  const changeQuery = (value: string) => {
+    setQuery(value)
+    writeSearchQuery(value)
   }
 
   const submitSearch = (event: FormEvent) => {
@@ -110,16 +108,27 @@ function Catalog({
           <input
             ref={searchRef}
             type="search"
-            className="grow"
+            // The native cancel button is missing in Firefox and too small to tap in WebKit.
+            className="grow [&::-webkit-search-cancel-button]:appearance-none"
             placeholder="Search songs"
             aria-label="Search songs"
             enterKeyHint="search"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              void update({ query: e.target.value })
-            }}
+            onChange={(e) => changeQuery(e.target.value)}
           />
+          {query ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-circle btn-sm -mr-2"
+              aria-label="Clear search"
+              onClick={() => {
+                changeQuery('')
+                searchRef.current?.focus()
+              }}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
         </label>
       </form>
       <FilterBar
@@ -127,6 +136,8 @@ function Catalog({
         facets={facets}
         visible={visibleFacetList}
         onChange={(patch) => void update(patch)}
+        // The query stays: clearing the other filters is what brings a hidden match into view.
+        onClear={filtering ? () => void updateFilters(DEFAULT_FILTERS) : undefined}
       />
       {error ? (
         <p role="alert" className="text-error text-sm">
@@ -137,18 +148,7 @@ function Catalog({
         <EmptyState
           title={emptyTitle}
           hint={noSongs ? 'Add the first tune you know.' : undefined}
-          action={
-            outcome.kind === 'none' && !filtering ? null : (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <SearchSuggestion outcome={outcome} placement="empty" />
-                {filtering ? (
-                  <button type="button" className="btn btn-sm" onClick={clearFilters}>
-                    Clear filters
-                  </button>
-                ) : null}
-              </div>
-            )
-          }
+          action={<SearchSuggestion outcome={outcome} placement="empty" />}
         />
       ) : (
         <>

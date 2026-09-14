@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readSearchQuery, writeSearchQuery } from '../features/catalog/searchSession'
 import { useAuthSession } from './AuthContext'
 import { AuthGate, CLERK_LOAD_GRACE_MS } from './AuthGate'
 import { rememberedUser, rememberUser } from './session'
@@ -54,8 +55,9 @@ describe('AuthGate', () => {
     expect(rememberedUser()).toBe('user_1')
   })
 
-  it('shows sign-in and forgets the user when signed out', () => {
+  it('shows sign-in and forgets the user and their search when signed out', () => {
     rememberUser('user_1')
+    writeSearchQuery('soldier')
     auth = { isLoaded: true, isSignedIn: false, userId: null, getToken: async () => null }
     render(
       <AuthGate>
@@ -64,6 +66,7 @@ describe('AuthGate', () => {
     )
     expect(screen.getByText('Clerk sign-in form')).toBeInTheDocument()
     expect(rememberedUser()).toBeNull()
+    expect(readSearchQuery()).toBe('')
   })
 
   it('opens the remembered user offline when Clerk cannot load', () => {

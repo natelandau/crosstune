@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { rememberedUser, rememberUser } from '../../auth/session'
 import { createSong } from '../../commands/songs'
 import { databaseName, openDatabase } from '../../db/schema'
+import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
 import { fakeEngine } from '../../test/render'
 import { signOutAndForget } from './signOut'
 
@@ -16,6 +17,7 @@ describe('signOutAndForget', () => {
   it('flushes the outbox, stops sync, signs out of Clerk, then deletes the local database', async () => {
     const { userId, db } = freshUser()
     await createSong(db, { title: 'X' }, { status: 'known' })
+    writeSearchQuery('X')
     const sync = vi.fn(async () => {
       await db.outbox.clear()
     })
@@ -28,6 +30,7 @@ describe('signOutAndForget', () => {
     expect(stop.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0]!)
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
     expect(rememberedUser()).toBeNull()
+    expect(readSearchQuery()).toBe('')
   })
 
   it('refuses while edits are still queued so the deletion cannot take them', async () => {

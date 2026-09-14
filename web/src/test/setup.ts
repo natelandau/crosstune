@@ -7,6 +7,7 @@ import { afterEach } from 'vitest'
 // (which only registers against a global afterEach) never runs on its own.
 afterEach(() => {
   cleanup()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
 })
 
 // jsdom has no layout engine, so it doesn't implement scrollTo; the router calls

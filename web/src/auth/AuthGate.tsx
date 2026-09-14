@@ -1,5 +1,6 @@
 import { SignIn, useAuth } from '@clerk/react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { clearSearchQuery } from '../features/catalog/searchSession'
 import { AuthProvider } from './AuthContext'
 import { forgetUser, rememberedUser, rememberUser } from './session'
 
@@ -18,8 +19,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoaded) return
-    if (isSignedIn && userId) rememberUser(userId)
-    else forgetUser()
+    if (isSignedIn && userId) {
+      rememberUser(userId)
+    } else {
+      forgetUser()
+      // Whoever signs in next in this tab must not inherit the previous user's search.
+      clearSearchQuery()
+    }
   }, [isLoaded, isSignedIn, userId])
 
   const latest = useRef<() => Promise<string | null>>(async () => null)

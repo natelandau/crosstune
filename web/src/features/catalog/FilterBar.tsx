@@ -7,6 +7,8 @@ interface Props {
   facets: FacetValues
   visible: readonly Facet[]
   onChange: (patch: Partial<CatalogFilters>) => void
+  /** Offered only while a filter is set. */
+  onClear?: () => void
 }
 
 function FacetSelect({
@@ -37,7 +39,7 @@ function FacetSelect({
   )
 }
 
-export function FilterBar({ filters, facets, visible, onChange }: Props) {
+export function FilterBar({ filters, facets, visible, onChange, onClear }: Props) {
   return (
     <div className="space-y-2">
       <div className="join w-full" role="group" aria-label="Status">
@@ -84,6 +86,11 @@ export function FilterBar({ filters, facets, visible, onChange }: Props) {
           />
           Show archived
         </label>
+        {onClear ? (
+          <button type="button" className="btn btn-sm btn-ghost min-h-11" onClick={onClear}>
+            Clear filters
+          </button>
+        ) : null}
       </div>
     </div>
   )

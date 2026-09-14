@@ -50,19 +50,15 @@ describe('filterCatalog', () => {
   })
 
   it('matches the query against titles and alternate titles', () => {
-    expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, query: 'SOLD' }).map((e) => e.song.id),
-    ).toEqual(['s1'])
-    expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, query: 'cluck' }).map((e) => e.song.id),
-    ).toEqual(['s2'])
+    expect(filterCatalog(entries, DEFAULT_FILTERS, 'SOLD').map((e) => e.song.id)).toEqual(['s1'])
+    expect(filterCatalog(entries, DEFAULT_FILTERS, 'cluck').map((e) => e.song.id)).toEqual(['s2'])
   })
 
   it('keeps a title that matches the query exactly apart from accents', () => {
     const accented = catalogEntries([song('s6', 'Été Waltz')], [userSong('u6', 's6')])
-    expect(
-      filterCatalog(accented, { ...DEFAULT_FILTERS, query: 'ete waltz' }).map((e) => e.song.id),
-    ).toEqual(['s6'])
+    expect(filterCatalog(accented, DEFAULT_FILTERS, 'ete waltz').map((e) => e.song.id)).toEqual([
+      's6',
+    ])
   })
 
   it('filters by status and facets', () => {
@@ -117,11 +113,12 @@ describe('facetValues', () => {
 describe('normalizeFilters', () => {
   it('fills defaults for missing or malformed stored values', () => {
     expect(normalizeFilters(null)).toEqual(DEFAULT_FILTERS)
-    expect(normalizeFilters({ query: 'x', status: 'bogus', archived: 'yes' })).toEqual({
-      ...DEFAULT_FILTERS,
-      query: 'x',
-    })
+    expect(normalizeFilters({ status: 'bogus', archived: 'yes' })).toEqual(DEFAULT_FILTERS)
     expect(normalizeFilters({ key: 'A', archived: true }).key).toBe('A')
+  })
+
+  it('drops a search query stored by an earlier build', () => {
+    expect('query' in normalizeFilters({ query: 'soldier', key: 'D' })).toBe(false)
   })
 
   it('ignores a filter stored under the retired tuning key', () => {
