@@ -4,6 +4,7 @@ import {
   LazyMotion,
   useMotionValue,
   useReducedMotion,
+  useTransform,
   type MotionValue,
   type PanInfo,
 } from 'motion/react'
@@ -42,6 +43,7 @@ export function SwipeRow({
   children: ReactNode
 }) {
   const x = useMotionValue(0)
+  const actionsOpacity = useTransform(x, (latest) => (latest < 0 ? 1 : 0))
   const reduced = useReducedMotion()
   const swiped = useRef(false)
   const openRef = useRef(open)
@@ -58,9 +60,10 @@ export function SwipeRow({
   return (
     <LazyMotion features={domMax} strict>
       <div className="rounded-box bg-base-200 relative overflow-hidden">
-        <div
+        <m.div
           className="absolute inset-y-0 right-0 flex"
-          style={{ width: REVEAL_WIDTH }}
+          // The front layer's antialiased rounded edge lets colored buttons behind it show through.
+          style={{ width: REVEAL_WIDTH, opacity: actionsOpacity }}
           inert={!open}
         >
           {actions.map((action) => (
@@ -77,7 +80,7 @@ export function SwipeRow({
               {action.label}
             </button>
           ))}
-        </div>
+        </m.div>
         <m.div
           className="bg-base-200 relative"
           drag="x"

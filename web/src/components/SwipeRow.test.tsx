@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
@@ -42,10 +42,16 @@ describe('SwipeRow', () => {
     expect(editButton().parentElement).toHaveAttribute('inert')
   })
 
-  it('makes the actions usable while open', () => {
+  it('hides the actions while the row rests closed, so their color cannot edge its corners', () => {
+    renderRow()
+    expect(editButton().parentElement).toHaveStyle({ opacity: '0' })
+  })
+
+  it('makes the actions usable while open', async () => {
     renderRow({ open: true })
     expect(editButton().parentElement).not.toHaveAttribute('inert')
     expect(screen.getByRole('button', { name: "Archive Soldier's Joy" })).toBeInTheDocument()
+    await waitFor(() => expect(editButton().parentElement).toHaveStyle({ opacity: '1' }))
   })
 
   it('passes a tap on a closed row through to the link', async () => {
