@@ -2,11 +2,13 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { activeItems, addToList, createList } from '../../commands/lists'
-import { createSong } from '../../commands/songs'
+import { createSong, setArchived } from '../../commands/songs'
+import { getMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderWithProviders } from '../../test/render'
 import { ListDetail } from './ListDetail'
+import { META_LIST_SHOW_ARCHIVED } from './useListShowArchived'
 
 let db: CrosstuneDb
 let listId: string
@@ -66,6 +68,47 @@ describe('ListDetail', () => {
     await waitFor(async () =>
       expect((await activeItems(db, listId)).map((i) => i.user_song_id)).toEqual([b]),
     )
+  })
+
+  it('hides archived songs until Show archived is on, and numbers only visible rows', async () => {
+    await setArchived(db, a, true)
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    const toggle = await screen.findByRole('checkbox', { name: 'Show archived' })
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1))
+    const [only] = screen.getAllByRole('listitem')
+    expect(only).toHaveTextContent('Bill Cheatham')
+    expect(within(only!).getByText('1')).toBeInTheDocument()
+    await userEvent.click(toggle)
+    await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(2))
+    expect(await getMeta(db, META_LIST_SHOW_ARCHIVED, null)).toBe(true)
+  })
+
+  it('says every song is archived when all of them are hidden', async () => {
+    await setArchived(db, a, true)
+    await setArchived(db, b, true)
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    expect(await screen.findByText('Every song here is archived')).toBeInTheDocument()
+  })
+
+  it('moves a song past a hidden archived song', async () => {
+    const c = (await createSong(db, { title: 'Cotton-Eyed Joe' }, { status: 'known' })).userSongId
+    await addToList(db, listId, c)
+    await setArchived(db, b, true)
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Move Angeline down' }))
+    await waitFor(async () => {
+      const ordered = await activeItems(db, listId)
+      expect(ordered.map((i) => i.user_song_id)).toEqual([b, c, a])
+    })
   })
 
   it('adds a song through the picker and removes one', async () => {

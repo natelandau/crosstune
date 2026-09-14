@@ -5,9 +5,12 @@ import { EmptyState } from '../../components/EmptyState'
 import { useOpenRow } from '../../components/swipe'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
+import { hideArchived } from '../catalog/filters'
+import { ShowArchivedToggle } from '../catalog/ShowArchivedToggle'
 import { SongRow } from '../catalog/SongRow'
 import { useInstruments } from '../settings/useInstruments'
 import { SongPicker } from './SongPicker'
+import { useListShowArchived } from './useListShowArchived'
 import { useListView } from './useLists'
 
 interface Props {
@@ -21,14 +24,16 @@ export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
   const db = useDb()
   const view = useListView(listId)
   const instruments = useInstruments()
+  const [showArchived, setShowArchived] = useListShowArchived()
   const { error, pending, run, runThen } = useAction()
   const navigate = useNavigate()
   const rowState = useOpenRow()
 
-  if (view === undefined || instruments === undefined) return null
+  if (view === undefined || instruments === undefined || showArchived === undefined) return null
   if (view === null) return <EmptyState title="This list is gone" />
   const { list, items } = view
   const inList = new Set(items.map((i) => i.userSong.id))
+  const visible = hideArchived(items, showArchived)
 
   return (
     <div className="space-y-4">
@@ -53,12 +58,23 @@ export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
         </div>
       )}
 
+      {items.length > 0 ? (
+        <ShowArchivedToggle
+          checked={showArchived}
+          onChange={(show) => void setShowArchived(show)}
+        />
+      ) : null}
+
       {items.length === 0 ? (
         <EmptyState title="Nothing in this list" hint="Search below to add songs." />
+      ) : visible.length === 0 ? (
+        <EmptyState title="Every song here is archived" hint="Turn on Show archived to see them." />
       ) : (
         <ol className="space-y-2">
-          {items.map((entry, index) => {
+          {visible.map((entry, index) => {
             const { item, song } = entry
+            const above = visible[index - 1]
+            const below = visible[index + 1]
             return (
               <li key={item.id}>
                 <SongRow
@@ -75,18 +91,22 @@ export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm min-h-11"
-                        disabled={index === 0}
+                        disabled={!above}
                         aria-label={`Move ${song.title} up`}
-                        onClick={() => run(() => moveItem(db, listId, item.id, -1))}
+                        onClick={() =>
+                          above && run(() => moveItem(db, listId, item.id, above.item.id))
+                        }
                       >
                         ↑
                       </button>
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm min-h-11"
-                        disabled={index === items.length - 1}
+                        disabled={!below}
                         aria-label={`Move ${song.title} down`}
-                        onClick={() => run(() => moveItem(db, listId, item.id, 1))}
+                        onClick={() =>
+                          below && run(() => moveItem(db, listId, item.id, below.item.id))
+                        }
                       >
                         ↓
                       </button>

@@ -74,8 +74,8 @@ describe('useLists', () => {
     [
       'a reorder',
       async () => {
-        const [first] = await activeItems(db, listId)
-        await moveItem(db, listId, first!.id, 1)
+        const [first, second] = await activeItems(db, listId)
+        await moveItem(db, listId, first!.id, second!.id)
       },
     ],
   ])('moves the last edit on %s', async (_name, edit) => {
