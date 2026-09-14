@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { STATUSES, type SongStatus } from '../../db/types'
-import { STATUS_LABELS } from '../catalog/StatusBadge'
+import { STATUS_LABELS } from '../catalog/StatusDot'
 
 export function StatusPicker({
   value,

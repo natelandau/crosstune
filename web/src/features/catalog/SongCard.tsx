@@ -1,28 +1,41 @@
 import { Link } from '@tanstack/react-router'
-import { StatusBadge } from './StatusBadge'
+import type { Instrument } from '../../db/types'
+import { TUNING_FIELDS, TUNING_FIELD_NAMES } from '../settings/instruments'
+import { StatusDot } from './StatusDot'
 import type { CatalogEntry } from './filters'
 
-export function SongCard({ entry: { song, userSong } }: { entry: CatalogEntry }) {
-  const facets = [song.mode, song.violin_tuning, song.banjo_tuning, song.feel]
+export function SongCard({
+  entry: { song, userSong },
+  instruments,
+}: {
+  entry: CatalogEntry
+  instruments: ReadonlySet<Instrument>
+}) {
+  const tunings = TUNING_FIELD_NAMES.filter((field) =>
+    instruments.has(TUNING_FIELDS[field].instrument),
+  )
+    .map((field) => song[field])
     .filter(Boolean)
     .join(' · ')
   return (
     <Link
       to="/songs/$id"
       params={{ id: song.id }}
-      className="bg-base-200 rounded-box flex min-h-16 items-center gap-3 px-3 py-2 active:opacity-80"
+      draggable={false}
+      className="flex min-h-16 flex-col justify-center gap-0.5 px-3 py-2"
     >
-      <span
-        className="badge badge-primary badge-lg w-14 shrink-0 justify-center text-lg font-bold"
-        aria-label={song.key ? `Key ${song.key}` : 'No key'}
-      >
-        {song.key ?? '·'}
+      <span className="truncate text-lg font-semibold">{song.title}</span>
+      <span className="flex min-w-0 items-center gap-3 text-sm">
+        {song.key ? (
+          <span className="font-bold">
+            <span className="sr-only">Key </span>
+            {song.key}
+          </span>
+        ) : null}
+        <StatusDot status={userSong.status} />
+        {tunings ? <span className="truncate opacity-70">{tunings}</span> : null}
+        {userSong.archived_at ? <span className="opacity-60">Archived</span> : null}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{song.title}</span>
-        {facets ? <span className="block truncate text-xs opacity-70">{facets}</span> : null}
-      </span>
-      <StatusBadge status={userSong.status} />
     </Link>
   )
 }

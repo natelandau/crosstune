@@ -11,14 +11,17 @@ import { CatalogScreen } from './CatalogScreen'
 import { META_CATALOG_FILTERS } from './filters'
 
 let db: CrosstuneDb
+let soldiersJoy: string
 
 beforeEach(async () => {
   db = openTestDb()
-  await createSong(
-    db,
-    { title: "Soldier's Joy", key: 'D', banjo_tuning: 'gDGBD' },
-    { status: 'known' },
-  )
+  soldiersJoy = (
+    await createSong(
+      db,
+      { title: "Soldier's Joy", key: 'D', banjo_tuning: 'gDGBD' },
+      { status: 'known' },
+    )
+  ).userSongId
   await createSong(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
 })
 
@@ -50,6 +53,22 @@ describe('CatalogScreen', () => {
       'href',
       '/songs/new',
     )
+  })
+
+  it('floats the add link above the dock, the safe area, and the player', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    const add = await screen.findByRole('link', { name: 'Add song' })
+    expect(add).toHaveClass(
+      'fixed',
+      'z-10',
+      'bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))]',
+    )
+  })
+
+  it('leaves room below the last row for the add link', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    expect(screen.getByRole('list').parentElement).toHaveClass('pb-12')
   })
 
   it('offers only facets with values and only tunings for played instruments', async () => {
@@ -187,5 +206,52 @@ describe('CatalogScreen search box Enter', () => {
     expect(router.state.location.pathname).toBe('/')
     expect(searchbox()).not.toHaveFocus()
     expect(screen.getByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+  })
+})
+
+describe('CatalogScreen swipe actions', () => {
+  it('edits a song from its row and returns to the catalog on cancel', async () => {
+    const { router } = renderApp({ db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.click(screen.getByRole('button', { name: "Edit Soldier's Joy" }))
+    expect(await screen.findByRole('heading', { name: 'Edit song' })).toBeInTheDocument()
+    expect(router.state.location.search).toEqual({ edit: true })
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+  })
+
+  it('archives a song from its row', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.click(screen.getByRole('button', { name: "Archive Soldier's Joy" }))
+    await waitFor(() => expect(screen.queryByRole('link', { name: /Soldier's Joy/ })).toBeNull())
+    expect((await db.user_songs.get(soldiersJoy))?.archived_at).not.toBeNull()
+  })
+
+  it('shows an archive failure above the list, where a long catalog keeps it in view', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    const reject = () => {
+      throw new Error('Storage is full')
+    }
+    db.user_songs.hook('creating', reject)
+    db.user_songs.hook('updating', reject)
+    await userEvent.click(screen.getByRole('button', { name: "Archive Soldier's Joy" }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Storage is full')
+    expect(
+      alert.compareDocumentPosition(screen.getByRole('list')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('unarchives a song shown by Show archived', async () => {
+    await setArchived(db, soldiersJoy, true)
+    await setMeta(db, META_CATALOG_FILTERS, { archived: true })
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    await userEvent.click(screen.getByRole('button', { name: "Unarchive Soldier's Joy" }))
+    await waitFor(async () =>
+      expect((await db.user_songs.get(soldiersJoy))?.archived_at).toBeNull(),
+    )
   })
 })

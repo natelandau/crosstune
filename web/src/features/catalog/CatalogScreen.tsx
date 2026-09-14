@@ -1,6 +1,11 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
+import { setArchived } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
+import { SwipeRow } from '../../components/SwipeRow'
+import { useOpenRow } from '../../components/swipe'
+import { useAction } from '../../components/useAction'
+import { useDb } from '../../db/DbProvider'
 import type { Instrument } from '../../db/types'
 import { useInstruments } from '../settings/useInstruments'
 import { FilterBar } from './FilterBar'
@@ -50,6 +55,9 @@ function Catalog({
   const [query, setQuery] = useState(filters.query)
   const searchRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const db = useDb()
+  const rowState = useOpenRow()
+  const { error, run } = useAction()
 
   const facets = useMemo(() => facetValues(entries), [entries])
   const visibleFacetList = useMemo(() => visibleFacets(facets, instruments), [facets, instruments])
@@ -94,7 +102,8 @@ function Catalog({
   if (outcome.kind === 'create') emptyTitle = `No song called "${outcome.title}"`
 
   return (
-    <div className="space-y-3">
+    // Lets the last row scroll clear of the floating add link, which would cover its swipe actions.
+    <div className="space-y-3 pb-12">
       <h1 className="sr-only">Catalog</h1>
       <form role="search" onSubmit={submitSearch}>
         <label className="input w-full">
@@ -119,6 +128,11 @@ function Catalog({
         visible={visibleFacetList}
         onChange={(patch) => void update(patch)}
       />
+      {error ? (
+        <p role="alert" className="text-error text-sm">
+          {error}
+        </p>
+      ) : null}
       {visible.length === 0 ? (
         <EmptyState
           title={emptyTitle}
@@ -139,18 +153,45 @@ function Catalog({
       ) : (
         <>
           <ul className="space-y-2">
-            {visible.map((entry) => (
-              <li key={entry.userSong.id}>
-                <SongCard entry={entry} />
-              </li>
-            ))}
+            {visible.map((entry) => {
+              const { song, userSong } = entry
+              const archived = userSong.archived_at !== null
+              return (
+                <li key={userSong.id}>
+                  <SwipeRow
+                    name={song.title}
+                    {...rowState(userSong.id)}
+                    actions={[
+                      {
+                        label: 'Edit',
+                        tone: 'neutral',
+                        onPress: () =>
+                          void navigate({
+                            to: '/songs/$id',
+                            params: { id: song.id },
+                            search: { edit: true },
+                            state: { editPushed: true },
+                          }),
+                      },
+                      {
+                        label: archived ? 'Unarchive' : 'Archive',
+                        tone: 'warning',
+                        onPress: () => run(() => setArchived(db, userSong.id, !archived)),
+                      },
+                    ]}
+                  >
+                    <SongCard entry={entry} instruments={instruments} />
+                  </SwipeRow>
+                </li>
+              )
+            })}
           </ul>
           <SearchSuggestion outcome={outcome} placement="list" />
         </>
       )}
       <Link
         to="/songs/new"
-        className="btn btn-primary btn-circle btn-lg fixed right-4 bottom-20 shadow-lg"
+        className="btn btn-primary btn-circle btn-lg fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] z-10 shadow-lg"
         aria-label="Add song"
       >
         +
