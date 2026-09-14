@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { validateEditSearch } from '../editMode'
 import { SongPage } from '../features/song/SongPage'
 
 export const Route = createFileRoute('/songs/$id')({
-  validateSearch: (search: Record<string, unknown>): { edit?: boolean } =>
-    search.edit === true || search.edit === 'true' ? { edit: true } : {},
+  validateSearch: validateEditSearch,
   component: SongPage,
 })
