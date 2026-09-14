@@ -292,8 +292,9 @@ GitHub Actions runs on every pull request and on every push to `main`. The
 verifies the committed OpenAPI contract. The `Web` workflow lints, type
 checks, tests, builds, and verifies the generated client types. The hosts do
 not wait for these workflows unless Railway's Wait for CI setting is on. The
-`E2E` workflow runs the Playwright suite on demand, against a real Clerk
-development instance, and does not gate merges.
+`E2E` workflow runs the Playwright suite against a real Clerk development
+instance on each pull request that changes `web/` or `api/`, and on demand.
+It does not gate merges.
 
 Rollback on either host is one click to redeploy an earlier build. A bad
 commit is undone in minutes, and the outbox means a client outage loses no
@@ -656,13 +657,9 @@ When you bump pnpm in the `packageManager` field of `web/package.json`,
 update `PNPM_VERSION` in the Worker's build variables in the same change. A
 Node bump is one edit to `web/.node-version`.
 
-The `E2E` workflow runs from the Actions tab on demand. It signs in through
-the live Clerk development instance. If it gated pull requests, an outage or
-a rate limit there could block unrelated merges. Once the suite has run
-green from a manual dispatch, promote it to a pull request check. Add this
-to the `on:` block in `.github/workflows/e2e.yml`:
-
-```yaml
-pull_request:
-    paths: ["web/**", "api/**"]
-```
+The `E2E` workflow runs on pull requests that change `web/` or `api/`, and
+from the Actions tab on demand. It signs in through the live Clerk
+development instance. Its job is not a required status check in the `main`
+ruleset. As a required check, an outage or a rate limit at Clerk can block
+unrelated merges. A new push to the same pull request cancels the run in progress, so
+fewer sign-ins count against the instance's usage limits.

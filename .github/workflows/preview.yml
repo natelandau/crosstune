@@ -61,6 +61,8 @@ jobs:
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: ${{ env.PR_NAME }}
+          # The default branch of the development Neon project. Neon names every
+          # project's default branch "production".
           parent_branch: production
           database: crosstune
           role: ${{ vars.NEON_DATABASE_ROLE }}

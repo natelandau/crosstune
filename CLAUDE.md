@@ -8,6 +8,13 @@ architecture.
 each host holds. Read it only when the work touches sync, auth, deployment,
 CI, or a hosting setting.
 
+## Naming
+
+Use formal instrument and music names in the schema, API fields, enum values,
+and all other backend code: `violin`, never `fiddle`. The product serves folk
+musicians from many traditions, and schema names are expensive to change.
+Slang belongs only in UI labels, and only as a deliberate choice.
+
 ## Task runner
 
 The repo uses [just](https://just.systems) in a root-plus-module layout. The
