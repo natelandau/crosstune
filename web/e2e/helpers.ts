@@ -37,7 +37,7 @@ export async function expectSynced(page: Page, after = ''): Promise<void> {
 
 export async function addSong(page: Page, title: string, key: string): Promise<void> {
   await page.getByRole('link', { name: 'Add song' }).click()
-  await page.getByRole('textbox', { name: 'Title' }).fill(title)
+  await page.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
   await page.getByRole('combobox', { name: 'Key' }).fill(key)
   await page.getByRole('radio', { name: 'Learning' }).check({ force: true })
   await page.getByRole('button', { name: 'Add song' }).click()
@@ -46,6 +46,9 @@ export async function addSong(page: Page, title: string, key: string): Promise<v
 
 /** Drag a row left with the mouse, far and fast enough to open its swipe actions. */
 export async function swipeLeft(page: Page, target: Locator): Promise<void> {
+  // Raw mouse input skips Playwright's actionability checks, so a row under the fixed dock would
+  // take the press on the dock instead.
+  await target.scrollIntoViewIfNeeded()
   const box = await target.boundingBox()
   if (!box) throw new Error('swipe target is not visible')
   const y = box.y + box.height / 2
@@ -54,4 +57,24 @@ export async function swipeLeft(page: Page, target: Locator): Promise<void> {
   await page.mouse.down()
   await page.mouse.move(startX - 200, y, { steps: 12 })
   await page.mouse.up()
+  await expectSettled(target)
+}
+
+/**
+ * Wait until a dragged element stops moving. The app and dnd-kit drop clicks for a moment after a
+ * drag, so the next tap has to come only once things settle, as a person's would.
+ */
+export async function expectSettled(target: Locator): Promise<void> {
+  let previous: string | undefined
+  await expect
+    .poll(
+      async () => {
+        const box = JSON.stringify(await target.boundingBox())
+        const settled = box === previous
+        previous = box
+        return settled
+      },
+      { intervals: [50] },
+    )
+    .toBe(true)
 }

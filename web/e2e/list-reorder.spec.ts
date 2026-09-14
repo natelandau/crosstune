@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { addSong, signIn, swipeLeft, unique } from './helpers'
+import { addSong, expectSettled, signIn, swipeLeft, unique } from './helpers'
 
 async function songOrder(page: Page, tag: string): Promise<string[]> {
   const titles = await page
@@ -7,8 +7,9 @@ async function songOrder(page: Page, tag: string): Promise<string[]> {
     .getByRole('listitem')
     .getByRole('link')
     .allTextContents()
+  // A row's text runs the title into the metadata after it, so match the known names.
   return titles.flatMap((text) => {
-    const match = text.match(new RegExp(`${tag} (\\w+)`))
+    const match = text.match(new RegExp(`${tag} (Arkansas|Billy|Cripple)`))
     return match ? [match[1]!] : []
   })
 }
@@ -47,6 +48,7 @@ test('reorder a list by dragging a handle and from its menu, and swipe a song ou
   await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2, to.y + to.height, { steps: 20 })
   await page.mouse.up()
+  await expectSettled(handle)
   await expect.poll(() => songOrder(page, tag)).toEqual(['Billy', 'Cripple', 'Arkansas'])
   // A drag must not leave the handle's menu open behind it.
   await expect(page.getByRole('button', { name: 'Move to top' })).toBeHidden()
