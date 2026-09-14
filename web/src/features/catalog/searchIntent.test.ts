@@ -25,33 +25,40 @@ describe('searchOutcome', () => {
     expect(searchOutcome(entries, [], '   ', false)).toEqual({ kind: 'none' })
   })
 
-  it('offers nothing when a visible song matches the title or an alternate title', () => {
-    expect(searchOutcome(entries, [byId('s1')], "soldier's joy", false)).toEqual({ kind: 'none' })
-    expect(searchOutcome(entries, [byId('s2')], 'cluckin hen', false)).toEqual({ kind: 'none' })
+  it('offers another song when a visible song matches the title or an alternate title', () => {
+    expect(searchOutcome(entries, [byId('s1')], "soldier's joy", false)).toEqual({
+      kind: 'create',
+      title: "soldier's joy",
+      another: true,
+    })
+    expect(searchOutcome(entries, [byId('s2')], 'cluckin hen', false)).toEqual({
+      kind: 'create',
+      title: 'cluckin hen',
+      another: true,
+    })
   })
 
   it('ignores case and accents when matching exactly', () => {
-    expect(searchOutcome(entries, [byId('s4')], ' ete waltz ', false)).toEqual({ kind: 'none' })
+    expect(searchOutcome(entries, [byId('s4')], ' ete waltz ', false)).toMatchObject({
+      another: true,
+    })
   })
 
   it('points to an archived exact match while archived songs are hidden', () => {
     expect(searchOutcome(entries, [], 'ashokan farewell', false)).toEqual({
-      kind: 'hidden',
-      entry: byId('s3'),
-      reason: 'archived',
+      kind: 'create',
+      title: 'ashokan farewell',
+      another: true,
+      hidden: { entry: byId('s3'), reason: 'archived' },
     })
   })
 
   it('points to an exact match hidden by another filter', () => {
-    expect(searchOutcome(entries, [], 'Ashokan Farewell', true)).toEqual({
-      kind: 'hidden',
-      entry: byId('s3'),
-      reason: 'filtered',
+    expect(searchOutcome(entries, [], 'Ashokan Farewell', true)).toMatchObject({
+      hidden: { entry: byId('s3'), reason: 'filtered' },
     })
-    expect(searchOutcome(entries, [byId('s2')], "SOLDIER'S JOY", false)).toEqual({
-      kind: 'hidden',
-      entry: byId('s1'),
-      reason: 'filtered',
+    expect(searchOutcome(entries, [byId('s2')], "SOLDIER'S JOY", false)).toMatchObject({
+      hidden: { entry: byId('s1'), reason: 'filtered' },
     })
   })
 
@@ -59,14 +66,20 @@ describe('searchOutcome', () => {
     expect(searchOutcome(entries, [byId('s1')], '  Soldier ', false)).toEqual({
       kind: 'create',
       title: 'Soldier',
+      another: false,
     })
   })
 })
 
 describe('enterAction', () => {
   const none: SearchOutcome = { kind: 'none' }
-  const create: SearchOutcome = { kind: 'create', title: 'Soldier' }
-  const hidden: SearchOutcome = { kind: 'hidden', entry: byId('s3'), reason: 'archived' }
+  const create: SearchOutcome = { kind: 'create', title: 'Soldier', another: false }
+  const hidden: SearchOutcome = {
+    kind: 'create',
+    title: 'Ashokan Farewell',
+    another: true,
+    hidden: { entry: byId('s3'), reason: 'archived' },
+  }
 
   it('opens the only visible song whatever the outcome', () => {
     for (const outcome of [none, create, hidden]) {

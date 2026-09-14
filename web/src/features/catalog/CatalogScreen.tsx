@@ -96,7 +96,9 @@ function Catalog({
 
   const noSongs = entries.length === 0 && !query.trim()
   let emptyTitle = noSongs ? 'No songs yet' : 'Nothing matches'
-  if (outcome.kind === 'create') emptyTitle = `No song called "${outcome.title}"`
+  if (outcome.kind === 'create' && !outcome.another) {
+    emptyTitle = `No song called "${outcome.title}"`
+  }
 
   return (
     // Lets the last row scroll clear of the floating add link, which would cover its swipe actions.
