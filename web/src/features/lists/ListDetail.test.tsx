@@ -55,6 +55,17 @@ describe('ListDetail', () => {
     )
   })
 
+  it('keeps focus on the handle of a song moved down from its menu', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    const items = await screen.findAllByRole('listitem')
+    await userEvent.click(moveButton(items[0]!, 'Move down'))
+    await waitFor(() => expect(screen.getAllByRole('listitem')[1]).toHaveTextContent('Angeline'))
+    expect(screen.getByRole('button', { name: 'Reorder Angeline' })).toHaveFocus()
+  })
+
   it('moves a song to the top or bottom, and disables moves that go nowhere', async () => {
     const c = (await createSong(db, { title: 'Cotton-Eyed Joe' }, { status: 'known' })).userSongId
     await addToList(db, listId, c)

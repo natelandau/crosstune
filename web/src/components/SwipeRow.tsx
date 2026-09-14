@@ -93,8 +93,11 @@ export function SwipeRow({
         setDragX(x)
       }}
       onDragEnd={(event) => {
+        const x = offset(event)
+        // A pointer at rest fires no moves, so the release itself marks a pause before letting go.
+        samples.current.push({ time: performance.now(), x })
         const next = settleOpen({
-          x: offset(event),
+          x,
           velocityX: releaseVelocity(samples.current),
           revealWidth: REVEAL_WIDTH,
         })

@@ -114,6 +114,17 @@ describe('SwipeRow gestures', () => {
     expect(onOpenChange).toHaveBeenCalledWith(true)
   })
 
+  it('settles closed when a short flick pauses before release', () => {
+    const { onOpenChange, link } = renderRow()
+    press(link)
+    moveTo(-15, { ms: 10 })
+    moveTo(-25, { ms: 10 })
+    moveTo(-45, { ms: 20 })
+    now += 500
+    release()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
   it('shows the actions as soon as the row moves', () => {
     const { link } = renderRow()
     expect(actionLayer()).toHaveStyle({ opacity: '0' })

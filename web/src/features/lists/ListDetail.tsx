@@ -57,7 +57,7 @@ export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
       {items.length > 0 ? (
         <ShowArchivedToggle
           checked={showArchived}
-          onChange={(show) => void setShowArchived(show)}
+          onChange={(show) => run(() => setShowArchived(show))}
         />
       ) : null}
 

@@ -1,5 +1,12 @@
 import type { DraggableSyntheticListeners } from '@dnd-kit/core'
-import { useId, useRef, type CSSProperties, type ToggleEvent } from 'react'
+import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useRef,
+  type CSSProperties,
+  type ToggleEvent,
+} from 'react'
 
 export interface Moves {
   toTop?: () => void
@@ -31,13 +38,29 @@ export function ReorderHandle({
   moves: Moves
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
+  const handleRef = useRef<HTMLButtonElement | null>(null)
+  const refocus = useRef(false)
   // Popover ids and anchor names must be valid identifiers, which useId's output is not.
   const key = `reorder-${useId().replace(/[^\w-]/g, '')}`
+  const setHandleRef = useCallback(
+    (element: HTMLButtonElement | null) => {
+      handleRef.current = element
+      activatorRef(element)
+    },
+    [activatorRef],
+  )
+
+  // React reorders rows by moving their DOM nodes, which drops focus from a moved row's handle.
+  useLayoutEffect(() => {
+    if (!refocus.current) return
+    refocus.current = false
+    handleRef.current?.focus()
+  })
 
   return (
     <>
       <button
-        ref={activatorRef}
+        ref={setHandleRef}
         type="button"
         aria-label={`Reorder ${title}`}
         className="btn btn-ghost btn-square min-h-11 w-11 shrink-0 cursor-grab touch-none active:cursor-grabbing"
@@ -63,6 +86,8 @@ export function ReorderHandle({
         aria-label={`Move ${title}`}
         className="dropdown dropdown-end rounded-box bg-base-100 w-44 p-1 shadow-lg"
         style={{ positionAnchor: `--${key}` } as CSSProperties}
+        // The menu sits inside the swipeable row in the React tree, so a press on it must not start a swipe.
+        onPointerDown={(event) => event.stopPropagation()}
         onToggle={(event: ToggleEvent<HTMLDivElement>) => {
           if (event.newState === 'open') {
             menuRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
@@ -79,6 +104,7 @@ export function ReorderHandle({
               disabled={!moves[move]}
               onClick={() => {
                 menuRef.current?.hidePopover?.()
+                refocus.current = true
                 moves[move]?.()
               }}
             >
