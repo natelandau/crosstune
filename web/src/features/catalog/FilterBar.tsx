@@ -1,4 +1,5 @@
 import { STATUSES } from '../../db/types'
+import { ShowArchivedToggle } from './ShowArchivedToggle'
 import { STATUS_LABELS } from './StatusDot'
 import { FACET_LABELS, type CatalogFilters, type Facet, type FacetValues } from './filters'
 
@@ -77,15 +78,10 @@ export function FilterBar({ filters, facets, visible, onChange, onClear }: Props
             }}
           />
         ))}
-        <label className="label cursor-pointer gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="toggle toggle-sm"
-            checked={filters.archived}
-            onChange={(e) => onChange({ archived: e.target.checked })}
-          />
-          Show archived
-        </label>
+        <ShowArchivedToggle
+          checked={filters.archived}
+          onChange={(archived) => onChange({ archived })}
+        />
         {onClear ? (
           <button type="button" className="btn btn-sm btn-ghost min-h-11" onClick={onClear}>
             Clear filters

@@ -8,6 +8,7 @@ import {
   facetValues,
   filterCatalog,
   hiddenResets,
+  hideArchived,
   normalizeFilters,
   visibleFacets,
 } from './filters'
@@ -36,6 +37,20 @@ describe('catalogEntries', () => {
   it('joins active pairs and sorts by title ignoring case', () => {
     const entries = catalogEntries(songs, userSongs)
     expect(entries.map((e) => e.song.id)).toEqual(['s4', 's2', 's1'])
+  })
+})
+
+describe('hideArchived', () => {
+  const entries = catalogEntries(songs, userSongs)
+
+  it('drops archived entries unless shown', () => {
+    expect(hideArchived(entries, false).map((e) => e.song.id)).toEqual(['s2', 's1'])
+    expect(hideArchived(entries, true)).toBe(entries)
+  })
+
+  it('keeps the extra fields of a wider entry', () => {
+    const wide = entries.map((entry, index) => ({ ...entry, index }))
+    expect(hideArchived(wide, false).map((e) => e.index)).toEqual([1, 2])
   })
 })
 

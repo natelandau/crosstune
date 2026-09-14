@@ -87,6 +87,10 @@ export function titleMatches(song: LocalSong, query: string): boolean {
   )
 }
 
+export function hideArchived<T extends CatalogEntry>(entries: T[], show: boolean): T[] {
+  return show ? entries : entries.filter((entry) => !entry.userSong.archived_at)
+}
+
 function facetMatches(filter: string, value: string | null | undefined): boolean {
   return filter === 'all' || (value != null && collator.compare(filter, value) === 0)
 }
@@ -97,8 +101,7 @@ export function filterCatalog(
   query = '',
 ): CatalogEntry[] {
   const needle = query.trim().toLocaleLowerCase()
-  return entries.filter(({ song, userSong }) => {
-    if (!filters.archived && userSong.archived_at) return false
+  return hideArchived(entries, filters.archived).filter(({ song, userSong }) => {
     if (filters.status !== 'all' && userSong.status !== filters.status) return false
     for (const facet of FACETS) {
       if (!facetMatches(filters[facet], song[facet])) return false

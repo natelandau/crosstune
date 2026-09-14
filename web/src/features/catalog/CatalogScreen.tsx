@@ -2,7 +2,6 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { setArchived } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
-import { SwipeRow } from '../../components/SwipeRow'
 import { useOpenRow } from '../../components/swipe'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
@@ -10,7 +9,7 @@ import type { Instrument } from '../../db/types'
 import { useInstruments } from '../settings/useInstruments'
 import { FilterBar } from './FilterBar'
 import { SearchSuggestion } from './SearchSuggestion'
-import { SongCard } from './SongCard'
+import { SongRow } from './SongRow'
 import {
   DEFAULT_FILTERS,
   facetValues,
@@ -158,8 +157,9 @@ function Catalog({
               const archived = userSong.archived_at !== null
               return (
                 <li key={userSong.id}>
-                  <SwipeRow
-                    name={song.title}
+                  <SongRow
+                    entry={entry}
+                    instruments={instruments}
                     {...rowState(userSong.id)}
                     actions={[
                       {
@@ -179,9 +179,7 @@ function Catalog({
                         onPress: () => run(() => setArchived(db, userSong.id, !archived)),
                       },
                     ]}
-                  >
-                    <SongCard entry={entry} instruments={instruments} />
-                  </SwipeRow>
+                  />
                 </li>
               )
             })}
