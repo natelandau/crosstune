@@ -1,16 +1,21 @@
-import { Link } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
-import { createList } from '../../commands/lists'
+import { createList, deleteList } from '../../commands/lists'
 import { EmptyState } from '../../components/EmptyState'
+import { SwipeRow } from '../../components/SwipeRow'
+import { useOpenRow } from '../../components/swipe'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
+import { ListRow } from './ListRow'
 import { useLists } from './useLists'
 
 export function ListsScreen() {
   const db = useDb()
   const lists = useLists()
   const [name, setName] = useState('')
-  const { error, runThen } = useAction()
+  const { error, run, runThen } = useAction()
+  const navigate = useNavigate()
+  const rowState = useOpenRow()
 
   function handleCreate(event: FormEvent) {
     event.preventDefault()
@@ -51,16 +56,34 @@ export function ListsScreen() {
         <ul className="space-y-2">
           {lists.map((list) => (
             <li key={list.id}>
-              <Link
-                to="/lists/$id"
-                params={{ id: list.id }}
-                className="bg-base-200 rounded-box flex min-h-14 items-center justify-between px-3 py-2"
+              <SwipeRow
+                name={list.name}
+                {...rowState(list.id)}
+                actions={[
+                  {
+                    label: 'Edit',
+                    tone: 'neutral',
+                    onPress: () =>
+                      void navigate({
+                        to: '/lists/$id',
+                        params: { id: list.id },
+                        search: { edit: true },
+                        state: { editPushed: true },
+                      }),
+                  },
+                  {
+                    label: 'Delete',
+                    tone: 'error',
+                    onPress: () => {
+                      if (window.confirm(`Delete "${list.name}"?`)) {
+                        run(() => deleteList(db, list.id))
+                      }
+                    },
+                  },
+                ]}
               >
-                <span className="font-medium">{list.name}</span>
-                <span className="text-sm opacity-70">
-                  {list.count} {list.count === 1 ? 'song' : 'songs'}
-                </span>
-              </Link>
+                <ListRow list={list} />
+              </SwipeRow>
             </li>
           ))}
         </ul>

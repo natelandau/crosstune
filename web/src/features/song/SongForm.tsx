@@ -11,7 +11,7 @@ import {
   type SongStatus,
   type TimeSignature,
 } from '../../db/types'
-import { isSongStatus } from '../catalog/StatusBadge'
+import { isSongStatus } from '../catalog/StatusDot'
 import { TUNING_FIELDS, visibleTunings } from '../settings/instruments'
 import { SONG_LIMITS } from './limits'
 import { StatusPicker } from './StatusPicker'

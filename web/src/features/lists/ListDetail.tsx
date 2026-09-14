@@ -7,56 +7,41 @@ import { useDb } from '../../db/DbProvider'
 import { SongPicker } from './SongPicker'
 import { useListView } from './useLists'
 
-export function ListDetail({ listId, onDeleted }: { listId: string; onDeleted: () => void }) {
+interface Props {
+  listId: string
+  edit: boolean
+  onEditChange: (edit: boolean) => void
+  onDeleted: () => void
+}
+
+export function ListDetail({ listId, edit, onEditChange, onDeleted }: Props) {
   const db = useDb()
   const view = useListView(listId)
-  const [renaming, setRenaming] = useState(false)
-  const [name, setName] = useState('')
-  const { error, run, runThen } = useAction()
+  const { error, pending, run, runThen } = useAction()
 
   if (view === undefined) return null
   if (view === null) return <EmptyState title="This list is gone" />
   const { list, items } = view
   const inList = new Set(items.map((i) => i.userSong.id))
 
-  function handleRename(event: FormEvent) {
-    event.preventDefault()
-    runThen(
-      () => renameList(db, listId, name),
-      () => setRenaming(false),
-    )
-  }
-
   return (
     <div className="space-y-4">
-      {renaming ? (
-        <form onSubmit={handleRename} className="flex gap-2">
-          <label className="input flex-1">
-            <input
-              className="grow"
-              aria-label="List name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="btn btn-primary min-h-11">
-            Save
-          </button>
-          <button type="button" className="btn min-h-11" onClick={() => setRenaming(false)}>
-            Cancel
-          </button>
-        </form>
+      {edit ? (
+        <RenameForm
+          initialName={list.name}
+          pending={pending}
+          onCancel={() => onEditChange(false)}
+          onSave={(name) =>
+            runThen(
+              () => renameList(db, listId, name),
+              () => onEditChange(false),
+            )
+          }
+        />
       ) : (
         <div className="flex items-center gap-2">
           <h1 className="flex-1 text-2xl font-bold">{list.name}</h1>
-          <button
-            type="button"
-            className="btn min-h-11"
-            onClick={() => {
-              setName(list.name)
-              setRenaming(true)
-            }}
-          >
+          <button type="button" className="btn min-h-11" onClick={() => onEditChange(true)}>
             Rename
           </button>
         </div>
@@ -124,16 +109,56 @@ export function ListDetail({ listId, onDeleted }: { listId: string; onDeleted: (
         </p>
       ) : null}
 
-      <button
-        type="button"
-        className="btn btn-outline btn-error min-h-11 w-full"
-        onClick={() => {
-          if (!window.confirm(`Delete "${list.name}"?`)) return
-          runThen(() => deleteList(db, listId), onDeleted)
-        }}
-      >
-        Delete list
-      </button>
+      {edit ? null : (
+        <button
+          type="button"
+          className="btn btn-outline btn-error min-h-11 w-full"
+          onClick={() => {
+            if (!window.confirm(`Delete "${list.name}"?`)) return
+            runThen(() => deleteList(db, listId), onDeleted)
+          }}
+        >
+          Delete list
+        </button>
+      )}
     </div>
+  )
+}
+
+function RenameForm({
+  initialName,
+  pending,
+  onCancel,
+  onSave,
+}: {
+  initialName: string
+  pending: boolean
+  onCancel: () => void
+  onSave: (name: string) => void
+}) {
+  const [name, setName] = useState(initialName)
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    onSave(name)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <label className="input flex-1">
+        <input
+          className="grow"
+          aria-label="List name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
+      <button type="submit" className="btn btn-primary min-h-11" disabled={pending}>
+        Save
+      </button>
+      <button type="button" className="btn min-h-11" onClick={onCancel}>
+        Cancel
+      </button>
+    </form>
   )
 }

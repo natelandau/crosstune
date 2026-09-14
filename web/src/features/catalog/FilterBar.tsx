@@ -1,5 +1,5 @@
 import { STATUSES } from '../../db/types'
-import { STATUS_LABELS } from './StatusBadge'
+import { STATUS_LABELS } from './StatusDot'
 import { FACET_LABELS, type CatalogFilters, type Facet, type FacetValues } from './filters'
 
 interface Props {

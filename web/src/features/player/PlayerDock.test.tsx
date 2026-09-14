@@ -139,6 +139,20 @@ describe('PlayerDock', () => {
     expect(region).toHaveClass('p-1.5')
   })
 
+  it('publishes its height for floating controls and clears it on close', async () => {
+    const linkId = await addYouTube()
+    const { player } = await renderDock()
+    const published = () => document.documentElement.style.getPropertyValue('--player-dock-height')
+    expect(published()).toBe('')
+
+    act(() => player().play(linkId))
+    await screen.findByRole('region', { name: 'Player' })
+    expect(published()).toBe('256px')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close player' }))
+    expect(published()).toBe('')
+  })
+
   it('keeps the dock mounted while a replacement recording is read', async () => {
     const first = await addYouTube()
     const second = await addSpotify()

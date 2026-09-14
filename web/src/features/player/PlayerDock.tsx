@@ -64,12 +64,23 @@ export function PlayerDock() {
     return () => cancelAnimationFrame(frame)
   }, [linkId, returnFocus])
 
-  if (!next) return null
+  const embedHeight = next?.embed.height
+  const frameHeight = embedHeight === 'video' ? VIDEO_HEIGHT_PX : embedHeight
+  const dockHeight = frameHeight === undefined ? null : CHROME_HEIGHT_PX + frameHeight
+
+  // Floating controls elsewhere in the tree, such as the catalog's add link, offset by this to stay above the player.
+  useLayoutEffect(() => {
+    if (dockHeight === null) return
+    const rootStyle = document.documentElement.style
+    rootStyle.setProperty('--player-dock-height', `${dockHeight}px`)
+    return () => {
+      rootStyle.removeProperty('--player-dock-height')
+    }
+  }, [dockHeight])
+
+  if (!next || dockHeight === null) return null
 
   const title = displayTitle(next.link)
-  const embedHeight = next.embed.height
-  const frameHeight = embedHeight === 'video' ? VIDEO_HEIGHT_PX : embedHeight
-  const dockHeight = CHROME_HEIGHT_PX + frameHeight
 
   return (
     <>

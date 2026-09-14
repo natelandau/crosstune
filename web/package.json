@@ -61,6 +61,7 @@
     "@tanstack/react-router": "^1.170.35",
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
+    "motion": "^13.2.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
