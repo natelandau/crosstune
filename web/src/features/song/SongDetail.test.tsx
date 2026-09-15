@@ -201,7 +201,7 @@ describe('SongDetail', () => {
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
     expect(within(recordings).getByRole('button', { name: /^Play / })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Upload audio')).toBeInTheDocument()
+    expect(screen.getByLabelText('Upload audio file')).toBeInTheDocument()
     const keep = screen.getByRole('checkbox', { name: 'Keep offline' })
     await waitFor(() => expect(keep).not.toHaveAttribute('aria-disabled'))
     await userEvent.click(keep)

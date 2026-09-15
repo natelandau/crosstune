@@ -55,7 +55,7 @@ describe('RecordingScreen', () => {
     expect(FakeRecorder.instances[0]?.options.mimeType).toBe('audio/mp4')
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
     await screen.findByRole('dialog', { name: 'Save recording' })
-    await userEvent.type(screen.getByRole('textbox', { name: 'Label' }), 'Tuesday jam')
+    await userEvent.type(screen.getByRole('textbox', { name: 'Recording name' }), 'Tuesday jam')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/recordings'))
     const [row] = await db.recordings.toArray()

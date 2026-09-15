@@ -15,7 +15,7 @@ test('record a take from a song and play it back on the device', async ({ page }
   await expect(timer).toBeVisible()
   await expect(timer).toHaveText(/^0:0[6-9]$/, { timeout: 15_000 })
   await page.getByRole('button', { name: 'Stop' }).click()
-  await page.getByRole('textbox', { name: 'Label' }).fill('First pass')
+  await page.getByRole('textbox', { name: 'Recording name' }).fill('First pass')
   await page.getByRole('button', { name: 'Save' }).click()
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
@@ -73,7 +73,7 @@ test('uploads a take, transcodes it, and plays it back from a second device', as
   await expect(timer).toBeVisible()
   await expect(timer).toHaveText(/^0:0[3-9]$/, { timeout: 15_000 })
   await page.getByRole('button', { name: 'Stop' }).click()
-  await page.getByRole('textbox', { name: 'Label' }).fill('Upload test')
+  await page.getByRole('textbox', { name: 'Recording name' }).fill('Upload test')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
 

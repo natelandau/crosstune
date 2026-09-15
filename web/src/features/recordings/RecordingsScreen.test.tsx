@@ -137,7 +137,7 @@ describe('RecordingsScreen', () => {
 
   it('stores an uploaded file', async () => {
     renderApp({ db, path: '/recordings' })
-    const input = await screen.findByLabelText('Upload audio')
+    const input = await screen.findByLabelText('Upload audio file')
     await userEvent.upload(input, new File(['wav'], 'jam.wav', { type: 'audio/wav' }))
     await vi.waitFor(async () => expect(await db.recordings.count()).toBe(1))
     expect((await db.recordings.toArray())[0]?.source).toBe('upload')

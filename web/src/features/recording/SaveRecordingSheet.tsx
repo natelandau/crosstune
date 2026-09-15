@@ -49,10 +49,10 @@ export function SaveRecordingSheet({
           </p>
         ) : null}
         <label className="input min-h-11 w-full">
-          <span className="label">Label</span>
+          <span className="label">Recording name</span>
           <input
             className="grow"
-            aria-label="Label"
+            aria-label="Recording name"
             value={label}
             maxLength={200}
             onChange={(e) => setLabel(e.target.value)}
