@@ -26,7 +26,7 @@ from crosstune.main import create_app
 from tests.fakes import FakeObjectStore
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Iterator
     from pathlib import Path
 
     from fastapi import FastAPI
@@ -132,6 +132,15 @@ def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     )
     paths["m4a_art"] = art_path
     return paths
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _ignore_env_file() -> Iterator[None]:
+    """Keep a developer's api/.env out of the suite. Every test states the settings it needs."""
+    original = Settings.model_config.get("env_file")
+    Settings.model_config["env_file"] = None
+    yield
+    Settings.model_config["env_file"] = original
 
 
 @pytest.fixture(scope="session")
