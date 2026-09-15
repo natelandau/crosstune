@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import logging
 import tempfile
+import uuid
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,7 +16,7 @@ from sqlalchemy import delete, exists, or_, select
 
 from crosstune.jobs.media import MediaError
 from crosstune.jobs.transcode import transcode
-from crosstune.models import Job, Recording, UploadSlot
+from crosstune.models import Job, Recording, UploadSlot, User
 from crosstune.models.user import utc_now
 from crosstune.recordings.service import bump_server_seq
 from crosstune.storage.store import recording_prefix, upload_key
@@ -60,11 +61,14 @@ class JobRunner:
         store: ObjectStore,
         *,
         poll_seconds: float,
+        orphan_sweep_seconds: float = 3600.0,
         work_root: Path | None = None,
     ) -> None:
         self._sessionmaker = sessionmaker
         self._store = store
         self._poll_seconds = poll_seconds
+        self._orphan_sweep_seconds = orphan_sweep_seconds
+        self._next_orphan_sweep = utc_now()
         self._work_root = work_root
         self._stopping = asyncio.Event()
         self.task: asyncio.Task[None] | None = None
@@ -106,7 +110,7 @@ class JobRunner:
                     pass
 
     async def run_once(self) -> int:
-        """Claim and run at most one transcode, then purge up to a batch of deleted recordings.
+        """Run one transcode, purge a batch of deleted recordings, and sweep orphans when due.
 
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
@@ -117,7 +121,36 @@ class JobRunner:
             await self._transcode(job)
             done += 1
         done += await self._purge()
+        # Last, so a bucket listing that fails cannot starve the transcodes and purges.
+        if utc_now() >= self._next_orphan_sweep:
+            self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
+            done += await self.sweep_orphans()
         return done
+
+    async def sweep_orphans(self) -> int:
+        """Delete every user prefix in the bucket whose user row no longer exists.
+
+        Account deletion removes the row first and wipes the bucket best-effort
+        afterwards; this sweep is what makes the wipe certain. A user row exists
+        before any key is issued under its id and ids are never reused, so a UUID
+        prefix with no row is always garbage. Other prefixes are not ours to touch.
+
+        Returns:
+            int: How many prefixes were removed.
+        """
+        candidates: dict[uuid.UUID, str] = {}
+        for prefix in await self._store.list_prefixes():
+            try:
+                candidates[uuid.UUID(prefix.rstrip("/"))] = prefix
+            except ValueError:
+                continue
+        if not candidates:
+            return 0
+        async with self._sessionmaker() as session:
+            live = set(await session.scalars(select(User.id).where(User.id.in_(candidates))))
+        orphans = [prefix for user_id, prefix in candidates.items() if user_id not in live]
+        await asyncio.gather(*(self._store.delete_prefix(prefix) for prefix in orphans))
+        return len(orphans)
 
     async def _claim(self) -> Job | None:
         now = utc_now()

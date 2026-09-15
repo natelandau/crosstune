@@ -5,9 +5,16 @@ from __future__ import annotations
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+from botocore.stub import Stubber
 
 from crosstune.storage.r2 import R2Store
-from crosstune.storage.store import ObjectStore, original_key, playback_key, upload_key, user_prefix
+from crosstune.storage.store import (
+    ObjectStore,
+    original_key,
+    playback_key,
+    upload_key,
+    user_prefix,
+)
 from tests.fakes import FakeObjectStore
 
 pytestmark = pytest.mark.anyio
@@ -75,3 +82,28 @@ async def test_fake_store_round_trips(tmp_path) -> None:
     assert await fake.head("a/b/upload") is None
     await fake.delete_prefix("a/")
     assert fake.keys() == []
+
+
+async def test_fake_store_lists_top_level_prefixes() -> None:
+    fake = FakeObjectStore()
+    fake.put_bytes("u1/r1/upload", b"a", "audio/mp4")
+    fake.put_bytes("u1/r2/playback.m4a", b"b", "audio/mp4")
+    fake.put_bytes("u2/r1/playback.m4a", b"c", "audio/mp4")
+    assert await fake.list_prefixes() == ["u1/", "u2/"]
+
+
+async def test_r2_list_prefixes_collects_every_page() -> None:
+    r2 = store()
+    stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
+    stub.add_response(
+        "list_objects_v2",
+        {"IsTruncated": True, "NextContinuationToken": "t", "CommonPrefixes": [{"Prefix": "u1/"}]},
+        {"Bucket": "crosstune-test", "Delimiter": "/"},
+    )
+    stub.add_response(
+        "list_objects_v2",
+        {"IsTruncated": False, "CommonPrefixes": [{"Prefix": "u2/"}]},
+        {"Bucket": "crosstune-test", "Delimiter": "/", "ContinuationToken": "t"},
+    )
+    with stub:
+        assert await r2.list_prefixes() == ["u1/", "u2/"]

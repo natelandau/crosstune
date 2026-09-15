@@ -115,3 +115,17 @@ class R2Store:
                     )
 
         await asyncio.to_thread(run)
+
+    async def list_prefixes(self) -> list[str]:
+        """The top-level prefixes of the bucket, each ending in a slash."""
+
+        def run() -> list[str]:
+            paginator = self._client.get_paginator("list_objects_v2")
+            return [
+                common["Prefix"]
+                for page in paginator.paginate(Bucket=self._bucket, Delimiter="/")
+                for common in page.get("CommonPrefixes", [])
+                if "Prefix" in common
+            ]
+
+        return await asyncio.to_thread(run)

@@ -181,6 +181,12 @@ verifies the Svix signature and the timestamp, then hard-deletes the user
 row. Foreign keys cascade to everything that user owned. Every other event
 type is acknowledged and ignored.
 
+The user's files in the bucket are removed after the webhook has answered,
+so a slow or unavailable bucket never delays or undoes the deletion. The job
+runner also sweeps the bucket once an hour and deletes every user prefix
+whose user row is gone, which makes the file removal certain even when that
+first attempt fails.
+
 Production uses Clerk's production instance on hostnames under the product
 domain. Development, local development, and the end-to-end suite share one
 Clerk development instance.

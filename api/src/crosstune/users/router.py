@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import (
     datetime,
 )
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import (
     AsyncSession,  # noqa: TC002 -- FastAPI resolves this annotation at route registration
@@ -24,6 +25,11 @@ from crosstune.errors import UnauthorizedError
 from crosstune.recordings.service import used_bytes
 from crosstune.storage.store import user_prefix
 from crosstune.users.service import delete_user_by_clerk_id
+
+if TYPE_CHECKING:
+    from crosstune.storage.store import ObjectStore
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1", tags=["users"])
 
@@ -65,9 +71,18 @@ async def me(
     )
 
 
+async def _purge_user_files(store: ObjectStore, prefix: str) -> None:
+    try:
+        await store.delete_prefix(prefix)
+    except Exception:
+        log.warning("could not purge %s; the orphan sweep will remove it", prefix, exc_info=True)
+
+
 @router.post("/webhooks/clerk", status_code=204, include_in_schema=False)
 async def clerk_webhook(
-    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    background: BackgroundTasks,
 ) -> Response:
     """Acknowledge every verified event. Only user.deleted changes state."""
     body = await request.body()
@@ -89,6 +104,8 @@ async def clerk_webhook(
             user_id = await delete_user_by_clerk_id(session, clerk_user_id)
             store = request.app.state.object_store
             if user_id is not None and store is not None:
-                # The row cascade cannot reach the bucket, so the files go here.
-                await store.delete_prefix(user_prefix(user_id))
+                # The row cascade cannot reach the bucket. The wipe runs after the
+                # response so a slow or failing store never delays or rolls back the
+                # deletion; the runner's orphan sweep removes whatever it misses.
+                background.add_task(_purge_user_files, store, user_prefix(user_id))
     return Response(status_code=204)

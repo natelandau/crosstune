@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import time
 import uuid
 from typing import TYPE_CHECKING
@@ -156,25 +157,24 @@ async def test_user_deleted_purges_their_objects(client, auth_headers, object_st
     assert object_store.keys() == ["someone-else/r1/playback.m4a"]
 
 
-async def test_user_deleted_purge_fails_leaves_user_in_place(
-    app,
-    auth_headers,
-    truncate_all: None,
-    verify_session: AsyncSession,
+async def test_user_deleted_purge_failure_does_not_block_the_deletion(
+    app, auth_headers, truncate_all: None, verify_session: AsyncSession, caplog
 ) -> None:
-    """Store failure rolls back the user deletion so Clerk can retry both operations."""
+    """The row delete commits on its own; the runner's sweep removes the files later."""
     app.state.object_store = _PurgeFailsStore()
-    transport = httpx2.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://testclient") as client:
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
+    ) as client:
         await client.get("/v1/me", headers=auth_headers("user_gone"))
         body = json.dumps({"type": "user.deleted", "data": {"id": "user_gone"}}).encode()
-        response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+        with caplog.at_level(logging.WARNING, logger="crosstune.users.router"):
+            response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
 
-    assert response.status_code == 500
+    assert response.status_code == 204
     assert (
-        await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone"))
-        is not None
+        await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None
     )
+    assert "bucket down" in caplog.text, caplog.text
 
 
 async def test_user_deleted_with_no_store(

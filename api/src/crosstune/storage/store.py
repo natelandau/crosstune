@@ -95,3 +95,7 @@ class ObjectStore(Protocol):
     async def delete_prefix(self, prefix: str) -> None:
         """Remove every object under a prefix."""
         ...
+
+    async def list_prefixes(self) -> list[str]:
+        """The top-level prefixes of the bucket, each ending in a slash."""
+        ...

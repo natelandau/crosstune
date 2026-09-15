@@ -308,6 +308,38 @@ async def test_run_once_purges_objects_the_row_never_named(runner, verify_sessio
     assert store.keys() == [playback_key(user.id, other_id)]
 
 
+async def test_sweep_orphans_removes_prefixes_with_no_user(runner, verify_session) -> None:
+    """A UUID prefix with no user row is garbage; anything else in the bucket is left alone."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    await verify_session.commit()
+    gone = new_uuid7()
+    store.put_bytes(playback_key(user.id, "r1"), b"a", "audio/mp4")
+    store.put_bytes(playback_key(gone, "r1"), b"b", "audio/mp4")
+    store.put_bytes(upload_key(gone, "r2"), b"c", "audio/mp4")
+    store.put_bytes("not-a-user/r1/playback.m4a", b"d", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 1
+    assert store.keys() == sorted(["not-a-user/r1/playback.m4a", playback_key(user.id, "r1")])
+    assert await job_runner.sweep_orphans() == 0
+
+
+async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> None:
+    store = FakeObjectStore()
+    hourly = JobRunner(
+        make_sessionmaker(engine), store, poll_seconds=0.01, orphan_sweep_seconds=3600
+    )
+    first = new_uuid7()
+    store.put_bytes(playback_key(first, "r1"), b"a", "audio/mp4")
+    assert await hourly.run_once() == 1
+    second = new_uuid7()
+    store.put_bytes(playback_key(second, "r1"), b"b", "audio/mp4")
+    assert await hourly.run_once() == 0
+    assert store.keys() == [playback_key(second, "r1")]
+    always = JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01, orphan_sweep_seconds=0)
+    assert await always.run_once() == 1
+    assert store.keys() == []
+
+
 async def test_start_and_stop(runner) -> None:
     job_runner, _ = runner
     task = job_runner.start()

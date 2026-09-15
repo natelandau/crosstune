@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     recording_quota_bytes: int = 1_073_741_824
     recording_max_file_bytes: int = 52_428_800
     job_poll_seconds: float = 3.0
+    orphan_sweep_seconds: float = 3600.0
 
     @property
     def r2_configured(self) -> bool:

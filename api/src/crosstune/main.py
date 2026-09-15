@@ -55,6 +55,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.sessionmaker,
             app.state.object_store,
             poll_seconds=settings.job_poll_seconds,
+            orphan_sweep_seconds=settings.orphan_sweep_seconds,
         )
         app.state.job_runner.start()
     try:
