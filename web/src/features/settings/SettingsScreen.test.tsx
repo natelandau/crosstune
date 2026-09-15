@@ -110,7 +110,7 @@ describe('SettingsScreen', () => {
   it('keeps every recording offline from one setting and starts a transfer', async () => {
     const transfer = vi.fn(async () => {})
     renderWithProviders(<SettingsScreen />, { db, engine: fakeEngine({ transfer }) })
-    const name = 'Keep recordings offline'
+    const name = 'Download all recordings to this device'
     expect(await screen.findByRole('checkbox', { name })).not.toBeChecked()
     expect(screen.getByRole('button', { name: 'Remove downloaded audio' })).toBeEnabled()
     await userEvent.click(screen.getByRole('checkbox', { name }))

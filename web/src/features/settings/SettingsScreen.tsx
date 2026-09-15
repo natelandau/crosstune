@@ -132,10 +132,12 @@ export function SettingsScreen() {
               })
             }}
           />
-          Keep recordings offline
+          Download all recordings to this device
         </label>
         <p className="text-sm opacity-70">
-          Downloads every recording to this device so it plays without a connection.
+          Your recordings are always saved to your account and show up on every device you sign in
+          on. A recording is kept on this device once you play it here. Turn this on to download
+          every recording ahead of time, so all of them play even with no signal.
         </p>
         <p className="text-sm">{formatBytes(localBytes ?? 0)} of audio on this device</p>
         <button
@@ -147,7 +149,8 @@ export function SettingsScreen() {
           Remove downloaded audio
         </button>
         <p className="text-sm opacity-70">
-          Keeps recordings still waiting to upload and any not yet ready on the server.
+          Frees up space on this device. Your recordings stay in your account and download again
+          when you play them. Anything not yet saved to your account is kept.
         </p>
         {qualityAction.error ? (
           <p role="alert" className="text-error text-sm">
