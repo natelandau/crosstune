@@ -11,14 +11,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import or_, select
+from sqlalchemy import delete, exists, or_, select
 
 from crosstune.jobs.media import MediaError
 from crosstune.jobs.transcode import transcode
-from crosstune.models import Job, Recording
+from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
 from crosstune.recordings.service import bump_server_seq
-from crosstune.storage.store import playback_key, upload_key
+from crosstune.storage.store import recording_prefix, upload_key
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -225,7 +225,13 @@ class JobRunner:
         job.locked_until = utc_now() + timedelta(seconds=30 * job.attempts)
 
     async def _purge(self) -> int:
+        """Remove the files of soft-deleted recordings and leave their rows ready to upload again.
+
+        Returns:
+            int: How many recordings were swept.
+        """
         async with self._sessionmaker() as session, session.begin():
+            has_slot = exists().where(UploadSlot.recording_id == Recording.id)
             stmt = (
                 select(Recording)
                 .where(
@@ -234,30 +240,30 @@ class JobRunner:
                         Recording.playback_key.is_not(None),
                         Recording.original_key.is_not(None),
                         Recording.state != "pending_upload",
+                        # A slot means a PUT may have landed that no /uploaded call will ever claim.
+                        has_slot,
                     ),
                 )
                 .limit(PURGE_BATCH)
-                .with_for_update(skip_locked=True)
+                .with_for_update(skip_locked=True, of=Recording)
             )
             rows = list(await session.scalars(stmt))
             if not rows:
                 return 0
             # Delete every object before touching any row, so a commit that fails
             # partway is retried by the next sweep against already-gone objects.
-            keys = [
-                key
-                for recording in rows
-                for key in (
-                    upload_key(recording.user_id, recording.id),
-                    # A transcode that finished after the row was read still wrote
-                    # this key, so it goes whether or not the column names it.
-                    playback_key(recording.user_id, recording.id),
-                    recording.playback_key,
-                    recording.original_key,
+            # The prefix also catches objects the row never named: a playback file
+            # written after the row was read, or an original copied by a transcode
+            # that failed before it could commit the key.
+            await asyncio.gather(
+                *(
+                    self._store.delete_prefix(recording_prefix(recording.user_id, recording.id))
+                    for recording in rows
                 )
-                if key
-            ]
-            await self._store.delete(*keys)
+            )
+            await session.execute(
+                delete(UploadSlot).where(UploadSlot.recording_id.in_([r.id for r in rows]))
+            )
             for recording in rows:
                 recording.playback_key = None
                 recording.original_key = None

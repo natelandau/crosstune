@@ -13,7 +13,7 @@ from sqlalchemy import select
 from crosstune.db.engine import make_sessionmaker
 from crosstune.jobs.runner import MAX_ATTEMPTS, JobRunner
 from crosstune.jobs.transcode import transcode
-from crosstune.models import Job, Recording, User
+from crosstune.models import Job, Recording, UploadSlot, User
 from crosstune.models.user import new_uuid7, utc_now
 from crosstune.storage.store import original_key, playback_key, upload_key
 from tests.fakes import FakeObjectStore
@@ -174,8 +174,9 @@ async def test_run_once_skips_a_locked_job(runner, verify_session, media_fixture
 async def test_run_once_purges_deleted_recordings(runner, verify_session) -> None:
     job_runner, store = runner
     user = await make_user(verify_session)
+    rec_id = uuid.uuid4()
     rec = Recording(
-        id=uuid.uuid4(),
+        id=rec_id,
         user_id=user.id,
         source="microphone",
         recorded_at=utc_now(),
@@ -183,9 +184,9 @@ async def test_run_once_purges_deleted_recordings(runner, verify_session) -> Non
         updated_at=utc_now(),
         deleted_at=utc_now(),
         state="ready",
-        playback_key=playback_key(user.id, "r"),
+        playback_key=playback_key(user.id, rec_id),
         playback_bytes=3,
-        original_key=original_key(user.id, "r", "audio/webm"),
+        original_key=original_key(user.id, rec_id, "audio/webm"),
         original_bytes=3,
         error="boom",
     )
@@ -231,6 +232,80 @@ async def test_run_once_purges_an_upload_deleted_before_it_transcoded(
     assert await job_runner.run_once() == 1
     assert store.keys() == []
     assert await job_runner.run_once() == 0
+
+
+async def test_run_once_purges_an_upload_deleted_before_it_was_confirmed(
+    runner, verify_session
+) -> None:
+    """A PUT can land after the row is deleted; only the open slot says the object may exist."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    rec = Recording(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        source="upload",
+        recorded_at=utc_now(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+        deleted_at=utc_now(),
+        state="pending_upload",
+    )
+    verify_session.add(rec)
+    await verify_session.flush()
+    verify_session.add(
+        UploadSlot(
+            recording_id=rec.id,
+            user_id=user.id,
+            declared_bytes=3,
+            content_type="audio/mp4",
+            expires_at=utc_now(),
+        )
+    )
+    await verify_session.commit()
+    store.put_bytes(upload_key(user.id, rec.id), b"abc", "audio/mp4")
+    assert await job_runner.run_once() == 1
+    assert store.keys() == []
+    assert await verify_session.get(UploadSlot, rec.id) is None
+    assert await job_runner.run_once() == 0
+
+
+async def test_run_once_purges_objects_the_row_never_named(runner, verify_session) -> None:
+    """A transcode that copied the original and then failed before committing leaves no key."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    rec = Recording(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        source="upload",
+        recorded_at=utc_now(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+        deleted_at=utc_now(),
+        state="failed",
+        playback_bytes=3,
+    )
+    verify_session.add(rec)
+    await verify_session.commit()
+    store.put_bytes(upload_key(user.id, rec.id), b"abc", "audio/webm")
+    store.put_bytes(original_key(user.id, rec.id, "audio/webm"), b"abc", "audio/webm")
+    other_id = uuid.uuid4()
+    verify_session.add(
+        Recording(
+            id=other_id,
+            user_id=user.id,
+            source="upload",
+            recorded_at=utc_now(),
+            created_at=utc_now(),
+            updated_at=utc_now(),
+            state="ready",
+            playback_key=playback_key(user.id, other_id),
+            playback_bytes=3,
+        )
+    )
+    await verify_session.commit()
+    store.put_bytes(playback_key(user.id, other_id), b"abc", "audio/mp4")
+    assert await job_runner.run_once() == 1
+    assert store.keys() == [playback_key(user.id, other_id)]
 
 
 async def test_start_and_stop(runner) -> None:
