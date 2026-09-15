@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RecordRouteImport } from './routes/record'
+import { Route as RecordingsRouteImport } from './routes/recordings'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ListsIndexRouteImport } from './routes/lists.index'
 import { Route as ListsIdRouteImport } from './routes/lists.$id'
@@ -19,6 +21,16 @@ import { Route as SongsNewRouteImport } from './routes/songs.new'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordRoute = RecordRouteImport.update({
+  id: '/record',
+  path: '/record',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordingsRoute = RecordingsRouteImport.update({
+  id: '/recordings',
+  path: '/recordings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -49,6 +61,8 @@ const SongsNewRoute = SongsNewRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/record': typeof RecordRoute
+  '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
   '/lists/$id': typeof ListsIdRoute
   '/songs/$id': typeof SongsIdRoute
@@ -57,6 +71,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/record': typeof RecordRoute
+  '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
   '/lists/$id': typeof ListsIdRoute
   '/songs/$id': typeof SongsIdRoute
@@ -66,6 +82,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/record': typeof RecordRoute
+  '/recordings': typeof RecordingsRoute
   '/settings': typeof SettingsRoute
   '/lists/$id': typeof ListsIdRoute
   '/songs/$id': typeof SongsIdRoute
@@ -75,12 +93,29 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/settings' | '/lists/$id' | '/songs/$id' | '/songs/new' | '/lists/'
+    | '/'
+    | '/record'
+    | '/recordings'
+    | '/settings'
+    | '/lists/$id'
+    | '/songs/$id'
+    | '/songs/new'
+    | '/lists/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/lists/$id' | '/songs/$id' | '/songs/new' | '/lists'
+  to:
+    | '/'
+    | '/record'
+    | '/recordings'
+    | '/settings'
+    | '/lists/$id'
+    | '/songs/$id'
+    | '/songs/new'
+    | '/lists'
   id:
     | '__root__'
     | '/'
+    | '/record'
+    | '/recordings'
     | '/settings'
     | '/lists/$id'
     | '/songs/$id'
@@ -90,6 +125,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RecordRoute: typeof RecordRoute
+  RecordingsRoute: typeof RecordingsRoute
   SettingsRoute: typeof SettingsRoute
   ListsIdRoute: typeof ListsIdRoute
   SongsIdRoute: typeof SongsIdRoute
@@ -104,6 +141,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/record': {
+      id: '/record'
+      path: '/record'
+      fullPath: '/record'
+      preLoaderRoute: typeof RecordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recordings': {
+      id: '/recordings'
+      path: '/recordings'
+      fullPath: '/recordings'
+      preLoaderRoute: typeof RecordingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -146,6 +197,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RecordRoute: RecordRoute,
+  RecordingsRoute: RecordingsRoute,
   SettingsRoute: SettingsRoute,
   ListsIdRoute: ListsIdRoute,
   SongsIdRoute: SongsIdRoute,

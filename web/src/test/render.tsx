@@ -8,7 +8,7 @@ import {
   RouterProvider,
 } from '@tanstack/react-router'
 import { render } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import { StrictMode, type ReactElement } from 'react'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { ToastProvider } from '../components/Toast'
 import { DbContext } from '../db/DbProvider'
@@ -23,7 +23,12 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     status: () => 'idle',
     lastSyncedAt: () => null,
     subscribe: () => () => {},
+    transfer: async () => {},
+    transferStatus: () => 'idle',
+    subscribeTransfer: () => () => {},
     resolveLink: async () => null,
+    download: async () => null,
+    retry: async () => {},
     stop: () => {},
     resume: () => {},
     ...overrides,
@@ -74,22 +79,26 @@ export function renderApp({
   history = createMemoryHistory({ initialEntries: [path] }),
   engine = fakeEngine(),
   session = testSession,
+  strict = false,
 }: {
   db: CrosstuneDb
   path?: string
   history?: RouterHistory
   engine?: SyncEngine
   session?: AuthSession
+  /** Render inside StrictMode, which double-invokes effects the way the app's dev build does. */
+  strict?: boolean
 }) {
   const router = createRouter({ routeTree, history })
-  const view = render(
+  const app = (
     <AuthProvider value={session}>
       <DbContext.Provider value={db}>
         <SyncContext.Provider value={engine}>
           <RouterProvider router={router} />
         </SyncContext.Provider>
       </DbContext.Provider>
-    </AuthProvider>,
+    </AuthProvider>
   )
+  const view = render(strict ? <StrictMode>{app}</StrictMode> : app)
   return { router, unmount: view.unmount }
 }

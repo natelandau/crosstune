@@ -49,7 +49,7 @@ describe('LinkList', () => {
   it('plays a link and turns its row button into Close', async () => {
     const { player } = renderList()
     await userEvent.click(screen.getByRole('button', { name: 'Play Ground Hog' }))
-    expect(player().linkId).toBe('l2')
+    expect(player().item?.id).toBe('l2')
 
     const close = screen.getByRole('button', { name: 'Close Ground Hog player' })
     expect(close).toHaveTextContent('Close')
@@ -60,10 +60,10 @@ describe('LinkList', () => {
 
   it('closes a loaded link and turns its row button back into Play', async () => {
     const { player } = renderList()
-    act(() => player().play('l1'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
 
     await userEvent.click(screen.getByRole('button', { name: 'Close Spotify version player' }))
-    expect(player().linkId).toBeNull()
+    expect(player().item).toBeNull()
     const play = screen.getByRole('button', { name: 'Play Spotify version' })
     expect(play).toHaveTextContent('Play')
     expect(play).not.toHaveAttribute('aria-pressed')
@@ -72,7 +72,7 @@ describe('LinkList', () => {
   it('disables Play while offline but keeps Close enabled for the loaded link', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     const { player } = renderList()
-    act(() => player().play('l1'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
     const play = screen.getByRole('button', { name: 'Play Ground Hog' })
     expect(play).toHaveAttribute('aria-disabled', 'true')
     expect(play).not.toBeDisabled()
@@ -82,21 +82,21 @@ describe('LinkList', () => {
 
     play.focus()
     await userEvent.keyboard('{Enter}')
-    expect(player().linkId).toBe('l1')
+    expect(player().item?.id).toBe('l1')
     await userEvent.keyboard(' ')
-    expect(player().linkId).toBe('l1')
+    expect(player().item?.id).toBe('l1')
     expect(play).toHaveFocus()
     await userEvent.click(play)
-    expect(player().linkId).toBe('l1')
+    expect(player().item?.id).toBe('l1')
   })
 
   it('keeps focus on the row button after Close while offline', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     const { player } = renderList()
-    act(() => player().play('l1'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
 
     await userEvent.click(screen.getByRole('button', { name: 'Close Spotify version player' }))
-    expect(player().linkId).toBeNull()
+    expect(player().item).toBeNull()
     const play = screen.getByRole('button', { name: 'Play Spotify version' })
     expect(play).toHaveFocus()
     expect(play).toHaveAttribute('aria-disabled', 'true')
@@ -110,7 +110,7 @@ describe('LinkList', () => {
 
   it('gives every row control a 44px target', () => {
     const { player } = renderList()
-    act(() => player().play('l1'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
     for (const control of [
       screen.getByRole('button', { name: 'Play Ground Hog' }),
       screen.getByRole('button', { name: 'Close Spotify version player' }),

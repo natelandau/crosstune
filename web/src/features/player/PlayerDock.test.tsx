@@ -3,12 +3,20 @@ import userEvent from '@testing-library/user-event'
 import { useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { addLink, removeLink } from '../../commands/links'
+import {
+  appendChunk,
+  beginCapture,
+  finishCapture,
+  setFileState,
+  updateRecording,
+} from '../../commands/recordings'
+import { newId } from '../../commands/write'
 import { createSong } from '../../commands/songs'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLink } from '../../db/types'
 import { openTestDb } from '../../test/db'
-import { renderApp, renderWithProviders } from '../../test/render'
+import { fakeEngine, renderApp, renderWithProviders } from '../../test/render'
 import { LinkList } from '../links/LinkList'
 import { PlayerDock } from './PlayerDock'
 import { PlayerProvider } from './PlayerProvider'
@@ -23,7 +31,7 @@ vi.mock('../catalog/CatalogScreen', async () => {
     CatalogScreen: function CatalogScreen() {
       const { play } = usePlayer()
       return (
-        <button type="button" onClick={() => play(routed.linkId)}>
+        <button type="button" onClick={() => play({ kind: 'link', id: routed.linkId })}>
           Test play
         </button>
       )
@@ -91,7 +99,7 @@ function iframeIn(region: HTMLElement): HTMLIFrameElement {
 describe('PlayerDock', () => {
   it('renders nothing while nothing is loaded', async () => {
     const { player } = await renderDock()
-    expect(player().linkId).toBeNull()
+    expect(player().item).toBeNull()
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
     expect(document.querySelector('iframe')).toBeNull()
   })
@@ -99,7 +107,7 @@ describe('PlayerDock', () => {
   it('shows the title, a close button, and an autoplaying player after play', async () => {
     const linkId = await addYouTube()
     const { player } = await renderDock()
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
 
     const region = await screen.findByRole('region', { name: 'Player' })
     expect(within(region).getByText('Cluck Old Hen on YouTube')).toBeInTheDocument()
@@ -118,7 +126,7 @@ describe('PlayerDock', () => {
       title: 'Roaring River',
     })
     const { player } = await renderDock()
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
 
     const frame = iframeIn(await screen.findByRole('region', { name: 'Player' }))
     expect(frame).toHaveAttribute('height', '175')
@@ -128,7 +136,7 @@ describe('PlayerDock', () => {
   it('reserves in-flow space as tall as the docked player', async () => {
     const linkId = await addYouTube()
     const { player } = await renderDock()
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
 
     const region = await screen.findByRole('region', { name: 'Player' })
     const spacer = region.previousElementSibling as HTMLElement | null
@@ -145,7 +153,7 @@ describe('PlayerDock', () => {
     const published = () => document.documentElement.style.getPropertyValue('--player-dock-height')
     expect(published()).toBe('')
 
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
     await screen.findByRole('region', { name: 'Player' })
     expect(published()).toBe('256px')
 
@@ -157,11 +165,11 @@ describe('PlayerDock', () => {
     const first = await addYouTube()
     const second = await addSpotify()
     const { player } = await renderDock()
-    act(() => player().play(first))
+    act(() => player().play({ kind: 'link', id: first }))
     const region = await screen.findByRole('region', { name: 'Player' })
     const spacer = region.previousElementSibling
 
-    act(() => player().play(second))
+    act(() => player().play({ kind: 'link', id: second }))
     expect(screen.getByRole('region', { name: 'Player' })).toBe(region)
 
     await waitFor(() => expect(within(region).getByText('Soldiers Joy on Spotify')).toBeVisible())
@@ -176,11 +184,11 @@ describe('PlayerDock', () => {
     const first = await addYouTube()
     const second = await addSpotify()
     const { player } = await renderDock()
-    act(() => player().play(first))
+    act(() => player().play({ kind: 'link', id: first }))
     await screen.findByRole('region', { name: 'Player' })
     await userEvent.click(screen.getByRole('button', { name: 'Close player' }))
 
-    act(() => player().play(second))
+    act(() => player().play({ kind: 'link', id: second }))
     expect(screen.queryByText('Cluck Old Hen on YouTube')).toBeNull()
     expect(
       within(await screen.findByRole('region', { name: 'Player' })).getByText(
@@ -197,11 +205,11 @@ describe('PlayerDock', () => {
     })
     const youtube = await addYouTube()
     const { player } = await renderDock()
-    act(() => player().play(apple))
+    act(() => player().play({ kind: 'link', id: apple }))
     const region = await screen.findByRole('region', { name: 'Player' })
     const sandboxed = iframeIn(region)
 
-    act(() => player().play(youtube))
+    act(() => player().play({ kind: 'link', id: youtube }))
     await waitFor(() => expect(iframeIn(region).src).toContain('youtube-nocookie.com'))
     const video = iframeIn(region)
     expect(video).not.toBe(sandboxed)
@@ -211,21 +219,21 @@ describe('PlayerDock', () => {
   it('closes the player from its close button', async () => {
     const linkId = await addYouTube()
     const { player } = await renderDock()
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
 
     await userEvent.click(await screen.findByRole('button', { name: 'Close player' }))
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
-    expect(player().linkId).toBeNull()
+    expect(player().item).toBeNull()
   })
 
   it('closes when the loaded link is removed', async () => {
     const linkId = await addYouTube()
     const { player } = await renderDock()
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
     await screen.findByRole('region', { name: 'Player' })
 
     await removeLink(db, linkId)
-    await waitFor(() => expect(player().linkId).toBeNull())
+    await waitFor(() => expect(player().item).toBeNull())
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
   })
 
@@ -235,17 +243,17 @@ describe('PlayerDock', () => {
       provider: 'other',
     })
     const { player } = await renderDock()
-    act(() => player().play(linkId))
+    act(() => player().play({ kind: 'link', id: linkId }))
 
-    await waitFor(() => expect(player().linkId).toBeNull())
+    await waitFor(() => expect(player().item).toBeNull())
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
   })
 
   it('closes when the loaded link does not exist', async () => {
     const { player } = await renderDock()
-    act(() => player().play('missing'))
+    act(() => player().play({ kind: 'link', id: 'missing' }))
 
-    await waitFor(() => expect(player().linkId).toBeNull())
+    await waitFor(() => expect(player().item).toBeNull())
   })
 
   it('drops the loaded recording when the database changes', async () => {
@@ -273,12 +281,12 @@ describe('PlayerDock', () => {
         { db },
       )
       await waitFor(() => expect(seen.current).not.toBeNull())
-      act(() => seen.current?.play(linkId))
+      act(() => seen.current?.play({ kind: 'link', id: linkId }))
       await screen.findByRole('region', { name: 'Player' })
 
       act(() => swap.current?.(other))
       expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
-      expect(seen.current?.linkId).toBeNull()
+      expect(seen.current?.item).toBeNull()
     } finally {
       await other.delete()
     }
@@ -413,5 +421,242 @@ describe('PlayerDock', () => {
     const region = screen.getByRole('region', { name: 'Player' })
     expect(region.closest('main')).not.toBeNull()
     expect(iframeIn(region)).toBe(frame)
+  })
+
+  describe('recordings', () => {
+    async function localRecording(label = 'Jam take'): Promise<string> {
+      const id = newId()
+      await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+      await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
+      await finishCapture(db, id, {
+        songId,
+        mime: 'audio/mp4',
+        durationMs: 3000,
+        recordedAt: '2026-09-14T20:00:00.000Z',
+      })
+      await updateRecording(db, id, { label })
+      return id
+    }
+
+    it('plays a local recording through an audio element', async () => {
+      const id = await localRecording()
+      const { player } = await renderDock()
+      act(() => player().play({ kind: 'recording', id }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      expect(within(region).getByText('Jam take')).toBeInTheDocument()
+      // The blob url is minted from an effect, one render after the recording itself loads.
+      await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
+      const audio = region.querySelector('audio')
+      expect(audio).toHaveAttribute('autoplay')
+      expect(within(region).getByLabelText('Jam take')).toBe(audio)
+      expect(region.querySelector('iframe')).toBeNull()
+      expect(region.style.height).toBe(`${6 + 44 + 6 + 56}px`)
+    })
+
+    it('keeps playing through a file row change instead of reminting the blob url', async () => {
+      const id = await localRecording()
+      const createSpy = vi.spyOn(URL, 'createObjectURL')
+      const { player } = await renderDock()
+      act(() => player().play({ kind: 'recording', id }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
+      const audio = region.querySelector('audio')
+
+      await setFileState(db, id, 'uploading')
+      // The row change re-renders the dock with a freshly read (but equivalent) blob;
+      // give that a beat before asserting nothing minted a second object url.
+      await waitFor(() => expect(within(region).getByText('Jam take')).toBeInTheDocument())
+      expect(region.querySelector('audio')).toBe(audio)
+      expect(createSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('revokes each recording blob url exactly once', async () => {
+      const createSpy = vi.spyOn(URL, 'createObjectURL')
+      const revokeSpy = vi.spyOn(URL, 'revokeObjectURL')
+      const first = await localRecording('First take')
+      const second = await localRecording('Second take')
+      const { player } = await renderDock()
+
+      act(() => player().play({ kind: 'recording', id: first }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
+
+      act(() => player().play({ kind: 'recording', id: second }))
+      await waitFor(() => expect(within(region).getByText('Second take')).toBeInTheDocument())
+      await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
+
+      await userEvent.click(within(region).getByRole('button', { name: 'Close player' }))
+      await waitFor(() => expect(screen.queryByRole('region', { name: 'Player' })).toBeNull())
+
+      const created = createSpy.mock.results.map((result) => result.value as string)
+      expect(created.length).toBeGreaterThanOrEqual(2)
+      expect(revokeSpy).toHaveBeenCalledTimes(created.length)
+      for (const url of created) expect(revokeSpy).toHaveBeenCalledWith(url)
+    })
+
+    it('keeps the dock mounted while a replacement recording plays', async () => {
+      const first = await localRecording('First take')
+      const second = await localRecording('Second take')
+      const { player } = await renderDock()
+      act(() => player().play({ kind: 'recording', id: first }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      const spacer = region.previousElementSibling
+
+      act(() => player().play({ kind: 'recording', id: second }))
+      expect(screen.getByRole('region', { name: 'Player' })).toBe(region)
+
+      await waitFor(() => expect(within(region).getByText('Second take')).toBeVisible())
+      expect(within(region).queryByText('First take')).toBeNull()
+      expect(screen.getByRole('region', { name: 'Player' })).toBe(region)
+      expect(region.previousElementSibling).toBe(spacer)
+    })
+
+    it('downloads a recording that is ready elsewhere and shows progress meanwhile', async () => {
+      await db.recordings.put({
+        id: 'remote',
+        created_at: '2026-09-14T20:00:00.000Z',
+        updated_at: '2026-09-14T20:00:00.000Z',
+        deleted_at: null,
+        server_seq: 3,
+        song_id: songId,
+        label: 'From my other phone',
+        source: 'microphone',
+        recorded_at: '2026-09-14T20:00:00.000Z',
+        position: 0,
+        state: 'ready',
+        duration_ms: 3000,
+        playback_mime: 'audio/mp4',
+        playback_bytes: 3,
+        error: null,
+      })
+      let release: (blob: Blob | null) => void = () => {}
+      const engine = fakeEngine({
+        download: () => new Promise((resolve) => (release = resolve)),
+      })
+      const seen: { current: Player | null } = { current: null }
+      function Probe() {
+        seen.current = usePlayer()
+        return null
+      }
+      renderWithProviders(
+        <PlayerProvider>
+          <Probe />
+          <PlayerDock />
+        </PlayerProvider>,
+        { db, engine },
+      )
+      await waitFor(() => expect(seen.current).not.toBeNull())
+      act(() => seen.current?.play({ kind: 'recording', id: 'remote' }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      expect(within(region).getByText('Downloading')).toBeInTheDocument()
+      await act(async () => release(new Blob(['xyz'], { type: 'audio/mp4' })))
+      await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
+    })
+
+    it('offers a retry when the download resolves with no blob, and it tries again', async () => {
+      await db.recordings.put({
+        id: 'remote',
+        created_at: '2026-09-14T20:00:00.000Z',
+        updated_at: '2026-09-14T20:00:00.000Z',
+        deleted_at: null,
+        server_seq: 3,
+        song_id: songId,
+        label: 'From my other phone',
+        source: 'microphone',
+        recorded_at: '2026-09-14T20:00:00.000Z',
+        position: 0,
+        state: 'ready',
+        duration_ms: 3000,
+        playback_mime: 'audio/mp4',
+        playback_bytes: 3,
+        error: null,
+      })
+      const download = vi.fn(async () => null)
+      const engine = fakeEngine({ download })
+      const seen: { current: Player | null } = { current: null }
+      function Probe() {
+        seen.current = usePlayer()
+        return null
+      }
+      renderWithProviders(
+        <PlayerProvider>
+          <Probe />
+          <PlayerDock />
+        </PlayerProvider>,
+        { db, engine },
+      )
+      await waitFor(() => expect(seen.current).not.toBeNull())
+      act(() => seen.current?.play({ kind: 'recording', id: 'remote' }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      await waitFor(() => expect(within(region).getByText("Couldn't download")).toBeInTheDocument())
+      expect(download).toHaveBeenCalledTimes(1)
+
+      await userEvent.click(within(region).getByRole('button', { name: 'Retry' }))
+      await waitFor(() => expect(download).toHaveBeenCalledTimes(2))
+    })
+
+    it('shows offline instead of downloading while there is no connection', async () => {
+      await db.recordings.put({
+        id: 'remote',
+        created_at: '2026-09-14T20:00:00.000Z',
+        updated_at: '2026-09-14T20:00:00.000Z',
+        deleted_at: null,
+        server_seq: 3,
+        song_id: songId,
+        label: 'From my other phone',
+        source: 'microphone',
+        recorded_at: '2026-09-14T20:00:00.000Z',
+        position: 0,
+        state: 'ready',
+        duration_ms: 3000,
+        playback_mime: 'audio/mp4',
+        playback_bytes: 3,
+        error: null,
+      })
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      const engine = fakeEngine({ download: () => new Promise(() => {}) })
+      const seen: { current: Player | null } = { current: null }
+      function Probe() {
+        seen.current = usePlayer()
+        return null
+      }
+      renderWithProviders(
+        <PlayerProvider>
+          <Probe />
+          <PlayerDock />
+        </PlayerProvider>,
+        { db, engine },
+      )
+      await waitFor(() => expect(seen.current).not.toBeNull())
+      act(() => seen.current?.play({ kind: 'recording', id: 'remote' }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      expect(within(region).getByText('Offline')).toBeInTheDocument()
+      expect(within(region).queryByText('Downloading')).toBeNull()
+    })
+
+    it('shows the state and no control while a recording is processing', async () => {
+      await db.recordings.put({
+        id: 'busy',
+        created_at: '2026-09-14T20:00:00.000Z',
+        updated_at: '2026-09-14T20:00:00.000Z',
+        deleted_at: null,
+        server_seq: 3,
+        song_id: songId,
+        label: null,
+        source: 'microphone',
+        recorded_at: '2026-09-14T20:00:00.000Z',
+        position: 0,
+        state: 'processing',
+        duration_ms: null,
+        playback_mime: null,
+        playback_bytes: null,
+        error: null,
+      })
+      const { player } = await renderDock()
+      act(() => player().play({ kind: 'recording', id: 'busy' }))
+      const region = await screen.findByRole('region', { name: 'Player' })
+      expect(within(region).getByText('Processing')).toBeInTheDocument()
+      expect(region.querySelector('audio')).toBeNull()
+    })
   })
 })

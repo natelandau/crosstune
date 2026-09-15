@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react'
 
+export type PlayerItem = { kind: 'link'; id: string } | { kind: 'recording'; id: string }
+
 export interface Player {
-  linkId: string | null
-  /** Load a link with autoplay, replacing anything loaded. */
-  play: (linkId: string) => void
+  item: PlayerItem | null
+  /** Load an item with autoplay, replacing anything loaded. */
+  play: (item: PlayerItem) => void
   /** Unload the player. */
   close: () => void
   /**
@@ -11,6 +13,10 @@ export interface Player {
    * has left the page.
    */
   returnFocus: () => void
+}
+
+export function isPlaying(player: Pick<Player, 'item'>, item: PlayerItem): boolean {
+  return player.item?.kind === item.kind && player.item.id === item.id
 }
 
 // Lives outside PlayerProvider.tsx so that file exports only a component, which fast

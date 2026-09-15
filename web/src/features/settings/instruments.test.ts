@@ -11,6 +11,7 @@ const row = {
   deleted_at: null,
   server_seq: 0,
   instruments: ['banjo', 'guitar', 'kazoo'],
+  audio_quality: 'standard',
 }
 
 describe('instrumentsFrom', () => {

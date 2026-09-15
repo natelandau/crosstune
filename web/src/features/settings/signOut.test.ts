@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import { describe, expect, it, vi } from 'vitest'
 import { rememberedUser, rememberUser } from '../../auth/session'
+import { addUploadedFile, setFileState } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { databaseName, openDatabase } from '../../db/schema'
 import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
@@ -45,6 +46,28 @@ describe('signOutAndForget', () => {
     expect(signOut).not.toHaveBeenCalled()
     expect(await db.songs.count()).toBe(1)
     expect(rememberedUser()).toBe(userId)
+    await db.delete()
+  })
+
+  it('refuses while a recording has not uploaded so the deletion cannot take it', async () => {
+    const { userId, db } = freshUser()
+    const id = await addUploadedFile(db, new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }), {
+      songId: null,
+      label: null,
+    })
+    await setFileState(db, id, 'blocked_quota')
+    await db.outbox.clear()
+    const stop = vi.fn()
+    const signOut = vi.fn(async () => {})
+    await expect(
+      signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut }),
+    ).rejects.toThrow(
+      'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.',
+    )
+    expect(stop).not.toHaveBeenCalled()
+    expect(signOut).not.toHaveBeenCalled()
+    expect(await Dexie.exists(databaseName(userId))).toBe(true)
+    expect(await db.recording_files.count()).toBe(1)
     await db.delete()
   })
 

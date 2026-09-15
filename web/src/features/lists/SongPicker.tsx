@@ -20,7 +20,7 @@ export function SongPicker({
 
   return (
     <div className="space-y-2">
-      <label className="input w-full">
+      <label className="input min-h-11 w-full">
         <input
           type="search"
           className="grow"

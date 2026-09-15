@@ -81,11 +81,16 @@ on a phone home screen. It contains these features.
   question.
 - Offline. The full catalog is cached on the device. Reads and writes work
   without a connection. Writes sync when the connection returns.
+- Recordings. A user records with the phone's microphone or uploads an audio
+  file. A recording attaches to a song or waits unfiled in the Recordings tab.
+  It plays at once on the device that made it and uploads in the background.
+  It reaches the user's other devices when someone plays it, or ahead of time
+  on any device where Keep recordings offline is turned on in Settings. A free
+  account stores 1 GB of recordings.
 
 These features are out of the first release. Each has a place in the data model
 and no code.
 
-- Audio recording
 - Search of streaming catalogs from inside the app
 - A shared song catalog across users
 - Sharing between users
@@ -103,9 +108,9 @@ These constraints hold for every release.
   hand, in poor light, in under two taps.
 - Offline. Jams happen in barns, basements, and festival campgrounds with no
   signal. The catalog must be readable and editable without a connection.
-- Native apps later. Audio recording, the second most important feature, needs
-  native iOS and Android apps. The backend and the API must not depend on the
-  web client in any way.
+- Native apps later. Audio recording works in the installed web app. Native
+  apps come later for app store distribution and background audio. The
+  backend and the API must not depend on the web client in any way.
 - Private now, shared later. Each user owns their catalog. The schema separates
   the song from the user's relationship to the song, so a shared catalog can be
   added later by a merge step and not by a rewrite.
@@ -126,13 +131,16 @@ that a later reader does not reopen a settled question without new information.
 
 The song list with links to existing recordings ships first. Audio recording
 ships second. The list is a data and integration problem that the web handles
-well. Recording needs native audio capture, which the web handles poorly.
+well. Recording depends on microphone, wake lock, and storage behavior that
+only a real phone can confirm.
 
 ### Responsive web application first, native apps second
 
-The first client is a responsive web application, installable as a PWA. Native
-apps arrive with the recording feature. The API is the boundary between the
-backend and every client, so a native client plugs in without backend changes.
+The first client is a responsive web application, installable as a PWA. Audio
+recording ships in the responsive web application, proven in the installed
+home-screen app on iOS. Native apps follow for app store distribution. The
+API is the boundary between the backend and every client, so a native client
+plugs in without backend changes.
 
 ### Paste a link, no in-app search
 
@@ -176,10 +184,10 @@ Svelte for its larger ecosystem and because it keeps both native paths open.
 
 ### Capacitor as the planned native path
 
-When recording arrives, the web client is wrapped with Capacitor to ship to the
-app stores with native plugins for the microphone, filesystem, and background
-audio. One client codebase serves the web and both app stores. React Native
-remains a fallback if a WebView proves limiting.
+The path to the app stores wraps the web client with Capacitor, with a
+native plugin for background audio. One client codebase serves the web and
+both app stores. React Native remains a fallback if a WebView proves
+limiting.
 
 ### Hosting
 
@@ -196,8 +204,8 @@ remains a fallback if a WebView proves limiting.
   Worker also proxies API calls, so the client is always same-origin and the
   API needs no CORS. Cloudflare labels Pages legacy, and only a Worker can run
   code in front of the assets.
-- Audio storage, when it arrives, is Cloudflare R2, because it charges no egress
-  and streaming recordings is all egress.
+- Audio storage is Cloudflare R2, because it charges no egress and streaming
+  recordings is all egress.
 
 ### Authentication with Clerk
 
@@ -210,15 +218,15 @@ password reset, email deliverability, and social login on a solo developer.
 
 The client caches the full catalog and queues writes made offline. On reconnect,
 the client replays the queue. Conflicts resolve by the newest timestamp. Every
-record carries a client-generated ID and an updated-at timestamp. The same queue
-will carry recording uploads later. A full sync engine with per-field merges was
-rejected as more than the first release needs.
+record carries a client-generated ID and an updated-at timestamp. Recording
+rows ride this queue; their audio moves over presigned storage URLs in a
+transfer pass of its own, so a large upload never holds up a sync. A full sync
+engine with per-field merges was rejected as more than the first release needs.
 
 ## Future features
 
 These are candidates for later releases, in no fixed order.
 
-- Audio recording at jams, with upload when a connection returns
 - Search of streaming catalogs from inside the app
 - Shared canonical song catalog with deduplication
 - Sharing songs, lists, and recordings between users

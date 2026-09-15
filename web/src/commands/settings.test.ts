@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { pendingBatch } from '../db/outbox'
+import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
-import { setInstruments, settingsId, toggleInstrumentSetting } from './settings'
+import { setAudioQuality, setInstruments, settingsId, toggleInstrumentSetting } from './settings'
 
 let db: CrosstuneDb
 
@@ -77,6 +77,7 @@ describe('toggleInstrumentSetting', () => {
       deleted_at: null,
       server_seq: 0,
       instruments: ['violin', 'harmonica'],
+      audio_quality: 'standard',
     })
     await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -91,6 +92,7 @@ describe('toggleInstrumentSetting', () => {
       deleted_at: null,
       server_seq: 0,
       instruments: ['violin', 'harmonica', 'harmonica'],
+      audio_quality: 'standard',
     })
     await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -115,5 +117,16 @@ describe('toggleInstrumentSetting', () => {
     await Promise.all([first, second])
     const row = await db.user_settings.get(settingsId('user_1'))
     expect(row?.instruments).toEqual(['violin', 'banjo', 'mandolin'])
+  })
+
+  it('keeps the audio quality when instruments change and sets it on its own', async () => {
+    await setAudioQuality(db, 'user_1', 'high')
+    await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row?.audio_quality).toBe('high')
+    expect(row?.instruments).toContain('banjo')
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      audio_quality: 'high',
+    })
   })
 })

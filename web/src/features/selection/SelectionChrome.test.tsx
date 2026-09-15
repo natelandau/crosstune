@@ -7,6 +7,7 @@ import { Dock } from '../../components/Dock'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderWithProviders } from '../../test/render'
+import { PlayerProvider } from '../player/PlayerProvider'
 import { useSelectionChrome, type SelectionChrome } from './selectionChrome'
 import { SelectionChromeProvider } from './SelectionChromeProvider'
 
@@ -32,11 +33,13 @@ const CHROME: SelectionChrome = {
 
 function renderChrome(chrome: SelectionChrome | null) {
   return renderWithProviders(
-    <SelectionChromeProvider>
-      <Publisher chrome={chrome} />
-      <AppBar />
-      <Dock />
-    </SelectionChromeProvider>,
+    <PlayerProvider>
+      <SelectionChromeProvider>
+        <Publisher chrome={chrome} />
+        <AppBar />
+        <Dock />
+      </SelectionChromeProvider>
+    </PlayerProvider>,
     { db },
   )
 }
@@ -60,11 +63,13 @@ describe('selection chrome', () => {
 
   it('keeps the last content in place while the selection bars leave', async () => {
     renderWithProviders(
-      <SelectionChromeProvider>
-        <TogglingPublisher />
-        <AppBar />
-        <Dock />
-      </SelectionChromeProvider>,
+      <PlayerProvider>
+        <SelectionChromeProvider>
+          <TogglingPublisher />
+          <AppBar />
+          <Dock />
+        </SelectionChromeProvider>
+      </PlayerProvider>,
       { db },
     )
     await screen.findByText('3 selected')

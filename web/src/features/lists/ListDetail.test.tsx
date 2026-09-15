@@ -204,6 +204,15 @@ describe('ListDetail', () => {
     expect(screen.queryByRole('button', { name: 'Delete list' })).toBeNull()
   })
 
+  it('offers no per-list keep offline control', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await screen.findByRole('heading', { name: 'Tuesday jam' })
+    expect(screen.queryByRole('checkbox', { name: /offline/i })).toBeNull()
+  })
+
   it('deletes the list', async () => {
     const onDeleted = vi.fn()
     renderWithProviders(

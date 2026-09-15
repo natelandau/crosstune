@@ -17,4 +17,17 @@ describe('parseNewSongSearch', () => {
     expect(parseNewSongSearch({ title: 42 })).toEqual({})
     expect(parseNewSongSearch({})).toEqual({})
   })
+
+  it('keeps a recording to attach alongside the title', () => {
+    expect(parseNewSongSearch({ title: 'Soldier', attach: 'rec_1' })).toEqual({
+      title: 'Soldier',
+      attach: 'rec_1',
+    })
+    expect(parseNewSongSearch({ attach: 'rec_1' })).toEqual({ attach: 'rec_1' })
+  })
+
+  it('drops a blank or non-string attach', () => {
+    expect(parseNewSongSearch({ attach: '' })).toEqual({})
+    expect(parseNewSongSearch({ attach: 7 })).toEqual({})
+  })
 })

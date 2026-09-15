@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import { App } from './App'
+import { scrubR2Breadcrumb } from './sentryBreadcrumbs'
 import { APP_VERSION } from './version'
 import './app.css'
 
@@ -13,6 +14,7 @@ if (sentryDsn) {
     dsn: sentryDsn,
     release: APP_VERSION,
     environment: import.meta.env.VITE_SENTRY_ENVIRONMENT ?? 'development',
+    beforeBreadcrumb: scrubR2Breadcrumb,
   })
 }
 

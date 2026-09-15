@@ -22,6 +22,15 @@ export function writeTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
   return db.transaction('rw', [...syncTables(db), db.outbox], fn)
 }
 
+/** A write that touches the local audio tables as well as the synced ones. */
+export function recordingTx<T>(db: CrosstuneDb, fn: () => Promise<T>): Promise<T> {
+  return db.transaction(
+    'rw',
+    [...syncTables(db), db.outbox, db.recording_files, db.recording_chunks],
+    fn,
+  )
+}
+
 /** Rows that have not been tombstoned, in position order. */
 export function activeByPosition<T extends { deleted_at: string | null; position: number }>(
   rows: T[],
