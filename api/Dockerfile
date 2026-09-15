@@ -8,7 +8,7 @@ COPY alembic.ini ./
 RUN uv sync --locked --no-dev --no-cache
 
 FROM python:3.13-slim-trixie
-RUN apt-get update && apt-get install -y --no-install-recommends tini \
+RUN apt-get update && apt-get install -y --no-install-recommends tini ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 1000 --create-home appuser
 WORKDIR /app
