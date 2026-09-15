@@ -6,7 +6,6 @@ import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import { hideArchived } from '../catalog/filters'
 import { ShowArchivedToggle } from '../catalog/ShowArchivedToggle'
-import { KeepOfflineToggle } from '../recordings/KeepOfflineToggle'
 import { SongSelectionActions } from '../selection/SongSelectionActions'
 import { useSongSelectionMode } from '../selection/useSongSelectionMode'
 import { useInstruments } from '../settings/useInstruments'
@@ -107,7 +106,6 @@ export function ListDetail({
               Rename
             </button>
           </div>
-          <KeepOfflineToggle listId={listId} />
         </div>
       )}
 

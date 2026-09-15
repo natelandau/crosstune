@@ -89,16 +89,11 @@ describe('RecordingsScreen', () => {
     expect(await within(row).findByText(/500 MB of 1 GB used/)).toBeInTheDocument()
   })
 
-  it('pins and unpins a recording from its own row', async () => {
-    const id = await take(null, 'Loose take')
+  it('offers no per-recording keep offline control', async () => {
+    await take(null, 'Loose take')
     renderApp({ db, path: '/recordings' })
     const list = await screen.findByRole('list', { name: 'Recordings' })
-    const toggle = within(list).getByRole('checkbox', { name: 'Keep Loose take offline' })
-    expect(toggle).not.toBeChecked()
-    await userEvent.click(toggle)
-    await vi.waitFor(async () => expect((await db.recording_files.get(id))?.pinned).toBe(true))
-    await userEvent.click(toggle)
-    await vi.waitFor(async () => expect((await db.recording_files.get(id))?.pinned).toBe(false))
+    expect(within(list).queryByRole('checkbox')).toBeNull()
   })
 
   it('shows why an upload failed and retries it', async () => {

@@ -3,13 +3,12 @@ import type { SyncApi } from '../api/types'
 import {
   cancelCapture,
   finishCapture,
-  keptOfflineSongIds,
   setFileState,
   storeDownloadedBlob,
 } from '../commands/recordings'
 import { now, putRow, recordingTx } from '../commands/write'
 import { baseContentType, CHUNK_MS, isNotUploaded, type LocalFileState } from '../db/recordings'
-import { getStorage, setStorage } from '../db/meta'
+import { getKeepOffline, getStorage, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { liveSong } from '../db/songs'
@@ -276,22 +275,20 @@ export async function downloadOne(db: CrosstuneDb, api: SyncApi, id: string): Pr
   }
 }
 
-/** Fetch audio for every ready recording that belongs on this device (pinned itself, or its
- * song kept offline directly or through a list) and is not already here. `fetch` lets the
- * caller share one in-flight download per recording with any other path that fetches. */
+/** When the device keeps recordings offline, fetch audio for every ready recording that is
+ * not already here. `fetch` lets the caller share one in-flight download per recording with
+ * any other path that fetches. */
 export async function downloadPass(
   db: CrosstuneDb,
   api: SyncApi,
   fetch: (id: string) => Promise<Blob | null> = (id) => downloadOne(db, api, id),
 ): Promise<void> {
-  const covered = await keptOfflineSongIds(db)
+  if (!(await getKeepOffline(db))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
   for (const [i, row] of rows.entries()) {
     const file = files[i]
     if (file?.blob) continue
-    const kept = !!file?.pinned || (!!row.song_id && covered.has(row.song_id))
-    if (!kept) continue
     try {
       await fetch(row.id)
     } catch (error) {

@@ -70,7 +70,6 @@ export class CrosstuneDb extends Dexie {
             }),
         ]),
       )
-    // Booleans are not IndexedDB keys, so pinned is filtered in memory.
     this.version(3).stores({
       recordings: 'id, song_id',
       recording_files: 'id, local_state',

@@ -3,8 +3,7 @@ import type { CrosstuneDb } from './schema'
 export const META_PULL_CURSOR = 'pull_cursor'
 export const META_INVALID_CHANGES = 'invalid_changes'
 export const META_STORAGE = 'storage'
-export const META_KEEP_OFFLINE_SONGS = 'keep_offline_songs'
-export const META_KEEP_OFFLINE_LISTS = 'keep_offline_lists'
+export const META_KEEP_OFFLINE = 'keep_offline'
 
 export interface StorageFigures {
   used_bytes: number
@@ -41,20 +40,13 @@ export function setStorage(db: CrosstuneDb, figures: StorageFigures): Promise<vo
   return setMeta(db, META_STORAGE, figures)
 }
 
-export function getKeepOfflineSongs(db: CrosstuneDb): Promise<string[]> {
-  return getMeta<string[]>(db, META_KEEP_OFFLINE_SONGS, [])
+/** Whether this device downloads every ready recording so it plays without a connection. */
+export function getKeepOffline(db: CrosstuneDb): Promise<boolean> {
+  return getMeta(db, META_KEEP_OFFLINE, false)
 }
 
-export function setKeepOfflineSongs(db: CrosstuneDb, ids: string[]): Promise<void> {
-  return setMeta(db, META_KEEP_OFFLINE_SONGS, ids)
-}
-
-export function getKeepOfflineLists(db: CrosstuneDb): Promise<string[]> {
-  return getMeta<string[]>(db, META_KEEP_OFFLINE_LISTS, [])
-}
-
-export function setKeepOfflineLists(db: CrosstuneDb, ids: string[]): Promise<void> {
-  return setMeta(db, META_KEEP_OFFLINE_LISTS, ids)
+export function setKeepOffline(db: CrosstuneDb, on: boolean): Promise<void> {
+  return setMeta(db, META_KEEP_OFFLINE, on)
 }
 
 /** Count pushes the server refused, so a later screen can tell the user what was lost. */

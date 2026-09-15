@@ -4,14 +4,11 @@ import {
   appendChunk,
   beginCapture,
   finishCapture,
-  setListKeepOffline,
-  setPinned,
-  setSongKeepOffline,
+  storeDownloadedBlob,
 } from '../commands/recordings'
-import { addToList, createList } from '../commands/lists'
 import { createSong, deleteSong } from '../commands/songs'
 import { CHUNK_MS } from '../db/recordings'
-import { getStorage, setStorage } from '../db/meta'
+import { getStorage, setKeepOffline, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { newId } from '../commands/write'
@@ -80,6 +77,12 @@ async function pushed(id: string): Promise<void> {
   // callers that use pushed() only to stage the row on the server don't want that
   // incidental attempt counted against the one they are about to make themselves.
   await db.recording_files.update(id, { upload_attempts: 0, next_attempt_at: null })
+}
+
+/** A file row left behind by Remove downloaded audio: known locally, blob gone. */
+async function clearedDownload(id: string): Promise<void> {
+  await storeDownloadedBlob(db, id, new Blob(['old']), 'audio/mp4')
+  await db.recording_files.update(id, { blob: null, bytes: 0 })
 }
 
 async function readyOnServer(id: string, songId: string | null = null): Promise<void> {
@@ -559,33 +562,27 @@ describe('recoverInterruptedCaptures with a lock manager', () => {
 })
 
 describe('downloads', () => {
-  it('downloadPass fetches pinned ready recordings without a blob', async () => {
+  it('downloadPass fetches every ready recording without a blob once keep offline is on', async () => {
     await readyOnServer('r1')
     await readyOnServer('r2')
-    await setPinned(db, ['r1'], true)
+    await setKeepOffline(db, true)
     await downloadPass(db, fake.api)
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
-    expect(await db.recording_files.get('r2')).toBeUndefined()
+    expect(await (await db.recording_files.get('r2'))?.blob?.text()).toBe('xyz')
   })
 
-  it('downloads a recording pulled after its song was marked kept offline', async () => {
-    const { songId } = await createSong(db, { title: 'A' }, { status: 'known' })
-    await setSongKeepOffline(db, songId, true)
-    // The row lands after the mark, with no file row of its own yet.
-    await readyOnServer('r1', songId)
+  it('downloadPass fetches nothing while keep offline is off', async () => {
+    await readyOnServer('r1')
+    const spy = vi.spyOn(fake.api, 'downloadUrl')
     await downloadPass(db, fake.api)
-    expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
-  })
-
-  it('downloads a recording whose song is added to a marked list later', async () => {
-    const { songId, userSongId } = await createSong(db, { title: 'B' }, { status: 'known' })
-    const listId = await createList(db, 'Set')
-    await setListKeepOffline(db, listId, true)
-    await readyOnServer('r1', songId)
-    // Nothing to cover yet: the song is not in the list.
-    await downloadPass(db, fake.api)
+    expect(spy).not.toHaveBeenCalled()
     expect(await db.recording_files.get('r1')).toBeUndefined()
-    await addToList(db, listId, userSongId)
+  })
+
+  it('downloads a recording pulled after keep offline was turned on', async () => {
+    await setKeepOffline(db, true)
+    // The row lands after the setting, with no file row of its own yet.
+    await readyOnServer('r1')
     await downloadPass(db, fake.api)
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
   })
@@ -616,7 +613,7 @@ describe('downloads', () => {
     const id = await captured()
     await pushed(id)
     await db.recordings.update(id, { state: 'ready' })
-    await db.recording_files.update(id, { blob: null, bytes: 0, pinned: true })
+    await db.recording_files.update(id, { blob: null, bytes: 0 })
     fake.recordingStates.set(id, 'ready')
     fake.fail(new NetworkError(new TypeError('x')))
     await expect(downloadOne(db, fake.api, id)).rejects.toBeInstanceOf(NetworkError)
@@ -626,7 +623,8 @@ describe('downloads', () => {
   it("does not let one row's storage failure block the rest of the pass", async () => {
     await readyOnServer('r1')
     await readyOnServer('r2')
-    await setPinned(db, ['r1', 'r2'], true)
+    await clearedDownload('r1')
+    await setKeepOffline(db, true)
     const putSpy = vi.spyOn(db.recording_files, 'put').mockRejectedValueOnce(new Error('disk full'))
     try {
       await downloadPass(db, fake.api)
@@ -642,7 +640,7 @@ describe('downloads', () => {
 
   it('downloadOne recovers a row stuck downloading instead of leaving it stuck', async () => {
     await readyOnServer('r1')
-    await setPinned(db, ['r1'], true)
+    await clearedDownload('r1')
     await db.recording_files.update('r1', { local_state: 'downloading' })
     fake.fail(new NetworkError(new TypeError('x')))
     await expect(downloadOne(db, fake.api, 'r1')).rejects.toBeInstanceOf(NetworkError)
@@ -652,7 +650,8 @@ describe('downloads', () => {
   it('downloadPass recovers a row stuck downloading instead of leaving it stuck', async () => {
     await readyOnServer('r1')
     await readyOnServer('r2')
-    await setPinned(db, ['r1', 'r2'], true)
+    await clearedDownload('r1')
+    await setKeepOffline(db, true)
     await db.recording_files.update('r1', { local_state: 'downloading' })
     const putSpy = vi.spyOn(db.recording_files, 'put').mockRejectedValueOnce(new Error('disk full'))
     try {
@@ -761,7 +760,7 @@ describe('engine integration', () => {
   it('runs recovery and storage refresh in the sync, then uploads and downloads after it', async () => {
     const id = await captured()
     await readyOnServer('r1')
-    await setPinned(db, ['r1'], true)
+    await setKeepOffline(db, true)
     fake.setStorage({ used_bytes: 42, quota_bytes: 100, max_file_bytes: 50 })
     const stray = newId()
     await beginCapture(db, stray, { songId: null, recordedAt: new Date().toISOString() })

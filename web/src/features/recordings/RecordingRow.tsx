@@ -18,7 +18,6 @@ export function RecordingRow({
   onRetry,
   onRetryUpload,
   onAttach,
-  onTogglePin,
 }: {
   view: RecordingView
   showSong: boolean
@@ -26,7 +25,6 @@ export function RecordingRow({
   onRetry: (id: string) => void
   onRetryUpload: (id: string) => void
   onAttach?: (id: string) => void
-  onTogglePin: (id: string, on: boolean) => void
 }) {
   const { recording, file, songId, songTitle } = view
   const db = useDb()
@@ -68,15 +66,6 @@ export function RecordingRow({
           <span className="text-error block text-xs">{file.error}</span>
         ) : null}
       </span>
-      <label className="label min-h-11 cursor-pointer gap-1 text-xs">
-        <input
-          type="checkbox"
-          className="toggle toggle-sm"
-          aria-label={`Keep ${title} offline`}
-          checked={!!file?.pinned}
-          onChange={(e) => onTogglePin(recording.id, e.target.checked)}
-        />
-      </label>
       {uploadFailed ? (
         <button
           type="button"

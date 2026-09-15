@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { deleteRecording, retryUpload, setPinned, updateRecording } from '../../commands/recordings'
+import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { Sheet } from '../../components/Sheet'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
@@ -56,7 +56,6 @@ export function RecordingList({
               })
             }
             onAttach={(id) => setAttaching(id)}
-            onTogglePin={(id, on) => run(() => setPinned(db, [id], on))}
           />
         ))}
       </ul>

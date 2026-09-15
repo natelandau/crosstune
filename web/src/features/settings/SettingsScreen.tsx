@@ -1,12 +1,12 @@
 import { useAuth, useUser } from '@clerk/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuthSession } from '../../auth/AuthContext'
-import { clearUnpinnedBlobs, localAudioBytes } from '../../commands/recordings'
+import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings'
 import { settingsId, setAudioQuality, toggleInstrumentSetting } from '../../commands/settings'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import { AUDIO_QUALITIES, storedAudioQuality } from '../../db/recordings'
-import { getInvalidChangeCount } from '../../db/meta'
+import { getInvalidChangeCount, getKeepOffline, setKeepOffline } from '../../db/meta'
 import { INSTRUMENTS } from '../../db/types'
 import { useSyncEngine, useSyncStatus } from '../../sync/SyncProvider'
 import { APP_VERSION } from '../../version'
@@ -31,6 +31,7 @@ export function SettingsScreen() {
     useLiveQuery(() => db.user_settings.get(settingsId(userId)), [db, userId]),
   )
   const localBytes = useLiveQuery(() => localAudioBytes(db), [db])
+  const keepOffline = useLiveQuery(() => getKeepOffline(db), [db]) ?? false
   const qualityAction = useAction()
 
   return (
@@ -114,17 +115,39 @@ export function SettingsScreen() {
             ))}
           </div>
         </fieldset>
+        <label className="label min-h-11 cursor-pointer gap-2">
+          <input
+            type="checkbox"
+            className="toggle"
+            checked={keepOffline}
+            onChange={(e) => {
+              const on = e.target.checked
+              qualityAction.run(async () => {
+                await setKeepOffline(db, on)
+                if (on) {
+                  void engine.transfer()
+                  // Asked only once there is something worth protecting from storage eviction.
+                  void navigator.storage?.persist?.().catch(() => {})
+                }
+              })
+            }}
+          />
+          Keep recordings offline
+        </label>
+        <p className="text-sm opacity-70">
+          Downloads every recording to this device so it plays without a connection.
+        </p>
         <p className="text-sm">{formatBytes(localBytes ?? 0)} of audio on this device</p>
         <button
           type="button"
           className="btn min-h-11"
-          onClick={() => qualityAction.run(() => clearUnpinnedBlobs(db))}
+          disabled={keepOffline}
+          onClick={() => qualityAction.run(() => clearDownloadedBlobs(db))}
         >
           Remove downloaded audio
         </button>
         <p className="text-sm opacity-70">
-          Keeps recordings marked keep offline, any still waiting to upload, and any not yet ready
-          on the server.
+          Keeps recordings still waiting to upload and any not yet ready on the server.
         </p>
         {qualityAction.error ? (
           <p role="alert" className="text-error text-sm">

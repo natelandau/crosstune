@@ -1,23 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { pendingFor } from '../db/outbox'
+import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
-import { addToList, createList } from './lists'
 import {
   addUploadedFile,
   appendChunk,
   beginCapture,
   cancelCapture,
-  clearUnpinnedBlobs,
+  clearDownloadedBlobs,
   deleteRecording,
   finishCapture,
-  isKeptOffline,
   localAudioBytes,
   retryUpload,
   setFileState,
-  setListKeepOffline,
-  setPinned,
-  setSongKeepOffline,
   storeDownloadedBlob,
   updateRecording,
 } from './recordings'
@@ -53,7 +49,6 @@ describe('capture', () => {
       local_state: 'captured',
       bytes: 4,
       mime: 'audio/mp4',
-      pinned: false,
     })
     expect(await file?.blob?.text()).toBe('abcd')
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
@@ -209,37 +204,18 @@ describe('uploads and edits', () => {
   })
 })
 
-describe('keep offline marks and local audio', () => {
-  it('marks a song and reports its recordings kept offline, until unmarked', async () => {
-    const a = await createSong(db, { title: 'A' }, { status: 'known' })
-    const b = await createSong(db, { title: 'B' }, { status: 'known' })
-    const ra = await captured(a.songId)
-    const rb = await captured(b.songId)
-    await setSongKeepOffline(db, a.songId, true)
-    expect(await isKeptOffline(db, { id: ra, song_id: a.songId })).toBe(true)
-    expect(await isKeptOffline(db, { id: rb, song_id: b.songId })).toBe(false)
-    await setSongKeepOffline(db, a.songId, false)
-    expect(await isKeptOffline(db, { id: ra, song_id: a.songId })).toBe(false)
+describe('keep offline and local audio', () => {
+  it('keep offline is one setting for the whole device, off until turned on', async () => {
+    expect(await getKeepOffline(db)).toBe(false)
+    await setKeepOffline(db, true)
+    expect(await getKeepOffline(db)).toBe(true)
+    await setKeepOffline(db, false)
+    expect(await getKeepOffline(db)).toBe(false)
   })
 
-  it('marks a list and covers a song added to it, including one with no local file row', async () => {
-    const { songId, userSongId } = await createSong(db, { title: 'B' }, { status: 'known' })
-    const listId = await createList(db, 'Set')
-    await addToList(db, listId, userSongId)
-    await setListKeepOffline(db, listId, true)
-    expect(await isKeptOffline(db, { id: 'server-rec', song_id: songId })).toBe(true)
-  })
-
-  it('keeps a file row pinned on its own, independent of any song or list mark', async () => {
-    const id = await captured()
-    await setPinned(db, [id], true)
-    expect(await isKeptOffline(db, { id, song_id: null })).toBe(true)
-  })
-
-  it('stores a downloaded blob and clears only unpinned ones', async () => {
+  it('stores a downloaded blob and clears the ones the server can serve back', async () => {
     const kept = await captured()
     const dropped = await captured()
-    await db.recording_files.update(kept, { pinned: true })
     await setFileState(db, dropped, 'uploaded')
     await db.recordings.update(dropped, { state: 'ready' })
     await storeDownloadedBlob(db, 'other', new Blob(['12345']), 'audio/mp4')
@@ -261,7 +237,7 @@ describe('keep offline marks and local audio', () => {
       error: null,
     })
     expect(await localAudioBytes(db)).toBe(4 + 4 + 5)
-    await clearUnpinnedBlobs(db)
+    await clearDownloadedBlobs(db)
     expect((await db.recording_files.get(kept))?.blob).not.toBeNull()
     expect((await db.recording_files.get(dropped))?.blob).toBeNull()
     expect((await db.recording_files.get('other'))?.blob).toBeNull()
@@ -273,19 +249,9 @@ describe('keep offline marks and local audio', () => {
     const failed = await captured()
     await setFileState(db, blocked, 'blocked_quota')
     await setFileState(db, failed, 'failed_upload')
-    await clearUnpinnedBlobs(db)
+    await clearDownloadedBlobs(db)
     expect((await db.recording_files.get(blocked))?.blob).not.toBeNull()
     expect((await db.recording_files.get(failed))?.blob).not.toBeNull()
-  })
-
-  it('keeps the blob of a recording whose song is kept offline, even without a pin', async () => {
-    const { songId } = await createSong(db, { title: 'A' }, { status: 'known' })
-    const id = await captured(songId)
-    await setFileState(db, id, 'uploaded')
-    await db.recordings.update(id, { state: 'ready' })
-    await setSongKeepOffline(db, songId, true)
-    await clearUnpinnedBlobs(db)
-    expect((await db.recording_files.get(id))?.blob).not.toBeNull()
   })
 
   it('only clears an uploaded blob once its recording is ready to play', async () => {
@@ -298,7 +264,7 @@ describe('keep offline marks and local audio', () => {
     await db.recordings.update(ready, { state: 'ready' })
     await db.recordings.update(processing, { state: 'processing' })
     await db.recordings.update(failed, { state: 'failed' })
-    await clearUnpinnedBlobs(db)
+    await clearDownloadedBlobs(db)
     expect((await db.recording_files.get(ready))?.blob).toBeNull()
     expect((await db.recording_files.get(processing))?.blob).not.toBeNull()
     expect((await db.recording_files.get(failed))?.blob).not.toBeNull()

@@ -9,7 +9,6 @@ import { LinkList } from '../links/LinkList'
 import { AddToListMenu } from '../lists/AddToListMenu'
 import { RecordButtonInline } from '../recording/RecordButton'
 import { UploadRecordingInput } from '../recording/UploadRecordingInput'
-import { KeepOfflineToggle } from '../recordings/KeepOfflineToggle'
 import { RecordingList } from '../recordings/RecordingList'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { useInstruments } from '../settings/useInstruments'
@@ -90,10 +89,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
       />
 
       <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
-          <KeepOfflineToggle songId={song.id} />
-        </div>
+        <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
         <RecordingList views={recordings} showSong={false} />
         <div className="flex flex-wrap gap-2">
           <RecordButtonInline songId={song.id} />

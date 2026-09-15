@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { storeDownloadedBlob } from '../../commands/recordings'
 import { settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
-import { countInvalidChanges } from '../../db/meta'
+import { countInvalidChanges, getKeepOffline } from '../../db/meta'
 import { pendingBatch } from '../../db/outbox'
 import { openTestDb } from '../../test/db'
 import { fakeEngine, renderWithProviders, testSession } from '../../test/render'
@@ -78,7 +78,7 @@ describe('SettingsScreen', () => {
   it('sets the recording quality and clears downloaded audio', async () => {
     const at = '2026-09-14T20:00:00.000Z'
     await storeDownloadedBlob(db, 'r1', new Blob(['12345']), 'audio/mp4')
-    // clearUnpinnedBlobs only drops a blob the server can serve back; the row must be ready.
+    // clearDownloadedBlobs only drops a blob the server can serve back; the row must be ready.
     await db.recordings.put({
       id: 'r1',
       created_at: at,
@@ -105,5 +105,24 @@ describe('SettingsScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove downloaded audio' }))
     await waitFor(async () => expect((await db.recording_files.get('r1'))?.blob).toBeNull())
     expect(await screen.findByText('0 B of audio on this device')).toBeInTheDocument()
+  })
+
+  it('keeps every recording offline from one setting and starts a transfer', async () => {
+    const transfer = vi.fn(async () => {})
+    renderWithProviders(<SettingsScreen />, { db, engine: fakeEngine({ transfer }) })
+    const name = 'Keep recordings offline'
+    expect(await screen.findByRole('checkbox', { name })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Remove downloaded audio' })).toBeEnabled()
+    await userEvent.click(screen.getByRole('checkbox', { name }))
+    await waitFor(async () => expect(await getKeepOffline(db)).toBe(true))
+    await waitFor(() => expect(transfer).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByRole('checkbox', { name })).toBeChecked())
+    // Removing downloads while every recording is kept offline would only re-download them.
+    expect(screen.getByRole('button', { name: 'Remove downloaded audio' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('checkbox', { name }))
+    await waitFor(async () => expect(await getKeepOffline(db)).toBe(false))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove downloaded audio' })).toBeEnabled(),
+    )
   })
 })

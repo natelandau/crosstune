@@ -63,7 +63,6 @@ export interface RecordingFile {
   bytes: number
   local_duration_ms: number | null
   local_state: LocalFileState
-  pinned: boolean
   error: string | null
   /** Epoch ms of the last chunk appended while capturing; a gap past the stale-capture
    * threshold is what marks the capture abandoned rather than still in progress. */

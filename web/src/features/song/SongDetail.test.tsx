@@ -7,7 +7,6 @@ import { appendChunk, beginCapture, finishCapture } from '../../commands/recordi
 import { createSong } from '../../commands/songs'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
-import { getKeepOfflineSongs } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { SyncContext } from '../../sync/SyncProvider'
 import { openTestDb } from '../../test/db'
@@ -187,7 +186,7 @@ describe('SongDetail', () => {
     await waitFor(async () => expect((await db.songs.get(songId))?.title).toBe('Cluck Old Hen (A)'))
   })
 
-  it('lists recordings above links with record, upload, and keep offline controls', async () => {
+  it('lists recordings above links with record and upload controls', async () => {
     const id = newId()
     await beginCapture(db, id, { songId, recordedAt: '2026-09-14T20:00:00.000Z' })
     await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
@@ -202,23 +201,7 @@ describe('SongDetail', () => {
     expect(within(recordings).getByRole('button', { name: /^Play / })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
     expect(screen.getByLabelText('Upload audio file')).toBeInTheDocument()
-    const keep = screen.getByRole('checkbox', { name: 'Keep offline' })
-    await waitFor(() => expect(keep).not.toHaveAttribute('aria-disabled'))
-    await userEvent.click(keep)
-    await waitFor(async () => expect(await getKeepOfflineSongs(db)).toContain(songId))
-  })
-
-  it('disables keep offline and shows a hint when the song has no recordings', async () => {
-    renderDetail()
-    await screen.findByRole('heading', { name: 'Cluck Old Hen' })
-    const keep = screen.getByRole('checkbox', { name: 'Keep offline' })
-    // The toggle's own live query resolves a tick after the page appears, so wait
-    // for the hint rather than the transient loading state, which is also disabled.
-    await screen.findByText('No recordings yet')
-    expect(keep).toHaveAttribute('aria-disabled', 'true')
-    expect(keep).not.toBeChecked()
-    await userEvent.click(keep)
-    expect(await db.recording_files.toArray()).toHaveLength(0)
+    expect(screen.queryByRole('checkbox', { name: /offline/i })).toBeNull()
   })
 
   it('archives and deletes', async () => {
