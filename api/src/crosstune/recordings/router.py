@@ -192,9 +192,10 @@ async def upload_finished(
     return Response(status_code=204)
 
 
-@router.post("/{recording_id}/retry", status_code=204, responses=problem_responses(404, 409))
+@router.post("/{recording_id}/retry", status_code=204, responses=problem_responses(404, 409, 503))
 async def retry(
     recording_id: uuid.UUID,
+    request: Request,
     user: CurrentUser,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Response:
@@ -203,6 +204,8 @@ async def retry(
     A recording whose uploaded object is gone is uploaded again through a new
     slot instead; this route only re-runs the transcode.
     """
+    # Without a store there is no runner either, so a queued job would never be claimed.
+    require_store(request)
     await lock_user(session, user.id)
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, "failed")
