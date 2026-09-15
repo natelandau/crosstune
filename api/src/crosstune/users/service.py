@@ -55,10 +55,9 @@ async def delete_user_by_clerk_id(session: AsyncSession, clerk_user_id: str) -> 
         clerk_user_id: The Clerk subject of the account.
 
     Returns:
-        uuid.UUID | None: The deleted user's id, or None when no such user existed.
+        uuid.UUID | None: The id of the row this call deleted, or None when no such
+        user existed. A duplicate webhook delivery racing this one gets None.
     """
-    user_id = await session.scalar(select(User.id).where(User.clerk_user_id == clerk_user_id))
-    if user_id is None:
-        return None
-    await session.execute(delete(User).where(User.id == user_id))
-    return user_id
+    return await session.scalar(
+        delete(User).where(User.clerk_user_id == clerk_user_id).returning(User.id)
+    )
