@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import type { Instrument, LocalSong, LocalUserSong } from '../../db/types'
@@ -79,5 +79,20 @@ describe('SongCard', () => {
   it('leaves an active song at full tone', async () => {
     const link = await renderCard({})
     expect(link).not.toHaveClass('opacity-60')
+  })
+
+  it('renders without a link when not linked', () => {
+    render(
+      <SongCard
+        entry={{
+          song: songRow('s1', "Soldier's Joy", { key: 'D' }),
+          userSong: userSongRow('u1', 's1'),
+        }}
+        instruments={new Set()}
+        linked={false}
+      />,
+    )
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByText("Soldier's Joy")).toBeInTheDocument()
   })
 })

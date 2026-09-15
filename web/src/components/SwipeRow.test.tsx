@@ -6,7 +6,8 @@ import { SwipeRow, type SwipeAction } from './SwipeRow'
 function renderRow({
   open = false,
   otherOpen = false,
-}: { open?: boolean; otherOpen?: boolean } = {}) {
+  disabled = false,
+}: { open?: boolean; otherOpen?: boolean; disabled?: boolean } = {}) {
   const onOpenChange = vi.fn()
   const closeOpenRow = vi.fn()
   const onEdit = vi.fn()
@@ -21,6 +22,7 @@ function renderRow({
       actions={actions}
       open={open}
       otherOpen={otherOpen}
+      disabled={disabled}
       onOpenChange={onOpenChange}
       onSwipeStart={vi.fn()}
       closeOpenRow={closeOpenRow}
@@ -86,5 +88,18 @@ describe('SwipeRow', () => {
     await userEvent.click(editButton())
     expect(onEdit).toHaveBeenCalledTimes(1)
     expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('rests closed with inert actions while disabled, even when told it is open', () => {
+    renderRow({ open: true, disabled: true })
+    expect(editButton().parentElement).toHaveAttribute('inert')
+    expect(editButton().parentElement).toHaveStyle({ opacity: '0' })
+  })
+
+  it('passes a tap through while disabled, even when another row is open', async () => {
+    const { onLink, closeOpenRow } = renderRow({ otherOpen: true, disabled: true })
+    await userEvent.click(screen.getByRole('link', { name: "Soldier's Joy" }))
+    expect(onLink).toHaveBeenCalledTimes(1)
+    expect(closeOpenRow).not.toHaveBeenCalled()
   })
 })

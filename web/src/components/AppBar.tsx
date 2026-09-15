@@ -1,13 +1,36 @@
 import { Link } from '@tanstack/react-router'
+import { useShownChrome } from '../features/selection/selectionChrome'
 import { SyncIndicator } from './SyncIndicator'
 
+// Both layers share one grid cell so they crossfade in place.
+const LAYER =
+  'col-start-1 row-start-1 flex min-w-0 items-center gap-2 px-4 transition-[opacity,translate] duration-(--select-bar-duration) ease-(--ease-emphasized)'
+
 export function AppBar({ title = 'Crosstune' }: { title?: string }) {
+  const { active, bar } = useShownChrome()
   return (
-    <header className="navbar bg-base-200 sticky top-0 z-10 min-h-14 px-4">
-      <Link to="/" className="flex-1 text-lg font-semibold">
-        {title}
-      </Link>
-      <SyncIndicator />
+    <header
+      className={`navbar sticky top-0 z-10 grid min-h-14 p-0 transition-colors duration-(--select-bar-duration) ease-out ${
+        active ? 'bg-neutral text-neutral-content' : 'bg-base-200'
+      }`}
+    >
+      <div
+        className={`${LAYER} ${active ? 'pointer-events-none opacity-0 motion-safe:translate-y-2' : ''}`}
+        inert={active}
+        aria-hidden={active}
+      >
+        <Link to="/" className="flex-1 text-lg font-semibold">
+          {title}
+        </Link>
+        <SyncIndicator />
+      </div>
+      <div
+        className={`${LAYER} ${active ? '' : 'pointer-events-none opacity-0 motion-safe:-translate-y-2'}`}
+        inert={!active}
+        aria-hidden={!active}
+      >
+        {bar}
+      </div>
     </header>
   )
 }
