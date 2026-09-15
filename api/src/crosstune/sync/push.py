@@ -10,8 +10,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
+from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
-from crosstune.models import List, ListItem, RecordingLink, UserSong
+from crosstune.models import List, ListItem, Recording, RecordingLink, UserSong
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
@@ -56,12 +57,6 @@ def _next_seq():  # noqa: ANN202
     return func.nextval("sync_seq")
 
 
-def _advisory_lock_key(user_id: uuid.UUID) -> int:
-    """A stable signed 64-bit key derived from a user id, for pg_advisory_xact_lock."""
-    # UUIDv7 leads with a millisecond timestamp, so the trailing bytes carry the entropy.
-    return int.from_bytes(user_id.bytes[8:], "big", signed=True)
-
-
 async def apply_push(
     session: AsyncSession,
     user_id: uuid.UUID,
@@ -72,7 +67,7 @@ async def apply_push(
     # Serializes this user's concurrent pushes so server_seq is assigned in commit order,
     # matching the order a pull cursor relies on. Released automatically when the request's
     # transaction ends.
-    await session.execute(select(func.pg_advisory_xact_lock(_advisory_lock_key(user_id))))
+    await lock_user(session, user_id)
 
     grouped: dict[TableName, list[tuple[int, Change]]] = defaultdict(list)
     for index, change in enumerate(changes):
@@ -114,6 +109,9 @@ async def _parents_owned(
 ) -> str | None:
     """Return a reason string when a referenced parent is missing or not the caller's."""
     for column, parent_table in spec.parents:
+        if data.get(column) is None:
+            # An unfiled recording has no song yet; nothing to own.
+            continue
         parent = await _fetch_owned(session, TABLES[parent_table], data[column], user_id)
         if parent is None or parent.deleted_at is not None:
             return f"{column} does not reference one of your {parent_table}"
@@ -265,6 +263,7 @@ async def _cascade(
             RecordingLink,
             (RecordingLink.song_id == row_id) & (RecordingLink.added_by_user_id == user_id),
         )
+        await mark(Recording, (Recording.song_id == row_id) & (Recording.user_id == user_id))
     elif table == "user_songs":
         await mark(ListItem, (ListItem.user_song_id == row_id) & owned_items)
     elif table == "lists":

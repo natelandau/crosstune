@@ -8,7 +8,15 @@ from typing import TYPE_CHECKING, Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from crosstune.models import INSTRUMENTS, MODES, PROVIDERS, STATUSES, TIME_SIGNATURES
+from crosstune.models import (
+    AUDIO_QUALITIES,
+    INSTRUMENTS,
+    MODES,
+    PROVIDERS,
+    SOURCES,
+    STATUSES,
+    TIME_SIGNATURES,
+)
 
 if TYPE_CHECKING:
     from crosstune.schemas.common import TableName
@@ -29,6 +37,8 @@ TimeSignature = Annotated[str, AfterValidator(_one_of(TIME_SIGNATURES))]
 StatusValue = Annotated[str, AfterValidator(_one_of(STATUSES))]
 Provider = Annotated[str, AfterValidator(_one_of(PROVIDERS))]
 Instrument = Annotated[str, AfterValidator(_one_of(INSTRUMENTS))]
+AudioQuality = Annotated[str, AfterValidator(_one_of(AUDIO_QUALITIES))]
+Source = Annotated[str, AfterValidator(_one_of(SOURCES))]
 
 
 def _distinct(values: list[str]) -> list[str]:
@@ -100,10 +110,21 @@ class ListItemData(_Data):
     position: int = 0
 
 
+class RecordingData(_Data):
+    """Client-editable fields of a recording. The file columns are server-owned."""
+
+    song_id: uuid.UUID | None = None
+    label: str | None = Field(default=None, max_length=200)
+    source: Source
+    recorded_at: datetime
+    position: int = 0
+
+
 class UserSettingsData(_Data):
     """Client-editable fields of a user's settings."""
 
     instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
+    audio_quality: AudioQuality = "standard"
 
 
 class _Row(BaseModel):
@@ -159,6 +180,19 @@ class ListItemRow(ListItemData, _Row):
     model_config = ConfigDict(extra="ignore")
 
 
+class RecordingRow(RecordingData, _Row):
+    """A stored recording, as push and pull return it. Storage keys stay on the server."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: uuid.UUID
+    state: str
+    duration_ms: int | None
+    playback_mime: str | None
+    playback_bytes: int | None
+    error: str | None
+
+
 class UserSettingsRow(UserSettingsData, _Row):
     """A stored settings row, as push and pull return it."""
 
@@ -173,6 +207,7 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "lists": ListData,
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
+    "recordings": RecordingData,
     "user_settings": UserSettingsData,
 }
 
@@ -182,5 +217,6 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "lists": ListRow,
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,
+    "recordings": RecordingRow,
     "user_settings": UserSettingsRow,
 }

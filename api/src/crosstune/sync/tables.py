@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import inspect
 
-from crosstune.models import List, ListItem, RecordingLink, Song, UserSettings, UserSong
+from crosstune.models import List, ListItem, Recording, RecordingLink, Song, UserSettings, UserSong
 from crosstune.schemas.rows import (
     DATA_SCHEMAS,
     ROW_SCHEMAS,
@@ -15,8 +15,10 @@ from crosstune.schemas.rows import (
     ListItemData,
     ListItemRow,
     ListRow,
+    RecordingData,
     RecordingLinkData,
     RecordingLinkRow,
+    RecordingRow,
     SongData,
     SongRow,
     UserSettingsData,
@@ -55,6 +57,7 @@ TABLE_ORDER: tuple[TableName, ...] = (
     "lists",
     "list_items",
     "recording_links",
+    "recordings",
     "user_settings",
 )
 
@@ -79,6 +82,9 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingLinkRow,
         "added_by_user_id",
         (("song_id", "songs"),),
+    ),
+    "recordings": TableSpec(
+        "recordings", Recording, RecordingData, RecordingRow, "user_id", (("song_id", "songs"),)
     ),
     "user_settings": TableSpec(
         "user_settings", UserSettings, UserSettingsData, UserSettingsRow, "user_id", ()
