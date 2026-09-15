@@ -8,7 +8,7 @@ function renderPlayer() {
   function Consumer() {
     const player = usePlayer()
     seen.current = player
-    return <p>{player.linkId ?? 'none'}</p>
+    return <p>{player.item?.id ?? 'none'}</p>
   }
   render(
     <PlayerProvider>
@@ -30,20 +30,20 @@ describe('PlayerProvider', () => {
 
   it('plays a link', () => {
     const { player } = renderPlayer()
-    act(() => player().play('l1'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
     expect(screen.getByText('l1')).toBeInTheDocument()
   })
 
   it('lets play replace a loaded link', () => {
     const { player } = renderPlayer()
-    act(() => player().play('l1'))
-    act(() => player().play('l2'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
+    act(() => player().play({ kind: 'link', id: 'l2' }))
     expect(screen.getByText('l2')).toBeInTheDocument()
   })
 
   it('clears the loaded link on close', () => {
     const { player } = renderPlayer()
-    act(() => player().play('l1'))
+    act(() => player().play({ kind: 'link', id: 'l1' }))
     act(() => player().close())
     expect(screen.getByText('none')).toBeInTheDocument()
   })
@@ -51,7 +51,7 @@ describe('PlayerProvider', () => {
   it('keeps play, close, and returnFocus stable across state changes', () => {
     const { player } = renderPlayer()
     const before = player()
-    act(() => before.play('l1'))
+    act(() => before.play({ kind: 'link', id: 'l1' }))
     const after = player()
     expect(after.play).toBe(before.play)
     expect(after.close).toBe(before.close)

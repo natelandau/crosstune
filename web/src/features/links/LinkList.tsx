@@ -1,7 +1,7 @@
 import type { LocalRecordingLink } from '../../db/types'
 import { useOnline } from '../../sync/SyncProvider'
 import { embedFor } from '../player/embed'
-import { usePlayer } from '../player/usePlayer'
+import { isPlaying, usePlayer } from '../player/usePlayer'
 import { displayTitle, linkSubtitle, providerLabel } from './display'
 
 export function LinkList({
@@ -15,11 +15,11 @@ export function LinkList({
   const player = usePlayer()
   if (links.length === 0) return <p className="text-sm opacity-70">No recordings linked yet.</p>
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2" aria-label="Links">
       {links.map((link) => {
         const title = displayTitle(link)
         const embed = embedFor(link)
-        const loaded = player.linkId === link.id
+        const loaded = isPlaying(player, { kind: 'link', id: link.id })
         return (
           <li
             key={link.id}
@@ -53,7 +53,7 @@ export function LinkList({
                   // aria-disabled rather than disabled keeps focus here when Close turns
                   // this button into Play while offline.
                   onClick={() => {
-                    if (online) player.play(link.id)
+                    if (online) player.play({ kind: 'link', id: link.id })
                   }}
                   aria-disabled={online ? undefined : true}
                   aria-label={`Play ${title}`}
