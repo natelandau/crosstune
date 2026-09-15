@@ -10,11 +10,13 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
+import httpx2
 import pytest
 from sqlalchemy import select
 
 from crosstune.auth.webhooks import verify_svix_signature
 from crosstune.models import Song, User
+from tests.fakes import FakeObjectStore
 from tests.test_push import T0, change, push, uid
 
 if TYPE_CHECKING:
@@ -26,6 +28,15 @@ SECRET = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not 
 WRONG_SECRET = (
     "whsec_d3JvbmdzZWNyZXR3cm9uZ3NlY3JldA=="  # gitleaks:allow -- fixture, not a real secret
 )
+
+
+class _PurgeFailsStore(FakeObjectStore):
+    """A store that fails when delete_prefix is called."""
+
+    async def delete_prefix(self, prefix: str) -> None:
+        """Simulate a storage failure."""
+        msg = "bucket down"
+        raise RuntimeError(msg)
 
 
 def sign(
@@ -133,3 +144,52 @@ async def test_signed_non_json_body_is_acknowledged(
     response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
     assert response.status_code == 204
     assert await verify_session.scalar(select(User).where(User.clerk_user_id == "user_kept"))
+
+
+async def test_user_deleted_purges_their_objects(client, auth_headers, object_store) -> None:
+    me = (await client.get("/v1/me", headers=auth_headers("user_gone"))).json()
+    object_store.put_bytes(f"{me['id']}/r1/playback.m4a", b"a", "audio/mp4")
+    object_store.put_bytes("someone-else/r1/playback.m4a", b"b", "audio/mp4")
+    body = json.dumps({"type": "user.deleted", "data": {"id": "user_gone"}}).encode()
+    response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+    assert response.status_code == 204
+    assert object_store.keys() == ["someone-else/r1/playback.m4a"]
+
+
+async def test_user_deleted_purge_fails_leaves_user_in_place(
+    app,
+    auth_headers,
+    truncate_all: None,
+    verify_session: AsyncSession,
+) -> None:
+    """Store failure rolls back the user deletion so Clerk can retry both operations."""
+    app.state.object_store = _PurgeFailsStore()
+    transport = httpx2.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://testclient") as client:
+        await client.get("/v1/me", headers=auth_headers("user_gone"))
+        body = json.dumps({"type": "user.deleted", "data": {"id": "user_gone"}}).encode()
+        response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+
+    assert response.status_code == 500
+    assert (
+        await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone"))
+        is not None
+    )
+
+
+async def test_user_deleted_with_no_store(
+    app, auth_headers, truncate_all: None, verify_session: AsyncSession
+) -> None:
+    """When store is unavailable, the user is deleted and webhook succeeds."""
+    app.state.object_store = None
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
+    ) as client:
+        await client.get("/v1/me", headers=auth_headers("user_gone"))
+        body = json.dumps({"type": "user.deleted", "data": {"id": "user_gone"}}).encode()
+        response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+
+    assert response.status_code == 204
+    assert (
+        await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None
+    )

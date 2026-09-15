@@ -36,6 +36,7 @@
               "lists",
               "list_items",
               "recording_links",
+              "recordings",
               "user_settings"
             ],
             "title": "Table",
@@ -350,13 +351,17 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageResponse"
           }
         },
         "required": [
           "id",
           "clerk_user_id",
           "email",
-          "created_at"
+          "created_at",
+          "storage"
         ],
         "title": "MeResponse",
         "type": "object"
@@ -423,6 +428,7 @@
                   "list_items": "#/components/schemas/ListItemPullRow",
                   "lists": "#/components/schemas/ListPullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
+                  "recordings": "#/components/schemas/RecordingPullRow",
                   "songs": "#/components/schemas/SongPullRow",
                   "user_settings": "#/components/schemas/UserSettingsPullRow",
                   "user_songs": "#/components/schemas/UserSongPullRow"
@@ -444,6 +450,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLinkPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/RecordingPullRow"
                 },
                 {
                   "$ref": "#/components/schemas/UserSettingsPullRow"
@@ -490,6 +499,7 @@
                   "list_items": "#/components/schemas/ListItemChangeResult",
                   "lists": "#/components/schemas/ListChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
+                  "recordings": "#/components/schemas/RecordingChangeResult",
                   "songs": "#/components/schemas/SongChangeResult",
                   "user_settings": "#/components/schemas/UserSettingsChangeResult",
                   "user_songs": "#/components/schemas/UserSongChangeResult"
@@ -513,6 +523,9 @@
                   "$ref": "#/components/schemas/RecordingLinkChangeResult"
                 },
                 {
+                  "$ref": "#/components/schemas/RecordingChangeResult"
+                },
+                {
                   "$ref": "#/components/schemas/UserSettingsChangeResult"
                 }
               ]
@@ -525,6 +538,58 @@
           "results"
         ],
         "title": "PushResponse",
+        "type": "object"
+      },
+      "RecordingChangeResult": {
+        "description": "The outcome of one change to a recording.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordingRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "recordings",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "RecordingChangeResult",
         "type": "object"
       },
       "RecordingLinkChangeResult": {
@@ -720,6 +785,169 @@
         "title": "RecordingLinkRow",
         "type": "object"
       },
+      "RecordingPullRow": {
+        "description": "A recording row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/RecordingRow"
+          },
+          "table": {
+            "const": "recordings",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "RecordingPullRow",
+        "type": "object"
+      },
+      "RecordingRow": {
+        "description": "A stored recording, as push and pull return it. Storage keys stay on the server.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "playback_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playback Bytes"
+          },
+          "playback_mime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playback Mime"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "song_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Song Id"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "source",
+          "recorded_at",
+          "user_id",
+          "state",
+          "duration_ms",
+          "playback_mime",
+          "playback_bytes",
+          "error"
+        ],
+        "title": "RecordingRow",
+        "type": "object"
+      },
       "ResolveRequest": {
         "description": "Body of a resolve request: the URL the user just pasted.",
         "properties": {
@@ -789,6 +1017,26 @@
           "artwork_url"
         ],
         "title": "ResolveResponse",
+        "type": "object"
+      },
+      "SignedUrl": {
+        "description": "A presigned URL and when it stops working.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "SignedUrl",
         "type": "object"
       },
       "SongChangeResult": {
@@ -1046,6 +1294,52 @@
         "title": "SongRow",
         "type": "object"
       },
+      "StorageResponse": {
+        "description": "How much of the recording quota is in use.",
+        "properties": {
+          "max_file_bytes": {
+            "title": "Max File Bytes",
+            "type": "integer"
+          },
+          "quota_bytes": {
+            "title": "Quota Bytes",
+            "type": "integer"
+          },
+          "used_bytes": {
+            "title": "Used Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "used_bytes",
+          "quota_bytes",
+          "max_file_bytes"
+        ],
+        "title": "StorageResponse",
+        "type": "object"
+      },
+      "UploadSlotRequest": {
+        "description": "What the client is about to upload.",
+        "properties": {
+          "bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "content_type": {
+            "maxLength": 100,
+            "pattern": "^audio/[A-Za-z0-9.+_-]+(;[A-Za-z0-9.+_=\\- ]+)*$",
+            "title": "Content Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bytes",
+          "content_type"
+        ],
+        "title": "UploadSlotRequest",
+        "type": "object"
+      },
       "UserSettingsChangeResult": {
         "description": "The outcome of one change to a user's settings.",
         "properties": {
@@ -1120,6 +1414,11 @@
       "UserSettingsRow": {
         "description": "A stored settings row, as push and pull return it.",
         "properties": {
+          "audio_quality": {
+            "default": "standard",
+            "title": "Audio Quality",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1409,7 +1708,7 @@
     },
     "/v1/me": {
       "get": {
-        "description": "The calling user's profile.",
+        "description": "The calling user's profile and storage figures.",
         "operationId": "me_v1_me_get",
         "responses": {
           "200": {
@@ -1426,6 +1725,308 @@
         "summary": "Me",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/v1/recordings/{recording_id}/download": {
+      "get": {
+        "description": "A presigned GET for the playback file of a ready recording.",
+        "operationId": "download_v1_recordings__recording_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recording Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download",
+        "tags": [
+          "recordings"
+        ]
+      }
+    },
+    "/v1/recordings/{recording_id}/retry": {
+      "post": {
+        "description": "Transcode the object already in the bucket again, for a recording that failed.\n\nA recording whose uploaded object is gone is uploaded again through a new\nslot instead; this route only re-runs the transcode.",
+        "operationId": "retry_v1_recordings__recording_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recording Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry",
+        "tags": [
+          "recordings"
+        ]
+      }
+    },
+    "/v1/recordings/{recording_id}/upload-slot": {
+      "post": {
+        "description": "A presigned PUT for one recording's file, once the quota allows it.\n\nA failed recording is issued a slot too, and returns to pending_upload: it is\nthe only way back for one whose uploaded object is no longer in the bucket.",
+        "operationId": "upload_slot_v1_recordings__recording_id__upload_slot_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recording Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadSlotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Slot",
+        "tags": [
+          "recordings"
+        ]
+      }
+    },
+    "/v1/recordings/{recording_id}/uploaded": {
+      "post": {
+        "description": "Confirm the object landed and queue its transcode. Repeating the call changes nothing.",
+        "operationId": "upload_finished_v1_recordings__recording_id__uploaded_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recording Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Finished",
+        "tags": [
+          "recordings"
         ]
       }
     },

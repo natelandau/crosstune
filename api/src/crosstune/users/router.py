@@ -21,9 +21,19 @@ from crosstune.auth.deps import (
 from crosstune.auth.webhooks import verify_svix_signature
 from crosstune.db.session import get_session
 from crosstune.errors import UnauthorizedError
+from crosstune.recordings.service import used_bytes
+from crosstune.storage.store import user_prefix
 from crosstune.users.service import delete_user_by_clerk_id
 
 router = APIRouter(prefix="/v1", tags=["users"])
+
+
+class StorageResponse(BaseModel):
+    """How much of the recording quota is in use."""
+
+    used_bytes: int
+    quota_bytes: int
+    max_file_bytes: int
 
 
 class MeResponse(BaseModel):
@@ -33,13 +43,25 @@ class MeResponse(BaseModel):
     clerk_user_id: str
     email: str | None
     created_at: datetime
+    storage: StorageResponse
 
 
 @router.get("/me")
-async def me(user: CurrentUser) -> MeResponse:
-    """The calling user's profile."""
+async def me(
+    request: Request, user: CurrentUser, session: Annotated[AsyncSession, Depends(get_session)]
+) -> MeResponse:
+    """The calling user's profile and storage figures."""
+    settings = request.app.state.settings
     return MeResponse(
-        id=user.id, clerk_user_id=user.clerk_user_id, email=user.email, created_at=user.created_at
+        id=user.id,
+        clerk_user_id=user.clerk_user_id,
+        email=user.email,
+        created_at=user.created_at,
+        storage=StorageResponse(
+            used_bytes=await used_bytes(session, user.id),
+            quota_bytes=settings.recording_quota_bytes,
+            max_file_bytes=settings.recording_max_file_bytes,
+        ),
     )
 
 
@@ -64,5 +86,9 @@ async def clerk_webhook(
     if event.get("type") == "user.deleted":
         clerk_user_id = (event.get("data") or {}).get("id")
         if clerk_user_id:
-            await delete_user_by_clerk_id(session, clerk_user_id)
+            user_id = await delete_user_by_clerk_id(session, clerk_user_id)
+            store = request.app.state.object_store
+            if user_id is not None and store is not None:
+                # The row cascade cannot reach the bucket, so the files go here.
+                await store.delete_prefix(user_prefix(user_id))
     return Response(status_code=204)
