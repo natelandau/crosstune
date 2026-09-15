@@ -6,11 +6,15 @@ export function Sheet({
   title,
   onClose,
   children,
+  dismissible = true,
 }: {
   open: boolean
   title: string
   onClose: () => void
   children: ReactNode
+  /** False keeps the sheet open through a backdrop click or Escape, for a choice the
+   * caller's own controls must resolve. */
+  dismissible?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -28,6 +32,9 @@ export function Sheet({
       aria-labelledby={titleId}
       className="modal modal-bottom sm:modal-middle sheet"
       onClose={onClose}
+      onCancel={(event) => {
+        if (!dismissible) event.preventDefault()
+      }}
     >
       <div className="modal-box max-h-[85dvh] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <h2 id={titleId} className="mb-3 text-lg font-semibold">
@@ -35,9 +42,11 @@ export function Sheet({
         </h2>
         {children}
       </div>
-      <form method="dialog" className="modal-backdrop">
-        <button type="submit">Close</button>
-      </form>
+      {dismissible ? (
+        <form method="dialog" className="modal-backdrop">
+          <button type="submit">Close</button>
+        </form>
+      ) : null}
     </dialog>
   )
 }

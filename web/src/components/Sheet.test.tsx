@@ -49,4 +49,40 @@ describe('Sheet', () => {
     )
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('renders no backdrop form when it is not dismissible', () => {
+    render(
+      <Sheet open title="Save recording" onClose={vi.fn()} dismissible={false}>
+        <p>Body</p>
+      </Sheet>,
+    )
+    expect(document.querySelector('form.modal-backdrop')).toBeNull()
+  })
+
+  it('stays open through Escape when it is not dismissible', () => {
+    const onClose = vi.fn()
+    render(
+      <Sheet open title="Save recording" onClose={onClose} dismissible={false}>
+        <p>Body</p>
+      </Sheet>,
+    )
+    const dialog = screen.getByRole('dialog') as HTMLDialogElement
+    const event = new Event('cancel', { cancelable: true })
+    dialog.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(dialog).toHaveAttribute('open')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('lets Escape close a dismissible sheet', () => {
+    render(
+      <Sheet open title="Set status" onClose={vi.fn()}>
+        <p>Body</p>
+      </Sheet>,
+    )
+    const dialog = screen.getByRole('dialog') as HTMLDialogElement
+    const event = new Event('cancel', { cancelable: true })
+    dialog.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+  })
 })
