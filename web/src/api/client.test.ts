@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ApiError, createApiClient, NetworkError, NoTokenError } from './client'
+import { ApiError, createApiClient, NetworkError, NoTokenError, TransferError } from './client'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -90,5 +90,146 @@ describe('createApiClient', () => {
     expect(error).toBeInstanceOf(ApiError)
     expect((error as ApiError).status).toBe(401)
     expect((error as ApiError).problem?.detail).toBe('nope')
+  })
+
+  it('requests an upload slot and reports the problem type on refusal', async () => {
+    const fetch = vi.fn(async (input: Request) => {
+      expect(input.url).toContain('/v1/recordings/r1/upload-slot')
+      expect(await input.json()).toEqual({ bytes: 10, content_type: 'audio/mp4' })
+      return new Response(
+        JSON.stringify({
+          type: 'urn:crosstune:quota-exceeded',
+          title: 'Content Too Large',
+          status: 413,
+          detail: 'full',
+        }),
+        { status: 413, headers: { 'content-type': 'application/problem+json' } },
+      )
+    })
+    const api = createApiClient({
+      baseUrl: 'http://api',
+      getToken: async () => 't',
+      clientVersion: '1',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    })
+    await expect(
+      api.requestUploadSlot('r1', { bytes: 10, content_type: 'audio/mp4' }),
+    ).rejects.toMatchObject({
+      status: 413,
+      problemType: 'urn:crosstune:quota-exceeded',
+    })
+  })
+
+  it('puts and gets objects at presigned URLs without the bearer token', async () => {
+    // Vitest's jsdom Request shim converts a Blob body through fields laid out for an
+    // older jsdom Blob than the one this repo pins; its native Request, one prototype
+    // up, handles a real Blob body correctly, so the test talks to that directly.
+    vi.stubGlobal('Request', Object.getPrototypeOf(Request) as typeof Request)
+    try {
+      const fetch = vi.fn(async (input: Request) => {
+        expect(input.headers.get('Authorization')).toBeNull()
+        if (input.method === 'PUT') {
+          expect(input.headers.get('Content-Type')).toBe('audio/mp4')
+          expect(await input.text()).toBe('abc')
+          return new Response(null, { status: 200 })
+        }
+        return new Response('xyz', { status: 200, headers: { 'content-type': 'audio/mp4' } })
+      })
+      const api = createApiClient({
+        baseUrl: 'http://api',
+        getToken: async () => 't',
+        clientVersion: '1',
+        fetch: fetch as unknown as typeof globalThis.fetch,
+      })
+      await api.putObject('https://r2/put', new Blob(['abc']), 'audio/mp4')
+      expect(await (await api.getObject('https://r2/get')).text()).toBe('xyz')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('wraps a failed object transfer as a network error', async () => {
+    const fetch = vi.fn(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const api = createApiClient({
+      baseUrl: 'http://api',
+      getToken: async () => 't',
+      clientVersion: '1',
+      fetch,
+    })
+    await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
+  })
+
+  it('wraps a failed object body read as a network error', async () => {
+    const fetch = vi.fn(async () => {
+      const response = new Response('xyz', { status: 200 })
+      vi.spyOn(response, 'blob').mockRejectedValue(new TypeError('network read failed'))
+      return response
+    })
+    const api = createApiClient({
+      baseUrl: 'http://api',
+      getToken: async () => 't',
+      clientVersion: '1',
+      fetch,
+    })
+    await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
+  })
+
+  it('turns a non-2xx object transfer into a TransferError', async () => {
+    const fetch = vi.fn(async () => new Response(null, { status: 404 }))
+    const api = createApiClient({
+      baseUrl: 'http://api',
+      getToken: async () => 't',
+      clientVersion: '1',
+      fetch,
+    })
+    const error = await api.getObject('https://r2/get').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(TransferError)
+    expect((error as TransferError).status).toBe(404)
+  })
+
+  it('aborts a stalled PUT once its timeout elapses and reports it as a network error', async () => {
+    // See the "puts and gets objects" test above for why the global Request needs swapping.
+    vi.stubGlobal('Request', Object.getPrototypeOf(Request) as typeof Request)
+    try {
+      const fetch = vi.fn((input: Request) => {
+        return new Promise<Response>((_resolve, reject) => {
+          input.signal.addEventListener('abort', () => {
+            reject(new DOMException('timed out', 'TimeoutError'))
+          })
+        })
+      })
+      const api = createApiClient({
+        baseUrl: 'http://api',
+        getToken: async () => 't',
+        clientVersion: '1',
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        putTimeoutMs: () => 5,
+      })
+      await expect(
+        api.putObject('https://r2/put', new Blob(['abc']), 'audio/mp4'),
+      ).rejects.toBeInstanceOf(NetworkError)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('aborts a stalled GET once its timeout elapses and reports it as a network error', async () => {
+    const fetch = vi.fn((input: Request) => {
+      return new Promise<Response>((_resolve, reject) => {
+        input.signal.addEventListener('abort', () => {
+          reject(new DOMException('timed out', 'TimeoutError'))
+        })
+      })
+    })
+    const api = createApiClient({
+      baseUrl: 'http://api',
+      getToken: async () => 't',
+      clientVersion: '1',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      getTimeoutMs: 5,
+    })
+    await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
   })
 })

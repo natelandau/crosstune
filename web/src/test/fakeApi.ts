@@ -1,7 +1,9 @@
+import { ApiError, TransferError } from '../api/client'
 import type {
   Change,
   ChangeResult,
   PullResponse,
+  RecordingRow,
   SongRow,
   SyncApi,
   TableName,
@@ -17,6 +19,7 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   lists: 'user_id',
   list_items: null,
   recording_links: 'added_by_user_id',
+  recordings: 'user_id',
   user_settings: 'user_id',
 }
 
@@ -26,6 +29,17 @@ export function createFakeApi() {
   const pullQueue: PullResponse[] = []
   let failWith: unknown = null
   let serverSeq = 0
+  const objects = new Map<string, Blob>()
+  const recordingStates = new Map<
+    string,
+    'pending_upload' | 'uploaded' | 'processing' | 'ready' | 'failed'
+  >()
+  let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 52_428_800 }
+  let slotError: unknown = null
+  let slotErrorId: string | null = null
+  let confirmError: unknown = null
+  let putError: unknown = null
+  let putErrorId: string | null = null
 
   /** Echo a pushed change back the way the server does, so the store path runs in tests. */
   function appliedRow(change: Change): Record<string, unknown> {
@@ -33,6 +47,15 @@ export function createFakeApi() {
     const owner = OWNER_COLUMN[change.table]
     return {
       ...change.data,
+      ...(change.table === 'recordings'
+        ? {
+            state: 'pending_upload',
+            duration_ms: null,
+            playback_mime: null,
+            playback_bytes: null,
+            error: null,
+          }
+        : {}),
       id: change.id,
       created_at: change.updated_at,
       updated_at: change.updated_at,
@@ -62,12 +85,78 @@ export function createFakeApi() {
       if (failWith) throw failWith
       return { url, provider: 'other', provider_ref: null, title: 'Resolved', artwork_url: null }
     },
+    async me() {
+      if (failWith) throw failWith
+      return {
+        id: 'server-user',
+        clerk_user_id: 'user_1',
+        email: null,
+        created_at: '2026-09-11T00:00:00Z',
+        storage,
+      }
+    },
+    async requestUploadSlot(recordingId, body) {
+      if (failWith) throw failWith
+      if (slotError && (slotErrorId === null || slotErrorId === recordingId)) throw slotError
+      const state = recordingStates.get(recordingId) ?? 'pending_upload'
+      if (state !== 'pending_upload' && state !== 'failed') {
+        throw new ApiError(409, {
+          type: 'about:blank',
+          title: 'Conflict',
+          status: 409,
+          detail: state,
+        })
+      }
+      recordingStates.set(recordingId, 'pending_upload')
+      return {
+        url: `https://fake.r2/${recordingId}/upload?ct=${body.content_type}`,
+        expires_at: '2999-01-01T00:00:00Z',
+      }
+    },
+    async uploadFinished(recordingId) {
+      if (failWith) throw failWith
+      if (confirmError) {
+        const error = confirmError
+        confirmError = null
+        throw error
+      }
+      if (!objects.has(`${recordingId}/upload`)) throw new ApiError(409, null)
+      recordingStates.set(recordingId, 'uploaded')
+    },
+    async retryRecording(recordingId) {
+      if (failWith) throw failWith
+      if (recordingStates.get(recordingId) !== 'failed') throw new ApiError(409, null)
+      recordingStates.set(recordingId, 'uploaded')
+    },
+    async downloadUrl(recordingId) {
+      if (failWith) throw failWith
+      if (recordingStates.get(recordingId) !== 'ready') throw new ApiError(409, null)
+      return {
+        url: `https://fake.r2/${recordingId}/playback.m4a`,
+        expires_at: '2999-01-01T00:00:00Z',
+      }
+    },
+    async putObject(url, blob) {
+      if (failWith) throw failWith
+      const key = new URL(url).pathname.slice(1)
+      const recordingId = key.split('/')[0]
+      if (putError && (putErrorId === null || putErrorId === recordingId)) throw putError
+      objects.set(key, blob)
+    },
+    async getObject(url) {
+      if (failWith) throw failWith
+      const blob = objects.get(new URL(url).pathname.slice(1))
+      if (!blob) throw new TransferError(404)
+      return blob
+    },
   }
 
   return {
     api,
     pushes,
     pulls,
+    objects,
+    recordingStates,
     respondToPush(fn: PushResponder) {
       respond = fn
     },
@@ -76,6 +165,23 @@ export function createFakeApi() {
     },
     fail(error: unknown) {
       failWith = error
+    },
+    setStorage(next: typeof storage) {
+      storage = next
+    },
+    /** With no id, every slot request fails; with one, only that recording's does. */
+    failSlot(error: unknown, recordingId: string | null = null) {
+      slotError = error
+      slotErrorId = recordingId
+    },
+    /** Throws once from the next uploadFinished call, then behaves normally again. */
+    failConfirm(error: unknown) {
+      confirmError = error
+    },
+    /** With no id, every object PUT fails; with one, only that recording's does. */
+    failPut(error: unknown, recordingId: string | null = null) {
+      putError = error
+      putErrorId = recordingId
     },
   }
 }
@@ -117,6 +223,27 @@ export function serverUserSong(
     learned_on: null,
     notes: null,
     archived_at: null,
+    ...overrides,
+  }
+}
+
+export function serverRecording(overrides: Partial<RecordingRow> & { id: string }): RecordingRow {
+  return {
+    created_at: '2026-09-11T00:00:00Z',
+    updated_at: '2026-09-11T00:00:00Z',
+    deleted_at: null,
+    server_seq: 3,
+    user_id: 'server-user',
+    song_id: null,
+    label: null,
+    source: 'microphone',
+    recorded_at: '2026-09-11T00:00:00Z',
+    position: 0,
+    state: 'pending_upload',
+    duration_ms: null,
+    playback_mime: null,
+    playback_bytes: null,
+    error: null,
     ...overrides,
   }
 }

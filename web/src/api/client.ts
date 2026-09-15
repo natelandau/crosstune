@@ -1,14 +1,26 @@
 import createClient, { type Middleware } from 'openapi-fetch'
 import type { paths } from './schema'
-import type { Change, Problem, PullResponse, PushResponse, ResolveResponse, SyncApi } from './types'
+import type {
+  Change,
+  MeResponse,
+  Problem,
+  PullResponse,
+  PushResponse,
+  ResolveResponse,
+  SignedUrl,
+  SyncApi,
+  UploadSlotRequest,
+} from './types'
 
 export class ApiError extends Error {
+  readonly problemType: string | null
   constructor(
     readonly status: number,
     readonly problem: Problem | null,
   ) {
     super(problem?.detail ?? `API request failed with status ${status}`)
     this.name = 'ApiError'
+    this.problemType = problem?.type ?? null
   }
 }
 
@@ -27,15 +39,35 @@ export class NetworkError extends Error {
   }
 }
 
+/** A presigned object PUT or GET failed. It carries no problem body: the signature, not the API, is its contract. */
+export class TransferError extends Error {
+  constructor(readonly status: number) {
+    super(`Object transfer failed with status ${status}`)
+    this.name = 'TransferError'
+  }
+}
+
+const PUT_BASE_TIMEOUT_MS = 60_000
+const PUT_BYTES_PER_MS = 50
+const GET_TIMEOUT_MS = 120_000
+
 export interface ApiClientOptions {
   baseUrl: string
   getToken: () => Promise<string | null>
   clientVersion: string
   fetch?: typeof fetch
+  /** Override the PUT timeout formula (bytes in, ms out). Tests only. */
+  putTimeoutMs?: (bytes: number) => number
+  /** Override the fixed GET timeout in ms. Tests only. */
+  getTimeoutMs?: number
 }
 
 export function createApiClient(options: ApiClientOptions): SyncApi {
   const baseFetch = options.fetch ?? ((input: Request) => globalThis.fetch(input))
+  const putTimeoutMs =
+    options.putTimeoutMs ??
+    ((bytes: number) => Math.ceil(PUT_BASE_TIMEOUT_MS + bytes / PUT_BYTES_PER_MS))
+  const getTimeoutMs = options.getTimeoutMs ?? GET_TIMEOUT_MS
   const auth: Middleware = {
     async onRequest({ request }) {
       const token = await options.getToken()
@@ -46,21 +78,27 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     },
   }
 
+  // fetch signals an unreachable server with a bare TypeError, which is also what any
+  // programming error throws; give the network case its own type so callers can tell.
+  // A signal timeout rejects with a DOMException instead, so it needs the same treatment.
+  async function withNetworkErrors<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn()
+    } catch (error) {
+      const isTimeout =
+        error instanceof DOMException &&
+        (error.name === 'TimeoutError' || error.name === 'AbortError')
+      throw error instanceof TypeError || isTimeout ? new NetworkError(error) : error
+    }
+  }
+
   const client = createClient<paths>({
     // The client always calls /v1 on its own origin: the Vite proxy locally, the
     // Worker when hosted. A browser resolves an empty baseUrl against the page
     // location on its own, but the fetch client needs an absolute URL, so mirror
     // that resolution.
     baseUrl: options.baseUrl || globalThis.location?.origin || '',
-    // fetch signals an unreachable server with a bare TypeError, which is also what any
-    // programming error throws; give the network case its own type so callers can tell.
-    fetch: async (input) => {
-      try {
-        return await baseFetch(input)
-      } catch (error) {
-        throw error instanceof TypeError ? new NetworkError(error) : error
-      }
-    },
+    fetch: (input) => withNetworkErrors(() => baseFetch(input)),
   })
   client.use(auth)
 
@@ -68,6 +106,20 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     if (result.data !== undefined) return result.data
     const problem = isProblem(result.error) ? result.error : null
     throw new ApiError(result.response.status, problem)
+  }
+
+  function unwrapEmpty(result: { error?: unknown; response: Response }): void {
+    if (result.response.ok) return
+    const problem = isProblem(result.error) ? result.error : null
+    throw new ApiError(result.response.status, problem)
+  }
+
+  // Presigned URLs carry their own credential in the signature, so these bypass
+  // openapi-fetch entirely and never receive the bearer token.
+  async function transfer(request: Request): Promise<Response> {
+    const response = await withNetworkErrors(() => baseFetch(request))
+    if (!response.ok) throw new TransferError(response.status)
+    return response
   }
 
   return {
@@ -79,6 +131,57 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     },
     async resolveLink(url: string): Promise<ResolveResponse> {
       return unwrap(await client.POST('/v1/links/resolve', { body: { url } }))
+    },
+    async me(): Promise<MeResponse> {
+      return unwrap(await client.GET('/v1/me'))
+    },
+    async requestUploadSlot(recordingId, body: UploadSlotRequest): Promise<SignedUrl> {
+      return unwrap(
+        await client.POST('/v1/recordings/{recording_id}/upload-slot', {
+          params: { path: { recording_id: recordingId } },
+          body,
+        }),
+      )
+    },
+    async uploadFinished(recordingId): Promise<void> {
+      unwrapEmpty(
+        await client.POST('/v1/recordings/{recording_id}/uploaded', {
+          params: { path: { recording_id: recordingId } },
+        }),
+      )
+    },
+    async retryRecording(recordingId): Promise<void> {
+      unwrapEmpty(
+        await client.POST('/v1/recordings/{recording_id}/retry', {
+          params: { path: { recording_id: recordingId } },
+        }),
+      )
+    },
+    async downloadUrl(recordingId): Promise<SignedUrl> {
+      return unwrap(
+        await client.GET('/v1/recordings/{recording_id}/download', {
+          params: { path: { recording_id: recordingId } },
+        }),
+      )
+    },
+    async putObject(url, blob, contentType): Promise<void> {
+      await transfer(
+        new Request(url, {
+          method: 'PUT',
+          body: blob,
+          headers: { 'Content-Type': contentType },
+          // A larger take needs longer than the base allowance to reach R2 over a slow link.
+          signal: AbortSignal.timeout(putTimeoutMs(blob.size)),
+        }),
+      )
+    },
+    async getObject(url): Promise<Blob> {
+      return withNetworkErrors(
+        async () =>
+          await (
+            await transfer(new Request(url, { signal: AbortSignal.timeout(getTimeoutMs) }))
+          ).blob(),
+      )
     },
   }
 }
