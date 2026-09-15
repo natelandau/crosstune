@@ -305,3 +305,128 @@ async def test_0005_backfills_tidal_and_youtube_music_links_saved_as_other(
     assert music.server_seq > before[music.id]
     plain = rows["018f0000-0000-7000-8000-000000000013"]
     assert (plain.provider, plain.server_seq) == ("other", before[plain.id])
+
+
+async def test_0006_creates_recordings_jobs_and_upload_slots(session: AsyncSession) -> None:
+    tables = await session.execute(
+        text(
+            "select table_name from information_schema.tables "
+            "where table_name in ('recordings', 'jobs', 'upload_slots')"
+        )
+    )
+    assert {row[0] for row in tables} == {"recordings", "jobs", "upload_slots"}
+    columns = await session.execute(
+        text(
+            "select column_name, is_nullable, column_default from information_schema.columns "
+            "where table_name = 'recordings'"
+        )
+    )
+    by_name = {name: (nullable, default) for name, nullable, default in columns}
+    assert by_name["song_id"][0] == "YES"
+    assert by_name["state"][0] == "NO"
+    assert "pending_upload" in (by_name["state"][1] or "")
+    assert "nextval('sync_seq'" in by_name["server_seq"][1]
+
+
+async def test_0006_adds_audio_quality_with_a_standard_default(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-00000000000a', 'user_q', now(), now())"
+        )
+    )
+    await session.execute(
+        text(
+            "insert into user_settings (id, user_id, instruments, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-00000000000b', "
+            "'018f0000-0000-7000-8000-00000000000a', '{}', now(), now())"
+        )
+    )
+    quality = await session.scalar(
+        text(
+            "select audio_quality from user_settings "
+            "where id = '018f0000-0000-7000-8000-00000000000b'"
+        )
+    )
+    assert quality == "standard"
+    with pytest.raises(DBAPIError):
+        await session.execute(
+            text(
+                "update user_settings set audio_quality = 'lossless' "
+                "where id = '018f0000-0000-7000-8000-00000000000b'"
+            )
+        )
+
+
+async def test_0006_unfiles_a_recording_when_its_song_is_deleted(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-00000000001a', 'user_u', now(), now())"
+        )
+    )
+    await session.execute(
+        text(
+            "insert into songs (id, owner_user_id, title, is_crooked, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-00000000001b', "
+            "'018f0000-0000-7000-8000-00000000001a', 'Ducks on the Millpond', false, now(), now())"
+        )
+    )
+    await session.execute(
+        text(
+            "insert into recordings (id, user_id, song_id, source, recorded_at, position, "
+            "created_at, updated_at) values ('018f0000-0000-7000-8000-00000000001c', "
+            "'018f0000-0000-7000-8000-00000000001a', '018f0000-0000-7000-8000-00000000001b', "
+            "'microphone', now(), 0, now(), now())"
+        )
+    )
+    await session.execute(
+        text("delete from songs where id = '018f0000-0000-7000-8000-00000000001b'")
+    )
+    row = await session.execute(
+        text("select song_id from recordings where id = '018f0000-0000-7000-8000-00000000001c'")
+    )
+    assert row.scalar_one() is None
+
+
+async def test_0006_rejects_an_unknown_recording_state(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-00000000000c', 'user_s', now(), now())"
+        )
+    )
+    with pytest.raises(DBAPIError):
+        await session.execute(
+            text(
+                "insert into recordings (id, user_id, source, recorded_at, position, state, "
+                "created_at, updated_at) values ('018f0000-0000-7000-8000-00000000000d', "
+                "'018f0000-0000-7000-8000-00000000000c', 'microphone', now(), 0, 'done', "
+                "now(), now())"
+            )
+        )
+
+
+async def test_downgrade_to_0005_and_back_restores_head_shape(
+    session: AsyncSession, database_url: str
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0005")
+        gone = await session.execute(
+            text(
+                "select table_name from information_schema.tables "
+                "where table_name in ('recordings', 'jobs', 'upload_slots')"
+            )
+        )
+        assert gone.all() == []
+        column = await session.execute(
+            text(
+                "select column_name from information_schema.columns "
+                "where table_name = 'user_settings' and column_name = 'audio_quality'"
+            )
+        )
+        assert column.all() == []
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
