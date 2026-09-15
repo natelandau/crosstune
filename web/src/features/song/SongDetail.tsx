@@ -3,9 +3,15 @@ import { deleteSong, setArchived, updateSong, updateUserSong } from '../../comma
 import { EmptyState } from '../../components/EmptyState'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
+import { deleteSongMessage } from './deleteSongMessage'
 import { AddLinkForm } from '../links/AddLinkForm'
 import { LinkList } from '../links/LinkList'
 import { AddToListMenu } from '../lists/AddToListMenu'
+import { RecordButtonInline } from '../recording/RecordButton'
+import { UploadRecordingInput } from '../recording/UploadRecordingInput'
+import { KeepOfflineToggle } from '../recordings/KeepOfflineToggle'
+import { RecordingList } from '../recordings/RecordingList'
+import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { useInstruments } from '../settings/useInstruments'
 import { SongForm, valuesFromRows } from './SongForm'
 import { StatusPicker } from './StatusPicker'
@@ -22,9 +28,10 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const db = useDb()
   const view = useSong(songId)
   const instruments = useInstruments()
+  const recordings = useRecordingsWithFiles({ songId })
   const { error, run, runThen } = useAction()
 
-  if (view === undefined || instruments === undefined) return null
+  if (view === undefined || instruments === undefined || recordings === undefined) return null
   if (view === null) return <EmptyState title="This song is gone" />
   const { song, userSong, links } = view
 
@@ -83,7 +90,19 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
       />
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
+          <KeepOfflineToggle songId={song.id} />
+        </div>
+        <RecordingList views={recordings} showSong={false} />
+        <div className="flex flex-wrap gap-2">
+          <RecordButtonInline songId={song.id} />
+          <UploadRecordingInput songId={song.id} />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold uppercase opacity-60">Links</h2>
         <LinkList links={links} onRemove={(id) => run(() => removeLink(db, id))} />
         <AddLinkForm songId={song.id} />
       </section>
@@ -124,8 +143,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
           type="button"
           className="btn btn-outline btn-error min-h-11"
           onClick={() => {
-            if (!window.confirm(`Delete "${song.title}"? This removes its links and list entries.`))
-              return
+            if (!window.confirm(deleteSongMessage(song.title, recordings))) return
             runThen(() => deleteSong(db, song.id), onDeleted)
           }}
         >

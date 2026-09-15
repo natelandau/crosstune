@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { RecordButton } from '../features/recording/RecordButton'
 import { useShownChrome } from '../features/selection/selectionChrome'
 
 const SLIDE =
@@ -24,6 +25,10 @@ export function Dock() {
         </Link>
         <Link to="/lists" activeProps={{ className: 'dock-active', 'aria-current': 'page' }}>
           <span className="dock-label">Lists</span>
+        </Link>
+        <RecordButton />
+        <Link to="/recordings" activeProps={{ className: 'dock-active', 'aria-current': 'page' }}>
+          <span className="dock-label">Recordings</span>
         </Link>
         <Link to="/settings" activeProps={{ className: 'dock-active', 'aria-current': 'page' }}>
           <span className="dock-label">Settings</span>

@@ -1,10 +1,13 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../../auth/AuthContext'
 import { addLink } from '../../commands/links'
+import { appendChunk, beginCapture, finishCapture } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
+import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
+import { getKeepOfflineSongs } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { SyncContext } from '../../sync/SyncProvider'
 import { openTestDb } from '../../test/db'
@@ -140,7 +143,7 @@ describe('SongDetail', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Known' }))
     await waitFor(async () => expect((await db.user_songs.get(userSongId))?.status).toBe('known'))
     expect(screen.getByRole('button', { name: 'Play Fiddle version' })).toBeInTheDocument()
-    expect(player().linkId).toBeNull()
+    expect(player().item).toBeNull()
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
     expect(screen.queryByRole('button', { name: /^(Play|Close) Jam recording/ })).toBeNull()
     expect(screen.getAllByRole('link', { name: /^Open / })).toHaveLength(3)
@@ -164,7 +167,7 @@ describe('SongDetail', () => {
 
     rerenderWith({ ...props, edit: true })
     await screen.findByRole('textbox', { name: 'Title' })
-    expect(player().linkId).toBe(fiddleId)
+    expect(player().item).toEqual({ kind: 'link', id: fiddleId })
     expect(screen.getByRole('region', { name: 'Player' })).toBeInTheDocument()
   })
 
@@ -184,6 +187,40 @@ describe('SongDetail', () => {
     await waitFor(async () => expect((await db.songs.get(songId))?.title).toBe('Cluck Old Hen (A)'))
   })
 
+  it('lists recordings above links with record, upload, and keep offline controls', async () => {
+    const id = newId()
+    await beginCapture(db, id, { songId, recordedAt: '2026-09-14T20:00:00.000Z' })
+    await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
+    await finishCapture(db, id, {
+      songId,
+      mime: 'audio/mp4',
+      durationMs: 3000,
+      recordedAt: '2026-09-14T20:00:00.000Z',
+    })
+    renderDetail()
+    const recordings = await screen.findByRole('list', { name: 'Recordings' })
+    expect(within(recordings).getByRole('button', { name: /^Play / })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Upload audio')).toBeInTheDocument()
+    const keep = screen.getByRole('checkbox', { name: 'Keep offline' })
+    await waitFor(() => expect(keep).not.toHaveAttribute('aria-disabled'))
+    await userEvent.click(keep)
+    await waitFor(async () => expect(await getKeepOfflineSongs(db)).toContain(songId))
+  })
+
+  it('disables keep offline and shows a hint when the song has no recordings', async () => {
+    renderDetail()
+    await screen.findByRole('heading', { name: 'Cluck Old Hen' })
+    const keep = screen.getByRole('checkbox', { name: 'Keep offline' })
+    // The toggle's own live query resolves a tick after the page appears, so wait
+    // for the hint rather than the transient loading state, which is also disabled.
+    await screen.findByText('No recordings yet')
+    expect(keep).toHaveAttribute('aria-disabled', 'true')
+    expect(keep).not.toBeChecked()
+    await userEvent.click(keep)
+    expect(await db.recording_files.toArray()).toHaveLength(0)
+  })
+
   it('archives and deletes', async () => {
     const { props } = renderDetail()
     await screen.findByRole('heading', { name: 'Cluck Old Hen' })
@@ -194,5 +231,28 @@ describe('SongDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(async () => expect((await db.songs.get(songId))?.deleted_at).not.toBeNull())
     expect(props.onDeleted).toHaveBeenCalled()
+  })
+
+  it('warns that deleting the song loses recordings that have not uploaded', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    for (const text of ['abc', 'def']) {
+      const id = newId()
+      await beginCapture(db, id, { songId, recordedAt: '2026-09-14T20:00:00.000Z' })
+      await appendChunk(db, id, 0, new Blob([text], { type: 'audio/mp4' }))
+      await finishCapture(db, id, {
+        songId,
+        mime: 'audio/mp4',
+        durationMs: 3000,
+        recordedAt: '2026-09-14T20:00:00.000Z',
+      })
+    }
+    renderDetail()
+    const recordings = await screen.findByRole('list', { name: 'Recordings' })
+    await waitFor(() => expect(within(recordings).getAllByRole('listitem')).toHaveLength(2))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(confirm).toHaveBeenCalledWith(
+      'Delete "Cluck Old Hen"? This removes its links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',
+    )
+    expect((await db.songs.get(songId))?.deleted_at).toBeNull()
   })
 })

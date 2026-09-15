@@ -2,8 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { activeItems, addToList, createList } from '../../commands/lists'
+import { appendChunk, beginCapture, finishCapture } from '../../commands/recordings'
 import { createSong, setArchived } from '../../commands/songs'
-import { getMeta } from '../../db/meta'
+import { newId } from '../../commands/write'
+import { getKeepOfflineLists, getMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderWithProviders } from '../../test/render'
@@ -13,12 +15,15 @@ import { META_LIST_SHOW_ARCHIVED } from './useListShowArchived'
 let db: CrosstuneDb
 let listId: string
 let a: string
+let aSongId: string
 let b: string
 
 beforeEach(async () => {
   db = openTestDb()
   listId = await createList(db, 'Tuesday jam')
-  a = (await createSong(db, { title: 'Angeline', key: 'D' }, { status: 'known' })).userSongId
+  const angeline = await createSong(db, { title: 'Angeline', key: 'D' }, { status: 'known' })
+  a = angeline.userSongId
+  aSongId = angeline.songId
   b = (await createSong(db, { title: 'Bill Cheatham', key: 'A' }, { status: 'known' })).userSongId
   await createSong(db, { title: 'Cumberland Gap', key: 'G' }, { status: 'learning' })
   await addToList(db, listId, a)
@@ -202,6 +207,41 @@ describe('ListDetail', () => {
     )
     await screen.findByRole('textbox', { name: 'List name' })
     expect(screen.queryByRole('button', { name: 'Delete list' })).toBeNull()
+  })
+
+  it('keep offline marks the list', async () => {
+    const id = newId()
+    await beginCapture(db, id, { songId: aSongId, recordedAt: '2026-09-14T20:00:00.000Z' })
+    await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
+    await finishCapture(db, id, {
+      songId: aSongId,
+      mime: 'audio/mp4',
+      durationMs: 3000,
+      recordedAt: '2026-09-14T20:00:00.000Z',
+    })
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    const keep = await screen.findByRole('checkbox', { name: 'Keep offline' })
+    await waitFor(() => expect(keep).not.toHaveAttribute('aria-disabled'))
+    await userEvent.click(keep)
+    await waitFor(async () => expect(await getKeepOfflineLists(db)).toContain(listId))
+  })
+
+  it('disables keep offline and shows a hint when no song in the list has a recording', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    const keep = await screen.findByRole('checkbox', { name: 'Keep offline' })
+    // The toggle's own live query resolves a tick after the page appears, so wait
+    // for the hint rather than the transient loading state, which is also disabled.
+    await screen.findByText('No recordings yet')
+    expect(keep).toHaveAttribute('aria-disabled', 'true')
+    expect(keep).not.toBeChecked()
+    await userEvent.click(keep)
+    expect(await db.recording_files.toArray()).toHaveLength(0)
   })
 
   it('deletes the list', async () => {

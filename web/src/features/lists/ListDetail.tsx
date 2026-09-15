@@ -6,6 +6,7 @@ import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import { hideArchived } from '../catalog/filters'
 import { ShowArchivedToggle } from '../catalog/ShowArchivedToggle'
+import { KeepOfflineToggle } from '../recordings/KeepOfflineToggle'
 import { SongSelectionActions } from '../selection/SongSelectionActions'
 import { useSongSelectionMode } from '../selection/useSongSelectionMode'
 import { useInstruments } from '../settings/useInstruments'
@@ -80,30 +81,33 @@ export function ListDetail({
           }
         />
       ) : (
-        <div className="flex items-center gap-2">
-          <h1 className="flex-1 text-2xl font-bold">{list.name}</h1>
-          {visible.length > 0 || selecting ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h1 className="flex-1 text-2xl font-bold">{list.name}</h1>
+            {visible.length > 0 || selecting ? (
+              <button
+                ref={selectButtonRef}
+                type="button"
+                className={`btn min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+                  selecting ? 'pointer-events-none opacity-0 motion-safe:scale-90' : ''
+                }`}
+                aria-hidden={selecting}
+                tabIndex={selecting ? -1 : undefined}
+                onClick={() => enter()}
+              >
+                Select
+              </button>
+            ) : null}
             <button
-              ref={selectButtonRef}
               type="button"
-              className={`btn min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
-                selecting ? 'pointer-events-none opacity-0 motion-safe:scale-90' : ''
-              }`}
-              aria-hidden={selecting}
-              tabIndex={selecting ? -1 : undefined}
-              onClick={() => enter()}
+              className="btn min-h-11"
+              disabled={selecting}
+              onClick={() => onEditChange(true)}
             >
-              Select
+              Rename
             </button>
-          ) : null}
-          <button
-            type="button"
-            className="btn min-h-11"
-            disabled={selecting}
-            onClick={() => onEditChange(true)}
-          >
-            Rename
-          </button>
+          </div>
+          <KeepOfflineToggle listId={listId} />
         </div>
       )}
 

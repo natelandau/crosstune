@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { activeItems } from '../../commands/lists'
 import { activeByPosition } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
+import { liveSong } from '../../db/songs'
 import type { LocalList, LocalListItem, LocalSong, LocalUserSong } from '../../db/types'
 
 export type ListSummary = LocalList & { count: number; lastEditedAt: string }
@@ -50,8 +51,9 @@ export function useListView(
     for (const [index, item] of items.entries()) {
       const userSong = userSongs[index]
       const song = songs[index]
-      if (userSong && !userSong.deleted_at && song && !song.deleted_at) {
-        views.push({ item, song, userSong })
+      const liveSongRow = liveSong(song)
+      if (userSong && !userSong.deleted_at && liveSongRow) {
+        views.push({ item, song: liveSongRow, userSong })
       }
     }
     return { list, items: views }

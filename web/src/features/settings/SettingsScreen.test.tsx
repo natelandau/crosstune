@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { storeDownloadedBlob } from '../../commands/recordings'
 import { settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { countInvalidChanges } from '../../db/meta'
@@ -72,5 +73,37 @@ describe('SettingsScreen', () => {
     expect(row?.instruments).toEqual(['violin', 'banjo'])
     const batch = await pendingBatch(db, 10)
     expect(batch.map((e) => e.table)).toEqual(['user_settings'])
+  })
+
+  it('sets the recording quality and clears downloaded audio', async () => {
+    const at = '2026-09-14T20:00:00.000Z'
+    await storeDownloadedBlob(db, 'r1', new Blob(['12345']), 'audio/mp4')
+    // clearUnpinnedBlobs only drops a blob the server can serve back; the row must be ready.
+    await db.recordings.put({
+      id: 'r1',
+      created_at: at,
+      updated_at: at,
+      deleted_at: null,
+      server_seq: 1,
+      song_id: null,
+      label: null,
+      source: 'microphone',
+      recorded_at: at,
+      position: 0,
+      state: 'ready',
+      duration_ms: 1000,
+      playback_mime: 'audio/mp4',
+      playback_bytes: 5,
+      error: null,
+    })
+    renderWithProviders(<SettingsScreen />, { db })
+    await userEvent.click(await screen.findByRole('radio', { name: 'High' }))
+    await waitFor(async () =>
+      expect((await db.user_settings.get(settingsId('user_1')))?.audio_quality).toBe('high'),
+    )
+    expect(screen.getByText('5 B of audio on this device')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove downloaded audio' }))
+    await waitFor(async () => expect((await db.recording_files.get('r1'))?.blob).toBeNull())
+    expect(await screen.findByText('0 B of audio on this device')).toBeInTheDocument()
   })
 })
