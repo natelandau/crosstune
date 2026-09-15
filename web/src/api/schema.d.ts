@@ -33,11 +33,97 @@ export interface paths {
         };
         /**
          * Me
-         * @description The calling user's profile.
+         * @description The calling user's profile and storage figures.
          */
         get: operations["me_v1_me_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download
+         * @description A presigned GET for the playback file of a ready recording.
+         */
+        get: operations["download_v1_recordings__recording_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry
+         * @description Transcode the object already in the bucket again, for a recording that failed.
+         *
+         *     A recording whose uploaded object is gone is uploaded again through a new
+         *     slot instead; this route only re-runs the transcode.
+         */
+        post: operations["retry_v1_recordings__recording_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/upload-slot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Slot
+         * @description A presigned PUT for one recording's file, once the quota allows it.
+         *
+         *     A failed recording is issued a slot too, and returns to pending_upload: it is
+         *     the only way back for one whose uploaded object is no longer in the bucket.
+         */
+        post: operations["upload_slot_v1_recordings__recording_id__upload_slot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/uploaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Finished
+         * @description Confirm the object landed and queue its transcode. Repeating the call changes nothing.
+         */
+        post: operations["upload_finished_v1_recordings__recording_id__uploaded_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -111,7 +197,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "songs" | "user_songs" | "lists" | "list_items" | "recording_links" | "user_settings";
+            table: "songs" | "user_songs" | "lists" | "list_items" | "recording_links" | "recordings" | "user_settings";
             /**
              * Updated At
              * Format: date-time
@@ -286,6 +372,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            storage: components["schemas"]["StorageResponse"];
         };
         /**
          * Problem
@@ -318,7 +405,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["SongPullRow"] | components["schemas"]["UserSongPullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
+            rows: (components["schemas"]["SongPullRow"] | components["schemas"]["UserSongPullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
         };
         /**
          * PushRequest
@@ -334,7 +421,31 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["SongChangeResult"] | components["schemas"]["UserSongChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
+            results: (components["schemas"]["SongChangeResult"] | components["schemas"]["UserSongChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
+        };
+        /**
+         * RecordingChangeResult
+         * @description The outcome of one change to a recording.
+         */
+        RecordingChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["RecordingRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "recordings";
         };
         /**
          * RecordingLinkChangeResult
@@ -425,6 +536,74 @@ export interface components {
             url: string;
         };
         /**
+         * RecordingPullRow
+         * @description A recording row in a pull page.
+         */
+        RecordingPullRow: {
+            row: components["schemas"]["RecordingRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "recordings";
+        };
+        /**
+         * RecordingRow
+         * @description A stored recording, as push and pull return it. Storage keys stay on the server.
+         */
+        RecordingRow: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label?: string | null;
+            /** Playback Bytes */
+            playback_bytes: number | null;
+            /** Playback Mime */
+            playback_mime: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Server Seq */
+            server_seq: number;
+            /** Song Id */
+            song_id?: string | null;
+            /** Source */
+            source: string;
+            /** State */
+            state: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
          * ResolveRequest
          * @description Body of a resolve request: the URL the user just pasted.
          */
@@ -445,6 +624,19 @@ export interface components {
             provider_ref: string | null;
             /** Title */
             title: string | null;
+            /** Url */
+            url: string;
+        };
+        /**
+         * SignedUrl
+         * @description A presigned URL and when it stops working.
+         */
+        SignedUrl: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
             /** Url */
             url: string;
         };
@@ -542,6 +734,28 @@ export interface components {
             violin_tuning?: string | null;
         };
         /**
+         * StorageResponse
+         * @description How much of the recording quota is in use.
+         */
+        StorageResponse: {
+            /** Max File Bytes */
+            max_file_bytes: number;
+            /** Quota Bytes */
+            quota_bytes: number;
+            /** Used Bytes */
+            used_bytes: number;
+        };
+        /**
+         * UploadSlotRequest
+         * @description What the client is about to upload.
+         */
+        UploadSlotRequest: {
+            /** Bytes */
+            bytes: number;
+            /** Content Type */
+            content_type: string;
+        };
+        /**
          * UserSettingsChangeResult
          * @description The outcome of one change to a user's settings.
          */
@@ -582,6 +796,11 @@ export interface components {
          * @description A stored settings row, as push and pull return it.
          */
         UserSettingsRow: {
+            /**
+             * Audio Quality
+             * @default standard
+             */
+            audio_quality: string;
             /**
              * Created At
              * Format: date-time
@@ -751,6 +970,247 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    download_v1_recordings__recording_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retry_v1_recordings__recording_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_slot_v1_recordings__recording_id__upload_slot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadSlotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_finished_v1_recordings__recording_id__uploaded_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

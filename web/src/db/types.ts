@@ -2,6 +2,7 @@ import type {
   ListItemRow,
   ListRow,
   RecordingLinkRow,
+  RecordingRow,
   SongRow,
   TableName,
   UserSettingsRow,
@@ -16,6 +17,7 @@ export const TABLE_NAMES = [
   'lists',
   'list_items',
   'recording_links',
+  'recordings',
   'user_settings',
 ] as const satisfies readonly TableName[]
 
@@ -72,6 +74,7 @@ export type LocalRecordingLink = Local<RecordingLinkRow>
 export type LocalList = Local<ListRow>
 export type LocalListItem = Local<ListItemRow>
 export type LocalUserSettings = Local<UserSettingsRow>
+export type LocalRecording = Local<RecordingRow>
 
 /** The instruments a settings row holds, or null when there is no usable row. */
 export function storedInstruments(
@@ -87,6 +90,7 @@ export interface LocalRows {
   lists: LocalList
   list_items: LocalListItem
   recording_links: LocalRecordingLink
+  recordings: LocalRecording
   user_settings: LocalUserSettings
 }
 export type LocalRow = LocalRows[TableName]
@@ -105,12 +109,22 @@ export interface MetaEntry {
   value: unknown
 }
 
+// The upload and transcode pipeline computes these for a recording; the client only reads them.
+const RECORDING_PIPELINE_KEYS = [
+  'state',
+  'duration_ms',
+  'playback_mime',
+  'playback_bytes',
+  'error',
+] as const
+
 const BOOKKEEPING_KEYS = [
   'id',
   'updated_at',
   'deleted_at',
   'server_seq',
   ...OWNERSHIP_KEYS,
+  ...RECORDING_PIPELINE_KEYS,
 ] as const
 
 /** The client-editable fields of a row, the only thing a push upsert may carry. */

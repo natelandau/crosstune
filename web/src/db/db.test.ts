@@ -51,7 +51,10 @@ describe('schema', () => {
       'lists',
       'meta',
       'outbox',
+      'recording_chunks',
+      'recording_files',
       'recording_links',
+      'recordings',
       'songs',
       'user_settings',
       'user_songs',
@@ -107,6 +110,19 @@ describe('schema', () => {
       expect(entry?.data && 'tuning' in entry.data).toBe(false)
     } finally {
       await upgraded.delete()
+    }
+  })
+
+  it('opens version 3 with the recording tables', async () => {
+    const db = openTestDb()
+    try {
+      await db.open()
+      expect(db.tables.map((t) => t.name)).toEqual(
+        expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
+      )
+      expect(db.verno).toBe(3)
+    } finally {
+      await db.delete()
     }
   })
 })
@@ -184,6 +200,7 @@ describe('table helpers', () => {
       'lists',
       'list_items',
       'recording_links',
+      'recordings',
       'user_settings',
     ])
   })

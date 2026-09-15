@@ -1,8 +1,10 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
+import type { RecordingChunk, RecordingFile } from './recordings'
 import {
   TABLE_NAMES,
   type LocalList,
   type LocalListItem,
+  type LocalRecording,
   type LocalRecordingLink,
   type LocalRows,
   type LocalSong,
@@ -33,6 +35,9 @@ export class CrosstuneDb extends Dexie {
   lists!: Table<LocalList, string>
   list_items!: Table<LocalListItem, string>
   user_settings!: Table<LocalUserSettings, string>
+  recordings!: Table<LocalRecording, string>
+  recording_files!: Table<RecordingFile, string>
+  recording_chunks!: Table<RecordingChunk, [string, number]>
   outbox!: EntityTable<OutboxEntry, 'seq'>
   meta!: Table<MetaEntry, string>
 
@@ -65,6 +70,12 @@ export class CrosstuneDb extends Dexie {
             }),
         ]),
       )
+    // Booleans are not IndexedDB keys, so pinned is filtered in memory.
+    this.version(3).stores({
+      recordings: 'id, song_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+    })
   }
 }
 
