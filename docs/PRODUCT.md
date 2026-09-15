@@ -84,8 +84,9 @@ on a phone home screen. It contains these features.
 - Recordings. A user records with the phone's microphone or uploads an audio
   file. A recording attaches to a song or waits unfiled in the Recordings tab.
   It plays at once on the device that made it and uploads in the background.
-  It reaches the user's other devices when someone plays it, or when its song
-  or list is marked keep offline. A free account stores 1 GB of recordings.
+  It reaches the user's other devices when someone plays it, when it is
+  marked keep offline itself, or when its song or list is. A free account
+  stores 1 GB of recordings.
 
 These features are out of the first release. Each has a place in the data model
 and no code.
@@ -203,8 +204,8 @@ limiting.
   Worker also proxies API calls, so the client is always same-origin and the
   API needs no CORS. Cloudflare labels Pages legacy, and only a Worker can run
   code in front of the assets.
-- Audio storage, when it arrives, is Cloudflare R2, because it charges no egress
-  and streaming recordings is all egress.
+- Audio storage is Cloudflare R2, because it charges no egress and streaming
+  recordings is all egress.
 
 ### Authentication with Clerk
 
@@ -217,9 +218,10 @@ password reset, email deliverability, and social login on a solo developer.
 
 The client caches the full catalog and queues writes made offline. On reconnect,
 the client replays the queue. Conflicts resolve by the newest timestamp. Every
-record carries a client-generated ID and an updated-at timestamp. The same queue
-will carry recording uploads later. A full sync engine with per-field merges was
-rejected as more than the first release needs.
+record carries a client-generated ID and an updated-at timestamp. Recording
+rows ride this queue; their audio moves over presigned storage URLs in a
+transfer pass of its own, so a large upload never holds up a sync. A full sync
+engine with per-field merges was rejected as more than the first release needs.
 
 ## Future features
 
