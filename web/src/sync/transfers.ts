@@ -8,7 +8,7 @@ import {
   storeDownloadedBlob,
 } from '../commands/recordings'
 import { now, putRow, recordingTx } from '../commands/write'
-import { baseContentType, CHUNK_MS, type LocalFileState } from '../db/recordings'
+import { baseContentType, CHUNK_MS, isNotUploaded, type LocalFileState } from '../db/recordings'
 import { getStorage, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
@@ -175,14 +175,6 @@ async function requeueRecording(db: CrosstuneDb, id: string): Promise<void> {
   })
 }
 
-// States whose blob the server has never confirmed, so this device holds the only copy.
-const UNCONFIRMED_STATES: readonly LocalFileState[] = [
-  'captured',
-  'uploading',
-  'blocked_quota',
-  'failed_upload',
-]
-
 /** Remove a file row (and its chunks) whose recording was tombstoned elsewhere, and any
  * chunk left with no file row or one that has moved past capturing. A capture still in
  * progress is left alone: it has no server row to check against yet, and still needs its chunks.
@@ -191,10 +183,11 @@ const UNCONFIRMED_STATES: readonly LocalFileState[] = [
 async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
   await recordingTx(db, async () => {
     const files = await db.recording_files.filter((f) => f.local_state !== 'capturing').toArray()
-    for (const file of files) {
-      const row = await db.recordings.get(file.id)
+    const rows = await db.recordings.bulkGet(files.map((f) => f.id))
+    for (const [i, file] of files.entries()) {
+      const row = rows[i]
       if (row && !row.deleted_at) continue
-      if (row && file.blob && UNCONFIRMED_STATES.includes(file.local_state)) {
+      if (row && file.blob && isNotUploaded(file)) {
         await putRow(db, 'recordings', {
           ...row,
           deleted_at: null,
@@ -208,10 +201,10 @@ async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
       await db.recording_chunks.where('recording_id').equals(file.id).delete()
     }
 
-    const chunkOwners = await db.recording_chunks.orderBy('recording_id').uniqueKeys()
-    for (const recordingId of chunkOwners as string[]) {
-      const file = await db.recording_files.get(recordingId)
-      if (file?.local_state === 'capturing') continue
+    const chunkOwners = (await db.recording_chunks.orderBy('recording_id').uniqueKeys()) as string[]
+    const owners = await db.recording_files.bulkGet(chunkOwners)
+    for (const [i, recordingId] of chunkOwners.entries()) {
+      if (owners[i]?.local_state === 'capturing') continue
       await db.recording_chunks.where('recording_id').equals(recordingId).delete()
     }
   })
@@ -284,17 +277,23 @@ export async function downloadOne(db: CrosstuneDb, api: SyncApi, id: string): Pr
 }
 
 /** Fetch audio for every ready recording that belongs on this device (pinned itself, or its
- * song kept offline directly or through a list) and is not already here. */
-export async function downloadPass(db: CrosstuneDb, api: SyncApi): Promise<void> {
+ * song kept offline directly or through a list) and is not already here. `fetch` lets the
+ * caller share one in-flight download per recording with any other path that fetches. */
+export async function downloadPass(
+  db: CrosstuneDb,
+  api: SyncApi,
+  fetch: (id: string) => Promise<Blob | null> = (id) => downloadOne(db, api, id),
+): Promise<void> {
   const covered = await keptOfflineSongIds(db)
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
-  for (const row of rows) {
-    const file = await db.recording_files.get(row.id)
+  const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
+  for (const [i, row] of rows.entries()) {
+    const file = files[i]
     if (file?.blob) continue
     const kept = !!file?.pinned || (!!row.song_id && covered.has(row.song_id))
     if (!kept) continue
     try {
-      await downloadOne(db, api, row.id)
+      await fetch(row.id)
     } catch (error) {
       // Offline and auth failures stop the whole pass; anything else is this row's
       // problem alone, so record it and let the rest of the kept-offline set still download.

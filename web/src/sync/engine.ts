@@ -41,6 +41,108 @@ function reportInvalid({ table, id, reason }: InvalidChange): void {
   })
 }
 
+interface Loop<S extends string> {
+  /** Run now, or once more after the run in flight. */
+  trigger(): Promise<void>
+  status(): S
+  subscribe(listener: (status: S) => void): () => void
+  cancelRetry(): void
+}
+
+/**
+ * A serialized run loop. Triggers while a run is in flight coalesce into one more run
+ * after it; a failed run backs off and retries; the first failure of a streak is reported.
+ */
+function createLoop<S extends string>({
+  idle,
+  busy,
+  run,
+  classify,
+  isStopped,
+  afterRun,
+}: {
+  idle: S
+  busy: S
+  run: () => Promise<void>
+  /** The status a failed run leaves behind. 'offline' is expected and never reported. */
+  classify: (error: unknown) => S
+  isStopped: () => boolean
+  afterRun?: () => void
+}): Loop<S> {
+  let status = idle
+  const listeners = new Set<(status: S) => void>()
+  let running: Promise<void> | null = null
+  let again = false
+  let failures = 0
+  let retry: ReturnType<typeof setTimeout> | null = null
+
+  function setStatus(next: S) {
+    if (status === next) return
+    status = next
+    for (const listener of listeners) listener(next)
+  }
+
+  function cancelRetry() {
+    if (retry) clearTimeout(retry)
+    retry = null
+  }
+
+  function scheduleRetry() {
+    cancelRetry()
+    const delay = BACKOFF_MS[Math.min(failures, BACKOFF_MS.length - 1)]!
+    failures++
+    retry = setTimeout(() => {
+      retry = null
+      void trigger()
+    }, delay)
+  }
+
+  async function runOnce(): Promise<void> {
+    setStatus(busy)
+    try {
+      await run()
+      failures = 0
+      cancelRetry()
+      setStatus(idle)
+    } catch (error) {
+      const next = classify(error)
+      // Report once per streak: a retry that fails the same way adds nothing.
+      if (next !== 'offline' && failures === 0) Sentry.captureException(error)
+      setStatus(next)
+      if (!isStopped()) scheduleRetry()
+    }
+  }
+
+  function trigger(): Promise<void> {
+    if (isStopped()) return Promise.resolve()
+    if (running) {
+      again = true
+      return running
+    }
+    cancelRetry()
+    running = (async () => {
+      do {
+        again = false
+        await runOnce()
+        afterRun?.()
+      } while (again && !isStopped())
+    })().finally(() => {
+      running = null
+    })
+    return running
+  }
+
+  return {
+    trigger,
+    status: () => status,
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    cancelRetry,
+  }
+}
+
 export function createSyncEngine({
   db,
   api,
@@ -48,33 +150,9 @@ export function createSyncEngine({
   batchSize = PUSH_BATCH_SIZE,
   onInvalid = reportInvalid,
 }: EngineOptions): SyncEngine {
-  let status: SyncStatus = 'idle'
-  const listeners = new Set<(status: SyncStatus) => void>()
-  let running: Promise<void> | null = null
-  let again = false
-  let failures = 0
-  let retry: ReturnType<typeof setTimeout> | null = null
   let stopped = false
   let syncedAt: string | null = null
   const inFlightDownloads = new Map<string, Promise<Blob | null>>()
-  let transferState: TransferStatus = 'idle'
-  const transferListeners = new Set<(status: TransferStatus) => void>()
-  let transferRunning: Promise<void> | null = null
-  let transferAgain = false
-  let transferFailures = 0
-  let transferRetry: ReturnType<typeof setTimeout> | null = null
-
-  function setStatus(next: SyncStatus) {
-    if (status === next) return
-    status = next
-    for (const listener of listeners) listener(next)
-  }
-
-  function setTransferStatus(next: TransferStatus) {
-    if (transferState === next) return
-    transferState = next
-    for (const listener of transferListeners) listener(next)
-  }
 
   async function push(): Promise<void> {
     for (;;) {
@@ -106,24 +184,36 @@ export function createSyncEngine({
     }
   }
 
-  function cancelRetry() {
-    if (retry) clearTimeout(retry)
-    retry = null
+  /** One fetch per recording at a time, whether the download pass or a Play tap asks. */
+  function fetchOne(recordingId: string): Promise<Blob | null> {
+    const existing = inFlightDownloads.get(recordingId)
+    if (existing) return existing
+    const attempt = downloadOne(db, api, recordingId).finally(() => {
+      inFlightDownloads.delete(recordingId)
+    })
+    inFlightDownloads.set(recordingId, attempt)
+    return attempt
   }
 
-  function scheduleRetry() {
-    cancelRetry()
-    const delay = BACKOFF_MS[Math.min(failures, BACKOFF_MS.length - 1)]!
-    failures++
-    retry = setTimeout(() => {
-      retry = null
-      void sync()
-    }, delay)
-  }
+  /** Audio moves on its own loop so a long upload never holds up push and pull. */
+  const transfers = createLoop<TransferStatus>({
+    idle: 'idle',
+    busy: 'transferring',
+    async run() {
+      // A row's own transient failure is held rather than thrown immediately, so the
+      // download pass still runs; it is rethrown below once it has.
+      const uploadError = await uploadPass(db, api)
+      await downloadPass(db, api, fetchOne)
+      if (uploadError) throw uploadError
+    },
+    classify: (error) => (classifyFailure(error, isOnline) === 'offline' ? 'offline' : 'error'),
+    isStopped: () => stopped,
+  })
 
-  async function runOnce(): Promise<void> {
-    setStatus('syncing')
-    try {
+  const syncing = createLoop<SyncStatus>({
+    idle: 'idle',
+    busy: 'syncing',
+    async run() {
       // Safe to run every pass: a capture is recovered only once no tab holds its
       // lock, falling back to last-chunk staleness where there is no lock manager.
       await recoverInterruptedCaptures(db)
@@ -136,106 +226,22 @@ export function createSyncEngine({
         // whose push and pull already landed.
         if (isAuthFailure(error)) throw error
       }
-      failures = 0
-      cancelRetry()
       syncedAt = new Date().toISOString()
-      setStatus('idle')
-    } catch (error) {
-      const next = classifyFailure(error, isOnline)
-      // Report once per streak: a retry that fails the same way adds nothing.
-      if (next !== 'offline' && failures === 0) Sentry.captureException(error)
-      setStatus(next)
-      if (!stopped) scheduleRetry()
-    }
-  }
-
-  function cancelTransferRetry() {
-    if (transferRetry) clearTimeout(transferRetry)
-    transferRetry = null
-  }
-
-  function scheduleTransferRetry() {
-    cancelTransferRetry()
-    const delay = BACKOFF_MS[Math.min(transferFailures, BACKOFF_MS.length - 1)]!
-    transferFailures++
-    transferRetry = setTimeout(() => {
-      transferRetry = null
-      void runTransfers()
-    }, delay)
-  }
-
-  async function transferOnce(): Promise<void> {
-    setTransferStatus('transferring')
-    try {
-      // A row's own transient failure is held rather than thrown immediately, so the
-      // download pass still runs; it is rethrown below once it has.
-      const uploadError = await uploadPass(db, api)
-      await downloadPass(db, api)
-      if (uploadError) throw uploadError
-      transferFailures = 0
-      cancelTransferRetry()
-      setTransferStatus('idle')
-    } catch (error) {
-      const offline = classifyFailure(error, isOnline) === 'offline'
-      if (!offline && transferFailures === 0) Sentry.captureException(error)
-      setTransferStatus(offline ? 'offline' : 'error')
-      if (!stopped) scheduleTransferRetry()
-    }
-  }
-
-  /** Audio moves on its own serialized loop so a long upload never holds up push and pull. */
-  function runTransfers(): Promise<void> {
-    if (stopped) return Promise.resolve()
-    if (transferRunning) {
-      transferAgain = true
-      return transferRunning
-    }
-    cancelTransferRetry()
-    transferRunning = (async () => {
-      do {
-        transferAgain = false
-        await transferOnce()
-      } while (transferAgain && !stopped)
-    })().finally(() => {
-      transferRunning = null
-    })
-    return transferRunning
-  }
-
-  function sync(): Promise<void> {
-    if (stopped) return Promise.resolve()
-    if (running) {
-      again = true
-      return running
-    }
-    cancelRetry()
-    running = (async () => {
-      do {
-        again = false
-        await runOnce()
-        // A pushed row can now take its upload, and a pulled one its download.
-        void runTransfers()
-      } while (again && !stopped)
-    })().finally(() => {
-      running = null
-    })
-    return running
-  }
+    },
+    classify: (error) => classifyFailure(error, isOnline),
+    isStopped: () => stopped,
+    // A pushed row can now take its upload, and a pulled one its download.
+    afterRun: () => void transfers.trigger(),
+  })
 
   return {
-    sync,
-    status: () => status,
+    sync: syncing.trigger,
+    status: syncing.status,
     lastSyncedAt: () => syncedAt,
-    subscribe(listener) {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    transfer: runTransfers,
-    transferStatus: () => transferState,
-    subscribeTransfer(listener) {
-      transferListeners.add(listener)
-      return () => transferListeners.delete(listener)
-    },
+    subscribe: syncing.subscribe,
+    transfer: transfers.trigger,
+    transferStatus: transfers.status,
+    subscribeTransfer: transfers.subscribe,
     async resolveLink(url: string): Promise<ResolveResponse | null> {
       if (!isOnline()) return null
       try {
@@ -245,34 +251,24 @@ export function createSyncEngine({
       }
     },
     async download(recordingId: string): Promise<Blob | null> {
-      const existing = inFlightDownloads.get(recordingId)
-      if (existing) return existing
-      const attempt = (async () => {
-        try {
-          if (!isOnline()) {
-            const file = await db.recording_files.get(recordingId)
-            return file?.blob ?? null
-          }
-          try {
-            return await downloadOne(db, api, recordingId)
-          } catch {
-            return null
-          }
-        } finally {
-          inFlightDownloads.delete(recordingId)
-        }
-      })()
-      inFlightDownloads.set(recordingId, attempt)
-      return attempt
+      if (!isOnline()) {
+        const file = await db.recording_files.get(recordingId)
+        return file?.blob ?? null
+      }
+      try {
+        return await fetchOne(recordingId)
+      } catch {
+        return null
+      }
     },
     async retry(recordingId: string): Promise<void> {
       await api.retryRecording(recordingId)
-      void sync()
+      void syncing.trigger()
     },
     stop() {
       stopped = true
-      cancelRetry()
-      cancelTransferRetry()
+      syncing.cancelRetry()
+      transfers.cancelRetry()
     },
     resume() {
       stopped = false

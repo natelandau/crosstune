@@ -45,9 +45,6 @@ function RecordingBody({
   const engine = useSyncEngine()
   const online = useOnline()
   const [fetched, setFetched] = useState<{ id: string; blob: Blob | null } | null>(null)
-  // Bumped by Retry to run the download effect again after a failed attempt, whose
-  // result already sits in fetched and so would not otherwise change the effect's inputs.
-  const [attempt, setAttempt] = useState(0)
   const blob = file?.blob ?? (fetched?.id === recording.id ? fetched.blob : null)
   const failed = !blob && recording.state === 'ready' && fetched?.id === recording.id
   useEffect(() => {
@@ -59,7 +56,7 @@ function RecordingBody({
     return () => {
       cancelled = true
     }
-  }, [blob, engine, recording.id, recording.state, attempt])
+  }, [blob, engine, recording.id, recording.state])
   // A read of the same row from IndexedDB can hand back a Blob that is not the same
   // object even though its content did not change, so the effect below keys on identity
   // (the recording and whether a blob exists) and reads the current blob through this ref,
@@ -102,8 +99,11 @@ function RecordingBody({
           type="button"
           className="btn btn-sm min-h-11"
           onClick={() => {
+            // Clearing the failed result shows Downloading again until this attempt settles.
             setFetched(null)
-            setAttempt((n) => n + 1)
+            void engine.download(recording.id).then((result) => {
+              setFetched({ id: recording.id, blob: result })
+            })
           }}
         >
           Retry
