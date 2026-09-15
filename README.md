@@ -27,6 +27,7 @@ Install these tools before you start.
 | [pnpm](https://pnpm.io/)                      | 12.4.1         | The version is pinned in `web/package.json`. `corepack enable` installs it from that pin.   |
 | [just](https://just.systems)                  | any            | The task runner.                                                                            |
 | [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 for development and for the API tests. Docker must be running.             |
+| [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes uploaded recordings. Without it the API tests that use real audio are skipped.   |
 
 You also need a [Clerk](https://clerk.com) development instance, which is free.
 From its dashboard, copy the Frontend API URL, which looks like

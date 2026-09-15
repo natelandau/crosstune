@@ -118,16 +118,20 @@ contract, and the client's TypeScript types are generated from it. A CI job
 regenerates the types and fails when the committed copy differs. A native
 client later uses the same endpoints.
 
-The API exposes six routes.
+The API exposes ten routes.
 
-| Route                     | Purpose                                                       |
-| ------------------------- | ------------------------------------------------------------- |
-| `POST /v1/sync/push`      | Apply a batch of client changes.                              |
-| `GET /v1/sync/pull`       | Return every row of the caller changed after a cursor.        |
-| `POST /v1/links/resolve`  | Return provider, canonical URL, title, and artwork for a URL. |
-| `GET /v1/me`              | Return the caller's profile. Creates the user on first call.  |
-| `POST /v1/webhooks/clerk` | Receive account deletions from Clerk.                         |
-| `GET /healthz`            | Answer Railway's health check.                                |
+| Route                                  | Purpose                                                                      |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `POST /v1/sync/push`                   | Apply a batch of client changes.                                             |
+| `GET /v1/sync/pull`                    | Return every row of the caller changed after a cursor.                       |
+| `POST /v1/links/resolve`               | Return provider, canonical URL, title, and artwork for a URL.                |
+| `GET /v1/me`                           | Return the caller's profile and storage use. Creates the user on first call. |
+| `POST /v1/recordings/{id}/upload-slot` | Reserve quota for a recording and sign a PUT for its file.                   |
+| `POST /v1/recordings/{id}/uploaded`    | Confirm the PUT landed and queue the transcode.                              |
+| `POST /v1/recordings/{id}/retry`       | Run the transcode of a failed recording again.                               |
+| `GET /v1/recordings/{id}/download`     | Sign a GET for the playback file of a ready recording.                       |
+| `POST /v1/webhooks/clerk`              | Receive account deletions from Clerk.                                        |
+| `GET /healthz`                         | Answer Railway's health check.                                               |
 
 Every route under `/v1` except the webhook requires a Clerk bearer token. No
 user ID appears in a URL or a body. The server sets ownership from the token
@@ -199,8 +203,9 @@ a token, and resumes when Clerk loads again.
 
 ## Sync
 
-The sync pair is the only way a client reads or writes catalog data. There
-are no per-resource endpoints.
+The sync pair is the only way a client reads or writes catalog data. The one
+set of per-resource endpoints is for recording files, which move through
+presigned URLs rather than as rows.
 
 Push sends the outbox, up to 500 changes per batch, in order. Each change
 names a table, a row ID, an operation, the row data, and the client's
@@ -337,17 +342,17 @@ still tags `development`.
 Each row describes what a musician sees when one system is down and the
 others are up.
 
-| Unavailable          | Effect                                                                                                                           |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                               |
-| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails.       |
-| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.                  |
-| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                        |
+| Unavailable          | Effect                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                                                                       |
+| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails.                                               |
+| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.                                                          |
+| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                                                                |
 | R2                   | Recording and playback of audio already on the device keep working. Uploads wait and retry. A first download of that recording on another device fails until R2 returns. |
-| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                       |
-| A streaming provider | A pasted link is saved without a title. In-app playback of an existing link from that provider fails until the provider returns. |
-| Sentry               | Nothing visible. Errors are dropped.                                                                                             |
-| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                       |
+| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                                                               |
+| A streaming provider | A pasted link is saved without a title. In-app playback of an existing link from that provider fails until the provider returns.                                         |
+| Sentry               | Nothing visible. Errors are dropped.                                                                                                                                     |
+| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                                                               |
 
 ## Hosting reference
 
@@ -488,6 +493,7 @@ Production variables:
 | `CROSSTUNE_RECORDING_QUOTA_BYTES`    | Optional. Default `1073741824`              |
 | `CROSSTUNE_RECORDING_MAX_FILE_BYTES` | Optional. Default `52428800`                |
 | `CROSSTUNE_JOB_POLL_SECONDS`         | Optional. Default `3.0`                     |
+| `CROSSTUNE_ORPHAN_SWEEP_SECONDS`     | Optional. Default `3600.0`                  |
 
 Development variables:
 
@@ -508,6 +514,7 @@ Development variables:
 | `CROSSTUNE_RECORDING_QUOTA_BYTES`        | Optional. Default `1073741824`                                          |
 | `CROSSTUNE_RECORDING_MAX_FILE_BYTES`     | Optional. Default `52428800`                                            |
 | `CROSSTUNE_JOB_POLL_SECONDS`             | Optional. Default `3.0`                                                 |
+| `CROSSTUNE_ORPHAN_SWEEP_SECONDS`         | Optional. Default `3600.0`                                              |
 
 A pull request environment inherits the development variables from the copy,
 so it uses the `crosstune-recordings-dev` bucket too.
