@@ -18,31 +18,45 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def used_bytes(session: AsyncSession, user_id: uuid.UUID, now: datetime | None = None) -> int:
-    """Playback bytes of live recordings plus the declared size of every open upload slot.
+async def used_bytes(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    now: datetime | None = None,
+    *,
+    exclude: uuid.UUID | None = None,
+) -> int:
+    """The bytes that count against a user's quota.
+
+    A live recording counts its open upload slot's declared size when it has one,
+    otherwise its playback bytes. The slot stands in for, never adds to, the object
+    already at the upload key: the PUT it signs overwrites that object, and once the
+    slot expires unused the object is still there and counts again.
 
     Args:
         session: The session to query through.
         user_id: Whose storage to sum.
         now: The moment that decides whether a slot is still open. Defaults to the clock.
+        exclude: A recording to leave out, for a caller sizing that recording's own upload.
 
     Returns:
         int: The bytes that count against the user's quota.
     """
     now = now or utc_now()
+    open_slots = select(UploadSlot.recording_id).where(
+        UploadSlot.user_id == user_id, UploadSlot.expires_at > now
+    )
+    live = [Recording.user_id == user_id, Recording.deleted_at.is_(None)]
+    if exclude is not None:
+        live.append(Recording.id != exclude)
     stored = await session.scalar(
         select(func.coalesce(func.sum(Recording.playback_bytes), 0)).where(
-            Recording.user_id == user_id, Recording.deleted_at.is_(None)
+            *live, Recording.id.not_in(open_slots)
         )
     )
     reserved = await session.scalar(
         select(func.coalesce(func.sum(UploadSlot.declared_bytes), 0))
         .join(Recording, Recording.id == UploadSlot.recording_id)
-        .where(
-            UploadSlot.user_id == user_id,
-            UploadSlot.expires_at > now,
-            Recording.deleted_at.is_(None),
-        )
+        .where(*live, UploadSlot.expires_at > now)
     )
     return int(stored or 0) + int(reserved or 0)
 

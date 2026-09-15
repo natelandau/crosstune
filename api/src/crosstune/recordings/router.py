@@ -108,9 +108,8 @@ async def upload_slot(
 
     now = utc_now()
     existing = await slot_for(session, recording.id)
-    # Reissuing replaces the declared size, so the old reservation must not double count.
-    reserved = existing.declared_bytes if existing and existing.expires_at > now else 0
-    used = await used_bytes(session, user.id, now) - reserved
+    # This recording's own slot or failed upload is what the new PUT replaces.
+    used = await used_bytes(session, user.id, now, exclude=recording.id)
     if used + body.bytes > settings.recording_quota_bytes:
         msg = f"{used} of {settings.recording_quota_bytes} bytes used"
         raise QuotaExceededError(msg)
@@ -131,6 +130,8 @@ async def upload_slot(
         existing.content_type = body.content_type
         existing.expires_at = expires_at
     if recording.state == "failed":
+        # playback_bytes stays: it is the object still at the upload key, which counts
+        # again if this slot expires unused and is replaced once the new PUT is confirmed.
         recording.state = "pending_upload"
         recording.error = None
         bump_server_seq(recording)

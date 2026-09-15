@@ -128,6 +128,36 @@ async def test_slot_returns_a_failed_recording_to_pending_upload(
     assert before.server_seq > seq_before
 
 
+async def test_slot_for_a_failed_recording_stops_counting_its_old_upload(
+    client, app, auth_headers, verify_session
+) -> None:
+    app.state.settings.recording_quota_bytes = 1000
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="failed", error="boom", playback_bytes=800)
+    )
+    await verify_session.commit()
+    # The new PUT overwrites the failed upload's object, so its 800 bytes must not
+    # count alongside the 800 declared for the replacement.
+    assert (await slot(client, auth_headers("user_a"), rec, bytes_=800)).status_code == 200
+    me = await client.get("/v1/me", headers=auth_headers("user_a"))
+    assert me.json()["storage"]["used_bytes"] == 800
+    # An abandoned slot leaves the old object in the bucket, so it counts again.
+    await verify_session.execute(
+        update(UploadSlot)
+        .where(UploadSlot.recording_id == rec)
+        .values(expires_at=datetime.now(UTC) - timedelta(seconds=1))
+    )
+    await verify_session.commit()
+    me = await client.get("/v1/me", headers=auth_headers("user_a"))
+    assert me.json()["storage"]["used_bytes"] == 800
+    assert (await slot(client, auth_headers("user_a"), rec, bytes_=900)).status_code == 200
+    assert (await slot(client, auth_headers("user_a"), rec, bytes_=1001)).status_code == 413
+
+
 async def test_slot_conflicts_when_the_recording_is_past_upload(
     client, auth_headers, verify_session
 ) -> None:
