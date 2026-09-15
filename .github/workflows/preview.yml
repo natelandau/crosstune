@@ -163,8 +163,9 @@ jobs:
           echo "slug=$slug" >> "$GITHUB_OUTPUT"
 
       # Each delete tolerates a missing resource so a PR whose `up` never
-      # finished still tears down cleanly, but a real failure must surface as
-      # a warning rather than pass silently.
+      # finished still tears down cleanly. Only a confirmed listing may say the
+      # environment is absent: an API error that read as "absent" would leak the
+      # environment behind a green job, so the listing retries and then fails.
       - name: delete the Railway environment
         run: |
           railway() {
@@ -172,11 +173,24 @@ jobs:
               -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
               "$RAILWAY_CLI_IMAGE" railway "$@"
           }
-          exists="$(railway environment list --json \
-            | jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' || true)"
-          if [ "$exists" = "true" ]; then
-            railway environment delete "$PR_NAME" --yes \
-              || echo "::warning::could not delete Railway environment $PR_NAME; it may still exist"
+          environments=""
+          for attempt in 1 2 3; do
+            if environments="$(railway environment list --json)"; then
+              break
+            fi
+            environments=""
+            sleep $((attempt * 10))
+          done
+          if [ -z "$environments" ]; then
+            echo "::error::could not list Railway environments, so $PR_NAME may still exist; rerun this workflow"
+            exit 1
+          fi
+          if jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' \
+            <<<"$environments" >/dev/null; then
+            railway environment delete "$PR_NAME" --yes || {
+              echo "::error::could not delete Railway environment $PR_NAME; rerun this workflow"
+              exit 1
+            }
           else
             echo "no Railway environment named $PR_NAME"
           fi
