@@ -1,7 +1,7 @@
 import { createMemoryHistory } from '@tanstack/react-router'
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../../commands/lists'
 import { createSong } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
@@ -41,6 +41,23 @@ describe('ListPage', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(router.state.location.pathname).toBe(`/lists/${listId}`)
     expect(router.history.canGoBack()).toBe(false)
+  })
+
+  it('stays on the list when Cancel is tapped twice before the form closes', async () => {
+    const history = createMemoryHistory({ initialEntries: ['/lists', `/lists/${listId}`] })
+    const { router } = renderListRoute(`/lists/${listId}`, history)
+    await userEvent.click(await screen.findByRole('button', { name: 'Rename' }))
+    await waitFor(() => expect(router.state.location.search).toEqual({ edit: true }))
+    // A browser goes back on a later popstate; memory history would go back at once and hide a double pop.
+    const back = router.history.back.bind(router.history)
+    vi.spyOn(router.history, 'back').mockImplementation(() => void setTimeout(back, 0))
+    const cancel = screen.getByRole('button', { name: 'Cancel' })
+    fireEvent.click(cancel)
+    fireEvent.click(cancel)
+    await waitFor(() => expect(router.state.location.search).toEqual({}))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(router.state.location.pathname).toBe(`/lists/${listId}`)
+    expect(await screen.findByRole('heading', { name: 'Tuesday jam' })).toBeInTheDocument()
   })
 
   it('replaces to the clean URL on cancel when the edit entry it pushed has nothing behind it', async () => {

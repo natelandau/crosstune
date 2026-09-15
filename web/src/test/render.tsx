@@ -10,6 +10,7 @@ import {
 import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
+import { ToastProvider } from '../components/Toast'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
 import { routeTree } from '../routeTree.gen'
@@ -50,7 +51,9 @@ export function renderWithProviders(
       <AuthProvider value={session}>
         <DbContext.Provider value={db}>
           <SyncContext.Provider value={engine}>
-            <Outlet />
+            <ToastProvider>
+              <Outlet />
+            </ToastProvider>
           </SyncContext.Provider>
         </DbContext.Provider>
       </AuthProvider>
@@ -61,7 +64,7 @@ export function renderWithProviders(
     routeTree: rootRoute.addChildren([page]),
     history: createMemoryHistory({ initialEntries: [path] }),
   })
-  return render(<RouterProvider router={router} />)
+  return { ...render(<RouterProvider router={router} />), router }
 }
 
 /** Renders the real route tree, for tests that navigate between screens. */

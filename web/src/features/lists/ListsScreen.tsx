@@ -6,6 +6,7 @@ import { SwipeRow } from '../../components/SwipeRow'
 import { useOpenRow } from '../../components/swipe'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
+import { LIST_NAME_MAX_LENGTH } from './limits'
 import { ListRow } from './ListRow'
 import { useLists } from './useLists'
 
@@ -34,6 +35,7 @@ export function ListsScreen() {
             className="grow"
             aria-label="New list name"
             placeholder="Tuesday jam, square dance set, ..."
+            maxLength={LIST_NAME_MAX_LENGTH}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />

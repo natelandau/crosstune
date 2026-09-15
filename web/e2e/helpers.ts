@@ -60,6 +60,19 @@ export async function swipeLeft(page: Page, target: Locator): Promise<void> {
   await expectSettled(target)
 }
 
+/** Press and hold a row with the mouse. The caller checks the result while the button is down, then releases. */
+export async function longPress(
+  page: Page,
+  target: Locator,
+): Promise<{ release: () => Promise<void> }> {
+  await target.scrollIntoViewIfNeeded()
+  const box = await target.boundingBox()
+  if (!box) throw new Error('long-press target is not visible')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  return { release: () => page.mouse.up() }
+}
+
 /**
  * Wait until a dragged element stops moving. The app and dnd-kit drop clicks for a moment after a
  * drag, so the next tap has to come only once things settle, as a person's would.

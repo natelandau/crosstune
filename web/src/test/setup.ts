@@ -14,3 +14,15 @@ afterEach(() => {
 // it on every route mount to reset scroll position. Worker and script tests run
 // in the node environment, where there is no window at all.
 if (typeof window !== 'undefined') window.scrollTo = () => {}
+
+// jsdom has HTMLDialogElement but no showModal or close; these toggle the attribute its stylesheet keys on.
+if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close = function close() {
+    if (!this.hasAttribute('open')) return
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  }
+}

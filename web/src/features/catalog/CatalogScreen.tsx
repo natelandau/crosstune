@@ -6,6 +6,9 @@ import { useOpenRow } from '../../components/swipe'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import type { Instrument } from '../../db/types'
+import { useSelectMode } from '../../editMode'
+import { SongSelectionActions } from '../selection/SongSelectionActions'
+import { useSongSelectionMode } from '../selection/useSongSelectionMode'
 import { useInstruments } from '../settings/useInstruments'
 import { FilterBar } from './FilterBar'
 import { SearchSuggestion } from './SearchSuggestion'
@@ -19,7 +22,7 @@ import {
   type CatalogEntry,
   type CatalogFilters,
 } from './filters'
-import { enterAction, searchOutcome } from './searchIntent'
+import { enterAction, searchOutcome, type EnterAction } from './searchIntent'
 import { readSearchQuery, writeSearchQuery } from './searchSession'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
@@ -55,7 +58,8 @@ function Catalog({
   const navigate = useNavigate()
   const db = useDb()
   const rowState = useOpenRow()
-  const { error, run } = useAction()
+  const { error, run, runThen } = useAction()
+  const { select: selecting, setSelect } = useSelectMode()
 
   const facets = useMemo(() => facetValues(entries), [entries])
   const visibleFacetList = useMemo(() => visibleFacets(facets, instruments), [facets, instruments])
@@ -71,6 +75,17 @@ function Catalog({
     () => filterCatalog(entries, effectiveFilters, query),
     [entries, effectiveFilters, query],
   )
+  const visibleIds = useMemo(() => visible.map((entry) => entry.userSong.id), [visible])
+  // Destructured so JSX below reads plain locals rather than member expressions on an
+  // object that also carries selectButtonRef, which the ref-access lint rule flags.
+  const { selection, selectButtonRef, enter, exit, rowSelection } = useSongSelectionMode({
+    visibleIds,
+    active: selecting,
+    setActive: setSelect,
+    // useOpenRow closes whichever row is open regardless of the id asked for.
+    onEnter: () => rowState('').closeOpenRow(),
+  })
+  const selectedEntries = visible.filter((entry) => selection.isSelected(entry.userSong.id))
   const outcome = useMemo(
     () => searchOutcome(entries, visible, query, effectiveFilters.archived),
     [entries, visible, query, effectiveFilters.archived],
@@ -84,7 +99,8 @@ function Catalog({
 
   const submitSearch = (event: FormEvent) => {
     event.preventDefault()
-    const action = enterAction(query, visible, outcome)
+    // Opening or adding a song while selecting would leave the screen and drop the selection.
+    const action: EnterAction = selecting ? { kind: 'blur' } : enterAction(query, visible, outcome)
     if (action.kind === 'open') {
       void navigate({ to: '/songs/$id', params: { id: action.songId } })
     } else if (action.kind === 'create') {
@@ -139,6 +155,22 @@ function Catalog({
         onChange={(patch) => void update(patch)}
         // The query stays: clearing the other filters is what brings a hidden match into view.
         onClear={filtering ? () => void updateFilters(DEFAULT_FILTERS) : undefined}
+        trailing={
+          visible.length > 0 || selecting ? (
+            <button
+              ref={selectButtonRef}
+              type="button"
+              className={`btn btn-sm ml-auto min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+                selecting ? 'pointer-events-none opacity-0 motion-safe:scale-90' : ''
+              }`}
+              aria-hidden={selecting}
+              tabIndex={selecting ? -1 : undefined}
+              onClick={() => enter()}
+            >
+              Select
+            </button>
+          ) : null
+        }
       />
       {error ? (
         <p role="alert" className="text-error text-sm">
@@ -149,12 +181,12 @@ function Catalog({
         <EmptyState
           title={emptyTitle}
           hint={noSongs ? 'Add the first tune you know.' : undefined}
-          action={<SearchSuggestion outcome={outcome} placement="empty" />}
+          action={selecting ? null : <SearchSuggestion outcome={outcome} placement="empty" />}
         />
       ) : (
         <>
           <ul className="space-y-2">
-            {visible.map((entry) => {
+            {visible.map((entry, index) => {
               const { song, userSong } = entry
               const archived = userSong.archived_at !== null
               return (
@@ -163,6 +195,7 @@ function Catalog({
                     entry={entry}
                     instruments={instruments}
                     {...rowState(userSong.id)}
+                    selection={rowSelection(userSong.id, index)}
                     actions={[
                       {
                         label: 'Edit',
@@ -186,13 +219,27 @@ function Catalog({
               )
             })}
           </ul>
-          <SearchSuggestion outcome={outcome} placement="list" />
+          {selecting ? null : <SearchSuggestion outcome={outcome} placement="list" />}
         </>
       )}
+      <SongSelectionActions
+        active={selecting}
+        entries={selectedEntries}
+        allSelected={selection.allSelected}
+        instruments={instruments}
+        context={{ kind: 'catalog' }}
+        runThen={runThen}
+        onToggleAll={selection.toggleAll}
+        onExit={exit}
+      />
       <Link
         to="/songs/new"
-        className="btn btn-primary btn-circle btn-lg fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] z-10 shadow-lg"
+        className={`btn btn-primary btn-circle btn-lg fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] z-10 shadow-lg transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+          selecting ? 'pointer-events-none opacity-0 motion-safe:scale-60' : ''
+        }`}
         aria-label="Add song"
+        aria-hidden={selecting}
+        tabIndex={selecting ? -1 : undefined}
       >
         +
       </Link>

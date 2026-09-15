@@ -78,7 +78,7 @@ export async function removeFromList(db: CrosstuneDb, itemId: string): Promise<v
 }
 
 /** Renumber from 0, touching only the rows whose position changed. */
-async function writeOrder(db: CrosstuneDb, ordered: LocalListItem[]): Promise<void> {
+export async function writeOrder(db: CrosstuneDb, ordered: LocalListItem[]): Promise<void> {
   const at = now()
   for (const [position, item] of ordered.entries()) {
     if (item.position !== position) {

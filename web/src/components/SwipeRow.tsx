@@ -47,6 +47,8 @@ const NO_INSTRUCTIONS: ScreenReaderInstructions = { draggable: '' }
 type Props = SwipeRowState & {
   name: string
   actions: readonly [SwipeAction, SwipeAction]
+  /** Turns the swipe off and rests the row closed, as while selecting songs. */
+  disabled?: boolean
   children: ReactNode
 }
 
@@ -56,6 +58,7 @@ export function SwipeRow({
   actions,
   open,
   otherOpen,
+  disabled = false,
   onOpenChange,
   onSwipeStart,
   closeOpenRow,
@@ -65,7 +68,8 @@ export function SwipeRow({
   const [dragX, setDragX] = useState<number | null>(null)
   const samples = useRef<SwipeSample[]>([])
   const releaseClick = useRef<(() => void) | null>(null)
-  const rest = open ? -REVEAL_WIDTH : 0
+  const shownOpen = open && !disabled
+  const rest = shownOpen ? -REVEAL_WIDTH : 0
 
   useEffect(() => () => releaseClick.current?.(), [])
 
@@ -109,8 +113,9 @@ export function SwipeRow({
       <SwipeLayers
         name={name}
         actions={actions}
-        open={open}
-        otherOpen={otherOpen}
+        open={shownOpen}
+        otherOpen={otherOpen && !disabled}
+        disabled={disabled}
         onOpenChange={onOpenChange}
         closeOpenRow={closeOpenRow}
         x={dragX ?? rest}
@@ -127,6 +132,7 @@ function SwipeLayers({
   actions,
   open,
   otherOpen,
+  disabled,
   onOpenChange,
   closeOpenRow,
   x,
@@ -138,8 +144,9 @@ function SwipeLayers({
 > & {
   x: number
   dragging: boolean
+  disabled: boolean
 }) {
-  const { setNodeRef, listeners } = useDraggable({ id: 'swipe' })
+  const { setNodeRef, listeners } = useDraggable({ id: 'swipe', disabled })
   const revealed = x < 0
 
   return (

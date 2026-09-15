@@ -29,7 +29,7 @@ export function activeByPosition<T extends { deleted_at: string | null; position
   return rows.filter((row) => !row.deleted_at).sort((a, b) => a.position - b.position)
 }
 
-/** One past the highest position in use, so a removed row's slot is never reissued. */
+/** One past the highest position among the given rows. */
 export function nextPosition(rows: { position: number }[]): number {
   return rows.reduce((max, row) => Math.max(max, row.position + 1), 0)
 }

@@ -83,6 +83,7 @@ export function ReorderHandle({
         ref={menuRef}
         id={key}
         popover="auto"
+        role="group"
         aria-label={`Move ${title}`}
         className="dropdown dropdown-end rounded-box bg-base-100 w-44 p-1 shadow-lg"
         style={{ positionAnchor: `--${key}` } as CSSProperties}

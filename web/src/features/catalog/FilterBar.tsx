@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { STATUSES } from '../../db/types'
 import { ShowArchivedToggle } from './ShowArchivedToggle'
 import { STATUS_LABELS } from './StatusDot'
@@ -10,6 +11,8 @@ interface Props {
   onChange: (patch: Partial<CatalogFilters>) => void
   /** Offered only while a filter is set. */
   onClear?: () => void
+  /** Placed at the end of the facet row. */
+  trailing?: ReactNode
 }
 
 function FacetSelect({
@@ -40,7 +43,7 @@ function FacetSelect({
   )
 }
 
-export function FilterBar({ filters, facets, visible, onChange, onClear }: Props) {
+export function FilterBar({ filters, facets, visible, onChange, onClear, trailing }: Props) {
   return (
     <div className="space-y-2">
       <div className="join w-full" role="group" aria-label="Status">
@@ -87,6 +90,7 @@ export function FilterBar({ filters, facets, visible, onChange, onClear }: Props
             Clear filters
           </button>
         ) : null}
+        {trailing}
       </div>
     </div>
   )
