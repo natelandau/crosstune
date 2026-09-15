@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
+from crosstune.db.base import next_server_seq
 from crosstune.errors import ConflictError, NotFoundError
 from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
@@ -79,16 +80,16 @@ def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
 
 def bump_server_seq(recording: Recording) -> None:
     """Take a new server_seq so every device pulls the change. updated_at stays the client's."""
-    recording.server_seq = func.nextval("sync_seq")
+    recording.server_seq = next_server_seq()
 
 
-def require_state(recording: Recording, expected: str) -> None:
-    """Raise a conflict naming the recording's actual state when it is not the expected one.
+def require_state(recording: Recording, *expected: str) -> None:
+    """Raise a conflict naming the recording's actual state when it is not one of the expected.
 
     Args:
         recording: The recording to check.
-        expected: The state the caller's operation requires.
+        expected: The states the caller's operation allows.
     """
-    if recording.state != expected:
-        msg = f"Recording is {recording.state}, not {expected}"
+    if recording.state not in expected:
+        msg = f"Recording is {recording.state}, not {' or '.join(expected)}"
         raise ConflictError(msg)

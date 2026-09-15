@@ -118,16 +118,8 @@ def needs_encode(info: Probe) -> bool:
     )
 
 
-async def remux(source: Path, target: Path) -> None:
-    """Rewrite the container only, with the index at the front so playback starts immediately.
-
-    Args:
-        source: The file to read.
-        target: The MP4 file to write.
-
-    Raises:
-        MediaError: ffmpeg failed, most often because the codec cannot live in MP4.
-    """
+async def _to_mp4(source: Path, target: Path, *codec_args: str) -> None:
+    """Write the audio of `source` to an MP4 with the index at the front, so playback starts at once."""
     await _run(
         "ffmpeg",
         "-v",
@@ -136,14 +128,26 @@ async def remux(source: Path, target: Path) -> None:
         "-i",
         str(source),
         "-vn",
-        "-c:a",
-        "copy",
+        *codec_args,
         "-movflags",
         "+faststart",
         "-f",
         "mp4",
         str(target),
     )
+
+
+async def remux(source: Path, target: Path) -> None:
+    """Rewrite the container only.
+
+    Args:
+        source: The file to read.
+        target: The MP4 file to write.
+
+    Raises:
+        MediaError: ffmpeg failed, most often because the codec cannot live in MP4.
+    """
+    await _to_mp4(source, target, "-c:a", "copy")
 
 
 async def encode(source: Path, target: Path) -> None:
@@ -156,21 +160,4 @@ async def encode(source: Path, target: Path) -> None:
     Raises:
         MediaError: ffmpeg failed, most often because the file cannot be decoded.
     """
-    await _run(
-        "ffmpeg",
-        "-v",
-        "error",
-        "-y",
-        "-i",
-        str(source),
-        "-vn",
-        "-c:a",
-        "aac",
-        "-b:a",
-        str(PLAYBACK_BITRATE),
-        "-movflags",
-        "+faststart",
-        "-f",
-        "mp4",
-        str(target),
-    )
+    await _to_mp4(source, target, "-c:a", "aac", "-b:a", str(PLAYBACK_BITRATE))

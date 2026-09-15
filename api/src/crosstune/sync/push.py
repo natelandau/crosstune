@@ -6,10 +6,11 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import ValidationError
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
+from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.models import List, ListItem, Recording, RecordingLink, UserSong
@@ -51,10 +52,6 @@ class Resolved(Protocol):
     def artwork_url(self) -> str | None:
         """The resolved artwork URL, or None if resolution found none."""
         ...
-
-
-def _next_seq():  # noqa: ANN202
-    return func.nextval("sync_seq")
 
 
 async def apply_push(
@@ -160,10 +157,10 @@ async def _upsert(
         values[spec.owner_column] = user_id
 
     model: Any = spec.model
-    stmt = insert(model).values(**values, server_seq=_next_seq())
+    stmt = insert(model).values(**values, server_seq=next_server_seq())
     excluded = stmt.excluded
     set_ = {k: getattr(excluded, k) for k in values if k not in ("id", "created_at")}
-    set_["server_seq"] = _next_seq()
+    set_["server_seq"] = next_server_seq()
     # Strictly newer wins. Equal timestamps fall through to the no-op branch below.
     condition = model.updated_at < excluded.updated_at
     if spec.owner_column:
@@ -226,7 +223,9 @@ async def _delete(
     await session.execute(
         update(model)
         .where(model.id == change.id)
-        .values(deleted_at=change.updated_at, updated_at=change.updated_at, server_seq=_next_seq())
+        .values(
+            deleted_at=change.updated_at, updated_at=change.updated_at, server_seq=next_server_seq()
+        )
     )
     await _cascade(session, spec.name, change.id, change.updated_at, user_id)
     await session.refresh(current)
@@ -247,7 +246,7 @@ async def _cascade(
         await session.execute(
             update(model)
             .where(where, model.deleted_at.is_(None))
-            .values(deleted_at=at, updated_at=at, server_seq=_next_seq())
+            .values(deleted_at=at, updated_at=at, server_seq=next_server_seq())
         )
 
     # Every statement carries the caller's ownership, so no cascade can reach another

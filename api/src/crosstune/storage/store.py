@@ -40,20 +40,25 @@ def user_prefix(user_id: object) -> str:
     return f"{user_id}/"
 
 
+def recording_prefix(user_id: object, recording_id: object) -> str:
+    """The key prefix under which every object of one recording lives."""
+    return f"{user_id}/{recording_id}/"
+
+
 def upload_key(user_id: object, recording_id: object) -> str:
     """Where a client PUTs the raw file."""
-    return f"{user_id}/{recording_id}/upload"
+    return f"{recording_prefix(user_id, recording_id)}upload"
 
 
 def playback_key(user_id: object, recording_id: object) -> str:
     """The file every client downloads."""
-    return f"{user_id}/{recording_id}/playback.m4a"
+    return f"{recording_prefix(user_id, recording_id)}playback.m4a"
 
 
 def original_key(user_id: object, recording_id: object, content_type: str) -> str:
     """Where the untouched upload is kept when it differs from the playback file."""
     base = content_type.split(";", 1)[0].strip().lower()
-    return f"{user_id}/{recording_id}/original.{_EXTENSIONS.get(base, 'bin')}"
+    return f"{recording_prefix(user_id, recording_id)}original.{_EXTENSIONS.get(base, 'bin')}"
 
 
 class ObjectStore(Protocol):

@@ -12,6 +12,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 sync_seq = Sequence("sync_seq", start=1)
 
 
+def next_server_seq():  # noqa: ANN201 -- a SQL expression, typed by SQLAlchemy at the call site
+    """The expression that takes the next server_seq for a row the server changes."""
+    return sync_seq.next_value()
+
+
 class Base(DeclarativeBase):
     """Declarative base."""
 

@@ -101,9 +101,7 @@ async def upload_slot(
     settings = request.app.state.settings
     await lock_user(session, user.id)
     recording = await owned_recording(session, user.id, recording_id)
-    if recording.state not in SLOT_STATES:
-        msg = f"Recording is {recording.state}, not {' or '.join(SLOT_STATES)}"
-        raise ConflictError(msg)
+    require_state(recording, *SLOT_STATES)
     if body.bytes > settings.recording_max_file_bytes:
         msg = f"Files are limited to {settings.recording_max_file_bytes} bytes"
         raise FileTooLargeError(msg)
