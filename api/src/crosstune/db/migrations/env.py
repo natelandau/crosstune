@@ -15,7 +15,8 @@ from crosstune.db.base import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Migrations also run in-process, under the test suite; the app's loggers must survive.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # alembic.ini leaves the URL empty. Tests set it on the Config; the CLI falls back to settings.
 if not config.get_main_option("sqlalchemy.url"):
