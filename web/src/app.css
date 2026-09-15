@@ -4,3 +4,57 @@
     light --default,
     dark --prefersdark;
 }
+
+:root {
+  --select-bar-duration: 440ms;
+  --select-bar-stagger: 120ms;
+  --select-slot-duration: 400ms;
+  --select-stagger: 36ms;
+  --select-fade-duration: 240ms;
+  --select-tint-duration: 300ms;
+  --select-pop-duration: 360ms;
+  --select-sheet-duration: 520ms;
+  --select-toast-duration: 400ms;
+  --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@theme inline {
+  --animate-select-pop: select-pop var(--select-pop-duration) var(--ease-emphasized);
+  --animate-select-count: select-count var(--select-pop-duration) var(--ease-emphasized);
+}
+
+@keyframes select-pop {
+  0% {
+    scale: 0.85;
+  }
+  60% {
+    scale: 1.12;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes select-count {
+  from {
+    opacity: 0.2;
+    translate: 0 -6px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* daisyUI eases modals in 300ms; sheets share the selection timing. */
+.modal.sheet,
+.modal.sheet .modal-box {
+  transition-duration: var(--select-sheet-duration);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal.sheet .modal-box {
+    translate: none;
+    scale: none;
+  }
+}
