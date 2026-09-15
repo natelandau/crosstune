@@ -200,7 +200,10 @@ async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
       await db.recording_chunks.where('recording_id').equals(file.id).delete()
     }
 
-    const chunkOwners = (await db.recording_chunks.orderBy('recording_id').uniqueKeys()) as string[]
+    // Read the owners off the primary keys rather than a unique-direction index cursor,
+    // which Safari's IndexedDB refuses to open ("Unable to open cursor").
+    const chunkKeys = await db.recording_chunks.toCollection().primaryKeys()
+    const chunkOwners = [...new Set(chunkKeys.map(([recordingId]) => recordingId))]
     const owners = await db.recording_files.bulkGet(chunkOwners)
     for (const [i, recordingId] of chunkOwners.entries()) {
       if (owners[i]?.local_state === 'capturing') continue
