@@ -4,6 +4,7 @@ import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { addLink } from './links'
 import { addToList, createList } from './lists'
+import { appendChunk, beginCapture, finishCapture } from './recordings'
 import { createSong, deleteSong, setArchived, updateSong, updateUserSong } from './songs'
 
 let db: CrosstuneDb
@@ -92,6 +93,15 @@ describe('deleteSong', () => {
     const linkId = await addLink(db, songId, { url: 'https://youtu.be/abc', provider: 'youtube' })
     const listId = await createList(db, 'Tuesday')
     const itemId = await addToList(db, listId, userSongId)
+    const recordingId = 'recording-1'
+    await beginCapture(db, recordingId, { songId: null, recordedAt: new Date().toISOString() })
+    await appendChunk(db, recordingId, 0, new Blob(['x']))
+    await finishCapture(db, recordingId, {
+      songId,
+      mime: 'audio/mp4',
+      durationMs: 1000,
+      recordedAt: '2026-09-11T10:00:00.000Z',
+    })
     vi.setSystemTime(new Date('2026-09-11T11:00:00.000Z'))
     await deleteSong(db, songId)
 
@@ -100,6 +110,7 @@ describe('deleteSong', () => {
       await db.user_songs.get(userSongId),
       await db.recording_links.get(linkId),
       await db.list_items.get(itemId),
+      await db.recordings.get(recordingId),
     ]) {
       expect(row?.deleted_at).toBe('2026-09-11T11:00:00.000Z')
     }

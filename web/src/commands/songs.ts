@@ -1,6 +1,7 @@
 import type { CrosstuneDb } from '../db/schema'
 import type { Mode, SongStatus, TimeSignature } from '../db/types'
-import { defined, newId, now, putRow, tombstone, writeTx } from './write'
+import { tombstoneSongRecordings } from './recordings'
+import { defined, newId, now, putRow, recordingTx, tombstone, writeTx } from './write'
 
 export interface SongInput {
   title: string
@@ -120,7 +121,7 @@ export async function setArchived(
 
 export async function deleteSong(db: CrosstuneDb, songId: string): Promise<void> {
   const at = now()
-  await writeTx(db, async () => {
+  await recordingTx(db, async () => {
     await tombstone(db, 'songs', songId, at)
     const userSongs = await db.user_songs.where('song_id').equals(songId).toArray()
     for (const userSong of userSongs) {
@@ -134,5 +135,6 @@ export async function deleteSong(db: CrosstuneDb, songId: string): Promise<void>
     for (const link of links) {
       await tombstone(db, 'recording_links', link.id, at, { enqueueDelete: false })
     }
+    await tombstoneSongRecordings(db, songId, at)
   })
 }
