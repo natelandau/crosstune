@@ -18,11 +18,11 @@ import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { moveItem, removeFromList } from '../../commands/lists'
-import { guardTrailingClick, useOpenRow, type SwipeRowState } from '../../components/swipe'
+import { guardTrailingClick, type SwipeRowState } from '../../components/swipe'
 import type { Action } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import type { Instrument } from '../../db/types'
-import { SongRow } from '../catalog/SongRow'
+import { SongRow, type RowSelection } from '../catalog/SongRow'
 import { ReorderHandle, type Moves } from './ReorderHandle'
 import type { ListItemView } from './useLists'
 
@@ -53,6 +53,8 @@ export function ListSongs({
   visible,
   instruments,
   runThen,
+  rowState,
+  selectionFor,
 }: {
   listId: string
   /** Every item the list query returned; a new array means the stored order has caught up. */
@@ -60,10 +62,13 @@ export function ListSongs({
   visible: ListItemView[]
   instruments: ReadonlySet<Instrument>
   runThen: Action['runThen']
+  /** Owned by the screen so entering selection can close an open row. */
+  rowState: (id: string) => SwipeRowState
+  /** Omitted while renaming, so rows never enter selection alongside the rename form. */
+  selectionFor?: (userSongId: string, index: number) => RowSelection
 }) {
   const db = useDb()
   const navigate = useNavigate()
-  const rowState = useOpenRow()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: HANDLE_ACTIVATION }))
   const [pending, setPending] = useState<PendingOrder | null>(null)
   const [announcement, setAnnouncement] = useState('')
@@ -135,6 +140,7 @@ export function ListSongs({
                 position={shown.indexOf(entry.item.id) + 1}
                 instruments={instruments}
                 rowState={rowState(entry.item.id)}
+                selection={selectionFor?.(entry.userSong.id, index)}
                 moves={{
                   toTop: index > 0 ? () => move(entry, ordered[0]!) : undefined,
                   up: index > 0 ? () => move(entry, ordered[index - 1]!) : undefined,
@@ -174,6 +180,7 @@ function SortableSong({
   position,
   instruments,
   rowState,
+  selection,
   moves,
   onEdit,
   onRemove,
@@ -182,12 +189,14 @@ function SortableSong({
   position: number
   instruments: ReadonlySet<Instrument>
   rowState: SwipeRowState
+  selection?: RowSelection
   moves: Moves
   onEdit: () => void
   onRemove: () => void
 }) {
+  const active = selection?.active ?? false
   const { setNodeRef, setActivatorNodeRef, listeners, transform, transition, isDragging } =
-    useSortable({ id: entry.item.id })
+    useSortable({ id: entry.item.id, disabled: active })
 
   return (
     <li
@@ -199,11 +208,18 @@ function SortableSong({
         entry={entry}
         instruments={instruments}
         {...rowState}
+        selection={selection}
         leading={
           <span className="w-8 shrink-0 pl-3 text-sm tabular-nums opacity-60">{position}</span>
         }
         trailing={
-          <span className="shrink-0 pr-1">
+          <span
+            aria-hidden={active}
+            inert={active}
+            className={`shrink-0 overflow-hidden motion-safe:[transition:width_var(--select-slot-duration)_var(--ease-emphasized),opacity_var(--select-fade-duration)_ease-out] motion-reduce:transition-opacity motion-reduce:duration-(--select-fade-duration) ${
+              active ? 'w-0 opacity-0' : 'w-12 pr-1'
+            }`}
+          >
             <ReorderHandle
               title={entry.song.title}
               activatorRef={setActivatorNodeRef}
