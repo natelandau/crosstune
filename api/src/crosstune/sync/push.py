@@ -6,12 +6,14 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import ValidationError
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
+from crosstune.db.base import next_server_seq
+from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
-from crosstune.models import List, ListItem, RecordingLink, UserSong
+from crosstune.models import List, ListItem, Recording, RecordingLink, UserSong
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
@@ -52,16 +54,6 @@ class Resolved(Protocol):
         ...
 
 
-def _next_seq():  # noqa: ANN202
-    return func.nextval("sync_seq")
-
-
-def _advisory_lock_key(user_id: uuid.UUID) -> int:
-    """A stable signed 64-bit key derived from a user id, for pg_advisory_xact_lock."""
-    # UUIDv7 leads with a millisecond timestamp, so the trailing bytes carry the entropy.
-    return int.from_bytes(user_id.bytes[8:], "big", signed=True)
-
-
 async def apply_push(
     session: AsyncSession,
     user_id: uuid.UUID,
@@ -72,7 +64,7 @@ async def apply_push(
     # Serializes this user's concurrent pushes so server_seq is assigned in commit order,
     # matching the order a pull cursor relies on. Released automatically when the request's
     # transaction ends.
-    await session.execute(select(func.pg_advisory_xact_lock(_advisory_lock_key(user_id))))
+    await lock_user(session, user_id)
 
     grouped: dict[TableName, list[tuple[int, Change]]] = defaultdict(list)
     for index, change in enumerate(changes):
@@ -114,6 +106,9 @@ async def _parents_owned(
 ) -> str | None:
     """Return a reason string when a referenced parent is missing or not the caller's."""
     for column, parent_table in spec.parents:
+        if data.get(column) is None:
+            # An unfiled recording has no song yet; nothing to own.
+            continue
         parent = await _fetch_owned(session, TABLES[parent_table], data[column], user_id)
         if parent is None or parent.deleted_at is not None:
             return f"{column} does not reference one of your {parent_table}"
@@ -162,10 +157,10 @@ async def _upsert(
         values[spec.owner_column] = user_id
 
     model: Any = spec.model
-    stmt = insert(model).values(**values, server_seq=_next_seq())
+    stmt = insert(model).values(**values, server_seq=next_server_seq())
     excluded = stmt.excluded
     set_ = {k: getattr(excluded, k) for k in values if k not in ("id", "created_at")}
-    set_["server_seq"] = _next_seq()
+    set_["server_seq"] = next_server_seq()
     # Strictly newer wins. Equal timestamps fall through to the no-op branch below.
     condition = model.updated_at < excluded.updated_at
     if spec.owner_column:
@@ -228,7 +223,9 @@ async def _delete(
     await session.execute(
         update(model)
         .where(model.id == change.id)
-        .values(deleted_at=change.updated_at, updated_at=change.updated_at, server_seq=_next_seq())
+        .values(
+            deleted_at=change.updated_at, updated_at=change.updated_at, server_seq=next_server_seq()
+        )
     )
     await _cascade(session, spec.name, change.id, change.updated_at, user_id)
     await session.refresh(current)
@@ -249,7 +246,7 @@ async def _cascade(
         await session.execute(
             update(model)
             .where(where, model.deleted_at.is_(None))
-            .values(deleted_at=at, updated_at=at, server_seq=_next_seq())
+            .values(deleted_at=at, updated_at=at, server_seq=next_server_seq())
         )
 
     # Every statement carries the caller's ownership, so no cascade can reach another
@@ -265,6 +262,7 @@ async def _cascade(
             RecordingLink,
             (RecordingLink.song_id == row_id) & (RecordingLink.added_by_user_id == user_id),
         )
+        await mark(Recording, (Recording.song_id == row_id) & (Recording.user_id == user_id))
     elif table == "user_songs":
         await mark(ListItem, (ListItem.user_song_id == row_id) & owned_items)
     elif table == "lists":

@@ -6,7 +6,7 @@ import httpx2
 import pytest
 
 from crosstune.config import Settings
-from crosstune.errors import PROBLEM_JSON
+from crosstune.errors import PROBLEM_JSON, ConflictError, FileTooLargeError, QuotaExceededError
 from crosstune.main import create_app
 
 pytestmark = pytest.mark.anyio
@@ -34,6 +34,32 @@ async def test_unhandled_exception_renders_as_problem_details() -> None:
         "status": 500,
         "detail": "An unexpected error occurred",
     }
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "type_"),
+    [
+        (ConflictError, 409, "about:blank"),
+        (QuotaExceededError, 413, "urn:crosstune:quota-exceeded"),
+        (FileTooLargeError, 413, "urn:crosstune:file-too-large"),
+    ],
+)
+async def test_app_error_subclasses_render_their_status_and_type(
+    error: type[Exception], status: int, type_: str
+) -> None:
+    app = create_app(Settings(debug=False))
+
+    @app.get("/__boom__")
+    async def boom() -> None:
+        raise error()
+
+    transport = httpx2.ASGITransport(app=app)
+    async with httpx2.AsyncClient(transport=transport, base_url="http://testclient") as client:
+        response = await client.get("/__boom__")
+
+    assert response.status_code == status
+    assert response.headers["content-type"] == PROBLEM_JSON
+    assert response.json()["type"] == type_
 
 
 async def test_unknown_route_is_a_problem_details_404(client) -> None:

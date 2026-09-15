@@ -12,13 +12,20 @@ from crosstune.schemas.rows import (
     ListItemRow,
     ListRow,
     RecordingLinkRow,
+    RecordingRow,
     SongRow,
     UserSettingsRow,
     UserSongRow,
 )
 
 TableName = Literal[
-    "songs", "user_songs", "lists", "list_items", "recording_links", "user_settings"
+    "songs",
+    "user_songs",
+    "lists",
+    "list_items",
+    "recording_links",
+    "recordings",
+    "user_settings",
 ]
 Op = Literal["upsert", "delete"]
 Status = Literal["applied", "stale", "invalid"]
@@ -79,6 +86,13 @@ class RecordingLinkChangeResult(_ChangeResult):
     row: RecordingLinkRow | None = None
 
 
+class RecordingChangeResult(_ChangeResult):
+    """The outcome of one change to a recording."""
+
+    table: Literal["recordings"]
+    row: RecordingRow | None = None
+
+
 class UserSettingsChangeResult(_ChangeResult):
     """The outcome of one change to a user's settings."""
 
@@ -92,6 +106,7 @@ ChangeResult = Annotated[
     | ListChangeResult
     | ListItemChangeResult
     | RecordingLinkChangeResult
+    | RecordingChangeResult
     | UserSettingsChangeResult,
     Field(discriminator="table"),
 ]
@@ -102,6 +117,7 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "lists": ListChangeResult,
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
+    "recordings": RecordingChangeResult,
     "user_settings": UserSettingsChangeResult,
 }
 
@@ -141,6 +157,13 @@ class RecordingLinkPullRow(BaseModel):
     row: RecordingLinkRow
 
 
+class RecordingPullRow(BaseModel):
+    """A recording row in a pull page."""
+
+    table: Literal["recordings"]
+    row: RecordingRow
+
+
 class UserSettingsPullRow(BaseModel):
     """A settings row in a pull page."""
 
@@ -154,6 +177,7 @@ PullRow = Annotated[
     | ListPullRow
     | ListItemPullRow
     | RecordingLinkPullRow
+    | RecordingPullRow
     | UserSettingsPullRow,
     Field(discriminator="table"),
 ]
@@ -164,6 +188,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "lists": ListPullRow,
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,
+    "recordings": RecordingPullRow,
     "user_settings": UserSettingsPullRow,
 }
 

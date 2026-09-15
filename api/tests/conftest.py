@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+import subprocess
 import time
 from typing import TYPE_CHECKING
 
@@ -21,14 +23,124 @@ from crosstune.auth.jwks import JwksCache
 from crosstune.config import Settings
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.main import create_app
+from tests.fakes import FakeObjectStore
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Iterator
+    from pathlib import Path
 
     from fastapi import FastAPI
     from pytest_databases.docker.postgres import PostgresService
 
 pytest_plugins = ("pytest_databases.docker.postgres",)
+
+FIXTURE_ENCODERS: dict[str, list[str]] = {
+    "m4a": ["-c:a", "aac", "-b:a", "64k", "-f", "mp4"],
+    # Stereo, because the native AAC encoder undershoots -b:a for a mono sine tone
+    # and would land back inside the passthrough range.
+    "m4a_high": ["-ac", "2", "-c:a", "aac", "-b:a", "256k", "-f", "mp4"],
+    "webm": ["-c:a", "libopus", "-b:a", "64k", "-f", "webm"],
+    "wav": ["-c:a", "pcm_s16le", "-f", "wav"],
+    "mp3": ["-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"],
+}
+
+
+def _run_ffmpeg(argv: list[str]) -> None:
+    """Run ffmpeg with a fixed argument list built by this module, never from user input.
+
+    Args:
+        argv: Arguments after the binary name.
+    """
+    subprocess.run(  # noqa: S603 -- fixed argv, no shell
+        ["ffmpeg", *argv],  # noqa: S607 -- resolved from PATH, no shell
+        check=True,
+    )
+
+
+@pytest.fixture(scope="session")
+def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
+    """Two seconds of a sine tone in each container the transcoder must handle.
+
+    Args:
+        tmp_path_factory: Builds one shared temp directory for the whole session.
+
+    Returns:
+        dict[str, Path]: Fixture format name mapped to its generated file.
+    """
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed")
+    folder = tmp_path_factory.mktemp("media")
+    paths: dict[str, Path] = {}
+    for name, args in FIXTURE_ENCODERS.items():
+        path = folder / f"tone.{name}"
+        _run_ffmpeg(
+            [
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:duration=2",
+                *args,
+                str(path),
+            ]
+        )
+        paths[name] = path
+
+    # A leading video (cover art) stream ahead of the audio stream: an mp3 muxes
+    # any mapped video as an ID3 attached picture regardless of map order, so it
+    # can never sort before the audio stream, but mp4 keeps track order as mapped.
+    # This exercises probe() picking the audio stream by codec_type, not position.
+    cover = folder / "cover.jpg"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=64x64:d=1",
+            "-frames:v",
+            "1",
+            str(cover),
+        ]
+    )
+    art_path = folder / "tone_art.m4a"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-i",
+            str(cover),
+            "-i",
+            str(paths["m4a"]),
+            "-map",
+            "0:v",
+            "-map",
+            "1:a",
+            "-c:v",
+            "mjpeg",
+            "-c:a",
+            "copy",
+            "-f",
+            "mp4",
+            str(art_path),
+        ]
+    )
+    paths["m4a_art"] = art_path
+    return paths
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _ignore_env_file() -> Iterator[None]:
+    """Keep a developer's api/.env out of the suite. Every test states the settings it needs."""
+    original = Settings.model_config.get("env_file")
+    Settings.model_config["env_file"] = None
+    yield
+    Settings.model_config["env_file"] = original
 
 
 @pytest.fixture(scope="session")
@@ -178,8 +290,13 @@ def auth_headers(make_token):
 
 
 @pytest.fixture
-async def verify_session(engine) -> AsyncIterator[AsyncSession]:
-    """A committed-view session for asserting what the API wrote."""
+async def verify_session(engine, truncate_all: None) -> AsyncIterator[AsyncSession]:
+    """A committed-view session for asserting what the API wrote.
+
+    Depends on truncate_all so that verify_session is torn down before
+    truncate_all runs: pytest finalizes fixtures in reverse of setup order, and
+    an open read transaction on this session would otherwise block the truncate.
+    """
     async with AsyncSession(bind=engine, expire_on_commit=False) as s:
         yield s
 
@@ -191,19 +308,25 @@ async def truncate_all(engine) -> AsyncIterator[None]:
     async with engine.begin() as conn:
         await conn.execute(
             text(
-                "truncate list_items, lists, recording_links, user_songs, songs, "
-                "user_settings, users cascade"
+                "truncate upload_slots, jobs, recordings, list_items, lists, recording_links, "
+                "user_songs, songs, user_settings, users cascade"
             )
         )
 
 
 @pytest.fixture
-def app(settings: Settings, engine, mock_http: MockHttp) -> FastAPI:
+def object_store() -> FakeObjectStore:
+    return FakeObjectStore()
+
+
+@pytest.fixture
+def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjectStore) -> FastAPI:
     app = create_app(settings)
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.http_client = mock_http.client()
     app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
+    app.state.object_store = object_store
     return app
 
 

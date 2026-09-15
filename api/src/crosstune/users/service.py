@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from sqlalchemy import CursorResult, delete, select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.models import User
 from crosstune.models.user import new_uuid7, utc_now
 
 if TYPE_CHECKING:
+    import uuid
+
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -45,12 +47,17 @@ async def get_or_create_user(
     return result.scalar_one()
 
 
-async def delete_user_by_clerk_id(session: AsyncSession, clerk_user_id: str) -> bool:
-    """Hard-delete the user. Foreign keys cascade to every table they own."""
-    # execute() on a DML statement always returns a CursorResult; the base Result type just
-    # doesn't say so.
-    result = cast(
-        "CursorResult",
-        await session.execute(delete(User).where(User.clerk_user_id == clerk_user_id)),
+async def delete_user_by_clerk_id(session: AsyncSession, clerk_user_id: str) -> uuid.UUID | None:
+    """Hard-delete the user. Foreign keys cascade to every table they own.
+
+    Args:
+        session: The session to write through.
+        clerk_user_id: The Clerk subject of the account.
+
+    Returns:
+        uuid.UUID | None: The id of the row this call deleted, or None when no such
+        user existed. A duplicate webhook delivery racing this one gets None.
+    """
+    return await session.scalar(
+        delete(User).where(User.clerk_user_id == clerk_user_id).returning(User.id)
     )
-    return (result.rowcount or 0) > 0

@@ -9,7 +9,7 @@ the stack, read `docs/PRODUCT.md`.
 
 ## The systems
 
-Crosstune is two deployables and six hosted services.
+Crosstune is two deployables and seven hosted services.
 
 ```
                  GitHub (source, CI)
@@ -17,14 +17,14 @@ Crosstune is two deployables and six hosted services.
        push under web/      push under api/, pull request events
                   |              |
                   v              v
-   +-------------------+     +-------------------+      +-------------+
-   | Cloudflare Worker |     | Railway           |      | Neon        |
-   | web client assets |---->| API container     |<---->| Postgres    |
-   | /v1 proxy, KV     |     | one env per PR    |      | branch/PR   |
-   +-------------------+     +-------------------+      +-------------+
-            ^                         |     ^
-   app shell, assets,                 |     | jwks.json, user.deleted webhook
-   /v1 JSON with a Clerk JWT          |     v
+   +-------------------+     +-------------------+      +-------------+       +-------------+
+   | Cloudflare Worker |     | Railway           |      | Neon        |       | R2          |
+   | web client assets |---->| API container     |<---->| Postgres    |       | audio bytes |
+   | /v1 proxy, KV     |     | one env per PR    |      | branch/PR   |       |             |
+   +-------------------+     +-------------------+      +-------------+       +-------------+
+            ^                         |     ^                                         ^
+   app shell, assets,                 |     | jwks.json, user.deleted webhook         |  presigned PUT, GET (browser)
+   /v1 JSON with a Clerk JWT          |     v                                         |  sign, HEAD, copy, delete (API)
             |                         |  +-------------+
    +-------------------+              |  | Clerk       |
    | Browser           |              |  | sign-in     |
@@ -53,6 +53,7 @@ Crosstune is two deployables and six hosted services.
 | Clerk      | Signs users in and issues the tokens the API verifies.                                               | Cloudflare DNS for its hostnames   |
 | Cloudflare | Builds and serves the web client, proxies `/v1` to the API, terminates HTTPS for the product domain. | GitHub, Railway                    |
 | Railway    | Builds and runs the API container. Terminates HTTPS for the API domain.                              | GitHub, Neon                       |
+| R2         | Stores recording audio. The browser uploads and downloads it directly. The API signs and manages it. | Cloudflare account                 |
 | Sentry     | Receives errors from the web client and the API.                                                     | Nothing                            |
 | GitHub     | Holds the source and runs the checks. The hosts deploy from it.                                      | Nothing                            |
 
@@ -117,16 +118,20 @@ contract, and the client's TypeScript types are generated from it. A CI job
 regenerates the types and fails when the committed copy differs. A native
 client later uses the same endpoints.
 
-The API exposes six routes.
+The API exposes ten routes.
 
-| Route                     | Purpose                                                       |
-| ------------------------- | ------------------------------------------------------------- |
-| `POST /v1/sync/push`      | Apply a batch of client changes.                              |
-| `GET /v1/sync/pull`       | Return every row of the caller changed after a cursor.        |
-| `POST /v1/links/resolve`  | Return provider, canonical URL, title, and artwork for a URL. |
-| `GET /v1/me`              | Return the caller's profile. Creates the user on first call.  |
-| `POST /v1/webhooks/clerk` | Receive account deletions from Clerk.                         |
-| `GET /healthz`            | Answer Railway's health check.                                |
+| Route                                  | Purpose                                                                      |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `POST /v1/sync/push`                   | Apply a batch of client changes.                                             |
+| `GET /v1/sync/pull`                    | Return every row of the caller changed after a cursor.                       |
+| `POST /v1/links/resolve`               | Return provider, canonical URL, title, and artwork for a URL.                |
+| `GET /v1/me`                           | Return the caller's profile and storage use. Creates the user on first call. |
+| `POST /v1/recordings/{id}/upload-slot` | Reserve quota for a recording and sign a PUT for its file.                   |
+| `POST /v1/recordings/{id}/uploaded`    | Confirm the PUT landed and queue the transcode.                              |
+| `POST /v1/recordings/{id}/retry`       | Run the transcode of a failed recording again.                               |
+| `GET /v1/recordings/{id}/download`     | Sign a GET for the playback file of a ready recording.                       |
+| `POST /v1/webhooks/clerk`              | Receive account deletions from Clerk.                                        |
+| `GET /healthz`                         | Answer Railway's health check.                                               |
 
 Every route under `/v1` except the webhook requires a Clerk bearer token. No
 user ID appears in a URL or a body. The server sets ownership from the token
@@ -180,6 +185,12 @@ verifies the Svix signature and the timestamp, then hard-deletes the user
 row. Foreign keys cascade to everything that user owned. Every other event
 type is acknowledged and ignored.
 
+The user's files in the bucket are removed after the webhook has answered,
+so a slow or unavailable bucket never delays or undoes the deletion. The job
+runner also sweeps the bucket once an hour and deletes every user prefix
+whose user row is gone, which makes the file removal certain even when that
+first attempt fails.
+
 Production uses Clerk's production instance on hostnames under the product
 domain. Development, local development, and the end-to-end suite share one
 Clerk development instance.
@@ -192,8 +203,9 @@ a token, and resumes when Clerk loads again.
 
 ## Sync
 
-The sync pair is the only way a client reads or writes catalog data. There
-are no per-resource endpoints.
+The sync pair is the only way a client reads or writes catalog data. The one
+set of per-resource endpoints is for recording files, which move through
+presigned URLs rather than as rows.
 
 Push sends the outbox, up to 500 changes per batch, in order. Each change
 names a table, a row ID, an operation, the row data, and the client's
@@ -330,16 +342,17 @@ still tags `development`.
 Each row describes what a musician sees when one system is down and the
 others are up.
 
-| Unavailable          | Effect                                                                                                                           |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                               |
-| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails.       |
-| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.                  |
-| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                        |
-| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                       |
-| A streaming provider | A pasted link is saved without a title. In-app playback of an existing link from that provider fails until the provider returns. |
-| Sentry               | Nothing visible. Errors are dropped.                                                                                             |
-| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                       |
+| Unavailable          | Effect                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Network on the phone | The installed app loads from the service worker. Reads and writes work. Sync resumes on reconnect.                                                                       |
+| Cloudflare           | An installed app loads from the service worker, but sync fails because `/v1` goes through the Worker. A first visit fails.                                               |
+| Clerk                | A signed in app opens after a five second grace period with the remembered user. Sync waits. New sign-ins fail.                                                          |
+| Railway API          | Reads and writes work. The outbox grows. The engine retries with backoff and the app bar shows the state.                                                                |
+| R2                   | Recording and playback of audio already on the device keep working. Uploads wait and retry. A first download of that recording on another device fails until R2 returns. |
+| Neon                 | The API returns 500s and Sentry receives them. The client behaves as if the API were down.                                                                               |
+| A streaming provider | A pasted link is saved without a title. In-app playback of an existing link from that provider fails until the provider returns.                                         |
+| Sentry               | Nothing visible. Errors are dropped.                                                                                                                                     |
+| GitHub               | Nothing visible. Deploys and checks wait until it returns.                                                                                                               |
 
 ## Hosting reference
 
@@ -348,20 +361,21 @@ Railway's `railway.json` config files are deprecated, and a service created
 after 2026-08-28 cannot use them, so the dashboards are the source of truth.
 Values pass between hosts as follows.
 
-| Value                                                     | Produced by    | Consumed by                          |
-| --------------------------------------------------------- | -------------- | ------------------------------------ |
-| Neon production and development connection strings        | Neon           | Railway                              |
-| Neon development project ID and database role             | Neon           | GitHub                               |
-| `crosstune-api` and `crosstune-web` DSNs                  | Sentry         | Railway, Workers Builds              |
-| Clerk development issuer, publishable key, and secret key | Clerk          | Railway, Workers Builds, GitHub      |
-| Clerk production issuer and publishable key               | Clerk          | Railway, Workers Builds              |
-| Clerk webhook signing secrets, one per instance           | Clerk          | Railway                              |
-| Railway development hostname                              | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
-| Railway project, development environment, and service IDs | Railway        | GitHub                               |
-| `workers.dev` subdomain                                   | Cloudflare     | Railway development regex            |
-| KV namespace ID                                           | Cloudflare     | `web/wrangler.jsonc`, GitHub         |
-| Cloudflare account ID                                     | Cloudflare     | GitHub                               |
-| CNAME targets for `api.<domain>` and the Clerk hostnames  | Railway, Clerk | Cloudflare DNS                       |
+| Value                                                       | Produced by    | Consumed by                          |
+| ----------------------------------------------------------- | -------------- | ------------------------------------ |
+| Neon production and development connection strings          | Neon           | Railway                              |
+| Neon development project ID and database role               | Neon           | GitHub                               |
+| `crosstune-api` and `crosstune-web` DSNs                    | Sentry         | Railway, Workers Builds              |
+| Clerk development issuer, publishable key, and secret key   | Clerk          | Railway, Workers Builds, GitHub      |
+| Clerk production issuer and publishable key                 | Clerk          | Railway, Workers Builds              |
+| Clerk webhook signing secrets, one per instance             | Clerk          | Railway                              |
+| Railway development hostname                                | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
+| Railway project, development environment, and service IDs   | Railway        | GitHub                               |
+| `workers.dev` subdomain                                     | Cloudflare     | Railway development regex            |
+| KV namespace ID                                             | Cloudflare     | `web/wrangler.jsonc`, GitHub         |
+| Cloudflare account ID                                       | Cloudflare     | GitHub, Railway                      |
+| R2 access key ID and secret access key, one pair per bucket | Cloudflare     | Railway                              |
+| CNAME targets for `api.<domain>` and the Clerk hostnames    | Railway, Clerk | Cloudflare DNS                       |
 
 A rebuild from nothing works through the hosts in the order Neon, Sentry,
 Clerk, Railway, Cloudflare, GitHub, then the smoke check. It returns to Clerk
@@ -380,7 +394,7 @@ prints it. The API rewrites `sslmode` to the form asyncpg accepts and drops
 `channel_binding`.
 
 Object storage, functions, the AI gateway, and Neon Auth are off. Clerk owns
-authentication, and audio storage is planned for Cloudflare R2.
+authentication, and audio storage is Cloudflare R2.
 
 ### Sentry
 
@@ -463,15 +477,23 @@ delete hangs.
 
 Production variables:
 
-| Variable                             | Value                              |
-| ------------------------------------ | ---------------------------------- |
-| `CROSSTUNE_ENVIRONMENT`              | `production`                       |
-| `CROSSTUNE_DEBUG`                    | `false`                            |
-| `CROSSTUNE_DATABASE_URL`             | Neon production string, as printed |
-| `CROSSTUNE_CLERK_ISSUER`             | `https://clerk.<domain>`           |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES` | `["https://<domain>"]`             |
-| `CROSSTUNE_CLERK_WEBHOOK_SECRET`     | Production endpoint signing secret |
-| `CROSSTUNE_SENTRY_DSN`               | `crosstune-api` DSN                |
+| Variable                             | Value                                       |
+| ------------------------------------ | ------------------------------------------- |
+| `CROSSTUNE_ENVIRONMENT`              | `production`                                |
+| `CROSSTUNE_DEBUG`                    | `false`                                     |
+| `CROSSTUNE_DATABASE_URL`             | Neon production string, as printed          |
+| `CROSSTUNE_CLERK_ISSUER`             | `https://clerk.<domain>`                    |
+| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES` | `["https://<domain>"]`                      |
+| `CROSSTUNE_CLERK_WEBHOOK_SECRET`     | Production endpoint signing secret          |
+| `CROSSTUNE_SENTRY_DSN`               | `crosstune-api` DSN                         |
+| `CROSSTUNE_R2_ACCOUNT_ID`            | Cloudflare account ID                       |
+| `CROSSTUNE_R2_BUCKET`                | `crosstune-recordings`                      |
+| `CROSSTUNE_R2_ACCESS_KEY_ID`         | Production bucket's API token access key ID |
+| `CROSSTUNE_R2_SECRET_ACCESS_KEY`     | Production bucket's API token secret        |
+| `CROSSTUNE_RECORDING_QUOTA_BYTES`    | Optional. Default `1073741824`              |
+| `CROSSTUNE_RECORDING_MAX_FILE_BYTES` | Optional. Default `52428800`                |
+| `CROSSTUNE_JOB_POLL_SECONDS`         | Optional. Default `3.0`                     |
+| `CROSSTUNE_ORPHAN_SWEEP_SECONDS`     | Optional. Default `3600.0`                  |
 
 Development variables:
 
@@ -485,6 +507,17 @@ Development variables:
 | `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | `^https://[a-z0-9-]+-crosstune-web\.<workers-subdomain>\.workers\.dev$` |
 | `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Development endpoint signing secret                                     |
 | `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                                                     |
+| `CROSSTUNE_R2_ACCOUNT_ID`                | Cloudflare account ID                                                   |
+| `CROSSTUNE_R2_BUCKET`                    | `crosstune-recordings-dev`                                              |
+| `CROSSTUNE_R2_ACCESS_KEY_ID`             | Development bucket's API token access key ID                            |
+| `CROSSTUNE_R2_SECRET_ACCESS_KEY`         | Development bucket's API token secret                                   |
+| `CROSSTUNE_RECORDING_QUOTA_BYTES`        | Optional. Default `1073741824`                                          |
+| `CROSSTUNE_RECORDING_MAX_FILE_BYTES`     | Optional. Default `52428800`                                            |
+| `CROSSTUNE_JOB_POLL_SECONDS`             | Optional. Default `3.0`                                                 |
+| `CROSSTUNE_ORPHAN_SWEEP_SECONDS`         | Optional. Default `3600.0`                                              |
+
+A pull request environment inherits the development variables from the copy,
+so it uses the `crosstune-recordings-dev` bucket too.
 
 The regex writes the account's `workers.dev` subdomain literally. A subdomain
 of `acme` gives `^https://[a-z0-9-]+-crosstune-web\.acme\.workers\.dev$`. It
@@ -553,6 +586,62 @@ the manifest.
 
 The API token the workflow uses has one permission, Workers KV Storage Edit,
 on this account only.
+
+### Cloudflare R2
+
+Two buckets, `crosstune-recordings` for production and
+`crosstune-recordings-dev` for development, pull request environments, and
+local work. The API signs upload and download URLs, and it does a HEAD
+check, a copy, and a delete for cleanup. The browser sends the file straight
+to R2 with the signed PUT and plays it back with the signed GET.
+
+| Bucket setting  | Value                                     |
+| --------------- | ----------------------------------------- |
+| API token scope | Object Read & Write, on that bucket alone |
+| CORS methods    | `GET`, `PUT`, `HEAD`                      |
+| CORS headers    | Allowed: `Content-Type`. Exposed: `ETag`. |
+| CORS max age    | 3600 seconds                              |
+
+Each bucket has its own token. Railway holds a token's access key ID and
+secret in `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY`,
+next to `CROSSTUNE_R2_ACCOUNT_ID` and `CROSSTUNE_R2_BUCKET`. The Railway
+variable tables above list both environments.
+
+The production bucket's CORS policy allows only the production web origin.
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<domain>"],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+The development bucket's CORS policy allows the local Vite server, the
+stable development preview, and every pull request preview.
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:5173",
+      "http://localhost:4173",
+      "https://development-crosstune-web.<workers-subdomain>.workers.dev",
+      "https://*-crosstune-web.<workers-subdomain>.workers.dev"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+The Cloudflare account has a billing notification for R2 usage.
 
 ### Cloudflare zone
 

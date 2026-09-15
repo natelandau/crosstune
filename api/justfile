@@ -41,11 +41,11 @@ precommit:
 [group('lint')]
 lint: ruff format ty typos precommit
 
-# Run the test suite against a Postgres container; extra args go to pytest
+# Run the test suite against a Postgres container; args narrow the run and drop coverage
 [group('test')]
 test *args:
     docker info > /dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
-    uv run pytest tests/ -c pyproject.toml --color=yes --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term {{ args }}
+    uv run pytest -c pyproject.toml --color=yes {{ if args == "" { "tests/ --cov --cov-config=pyproject.toml --cov-report=xml --cov-report=term" } else { args } }}
 
 # Run the API with reload
 [group('run')]

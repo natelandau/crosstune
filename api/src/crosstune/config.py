@@ -43,6 +43,24 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     resolver_timeout_seconds: float = 5.0
     pull_page_size: int = 500
+    r2_account_id: str = ""
+    r2_bucket: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    recording_quota_bytes: int = 1_073_741_824
+    recording_max_file_bytes: int = 52_428_800
+    job_poll_seconds: float = 3.0
+    orphan_sweep_seconds: float = 3600.0
+
+    @property
+    def r2_configured(self) -> bool:
+        """Whether every R2 setting is present. Without them the store stays unbuilt."""
+        return bool(
+            self.r2_account_id
+            and self.r2_bucket
+            and self.r2_access_key_id
+            and self.r2_secret_access_key
+        )
 
     @field_validator("database_url")
     @classmethod

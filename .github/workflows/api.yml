@@ -55,6 +55,7 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: docker info
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: just test
 
   contract:
