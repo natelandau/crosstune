@@ -85,8 +85,8 @@ on a phone home screen. It contains these features.
   file. A recording attaches to a song or waits unfiled in the Recordings tab.
   It plays at once on the device that made it and uploads in the background.
   It reaches the user's other devices when someone plays it, or ahead of time
-  on any device where Keep recordings offline is turned on in Settings. A free
-  account stores 1 GB of recordings.
+  on any device where Download all recordings to this device is turned on in
+  Settings. A free account stores 1 GB of recordings.
 
 These features are out of the first release. Each has a place in the data model
 and no code.
