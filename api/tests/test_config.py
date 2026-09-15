@@ -54,3 +54,15 @@ def test_valid_party_regex_is_kept_verbatim() -> None:
     pattern = r"^https://[a-z0-9-]+-crosstune-web\.example\.workers\.dev$"
     settings = Settings(clerk_authorized_party_regex=pattern)
     assert settings.clerk_authorized_party_regex == pattern
+
+
+def test_r2_configured_requires_all_four_values() -> None:
+    complete = {
+        "r2_account_id": "acct",
+        "r2_bucket": "crosstune-test",
+        "r2_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
+        "r2_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
+    }
+    assert Settings(**complete).r2_configured is True
+    for missing in complete:
+        assert Settings(**{**complete, missing: ""}).r2_configured is False

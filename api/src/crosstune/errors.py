@@ -35,14 +35,31 @@ VALIDATION_RESPONSE: dict[int | str, dict[str, Any]] = {
 }
 
 
+def problem_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    """Document the problem details a route answers with, alongside the 422 every route has.
+
+    Args:
+        statuses: The HTTP statuses the route can fail with.
+
+    Returns:
+        dict[int | str, dict[str, Any]]: OpenAPI responses, so the generated
+        client has a type for each state it must branch on.
+    """
+    documented: dict[int | str, dict[str, Any]] = {
+        status: {"model": Problem, "description": _reason_phrase(status)} for status in statuses
+    }
+    return documented | VALIDATION_RESPONSE
+
+
 class AppError(Exception):
     """An error with an HTTP status and a human-readable detail."""
 
-    def __init__(self, status: int, title: str, detail: str) -> None:
+    def __init__(self, status: int, title: str, detail: str, *, type_: str = "about:blank") -> None:
         super().__init__(detail)
         self.status = status
         self.title = title
         self.detail = detail
+        self.type = type_
 
 
 class UnauthorizedError(AppError):
@@ -66,20 +83,37 @@ class NotFoundError(AppError):
         super().__init__(404, "Not Found", detail)
 
 
+class ConflictError(AppError):
+    """The resource is not in a state that allows this."""
+
+    def __init__(self, detail: str = "Conflict") -> None:
+        super().__init__(409, "Conflict", detail)
+
+
+class QuotaExceededError(AppError):
+    """The upload would take the caller past their storage quota."""
+
+    def __init__(self, detail: str = "Storage quota exceeded") -> None:
+        super().__init__(413, "Content Too Large", detail, type_="urn:crosstune:quota-exceeded")
+
+
+class FileTooLargeError(AppError):
+    """One file is over the per-file cap."""
+
+    def __init__(self, detail: str = "File is too large") -> None:
+        super().__init__(413, "Content Too Large", detail, type_="urn:crosstune:file-too-large")
+
+
 def _problem(
     status: int,
     title: str,
     detail: str,
     *,
+    type_: str = "about:blank",
     headers: Mapping[str, str] | None = None,
     extra: Mapping[str, Any] | None = None,
 ) -> JSONResponse:
-    content: dict[str, Any] = {
-        "type": "about:blank",
-        "title": title,
-        "status": status,
-        "detail": detail,
-    }
+    content: dict[str, Any] = {"type": type_, "title": title, "status": status, "detail": detail}
     content.update(extra or {})
     return JSONResponse(
         status_code=status, content=content, media_type=PROBLEM_JSON, headers=dict(headers or {})
@@ -107,9 +141,11 @@ def _publish_problem_media_type(app: FastAPI) -> None:
         schema = generate()
         for path_item in schema.get("paths", {}).values():
             for operation in path_item.values():
-                content = operation.get("responses", {}).get("422", {}).get("content", {})
-                if "application/json" in content:
-                    content[PROBLEM_JSON] = content.pop("application/json")
+                for response in operation.get("responses", {}).values():
+                    content = response.get("content", {})
+                    body = content.get("application/json", {})
+                    if str(body.get("schema", {}).get("$ref", "")).endswith("/Problem"):
+                        content[PROBLEM_JSON] = content.pop("application/json")
         return schema
 
     # Replacing the generator on the instance is FastAPI's documented extension point.
@@ -122,7 +158,7 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return _problem(exc.status, exc.title, exc.detail)
+        return _problem(exc.status, exc.title, exc.detail, type_=exc.type)
 
     @app.exception_handler(HTTPException)
     async def _http_exception(_: Request, exc: HTTPException) -> JSONResponse:

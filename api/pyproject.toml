@@ -3,6 +3,7 @@
     dependencies = [
         "alembic>=1.19.2",
         "asyncpg>=0.31.0",
+        "boto3>=1.43.94",
         "fastapi>=0.141.1",
         "httpx2>=2.12.0",
         "pydantic-settings>=2.15.0",
@@ -13,7 +14,7 @@
         "sqlalchemy[asyncio]>=2.0.52",
         "uuid-utils>=1.0.0",
         "uvicorn[standard]>=0.52.4",
-    ]
+]
     description = "Crosstune API"
     name = "crosstune"
     requires-python = ">=3.13,<3.14"
@@ -38,6 +39,7 @@
         "ruff>=0.16.7",
         "shellcheck-py>=0.11.0.1",
         "ty>=0.0.80",
+        "types-boto3[s3]>=1.43.94",
         "typos>=1.50.1",
         "yamllint>=1.38.0",
 ]
