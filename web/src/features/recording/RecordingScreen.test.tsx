@@ -10,40 +10,10 @@ import type { CrosstuneDb } from '../../db/schema'
 import { captureLockName } from '../../sync/captureLock'
 import { openTestDb } from '../../test/db'
 import { FakeLockManager } from '../../test/fakeLocks'
+import type { FakeTrack } from '../../test/fakeMedia'
+import { FakeRecorder, fakeStream, LAST_CHUNK, stubMediaGlobals } from '../../test/fakeMedia'
 import { renderApp } from '../../test/render'
 import { unlockAudioContext } from './audioContext'
-
-class FakeRecorder extends EventTarget {
-  static isTypeSupported = (m: string) => m === 'audio/mp4'
-  static instances: FakeRecorder[] = []
-  state = 'inactive'
-  mimeType = 'audio/mp4'
-  constructor(
-    readonly stream: MediaStream,
-    readonly options: MediaRecorderOptions,
-  ) {
-    super()
-    FakeRecorder.instances.push(this)
-  }
-  start() {
-    this.state = 'recording'
-  }
-  stop() {
-    this.state = 'inactive'
-    this.emit('audio')
-    this.dispatchEvent(new Event('stop'))
-  }
-  emit(text: string) {
-    this.dispatchEvent(
-      Object.assign(new Event('dataavailable'), { data: new Blob([text], { type: 'audio/mp4' }) }),
-    )
-  }
-}
-
-class FakeTrack extends EventTarget {
-  muted = false
-  stop = vi.fn()
-}
 
 let db: CrosstuneDb
 let track: FakeTrack
@@ -60,37 +30,11 @@ function stubLocks(): FakeLockManager {
 
 beforeEach(() => {
   db = openTestDb()
-  track = new FakeTrack()
-  FakeRecorder.instances = []
-  vi.stubGlobal('MediaRecorder', FakeRecorder)
-  vi.stubGlobal(
-    'AudioContext',
-    class {
-      state = 'running'
-      resume = vi.fn(async () => {})
-      suspend = vi.fn(async () => {})
-      createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() })
-      createAnalyser = () => ({ fftSize: 0, frequencyBinCount: 16, getByteTimeDomainData: vi.fn() })
-    },
-  )
-  Object.defineProperty(navigator, 'mediaDevices', {
-    configurable: true,
-    value: {
-      getUserMedia: vi.fn(async () => fakeStream()),
-    },
-  })
-  Object.defineProperty(navigator, 'storage', {
-    configurable: true,
-    value: { persist: vi.fn(async () => true) },
-  })
+  ;({ track } = stubMediaGlobals())
   // These tests navigate to /record directly rather than through a Record button tap;
   // a real navigation there always follows one, so match that starting point.
   unlockAudioContext()
 })
-
-function fakeStream() {
-  return { getAudioTracks: () => [track], getTracks: () => [track] }
-}
 
 function getUserMedia(): ReturnType<typeof vi.fn> {
   return navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>
@@ -182,7 +126,7 @@ describe('RecordingScreen', () => {
     const [row] = await db.recordings.toArray()
     const file = await db.recording_files.get(row!.id)
     expect(file?.local_state).toBe('captured')
-    expect(file?.bytes).toBe('audio'.length)
+    expect(file?.bytes).toBe(LAST_CHUNK.length)
   })
 
   it('holds the capture lock from before the take begins until it is saved', async () => {
@@ -286,7 +230,7 @@ describe('RecordingScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(confirm).not.toHaveBeenCalled()
-    await act(async () => grant(fakeStream()))
+    await act(async () => grant(fakeStream(track)))
     await waitFor(() => expect(track.stop).toHaveBeenCalled())
     expect(FakeRecorder.instances).toHaveLength(0)
     expect(await db.recording_files.count()).toBe(0)

@@ -2,37 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import type { RecorderLike } from './capture'
+import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
 import {
   createTakeSession,
   type MediaStreamLike,
   type TakeSessionDeps,
   type TakeSnapshot,
 } from './takeSession'
-
-class FakeRecorder extends EventTarget implements RecorderLike {
-  static isTypeSupported = (m: string) => m === 'audio/mp4'
-  state = 'inactive'
-  mimeType = 'audio/mp4'
-  start() {
-    this.state = 'recording'
-  }
-  stop() {
-    this.state = 'inactive'
-    this.emit('audio')
-    this.dispatchEvent(new Event('stop'))
-  }
-  emit(text: string) {
-    this.dispatchEvent(
-      Object.assign(new Event('dataavailable'), { data: new Blob([text], { type: 'audio/mp4' }) }),
-    )
-  }
-}
-
-class FakeTrack extends EventTarget {
-  muted = false
-  stop = vi.fn()
-}
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {}
@@ -54,14 +30,9 @@ afterEach(async () => {
 
 function setup(overrides: Partial<TakeSessionDeps<MediaStreamLike>> = {}) {
   const track = new FakeTrack()
-  const stream: MediaStreamLike = { getAudioTracks: () => [track], getTracks: () => [track] }
-  const recorders: FakeRecorder[] = []
-  class Recorder extends FakeRecorder {
-    constructor() {
-      super()
-      recorders.push(this)
-    }
-  }
+  const stream: MediaStreamLike = fakeStream(track)
+  FakeRecorder.instances = []
+  const recorders = FakeRecorder.instances
   const clock = { time: 1_000 }
   const releaseLock = vi.fn()
   const releaseWakeLock = vi.fn()
@@ -71,7 +42,7 @@ function setup(overrides: Partial<TakeSessionDeps<MediaStreamLike>> = {}) {
     recordingId: 'rec_1',
     songId: () => null,
     getUserMedia: vi.fn(async () => stream),
-    MediaRecorder: Recorder,
+    MediaRecorder: FakeRecorder,
     acquireCaptureLock: vi.fn(async () => releaseLock),
     holdWakeLock: vi.fn(() => releaseWakeLock),
     unlockAudioContext: () => ({
@@ -190,7 +161,7 @@ describe('createTakeSession finish and cancel', () => {
       error: 'Part of this recording could not be saved.',
     })
     const file = await db.recording_files.get('rec_1')
-    expect(file).toMatchObject({ local_state: 'captured', bytes: 'audio'.length })
+    expect(file).toMatchObject({ local_state: 'captured', bytes: LAST_CHUNK.length })
     expect(track.stop).toHaveBeenCalled()
     expect(releaseLock).toHaveBeenCalledTimes(1)
     expect(releaseWakeLock).toHaveBeenCalledTimes(1)

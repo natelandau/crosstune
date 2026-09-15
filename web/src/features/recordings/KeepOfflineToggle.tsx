@@ -32,8 +32,11 @@ export function KeepOfflineToggle({ songId, listId }: { songId?: string; listId?
     if (listId) {
       const marks = await getKeepOfflineLists(db)
       const songIds = await songIdsInList(db, listId)
-      let count = 0
-      for (const id of songIds) count += (await activeRecordingsForSong(db, id)).length
+      const count = await db.recordings
+        .where('song_id')
+        .anyOf([...songIds])
+        .filter((r) => !r.deleted_at)
+        .count()
       return { marked: marks.includes(listId), count }
     }
     return { marked: false, count: 0 }

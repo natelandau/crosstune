@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { activeRecordingsForSong } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording, LocalSong } from '../../db/types'
@@ -17,10 +18,9 @@ export function useRecordingsWithFiles({ songId }: { songId?: string } = {}):
   RecordingView[] | undefined {
   const db = useDb()
   return useLiveQuery(async () => {
-    const rows = songId
-      ? await db.recordings.where('song_id').equals(songId).toArray()
-      : await db.recordings.toArray()
-    const live = rows.filter((r) => !r.deleted_at)
+    const live = songId
+      ? await activeRecordingsForSong(db, songId)
+      : (await db.recordings.toArray()).filter((r) => !r.deleted_at)
     const files = await db.recording_files.bulkGet(live.map((r) => r.id))
     const wantedSongIds = [...new Set(live.map((r) => r.song_id).filter((s): s is string => !!s))]
     const songs = await db.songs.bulkGet(wantedSongIds)
@@ -36,7 +36,7 @@ export function useRecordingsWithFiles({ songId }: { songId?: string } = {}):
         songTitle: song?.title ?? null,
       }
     })
-    if (songId) return views.sort((a, b) => a.recording.position - b.recording.position)
+    if (songId) return views
     return views.sort((a, b) => {
       const unfiled = Number(!!a.songId) - Number(!!b.songId)
       return unfiled || b.recording.recorded_at.localeCompare(a.recording.recorded_at)

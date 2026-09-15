@@ -3,56 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderApp } from '../../test/render'
 
-class FakeTrack extends EventTarget {
-  muted = false
-  stop = vi.fn()
-}
-
-class FakeRecorder extends EventTarget {
-  static isTypeSupported = (m: string) => m === 'audio/mp4'
-  state = 'inactive'
-  mimeType = 'audio/mp4'
-  start() {
-    this.state = 'recording'
-  }
-  stop() {
-    this.state = 'inactive'
-    this.dispatchEvent(new Event('stop'))
-  }
-}
-
 let db: CrosstuneDb
-let track: FakeTrack
 
 beforeEach(() => {
   db = openTestDb()
-  track = new FakeTrack()
-  vi.stubGlobal('MediaRecorder', FakeRecorder)
-  vi.stubGlobal(
-    'AudioContext',
-    class {
-      state = 'running'
-      resume = vi.fn(async () => {})
-      suspend = vi.fn(async () => {})
-      createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() })
-      createAnalyser = () => ({ fftSize: 0, frequencyBinCount: 16, getByteTimeDomainData: vi.fn() })
-    },
-  )
-  Object.defineProperty(navigator, 'mediaDevices', {
-    configurable: true,
-    value: {
-      getUserMedia: vi.fn(async () => ({
-        getAudioTracks: () => [track],
-        getTracks: () => [track],
-      })),
-    },
-  })
-  Object.defineProperty(navigator, 'storage', {
-    configurable: true,
-    value: { persist: vi.fn(async () => true) },
-  })
+  stubMediaGlobals()
 })
 
 afterEach(async () => {

@@ -1,37 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
-import { createCapture, type RecorderLike, type TrackLike } from './capture'
-
-class FakeRecorder extends EventTarget implements RecorderLike {
-  state: 'inactive' | 'recording' = 'inactive'
-  mimeType = 'audio/mp4'
-  timeslice: number | undefined
-  // Real MediaRecorder flips `state` to 'inactive' synchronously on stop() but fires its
-  // 'dataavailable'/'stop' events on a later tick; the async flag reproduces that gap.
-  constructor(private asyncEvents = false) {
-    super()
-  }
-  start(timeslice?: number) {
-    this.state = 'recording'
-    this.timeslice = timeslice
-  }
-  stop() {
-    this.state = 'inactive'
-    const fire = () => {
-      this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob(['last']) }))
-      this.dispatchEvent(new Event('stop'))
-    }
-    if (this.asyncEvents) setTimeout(fire, 0)
-    else fire()
-  }
-  emit(text: string) {
-    this.dispatchEvent(Object.assign(new Event('dataavailable'), { data: new Blob([text]) }))
-  }
-}
-
-class FakeTrack extends EventTarget implements TrackLike {
-  muted = false
-  stop = vi.fn()
-}
+import { describe, expect, it } from 'vitest'
+import { FakeRecorder, FakeTrack, LAST_CHUNK } from '../../test/fakeMedia'
+import { createCapture } from './capture'
 
 describe('createCapture', () => {
   it('numbers chunks in order and stops cleanly', async () => {
@@ -52,7 +21,7 @@ describe('createCapture', () => {
     expect(chunks).toEqual([
       [0, 'a'],
       [1, 'b'],
-      [2, 'last'],
+      [2, LAST_CHUNK],
     ])
     expect(capture.state()).toBe('stopped')
     expect(track.stop).toHaveBeenCalled()
@@ -127,7 +96,8 @@ describe('createCapture', () => {
   })
 
   it('memoises stop so concurrent calls wait for the final chunk and stop the track once', async () => {
-    const recorder = new FakeRecorder(true)
+    const recorder = new FakeRecorder()
+    recorder.asyncEvents = true
     const track = new FakeTrack()
     const chunks: number[] = []
     const capture = createCapture(recorder, track, {
@@ -144,7 +114,8 @@ describe('createCapture', () => {
   })
 
   it('does not double-stop when the track ends during a manual stop', async () => {
-    const recorder = new FakeRecorder(true)
+    const recorder = new FakeRecorder()
+    recorder.asyncEvents = true
     const track = new FakeTrack()
     const capture = createCapture(recorder, track, {
       timesliceMs: 5000,
