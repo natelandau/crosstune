@@ -239,13 +239,23 @@ local work. The API signs upload and download URLs, and it does a HEAD
 check, a copy, and a delete for cleanup. The browser sends the file straight
 to R2 with the signed PUT and plays it back with the signed GET.
 
-| Bucket setting  | Value                                                        |
-| --------------- | ------------------------------------------------------------ |
-| Location hint   | Eastern North America (ENAM), the metro Railway and Neon use |
-| API token scope | Object Read & Write, on that bucket alone                    |
-| CORS methods    | `GET`, `PUT`, `HEAD`                                         |
-| CORS headers    | Allowed: `Content-Type`. Exposed: `ETag`.                    |
-| CORS max age    | 3600 seconds                                                 |
+| Bucket setting        | Value                                                        |
+| --------------------- | ------------------------------------------------------------ |
+| Location hint         | Eastern North America (ENAM), the metro Railway and Neon use |
+| Default storage class | Standard                                                     |
+| Lifecycle rules       | None                                                         |
+| API token scope       | Object Read & Write, on that bucket alone                    |
+| CORS methods          | `GET`, `PUT`, `HEAD`                                         |
+| CORS headers          | Allowed: `Content-Type`. Exposed: `ETag`.                    |
+| CORS max age          | 3600 seconds                                                 |
+
+Every object stays in Standard storage. Do not set Infrequent Access as a
+bucket default, add a lifecycle rule that transitions to it, or pass a storage
+class from the API. Infrequent Access has no free tier, and Cloudflare bills
+its operations rounded up to the next million, so a single copy into it costs
+the full million-operation price for the month. If an object is ever found
+outside Standard, an S3 `CopyObject` onto its own key with the `STANDARD`
+storage class moves it back; a lifecycle rule cannot.
 
 Each bucket has its own token. Railway holds a token's access key ID and
 secret in `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY`,

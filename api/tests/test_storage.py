@@ -75,8 +75,8 @@ async def test_fake_store_round_trips(tmp_path) -> None:
     source = tmp_path / "up"
     source.write_bytes(b"xyz1")
     assert await fake.upload(source, "a/b/playback.m4a", "audio/mp4") == 4
-    await fake.copy("a/b/upload", "a/b/original.m4a", infrequent_access=True)
-    assert fake.storage_class("a/b/original.m4a") == "STANDARD_IA"
+    await fake.copy("a/b/upload", "a/b/original.m4a")
+    assert fake.get_bytes("a/b/original.m4a") == fake.get_bytes("a/b/upload")
 
     await fake.delete("a/b/upload", "never-there")
     assert await fake.head("a/b/upload") is None
@@ -107,3 +107,20 @@ async def test_r2_list_prefixes_collects_every_page() -> None:
     )
     with stub:
         assert await r2.list_prefixes() == ["u1/", "u2/"]
+
+
+async def test_r2_copy_never_names_a_storage_class() -> None:
+    r2 = store()
+    stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
+    # Stubber rejects any parameter beyond the expected ones, so a StorageClass would fail here.
+    stub.add_response(
+        "copy_object",
+        {},
+        {
+            "Bucket": "crosstune-test",
+            "Key": "u/r/original.wav",
+            "CopySource": {"Bucket": "crosstune-test", "Key": "u/r/upload"},
+        },
+    )
+    with stub:
+        await r2.copy("u/r/upload", "u/r/original.wav")
