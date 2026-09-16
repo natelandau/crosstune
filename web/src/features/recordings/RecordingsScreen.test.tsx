@@ -271,6 +271,8 @@ describe('RecordingsScreen', () => {
       durationMs: 5_000,
       recordedAt: '2026-09-14T20:00:00.000Z',
     })
+    // A row from an older client, or one edited to a blank name, can still arrive without one.
+    await db.recordings.update(id, { label: null })
     renderApp({ db, path: '/recordings' })
     const expected = new Date('2026-09-14T20:00:00.000Z').toLocaleString(undefined, {
       dateStyle: 'medium',

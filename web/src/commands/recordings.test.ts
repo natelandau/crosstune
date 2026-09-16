@@ -15,6 +15,7 @@ import {
   retryUpload,
   setFileState,
   storeDownloadedBlob,
+  takeLabel,
   updateRecording,
 } from './recordings'
 import { createSong, deleteSong } from './songs'
@@ -40,6 +41,14 @@ async function captured(songId: string | null = null): Promise<string> {
   await finishCapture(db, id, { songId, mime: 'audio/mp4', durationMs: 10_000, recordedAt: AT })
   return id
 }
+
+describe('takeLabel', () => {
+  it('names a take for its local start time to the minute', () => {
+    const at = new Date(2026, 8, 14, 9, 5, 59)
+    expect(takeLabel(at)).toBe('2026-09-14 09:05')
+    expect(takeLabel(at.toISOString())).toBe('2026-09-14 09:05')
+  })
+})
 
 describe('capture', () => {
   it('assembles chunks into one blob and queues the synced row', async () => {

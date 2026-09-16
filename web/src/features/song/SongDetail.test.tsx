@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../../auth/AuthContext'
 import { addLink } from '../../commands/links'
-import { appendChunk, beginCapture, finishCapture } from '../../commands/recordings'
+import { appendChunk, beginCapture, finishCapture, takeLabel } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
@@ -200,10 +200,10 @@ describe('SongDetail', () => {
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
     const plays = within(recordings).getAllByRole('button', { name: /^Play / })
     // The take leads the list; the linked recordings follow it as rows of the same list.
-    expect(plays[0]).toHaveAccessibleName('Play Cluck Old Hen')
+    expect(plays[0]).toHaveAccessibleName(`Play ${takeLabel('2026-09-14T20:00:00.000Z')}`)
     expect(plays.length).toBeGreaterThan(1)
     expect(within(recordings).getAllByRole('link', { name: /^Open .* on / })).not.toHaveLength(0)
-    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Record' })).toBeNull()
     expect(screen.getByLabelText('Upload audio file')).toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: /offline/i })).toBeNull()
   })

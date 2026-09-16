@@ -3,8 +3,7 @@ import userEvent from '@testing-library/user-event'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as recordingCommands from '../../commands/recordings'
-import { appendChunk, beginCapture, finishCapture } from '../../commands/recordings'
-import { createSong, deleteSong } from '../../commands/songs'
+import { appendChunk, beginCapture, finishCapture, takeLabel } from '../../commands/recordings'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import { captureLockName } from '../../sync/captureLock'
@@ -54,25 +53,14 @@ describe('RecordingScreen', () => {
     expect(FakeRecorder.instances[0]?.options.audioBitsPerSecond).toBe(64_000)
     expect(FakeRecorder.instances[0]?.options.mimeType).toBe('audio/mp4')
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await screen.findByRole('dialog', { name: 'Save recording' })
-    await userEvent.type(screen.getByRole('textbox', { name: 'Recording name' }), 'Tuesday jam')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/recordings'))
     const [row] = await db.recordings.toArray()
-    expect(row).toMatchObject({ label: 'Tuesday jam', song_id: null, source: 'microphone' })
+    expect(row).toMatchObject({ song_id: null, source: 'microphone' })
+    expect(row?.label).toBe(takeLabel(row!.recorded_at))
+    expect(row?.label).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+    expect(await screen.findByRole('list', { name: 'Unfiled' })).toHaveTextContent(row!.label!)
     expect((await db.recording_files.get(row!.id))?.local_state).toBe('captured')
     expect(navigator.storage.persist).toHaveBeenCalledTimes(1)
-  })
-
-  it('attaches to the song it was opened from', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    const { router } = renderApp({ db, path: `/record?song=${songId}` })
-    await screen.findByText('Angeline')
-    await screen.findByRole('timer')
-    await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
-    expect((await db.recordings.toArray())[0]?.song_id).toBe(songId)
   })
 
   it('shows the interruption when the track mutes', async () => {
@@ -108,7 +96,7 @@ describe('RecordingScreen', () => {
     renderApp({ db, path: '/record' })
     await screen.findByRole('timer')
     act(() => track.dispatchEvent(new Event('ended')))
-    await screen.findByRole('dialog', { name: 'Save recording' })
+    await screen.findByRole('heading', { name: 'Recordings' })
     const [row] = await db.recordings.toArray()
     expect((await db.recording_files.get(row!.id))?.local_state).toBe('captured')
   })
@@ -119,10 +107,10 @@ describe('RecordingScreen', () => {
     await screen.findByRole('timer')
     act(() => FakeRecorder.instances[0]!.emit('early'))
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Save recording' })
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'Part of this recording could not be saved.',
-    )
+    await screen.findByRole('heading', { name: 'Recordings' })
+    expect(
+      await screen.findByText('Part of this recording could not be saved.'),
+    ).toBeInTheDocument()
     const [row] = await db.recordings.toArray()
     const file = await db.recording_files.get(row!.id)
     expect(file?.local_state).toBe('captured')
@@ -145,11 +133,8 @@ describe('RecordingScreen', () => {
     expect(heldAtBegin).toEqual([captureLockName(file!.id)])
     expect(await heldLocks(locks)).toEqual([captureLockName(file!.id)])
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await screen.findByRole('dialog', { name: 'Save recording' })
-    await waitFor(async () => expect(await heldLocks(locks)).toEqual([]))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/recordings'))
-    expect(await heldLocks(locks)).toEqual([])
+    await waitFor(async () => expect(await heldLocks(locks)).toEqual([]))
   })
 
   it('keeps the take, releases the lock, and stops the microphone when navigated away', async () => {
@@ -173,49 +158,9 @@ describe('RecordingScreen', () => {
     await screen.findByRole('timer')
     vi.setSystemTime(startedAt.getTime() + 60_000)
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await screen.findByRole('dialog', { name: 'Save recording' })
+    await screen.findByRole('heading', { name: 'Recordings' })
     const [row] = await db.recordings.toArray()
     expect(row?.recorded_at).toBe(startedAt.toISOString())
-  })
-
-  it('files the take as unfiled when its song is deleted during the take', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    const { router } = renderApp({ db, path: `/record?song=${songId}` })
-    await screen.findByRole('timer')
-    await deleteSong(db, songId)
-    await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await screen.findByRole('dialog', { name: 'Save recording' })
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/recordings'))
-    const [row] = await db.recordings.toArray()
-    expect(row?.song_id).toBeNull()
-  })
-
-  it('files the take under a song picked in the save sheet', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    const { router } = renderApp({ db, path: '/record' })
-    await screen.findByRole('timer')
-    await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await screen.findByRole('dialog', { name: 'Save recording' })
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Ange')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to Angeline' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
-    expect((await db.recordings.toArray())[0]?.song_id).toBe(songId)
-  })
-
-  it('creates a song named for the search from the save sheet, keeping the typed name', async () => {
-    const { router } = renderApp({ db, path: '/record' })
-    await screen.findByRole('timer')
-    await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
-    await screen.findByRole('dialog', { name: 'Save recording' })
-    await userEvent.type(screen.getByRole('textbox', { name: 'Recording name' }), 'First take')
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Soldier{Enter}')
-    await waitFor(() => expect(router.state.location.pathname).toBe('/songs/new'))
-    const [row] = await db.recordings.toArray()
-    expect(row?.label).toBe('First take')
-    expect(router.state.location.search).toEqual({ title: 'Soldier', attach: row?.id })
-    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue('Soldier')
   })
 
   it('starts one live take under StrictMode', async () => {
@@ -259,7 +204,7 @@ describe('RecordingScreen', () => {
       stop.click()
       stop.click()
     })
-    await screen.findByRole('dialog', { name: 'Save recording' })
+    await screen.findByRole('heading', { name: 'Recordings' })
     expect(finish).toHaveBeenCalledTimes(1)
     expect(await db.recordings.count()).toBe(1)
   })

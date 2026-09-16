@@ -7,7 +7,6 @@ import { useDb } from '../../db/DbProvider'
 import { deleteSongMessage } from './deleteSongMessage'
 import { AddLinkForm } from '../links/AddLinkForm'
 import { AddToListMenu } from '../lists/AddToListMenu'
-import { RecordButtonInline } from '../recording/RecordButton'
 import { UploadRecordingInput } from '../recording/UploadRecordingInput'
 import { RecordingList } from '../recordings/RecordingList'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
@@ -97,10 +96,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
           onRemoveLink={(id) => run(() => removeLink(db, id))}
           rowState={rowState}
         />
-        <div className="flex flex-wrap gap-2">
-          <RecordButtonInline songId={song.id} />
-          <UploadRecordingInput songId={song.id} />
-        </div>
+        <UploadRecordingInput songId={song.id} />
         <AddLinkForm songId={song.id} />
       </section>
 

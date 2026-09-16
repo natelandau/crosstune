@@ -90,6 +90,13 @@ export async function appendChunk(
   })
 }
 
+/** The name a new take gets: when it started, as the local `YYYY-MM-DD HH:MM`. */
+export function takeLabel(recordedAt: string | Date): string {
+  const d = new Date(recordedAt)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export async function finishCapture(
   db: CrosstuneDb,
   id: string,
@@ -116,7 +123,8 @@ export async function finishCapture(
     await putRecordingRow(db, id, {
       songId: fields.songId,
       source: 'microphone',
-      label: null,
+      // Named for when it started, so a take is never nameless in a list.
+      label: takeLabel(fields.recordedAt),
       recordedAt: fields.recordedAt,
     })
   })
