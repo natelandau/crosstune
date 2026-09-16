@@ -152,9 +152,10 @@ Everywhere the app lists songs, it uses the same row.
   checkbox instead.
 - In a list, the row gains a position number on the left and a drag handle
   on the right.
-- The catalog, list detail, the picker that attaches a recording to a song,
-  and the song headings on the Recordings screen all show this row. A
-  screen never lays out a song's title and key its own way.
+- The catalog, list detail, the picker that adds a song to a list, the
+  picker that attaches a recording to a song, and the song headings on the
+  Recordings screen all show this row. A screen never lays out a song's
+  title and key its own way.
 
 ## Keys, modes, and tunings
 
@@ -196,7 +197,8 @@ Everywhere the app lists songs, it uses the same row.
 ## Search and create
 
 Every box that searches songs also offers to create one, with the same
-rules in the catalog and in the picker that attaches a recording to a song.
+rules in the catalog, in the picker that adds a song to a list, and in the
+picker that attaches a recording to a song.
 
 - A non-empty query always shows an add row under the results, labeled
   `Add "query"`. Titles are not unique, because different songs share a
@@ -205,13 +207,17 @@ rules in the catalog and in the picker that attaches a recording to a song.
 - When the exact match exists but is hidden by the archived toggle or a
   filter, a note names it with an Open link before the add row:
   `"Soldier's Joy" is archived.` or `"Soldier's Joy" is hidden by your
-  filters.`
+filters.`
 - Enter opens the only visible result, or the hidden exact match when
   nothing is visible, or creates when nothing matches anywhere. With two or
   more results Enter only closes the keyboard. Enter never creates a song
   whose title already exists. That takes a deliberate tap.
 - The add row carries the typed title into the new song form, so nothing is
-  retyped.
+  retyped. From a picker it also carries the list or the recording, so the
+  saved song is added to the list or holds the recording.
+- A picker never hides a song it cannot offer. A song already in the list
+  stays in the results, dimmed and marked "In this list", so an exact match
+  is never mistaken for a missing song. Enter on it does nothing.
 - The search box's placeholder reads "Search songs", the phone keyboard's
   return key reads Search, and a clear button inside the box empties the
   text and keeps focus there.
@@ -370,9 +376,9 @@ The catalog and list detail share one selection mode.
 - A destructive action confirms with the browser's own confirm dialog,
   never a custom one. The message names the consequence and warns when
   data cannot be recovered: `Delete "Soldier's Joy"? This removes its
-  links, list entries, and 3 recordings. Some recordings have not uploaded,
-  so they cannot be recovered.` A recording that has uploaded reads `It is
-  removed from every device.` instead.
+links, list entries, and 3 recordings. Some recordings have not uploaded,
+so they cannot be recovered.` A recording that has uploaded reads `It is
+removed from every device.` instead.
 - The exception is a bulk action, which applies at once with Undo in a
   toast, because a confirm gets clicked through and leaves no way back.
 - A destructive button is an outlined red button. Inside a menu, a
@@ -456,44 +462,45 @@ Paths are relative to `web/src/`, except one written as `../index.html`,
 which sits beside it in `web/`. A new screen composes the component in the
 right column instead of rebuilding the pattern.
 
-| Pattern                                   | Implemented in                                                              |
-| ----------------------------------------- | --------------------------------------------------------------------------- |
-| Song count wording                        | `features/selection/copy.ts`, and the catalog's count row in `features/catalog/filters.ts` (`songCountLabel`) |
-| Relative date wording                     | `features/lists/editedLabel.ts`                                             |
-| Column, app bar, navigation, main region  | `components/RootLayout.tsx`, `components/AppBar.tsx`, `components/Dock.tsx` |
-| Page actions in the app bar               | `components/pageChrome.ts`, `components/ActionMenu.tsx`                    |
-| Record button                             | `features/recording/RecordButton.tsx`                                       |
-| Docked player                             | `features/player/PlayerDock.tsx`                                            |
-| Page heading, sections, fields, help text | `components/Page.tsx`                                                       |
-| Palette, type roles, spacing, motion      | `app.css`                                                                   |
-| The mark and the sign-in lockup           | `components/Mark.tsx` (`Mark`, `Lockup`); sources in `brand/` at the root   |
-| Appearance and text size setting          | `features/settings/appearance.ts`, the inline script in `../index.html`     |
-| Song row                                  | `features/catalog/SongCard.tsx` inside `features/catalog/SongRow.tsx`       |
-| Status dot and labels                     | `features/catalog/StatusDot.tsx`                                            |
-| Key and mode line, facet badges           | `features/song/SongDetail.tsx`                                              |
-| Lists on the song page                    | `features/song/SongLists.tsx`                                               |
-| Which tunings to show                     | `features/settings/instruments.ts`                                          |
-| Suggestion vocabularies                   | `features/song/suggestions.ts`                                              |
-| Search or create                          | `features/catalog/searchIntent.ts`, `features/catalog/SearchSuggestion.tsx` |
-| Catalog query for the visit               | `features/catalog/searchSession.ts`                                         |
-| Filter bar and filter rules               | `features/catalog/FilterBar.tsx`, `features/catalog/FilterSheet.tsx`, `features/catalog/filters.ts` |
-| Filter sheet                              | `features/catalog/FilterSheet.tsx`                                          |
-| Show archived toggle                      | `features/catalog/ShowArchivedToggle.tsx`                                   |
-| Swipe row and actions                     | `components/SwipeRow.tsx`, `components/swipe.ts`                            |
-| Long press                                | `components/useLongPress.ts`                                                |
-| Reorder handle and move menu              | `features/lists/ReorderHandle.tsx`                                          |
-| Selection mode, bars, sheets              | `features/selection/`, `editMode.ts`                                        |
-| Choice chips and their label              | `ChoiceChips` and `ChipsField` in `components/ChoiceChips.tsx`              |
-| Picker and text sheets                    | `components/PickerSheet.tsx`                                                |
-| Detail, switch, and date rows             | `components/DetailRow.tsx`                                                  |
-| Fixed save bar                            | `components/SaveBar.tsx`                                                    |
-| Song form and its limits                  | `features/song/SongForm.tsx`, `features/song/limits.ts`                     |
-| Song form detail fields                   | `features/song/detailFields.ts`                                             |
+| Pattern                                   | Implemented in                                                                                                                           |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Song count wording                        | `features/selection/copy.ts`, and the catalog's count row in `features/catalog/filters.ts` (`songCountLabel`)                            |
+| Relative date wording                     | `features/lists/editedLabel.ts`                                                                                                          |
+| Column, app bar, navigation, main region  | `components/RootLayout.tsx`, `components/AppBar.tsx`, `components/Dock.tsx`                                                              |
+| Page actions in the app bar               | `components/pageChrome.ts`, `components/ActionMenu.tsx`                                                                                  |
+| Record button                             | `features/recording/RecordButton.tsx`                                                                                                    |
+| Docked player                             | `features/player/PlayerDock.tsx`                                                                                                         |
+| Page heading, sections, fields, help text | `components/Page.tsx`                                                                                                                    |
+| Palette, type roles, spacing, motion      | `app.css`                                                                                                                                |
+| The mark and the sign-in lockup           | `components/Mark.tsx` (`Mark`, `Lockup`); sources in `brand/` at the root                                                                |
+| Appearance and text size setting          | `features/settings/appearance.ts`, the inline script in `../index.html`                                                                  |
+| Song row                                  | `features/catalog/SongCard.tsx` inside `features/catalog/SongRow.tsx`                                                                    |
+| Status dot and labels                     | `features/catalog/StatusDot.tsx`                                                                                                         |
+| Key and mode line, facet badges           | `features/song/SongDetail.tsx`                                                                                                           |
+| Lists on the song page                    | `features/song/SongLists.tsx`                                                                                                            |
+| Which tunings to show                     | `features/settings/instruments.ts`                                                                                                       |
+| Suggestion vocabularies                   | `features/song/suggestions.ts`                                                                                                           |
+| Search or create                          | `features/catalog/searchIntent.ts`, `features/catalog/SearchSuggestion.tsx`                                                              |
+| Song search picker                        | `features/catalog/SongSearchPicker.tsx`                                                                                                  |
+| Catalog query for the visit               | `features/catalog/searchSession.ts`                                                                                                      |
+| Filter bar and filter rules               | `features/catalog/FilterBar.tsx`, `features/catalog/FilterSheet.tsx`, `features/catalog/filters.ts`                                      |
+| Filter sheet                              | `features/catalog/FilterSheet.tsx`                                                                                                       |
+| Show archived toggle                      | `features/catalog/ShowArchivedToggle.tsx`                                                                                                |
+| Swipe row and actions                     | `components/SwipeRow.tsx`, `components/swipe.ts`                                                                                         |
+| Long press                                | `components/useLongPress.ts`                                                                                                             |
+| Reorder handle and move menu              | `features/lists/ReorderHandle.tsx`                                                                                                       |
+| Selection mode, bars, sheets              | `features/selection/`, `editMode.ts`                                                                                                     |
+| Choice chips and their label              | `ChoiceChips` and `ChipsField` in `components/ChoiceChips.tsx`                                                                           |
+| Picker and text sheets                    | `components/PickerSheet.tsx`                                                                                                             |
+| Detail, switch, and date rows             | `components/DetailRow.tsx`                                                                                                               |
+| Fixed save bar                            | `components/SaveBar.tsx`                                                                                                                 |
+| Song form and its limits                  | `features/song/SongForm.tsx`, `features/song/limits.ts`                                                                                  |
+| Song form detail fields                   | `features/song/detailFields.ts`                                                                                                          |
 | Menu                                      | `components/PopoverMenu.tsx`, the app bar menu in `components/ActionMenu.tsx`, the dock's More in `features/selection/BulkActionBar.tsx` |
-| Sheet                                     | `components/Sheet.tsx`                                                      |
-| Toast                                     | `components/Toast.tsx`                                                      |
-| Inline error under a control              | `components/useAction.ts`, `ErrorText` in `components/Page.tsx`             |
-| Recording and link rows                   | `features/recordings/RecordingRow.tsx`, `features/links/LinkRow.tsx`, `features/player/rowGlyphs.tsx` |
-| Recording status words                    | `features/recording/format.ts`                                              |
-| Empty state                               | `components/EmptyState.tsx`                                                 |
-| Sync badge                                | `components/SyncIndicator.tsx`                                              |
+| Sheet                                     | `components/Sheet.tsx`                                                                                                                   |
+| Toast                                     | `components/Toast.tsx`                                                                                                                   |
+| Inline error under a control              | `components/useAction.ts`, `ErrorText` in `components/Page.tsx`                                                                          |
+| Recording and link rows                   | `features/recordings/RecordingRow.tsx`, `features/links/LinkRow.tsx`, `features/player/rowGlyphs.tsx`                                    |
+| Recording status words                    | `features/recording/format.ts`                                                                                                           |
+| Empty state                               | `components/EmptyState.tsx`                                                                                                              |
+| Sync badge                                | `components/SyncIndicator.tsx`                                                                                                           |

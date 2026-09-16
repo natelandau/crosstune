@@ -6,7 +6,7 @@ import { createSong, setArchived } from '../../commands/songs'
 import { getMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { renderWithProviders } from '../../test/render'
+import { renderApp, renderWithProviders } from '../../test/render'
 import { ListDetail } from './ListDetail'
 import { META_LIST_SHOW_ARCHIVED } from './useListShowArchived'
 
@@ -168,6 +168,50 @@ describe('ListDetail', () => {
     await waitFor(async () => expect(await activeItems(db, listId)).toHaveLength(3))
     await userEvent.click(screen.getByRole('button', { name: 'Remove Angeline' }))
     await waitFor(async () => expect(await activeItems(db, listId)).toHaveLength(2))
+  })
+
+  it('shows a song already in the list in the results without offering it', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await screen.findAllByRole('listitem')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Add a song' }), 'Angeline')
+    expect(await screen.findByText('In this list')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add Angeline' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add another "Angeline"' })).toBeInTheDocument()
+    // Enter never creates a song whose title already exists, and cannot add this one again.
+    await userEvent.keyboard('{Enter}')
+    expect(await activeItems(db, listId)).toHaveLength(2)
+    expect(await db.songs.count()).toBe(3)
+  })
+
+  it('adds the only match from Enter', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await screen.findAllByRole('listitem')
+    const box = screen.getByRole('searchbox', { name: 'Add a song' })
+    await userEvent.type(box, 'cumber{Enter}')
+    await waitFor(async () => expect(await activeItems(db, listId)).toHaveLength(3))
+    expect(box).toHaveValue('')
+  })
+
+  it('creates a song named for the search and adds it to the list', async () => {
+    const { router } = renderApp({ db, path: `/lists/${listId}` })
+    await screen.findByRole('heading', { name: 'Tuesday jam' })
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Add a song' }), 'Soldier')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add "Soldier"' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/songs/new'))
+    expect(router.state.location.search).toEqual({ title: 'Soldier', list: listId })
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue('Soldier')
+    await userEvent.click(screen.getByRole('button', { name: 'Add song' }))
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/songs\/(?!new)/))
+    const items = await activeItems(db, listId)
+    expect(items).toHaveLength(3)
+    const added = await db.user_songs.get(items[2]!.user_song_id)
+    expect((await db.songs.get(added!.song_id))?.title).toBe('Soldier')
   })
 
   it('asks for edit mode from Rename', async () => {

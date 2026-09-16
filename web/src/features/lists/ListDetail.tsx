@@ -141,7 +141,8 @@ export function ListDetail({
         <Section>
           {selecting ? null : (
             <SongPicker
-              excludeUserSongIds={inList}
+              listId={listId}
+              inList={inList}
               onPick={(id) => run(() => addToList(db, listId, id))}
             />
           )}

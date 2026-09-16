@@ -30,4 +30,13 @@ describe('parseNewSongSearch', () => {
     expect(parseNewSongSearch({ attach: '' })).toEqual({})
     expect(parseNewSongSearch({ attach: 7 })).toEqual({})
   })
+
+  it('keeps a list to add the song to, and drops a blank one', () => {
+    expect(parseNewSongSearch({ title: 'Soldier', list: 'list_1' })).toEqual({
+      title: 'Soldier',
+      list: 'list_1',
+    })
+    expect(parseNewSongSearch({ list: '' })).toEqual({})
+    expect(parseNewSongSearch({ list: 7 })).toEqual({})
+  })
 })
