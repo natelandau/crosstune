@@ -1,4 +1,4 @@
-import { ErrorText, PageHeading } from '../../components/Page'
+import { ErrorText, Page, PageHeading, Section } from '../../components/Page'
 import { useMemo, useState, type FormEvent } from 'react'
 import { addToList, deleteList, renameList } from '../../commands/lists'
 import { EmptyState } from '../../components/EmptyState'
@@ -67,7 +67,7 @@ export function ListDetail({
   const selectedEntries = visible.filter((entry) => selection.isSelected(entry.userSong.id))
 
   return (
-    <div className="space-y-4">
+    <Page>
       {edit ? (
         <RenameForm
           initialName={list.name}
@@ -81,68 +81,73 @@ export function ListDetail({
           }
         />
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <PageHeading>{list.name}</PageHeading>
-            </div>
-            {visible.length > 0 || selecting ? (
-              <button
-                ref={selectButtonRef}
-                type="button"
-                className={`btn min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
-                  selecting ? 'pointer-events-none opacity-0 motion-safe:scale-90' : ''
-                }`}
-                aria-hidden={selecting}
-                tabIndex={selecting ? -1 : undefined}
-                onClick={() => enter()}
-              >
-                Select
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="btn min-h-11"
-              disabled={selecting}
-              onClick={() => onEditChange(true)}
-            >
-              Rename
-            </button>
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <PageHeading>{list.name}</PageHeading>
           </div>
+          {visible.length > 0 || selecting ? (
+            <button
+              ref={selectButtonRef}
+              type="button"
+              className={`btn min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+                selecting ? 'pointer-events-none opacity-0 motion-safe:scale-90' : ''
+              }`}
+              aria-hidden={selecting}
+              tabIndex={selecting ? -1 : undefined}
+              onClick={() => enter()}
+            >
+              Select
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn min-h-11"
+            disabled={selecting}
+            onClick={() => onEditChange(true)}
+          >
+            Rename
+          </button>
         </div>
       )}
 
-      {items.length > 0 ? (
-        <ShowArchivedToggle
-          checked={showArchived}
-          onChange={(show) => run(() => setShowArchived(show))}
-        />
-      ) : null}
+      <Section>
+        {items.length > 0 ? (
+          <ShowArchivedToggle
+            checked={showArchived}
+            onChange={(show) => run(() => setShowArchived(show))}
+          />
+        ) : null}
+        {items.length === 0 ? (
+          <EmptyState title="Nothing in this list" hint="Search below to add songs." />
+        ) : visible.length === 0 ? (
+          <EmptyState
+            title="Every song here is archived"
+            hint="Turn on Show archived to see them."
+          />
+        ) : (
+          <ListSongs
+            listId={listId}
+            items={items}
+            visible={visible}
+            instruments={instruments}
+            runThen={runThen}
+            rowState={rowState}
+            selectionFor={edit ? undefined : rowSelection}
+          />
+        )}
+      </Section>
 
-      {items.length === 0 ? (
-        <EmptyState title="Nothing in this list" hint="Search below to add songs." />
-      ) : visible.length === 0 ? (
-        <EmptyState title="Every song here is archived" hint="Turn on Show archived to see them." />
-      ) : (
-        <ListSongs
-          listId={listId}
-          items={items}
-          visible={visible}
-          instruments={instruments}
-          runThen={runThen}
-          rowState={rowState}
-          selectionFor={edit ? undefined : rowSelection}
-        />
+      {selecting && !error ? null : (
+        <Section>
+          {selecting ? null : (
+            <SongPicker
+              excludeUserSongIds={inList}
+              onPick={(id) => run(() => addToList(db, listId, id))}
+            />
+          )}
+          {error ? <ErrorText>{error}</ErrorText> : null}
+        </Section>
       )}
-
-      {selecting ? null : (
-        <SongPicker
-          excludeUserSongIds={inList}
-          onPick={(id) => run(() => addToList(db, listId, id))}
-        />
-      )}
-
-      {error ? <ErrorText>{error}</ErrorText> : null}
 
       {edit || selecting ? null : (
         <button
@@ -172,7 +177,7 @@ export function ListDetail({
         onToggleAll={selection.toggleAll}
         onExit={exit}
       />
-    </div>
+    </Page>
   )
 }
 

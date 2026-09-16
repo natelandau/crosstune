@@ -1,4 +1,4 @@
-import { ErrorText, PageHeading } from '../../components/Page'
+import { ErrorText, Page, PageHeading, Section } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { SquarePen, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -29,24 +29,26 @@ export function ListsScreen() {
   }
 
   return (
-    <div className="space-y-4">
+    <Page>
       <PageHeading>Lists</PageHeading>
-      <form onSubmit={handleCreate} className="flex gap-2">
-        <label className="input flex-1">
-          <input
-            className="grow"
-            aria-label="New list name"
-            placeholder="Tuesday jam, square dance set, ..."
-            maxLength={LIST_NAME_MAX_LENGTH}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <button type="submit" className="btn btn-primary min-h-11" disabled={!name.trim()}>
-          Create list
-        </button>
-      </form>
-      {error ? <ErrorText>{error}</ErrorText> : null}
+      <Section>
+        <form onSubmit={handleCreate} className="flex gap-2">
+          <label className="input flex-1">
+            <input
+              className="grow"
+              aria-label="New list name"
+              placeholder="Tuesday jam, square dance set, ..."
+              maxLength={LIST_NAME_MAX_LENGTH}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <button type="submit" className="btn btn-primary min-h-11" disabled={!name.trim()}>
+            Create list
+          </button>
+        </form>
+        {error ? <ErrorText>{error}</ErrorText> : null}
+      </Section>
       {lists === undefined ? null : lists.length === 0 ? (
         <EmptyState
           title="No lists yet"
@@ -90,6 +92,6 @@ export function ListsScreen() {
           ))}
         </ul>
       )}
-    </div>
+    </Page>
   )
 }
