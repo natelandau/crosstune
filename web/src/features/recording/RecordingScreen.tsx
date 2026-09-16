@@ -43,7 +43,7 @@ export function RecordingScreen() {
 function RecordingCapture() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture({ songId: null })
+  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture()
   const reduceMotion = useReducedMotion()
   const live = phase === 'starting' || phase === 'recording' || phase === 'interrupted'
   const started = live && phase !== 'starting'

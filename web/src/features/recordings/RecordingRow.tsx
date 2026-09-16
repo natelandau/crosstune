@@ -1,13 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CloudDownload } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { SwipeRow, type SwipeActions } from '../../components/SwipeRow'
 import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { fileStateLabel, formatBytes, formatDuration } from '../recording/format'
-import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
+import { PlayGlyph, ROW_CLASS, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import type { RecordingView } from './useRecordings'
 
@@ -16,8 +16,8 @@ function recordedAtLabel(recordedAt: string): string {
 }
 
 /**
- * A take as a swipeable row. The row itself is the one control: it plays a take this device
- * holds, fetches one it does not, and does nothing for one the server is still preparing.
+ * A recording as a swipeable row. The row itself is the one control: it plays a recording this
+ * device holds, fetches one it does not, and does nothing for one the server is still preparing.
  * Its actions live behind a swipe.
  */
 export function RecordingRow({
@@ -37,8 +37,9 @@ export function RecordingRow({
   const engine = useSyncEngine()
   const player = usePlayer()
   const online = useOnline()
-  const [fetching, setFetching] = useState(false)
-  const [fetchFailed, setFetchFailed] = useState(false)
+  // A tap's download is tracked here because a recording with no file row yet has nowhere
+  // durable to carry that state; the download pass marks the row itself.
+  const [fetch, setFetch] = useState<'idle' | 'fetching' | 'failed'>('idle')
   const title =
     recording.label ?? songTitle ?? `Recording, ${recordedAtLabel(recording.recorded_at)}`
   const blockedQuota = file?.local_state === 'blocked_quota'
@@ -54,29 +55,30 @@ export function RecordingRow({
   const duration = formatDuration(recording.duration_ms ?? file?.local_duration_ms)
   const item = { kind: 'recording' as const, id: recording.id }
   const held = !!file?.blob
-  const loaded = held && isPlaying(player, item)
+  // The player keeps its item whether or not the blob is still here, so a playing row must
+  // offer Stop even after its download was cleared.
+  const loaded = isPlaying(player, item)
   const downloadable = !held && recording.state === 'ready'
-  // The download pass marks a row it is fetching; a tap here is tracked locally because a
-  // recording with no file row yet has nowhere to carry that state.
-  const downloading = downloadable && (fetching || file?.local_state === 'downloading')
+  const downloading = downloadable && (fetch === 'fetching' || file?.local_state === 'downloading')
   const uploadFailed = file?.local_state === 'failed_upload'
   const errorLine =
-    uploadFailed && file.error ? file.error : fetchFailed ? "Couldn't download" : null
+    uploadFailed && file.error ? file.error : fetch === 'failed' ? "Couldn't download" : null
+  const retry = uploadFailed
+    ? { label: `Retry uploading ${title}`, onClick: () => onRetryUpload(recording.id) }
+    : recording.state === 'failed'
+      ? { label: `Retry ${title}`, onClick: () => onRetry(recording.id) }
+      : null
 
   const download = () => {
-    setFetching(true)
-    setFetchFailed(false)
-    void engine.download(recording.id).then((blob) => {
-      setFetching(false)
-      if (!blob) setFetchFailed(true)
-    })
+    setFetch('fetching')
+    void engine.download(recording.id).then((blob) => setFetch(blob ? 'idle' : 'failed'))
   }
 
   const text = (
     <span className="min-w-0 flex-1">
       <span className="block truncate font-medium">{title}</span>
       <span className="block truncate text-xs opacity-70">
-        {/* A take that needs nothing from the user shows when it was made instead of a status. */}
+        {/* A recording that needs nothing from the user shows when it was made instead of a status. */}
         {[duration, status || recordedAtLabel(recording.recorded_at), storageLabel]
           .filter(Boolean)
           .join(' · ')}
@@ -84,10 +86,10 @@ export function RecordingRow({
       {errorLine ? <span className="text-error block text-xs">{errorLine}</span> : null}
     </span>
   )
-  const cardClass = 'flex min-h-14 min-w-0 flex-1 items-center gap-1 py-2 pr-3 pl-1 text-left'
+  const cardClass = `${ROW_CLASS} pr-3`
 
-  let card: ReactNode
-  if (held) {
+  let card
+  if (held || loaded) {
     card = (
       <button
         type="button"
@@ -140,21 +142,12 @@ export function RecordingRow({
       <SwipeRow name={title} actions={actions} {...rowState}>
         <div className="rounded-box flex items-center">
           {card}
-          {uploadFailed ? (
+          {retry ? (
             <button
               type="button"
               className="btn btn-sm mr-2 min-h-11"
-              onClick={() => onRetryUpload(recording.id)}
-              aria-label={`Retry uploading ${title}`}
-            >
-              Retry
-            </button>
-          ) : recording.state === 'failed' ? (
-            <button
-              type="button"
-              className="btn btn-sm mr-2 min-h-11"
-              onClick={() => onRetry(recording.id)}
-              aria-label={`Retry ${title}`}
+              onClick={retry.onClick}
+              aria-label={retry.label}
             >
               Retry
             </button>

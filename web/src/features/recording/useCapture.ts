@@ -33,7 +33,7 @@ const clock: SessionClock = {
  * Start capturing on mount and keep going until stop or cancel. One recording per mount; a recording
  * still running when the component unmounts is finished and kept, never discarded.
  */
-export function useCapture({ songId }: { songId: string | null }): CaptureHandle {
+export function useCapture(): CaptureHandle {
   const db = useDb()
   const { userId } = useAuthSession()
   const [recordingId] = useState(newId)
@@ -42,22 +42,14 @@ export function useCapture({ songId }: { songId: string | null }): CaptureHandle
     elapsedMs: 0,
     analyser: null,
     error: null,
-    targetSongId: songId,
   }))
   const session = useRef<RecordingSession | null>(null)
-  // Read when the recording finishes rather than captured when it starts, and kept out of the
-  // session effect's dependencies so a change never restarts the microphone.
-  const songIdRef = useRef(songId)
-  useEffect(() => {
-    songIdRef.current = songId
-  }, [songId])
 
   useEffect(() => {
     const capture = createRecordingSession({
       db,
       userId,
       recordingId,
-      songId: () => songIdRef.current,
       getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
       MediaRecorder,
       acquireCaptureLock,

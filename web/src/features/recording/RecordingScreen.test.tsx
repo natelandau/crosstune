@@ -97,7 +97,7 @@ describe('RecordingScreen', () => {
     expect(await db.recordings.count()).toBe(0)
   })
 
-  it('saves the take when the microphone track ends on its own', async () => {
+  it('saves the recording when the microphone track ends on its own', async () => {
     renderApp({ db, path: '/record' })
     await screen.findByRole('timer')
     act(() => track.dispatchEvent(new Event('ended')))
@@ -214,7 +214,7 @@ describe('RecordingScreen', () => {
     expect(await db.recordings.count()).toBe(1)
   })
 
-  it('leaves a take it cannot finish for sync recovery and says so', async () => {
+  it('leaves a recording it cannot finish for sync recovery and says so', async () => {
     const finish = vi
       .spyOn(recordingCommands, 'finishCapture')
       .mockRejectedValue(new Error('AbortError'))

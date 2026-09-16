@@ -39,8 +39,11 @@ export function RecordingsScreen() {
   const instruments = useInstruments()
   const rowState = useOpenRow()
   const groups = useMemo(() => (views ? groupBySong(views) : []), [views])
+  const entryFor = useMemo(
+    () => new Map((entries ?? []).map((entry) => [entry.song.id, entry])),
+    [entries],
+  )
   if (views === undefined || entries === undefined || instruments === undefined) return null
-  const entryFor = new Map(entries.map((entry) => [entry.song.id, entry]))
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Recordings</h1>

@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { Archive, SquarePen } from 'lucide-react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CLICK_GUARD_MS } from '../../components/swipe'
@@ -31,8 +32,18 @@ function renderSongRow(selection?: Partial<RowSelection>) {
       entry={entry}
       instruments={new Set()}
       actions={[
-        { label: 'Edit', tone: 'neutral', onPress: vi.fn() },
-        { label: 'Archive', tone: 'warning', onPress: vi.fn() },
+        {
+          label: 'Edit',
+          tone: 'neutral',
+          onPress: vi.fn(),
+          icon: <SquarePen aria-hidden="true" />,
+        },
+        {
+          label: 'Archive',
+          tone: 'warning',
+          onPress: vi.fn(),
+          icon: <Archive aria-hidden="true" />,
+        },
       ]}
       open={false}
       otherOpen={false}

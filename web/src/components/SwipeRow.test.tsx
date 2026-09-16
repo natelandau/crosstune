@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Archive, SquarePen } from 'lucide-react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 
@@ -13,8 +14,8 @@ function renderRow({
   const onEdit = vi.fn()
   const onLink = vi.fn()
   const actions: [SwipeAction, SwipeAction] = [
-    { label: 'Edit', tone: 'neutral', onPress: onEdit },
-    { label: 'Archive', tone: 'warning', onPress: vi.fn() },
+    { label: 'Edit', tone: 'neutral', onPress: onEdit, icon: <SquarePen aria-hidden="true" /> },
+    { label: 'Archive', tone: 'warning', onPress: vi.fn(), icon: <Archive aria-hidden="true" /> },
   ]
   render(
     <SwipeRow

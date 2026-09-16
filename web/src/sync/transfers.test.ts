@@ -290,7 +290,7 @@ describe('uploadPass', () => {
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
-  it('restores a captured take as unfiled when a pulled tombstone deletes its song elsewhere', async () => {
+  it('restores a captured recording as unfiled when a pulled tombstone deletes its song elsewhere', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
     const id = newId()
     await beginCapture(db, id, { songId, recordedAt: AT })
@@ -502,7 +502,7 @@ describe('recoverInterruptedCaptures', () => {
     expect(await db.recordings.get(id)).toMatchObject({ song_id: songId, recorded_at: AT })
   })
 
-  it('files a recovered take as unfiled when the song it began with was deleted', async () => {
+  it('files a recovered recording as unfiled when the song it began with was deleted', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
     const id = newId()
     await beginCapture(db, id, { songId, recordedAt: AT })

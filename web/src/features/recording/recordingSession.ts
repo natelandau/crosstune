@@ -3,7 +3,6 @@ import { settingsId } from '../../commands/settings'
 import { getStorage } from '../../db/meta'
 import { AUDIO_BITRATES, CHUNK_MS, pickMimeType, storedAudioQuality } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
-import { liveSong } from '../../db/songs'
 import { createCapture, type Capture, type RecorderLike, type TrackLike } from './capture'
 
 export type RecordingPhase =
@@ -14,8 +13,6 @@ export interface RecordingSnapshot {
   elapsedMs: number
   analyser: AnalyserNode | null
   error: string | null
-  /** The song the recording is filed under: the requested one, or null once it is found deleted. */
-  targetSongId: string | null
 }
 
 export interface MediaStreamLike {
@@ -47,8 +44,6 @@ export interface RecordingSessionDeps<S extends MediaStreamLike> {
   db: CrosstuneDb
   userId: string
   recordingId: string
-  /** Read when the recording finishes, so the latest requested song is the one it is filed under. */
-  songId: () => string | null
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<S>
   MediaRecorder: RecorderClass<S>
   acquireCaptureLock: (id: string) => Promise<() => void>
@@ -101,7 +96,6 @@ export function createRecordingSession<S extends MediaStreamLike>(
     elapsedMs: 0,
     analyser: null,
     error: null,
-    targetSongId: deps.songId(),
   }
   let startCalled = false
   let disposed = false
@@ -170,12 +164,9 @@ export function createRecordingSession<S extends MediaStreamLike>(
       releaseHardware()
       const writeFailed = await partial
       try {
-        const requested = deps.songId()
-        const song = requested ? await db.songs.get(requested) : undefined
-        const target = liveSong(song)?.id ?? null
-        emit({ targetSongId: target })
+        // Every recording begins unfiled; the recordings tab is where it is added to a song.
         const fields = {
-          songId: target,
+          songId: null,
           // The recorder's own type names what it actually produced, codecs included.
           mime: recorder?.mimeType || 'audio/mp4',
           durationMs: activeMs,
@@ -279,7 +270,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
     // Stamped before the row is written so recovery, which reads it from the row, files an
     // interrupted recording under the same start time a normal finish would use.
     recordedAt = new Date(clock.now()).toISOString()
-    await beginCapture(db, recordingId, { songId: deps.songId(), recordedAt })
+    await beginCapture(db, recordingId, { songId: null, recordedAt })
     begun = true
     if (abandoned()) return abandonStart()
     // Asked only once there is a recording worth protecting from storage eviction.

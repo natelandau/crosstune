@@ -13,7 +13,7 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
     .getByRole('textbox', { name: 'Link' })
     .fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
   await page.getByRole('button', { name: 'Add link' }).click()
-  const links = page.getByRole('list', { name: 'Links' })
+  const links = page.getByRole('list', { name: 'Recordings' })
   await expect(links.getByRole('button', { name: /^Play / })).toBeVisible()
   await expectSynced(page, since)
 
@@ -22,7 +22,9 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
   const card = page.getByRole('link', { name: new RegExp(title) })
   await expect(card).toBeVisible()
   await card.click()
-  const play = page.getByRole('list', { name: 'Links' }).getByRole('button', { name: /^Play / })
+  const play = page
+    .getByRole('list', { name: 'Recordings' })
+    .getByRole('button', { name: /^Play / })
   await expect(play).toBeVisible()
   await play.click()
   const frame = page.getByRole('region', { name: 'Player' }).locator('iframe[src*="dQw4w9WgXcQ"]')

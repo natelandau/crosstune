@@ -25,7 +25,3 @@ export function displayTitle(link: { title?: string | null; url: string }): stri
     return link.url
   }
 }
-
-export function linkSubtitle(link: { provider: string; label?: string | null }): string {
-  return [providerLabel(link), link.label].filter(Boolean).join(' · ')
-}

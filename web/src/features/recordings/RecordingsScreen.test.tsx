@@ -136,7 +136,7 @@ describe('RecordingsScreen', () => {
     await vi.waitFor(async () => expect((await db.recordings.get(id))?.deleted_at).not.toBeNull())
   })
 
-  it('downloads a take the device does not hold, then offers to play it', async () => {
+  it('downloads a recording the device does not hold, then offers to play it', async () => {
     const id = await saveRecording(null, 'Remote')
     await db.recording_files.delete(id)
     await db.recordings.update(id, { state: 'ready' })

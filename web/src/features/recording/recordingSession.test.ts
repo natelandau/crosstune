@@ -40,7 +40,6 @@ function setup(overrides: Partial<RecordingSessionDeps<MediaStreamLike>> = {}) {
     db,
     userId: 'user_1',
     recordingId: 'rec_1',
-    songId: () => null,
     getUserMedia: vi.fn(async () => stream),
     MediaRecorder: FakeRecorder,
     acquireCaptureLock: vi.fn(async () => releaseLock),
@@ -132,7 +131,7 @@ describe('createRecordingSession start sequence', () => {
   })
 
   it('takes the lock before the capture row and asks for storage once recording', async () => {
-    const { session, deps, snapshots } = setup({ songId: () => 'song_1' })
+    const { session, deps, snapshots } = setup()
     const put = vi.spyOn(db.recording_files, 'put')
     await session.start()
     expect(session.snapshot().phase).toBe('recording')
@@ -142,7 +141,7 @@ describe('createRecordingSession start sequence', () => {
     expect(lockAt).toBeLessThan(rowAt!)
     expect(await db.recording_files.get('rec_1')).toMatchObject({
       local_state: 'capturing',
-      song_id: 'song_1',
+      song_id: null,
       recorded_at: new Date(1_000).toISOString(),
     })
     expect(deps.persistStorage).toHaveBeenCalledTimes(1)
@@ -167,7 +166,7 @@ describe('createRecordingSession finish and cancel', () => {
     expect(releaseWakeLock).toHaveBeenCalledTimes(1)
   })
 
-  it('discards the take on cancel and releases everything once', async () => {
+  it('discards the recording on cancel and releases everything once', async () => {
     const { session, deps, track, releaseLock, releaseWakeLock } = setup()
     await session.start()
     await session.cancel()
@@ -188,7 +187,7 @@ describe('createRecordingSession finish and cancel', () => {
     expect(deps.suspendAudioContext).toHaveBeenCalledTimes(1)
   })
 
-  it('finishes and keeps a take that is still running when disposed', async () => {
+  it('finishes and keeps a recording that is still running when disposed', async () => {
     const { session, releaseLock } = setup()
     await session.start()
     session.dispose()

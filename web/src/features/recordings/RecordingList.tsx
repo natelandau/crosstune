@@ -28,12 +28,12 @@ function confirmMessage(view: RecordingView): string {
 export function RecordingList({
   views,
   links = [],
-  onRemoveLink,
+  onRemoveLink = () => {},
   label = 'Recordings',
   rowState,
 }: {
   views: RecordingView[]
-  /** Linked recordings, listed after the takes as rows of the same shape. */
+  /** Linked recordings, listed after the audio recordings as rows of the same shape. */
   links?: LocalRecordingLink[]
   onRemoveLink?: (id: string) => void
   label?: string
@@ -101,12 +101,7 @@ export function RecordingList({
           />
         ))}
         {links.map((link) => (
-          <LinkRow
-            key={link.id}
-            link={link}
-            {...rowState(link.id)}
-            onRemove={(id) => onRemoveLink?.(id)}
-          />
+          <LinkRow key={link.id} link={link} {...rowState(link.id)} onRemove={onRemoveLink} />
         ))}
       </ul>
       {error ? (
@@ -123,18 +118,21 @@ export function RecordingList({
         }}
       />
       <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
-        <AttachSongPicker
-          onPick={(songId) => {
-            const id = attaching
-            setAttaching(null)
-            if (id) run(() => updateRecording(db, id, { song_id: songId }))
-          }}
-          onCreate={(title) => {
-            const id = attaching
-            setAttaching(null)
-            if (id) void navigate({ to: '/songs/new', search: { title, attach: id } })
-          }}
-        />
+        {/* Mounted only while open: the picker searches the whole catalog, and every list on a screen has one. */}
+        {attaching !== null ? (
+          <AttachSongPicker
+            onPick={(songId) => {
+              const id = attaching
+              setAttaching(null)
+              run(() => updateRecording(db, id, { song_id: songId }))
+            }}
+            onCreate={(title) => {
+              const id = attaching
+              setAttaching(null)
+              void navigate({ to: '/songs/new', search: { title, attach: id } })
+            }}
+          />
+        ) : null}
       </Sheet>
     </>
   )

@@ -49,7 +49,7 @@ export async function recoverInterruptedCaptures(
     await finishCapture(db, file.id, {
       songId: liveSong(song)?.id ?? null,
       mime: chunks[0]!.blob.type || 'audio/mp4',
-      // The recorder never reported a duration for a take this abandoned, so the chunk
+      // The recorder never reported a duration for a recording this abandoned, so the chunk
       // count is the only record of how long it ran.
       durationMs: file.local_duration_ms ?? chunks.length * CHUNK_MS,
       recordedAt: file.recorded_at ?? new Date().toISOString(),
@@ -177,7 +177,7 @@ async function requeueRecording(db: CrosstuneDb, id: string): Promise<void> {
 /** Remove a file row (and its chunks) whose recording was tombstoned elsewhere, and any
  * chunk left with no file row or one that has moved past capturing. A capture still in
  * progress is left alone: it has no server row to check against yet, and still needs its chunks.
- * A tombstoned take that never uploaded is restored as unfiled instead: the server takes a
+ * A tombstoned recording that never uploaded is restored as unfiled instead: the server takes a
  * newer upsert over its tombstone, and this blob is the only copy of the audio. */
 async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
   await recordingTx(db, async () => {

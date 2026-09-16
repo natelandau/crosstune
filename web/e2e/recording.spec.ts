@@ -1,27 +1,46 @@
-import { expect, test } from '@playwright/test'
-import { addSong, signIn, unique } from './helpers'
+import { expect, test, type Locator, type Page } from '@playwright/test'
+import { addSong, signIn, swipeLeft, unique } from './helpers'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
 test.use({ reducedMotion: 'reduce' })
 
-test('record a take from a song and play it back on the device', async ({ page }) => {
+const DEFAULT_LABEL = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/
+
+/** Record from the dock for at least `seconds`, landing on the recordings tab with the new row unfiled. */
+async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('button', { name: 'Start a new recording' })
+    .click()
+  const timer = page.getByRole('timer')
+  await expect(timer).toBeVisible()
+  await expect(timer).toHaveText(new RegExp(`^0:0[${seconds}-9]$`), { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Stop' }).click()
+  await expect(page).toHaveURL(/\/recordings$/)
+  const row = page.getByRole('list', { name: 'Unfiled' }).getByRole('listitem').first()
+  await expect(row).toContainText(DEFAULT_LABEL)
+  return row
+}
+
+/** File an unfiled row under `title` from its swipe action, and return its row under that song. */
+async function addToSong(page: Page, row: Locator, title: string): Promise<Locator> {
+  await swipeLeft(page, row)
+  await row.getByRole('button', { name: /^Add to song / }).click()
+  await page.getByRole('searchbox', { name: 'Add to a song' }).fill(title)
+  await page.getByRole('button', { name: `Add to ${title}` }).click()
+  const filed = page.getByRole('list', { name: title }).getByRole('listitem').first()
+  await expect(filed).toContainText(DEFAULT_LABEL)
+  return filed
+}
+
+test('record, add the recording to a song, and play it back on the device', async ({ page }) => {
   await signIn(page)
   const title = unique('Cluck Old Hen')
   await addSong(page, title, 'A')
 
-  await page.getByRole('main').getByRole('button', { name: 'Record' }).click()
-  const timer = page.getByRole('timer')
-  await expect(timer).toBeVisible()
-  await expect(timer).toHaveText(/^0:0[6-9]$/, { timeout: 15_000 })
-  await page.getByRole('button', { name: 'Stop' }).click()
-  await page.getByRole('textbox', { name: 'Recording name' }).fill('First pass')
-  await page.getByRole('button', { name: 'Save' }).click()
-
-  await expect(page.getByRole('heading', { name: title })).toBeVisible()
-  const row = page.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
-  await expect(row).toContainText('First pass')
-  await expect(row).toContainText('On this device')
+  const unfiled = await recordUnfiled(page, 6)
+  const row = await addToSong(page, unfiled, title)
   await row.getByRole('button', { name: /^Play / }).click()
   const audio = page.getByRole('region', { name: 'Player' }).locator('audio')
   await expect(audio).toBeVisible()
@@ -30,28 +49,7 @@ test('record a take from a song and play it back on the device', async ({ page }
     .toBe(true)
 })
 
-test('the recordings tab lists an unfiled take and attaches it', async ({ page }) => {
-  await signIn(page)
-  const title = unique('Angeline')
-  await addSong(page, title, 'D')
-  await page.getByRole('link', { name: 'Crosstune' }).click()
-
-  await page
-    .getByRole('navigation', { name: 'Primary' })
-    .getByRole('button', { name: 'Record a new take' })
-    .click()
-  await expect(page.getByRole('timer')).toHaveText(/^0:0[1-9]$/, { timeout: 15_000 })
-  await page.getByRole('button', { name: 'Stop' }).click()
-  await page.getByRole('button', { name: 'Skip' }).click()
-  await expect(page).toHaveURL(/\/recordings$/)
-  const row = page.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
-  await row.getByRole('button', { name: /^Attach / }).click()
-  await page.getByRole('searchbox', { name: 'Attach to a song' }).fill(title)
-  await page.getByRole('button', { name: new RegExp(title) }).click()
-  await expect(row).toContainText(title)
-})
-
-test('uploads a take, transcodes it, and plays it back from a second device', async ({
+test('uploads a recording, transcodes it, and plays it back from a second device', async ({
   page,
   browser,
 }) => {
@@ -68,17 +66,12 @@ test('uploads a take, transcodes it, and plays it back from a second device', as
   await addSong(page, title, 'G')
   const songUrl = page.url()
 
-  await page.getByRole('main').getByRole('button', { name: 'Record' }).click()
-  const timer = page.getByRole('timer')
-  await expect(timer).toBeVisible()
-  await expect(timer).toHaveText(/^0:0[3-9]$/, { timeout: 15_000 })
-  await page.getByRole('button', { name: 'Stop' }).click()
-  await page.getByRole('textbox', { name: 'Recording name' }).fill('Upload test')
-  await page.getByRole('button', { name: 'Save' }).click()
+  const unfiled = await recordUnfiled(page, 3)
+  await addToSong(page, unfiled, title)
+  await page.goto(songUrl)
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
-
   const row = page.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
-  await expect(row).toContainText('Upload test')
+  await expect(row).toContainText(DEFAULT_LABEL)
 
   // The transfer loop runs on its own, but nudge it through Settings' Sync now
   // every few seconds in case it is between passes or backing off.
@@ -113,7 +106,9 @@ test('uploads a take, transcodes it, and plays it back from a second device', as
     await page2.goto(songUrl)
     await expect(page2.getByRole('heading', { name: title })).toBeVisible()
     const row2 = page2.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
-    await row2.getByRole('button', { name: /^Play / }).click()
+    // The second device holds no audio yet: the row fetches it first, then offers to play it.
+    await row2.getByRole('button', { name: /^Download / }).click()
+    await row2.getByRole('button', { name: /^Play / }).click({ timeout: 30_000 })
     const audio = page2.getByRole('region', { name: 'Player' }).locator('audio')
     await expect(audio).toBeVisible()
     try {

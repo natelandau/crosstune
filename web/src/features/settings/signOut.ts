@@ -20,7 +20,7 @@ export async function signOutAndForget({
   if ((await db.outbox.count()) > 0) {
     throw new Error('Some changes have not synced yet. Try again once they have.')
   }
-  // A take the server has never received exists only in the database deleted below.
+  // A recording the server has never received exists only in the database deleted below.
   if ((await db.recording_files.where('local_state').anyOf(NOT_UPLOADED_STATES).count()) > 0) {
     throw new Error(
       'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.',

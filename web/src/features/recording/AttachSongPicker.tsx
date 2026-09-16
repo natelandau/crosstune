@@ -4,11 +4,15 @@ import { SearchSuggestion } from '../catalog/SearchSuggestion'
 import { enterAction, searchOutcome } from '../catalog/searchIntent'
 import { SongCard } from '../catalog/SongCard'
 import { useCatalog } from '../catalog/useCatalog'
+import type { Instrument } from '../../db/types'
 import { useInstruments } from '../settings/useInstruments'
 
 // Archived songs are searchable here, so every filter is open and only the query narrows.
 const PICKER_FILTERS = { ...DEFAULT_FILTERS, archived: true }
 const MAX_RESULTS = 8
+
+// A card shows no tunings until the settings row is read, rather than the list waiting on it.
+const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 
 /** Search the catalog for the song a recording belongs to, or offer to create one by that name. */
 export function AttachSongPicker({
@@ -19,7 +23,7 @@ export function AttachSongPicker({
   onCreate: (title: string) => void
 }) {
   const entries = useCatalog()
-  const instruments = useInstruments()
+  const instruments = useInstruments() ?? NO_INSTRUMENTS
   const [query, setQuery] = useState('')
   const matches = useMemo(
     () => (entries && query.trim() ? filterCatalog(entries, PICKER_FILTERS, query) : []),
@@ -47,11 +51,9 @@ export function AttachSongPicker({
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key !== 'Enter') return
-            // The picker sits inside the save form, where Enter would otherwise submit it.
-            e.preventDefault()
             const action = enterAction(query, matches, outcome)
             if (action.kind === 'open') {
-              const entry = matches.find((m) => m.song.id === action.songId)
+              const entry = entries?.find((m) => m.song.id === action.songId)
               if (entry) pick(entry.song.id, entry.song.title)
             } else if (action.kind === 'create') {
               onCreate(action.title)
@@ -59,7 +61,7 @@ export function AttachSongPicker({
           }}
         />
       </label>
-      {matches.length > 0 && instruments ? (
+      {matches.length > 0 ? (
         <ul className="space-y-2">
           {matches.slice(0, MAX_RESULTS).map((entry) => (
             <li key={entry.song.id} className="bg-base-200 rounded-box">

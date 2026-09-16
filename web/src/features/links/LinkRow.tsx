@@ -4,11 +4,9 @@ import type { SwipeRowState } from '../../components/swipe'
 import type { LocalRecordingLink } from '../../db/types'
 import { useOnline } from '../../sync/SyncProvider'
 import { embedFor } from '../player/embed'
-import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
+import { PlayGlyph, ROW_CLASS, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { displayTitle, providerLabel } from './display'
-
-const ROW_CLASS = 'flex min-h-14 min-w-0 flex-1 items-center gap-1 py-2 pl-1 text-left'
 
 /**
  * A linked recording as a row shaped like an audio recording's: the row plays it when the provider can be
@@ -85,7 +83,7 @@ export function LinkRow({
             </div>
           )}
           <a
-            className="btn btn-ghost btn-sm mr-1 min-h-11 gap-1"
+            className="btn btn-ghost btn-sm mr-1 min-h-11 min-w-11 gap-1"
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"

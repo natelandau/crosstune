@@ -2,20 +2,11 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useEffect } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import type { SwipeRowState } from '../../components/swipe'
 import type { LocalRecordingLink } from '../../db/types'
-import { linkRow } from '../../test/rows'
+import { closedRow, linkRow } from '../../test/rows'
 import { PlayerProvider } from '../player/PlayerProvider'
 import { usePlayer, type Player } from '../player/usePlayer'
 import { LinkRow } from './LinkRow'
-
-const closedRow: SwipeRowState = {
-  open: false,
-  otherOpen: false,
-  onOpenChange: () => {},
-  onSwipeStart: () => {},
-  closeOpenRow: () => {},
-}
 
 function Rows({
   links,

@@ -25,15 +25,18 @@ const allowedHosts = (mode: string) =>
     .map((entry) => entry.trim())
     .filter(Boolean)
 
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    // One bundle: an offline reload must not fetch a route chunk the shell never loaded.
-    tanstackRouter({ target: 'react', autoCodeSplitting: false }),
-    react(),
-    tailwindcss(),
-    VitePWA(pwaOptions),
-  ],
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-  server: { host, port: 5173, proxy: apiProxy, allowedHosts: allowedHosts(mode) },
-  preview: { host, port: 4173, proxy: apiProxy, allowedHosts: allowedHosts(mode) },
-}))
+export default defineConfig(({ mode }) => {
+  const hosts = allowedHosts(mode)
+  return {
+    plugins: [
+      // One bundle: an offline reload must not fetch a route chunk the shell never loaded.
+      tanstackRouter({ target: 'react', autoCodeSplitting: false }),
+      react(),
+      tailwindcss(),
+      VitePWA(pwaOptions),
+    ],
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+    server: { host, port: 5173, proxy: apiProxy, allowedHosts: hosts },
+    preview: { host, port: 4173, proxy: apiProxy, allowedHosts: hosts },
+  }
+})
