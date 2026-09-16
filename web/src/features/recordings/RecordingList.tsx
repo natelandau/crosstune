@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
+import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { Sheet } from '../../components/Sheet'
@@ -12,6 +13,7 @@ import { useSyncEngine } from '../../sync/SyncProvider'
 import { AttachSongPicker } from '../recording/AttachSongPicker'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { RecordingRow } from './RecordingRow'
+import { RenameSheet } from './RenameSheet'
 import type { RecordingView } from './useRecordings'
 
 /** A local file the server has never seen is only ever on this device, so deleting it
@@ -44,6 +46,7 @@ export function RecordingList({
   const player = usePlayer()
   const { error, run } = useAction()
   const [attaching, setAttaching] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState<RecordingView | null>(null)
   if (views.length === 0 && links.length === 0) {
     return <p className="text-sm opacity-70">No recordings yet.</p>
   }
@@ -56,21 +59,23 @@ export function RecordingList({
             view={view}
             {...rowState(view.recording.id)}
             actions={[
+              { label: 'Rename', tone: 'neutral', onPress: () => setRenaming(view) },
               view.songId
                 ? {
                     label: 'Remove from song',
-                    tone: 'neutral',
+                    tone: 'warning',
                     onPress: () =>
                       run(() => updateRecording(db, view.recording.id, { song_id: null })),
                   }
                 : {
                     label: 'Add to song',
-                    tone: 'neutral',
+                    tone: 'warning',
                     onPress: () => setAttaching(view.recording.id),
                   },
               {
                 label: 'Delete',
                 tone: 'error',
+                icon: <Trash2 aria-hidden="true" className="size-5" />,
                 onPress: () => {
                   if (!window.confirm(confirmMessage(view))) return
                   const id = view.recording.id
@@ -102,6 +107,14 @@ export function RecordingList({
           {error}
         </p>
       ) : null}
+      <RenameSheet
+        view={renaming}
+        onClose={() => setRenaming(null)}
+        onSave={(id, label) => {
+          setRenaming(null)
+          run(() => updateRecording(db, id, { label }))
+        }}
+      />
       <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
         <AttachSongPicker
           onPick={(songId) => {

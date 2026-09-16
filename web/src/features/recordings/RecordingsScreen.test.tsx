@@ -167,6 +167,30 @@ describe('RecordingsScreen', () => {
     expect(screen.getByRole('button', { name: 'Download Remote' })).toBeInTheDocument()
   })
 
+  it('renames a recording from its swipe action', async () => {
+    const id = await saveRecording(null, 'Loose recording')
+    renderApp({ db, path: '/recordings' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Rename Loose recording' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Rename recording' })
+    const name = within(dialog).getByRole('textbox', { name: 'Recording name' })
+    expect(name).toHaveValue('Loose recording')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Tuesday jam')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await vi.waitFor(async () => expect((await db.recordings.get(id))?.label).toBe('Tuesday jam'))
+    expect(await screen.findByRole('button', { name: 'Rename Tuesday jam' })).toBeInTheDocument()
+  })
+
+  it('leaves the name alone when the rename is cancelled', async () => {
+    const id = await saveRecording(null, 'Loose recording')
+    renderApp({ db, path: '/recordings' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Rename Loose recording' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Rename recording' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Recording name' }), ' x')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect((await db.recordings.get(id))?.label).toBe('Loose recording')
+  })
+
   it('stores an uploaded file', async () => {
     renderApp({ db, path: '/recordings' })
     const input = await screen.findByLabelText('Upload audio file')

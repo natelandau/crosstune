@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CloudDownload } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { SwipeRow, type SwipeAction } from '../../components/SwipeRow'
+import { SwipeRow, type SwipeActions } from '../../components/SwipeRow'
 import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
@@ -28,7 +28,7 @@ export function RecordingRow({
   ...rowState
 }: SwipeRowState & {
   view: RecordingView
-  actions: readonly [SwipeAction, SwipeAction]
+  actions: SwipeActions
   onRetry: (id: string) => void
   onRetryUpload: (id: string) => void
 }) {

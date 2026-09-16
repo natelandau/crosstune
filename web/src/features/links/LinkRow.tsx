@@ -1,4 +1,4 @@
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Trash2 } from 'lucide-react'
 import { SwipeRow } from '../../components/SwipeRow'
 import type { SwipeRowState } from '../../components/swipe'
 import type { LocalRecordingLink } from '../../db/types'
@@ -52,7 +52,14 @@ export function LinkRow({
     <li>
       <SwipeRow
         name={title}
-        actions={[{ label: 'Remove', tone: 'error', onPress: () => onRemove(link.id) }]}
+        actions={[
+          {
+            label: 'Remove',
+            tone: 'error',
+            icon: <Trash2 aria-hidden="true" className="size-5" />,
+            onPress: () => onRemove(link.id),
+          },
+        ]}
         {...rowState}
       >
         <div className="rounded-box flex items-center">

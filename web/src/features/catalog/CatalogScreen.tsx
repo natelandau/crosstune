@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Plus, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { setArchived } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
@@ -212,6 +212,11 @@ function Catalog({
                       {
                         label: archived ? 'Unarchive' : 'Archive',
                         tone: 'warning',
+                        icon: archived ? (
+                          <ArchiveRestore aria-hidden="true" className="size-5" />
+                        ) : (
+                          <Archive aria-hidden="true" className="size-5" />
+                        ),
                         onPress: () => run(() => setArchived(db, userSong.id, !archived)),
                       },
                     ]}

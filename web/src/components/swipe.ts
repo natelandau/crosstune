@@ -1,7 +1,32 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 
-/** Width of one revealed action button. */
+/** Width of one revealed action button with a text label. */
 export const ACTION_WIDTH = 80
+
+/** Width of one revealed action button that shows only an icon. */
+export const ICON_ACTION_WIDTH = 56
+
+export interface SwipeAction {
+  /** The accessible name, and the visible text unless an icon stands in for it. */
+  label: string
+  tone: 'neutral' | 'warning' | 'error'
+  onPress: () => void
+  /** Shown instead of the label, on a narrower button. */
+  icon?: ReactNode
+}
+
+/** One to three actions, revealed side by side. */
+export type SwipeActions =
+  | readonly [SwipeAction]
+  | readonly [SwipeAction, SwipeAction]
+  | readonly [SwipeAction, SwipeAction, SwipeAction]
+
+/** Total width of the revealed action area for these actions. */
+export function revealWidthFor(actions: SwipeActions): number {
+  let width = 0
+  for (const action of actions) width += action.icon ? ICON_ACTION_WIDTH : ACTION_WIDTH
+  return width
+}
 
 /** Width of the revealed action area for a row with two actions, the common case. */
 export const REVEAL_WIDTH = ACTION_WIDTH * 2

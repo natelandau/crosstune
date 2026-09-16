@@ -13,18 +13,18 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import {
   ACTION_WIDTH,
   guardTrailingClick,
+  ICON_ACTION_WIDTH,
   releaseVelocity,
   resist,
+  revealWidthFor,
   settleOpen,
+  type SwipeAction,
+  type SwipeActions,
   type SwipeRowState,
   type SwipeSample,
 } from './swipe'
 
-export interface SwipeAction {
-  label: string
-  tone: 'neutral' | 'warning' | 'error'
-  onPress: () => void
-}
+export type { SwipeAction, SwipeActions }
 
 const TONE_CLASSES: Record<SwipeAction['tone'], string> = {
   neutral: 'bg-neutral text-neutral-content',
@@ -46,8 +46,7 @@ const NO_INSTRUCTIONS: ScreenReaderInstructions = { draggable: '' }
 
 type Props = SwipeRowState & {
   name: string
-  /** One or two, revealed side by side at a fixed width each. */
-  actions: readonly [SwipeAction] | readonly [SwipeAction, SwipeAction]
+  actions: SwipeActions
   /** Turns the swipe off and rests the row closed, as while selecting songs. */
   disabled?: boolean
   children: ReactNode
@@ -70,7 +69,7 @@ export function SwipeRow({
   const samples = useRef<SwipeSample[]>([])
   const releaseClick = useRef<(() => void) | null>(null)
   const shownOpen = open && !disabled
-  const revealWidth = ACTION_WIDTH * actions.length
+  const revealWidth = revealWidthFor(actions)
   const rest = shownOpen ? -revealWidth : 0
 
   useEffect(() => () => releaseClick.current?.(), [])
@@ -159,7 +158,7 @@ function SwipeLayers({
           revealed ? '' : 'motion-safe:delay-200'
         }`}
         // The front layer's antialiased rounded edge lets colored buttons behind it show through.
-        style={{ width: ACTION_WIDTH * actions.length, opacity: revealed ? 1 : 0 }}
+        style={{ width: revealWidthFor(actions), opacity: revealed ? 1 : 0 }}
         inert={!open}
       >
         {actions.map((action) => (
@@ -167,13 +166,14 @@ function SwipeLayers({
             key={action.label}
             type="button"
             aria-label={`${action.label} ${name}`}
-            className={`flex-1 text-sm font-semibold ${TONE_CLASSES[action.tone]}`}
+            className={`flex items-center justify-center text-sm font-semibold ${TONE_CLASSES[action.tone]}`}
+            style={{ width: action.icon ? ICON_ACTION_WIDTH : ACTION_WIDTH }}
             onClick={() => {
               onOpenChange(false)
               action.onPress()
             }}
           >
-            {action.label}
+            {action.icon ?? action.label}
           </button>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { ListMinus } from 'lucide-react'
 import {
   closestCenter,
   DndContext,
@@ -230,7 +231,12 @@ function SortableSong({
         }
         actions={[
           { label: 'Edit', tone: 'neutral', onPress: onEdit },
-          { label: 'Remove', tone: 'error', onPress: onRemove },
+          {
+            label: 'Remove',
+            tone: 'error',
+            icon: <ListMinus aria-hidden="true" className="size-5" />,
+            onPress: onRemove,
+          },
         ]}
       />
     </li>
