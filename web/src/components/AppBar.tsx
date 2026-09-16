@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useShownChrome } from '../features/selection/selectionChrome'
 import { Lockup } from './Mark'
+import { useShownPageActions } from './pageChrome'
 import { SyncIndicator } from './SyncIndicator'
 
 // Both layers share one grid cell so they crossfade in place.
@@ -9,6 +10,7 @@ const LAYER =
 
 export function AppBar() {
   const { active, bar } = useShownChrome()
+  const actions = useShownPageActions()
   return (
     <header
       className={`navbar sticky top-0 z-10 grid min-h-14 p-0 pt-[env(safe-area-inset-top)] transition-colors duration-(--select-bar-duration) ease-out ${
@@ -23,6 +25,7 @@ export function AppBar() {
         <Link to="/" className="text-brand flex-1">
           <Lockup />
         </Link>
+        {actions}
         <SyncIndicator />
       </div>
       <div
