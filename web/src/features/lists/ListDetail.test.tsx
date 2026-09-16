@@ -186,6 +186,21 @@ describe('ListDetail', () => {
     expect(await db.songs.count()).toBe(3)
   })
 
+  it('clears the picker search from its button and keeps focus in the box', async () => {
+    renderWithProviders(
+      <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,
+      { db },
+    )
+    await screen.findAllByRole('listitem')
+    const box = screen.getByRole('searchbox', { name: 'Add a song' })
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+    await userEvent.type(box, 'cumber')
+    await userEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(box).toHaveValue('')
+    expect(box).toHaveFocus()
+    expect(screen.queryByRole('button', { name: 'Add Cumberland Gap' })).toBeNull()
+  })
+
   it('adds the only match from Enter', async () => {
     renderWithProviders(
       <ListDetail listId={listId} edit={false} onEditChange={() => {}} onDeleted={() => {}} />,

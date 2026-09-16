@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { X } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../db/types'
 import { useInstruments } from '../settings/useInstruments'
 import { DEFAULT_FILTERS, filterCatalog, type CatalogEntry } from './filters'
@@ -38,6 +39,7 @@ export function SongSearchPicker({
   const entries = useCatalog()
   const instruments = useInstruments() ?? NO_INSTRUMENTS
   const [query, setQuery] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
   const matches = useMemo(
     () => (entries && query.trim() ? filterCatalog(entries, PICKER_FILTERS, query) : []),
     [entries, query],
@@ -57,8 +59,10 @@ export function SongSearchPicker({
     <div className="space-y-2">
       <label className="input min-h-11 w-full">
         <input
+          ref={searchRef}
           type="search"
-          className="grow"
+          // The native cancel button is missing in Firefox and too small to tap in WebKit.
+          className="grow [&::-webkit-search-cancel-button]:appearance-none"
           aria-label={label}
           placeholder={label}
           enterKeyHint="search"
@@ -77,6 +81,19 @@ export function SongSearchPicker({
             }
           }}
         />
+        {query ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-circle btn-sm -mr-2"
+            aria-label="Clear search"
+            onClick={() => {
+              setQuery('')
+              searchRef.current?.focus()
+            }}
+          >
+            <X aria-hidden="true" className="size-4" />
+          </button>
+        ) : null}
       </label>
       {matches.length > 0 ? (
         <ul className="space-y-2">
