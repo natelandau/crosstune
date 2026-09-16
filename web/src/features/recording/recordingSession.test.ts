@@ -51,6 +51,7 @@ function setup(overrides: Partial<RecordingSessionDeps<MediaStreamLike>> = {}) {
     suspendAudioContext: vi.fn(),
     persistStorage: vi.fn(),
     clock: { now: () => clock.time, every: () => () => {} },
+    songId: null,
     ...overrides,
   }
   const session = createRecordingSession(deps)
@@ -239,5 +240,17 @@ describe('createRecordingSession finish and cancel', () => {
     expect(session.snapshot()).toMatchObject({ phase: 'saved', elapsedMs: 23_000 })
     expect((await db.recording_files.get('rec_1'))?.local_duration_ms).toBe(23_000)
     expect((await db.recordings.get('rec_1'))?.recorded_at).toBe(new Date(1_000).toISOString())
+  })
+})
+
+describe('createRecordingSession filing', () => {
+  it('files the recording under the song it was started for', async () => {
+    const { session, recorders } = setup({ songId: 'song_1' })
+    await session.start()
+    expect((await db.recording_files.get('rec_1'))?.song_id).toBe('song_1')
+    recorders[0]!.emit('early')
+    await session.finish()
+    expect((await db.recordings.get('rec_1'))?.song_id).toBe('song_1')
+    expect(session.snapshot().phase).toBe('saved')
   })
 })

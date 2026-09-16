@@ -53,6 +53,7 @@ export interface RecordingSessionDeps<S extends MediaStreamLike> {
   suspendAudioContext: () => void
   persistStorage: () => void
   clock: SessionClock
+  songId: string | null
 }
 
 export interface RecordingSession {
@@ -89,7 +90,7 @@ const SIZE_LIMIT_FRACTION = 0.95
 export function createRecordingSession<S extends MediaStreamLike>(
   deps: RecordingSessionDeps<S>,
 ): RecordingSession {
-  const { db, recordingId, clock } = deps
+  const { db, recordingId, clock, songId } = deps
   const listeners = new Set<(snapshot: RecordingSnapshot) => void>()
   let snapshot: RecordingSnapshot = {
     phase: 'starting',
@@ -164,9 +165,9 @@ export function createRecordingSession<S extends MediaStreamLike>(
       releaseHardware()
       const writeFailed = await partial
       try {
-        // Every recording begins unfiled; the recordings tab is where it is added to a song.
+        // Files under the song the screen was opened from, or unfiled for the Recordings tab.
         const fields = {
-          songId: null,
+          songId,
           // The recorder's own type names what it actually produced, codecs included.
           mime: recorder?.mimeType || 'audio/mp4',
           durationMs: activeMs,
@@ -270,7 +271,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
     // Stamped before the row is written so recovery, which reads it from the row, files an
     // interrupted recording under the same start time a normal finish would use.
     recordedAt = new Date(clock.now()).toISOString()
-    await beginCapture(db, recordingId, { songId: null, recordedAt })
+    await beginCapture(db, recordingId, { songId, recordedAt })
     begun = true
     if (abandoned()) return abandonStart()
     // Asked only once there is a recording worth protecting from storage eviction.
