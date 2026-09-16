@@ -3,7 +3,8 @@ import { useCallback } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { getMeta, setMeta } from '../../db/meta'
 
-/** One setting for every list, kept apart from the catalog's so Clear filters leaves it alone. */
+/** One setting for every list, kept apart from the catalog's filters so clearing those
+ * leaves it alone. */
 export const META_LIST_SHOW_ARCHIVED = 'list_show_archived'
 
 /** Whether lists show archived songs, undefined until read. */

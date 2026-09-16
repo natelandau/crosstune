@@ -59,7 +59,9 @@ describe('list selection', () => {
     const { router } = await enterListSelection()
     await userEvent.click(screen.getByText('Sail Away Ladies'))
     await userEvent.click(screen.getByText('Old Molly Hare'))
-    await userEvent.click(screen.getByRole('button', { name: 'Remove 2 from list', hidden: true }))
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Remove 2 from list', hidden: true }),
+    )
     await waitFor(async () => expect(await activeItems(db, listId)).toHaveLength(1))
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(screen.getByText('Removed 2 songs from Tuesday jam')).toBeInTheDocument()
@@ -77,7 +79,9 @@ describe('list selection', () => {
     const { router } = await enterListSelection()
     await userEvent.click(screen.getByText('Sail Away Ladies'))
     vi.spyOn(db, 'transaction').mockRejectedValueOnce(new Error('Disk full') as never)
-    await userEvent.click(screen.getByRole('button', { name: 'Remove 1 from list', hidden: true }))
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Remove 1 from list', hidden: true }),
+    )
     expect(await screen.findByRole('alert')).toHaveTextContent('Disk full')
     expect(router.state.location.search).toEqual({ select: true })
     expect(screen.getByText('1 selected')).toBeInTheDocument()
@@ -97,7 +101,9 @@ describe('list selection', () => {
   it('focuses the page after removing every visible song', async () => {
     await enterListSelection()
     await userEvent.click(screen.getByRole('button', { name: 'Select all' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Remove 3 from list', hidden: true }))
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Remove 3 from list', hidden: true }),
+    )
     await waitFor(async () => expect(await activeItems(db, listId)).toHaveLength(0))
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('main')))
   })

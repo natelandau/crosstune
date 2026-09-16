@@ -111,7 +111,7 @@ export function SongSelectionActions({
     const itemIds = ids.flatMap((id) => context.itemIdByUserSong.get(id) ?? [])
     more.push({
       label: `Remove ${itemIds.length} from list`,
-      tone: 'error',
+      tone: 'danger',
       onSelect: () =>
         apply(async () => ({
           undo: await removeSongsFromList(db, itemIds),

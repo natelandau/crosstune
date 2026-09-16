@@ -26,6 +26,16 @@ const selectButton = () => screen.getByRole('button', { name: 'Select' })
 const checkbox = (title: string) => screen.getByRole('checkbox', { name: title })
 const toolbar = () => screen.getByRole('toolbar', { name: 'Selected songs' })
 
+// The catalog's own filter sheet stays mounted at all times, so a count of every
+// dialog in the tree must leave it out to describe only the selection sheets.
+function selectionDialogs() {
+  return Array.from(document.querySelectorAll('dialog')).filter((dialog) => {
+    const labelId = dialog.getAttribute('aria-labelledby')
+    const label = labelId && document.getElementById(labelId)?.textContent
+    return label !== 'Filters'
+  })
+}
+
 // A song archived beforehand is hidden by the default filter, so a test covering one
 // must wait on a title that still renders.
 async function enterSelection(anchor = 'Cluck Old Hen') {
@@ -34,6 +44,14 @@ async function enterSelection(anchor = 'Cluck Old Hen') {
   await userEvent.click(selectButton())
   await screen.findByText('0 selected')
   return view
+}
+
+// The archived toggle lives in the filter sheet, so showing archived songs takes a round trip through it.
+async function showArchived() {
+  await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+  const sheet = screen.getByRole('dialog', { name: 'Filters' })
+  await userEvent.click(within(sheet).getByRole('checkbox', { name: 'Show archived' }))
+  await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }))
 }
 
 describe('catalog selection', () => {
@@ -163,13 +181,13 @@ describe('catalog selection', () => {
   it('mounts the sheets only while selecting', async () => {
     renderApp({ db })
     await screen.findByRole('link', { name: /Cluck Old Hen/ })
-    expect(document.querySelector('dialog')).toBeNull()
+    expect(selectionDialogs()).toHaveLength(0)
     await userEvent.click(selectButton())
     await screen.findByText('0 selected')
-    expect(document.querySelectorAll('dialog')).toHaveLength(3)
+    expect(selectionDialogs()).toHaveLength(3)
     await userEvent.click(screen.getByRole('button', { name: 'Cancel selection' }))
     await screen.findByRole('link', { name: /Cluck Old Hen/ })
-    expect(document.querySelector('dialog')).toBeNull()
+    expect(selectionDialogs()).toHaveLength(0)
   })
 
   it('keeps a closing sheet mounted until its exit transition ends', async () => {
@@ -181,7 +199,7 @@ describe('catalog selection', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(sheet).toBeInTheDocument()
     fireEvent.transitionEnd(sheet)
-    expect(document.querySelector('dialog')).toBeNull()
+    expect(selectionDialogs()).toHaveLength(0)
   })
 
   it('closes an open sheet when Back leaves selection', async () => {
@@ -193,7 +211,7 @@ describe('catalog selection', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     await waitFor(() => expect(sheet).not.toHaveAttribute('open'))
     fireEvent.transitionEnd(sheet)
-    expect(document.querySelector('dialog')).toBeNull()
+    expect(selectionDialogs()).toHaveLength(0)
   })
 
   it('stays on the catalog when Enter is pressed in the search box while selecting', async () => {
@@ -268,7 +286,7 @@ describe('catalog bulk status and archive', () => {
     await userEvent.click(screen.getByText('Cluck Old Hen'))
     await userEvent.click(screen.getByText("Elzic's Farewell"))
     // jsdom cannot open a popover, so the menu's buttons are reached while hidden.
-    await userEvent.click(screen.getByRole('button', { name: 'Archive 2 songs', hidden: true }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Archive 2 songs', hidden: true }))
     await waitFor(async () => expect((await statusOf('Cluck Old Hen')).archived_at).not.toBeNull())
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(screen.getByText('Archived 2 songs')).toBeInTheDocument()
@@ -280,12 +298,14 @@ describe('catalog bulk status and archive', () => {
   it('offers Archive and Unarchive together for a mixed selection', async () => {
     await setArchived(db, (await statusOf('Cluck Old Hen')).id, true)
     await enterSelection("Elzic's Farewell")
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Show archived' }))
+    await showArchived()
     await userEvent.click(await screen.findByText('Cluck Old Hen'))
     await userEvent.click(screen.getByText("Elzic's Farewell"))
-    expect(screen.getByRole('button', { name: 'Archive 1 song', hidden: true })).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Unarchive 1 song', hidden: true }),
+      screen.getByRole('menuitem', { name: 'Archive 1 song', hidden: true }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Unarchive 1 song', hidden: true }),
     ).toBeInTheDocument()
   })
 
@@ -293,9 +313,9 @@ describe('catalog bulk status and archive', () => {
     const cluck = (await statusOf('Cluck Old Hen')).id
     await setArchived(db, cluck, true)
     const { router } = await enterSelection("Elzic's Farewell")
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Show archived' }))
+    await showArchived()
     await userEvent.click(await screen.findByText('Cluck Old Hen'))
-    await userEvent.click(screen.getByRole('button', { name: 'Unarchive 1 song', hidden: true }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Unarchive 1 song', hidden: true }))
     await waitFor(async () => expect((await statusOf('Cluck Old Hen')).archived_at).toBeNull())
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(screen.getByText('Unarchived 1 song')).toBeInTheDocument()

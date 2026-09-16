@@ -20,7 +20,7 @@ export function NewSongScreen() {
   useEffect(clearSearchQuery, [])
   if (instruments === undefined) return null
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
       <PageHeading>New song</PageHeading>
       <SongForm
         submitLabel="Add song"

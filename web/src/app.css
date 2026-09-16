@@ -201,6 +201,10 @@
 .textarea {
   --font-size-min: max(var(--text-body), 16px);
 }
+.textarea {
+  /* rows sets the floor; the box then grows with what is typed instead of scrolling. */
+  field-sizing: content;
+}
 .dock-label {
   font-size: var(--text-small);
   font-weight: 500;

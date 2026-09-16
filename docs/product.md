@@ -87,11 +87,12 @@ on a phone home screen. It contains these features.
 - Offline. The full catalog is cached on the device. Reads and writes work
   without a connection. Writes sync when the connection returns.
 - Recordings. A user records with the phone's microphone or uploads an audio
-  file. A recording is added to a song or waits unfiled in the Recordings tab.
-  It plays at once on the device that made it and uploads in the background.
-  It reaches the user's other devices when someone plays it, or ahead of time
-  on any device where Download all recordings to this device is turned on in
-  Settings. A free account stores 1 GB of recordings.
+  file. A recording started from a song's page is filed under that song. Any
+  other recording waits unfiled in the Recordings tab until it is added to a
+  song. It plays at once on the device that made it and uploads in the
+  background. It reaches the user's other devices when someone plays it, or
+  ahead of time on any device where Download all recordings to this device is
+  turned on in Settings. A free account stores 1 GB of recordings.
 
 These features are out of the first release. Each has a place in the data model
 and no code.

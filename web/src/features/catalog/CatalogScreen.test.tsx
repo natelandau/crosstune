@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createSong, setArchived } from '../../commands/songs'
@@ -72,15 +72,66 @@ describe('CatalogScreen', () => {
     expect(screen.getByRole('list').parentElement).toHaveClass('pb-12')
   })
 
-  it('offers only facets with values and only tunings for played instruments', async () => {
+  it('offers a key rail and a sheet with only facets that have values for played instruments', async () => {
     renderWithProviders(<CatalogScreen />, { db })
     await screen.findByRole('link', { name: /Soldier's Joy/ })
-    expect(screen.getByRole('combobox', { name: 'Key' })).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: 'Mode' })).toBeNull()
-    expect(screen.queryByRole('combobox', { name: 'Violin tuning' })).toBeNull()
-    expect(screen.queryByRole('combobox', { name: 'Banjo tuning' })).toBeNull()
+    const keys = screen.getByRole('group', { name: 'Key' })
+    expect(within(keys).getByRole('button', { name: 'All' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(within(keys).getByRole('button', { name: 'D' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    const sheet = screen.getByRole('dialog', { name: 'Filters' })
+    expect(within(sheet).queryByRole('group', { name: 'Mode' })).toBeNull()
+    expect(within(sheet).queryByRole('group', { name: 'Violin tuning' })).toBeNull()
+    expect(within(sheet).queryByRole('group', { name: 'Banjo tuning' })).toBeNull()
     await setInstruments(db, 'user_1', ['banjo'])
-    expect(await screen.findByRole('combobox', { name: 'Banjo tuning' })).toBeInTheDocument()
+    expect(await within(sheet).findByRole('group', { name: 'Banjo tuning' })).toBeInTheDocument()
+  })
+
+  it('filters by key in one tap and shows the count', async () => {
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    expect(screen.getByText('2 songs', { selector: '[aria-live]' })).toBeInTheDocument()
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Key' })).getByRole('button', { name: 'A' }),
+    )
+    await waitFor(() => expect(screen.queryByRole('link', { name: /Soldier's Joy/ })).toBeNull())
+    // Scoped to the live region: the filter sheet stays mounted and carries the same count text.
+    expect(screen.getByText('1 of 2 songs', { selector: '[aria-live]' })).toBeInTheDocument()
+    expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({ key: 'A' })
+  })
+
+  it('keeps the count row while every song in the catalog is archived', async () => {
+    for (const userSong of await db.user_songs.toArray()) await setArchived(db, userSong.id, true)
+    renderWithProviders(<CatalogScreen />, { db })
+    expect(await screen.findByText('0 songs', { selector: '[aria-live]' })).toBeInTheDocument()
+  })
+
+  it('shows a sheet filter as a badge and a removable pill', async () => {
+    await setInstruments(db, 'user_1', ['banjo'])
+    renderWithProviders(<CatalogScreen />, { db })
+    await screen.findByRole('link', { name: /Soldier's Joy/ })
+    const filters = screen.getByRole('button', { name: 'Filters' })
+    expect(filters).not.toHaveTextContent('1')
+    await userEvent.click(filters)
+    const sheet = screen.getByRole('dialog', { name: 'Filters' })
+    await userEvent.click(
+      within(await within(sheet).findByRole('group', { name: 'Banjo tuning' })).getByRole(
+        'button',
+        {
+          name: 'gDGBD',
+        },
+      ),
+    )
+    await waitFor(() => expect(screen.queryByRole('link', { name: /Cluck Old Hen/ })).toBeNull())
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Done' }))
+    expect(screen.getByRole('button', { name: 'Filters, 1 set' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter gDGBD' }))
+    expect(await screen.findByRole('link', { name: /Cluck Old Hen/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
+    expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({ banjo_tuning: 'all' })
   })
 
   it('does not let a hidden facet narrow the catalog', async () => {
@@ -145,15 +196,27 @@ describe('CatalogScreen clear controls', () => {
     expect(await screen.findByRole('link', { name: /Soldier's Joy/ })).toBeInTheDocument()
   })
 
-  it('offers Clear filters beside the filters only while one is set', async () => {
+  it('resets sheet filters from the sheet and leaves status, key, and the search alone', async () => {
+    await setInstruments(db, 'user_1', ['banjo'])
+    await setMeta(db, META_CATALOG_FILTERS, {
+      status: 'known',
+      key: 'D',
+      banjo_tuning: 'gDGBD',
+      archived: true,
+    })
     renderWithProviders(<CatalogScreen />, { db })
     await screen.findByRole('link', { name: /Soldier's Joy/ })
-    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Learning' }))
     await userEvent.type(searchbox(), 'o')
-    await userEvent.click(await screen.findByRole('button', { name: 'Clear filters' }))
-    expect(await screen.findByRole('link', { name: /Soldier's Joy/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Filters, 2 set' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    await waitFor(async () =>
+      expect(await getMeta(db, META_CATALOG_FILTERS, null)).toMatchObject({
+        status: 'known',
+        key: 'D',
+        banjo_tuning: 'all',
+        archived: false,
+      }),
+    )
     expect(searchbox()).toHaveValue('o')
   })
 })
@@ -219,7 +282,9 @@ describe('CatalogScreen search or create', () => {
     expect(
       await screen.findByText('"Soldier\'s Joy" is hidden by your filters.'),
     ).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Status' })).getByRole('button', { name: 'All' }),
+    )
     // Anchored so the hidden-song note's "Open Soldier's Joy" link, gone once the filter clears, cannot match.
     expect(await screen.findByRole('link', { name: /^Soldier's Joy/ })).toBeInTheDocument()
     expect(searchbox()).toHaveValue("soldier's joy")

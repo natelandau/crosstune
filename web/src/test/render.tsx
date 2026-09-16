@@ -10,6 +10,7 @@ import {
 import { render } from '@testing-library/react'
 import { StrictMode, type ReactElement } from 'react'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
+import { PageChromeProvider } from '../components/PageChromeProvider'
 import { ToastProvider } from '../components/Toast'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
@@ -57,7 +58,9 @@ export function renderWithProviders(
         <DbContext.Provider value={db}>
           <SyncContext.Provider value={engine}>
             <ToastProvider>
-              <Outlet />
+              <PageChromeProvider>
+                <Outlet />
+              </PageChromeProvider>
             </ToastProvider>
           </SyncContext.Provider>
         </DbContext.Provider>

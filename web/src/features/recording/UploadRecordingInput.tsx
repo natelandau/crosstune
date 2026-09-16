@@ -5,14 +5,22 @@ import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { formatBytes } from './format'
 
-export function UploadRecordingInput({ songId }: { songId: string | null }) {
+export function UploadRecordingInput({
+  songId,
+  label = 'Upload audio file',
+  className,
+}: {
+  songId: string | null
+  label?: string
+  className?: string
+}) {
   const db = useDb()
   const { error, run } = useAction()
   return (
     <div className="space-y-1">
       {/* The native picker button cannot be relabeled, so the input hides behind a styled label. */}
-      <label className="btn min-h-11">
-        Upload audio file
+      <label className={className ?? 'btn min-h-11'}>
+        {label}
         <input
           type="file"
           accept="audio/*"

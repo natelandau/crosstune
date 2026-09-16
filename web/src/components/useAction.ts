@@ -11,6 +11,8 @@ export interface Action {
   pending: boolean
   run: (action: () => Promise<unknown>) => void
   runThen: (action: () => Promise<unknown>, onSuccess: () => void) => void
+  /** Drops the last rejection without starting another action. */
+  clear: () => void
 }
 
 /** Runs a fire-and-forget mutation, surfacing a rejection instead of losing it. */
@@ -31,5 +33,6 @@ export function useAction(): Action {
     },
     [runThen],
   )
-  return { error, pending, run, runThen }
+  const clear = useCallback(() => setError(null), [])
+  return { error, pending, run, runThen, clear }
 }

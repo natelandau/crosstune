@@ -29,14 +29,15 @@ function confirmMessage(view: RecordingView): string {
 export function RecordingList({
   views,
   links = [],
-  onRemoveLink = () => {},
+  onRemoveLink = () => Promise.resolve(),
   label = 'Recordings',
   rowState,
 }: {
   views: RecordingView[]
   /** Linked recordings, listed after the audio recordings as rows of the same shape. */
   links?: LocalRecordingLink[]
-  onRemoveLink?: (id: string) => void
+  /** Awaited by the list, so a rejection reports under these rows like every other row action. */
+  onRemoveLink?: (id: string) => Promise<unknown>
   label?: string
   /** Shared by every list on a screen, so only one row is open across all of them. */
   rowState: (id: string) => SwipeRowState
@@ -102,7 +103,12 @@ export function RecordingList({
           />
         ))}
         {links.map((link) => (
-          <LinkRow key={link.id} link={link} {...rowState(link.id)} onRemove={onRemoveLink} />
+          <LinkRow
+            key={link.id}
+            link={link}
+            {...rowState(link.id)}
+            onRemove={(id) => run(() => onRemoveLink(id))}
+          />
         ))}
       </ul>
       {error ? <ErrorText>{error}</ErrorText> : null}

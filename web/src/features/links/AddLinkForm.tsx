@@ -18,7 +18,15 @@ function looksLikeUrl(value: string): boolean {
   }
 }
 
-export function AddLinkForm({ songId, onAdded }: { songId: string; onAdded?: () => void }) {
+export function AddLinkForm({
+  songId,
+  autoFocus,
+  onAdded,
+}: {
+  songId: string
+  autoFocus?: boolean
+  onAdded?: () => void
+}) {
   const db = useDb()
   const engine = useSyncEngine()
   const [url, setUrl] = useState('')
@@ -85,6 +93,7 @@ export function AddLinkForm({ songId, onAdded }: { songId: string; onAdded?: () 
             type="url"
             inputMode="url"
             aria-label="Link"
+            autoFocus={autoFocus}
             maxLength={2048}
             placeholder="Paste a YouTube, Spotify, or other link"
             value={url}

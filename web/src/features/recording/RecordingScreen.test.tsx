@@ -9,6 +9,7 @@ import {
   finishCapture,
   defaultRecordingLabel,
 } from '../../commands/recordings'
+import { createSong } from '../../commands/songs'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import { captureLockName } from '../../sync/captureLock'
@@ -258,5 +259,16 @@ describe('RecordingScreen', () => {
     )
     await waitFor(() => expect(router.state.location.pathname).toBe('/record'))
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
+  })
+
+  it('records for a song and returns to it', async () => {
+    const { songId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { router } = renderApp({ db, path: `/record?song=${songId}` })
+    await screen.findByRole('timer')
+    await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
+    const [row] = await db.recordings.toArray()
+    expect(row?.song_id).toBe(songId)
+    expect(await screen.findByRole('heading', { name: 'Cluck Old Hen' })).toBeInTheDocument()
   })
 })

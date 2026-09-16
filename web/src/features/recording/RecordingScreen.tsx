@@ -1,5 +1,5 @@
 import { ErrorText } from '../../components/Page'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { useToast } from '../../components/toastContext'
@@ -44,19 +44,25 @@ export function RecordingScreen() {
 function RecordingCapture() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture()
+  const { song } = useSearch({ from: '/record' })
+  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture({ songId: song ?? null })
   const reduceMotion = useReducedMotion()
   const live = phase === 'starting' || phase === 'recording' || phase === 'interrupted'
   const started = live && phase !== 'starting'
   const showTimer = started || phase === 'saving' || phase === 'saved'
 
-  // A saved recording goes straight to the recordings tab, where it can be named, filed, or
-  // deleted. Every exit replaces this entry, so Back never returns here and starts another recording.
+  // A recording started from a song returns to it; one started from the navigation goes to
+  // the Recordings tab. Every exit replaces this entry, so Back never returns here and
+  // starts another recording.
   useEffect(() => {
     if (phase !== 'saved') return
     if (error) toast.show({ message: error })
-    void navigate({ to: '/recordings', replace: true })
-  }, [phase, error, navigate, toast])
+    void navigate(
+      song
+        ? { to: '/songs/$id', params: { id: song }, replace: true }
+        : { to: '/recordings', replace: true },
+    )
+  }, [phase, error, navigate, toast, song])
 
   const discard = () => {
     if (started && !window.confirm('Discard this recording?')) return

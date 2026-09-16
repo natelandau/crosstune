@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Check, Minus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Sheet } from '../../components/Sheet'
 import { useDb } from '../../db/DbProvider'
@@ -17,7 +18,8 @@ function ListMark({ mark }: { mark: Mark }) {
         mark === 'none' ? 'border-base-content/40' : 'border-primary'
       } ${mark === 'all' ? 'bg-primary text-primary-content' : 'text-primary'}`}
     >
-      {mark === 'all' ? '✓' : mark === 'some' ? '−' : ''}
+      {mark === 'all' ? <Check aria-hidden="true" className="size-3.5" /> : null}
+      {mark === 'some' ? <Minus aria-hidden="true" className="size-3.5" /> : null}
     </span>
   )
 }

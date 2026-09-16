@@ -1,18 +1,23 @@
+import { Archive, ArchiveRestore, Link2, ListPlus, Mic, SquarePen, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { removeLink } from '../../commands/links'
 import { deleteSong, setArchived, updateSong, updateUserSong } from '../../commands/songs'
+import { ActionMenu } from '../../components/ActionMenu'
 import { ErrorText, HelpText, Page, PageHeading, Section } from '../../components/Page'
 import { EmptyState } from '../../components/EmptyState'
+import { usePageActions } from '../../components/pageChrome'
 import { useAction } from '../../components/useAction'
 import { useOpenRow } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { deleteSongMessage } from './deleteSongMessage'
 import { AddLinkForm } from '../links/AddLinkForm'
-import { AddToListMenu } from '../lists/AddToListMenu'
+import { useStartRecording } from '../recording/useStartRecording'
 import { UploadRecordingInput } from '../recording/UploadRecordingInput'
 import { RecordingList } from '../recordings/RecordingList'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { useInstruments } from '../settings/useInstruments'
 import { SongForm, valuesFromRows } from './SongForm'
+import { SongLists } from './SongLists'
 import { StatusPicker } from './StatusPicker'
 import { useSong } from './useSong'
 
@@ -30,6 +35,51 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const recordings = useRecordingsWithFiles({ songId })
   const { error, run, runThen } = useAction()
   const rowState = useOpenRow()
+  const [listPicker, setListPicker] = useState(false)
+  const [pasting, setPasting] = useState(false)
+  const startRecording = useStartRecording()
+
+  const archived = view?.userSong.archived_at != null
+  const actions = useMemo(
+    () =>
+      view && instruments !== undefined && recordings !== undefined && !edit ? (
+        <ActionMenu
+          label="More actions"
+          items={[
+            {
+              label: 'Edit',
+              icon: <SquarePen aria-hidden="true" className="size-4" />,
+              onSelect: () => onEditChange(true),
+            },
+            {
+              label: 'Add to list',
+              icon: <ListPlus aria-hidden="true" className="size-4" />,
+              onSelect: () => setListPicker(true),
+            },
+            {
+              label: archived ? 'Unarchive' : 'Archive',
+              icon: archived ? (
+                <ArchiveRestore aria-hidden="true" className="size-4" />
+              ) : (
+                <Archive aria-hidden="true" className="size-4" />
+              ),
+              onSelect: () => run(() => setArchived(db, view.userSong.id, !archived)),
+            },
+            {
+              label: 'Delete',
+              tone: 'danger',
+              icon: <Trash2 aria-hidden="true" className="size-4" />,
+              onSelect: () => {
+                if (!window.confirm(deleteSongMessage(view.song.title, recordings))) return
+                runThen(() => deleteSong(db, view.song.id), onDeleted)
+              },
+            },
+          ]}
+        />
+      ) : null,
+    [view, instruments, recordings, edit, archived, db, onEditChange, onDeleted, run, runThen],
+  )
+  usePageActions(actions)
 
   if (view === undefined || instruments === undefined || recordings === undefined) return null
   if (view === null) return <EmptyState title="This song is gone" />
@@ -37,7 +87,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
 
   if (edit) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-6">
         <PageHeading>Edit song</PageHeading>
         <SongForm
           initial={valuesFromRows(song, userSong)}
@@ -84,6 +134,10 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
         </div>
       </header>
 
+      {/* This line collects the failures of the app bar menu actions and the status control.
+          A row action in the recordings list reports under that list instead. */}
+      {error ? <ErrorText>{error}</ErrorText> : null}
+
       <StatusPicker
         value={userSong.status}
         onChange={(status) => run(() => updateUserSong(db, userSong.id, { status }))}
@@ -93,14 +147,36 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
         <RecordingList
           views={recordings}
           links={links}
-          onRemoveLink={(id) => run(() => removeLink(db, id))}
+          onRemoveLink={(id) => removeLink(db, id)}
           rowState={rowState}
         />
-        <UploadRecordingInput songId={song.id} />
-        <AddLinkForm songId={song.id} />
+        <div role="group" aria-label="Add a recording" className="grid grid-cols-3 gap-2">
+          <button type="button" className="btn min-h-11" onClick={() => startRecording(song.id)}>
+            <Mic aria-hidden="true" className="size-4" />
+            Record
+          </button>
+          <UploadRecordingInput songId={song.id} label="Upload" className="btn min-h-11" />
+          <button
+            type="button"
+            className={`btn min-h-11 ${pasting ? 'btn-active' : ''}`}
+            aria-expanded={pasting}
+            onClick={() => setPasting((p) => !p)}
+          >
+            <Link2 aria-hidden="true" className="size-4" />
+            Paste link
+          </button>
+        </div>
+        {pasting ? (
+          <AddLinkForm songId={song.id} autoFocus onAdded={() => setPasting(false)} />
+        ) : null}
       </Section>
 
-      <AddToListMenu userSongId={userSong.id} />
+      <SongLists
+        userSongId={userSong.id}
+        entry={{ song, userSong }}
+        pickerOpen={listPicker}
+        onPickerOpenChange={setListPicker}
+      />
 
       {userSong.notes || userSong.learned_from || userSong.learned_on ? (
         <Section title="Notes">
@@ -113,31 +189,6 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
           {userSong.notes ? <p className="whitespace-pre-wrap">{userSong.notes}</p> : null}
         </Section>
       ) : null}
-
-      {error ? <ErrorText>{error}</ErrorText> : null}
-
-      <div className="flex flex-wrap gap-2 pt-2">
-        <button type="button" className="btn min-h-11 flex-1" onClick={() => onEditChange(true)}>
-          Edit
-        </button>
-        <button
-          type="button"
-          className="btn min-h-11"
-          onClick={() => run(() => setArchived(db, userSong.id, !userSong.archived_at))}
-        >
-          {userSong.archived_at ? 'Unarchive' : 'Archive'}
-        </button>
-        <button
-          type="button"
-          className="btn btn-outline btn-error min-h-11"
-          onClick={() => {
-            if (!window.confirm(deleteSongMessage(song.title, recordings))) return
-            runThen(() => deleteSong(db, song.id), onDeleted)
-          }}
-        >
-          Delete
-        </button>
-      </div>
     </Page>
   )
 }

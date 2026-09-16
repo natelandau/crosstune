@@ -7,6 +7,7 @@ export function Sheet({
   onClose,
   children,
   dismissible = true,
+  action,
 }: {
   open: boolean
   title: string
@@ -15,6 +16,7 @@ export function Sheet({
   /** False keeps the sheet open through a backdrop click or Escape, for a choice the
    * caller's own controls must resolve. */
   dismissible?: boolean
+  action?: ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -22,7 +24,12 @@ export function Sheet({
   useEffect(() => {
     const dialog = ref.current
     if (!dialog) return
-    if (open && !dialog.hasAttribute('open')) dialog.showModal()
+    if (open && !dialog.hasAttribute('open')) {
+      dialog.showModal()
+      // The dialog's own focus delegate takes the first focusable element, which is whatever
+      // sits in the header; a sheet that knows its subject names it instead.
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
+    }
     if (!open && dialog.hasAttribute('open')) dialog.close()
   }, [open])
 
@@ -37,9 +44,12 @@ export function Sheet({
       }}
     >
       <div className="modal-box max-h-[85dvh] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-        <h2 id={titleId} className="text-title mb-3">
-          {title}
-        </h2>
+        <div className="mb-3 flex items-center gap-3">
+          <h2 id={titleId} className="text-title min-w-0 flex-1">
+            {title}
+          </h2>
+          {action}
+        </div>
         {children}
       </div>
       {dismissible ? (

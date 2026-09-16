@@ -23,12 +23,17 @@ function renderSongRoute(history = createMemoryHistory({ initialEntries: [`/song
   return renderApp({ db, history })
 }
 
+// jsdom cannot open a popover, so the menu's items are reached while hidden.
+async function pick(action: string) {
+  await userEvent.click(await screen.findByRole('menuitem', { name: action, hidden: true }))
+}
+
 describe('SongPage', () => {
   it('leaves no duplicate history entry behind after an edit', async () => {
     const { router } = renderSongRoute()
     await screen.findByRole('heading', { name: 'Cluck Old Hen' })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await pick('Edit')
     await waitFor(() => {
       expect(router.state.location.search).toEqual({ edit: true })
     })
@@ -44,7 +49,7 @@ describe('SongPage', () => {
   it('goes back on cancel after a reload of the edit entry it pushed', async () => {
     const history = createMemoryHistory({ initialEntries: [`/songs/${songId}`] })
     const first = renderSongRoute(history)
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    await pick('Edit')
     await waitFor(() => {
       expect(first.router.state.location.search).toEqual({ edit: true })
     })
