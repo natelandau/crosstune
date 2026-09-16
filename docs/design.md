@@ -419,7 +419,9 @@ Recordings and links share one row shape.
   action. Titles in use: "No songs yet" with the hint "Add the first song
   you know.", "Nothing matches", `No song called "query"`, "No lists yet",
   "Nothing in this list", "Every song here is archived", "This song is
-  gone", "This list is gone".
+  gone", "This list is gone", "No recordings yet".
+  Inside a section, such as the recordings on a song page, the empty state
+  is compact so the section's controls stay in reach.
 - Loading is silence, not a spinner. A screen shows nothing until its data
   is ready. The only spinners are the sign-in splash, a downloading
   recording row, and the syncing badge.

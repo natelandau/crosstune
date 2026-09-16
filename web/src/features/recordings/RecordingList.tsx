@@ -1,8 +1,9 @@
-import { ErrorText, HelpText } from '../../components/Page'
+import { ErrorText } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { FolderInput, FolderOutput, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
+import { EmptyState } from '../../components/EmptyState'
 import { Sheet } from '../../components/Sheet'
 import { useAction } from '../../components/useAction'
 import type { SwipeRowState } from '../../components/swipe'
@@ -50,7 +51,7 @@ export function RecordingList({
   const [attaching, setAttaching] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   if (views.length === 0 && links.length === 0) {
-    return <HelpText>No recordings yet.</HelpText>
+    return <EmptyState compact title="No recordings yet" />
   }
   return (
     <>

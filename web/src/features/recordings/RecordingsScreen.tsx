@@ -1,7 +1,8 @@
-import { HelpText, Page, PageHeading } from '../../components/Page'
+import { Page, PageHeading } from '../../components/Page'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { useMemo } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { useOpenRow } from '../../components/swipe'
 import { SongCard } from '../catalog/SongCard'
 import { useCatalog } from '../catalog/useCatalog'
@@ -49,7 +50,12 @@ export function RecordingsScreen() {
     <Page>
       <PageHeading>Recordings</PageHeading>
       <StorageMeter />
-      {groups.length === 0 ? <HelpText>No recordings yet.</HelpText> : null}
+      {groups.length === 0 ? (
+        <EmptyState
+          title="No recordings yet"
+          hint="Tap the record button to make one, or upload an audio file."
+        />
+      ) : null}
       {groups.map((group) => {
         const entry = group.songId ? entryFor.get(group.songId) : undefined
         return (
