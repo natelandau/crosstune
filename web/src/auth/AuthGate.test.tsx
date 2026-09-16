@@ -65,6 +65,8 @@ describe('AuthGate', () => {
       </AuthGate>,
     )
     expect(screen.getByText('Clerk sign-in form')).toBeInTheDocument()
+    const lockup = screen.getByText('Crosstune')
+    expect(lockup.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
     expect(rememberedUser()).toBeNull()
     expect(readSearchQuery()).toBe('')
   })
