@@ -70,8 +70,8 @@ function RecordingCapture() {
   return (
     <div className="flex min-h-[70dvh] flex-col items-center justify-between gap-6 py-4">
       <header className="text-center">
-        <h1 className="text-xl font-semibold">New recording</h1>
-        <p role="status" aria-live="polite" className="text-sm opacity-70">
+        <h1 className="text-key font-semibold">New recording</h1>
+        <p role="status" aria-live="polite" className="text-meta opacity-70">
           {STATUS[phase]}
         </p>
       </header>
@@ -79,11 +79,7 @@ function RecordingCapture() {
       <div className="w-full space-y-4">
         <LiveWaveform analyser={analyser} paused={phase !== 'recording'} active={live} />
         {showTimer ? (
-          <p
-            role="timer"
-            aria-live="off"
-            className="text-center text-5xl font-semibold tabular-nums"
-          >
+          <p role="timer" aria-live="off" className="text-timer text-center tabular-nums">
             {formatDuration(elapsedMs)}
           </p>
         ) : null}
@@ -91,7 +87,7 @@ function RecordingCapture() {
           {phase === 'interrupted' ? (
             <motion.p
               role="alert"
-              className="bg-warning text-warning-content rounded-box p-3 text-center text-sm"
+              className="bg-warning text-warning-content rounded-box text-meta p-3 text-center"
               initial={slide}
               animate={{ opacity: 1, y: 0 }}
               exit={slide}
@@ -102,7 +98,7 @@ function RecordingCapture() {
           ) : null}
         </AnimatePresence>
         {error && phase !== 'saved' ? (
-          <p role="alert" className="text-error text-center text-sm">
+          <p role="alert" className="text-error text-meta text-center">
             {error}
           </p>
         ) : null}
@@ -112,7 +108,7 @@ function RecordingCapture() {
         {live ? (
           <motion.button
             type="button"
-            className="btn btn-error h-24 w-24 rounded-full text-lg"
+            className="btn btn-error text-title h-24 w-24 rounded-full"
             onClick={() => void stop()}
             disabled={phase === 'starting'}
             animate={reduceMotion || phase !== 'recording' ? { scale: 1 } : { scale: [1, 1.06, 1] }}

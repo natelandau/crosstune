@@ -10,8 +10,8 @@ export function ListRow({ list }: { list: ListSummary }) {
       draggable={false}
       className="flex min-h-16 flex-col justify-center gap-0.5 px-3 py-2"
     >
-      <span className="truncate text-lg font-semibold">{list.name}</span>
-      <span className="text-sm opacity-70">
+      <span className="text-title truncate">{list.name}</span>
+      <span className="text-meta opacity-70">
         {list.count} {list.count === 1 ? 'song' : 'songs'} · {editedLabel(list.lastEditedAt)}
       </span>
     </Link>

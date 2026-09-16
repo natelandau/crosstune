@@ -17,7 +17,7 @@ export function StatusPicker({
         {STATUSES.map((status) => (
           <label
             key={status}
-            className={`btn join-item min-h-11 flex-1 ${value === status ? 'btn-active' : ''}`}
+            className={`btn join-item h-auto min-h-11 flex-1 py-1 ${value === status ? 'btn-primary' : ''}`}
           >
             <input
               type="radio"

@@ -37,7 +37,7 @@ export function UploadRecordingInput({ songId }: { songId: string | null }) {
         />
       </label>
       {error ? (
-        <p role="alert" className="text-error text-sm">
+        <p role="alert" className="text-error text-meta">
           {error}
         </p>
       ) : null}

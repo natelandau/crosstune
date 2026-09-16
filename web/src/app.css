@@ -1,11 +1,239 @@
 @import 'tailwindcss';
+
+/* Geist, self-hosted so the service worker precaches it and it renders offline. Only the
+   latin subsets: the package's own stylesheet would precache five files for the four others. */
+@font-face {
+  font-family: 'Geist Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/geist/files/geist-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Geist Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
 @plugin 'daisyui' {
-  themes:
-    light --default,
-    dark --prefersdark;
+  themes: false;
+}
+
+/* The palette is eight colors and nothing on screen is derived from them: see the visual
+   design spec. --chrome is the app bar and the docked player, the same blue slate in both
+   themes; it is not a daisyUI role, so the @theme block below exposes it as bg-chrome. */
+@plugin 'daisyui/theme' {
+  name: 'light';
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #ffffff;
+  --color-base-200: #ffffff;
+  --color-base-300: #dfe0e0;
+  --color-base-content: #2d3142;
+  --color-primary: #4f5d75;
+  --color-primary-content: #ffffff;
+  --color-secondary: #5f6c82;
+  --color-secondary-content: #ffffff;
+  --color-accent: #9f7065;
+  --color-accent-content: #ffffff;
+  --color-neutral: #2d3142;
+  --color-neutral-content: #ffffff;
+  --color-info: #9f7065;
+  --color-info-content: #ffffff;
+  --color-success: #4f5d75;
+  --color-success-content: #ffffff;
+  --color-warning: #9f7065;
+  --color-warning-content: #ffffff;
+  --color-error: #ef8354;
+  --color-error-content: #2d3142;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  --chrome: #4f5d75;
+  --chrome-content: #ffffff;
+}
+
+@plugin 'daisyui/theme' {
+  name: 'dark';
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+
+  --color-base-100: #2d3142;
+  --color-base-200: #4f5d75;
+  --color-base-300: #5f6c82;
+  --color-base-content: #ffffff;
+  --color-primary: #bfc0c0;
+  --color-primary-content: #2d3142;
+  --color-secondary: #5f6c82;
+  --color-secondary-content: #ffffff;
+  --color-accent: #9f7065;
+  --color-accent-content: #ffffff;
+  --color-neutral: #5f6c82;
+  --color-neutral-content: #ffffff;
+  --color-info: #9f7065;
+  --color-info-content: #ffffff;
+  --color-success: #bfc0c0;
+  --color-success-content: #2d3142;
+  --color-warning: #9f7065;
+  --color-warning-content: #ffffff;
+  --color-error: #ef8354;
+  --color-error-content: #2d3142;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  --chrome: #4f5d75;
+  --chrome-content: #ffffff;
+}
+
+@theme inline {
+  --color-chrome: var(--chrome);
+  --color-chrome-content: var(--chrome-content);
+}
+
+/* The type scale from the visual design spec, in rem so the text size setting scales all of
+   it at once. Each role carries its own line height, weight, and tracking; tracking tightens
+   as type grows because Geist is drawn a little loose at display sizes. */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --text-timer: 3rem;
+  --text-timer--line-height: 1;
+  --text-timer--letter-spacing: -0.03em;
+  --text-timer--font-weight: 600;
+  --text-heading: 1.625rem;
+  --text-heading--line-height: 1.15;
+  --text-heading--letter-spacing: -0.02em;
+  --text-heading--font-weight: 600;
+  --text-key: 1.25rem;
+  --text-key--line-height: 1.25;
+  --text-key--letter-spacing: -0.01em;
+  --text-key--font-weight: 500;
+  --text-brand: 1.125rem;
+  --text-brand--line-height: 1.25;
+  --text-brand--letter-spacing: -0.01em;
+  --text-brand--font-weight: 600;
+  --text-title: 1.0625rem;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.01em;
+  --text-title--font-weight: 600;
+  --text-body: 1rem;
+  --text-body--line-height: 1.45;
+  --text-label: 0.9375rem;
+  --text-label--line-height: 1.25;
+  --text-label--font-weight: 500;
+  --text-meta: 0.875rem;
+  --text-meta--line-height: 1.4;
+  --text-small: 0.75rem;
+  --text-small--line-height: 1.35;
+  --text-small--letter-spacing: 0.01em;
+  --text-small--font-weight: 500;
+}
+
+@layer base {
+  html {
+    line-height: 1.45;
+    font-kerning: normal;
+    /* daisyUI reads this for every field and button that does not set its own size. */
+    --fontsize: var(--text-label);
+  }
+  /* The text size setting. Everything is in rem, so the root size is the one lever. */
+  html[data-text-size='compact'] {
+    font-size: 93.75%;
+  }
+  html[data-text-size='roomy'] {
+    font-size: 106.25%;
+  }
+}
+
+/* A list of rows: a hairline between neighbors so the eye can track a long list. */
+@utility row-list {
+  & > * + * {
+    border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, #0000);
+  }
+}
+
+/* Control labels are 500 in every size; daisyUI's 600 reads heavy in Geist. */
+.btn {
+  font-weight: 500;
+}
+/* A default button is white on a white page, so it needs an edge that daisyUI, which
+   derives the edge from the button's own color, does not give it. Colored variants keep theirs. */
+.btn:not(
+  .btn-primary,
+  .btn-secondary,
+  .btn-accent,
+  .btn-neutral,
+  .btn-info,
+  .btn-success,
+  .btn-warning,
+  .btn-error,
+  .btn-ghost,
+  .btn-link,
+  .btn-outline,
+  .btn-soft,
+  .btn-dash
+) {
+  --btn-border: color-mix(in oklab, var(--color-base-content) 28%, transparent);
+}
+/* Fields never drop below 16px, or iOS zooms the page when one is focused. */
+.input,
+.select,
+.textarea {
+  --font-size-min: max(var(--text-body), 16px);
+}
+.dock-label {
+  font-size: var(--text-small);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+/* daisyUI sets fieldsets to 12px helper text and dims every label; here a fieldset holds
+   choices, so its options read at body size, its legend at label size, and its labels at
+   full strength. Help text has its own component. */
+.fieldset {
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+}
+.fieldset-legend {
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+.label {
+  color: inherit;
 }
 
 :root {
+  /* The content column and the inset that puts a fixed element on its right edge. In px,
+     not rem, so the text size setting changes the type inside the column and not the column. */
+  --measure: 576px;
+  --measure-inset: max(1rem, calc((100vw - var(--measure)) / 2 + 1rem));
   --select-bar-duration: 440ms;
   --select-bar-stagger: 120ms;
   --select-slot-duration: 400ms;

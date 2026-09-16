@@ -77,13 +77,13 @@ export function RecordingRow({
   const text = (
     <span className="min-w-0 flex-1">
       <span className="block truncate font-medium">{title}</span>
-      <span className="block truncate text-xs opacity-70">
+      <span className="text-small block truncate opacity-70">
         {/* A recording that needs nothing from the user shows when it was made instead of a status. */}
         {[duration, status || recordedAtLabel(recording.recorded_at), storageLabel]
           .filter(Boolean)
           .join(' · ')}
       </span>
-      {errorLine ? <span className="text-error block text-xs">{errorLine}</span> : null}
+      {errorLine ? <span className="text-error text-small block">{errorLine}</span> : null}
     </span>
   )
   const cardClass = `${ROW_CLASS} pr-3`

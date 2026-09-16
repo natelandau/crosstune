@@ -31,7 +31,7 @@ export function SongPicker({
         />
       </label>
       {matches.length ? (
-        <ul className="menu bg-base-200 rounded-box w-full">
+        <ul className="menu rounded-box w-full">
           {matches.map(({ song, userSong }) => (
             <li key={userSong.id}>
               <button

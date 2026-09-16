@@ -1,3 +1,4 @@
+import { PageHeading } from '../../components/Page'
 import { useMemo, useState, type FormEvent } from 'react'
 import { addToList, deleteList, renameList } from '../../commands/lists'
 import { EmptyState } from '../../components/EmptyState'
@@ -82,7 +83,9 @@ export function ListDetail({
       ) : (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <h1 className="flex-1 text-2xl font-bold">{list.name}</h1>
+            <div className="flex-1">
+              <PageHeading>{list.name}</PageHeading>
+            </div>
             {visible.length > 0 || selecting ? (
               <button
                 ref={selectButtonRef}
@@ -140,7 +143,7 @@ export function ListDetail({
       )}
 
       {error ? (
-        <p role="alert" className="text-error text-sm">
+        <p role="alert" className="text-error text-meta">
           {error}
         </p>
       ) : null}

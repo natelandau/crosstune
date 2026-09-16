@@ -49,7 +49,7 @@ export function FilterBar({ filters, facets, visible, onChange, onClear, trailin
       <div className="join w-full" role="group" aria-label="Status">
         <button
           type="button"
-          className={`btn join-item min-h-11 flex-1 ${filters.status === 'all' ? 'btn-active' : ''}`}
+          className={`btn join-item h-auto min-h-11 flex-1 py-1 ${filters.status === 'all' ? 'btn-primary' : ''}`}
           aria-pressed={filters.status === 'all'}
           onClick={() => onChange({ status: 'all' })}
         >
@@ -59,7 +59,7 @@ export function FilterBar({ filters, facets, visible, onChange, onClear, trailin
           <button
             key={status}
             type="button"
-            className={`btn join-item min-h-11 flex-1 ${filters.status === status ? 'btn-active' : ''}`}
+            className={`btn join-item h-auto min-h-11 flex-1 py-1 ${filters.status === status ? 'btn-primary' : ''}`}
             aria-pressed={filters.status === status}
             onClick={() => onChange({ status })}
           >

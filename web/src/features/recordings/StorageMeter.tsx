@@ -10,7 +10,7 @@ export function StorageMeter() {
   const percent = Math.min(100, Math.round((figures.used_bytes / figures.quota_bytes) * 100))
   return (
     <div className="space-y-1">
-      <p className="text-sm">
+      <p className="text-meta">
         {formatBytes(figures.used_bytes)} of {formatBytes(figures.quota_bytes)} used
       </p>
       <progress className="progress w-full" value={percent} max={100} aria-label="Storage used" />

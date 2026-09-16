@@ -1,3 +1,4 @@
+import { HelpText, Page, PageHeading } from '../../components/Page'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { useMemo } from 'react'
@@ -45,10 +46,10 @@ export function RecordingsScreen() {
   )
   if (views === undefined || entries === undefined || instruments === undefined) return null
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Recordings</h1>
+    <Page>
+      <PageHeading>Recordings</PageHeading>
       <StorageMeter />
-      {groups.length === 0 ? <p className="text-sm opacity-70">No recordings yet.</p> : null}
+      {groups.length === 0 ? <HelpText>No recordings yet.</HelpText> : null}
       {groups.map((group) => {
         const entry = group.songId ? entryFor.get(group.songId) : undefined
         return (
@@ -66,7 +67,7 @@ export function RecordingsScreen() {
                 <ChevronRight aria-hidden="true" className="mr-3 size-4 shrink-0 opacity-40" />
               </Link>
             ) : (
-              <h2 className="flex min-h-11 items-center px-3 text-lg font-semibold opacity-60">
+              <h2 className="text-title flex min-h-11 items-center px-3 opacity-60">
                 {group.title}
               </h2>
             )}
@@ -75,6 +76,6 @@ export function RecordingsScreen() {
         )
       })}
       <UploadRecordingInput songId={null} />
-    </div>
+    </Page>
   )
 }

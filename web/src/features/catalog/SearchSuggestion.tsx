@@ -40,7 +40,7 @@ export function SearchSuggestion({
   return (
     <>
       {hidden ? (
-        <p className={`text-sm ${placement === 'list' ? 'px-3' : ''}`}>
+        <p className={`text-meta ${placement === 'list' ? 'px-3' : ''}`}>
           <span>
             "{hidden.entry.song.title}" is{' '}
             {hidden.reason === 'archived' ? 'archived' : 'hidden by your filters'}.

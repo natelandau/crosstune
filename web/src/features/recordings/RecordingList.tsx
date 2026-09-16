@@ -48,11 +48,11 @@ export function RecordingList({
   const [attaching, setAttaching] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   if (views.length === 0 && links.length === 0) {
-    return <p className="text-sm opacity-70">No recordings yet.</p>
+    return <p className="text-meta opacity-70">No recordings yet.</p>
   }
   return (
     <>
-      <ul className="space-y-2" aria-label={label}>
+      <ul className="row-list" aria-label={label}>
         {views.map((view) => (
           <RecordingRow
             key={view.recording.id}
@@ -105,7 +105,7 @@ export function RecordingList({
         ))}
       </ul>
       {error ? (
-        <p role="alert" className="text-error text-sm">
+        <p role="alert" className="text-error text-meta">
           {error}
         </p>
       ) : null}

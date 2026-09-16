@@ -174,7 +174,7 @@ function Catalog({
         }
       />
       {error ? (
-        <p role="alert" className="text-error text-sm">
+        <p role="alert" className="text-error text-meta">
           {error}
         </p>
       ) : null}
@@ -186,7 +186,7 @@ function Catalog({
         />
       ) : (
         <>
-          <ul className="space-y-2">
+          <ul className="row-list">
             {visible.map((entry, index) => {
               const { song, userSong } = entry
               const archived = userSong.archived_at !== null
@@ -241,7 +241,7 @@ function Catalog({
       />
       <Link
         to="/songs/new"
-        className={`btn btn-primary btn-circle btn-lg fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] z-10 shadow-lg transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+        className={`btn btn-primary btn-circle btn-lg fixed right-(--measure-inset) bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] z-10 shadow-lg transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
           selecting ? 'pointer-events-none opacity-0 motion-safe:scale-60' : ''
         }`}
         aria-label="Add song"

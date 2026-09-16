@@ -1,3 +1,4 @@
+import { PageHeading } from '../../components/Page'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { updateRecording } from '../../commands/recordings'
@@ -20,7 +21,7 @@ export function NewSongScreen() {
   if (instruments === undefined) return null
   return (
     <div className="space-y-3">
-      <h1 className="text-2xl font-bold">New song</h1>
+      <PageHeading>New song</PageHeading>
       <SongForm
         submitLabel="Add song"
         instruments={instruments}

@@ -29,7 +29,7 @@ export function StatusSheet({
               >
                 <StatusDot status={status} />
                 {current > 0 ? (
-                  <span className="ml-auto text-sm opacity-70">{current} now</span>
+                  <span className="text-meta ml-auto opacity-70">{current} now</span>
                 ) : null}
               </button>
             </li>

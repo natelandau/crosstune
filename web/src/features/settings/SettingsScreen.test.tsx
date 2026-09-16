@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { storeDownloadedBlob } from '../../commands/recordings'
@@ -60,6 +60,31 @@ describe('SettingsScreen', () => {
       session: { ...testSession, getToken: async () => null, offline: true },
     })
     expect(await screen.findByRole('button', { name: 'Sign out' })).toBeDisabled()
+  })
+
+  it('sets the theme and text size on the document and keeps them for next time', async () => {
+    renderWithProviders(<SettingsScreen />, { db })
+    const root = document.documentElement
+    expect(await screen.findByRole('radio', { name: 'System' })).toBeChecked()
+    expect(root.hasAttribute('data-theme')).toBe(false)
+    await userEvent.click(screen.getByRole('radio', { name: 'Dark' }))
+    expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked()
+    expect(root.getAttribute('data-theme')).toBe('dark')
+    expect(localStorage.getItem('crosstune.appearance')).toBe('dark')
+
+    const slider = screen.getByRole('slider', { name: 'Text size' })
+    expect(slider).toHaveValue('1')
+    expect(slider).toHaveAttribute('aria-valuetext', 'Regular')
+    fireEvent.change(slider, { target: { value: '2' } })
+    expect(slider).toHaveAttribute('aria-valuetext', 'Roomy')
+    expect(root.getAttribute('data-text-size')).toBe('roomy')
+    expect(localStorage.getItem('crosstune.textSize')).toBe('roomy')
+    fireEvent.change(slider, { target: { value: '1' } })
+    expect(root.hasAttribute('data-text-size')).toBe(false)
+
+    await userEvent.click(screen.getByRole('radio', { name: 'System' }))
+    expect(root.hasAttribute('data-theme')).toBe(false)
+    localStorage.clear()
   })
 
   it('records the instruments the user plays', async () => {

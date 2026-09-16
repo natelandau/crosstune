@@ -6,7 +6,7 @@ export function ShowArchivedToggle({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <label className="label cursor-pointer gap-2 text-sm">
+    <label className="label text-meta cursor-pointer gap-2">
       <input
         type="checkbox"
         className="toggle toggle-sm"

@@ -4,14 +4,14 @@ import { SyncIndicator } from './SyncIndicator'
 
 // Both layers share one grid cell so they crossfade in place.
 const LAYER =
-  'col-start-1 row-start-1 flex min-w-0 items-center gap-2 px-4 transition-[opacity,translate] duration-(--select-bar-duration) ease-(--ease-emphasized)'
+  'col-start-1 row-start-1 mx-auto flex w-full max-w-(--measure) min-w-0 items-center gap-2 px-4 transition-[opacity,translate] duration-(--select-bar-duration) ease-(--ease-emphasized)'
 
 export function AppBar({ title = 'Crosstune' }: { title?: string }) {
   const { active, bar } = useShownChrome()
   return (
     <header
-      className={`navbar sticky top-0 z-10 grid min-h-14 p-0 transition-colors duration-(--select-bar-duration) ease-out ${
-        active ? 'bg-neutral text-neutral-content' : 'bg-base-200'
+      className={`navbar sticky top-0 z-10 grid min-h-14 p-0 pt-[env(safe-area-inset-top)] transition-colors duration-(--select-bar-duration) ease-out ${
+        active ? 'bg-neutral text-neutral-content' : 'bg-chrome text-chrome-content'
       }`}
     >
       <div
@@ -19,7 +19,7 @@ export function AppBar({ title = 'Crosstune' }: { title?: string }) {
         inert={active}
         aria-hidden={active}
       >
-        <Link to="/" className="flex-1 text-lg font-semibold">
+        <Link to="/" className="text-brand flex-1">
           {title}
         </Link>
         <SyncIndicator />

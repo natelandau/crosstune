@@ -362,7 +362,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
         />
       </fieldset>
       {error ? (
-        <p role="alert" className="text-error text-sm">
+        <p role="alert" className="text-error text-meta">
           {error}
         </p>
       ) : null}

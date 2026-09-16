@@ -64,7 +64,7 @@ export function AttachSongPicker({
       {matches.length > 0 ? (
         <ul className="space-y-2">
           {matches.slice(0, MAX_RESULTS).map((entry) => (
-            <li key={entry.song.id} className="bg-base-200 rounded-box">
+            <li key={entry.song.id} className="rounded-box border-base-content/20 border">
               <button
                 type="button"
                 className="w-full text-left"

@@ -70,7 +70,7 @@ export function SwipeRow(props: Props) {
 
 function InlineActionsRow({ name, actions, disabled = false, children }: Props) {
   return (
-    <div className="rounded-box bg-base-200 flex items-center">
+    <div className="rounded-box bg-base-100 flex items-center">
       <div className="min-w-0 flex-1">{children}</div>
       {disabled ? null : (
         <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -194,7 +194,7 @@ function SwipeLayers({
   const revealed = x < 0
 
   return (
-    <div className="rounded-box bg-base-200 relative overflow-hidden">
+    <div className="rounded-box bg-base-100 relative overflow-hidden">
       <div
         className={`absolute inset-y-0 right-0 flex motion-safe:transition-opacity motion-safe:duration-0 ${
           // Hidden only once the closing slide has finished, so the buttons never vanish mid-slide.
@@ -224,7 +224,7 @@ function SwipeLayers({
       <div
         ref={setNodeRef}
         {...listeners}
-        className={`bg-base-200 relative ${
+        className={`bg-base-100 relative ${
           dragging
             ? ''
             : 'motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out'

@@ -4,12 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#1d232a" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#4f5d75" />
+    <!-- The app ships its own light and dark themes. color-scheme tells browsers and
+         Dark Reader so; darkreader-lock tells Dark Reader to leave the page alone. -->
+    <meta name="color-scheme" content="light dark" />
+    <meta name="darkreader-lock" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Crosstune</title>
+    <script>
+      // Stamps the saved appearance and text size before the first paint, so a user who chose
+      // dark never sees a light flash. Mirrors readAppearance and readTextSize in
+      // src/features/settings/appearance.ts, which own the keys and the allowed values.
+      try {
+        var root = document.documentElement
+        var theme = localStorage.getItem('crosstune.appearance')
+        if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme)
+        var size = localStorage.getItem('crosstune.textSize')
+        if (size === 'compact' || size === 'roomy') root.setAttribute('data-text-size', size)
+      } catch (e) {
+        // Blocked storage: the system setting and the regular size apply.
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -91,7 +91,7 @@ function RecordingBody({
         ? 'Downloading'
         : fileStateLabel(recording, file ?? undefined)
   return (
-    <div className="flex h-14 items-center gap-2 text-sm opacity-70">
+    <div className="text-meta flex h-14 items-center gap-2 opacity-70">
       <p role="status" className="flex-1">
         {label || 'Not available'}
       </p>
@@ -225,10 +225,10 @@ export function PlayerDock() {
         ref={sectionRef}
         aria-label="Player"
         style={{ height: dockHeight }}
-        className="bg-base-200 rounded-box fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] left-4 z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
+        className="bg-chrome text-chrome-content rounded-box fixed right-(--measure-inset) bottom-[calc(4rem+env(safe-area-inset-bottom))] left-(--measure-inset) z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
       >
         <div className="flex h-11 shrink-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
+          <span className="text-meta min-w-0 flex-1 truncate font-medium">{title}</span>
           <button
             type="button"
             className="btn btn-ghost btn-sm min-h-11 min-w-11"

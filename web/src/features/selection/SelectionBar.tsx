@@ -21,7 +21,7 @@ export function SelectionBar({
       >
         <X aria-hidden="true" className="size-5" />
       </button>
-      <p className="flex-1 text-lg font-semibold" aria-live="polite">
+      <p className="text-brand flex-1" aria-live="polite">
         {/* A new key per count replays the drop-in for each change. */}
         <span key={count} className="motion-safe:animate-select-count inline-block">
           {count} selected
