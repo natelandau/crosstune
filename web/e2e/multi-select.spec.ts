@@ -117,7 +117,7 @@ test('select songs in a list, remove them, and undo', async ({ page, context }) 
   await page.getByRole('button', { name: 'Select', exact: true }).click()
   await page.getByRole('button', { name: 'Select all' }).click()
   await toolbar(page).getByRole('button', { name: 'More', exact: true }).click()
-  await page.getByRole('button', { name: 'Remove 2 from list' }).click()
+  await page.getByRole('menuitem', { name: 'Remove 2 from list' }).click()
   await expect(toast(page, `Removed 2 songs from ${listName}`)).toBeVisible()
   await expect(page.getByRole('listitem')).toHaveCount(0)
 
