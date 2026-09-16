@@ -16,10 +16,10 @@ import { FilterBar } from './FilterBar'
 import { SearchSuggestion } from './SearchSuggestion'
 import { SongRow } from './SongRow'
 import {
-  DEFAULT_FILTERS,
   facetValues,
   filterCatalog,
   hiddenResets,
+  hideArchived,
   visibleFacets,
   type CatalogEntry,
   type CatalogFilters,
@@ -92,7 +92,16 @@ function Catalog({
     () => searchOutcome(entries, visible, query, effectiveFilters.archived),
     [entries, visible, query, effectiveFilters.archived],
   )
-  const filtering = JSON.stringify(effectiveFilters) !== JSON.stringify(DEFAULT_FILTERS)
+  // Catalog-wide counts change with the stored songs, not with each search keystroke.
+  const stored = useMemo(
+    () => ({
+      total: hideArchived(entries, effectiveFilters.archived).length,
+      archived: entries.filter((entry) => entry.userSong.archived_at !== null).length,
+      all: entries.length,
+    }),
+    [entries, effectiveFilters.archived],
+  )
+  const counts = { ...stored, visible: visible.length }
 
   const changeQuery = (value: string) => {
     setQuery(value)
@@ -122,47 +131,48 @@ function Catalog({
     // Lets the last row scroll clear of the floating add link, which would cover its swipe actions.
     <div className="space-y-3 pb-12">
       <h1 className="sr-only">Catalog</h1>
-      <form role="search" onSubmit={submitSearch}>
-        <label className="input w-full">
-          <input
-            ref={searchRef}
-            type="search"
-            // The native cancel button is missing in Firefox and too small to tap in WebKit.
-            className="grow [&::-webkit-search-cancel-button]:appearance-none"
-            placeholder="Search songs"
-            aria-label="Search songs"
-            enterKeyHint="search"
-            value={query}
-            onChange={(e) => changeQuery(e.target.value)}
-          />
-          {query ? (
-            <button
-              type="button"
-              className="btn btn-ghost btn-circle btn-sm -mr-2"
-              aria-label="Clear search"
-              onClick={() => {
-                changeQuery('')
-                searchRef.current?.focus()
-              }}
-            >
-              <X aria-hidden="true" className="size-4" />
-            </button>
-          ) : null}
-        </label>
-      </form>
       <FilterBar
+        search={
+          <form role="search" onSubmit={submitSearch}>
+            <label className="input w-full">
+              <input
+                ref={searchRef}
+                type="search"
+                // The native cancel button is missing in Firefox and too small to tap in WebKit.
+                className="grow [&::-webkit-search-cancel-button]:appearance-none"
+                placeholder="Search songs"
+                aria-label="Search songs"
+                enterKeyHint="search"
+                value={query}
+                onChange={(e) => changeQuery(e.target.value)}
+              />
+              {query ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-circle btn-sm -mr-2"
+                  aria-label="Clear search"
+                  onClick={() => {
+                    changeQuery('')
+                    searchRef.current?.focus()
+                  }}
+                >
+                  <X aria-hidden="true" className="size-4" />
+                </button>
+              ) : null}
+            </label>
+          </form>
+        }
         filters={effectiveFilters}
         facets={facets}
         visible={visibleFacetList}
+        counts={counts}
         onChange={(patch) => void update(patch)}
-        // The query stays: clearing the other filters is what brings a hidden match into view.
-        onClear={filtering ? () => void updateFilters(DEFAULT_FILTERS) : undefined}
         trailing={
           visible.length > 0 || selecting ? (
             <button
               ref={selectButtonRef}
               type="button"
-              className={`btn btn-sm ml-auto min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+              className={`btn btn-sm min-h-11 transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
                 selecting ? 'pointer-events-none opacity-0 motion-safe:scale-90' : ''
               }`}
               aria-hidden={selecting}
@@ -178,7 +188,7 @@ function Catalog({
       {visible.length === 0 ? (
         <EmptyState
           title={emptyTitle}
-          hint={noSongs ? 'Add the first tune you know.' : undefined}
+          hint={noSongs ? 'Add the first song you know.' : undefined}
           action={selecting ? null : <SearchSuggestion outcome={outcome} placement="empty" />}
         />
       ) : (

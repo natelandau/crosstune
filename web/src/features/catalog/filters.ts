@@ -1,4 +1,5 @@
 import { TUNING_FIELDS } from '../settings/instruments'
+import { countSongs } from '../selection/copy'
 import {
   STATUSES,
   type Instrument,
@@ -139,6 +140,20 @@ export function visibleFacets(facets: FacetValues, instruments: ReadonlySet<Inst
   })
 }
 
+/** `all` counts the catalog as stored, so the count row outlives every song being filtered out. */
+export interface CatalogCounts {
+  visible: number
+  total: number
+  archived: number
+  all: number
+}
+
+/** The one wording for a catalog count, so the bar and the filter sheet never disagree. */
+export function songCountLabel(visible: number, total: number): string {
+  if (visible !== total) return `${visible} of ${total} songs`
+  return countSongs(total)
+}
+
 /** A patch that resets every hidden facet, so a change never carries a stale filter along. */
 export function hiddenResets(visible: readonly Facet[]): Partial<CatalogFilters> {
   const resets: Partial<CatalogFilters> = {}
@@ -146,4 +161,24 @@ export function hiddenResets(visible: readonly Facet[]): Partial<CatalogFilters>
     if (!visible.includes(facet)) resets[facet] = 'all'
   }
   return resets
+}
+
+/** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
+export const BAR_FACETS: readonly Facet[] = ['key']
+
+export function sheetFacets(visible: readonly Facet[]): Facet[] {
+  return visible.filter((facet) => !BAR_FACETS.includes(facet))
+}
+
+/** How many sheet filters are set: the badge on the Filters button and the gate on Reset. */
+export function sheetFilterCount(filters: CatalogFilters, visible: readonly Facet[]): number {
+  const facets = sheetFacets(visible).filter((facet) => filters[facet] !== 'all').length
+  return facets + (filters.archived ? 1 : 0)
+}
+
+/** A patch that clears the sheet's filters and nothing else. */
+export function sheetResets(visible: readonly Facet[]): Partial<CatalogFilters> {
+  const patch: Partial<CatalogFilters> = { archived: false }
+  for (const facet of sheetFacets(visible)) patch[facet] = 'all'
+  return patch
 }

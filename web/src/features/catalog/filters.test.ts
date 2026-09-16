@@ -10,6 +10,7 @@ import {
   hiddenResets,
   hideArchived,
   normalizeFilters,
+  songCountLabel,
   visibleFacets,
 } from './filters'
 
@@ -163,6 +164,14 @@ describe('visibleFacets', () => {
     expect(
       visibleFacets({ ...facets, genre: [] }, new Set<Instrument>(['violin', 'banjo'])),
     ).toEqual(FACETS.filter((f) => f !== 'genre'))
+  })
+
+  it('names the counts the same way wherever they are shown', () => {
+    expect(songCountLabel(84, 84)).toBe('84 songs')
+    expect(songCountLabel(11, 84)).toBe('11 of 84 songs')
+    expect(songCountLabel(1, 84)).toBe('1 of 84 songs')
+    expect(songCountLabel(1, 1)).toBe('1 song')
+    expect(songCountLabel(0, 0)).toBe('0 songs')
   })
 
   it('builds a reset patch for hidden facets only', () => {
