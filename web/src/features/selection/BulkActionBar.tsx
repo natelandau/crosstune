@@ -1,4 +1,11 @@
-import { useId, useRef, type CSSProperties, type ToggleEvent } from 'react'
+import { Ellipsis, ListPlus, SquarePen, Tag, type LucideIcon } from 'lucide-react'
+import {
+  useId,
+  useRef,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type ToggleEvent,
+} from 'react'
 
 export interface MoreAction {
   label: string
@@ -24,31 +31,30 @@ export function BulkActionBar({
   // Popover ids and anchor names must be valid identifiers, which useId's output is not.
   const key = `bulk-more-${useId().replace(/[^\w-]/g, '')}`
 
-  const action = (label: string, onPress?: () => void) => (
-    <button
-      type="button"
-      className="min-h-11 disabled:opacity-40"
-      disabled={disabled || !onPress}
-      onClick={onPress}
-    >
+  const action = (
+    label: string,
+    Icon: LucideIcon,
+    props: ButtonHTMLAttributes<HTMLButtonElement>,
+  ) => (
+    <button type="button" className="min-h-11 disabled:opacity-40" {...props}>
+      <Icon aria-hidden="true" className="size-6" />
       <span className="dock-label">{label}</span>
     </button>
   )
 
   return (
     <>
-      {action('Status', onStatus)}
-      {action('Edit', onEdit)}
-      {action('Add to list', onAddToList)}
-      <button
-        type="button"
-        className="min-h-11 disabled:opacity-40"
-        disabled={disabled || more.length === 0}
-        popoverTarget={key}
-        style={{ anchorName: `--${key}` } as CSSProperties}
-      >
-        <span className="dock-label">More</span>
-      </button>
+      {action('Status', Tag, { disabled: disabled || !onStatus, onClick: onStatus })}
+      {action('Edit', SquarePen, { disabled: disabled || !onEdit, onClick: onEdit })}
+      {action('Add to list', ListPlus, {
+        disabled: disabled || !onAddToList,
+        onClick: onAddToList,
+      })}
+      {action('More', Ellipsis, {
+        disabled: disabled || more.length === 0,
+        popoverTarget: key,
+        style: { anchorName: `--${key}` } as CSSProperties,
+      })}
       <div
         ref={menuRef}
         id={key}

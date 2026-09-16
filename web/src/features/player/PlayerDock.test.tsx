@@ -134,7 +134,7 @@ describe('PlayerDock', () => {
     expect(frame.getAttribute('sandbox')).toContain('allow-storage-access-by-user-activation')
   })
 
-  it('reserves in-flow space as tall as the docked player', async () => {
+  it('reserves in-flow space for the docked player and the cap it clears', async () => {
     const linkId = await addYouTube()
     const { player } = await renderDock()
     act(() => player().play({ kind: 'link', id: linkId }))
@@ -144,19 +144,19 @@ describe('PlayerDock', () => {
     expect(spacer).not.toBeNull()
     // p-1.5 above and below, the 44px header, and the 200px video player.
     expect(region.style.height).toBe('256px')
-    expect(spacer?.style.height).toBe(region.style.height)
+    expect(spacer?.style.height).toBe('calc(256px + var(--dock-cap))')
     expect(region).toHaveClass('p-1.5')
   })
 
-  it('publishes its height for floating controls and clears it on close', async () => {
+  it('publishes its offset for floating controls and clears it on close', async () => {
     const linkId = await addYouTube()
     const { player } = await renderDock()
-    const published = () => document.documentElement.style.getPropertyValue('--player-dock-height')
+    const published = () => document.documentElement.style.getPropertyValue('--player-dock-offset')
     expect(published()).toBe('')
 
     act(() => player().play({ kind: 'link', id: linkId }))
     await screen.findByRole('region', { name: 'Player' })
-    expect(published()).toBe('256px')
+    expect(published()).toBe('calc(256px + var(--dock-cap))')
 
     await userEvent.click(screen.getByRole('button', { name: 'Close player' }))
     expect(published()).toBe('')

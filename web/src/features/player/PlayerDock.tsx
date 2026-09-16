@@ -201,13 +201,14 @@ export function PlayerDock() {
         ? null
         : CHROME_HEIGHT_PX + frameHeight
 
-  // Floating controls elsewhere in the tree, such as the catalog's add link, offset by this to stay above the player.
+  // Floating controls elsewhere in the tree, such as the catalog's add link, rise by this to
+  // stay above the player: its height plus the record button's cap, which the player itself clears.
   useLayoutEffect(() => {
     if (dockHeight === null) return
     const rootStyle = document.documentElement.style
-    rootStyle.setProperty('--player-dock-height', `${dockHeight}px`)
+    rootStyle.setProperty('--player-dock-offset', `calc(${dockHeight}px + var(--dock-cap))`)
     return () => {
-      rootStyle.removeProperty('--player-dock-height')
+      rootStyle.removeProperty('--player-dock-offset')
     }
   }, [dockHeight])
 
@@ -220,12 +221,13 @@ export function PlayerDock() {
 
   return (
     <>
-      <div aria-hidden="true" style={{ height: dockHeight }} />
+      {/* Reserves the cap the player clears as well, so content at the end of the page clears the player by as much as it clears the bar. */}
+      <div aria-hidden="true" style={{ height: `calc(${dockHeight}px + var(--dock-cap))` }} />
       <section
         ref={sectionRef}
         aria-label="Player"
         style={{ height: dockHeight }}
-        className="bg-chrome text-chrome-content rounded-box fixed right-(--measure-inset) bottom-[calc(4rem+env(safe-area-inset-bottom))] left-(--measure-inset) z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
+        className="bg-chrome text-chrome-content rounded-box fixed right-(--measure-inset) bottom-[calc(4rem+var(--dock-cap)+env(safe-area-inset-bottom))] left-(--measure-inset) z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
       >
         <div className="flex h-11 shrink-0 items-center gap-2">
           <span className="text-meta min-w-0 flex-1 truncate font-medium">{title}</span>

@@ -62,7 +62,7 @@ describe('CatalogScreen', () => {
     expect(add).toHaveClass(
       'fixed',
       'z-10',
-      'bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))]',
+      'bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-offset,0px))]',
     )
   })
 

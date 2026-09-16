@@ -55,9 +55,17 @@ does not repeat their values.
   name as a link home on the left and the sync badge on the right. In
   selection mode the same bar becomes the selection bar in place.
 - The bottom navigation holds five slots in this order: Catalog, Lists, the
-  record button, Recordings, Settings. Tabs are text labels with no icons.
+  record button, Recordings, Settings, as five equal slots edge to edge. A
+  tab is a glyph over a short label. The current tab shows by color alone:
+  its whole slot fills with the bar's text color and its glyph and label
+  take the bar color, while the other tabs mute. There is no underline.
+  Under a mouse, a slot tints faintly on hover. The selection action bar
+  uses the same shape for its four slots.
 - The record button is the only way to start a recording. It sits in the
-  center of the navigation and is the one red control on the screen.
+  center of the navigation and is the one red control on the screen. Its
+  disc is a step larger than the bar's other controls and its cap rises
+  above the bar's top edge, floating over the content that scrolls beneath
+  it. The docked player sits above the cap.
 - The record screen owns the viewport. It shows no navigation and no docked
   player.
 - The docked player sits above the navigation in the chrome color, full
@@ -72,8 +80,8 @@ does not repeat their values.
 
 - The palette is eight colors and nothing is derived. Light mode has no
   grey surfaces. Rows sit flat on the page, not on cards.
-- The app bar and the docked player share one chrome color, the same slate
-  in light and dark mode.
+- The app bar, the bottom navigation, and the docked player share one
+  chrome color, the same slate in light and dark mode.
 - Success and info are not green and blue. They are the slate and the clay,
   because only the status dot and the archived badge use them. Error is the
   coral, and it marks destructive actions and the record button.
@@ -90,8 +98,9 @@ does not repeat their values.
 - Every tap target is at least 44px tall. Rows are 56px or 64px tall.
 - Every icon is hidden from assistive technology and sits inside a control
   that carries its own name. Icons are small inline, medium on row and
-  swipe actions, and large only on the primary add controls. The bottom
-  navigation has no icons.
+  swipe actions, and large in the bottom navigation, in the selection
+  action bar, and on the primary add controls, where the floating add
+  button takes one step more.
 
 ## Song rows
 
@@ -239,8 +248,9 @@ The catalog and list detail share one selection mode.
 - The app bar becomes the selection bar: Cancel selection on the left, "N
   selected" in the middle, Select all or Deselect all on the right.
 - The bottom navigation becomes the action bar with four fixed slots in
-  this order on every screen: Status, Edit, Add to list, More. More holds
-  Archive, Unarchive, and on a list Remove from list, each with its count.
+  this order on every screen: Status, Edit, Add to list, More, each a
+  glyph over its label like a tab. More holds Archive, Unarchive, and on
+  a list Remove from list, each with its count.
   A slot with nothing selected dims and does not vanish.
 - The selection holds only visible songs. A song hidden by search, a
   filter, or the archived toggle leaves the selection, so an action never
