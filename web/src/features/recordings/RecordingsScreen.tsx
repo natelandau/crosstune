@@ -16,7 +16,7 @@ interface Group {
   views: RecordingView[]
 }
 
-/** Unfiled takes first, then one group per song in order of its newest take. */
+/** Unfiled recordings first, then one group per song in order of its newest recording. */
 function groupBySong(views: RecordingView[]): Group[] {
   const groups = new Map<string | null, Group>()
   for (const view of views) {

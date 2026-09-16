@@ -155,7 +155,7 @@ describe('uploadPass', () => {
     })
   })
 
-  it('queues the row again and keeps the take waiting when the slot request finds no row', async () => {
+  it('queues the row again and keeps the recording waiting when the slot request finds no row', async () => {
     const id = await captured()
     fake.failSlot(
       new ApiError(404, { type: 'about:blank', title: 't', status: 404, detail: 'gone' }),
@@ -296,7 +296,7 @@ describe('uploadPass', () => {
     await beginCapture(db, id, { songId, recordedAt: AT })
     await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
     await finishCapture(db, id, { songId, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
-    // As if the take's row reached the server before the song was deleted on another device.
+    // As if the recording's row reached the server before the song was deleted on another device.
     await db.outbox.clear()
     const deletedAt = '2026-09-14T21:00:00.000Z'
     await applyPullPage(
@@ -328,7 +328,7 @@ describe('uploadPass', () => {
     expect(queued?.data).toMatchObject({ song_id: null })
   })
 
-  it('drops the file of an uploaded take once its recording is tombstoned elsewhere', async () => {
+  it('drops the file of an uploaded recording once its recording is tombstoned elsewhere', async () => {
     const id = await captured()
     await pushed(id)
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
@@ -492,7 +492,7 @@ describe('recoverInterruptedCaptures', () => {
     expect(await db.recording_files.get(id)).toBeUndefined()
   })
 
-  it('files a recovered take under the song it began with, stamped at its start', async () => {
+  it('files a recovered recording under the song it began with, stamped at its start', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
     const id = newId()
     await beginCapture(db, id, { songId, recordedAt: AT })

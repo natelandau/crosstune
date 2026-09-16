@@ -26,7 +26,7 @@ afterEach(async () => {
   await db.delete()
 })
 
-async function take(songId: string | null, label: string): Promise<string> {
+async function saveRecording(songId: string | null, label: string): Promise<string> {
   const id = newId()
   await beginCapture(db, id, { songId, recordedAt: '2026-09-14T20:00:00.000Z' })
   await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
@@ -43,16 +43,18 @@ async function take(songId: string | null, label: string): Promise<string> {
 describe('RecordingsScreen', () => {
   it('groups unfiled recordings first, then each song under its own header', async () => {
     const { songId } = await createSong(db, { title: 'Angeline', key: 'D' }, { status: 'known' })
-    await take(songId, 'Filed')
-    const unfiled = await take(null, 'Loose take')
+    await saveRecording(songId, 'Filed')
+    const unfiled = await saveRecording(null, 'Loose recording')
     await setFileState(db, unfiled, 'blocked_quota')
     renderApp({ db, path: '/recordings' })
     const loose = await screen.findByRole('list', { name: 'Unfiled' })
     const row = within(loose).getByRole('listitem')
-    expect(row).toHaveTextContent('Loose take')
+    expect(row).toHaveTextContent('Loose recording')
     expect(row).toHaveTextContent('Storage full')
     expect(row).toHaveTextContent('1:05')
-    expect(within(row).getByRole('button', { name: 'Add to song Loose take' })).toBeInTheDocument()
+    expect(
+      within(row).getByRole('button', { name: 'Add to song Loose recording' }),
+    ).toBeInTheDocument()
     const header = screen.getByRole('link', { name: /Angeline/ })
     expect(header).toHaveTextContent('Key D')
     expect(header).toHaveTextContent('Known')
@@ -62,7 +64,7 @@ describe('RecordingsScreen', () => {
   })
 
   it("prefers the server's duration once it is known over the local estimate", async () => {
-    const id = await take(null, 'Synced take')
+    const id = await saveRecording(null, 'Synced recording')
     // The transcoded duration lands through sync and can differ slightly from the
     // client's own count of what it recorded.
     await db.recordings.update(id, { duration_ms: 70_000 })
@@ -73,7 +75,7 @@ describe('RecordingsScreen', () => {
 
   it('shows storage figures and lets a failed recording retry', async () => {
     await setStorage(db, { used_bytes: 500_000_000, quota_bytes: 1_000_000_000, max_file_bytes: 1 })
-    const id = await take(null, 'Broken')
+    const id = await saveRecording(null, 'Broken')
     await db.recordings.update(id, { state: 'failed', error: 'ffprobe failed' })
     await setFileState(db, id, 'uploaded')
     const retry = vi.fn(async () => {})
@@ -85,7 +87,7 @@ describe('RecordingsScreen', () => {
 
   it("shows a blocked row's own subtitle with the storage figures", async () => {
     await setStorage(db, { used_bytes: 500_000_000, quota_bytes: 1_000_000_000, max_file_bytes: 1 })
-    const id = await take(null, 'Stuck')
+    const id = await saveRecording(null, 'Stuck')
     await setFileState(db, id, 'blocked_quota')
     renderApp({ db, path: '/recordings' })
     const list = await screen.findByRole('list', { name: 'Unfiled' })
@@ -94,14 +96,14 @@ describe('RecordingsScreen', () => {
   })
 
   it('offers no per-recording keep offline control', async () => {
-    await take(null, 'Loose take')
+    await saveRecording(null, 'Loose recording')
     renderApp({ db, path: '/recordings' })
     const list = await screen.findByRole('list', { name: 'Unfiled' })
     expect(within(list).queryByRole('checkbox')).toBeNull()
   })
 
   it('shows why an upload failed and retries it', async () => {
-    const id = await take(null, 'Refused')
+    const id = await saveRecording(null, 'Refused')
     await setFileState(db, id, 'failed_upload', 'Unsupported audio type')
     const sync = vi.fn(async () => {})
     renderApp({ db, path: '/recordings', engine: fakeEngine({ sync }) })
@@ -117,7 +119,7 @@ describe('RecordingsScreen', () => {
 
   it('warns that a recording still uploading cannot be recovered', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const id = await take(null, 'Sending')
+    const id = await saveRecording(null, 'Sending')
     await setFileState(db, id, 'uploading')
     renderApp({ db, path: '/recordings' })
     await userEvent.click(await screen.findByRole('button', { name: 'Delete Sending' }))
@@ -128,14 +130,14 @@ describe('RecordingsScreen', () => {
 
   it('deletes after confirming', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const id = await take(null, 'Gone')
+    const id = await saveRecording(null, 'Gone')
     renderApp({ db, path: '/recordings' })
     await userEvent.click(await screen.findByRole('button', { name: 'Delete Gone' }))
     await vi.waitFor(async () => expect((await db.recordings.get(id))?.deleted_at).not.toBeNull())
   })
 
   it('downloads a take the device does not hold, then offers to play it', async () => {
-    const id = await take(null, 'Remote')
+    const id = await saveRecording(null, 'Remote')
     await db.recording_files.delete(id)
     await db.recordings.update(id, { state: 'ready' })
     let finish!: (blob: Blob | null) => void
@@ -156,7 +158,7 @@ describe('RecordingsScreen', () => {
   })
 
   it('says so and offers the download again when it fails', async () => {
-    const id = await take(null, 'Remote')
+    const id = await saveRecording(null, 'Remote')
     await db.recording_files.delete(id)
     await db.recordings.update(id, { state: 'ready' })
     renderApp({ db, path: '/recordings', engine: fakeEngine({ download: async () => null }) })
@@ -175,22 +177,24 @@ describe('RecordingsScreen', () => {
 
   it('files a recording as unfiled once its song is deleted elsewhere', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    await take(songId, 'Angeline take')
+    await saveRecording(songId, 'Angeline recording')
     // A song can be tombstoned by another device's sync pull without that pull also
     // cascading to this device's copy of the recording.
     await db.songs.update(songId, { deleted_at: '2026-09-14T21:00:00.000Z' })
     renderApp({ db, path: '/recordings' })
     const list = await screen.findByRole('list', { name: 'Unfiled' })
     expect(
-      within(list).getByRole('button', { name: 'Add to song Angeline take' }),
+      within(list).getByRole('button', { name: 'Add to song Angeline recording' }),
     ).toBeInTheDocument()
     expect(within(list).queryByRole('link')).not.toBeInTheDocument()
   })
 
-  it('creates a song named for the search and files the take under it', async () => {
-    const id = await take(null, 'Loose take')
+  it('creates a song named for the search and files the recording under it', async () => {
+    const id = await saveRecording(null, 'Loose recording')
     const { router } = renderApp({ db, path: '/recordings' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to song Loose take' }))
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add to song Loose recording' }),
+    )
     await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Soldier')
     await userEvent.click(await screen.findByRole('button', { name: 'Add "Soldier"' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/songs/new'))
@@ -200,13 +204,13 @@ describe('RecordingsScreen', () => {
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/songs\/(?!new)/))
     const [song] = await db.songs.toArray()
     expect((await db.recordings.get(id))?.song_id).toBe(song!.id)
-    expect(await screen.findByText('Loose take')).toBeInTheDocument()
+    expect(await screen.findByText('Loose recording')).toBeInTheDocument()
   })
 
-  it('opens the song from its header, plays a take from its row, and offers Remove from song on swipe', async () => {
+  it('opens the song from its header, plays a recording from its row, and offers Remove from song on swipe', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    await take(songId, 'Filed')
-    await take(null, 'Loose take')
+    await saveRecording(songId, 'Filed')
+    await saveRecording(null, 'Loose recording')
     const { router } = renderApp({ db, path: '/recordings' })
     const filed = await screen.findByRole('list', { name: 'Angeline' })
     expect(within(filed).queryByRole('link')).toBeNull()
@@ -220,9 +224,9 @@ describe('RecordingsScreen', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
   })
 
-  it('removes a take from its song from its swipe action', async () => {
+  it('removes a recording from its song from its swipe action', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    const id = await take(songId, 'Filed')
+    const id = await saveRecording(songId, 'Filed')
     renderApp({ db, path: '/recordings' })
     await userEvent.click(await screen.findByRole('button', { name: 'Remove from song Filed' }))
     await vi.waitFor(async () => expect((await db.recordings.get(id))?.song_id).toBeNull())
@@ -231,7 +235,7 @@ describe('RecordingsScreen', () => {
 
   it('closes the player before deleting a recording that is playing', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await take(null, 'Playing')
+    await saveRecording(null, 'Playing')
     renderApp({ db, path: '/recordings' })
     await userEvent.click(await screen.findByRole('button', { name: 'Play Playing' }))
     expect(await screen.findByRole('region', { name: 'Player' })).toBeInTheDocument()
@@ -243,7 +247,7 @@ describe('RecordingsScreen', () => {
 
   it('warns that a recording never uploaded cannot be recovered', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const id = await take(null, 'Stuck')
+    const id = await saveRecording(null, 'Stuck')
     renderApp({ db, path: '/recordings' })
     await userEvent.click(await screen.findByRole('button', { name: 'Delete Stuck' }))
     expect(confirm).toHaveBeenCalledWith(
@@ -254,7 +258,7 @@ describe('RecordingsScreen', () => {
 
   it('keeps the ordinary delete warning once a recording has uploaded', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const id = await take(null, 'Synced')
+    const id = await saveRecording(null, 'Synced')
     await setFileState(db, id, 'uploaded')
     renderApp({ db, path: '/recordings' })
     await userEvent.click(await screen.findByRole('button', { name: 'Delete Synced' }))

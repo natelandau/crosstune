@@ -3,7 +3,12 @@ import userEvent from '@testing-library/user-event'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as recordingCommands from '../../commands/recordings'
-import { appendChunk, beginCapture, finishCapture, takeLabel } from '../../commands/recordings'
+import {
+  appendChunk,
+  beginCapture,
+  finishCapture,
+  defaultRecordingLabel,
+} from '../../commands/recordings'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import { captureLockName } from '../../sync/captureLock'
@@ -56,7 +61,7 @@ describe('RecordingScreen', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/recordings'))
     const [row] = await db.recordings.toArray()
     expect(row).toMatchObject({ song_id: null, source: 'microphone' })
-    expect(row?.label).toBe(takeLabel(row!.recorded_at))
+    expect(row?.label).toBe(defaultRecordingLabel(row!.recorded_at))
     expect(row?.label).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
     expect(await screen.findByRole('list', { name: 'Unfiled' })).toHaveTextContent(row!.label!)
     expect((await db.recording_files.get(row!.id))?.local_state).toBe('captured')
@@ -82,7 +87,7 @@ describe('RecordingScreen', () => {
     expect(navigator.storage.persist).not.toHaveBeenCalled()
   })
 
-  it('cancel discards the take after confirming', async () => {
+  it('cancel discards the recording after confirming', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { router } = renderApp({ db, path: '/record' })
     await screen.findByRole('timer')
@@ -101,7 +106,7 @@ describe('RecordingScreen', () => {
     expect((await db.recording_files.get(row!.id))?.local_state).toBe('captured')
   })
 
-  it('keeps the take and warns when part of it could not be written', async () => {
+  it('keeps the recording and warns when part of it could not be written', async () => {
     vi.spyOn(db.recording_chunks, 'put').mockRejectedValueOnce(new Error('QuotaExceededError'))
     renderApp({ db, path: '/record' })
     await screen.findByRole('timer')
@@ -117,7 +122,7 @@ describe('RecordingScreen', () => {
     expect(file?.bytes).toBe(LAST_CHUNK.length)
   })
 
-  it('holds the capture lock from before the take begins until it is saved', async () => {
+  it('holds the capture lock from before the recording begins until it is saved', async () => {
     const locks = stubLocks()
     const put = db.recording_files.put.bind(db.recording_files)
     let heldAtBegin: (string | undefined)[] = []
@@ -137,7 +142,7 @@ describe('RecordingScreen', () => {
     await waitFor(async () => expect(await heldLocks(locks)).toEqual([]))
   })
 
-  it('keeps the take, releases the lock, and stops the microphone when navigated away', async () => {
+  it('keeps the recording, releases the lock, and stops the microphone when navigated away', async () => {
     const locks = stubLocks()
     const { router } = renderApp({ db, path: '/record' })
     await screen.findByRole('timer')
@@ -150,7 +155,7 @@ describe('RecordingScreen', () => {
     expect((await db.recording_files.get(row!.id))?.local_state).toBe('captured')
   })
 
-  it('stamps the take with the time it started, not the time it stopped', async () => {
+  it('stamps the recording with the time it started, not the time it stopped', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     const startedAt = new Date('2026-09-15T20:00:00.000Z')
     vi.setSystemTime(startedAt)
@@ -163,7 +168,7 @@ describe('RecordingScreen', () => {
     expect(row?.recorded_at).toBe(startedAt.toISOString())
   })
 
-  it('starts one live take under StrictMode', async () => {
+  it('starts one live recording under StrictMode', async () => {
     const put = vi.spyOn(db.recording_files, 'put')
     renderApp({ db, path: '/record', strict: true })
     await screen.findByRole('timer')
@@ -232,7 +237,7 @@ describe('RecordingScreen', () => {
     expect(screen.queryByRole('region', { name: 'Player' })).toBeNull()
   })
 
-  it('closes a playing player before starting a new take', async () => {
+  it('closes a playing player before starting a new recording', async () => {
     const id = newId()
     await beginCapture(db, id, { songId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
     await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
@@ -248,7 +253,7 @@ describe('RecordingScreen', () => {
     await screen.findByRole('region', { name: 'Player' })
     await userEvent.click(
       within(screen.getByRole('navigation', { name: 'Primary' })).getByRole('button', {
-        name: 'Record a new take',
+        name: 'Start a new recording',
       }),
     )
     await waitFor(() => expect(router.state.location.pathname).toBe('/record'))

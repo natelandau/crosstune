@@ -438,7 +438,7 @@ describe('PlayerDock', () => {
   })
 
   describe('recordings', () => {
-    async function localRecording(label = 'Jam take'): Promise<string> {
+    async function localRecording(label = 'Jam recording'): Promise<string> {
       const id = newId()
       await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
       await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
@@ -457,12 +457,12 @@ describe('PlayerDock', () => {
       const { player } = await renderDock()
       act(() => player().play({ kind: 'recording', id }))
       const region = await screen.findByRole('region', { name: 'Player' })
-      expect(within(region).getByText('Jam take')).toBeInTheDocument()
+      expect(within(region).getByText('Jam recording')).toBeInTheDocument()
       // The blob url is minted from an effect, one render after the recording itself loads.
       await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
       const audio = region.querySelector('audio')
       expect(audio).toHaveAttribute('autoplay')
-      expect(within(region).getByLabelText('Jam take')).toBe(audio)
+      expect(within(region).getByLabelText('Jam recording')).toBe(audio)
       expect(region.querySelector('iframe')).toBeNull()
       expect(region.style.height).toBe(`${6 + 44 + 6 + 56}px`)
     })
@@ -479,7 +479,7 @@ describe('PlayerDock', () => {
       await setFileState(db, id, 'uploading')
       // The row change re-renders the dock with a freshly read (but equivalent) blob;
       // give that a beat before asserting nothing minted a second object url.
-      await waitFor(() => expect(within(region).getByText('Jam take')).toBeInTheDocument())
+      await waitFor(() => expect(within(region).getByText('Jam recording')).toBeInTheDocument())
       expect(region.querySelector('audio')).toBe(audio)
       expect(createSpy).toHaveBeenCalledTimes(1)
     })
@@ -487,8 +487,8 @@ describe('PlayerDock', () => {
     it('revokes each recording blob url exactly once', async () => {
       const createSpy = vi.spyOn(URL, 'createObjectURL')
       const revokeSpy = vi.spyOn(URL, 'revokeObjectURL')
-      const first = await localRecording('First take')
-      const second = await localRecording('Second take')
+      const first = await localRecording('First recording')
+      const second = await localRecording('Second recording')
       const { player } = await renderDock()
 
       act(() => player().play({ kind: 'recording', id: first }))
@@ -496,7 +496,7 @@ describe('PlayerDock', () => {
       await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
 
       act(() => player().play({ kind: 'recording', id: second }))
-      await waitFor(() => expect(within(region).getByText('Second take')).toBeInTheDocument())
+      await waitFor(() => expect(within(region).getByText('Second recording')).toBeInTheDocument())
       await waitFor(() => expect(region.querySelector('audio')?.src).toMatch(/^blob:/))
 
       await userEvent.click(within(region).getByRole('button', { name: 'Close player' }))
@@ -509,8 +509,8 @@ describe('PlayerDock', () => {
     })
 
     it('keeps the dock mounted while a replacement recording plays', async () => {
-      const first = await localRecording('First take')
-      const second = await localRecording('Second take')
+      const first = await localRecording('First recording')
+      const second = await localRecording('Second recording')
       const { player } = await renderDock()
       act(() => player().play({ kind: 'recording', id: first }))
       const region = await screen.findByRole('region', { name: 'Player' })
@@ -519,8 +519,8 @@ describe('PlayerDock', () => {
       act(() => player().play({ kind: 'recording', id: second }))
       expect(screen.getByRole('region', { name: 'Player' })).toBe(region)
 
-      await waitFor(() => expect(within(region).getByText('Second take')).toBeVisible())
-      expect(within(region).queryByText('First take')).toBeNull()
+      await waitFor(() => expect(within(region).getByText('Second recording')).toBeVisible())
+      expect(within(region).queryByText('First recording')).toBeNull()
       expect(screen.getByRole('region', { name: 'Player' })).toBe(region)
       expect(region.previousElementSibling).toBe(spacer)
     })

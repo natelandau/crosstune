@@ -18,7 +18,7 @@ const STATUS: Record<CapturePhase, string> = {
 }
 
 /** A reload or a restored tab lands here with no tap behind it, and iOS never lets a
- * take start without one; a fresh Record navigation always arrives already unlocked. */
+ * recording start without one; a fresh Record navigation always arrives already unlocked. */
 export function RecordingScreen() {
   const [unlocked, setUnlocked] = useState(wasUnlockedByTap)
   if (!unlocked) {
@@ -49,8 +49,8 @@ function RecordingCapture() {
   const started = live && phase !== 'starting'
   const showTimer = started || phase === 'saving' || phase === 'saved'
 
-  // A saved take goes straight to the recordings tab, where it can be named, filed, or
-  // deleted. Every exit replaces this entry, so Back never returns here and starts another take.
+  // A saved recording goes straight to the recordings tab, where it can be named, filed, or
+  // deleted. Every exit replaces this entry, so Back never returns here and starts another recording.
   useEffect(() => {
     if (phase !== 'saved') return
     if (error) toast.show({ message: error })

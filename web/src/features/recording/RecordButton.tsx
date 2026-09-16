@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { usePlayer } from '../player/usePlayer'
 import { unlockAudioContext } from './audioContext'
 
-/** The Dock's center control and the only way to start a take. Unlocks audio inside the
+/** The Dock's center control and the only way to start a recording. Unlocks audio inside the
  * tap so iOS lets the waveform run. */
 export function RecordButton() {
   const navigate = useNavigate()
@@ -11,7 +11,7 @@ export function RecordButton() {
     <button
       type="button"
       className="record-button min-h-11 min-w-11"
-      aria-label="Record a new take"
+      aria-label="Start a new recording"
       onClick={() => {
         unlockAudioContext()
         player.close()

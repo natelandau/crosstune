@@ -11,7 +11,7 @@ import { displayTitle, providerLabel } from './display'
 const ROW_CLASS = 'flex min-h-14 min-w-0 flex-1 items-center gap-1 py-2 pl-1 text-left'
 
 /**
- * A linked recording as a row shaped like a take's: the row plays it when the provider can be
+ * A linked recording as a row shaped like an audio recording's: the row plays it when the provider can be
  * embedded, and the trailing button opens it on the provider's own site. Remove is behind a swipe.
  */
 export function LinkRow({

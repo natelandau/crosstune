@@ -3,7 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../../auth/AuthContext'
 import { addLink } from '../../commands/links'
-import { appendChunk, beginCapture, finishCapture, takeLabel } from '../../commands/recordings'
+import {
+  appendChunk,
+  beginCapture,
+  finishCapture,
+  defaultRecordingLabel,
+} from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
@@ -199,8 +204,10 @@ describe('SongDetail', () => {
     renderDetail()
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
     const plays = within(recordings).getAllByRole('button', { name: /^Play / })
-    // The take leads the list; the linked recordings follow it as rows of the same list.
-    expect(plays[0]).toHaveAccessibleName(`Play ${takeLabel('2026-09-14T20:00:00.000Z')}`)
+    // The recording leads the list; the linked recordings follow it as rows of the same list.
+    expect(plays[0]).toHaveAccessibleName(
+      `Play ${defaultRecordingLabel('2026-09-14T20:00:00.000Z')}`,
+    )
     expect(plays.length).toBeGreaterThan(1)
     expect(within(recordings).getAllByRole('link', { name: /^Open .* on / })).not.toHaveLength(0)
     expect(screen.queryByRole('button', { name: 'Record' })).toBeNull()

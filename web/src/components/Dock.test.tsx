@@ -25,8 +25,8 @@ describe('Dock', () => {
       const names = Array.from(nav.children).map(
         (c) => c.textContent || c.getAttribute('aria-label'),
       )
-      expect(names).toEqual(['Catalog', 'Lists', 'Record a new take', 'Recordings', 'Settings'])
-      expect(screen.getByRole('button', { name: 'Record a new take' })).toHaveClass(
+      expect(names).toEqual(['Catalog', 'Lists', 'Start a new recording', 'Recordings', 'Settings'])
+      expect(screen.getByRole('button', { name: 'Start a new recording' })).toHaveClass(
         'min-h-11',
         'min-w-11',
       )
@@ -39,7 +39,7 @@ describe('Dock', () => {
     const db = openTestDb()
     try {
       const { router } = renderApp({ db })
-      await userEvent.click(await screen.findByRole('button', { name: 'Record a new take' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Start a new recording' }))
       expect(router.state.location.pathname).toBe('/record')
     } finally {
       await db.delete()

@@ -120,7 +120,7 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
       return
     }
     if (error instanceof ApiError && error.status === 404) {
-      // The server has no live row for this take; pushing it again gives the slot request one.
+      // The server has no live row for this recording; pushing it again gives the slot request one.
       await requeueRecording(db, id)
       return
     }
