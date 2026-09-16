@@ -1,3 +1,4 @@
+import { HelpText } from './Page'
 import type { ReactNode } from 'react'
 
 export function EmptyState({
@@ -12,7 +13,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-2 py-16 text-center">
       <p className="text-title font-medium">{title}</p>
-      {hint ? <p className="text-meta opacity-70">{hint}</p> : null}
+      {hint ? <HelpText>{hint}</HelpText> : null}
       {action}
     </div>
   )

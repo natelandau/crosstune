@@ -1,3 +1,4 @@
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   APPEARANCE_KEY,
@@ -8,15 +9,25 @@ import {
   readTextSize,
   setAppearance,
   setTextSize,
+  useAppearance,
+  useTextSize,
 } from './appearance'
 
 const root = document.documentElement
+
+function storageChangedElsewhere(key: string | null) {
+  act(() => {
+    window.dispatchEvent(new StorageEvent('storage', { key }))
+  })
+}
 
 afterEach(() => {
   localStorage.clear()
   root.removeAttribute('data-theme')
   root.removeAttribute('data-text-size')
   vi.restoreAllMocks()
+  // The module remembers the last choice; a cleared-storage event resets it between tests.
+  storageChangedElsewhere(null)
 })
 
 describe('appearance', () => {
@@ -54,6 +65,33 @@ describe('appearance', () => {
     setAppearance('dark')
     expect(root.getAttribute('data-theme')).toBe('dark')
     expect(readAppearance()).toBe('system')
+  })
+
+  it('shows the choice the page is using even when it could not be stored', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    const { result } = renderHook(() => useAppearance())
+    expect(result.current).toBe('system')
+    act(() => setAppearance('dark'))
+    expect(result.current).toBe('dark')
+    expect(root.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('follows a choice made in another tab', () => {
+    const { result } = renderHook(() => ({ appearance: useAppearance(), size: useTextSize() }))
+    localStorage.setItem(APPEARANCE_KEY, 'dark')
+    storageChangedElsewhere(APPEARANCE_KEY)
+    expect(result.current.appearance).toBe('dark')
+    expect(root.getAttribute('data-theme')).toBe('dark')
+    localStorage.setItem(TEXT_SIZE_KEY, 'roomy')
+    storageChangedElsewhere(TEXT_SIZE_KEY)
+    expect(result.current.size).toBe('roomy')
+    expect(root.getAttribute('data-text-size')).toBe('roomy')
+    localStorage.setItem('other', 'x')
+    localStorage.setItem(APPEARANCE_KEY, 'light')
+    storageChangedElsewhere('other')
+    expect(result.current.appearance).toBe('dark')
   })
 })
 

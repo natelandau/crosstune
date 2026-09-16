@@ -24,7 +24,7 @@ export function StatusSheet({
             <li key={status}>
               <button
                 type="button"
-                className="btn btn-ghost min-h-12 w-full justify-start text-base font-normal"
+                className="btn btn-ghost text-body min-h-12 w-full justify-start font-normal"
                 onClick={() => onPick(status)}
               >
                 <StatusDot status={status} />

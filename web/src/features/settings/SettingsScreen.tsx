@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuthSession } from '../../auth/AuthContext'
 import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings'
 import { settingsId, setAudioQuality, toggleInstrumentSetting } from '../../commands/settings'
-import { Field, HelpText, Page, PageHeading, Section } from '../../components/Page'
+import { ErrorText, Field, HelpText, Page, PageHeading, Section } from '../../components/Page'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import { AUDIO_QUALITIES, storedAudioQuality } from '../../db/recordings'
@@ -66,11 +66,7 @@ export function SettingsScreen() {
             Sign out
           </button>
           {offline ? <HelpText>Sign out needs a connection.</HelpText> : null}
-          {error ? (
-            <p role="alert" className="text-error text-meta">
-              {error}
-            </p>
-          ) : null}
+          {error ? <ErrorText>{error}</ErrorText> : null}
         </Field>
       </Section>
       {instruments ? (
@@ -97,11 +93,7 @@ export function SettingsScreen() {
               </div>
             </fieldset>
             <HelpText>Tuning fields appear only for the instruments you play.</HelpText>
-            {instrumentAction.error ? (
-              <p role="alert" className="text-error text-meta">
-                {instrumentAction.error}
-              </p>
-            ) : null}
+            {instrumentAction.error ? <ErrorText>{instrumentAction.error}</ErrorText> : null}
           </Field>
         </Section>
       ) : null}
@@ -212,11 +204,7 @@ export function SettingsScreen() {
             Frees up space on this device. Your recordings stay in your account and download again
             when you play them. Anything not yet saved to your account is kept.
           </HelpText>
-          {qualityAction.error ? (
-            <p role="alert" className="text-error text-meta">
-              {qualityAction.error}
-            </p>
-          ) : null}
+          {qualityAction.error ? <ErrorText>{qualityAction.error}</ErrorText> : null}
         </Field>
       </Section>
       <Section title="Sync">

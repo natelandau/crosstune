@@ -1,3 +1,4 @@
+import { ErrorText, HelpText } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { FolderInput, FolderOutput, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
@@ -48,7 +49,7 @@ export function RecordingList({
   const [attaching, setAttaching] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   if (views.length === 0 && links.length === 0) {
-    return <p className="text-meta opacity-70">No recordings yet.</p>
+    return <HelpText>No recordings yet.</HelpText>
   }
   return (
     <>
@@ -104,11 +105,7 @@ export function RecordingList({
           <LinkRow key={link.id} link={link} {...rowState(link.id)} onRemove={onRemoveLink} />
         ))}
       </ul>
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <RenameSheet
         view={renaming}
         onClose={() => setRenaming(null)}

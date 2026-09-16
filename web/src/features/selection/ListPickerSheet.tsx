@@ -70,7 +70,7 @@ export function ListPickerSheet({
                 <li key={list.id}>
                   <button
                     type="button"
-                    className="btn btn-ghost min-h-12 w-full justify-start text-base font-normal"
+                    className="btn btn-ghost text-body min-h-12 w-full justify-start font-normal"
                     disabled
                   >
                     <ListMark mark="none" />
@@ -93,7 +93,7 @@ export function ListPickerSheet({
               <li key={list.id}>
                 <button
                   type="button"
-                  className="btn btn-ghost min-h-12 w-full justify-start text-base font-normal"
+                  className="btn btn-ghost text-body min-h-12 w-full justify-start font-normal"
                   disabled={mark === 'all'}
                   onClick={() => onAdd(list)}
                 >

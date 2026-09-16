@@ -1,4 +1,4 @@
-import { HelpText, Section } from '../../components/Page'
+import { ErrorText, HelpText, Section } from '../../components/Page'
 import { addToList, removeFromList } from '../../commands/lists'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
@@ -41,11 +41,7 @@ export function AddToListMenu({ userSongId }: { userSongId: string }) {
           ))}
         </ul>
       )}
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </Section>
   )
 }

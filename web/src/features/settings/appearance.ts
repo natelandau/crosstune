@@ -61,6 +61,19 @@ export function applyTextSize(size: TextSize): void {
   else root.setAttribute('data-text-size', size)
 }
 
+// Storage is read once per key. After that the value in memory is what the screen shows, so
+// a choice made while storage is blocked still reads as chosen until the page reloads.
+let appearance: Appearance | undefined
+let textSize: TextSize | undefined
+
+function currentAppearance(): Appearance {
+  return (appearance ??= readAppearance())
+}
+
+function currentTextSize(): TextSize {
+  return (textSize ??= readTextSize())
+}
+
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void): () => void {
@@ -72,22 +85,37 @@ function notify(): void {
   for (const listener of listeners) listener()
 }
 
-export function setAppearance(appearance: Appearance): void {
-  write(APPEARANCE_KEY, appearance)
+// The storage event fires only in the other tabs of this origin, so each of them follows a
+// choice made in any one of them. A null key is localStorage.clear().
+function followOtherTabs(event: StorageEvent): void {
+  if (event.key !== null && event.key !== APPEARANCE_KEY && event.key !== TEXT_SIZE_KEY) return
+  appearance = readAppearance()
+  textSize = readTextSize()
   applyAppearance(appearance)
+  applyTextSize(textSize)
   notify()
 }
 
-export function setTextSize(size: TextSize): void {
-  write(TEXT_SIZE_KEY, size)
-  applyTextSize(size)
+if (typeof window !== 'undefined') window.addEventListener('storage', followOtherTabs)
+
+export function setAppearance(next: Appearance): void {
+  appearance = next
+  write(APPEARANCE_KEY, next)
+  applyAppearance(next)
+  notify()
+}
+
+export function setTextSize(next: TextSize): void {
+  textSize = next
+  write(TEXT_SIZE_KEY, next)
+  applyTextSize(next)
   notify()
 }
 
 export function useAppearance(): Appearance {
-  return useSyncExternalStore(subscribe, readAppearance)
+  return useSyncExternalStore(subscribe, currentAppearance)
 }
 
 export function useTextSize(): TextSize {
-  return useSyncExternalStore(subscribe, readTextSize)
+  return useSyncExternalStore(subscribe, currentTextSize)
 }

@@ -1,3 +1,4 @@
+import { ErrorText } from '../../components/Page'
 import { useEffect, useState, type FormEvent } from 'react'
 import type { ResolveResponse } from '../../api/types'
 import { addLink } from '../../commands/links'
@@ -120,11 +121,7 @@ export function AddLinkForm({ songId, onAdded }: { songId: string; onAdded?: () 
       >
         Add link
       </button>
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </form>
   )
 }

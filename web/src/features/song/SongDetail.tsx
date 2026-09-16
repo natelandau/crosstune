@@ -1,6 +1,6 @@
 import { removeLink } from '../../commands/links'
 import { deleteSong, setArchived, updateSong, updateUserSong } from '../../commands/songs'
-import { HelpText, Page, PageHeading, Section } from '../../components/Page'
+import { ErrorText, HelpText, Page, PageHeading, Section } from '../../components/Page'
 import { EmptyState } from '../../components/EmptyState'
 import { useAction } from '../../components/useAction'
 import { useOpenRow } from '../../components/swipe'
@@ -105,20 +105,16 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
       {userSong.notes || userSong.learned_from || userSong.learned_on ? (
         <Section title="Notes">
           {userSong.learned_from || userSong.learned_on ? (
-            <p className="text-meta opacity-70">
+            <HelpText>
               Learned {userSong.learned_from ? `from ${userSong.learned_from}` : ''}{' '}
               {userSong.learned_on ?? ''}
-            </p>
+            </HelpText>
           ) : null}
           {userSong.notes ? <p className="whitespace-pre-wrap">{userSong.notes}</p> : null}
         </Section>
       ) : null}
 
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
 
       <div className="flex flex-wrap gap-2 pt-2">
         <button type="button" className="btn min-h-11 flex-1" onClick={() => onEditChange(true)}>

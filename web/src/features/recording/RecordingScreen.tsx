@@ -1,3 +1,4 @@
+import { ErrorText } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
@@ -97,11 +98,7 @@ function RecordingCapture() {
             </motion.p>
           ) : null}
         </AnimatePresence>
-        {error && phase !== 'saved' ? (
-          <p role="alert" className="text-error text-meta text-center">
-            {error}
-          </p>
-        ) : null}
+        {error && phase !== 'saved' ? <ErrorText className="text-center">{error}</ErrorText> : null}
       </div>
 
       <div className="flex w-full flex-col items-center gap-4">

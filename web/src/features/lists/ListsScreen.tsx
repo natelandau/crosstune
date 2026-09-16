@@ -1,4 +1,4 @@
-import { PageHeading } from '../../components/Page'
+import { ErrorText, PageHeading } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { SquarePen, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -46,11 +46,7 @@ export function ListsScreen() {
           Create list
         </button>
       </form>
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {lists === undefined ? null : lists.length === 0 ? (
         <EmptyState
           title="No lists yet"

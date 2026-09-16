@@ -1,3 +1,4 @@
+import { ErrorText } from '../../components/Page'
 import { addUploadedFile } from '../../commands/recordings'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
@@ -36,11 +37,7 @@ export function UploadRecordingInput({ songId }: { songId: string | null }) {
           }}
         />
       </label>
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </div>
   )
 }

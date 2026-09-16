@@ -1,3 +1,4 @@
+import { ErrorText } from '../../components/Page'
 import { useState, type FormEvent } from 'react'
 import type { SongInput, UserSongInput } from '../../commands/songs'
 import { useAction } from '../../components/useAction'
@@ -361,11 +362,7 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
           onChange={(e) => set('notes', e.target.value)}
         />
       </fieldset>
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <div className="flex gap-2 pt-2">
         <button type="submit" className="btn btn-primary min-h-11 flex-1" disabled={pending}>
           {submitLabel}

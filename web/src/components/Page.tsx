@@ -15,17 +15,9 @@ export function PageHeading({ children }: { children: ReactNode }) {
   return <h1 className="text-heading">{children}</h1>
 }
 
-export function Section({
-  title,
-  children,
-  ...rest
-}: {
-  title?: ReactNode
-  children: ReactNode
-  'aria-label'?: string
-}) {
+export function Section({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
-    <section className="space-y-3" {...rest}>
+    <section className="space-y-3">
       {title ? <h2 className="text-title">{title}</h2> : null}
       {children}
     </section>
@@ -37,9 +29,16 @@ export function Field({ children }: { children: ReactNode }) {
   return <div className="space-y-1">{children}</div>
 }
 
-export function HelpText({ children, role }: { children: ReactNode; role?: 'status' }) {
+export function HelpText({ children }: { children: ReactNode }) {
+  return <p className="text-meta opacity-70">{children}</p>
+}
+
+export function ErrorText({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p role={role} className="text-meta opacity-70">
+    <p
+      role="alert"
+      className={className ? `text-error text-meta ${className}` : 'text-error text-meta'}
+    >
       {children}
     </p>
   )

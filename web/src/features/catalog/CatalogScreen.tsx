@@ -1,3 +1,4 @@
+import { ErrorText } from '../../components/Page'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Archive, ArchiveRestore, Plus, SquarePen, X } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
@@ -173,11 +174,7 @@ function Catalog({
           ) : null
         }
       />
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {visible.length === 0 ? (
         <EmptyState
           title={emptyTitle}

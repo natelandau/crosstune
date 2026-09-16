@@ -1,4 +1,4 @@
-import { PageHeading } from '../../components/Page'
+import { ErrorText, PageHeading } from '../../components/Page'
 import { useMemo, useState, type FormEvent } from 'react'
 import { addToList, deleteList, renameList } from '../../commands/lists'
 import { EmptyState } from '../../components/EmptyState'
@@ -142,11 +142,7 @@ export function ListDetail({
         />
       )}
 
-      {error ? (
-        <p role="alert" className="text-error text-meta">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
 
       {edit || selecting ? null : (
         <button
