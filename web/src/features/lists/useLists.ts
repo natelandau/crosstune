@@ -60,12 +60,13 @@ export function useListView(
   }, [db, listId])
 }
 
-export function useMembership(userSongId: string): Set<string> {
+/** The song's live list item per list it is in, keyed by list id, so removal has the item to tombstone. */
+export function useMembership(userSongId: string): Map<string, string> {
   const db = useDb()
   return (
     useLiveQuery(async () => {
       const items = await db.list_items.where('user_song_id').equals(userSongId).toArray()
-      return new Set(items.filter((i) => !i.deleted_at).map((i) => i.list_id))
-    }, [db, userSongId]) ?? new Set<string>()
+      return new Map(items.filter((i) => !i.deleted_at).map((i) => [i.list_id, i.id]))
+    }, [db, userSongId]) ?? new Map<string, string>()
   )
 }

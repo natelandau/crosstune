@@ -38,7 +38,15 @@ export async function expectSynced(page: Page, after = ''): Promise<void> {
 export async function addSong(page: Page, title: string, key: string): Promise<void> {
   await page.getByRole('link', { name: 'Add song' }).click()
   await page.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
-  await page.getByRole('combobox', { name: 'Key' }).fill(key)
+  const keys = page.getByRole('group', { name: 'Key' })
+  const chip = keys.getByRole('button', { name: key, exact: true })
+  // A suggested key is one tap; any other key goes through the Other chip's text field.
+  if ((await chip.count()) > 0) {
+    await chip.click()
+  } else {
+    await keys.getByRole('button', { name: 'Other…' }).click()
+    await page.getByRole('textbox', { name: 'Other key' }).fill(key)
+  }
   await page.getByRole('radio', { name: 'Learning' }).check({ force: true })
   await page.getByRole('button', { name: 'Add song' }).click()
   await expect(page.getByRole('heading', { name: title })).toBeVisible()

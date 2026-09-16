@@ -9,6 +9,7 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
   const since = new Date().toISOString()
   await addSong(page, title, 'D')
 
+  await page.getByRole('button', { name: 'Paste link' }).click()
   await page
     .getByRole('textbox', { name: 'Link' })
     .fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
@@ -18,7 +19,7 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
   await expectSynced(page, since)
 
   await page.getByRole('link', { name: 'Crosstune' }).click()
-  await page.getByRole('combobox', { name: 'Key' }).selectOption('D')
+  await page.getByRole('group', { name: 'Key' }).getByRole('button', { name: 'D' }).click()
   const card = page.getByRole('link', { name: new RegExp(title) })
   await expect(card).toBeVisible()
   await card.click()
