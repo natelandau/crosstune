@@ -1,3 +1,9 @@
+## v0.2.1 (2026-09-16)
+
+### Fix
+
+- **release**: regenerate the OpenAPI contract in the bump commit
+
 ## v0.2.0 (2026-09-16)
 
 ### Feat
