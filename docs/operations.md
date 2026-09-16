@@ -95,9 +95,9 @@ just smoke https://<railway-dev-domain> https://<alias>-crosstune-web.<workers-s
 The manual test on a phone covers what the script cannot.
 
 1. Open `https://<domain>` and sign in.
-2. Add a tune and paste a YouTube link.
+2. Add a song and paste a YouTube link.
 3. Install the app to the home screen.
-4. Turn on airplane mode and edit the tune.
+4. Turn on airplane mode and edit the song.
 5. Turn off airplane mode.
 6. Make sure that the edit synced. Settings shows the last sync time.
 
