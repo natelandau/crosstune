@@ -148,6 +148,50 @@ describe('createApiClient', () => {
     }
   })
 
+  it('reads the blob into memory before the PUT so the request never carries a file-backed body', async () => {
+    vi.stubGlobal('Request', Object.getPrototypeOf(Request) as typeof Request)
+    try {
+      const blob = new Blob(['abc'])
+      const read = vi.spyOn(blob, 'arrayBuffer')
+      const fetch = vi.fn(async (input: Request) => {
+        expect(read).toHaveBeenCalledTimes(1)
+        expect(await input.text()).toBe('abc')
+        return new Response(null, { status: 200 })
+      })
+      const api = createApiClient({
+        baseUrl: 'http://api',
+        getToken: async () => 't',
+        clientVersion: '1',
+        fetch: fetch as unknown as typeof globalThis.fetch,
+      })
+      await api.putObject('https://r2/put', blob, 'audio/mp4')
+      expect(fetch).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('reports an unreadable blob as its own error, not a network failure', async () => {
+    const blob = new Blob(['abc'])
+    vi.spyOn(blob, 'arrayBuffer').mockRejectedValue(
+      new TypeError('The object can not be found here.'),
+    )
+    const fetch = vi.fn()
+    const api = createApiClient({
+      baseUrl: 'http://api',
+      getToken: async () => 't',
+      clientVersion: '1',
+      fetch,
+    })
+    await expect(api.putObject('https://r2/put', blob, 'audio/mp4')).rejects.toThrow(
+      'The object can not be found here.',
+    )
+    await expect(api.putObject('https://r2/put', blob, 'audio/mp4')).rejects.not.toBeInstanceOf(
+      NetworkError,
+    )
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('wraps a failed object transfer as a network error', async () => {
     const fetch = vi.fn(async () => {
       throw new TypeError('Failed to fetch')
