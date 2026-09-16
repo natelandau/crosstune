@@ -19,12 +19,12 @@ export function Mark({ className = '' }: { className?: string }) {
 }
 
 /** The mark beside the name at the caller's type role. Geist's cap height is 0.71em, and the
- * gap is 0.4 of it. */
+ * gap is 0.4 of it. Inline so it can sit inside a link. */
 export function Lockup({ className = '' }: { className?: string }) {
   return (
-    <p className={`flex items-baseline gap-[0.28em] ${className}`}>
+    <span className={`inline-flex items-baseline gap-[0.28em] ${className}`}>
       <Mark className="h-[0.71em]" />
       Crosstune
-    </p>
+    </span>
   )
 }

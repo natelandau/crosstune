@@ -44,7 +44,8 @@ describe('Lockup', () => {
   it('sets the mark beside the name at the documented type role and gap', () => {
     render(<Lockup className="text-heading" />)
     const lockup = screen.getByText('Crosstune')
-    expect(lockup.tagName).toBe('P')
+    expect(lockup.tagName).toBe('SPAN')
+    expect(lockup).toHaveClass('inline-flex')
     expect(lockup).toHaveClass('text-heading')
     expect(lockup).toHaveClass('items-baseline')
     expect(lockup).toHaveClass('gap-[0.28em]')
