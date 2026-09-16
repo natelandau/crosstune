@@ -203,14 +203,16 @@ describe('RecordingsScreen', () => {
     expect(await screen.findByText('Loose take')).toBeInTheDocument()
   })
 
-  it('opens the song from its header, plays a take from its row, and offers Move on swipe', async () => {
+  it('opens the song from its header, plays a take from its row, and offers Remove from song on swipe', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
     await take(songId, 'Filed')
     await take(null, 'Loose take')
     const { router } = renderApp({ db, path: '/recordings' })
     const filed = await screen.findByRole('list', { name: 'Angeline' })
     expect(within(filed).queryByRole('link')).toBeNull()
-    expect(within(filed).getByRole('button', { name: 'Move Filed' })).toBeInTheDocument()
+    expect(
+      within(filed).getByRole('button', { name: 'Remove from song Filed' }),
+    ).toBeInTheDocument()
     await userEvent.click(within(filed).getByRole('button', { name: 'Play Filed' }))
     expect(await screen.findByRole('region', { name: 'Player' })).toBeInTheDocument()
     expect(within(filed).getByRole('button', { name: 'Close Filed player' })).toBeInTheDocument()
@@ -218,16 +220,13 @@ describe('RecordingsScreen', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
   })
 
-  it('moves a filed take to another song from its swipe action', async () => {
+  it('removes a take from its song from its swipe action', async () => {
     const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
-    const { songId: other } = await createSong(db, { title: 'Soldier' }, { status: 'known' })
     const id = await take(songId, 'Filed')
     renderApp({ db, path: '/recordings' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Move Filed' }))
-    await screen.findByRole('dialog', { name: 'Move to a song' })
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Sold')
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to Soldier' }))
-    await vi.waitFor(async () => expect((await db.recordings.get(id))?.song_id).toBe(other))
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove from song Filed' }))
+    await vi.waitFor(async () => expect((await db.recordings.get(id))?.song_id).toBeNull())
+    expect(await screen.findByRole('list', { name: 'Unfiled' })).toHaveTextContent('Filed')
   })
 
   it('closes the player before deleting a recording that is playing', async () => {

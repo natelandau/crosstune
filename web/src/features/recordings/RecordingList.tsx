@@ -38,7 +38,6 @@ export function RecordingList({
   const { error, run } = useAction()
   const [attaching, setAttaching] = useState<string | null>(null)
   if (views.length === 0) return <p className="text-sm opacity-70">No recordings yet.</p>
-  const attachingView = views.find((view) => view.recording.id === attaching)
   return (
     <>
       <ul className="space-y-2" aria-label={label}>
@@ -48,11 +47,18 @@ export function RecordingList({
             view={view}
             {...rowState(view.recording.id)}
             actions={[
-              {
-                label: view.songId ? 'Move' : 'Add to song',
-                tone: 'neutral',
-                onPress: () => setAttaching(view.recording.id),
-              },
+              view.songId
+                ? {
+                    label: 'Remove from song',
+                    tone: 'neutral',
+                    onPress: () =>
+                      run(() => updateRecording(db, view.recording.id, { song_id: null })),
+                  }
+                : {
+                    label: 'Add to song',
+                    tone: 'neutral',
+                    onPress: () => setAttaching(view.recording.id),
+                  },
               {
                 label: 'Delete',
                 tone: 'error',
@@ -79,11 +85,7 @@ export function RecordingList({
           {error}
         </p>
       ) : null}
-      <Sheet
-        open={attaching !== null}
-        title={attachingView?.songId ? 'Move to a song' : 'Add to a song'}
-        onClose={() => setAttaching(null)}
-      >
+      <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
         <AttachSongPicker
           onPick={(songId) => {
             const id = attaching
