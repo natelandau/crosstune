@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+  workflow_call:
 
 permissions:
   contents: read
@@ -16,8 +17,11 @@ permissions:
 env:
   CI: "true"
 
+# A bump commit on `main` skips these jobs, because the Release workflow runs
+# them on the tag it makes. The called jobs see the tag ref, so they run there.
 jobs:
   lint:
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
     name: API lint
     runs-on: ubuntu-latest
     defaults:
@@ -41,6 +45,7 @@ jobs:
           PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc
 
   test:
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
     name: API test
     runs-on: ubuntu-latest
     defaults:
@@ -59,6 +64,7 @@ jobs:
       - run: just test
 
   contract:
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
     name: API contract
     runs-on: ubuntu-latest
     defaults:

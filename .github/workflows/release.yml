@@ -1,0 +1,49 @@
+---
+name: Release
+
+# Railway and Workers Builds deploy production from the `production` branch,
+# and neither host can trigger on a tag. Pushing a version tag moves that
+# branch to the tagged commit, so a tag is the only thing that reaches
+# production. The branch moves only after the API and Web workflows pass on
+# that commit, which gates both hosts in one place. A manual run started
+# from a tag, under "Use workflow from", moves the branch to that tag, which
+# is how an older version is put back.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Queue rather than cancel, so an older run never lands after a newer one.
+concurrency:
+  group: production-branch
+  cancel-in-progress: false
+
+jobs:
+  api:
+    name: API
+    uses: ./.github/workflows/api.yml
+  web:
+    name: Web
+    uses: ./.github/workflows/web.yml
+  promote:
+    name: Move the production branch to the tag
+    needs: [api, web]
+    runs-on: ubuntu-latest
+    steps:
+      - name: require a version tag
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/v*) ;;
+            *) echo "::error::start this workflow from a version tag, not from $GITHUB_REF"; exit 1 ;;
+          esac
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # The repository squash-merges, so a tag made on a pull request branch
+      # points at a commit that never reaches `main`. Refuse it.
+      - name: require the tagged commit to be on main
+        run: git merge-base --is-ancestor HEAD origin/main
+      - run: git push --force origin "HEAD:refs/heads/production"

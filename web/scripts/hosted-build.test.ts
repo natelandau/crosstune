@@ -35,19 +35,22 @@ function run(env: Record<string, string>) {
 }
 
 describe('hosted-build', () => {
-  it('builds main with the production key and environment', () => {
-    expect(run({ WORKERS_CI_BRANCH: 'main' })).toMatchObject({
+  it('builds production with the production key and environment', () => {
+    expect(run({ WORKERS_CI_BRANCH: 'production' })).toMatchObject({
       status: 0,
       stdout: 'build pk_live_x production https://dsn.example',
     })
   })
 
-  it('builds any other branch with the development key and environment', () => {
-    expect(run({ WORKERS_CI_BRANCH: 'feat/tunings' })).toMatchObject({
-      status: 0,
-      stdout: 'build pk_test_x development https://dsn.example',
-    })
-  })
+  it.each(['main', 'feat/tunings'])(
+    'builds %s with the development key and environment',
+    (branch) => {
+      expect(run({ WORKERS_CI_BRANCH: branch })).toMatchObject({
+        status: 0,
+        stdout: 'build pk_test_x development https://dsn.example',
+      })
+    },
+  )
 
   it('fails when the branch is unknown', () => {
     const result = run({})
@@ -56,7 +59,7 @@ describe('hosted-build', () => {
   })
 
   it('fails when the chosen key is missing', () => {
-    const result = run({ WORKERS_CI_BRANCH: 'main', CLERK_PUBLISHABLE_KEY_PRODUCTION: '' })
+    const result = run({ WORKERS_CI_BRANCH: 'production', CLERK_PUBLISHABLE_KEY_PRODUCTION: '' })
     expect(result.status).not.toBe(0)
     expect(result.stderr).toMatch(/CLERK_PUBLISHABLE_KEY_PRODUCTION/)
   })

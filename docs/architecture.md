@@ -106,8 +106,10 @@ server refused, as a warning. The release tag is the `version` field in
 ## The API
 
 The API is one FastAPI process in a Railway container, built from the
-Dockerfile in `api/`. Railway rebuilds it on a push to `main` that changes a
-file under `api/`. Railway's pre-deploy command runs the Alembic migrations
+Dockerfile in `api/`. Railway rebuilds it on a push to the environment's
+branch that changes a file under `api/`: `production` for production, which
+moves only on a version tag, and `main` for development. Railway's
+pre-deploy command runs the Alembic migrations
 in a separate container from the same image before the new deployment
 starts, so the schema is never older than the code that serves it. A failed
 migration cancels the deploy and the previous deployment keeps serving. The
@@ -272,12 +274,14 @@ opens the provider's app or site.
 | Environment  | API                         | Database             | Clerk instance | Web client                                    |
 | ------------ | --------------------------- | -------------------- | -------------- | --------------------------------------------- |
 | Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`                |
-| Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `development-crosstune-web` |
+| Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `main-crosstune-web`        |
 | Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web`     |
 | Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                          |
 
-The development and production API services run the same commit. They differ
-only in their variables. A pull request environment runs the PR branch with
+The development API service runs the head of `main`. The production service
+runs the commit that the last version tag promoted, so the two differ between
+releases. They otherwise differ only in their variables. A pull request
+environment runs the PR branch with
 the development variables and its own database. In every environment the
 client reaches the API on its own origin.
 
