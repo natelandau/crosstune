@@ -165,10 +165,14 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
       )
     },
     async putObject(url, blob, contentType): Promise<void> {
+      // A blob read back from IndexedDB is file-backed on iOS, and an iOS home-screen web
+      // app cannot hand that file to the network layer ("Load failed"), so send the bytes
+      // from memory. The read stays outside the network wrapper to keep its own error.
+      const body = await blob.arrayBuffer()
       await transfer(
         new Request(url, {
           method: 'PUT',
-          body: blob,
+          body,
           headers: { 'Content-Type': contentType },
           // A larger recording needs longer than the base allowance to reach R2 over a slow link.
           signal: AbortSignal.timeout(putTimeoutMs(blob.size)),
