@@ -61,8 +61,10 @@ does not repeat their values.
   song page publishes one More actions menu. In selection mode the same bar
   becomes the selection bar in place.
 - The bottom navigation holds five slots in this order: Catalog, Lists, the
-  record button, Recordings, Settings, as five equal slots edge to edge. A
-  tab is a glyph over a short label. The current tab shows by color alone:
+  record button, Recordings, Settings, as five equal slots edge to edge. The
+  bar is 56px tall, plus the phone's home indicator inset below, which the
+  bar color and the current slot's fill both run down through. A tab is a
+  glyph over a short label. The current tab shows by color alone:
   its whole slot fills with the bar's text color and its glyph and label
   take the bar color, while the other tabs mute. There is no underline.
   Under a mouse, a slot tints faintly on hover. The selection action bar
@@ -133,7 +135,10 @@ does not repeat their values.
   the capitals, with a gap of 0.4 of the cap height.
 - Inside the client the mark appears in the lockup, on the sign-in screen
   and in the app bar. On the bar the C is white on the chrome in both
-  themes, because the bar is the same slate in both.
+  themes, because the bar is the same slate in both. On a phone home
+  screen the status bar above the app bar is opaque in the same slate,
+  never translucent over the page, so nothing the system draws there
+  washes out the lockup.
 - The sources for marketing, bare and tiled in both colorways, live in
   `brand/` at the repository root.
 

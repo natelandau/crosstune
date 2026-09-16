@@ -13,7 +13,7 @@ export function AppBar() {
   const actions = useShownPageActions()
   return (
     <header
-      className={`navbar sticky top-0 z-10 grid min-h-14 p-0 pt-[env(safe-area-inset-top)] transition-colors duration-(--select-bar-duration) ease-out ${
+      className={`navbar sticky top-0 z-10 grid min-h-14 p-0 transition-colors duration-(--select-bar-duration) ease-out ${
         active ? 'bg-neutral text-neutral-content' : 'bg-chrome text-chrome-content'
       }`}
     >
