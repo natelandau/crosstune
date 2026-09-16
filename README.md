@@ -8,6 +8,8 @@ product is and `docs/decisions.md` for why it is shaped this way.
 
 - `api/` The FastAPI service. Python, managed by uv.
 - `web/` The web client. TypeScript, managed by pnpm.
+- `brand/` The identity sources: the CT mark as hand-written SVG, in both
+  colorways. The web client's icons are generated from it.
 
 ## Local development
 

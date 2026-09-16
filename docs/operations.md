@@ -107,6 +107,11 @@ A merge to `main` deploys the API in both environments and the production
 web client. Railway skips the deploy when nothing under `api/` changed.
 Workers Builds skips the deploy when nothing under `web/` changed.
 
+The app icon's file names never change, so a home-screen install made
+before an icon change keeps the icon it was installed with until the app
+is removed and added again. A release that changes the icon should say
+so.
+
 To cut a version, run `just bump` at the repository root. It runs
 commitizen from `.cz.toml`, which updates the API package version and the
 `version` field in `web/package.json` in one commit, then tags it. Each
