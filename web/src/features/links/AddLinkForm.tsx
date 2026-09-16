@@ -1,3 +1,4 @@
+import { ErrorText } from '../../components/Page'
 import { useEffect, useState, type FormEvent } from 'react'
 import type { ResolveResponse } from '../../api/types'
 import { addLink } from '../../commands/links'
@@ -92,7 +93,7 @@ export function AddLinkForm({ songId, onAdded }: { songId: string; onAdded?: () 
         </label>
       </fieldset>
       {preview?.title ? (
-        <p className="flex items-center gap-2 text-sm">
+        <p className="text-meta flex items-center gap-2">
           {preview.artwork_url ? (
             <img src={preview.artwork_url} alt="" className="h-8 w-8 rounded object-cover" />
           ) : null}
@@ -120,11 +121,7 @@ export function AddLinkForm({ songId, onAdded }: { songId: string; onAdded?: () 
       >
         Add link
       </button>
-      {error ? (
-        <p role="alert" className="text-error text-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </form>
   )
 }

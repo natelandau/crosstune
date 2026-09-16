@@ -137,7 +137,7 @@ function Control({
             onChange(event.target.value)
           }}
         />
-        {mixed ? <span className="text-sm opacity-70">Mixed</span> : null}
+        {mixed ? <span className="text-meta opacity-70">Mixed</span> : null}
       </div>
     )
   }
@@ -203,7 +203,7 @@ export function BatchEditSheet({
 
   return (
     <Sheet open={open} title={`Edit ${countSongs(entries.length)}`} onClose={onClose}>
-      <p className="-mt-2 mb-2 text-sm opacity-70">Only fields you change are saved.</p>
+      <p className="text-meta -mt-2 mb-2 opacity-70">Only fields you change are saved.</p>
       <form className="space-y-1" onSubmit={submit} noValidate>
         {fields.map((field) => {
           const value = touched[field]
@@ -243,7 +243,9 @@ export function BatchEditSheet({
           )
         })}
         {pending > 0 ? (
-          <p className="bg-base-200 rounded-box px-3 py-2 text-sm">{describeChanges(touched)}</p>
+          <p className="rounded-box border-base-content/20 text-meta border px-3 py-2">
+            {describeChanges(touched)}
+          </p>
         ) : null}
         <div className="flex gap-2 pt-2">
           <button type="button" className="btn min-h-11" onClick={onClose}>

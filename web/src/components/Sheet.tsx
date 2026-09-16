@@ -37,7 +37,7 @@ export function Sheet({
       }}
     >
       <div className="modal-box max-h-[85dvh] pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-        <h2 id={titleId} className="mb-3 text-lg font-semibold">
+        <h2 id={titleId} className="text-title mb-3">
           {title}
         </h2>
         {children}

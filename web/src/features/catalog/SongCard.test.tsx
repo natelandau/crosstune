@@ -33,7 +33,7 @@ function renderCard(
 describe('SongCard', () => {
   it('puts the title alone on the first row, large and truncated', async () => {
     await renderCard({ key: 'D' })
-    expect(screen.getByText("Soldier's Joy")).toHaveClass('truncate', 'text-lg', 'font-semibold')
+    expect(screen.getByText("Soldier's Joy")).toHaveClass('truncate', 'text-title')
   })
 
   it('shows the key and status on the second row', async () => {
@@ -41,7 +41,7 @@ describe('SongCard', () => {
     expect(link.textContent).toBe("Soldier's JoyKey DKnown")
     const label = screen.getByText('Key')
     expect(label).toHaveClass('sr-only')
-    expect(label.parentElement).toHaveClass('font-bold')
+    expect(label.parentElement).toHaveClass('font-semibold', 'tabular-nums')
     expect(label.parentElement).toHaveTextContent('Key D')
   })
 

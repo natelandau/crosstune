@@ -1,3 +1,4 @@
+import { ErrorText, HelpText, Section } from '../../components/Page'
 import { addToList, removeFromList } from '../../commands/lists'
 import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
@@ -20,10 +21,9 @@ export function AddToListMenu({ userSongId }: { userSongId: string }) {
   }
 
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold uppercase opacity-60">Lists</h2>
+    <Section title="Lists">
       {lists.length === 0 ? (
-        <p className="text-sm opacity-70">No lists yet. Create one from the Lists tab.</p>
+        <HelpText>No lists yet. Create one from the Lists tab.</HelpText>
       ) : (
         <ul className="space-y-1">
           {lists.map((list) => (
@@ -41,11 +41,7 @@ export function AddToListMenu({ userSongId }: { userSongId: string }) {
           ))}
         </ul>
       )}
-      {error ? (
-        <p role="alert" className="text-error text-sm">
-          {error}
-        </p>
-      ) : null}
-    </section>
+      {error ? <ErrorText>{error}</ErrorText> : null}
+    </Section>
   )
 }

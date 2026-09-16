@@ -1,5 +1,6 @@
 import { removeLink } from '../../commands/links'
 import { deleteSong, setArchived, updateSong, updateUserSong } from '../../commands/songs'
+import { ErrorText, HelpText, Page, PageHeading, Section } from '../../components/Page'
 import { EmptyState } from '../../components/EmptyState'
 import { useAction } from '../../components/useAction'
 import { useOpenRow } from '../../components/swipe'
@@ -37,7 +38,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   if (edit) {
     return (
       <div className="space-y-3">
-        <h1 className="text-2xl font-bold">Edit song</h1>
+        <PageHeading>Edit song</PageHeading>
         <SongForm
           initial={valuesFromRows(song, userSong)}
           submitLabel="Save"
@@ -66,13 +67,13 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   ].filter((c): c is { key: string; label: string } => !!c.label)
 
   return (
-    <div className="space-y-4">
+    <Page>
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold">{song.title}</h1>
+        <PageHeading>{song.title}</PageHeading>
         {song.alternate_titles.length ? (
-          <p className="text-sm opacity-70">{song.alternate_titles.join(', ')}</p>
+          <HelpText>{song.alternate_titles.join(', ')}</HelpText>
         ) : null}
-        {keyLine ? <p className="text-xl font-semibold">{keyLine}</p> : null}
+        {keyLine ? <p className="text-key">{keyLine}</p> : null}
         <div className="flex flex-wrap gap-1">
           {chips.map((chip) => (
             <span key={chip.key} className="badge badge-outline">
@@ -88,8 +89,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
         onChange={(status) => run(() => updateUserSong(db, userSong.id, { status }))}
       />
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
+      <Section title="Recordings">
         <RecordingList
           views={recordings}
           links={links}
@@ -98,28 +98,23 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
         />
         <UploadRecordingInput songId={song.id} />
         <AddLinkForm songId={song.id} />
-      </section>
+      </Section>
 
       <AddToListMenu userSongId={userSong.id} />
 
       {userSong.notes || userSong.learned_from || userSong.learned_on ? (
-        <section className="space-y-1">
-          <h2 className="text-sm font-semibold uppercase opacity-60">Notes</h2>
+        <Section title="Notes">
           {userSong.learned_from || userSong.learned_on ? (
-            <p className="text-sm opacity-70">
+            <HelpText>
               Learned {userSong.learned_from ? `from ${userSong.learned_from}` : ''}{' '}
               {userSong.learned_on ?? ''}
-            </p>
+            </HelpText>
           ) : null}
           {userSong.notes ? <p className="whitespace-pre-wrap">{userSong.notes}</p> : null}
-        </section>
+        </Section>
       ) : null}
 
-      {error ? (
-        <p role="alert" className="text-error text-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
 
       <div className="flex flex-wrap gap-2 pt-2">
         <button type="button" className="btn min-h-11 flex-1" onClick={() => onEditChange(true)}>
@@ -143,6 +138,6 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
           Delete
         </button>
       </div>
-    </div>
+    </Page>
   )
 }

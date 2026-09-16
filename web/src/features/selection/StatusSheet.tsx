@@ -24,12 +24,12 @@ export function StatusSheet({
             <li key={status}>
               <button
                 type="button"
-                className="btn btn-ghost min-h-12 w-full justify-start text-base font-normal"
+                className="btn btn-ghost text-body min-h-12 w-full justify-start font-normal"
                 onClick={() => onPick(status)}
               >
                 <StatusDot status={status} />
                 {current > 0 ? (
-                  <span className="ml-auto text-sm opacity-70">{current} now</span>
+                  <span className="text-meta ml-auto opacity-70">{current} now</span>
                 ) : null}
               </button>
             </li>

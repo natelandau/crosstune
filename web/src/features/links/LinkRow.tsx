@@ -33,14 +33,14 @@ export function LinkRow({
       {link.artwork_url ? (
         <img src={link.artwork_url} alt="" className="ml-1 size-10 shrink-0 rounded object-cover" />
       ) : (
-        <span aria-hidden="true" className="badge badge-ghost ml-1 size-10 shrink-0">
+        <span aria-hidden="true" className="badge badge-outline ml-1 size-10 shrink-0 opacity-60">
           {provider[0]}
         </span>
       )}
       <span className="min-w-0 flex-1 pl-2">
         <span className="block truncate font-medium">{title}</span>
         {link.label ? (
-          <span className="block truncate text-xs opacity-70">{link.label}</span>
+          <span className="text-small block truncate opacity-70">{link.label}</span>
         ) : null}
       </span>
     </>

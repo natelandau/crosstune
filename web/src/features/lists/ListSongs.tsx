@@ -133,7 +133,7 @@ export function ListSongs({
         onDragCancel={endDrag}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <ol className="space-y-2">
+          <ol className="row-list">
             {ordered.map((entry, index) => (
               <SortableSong
                 key={entry.item.id}
@@ -211,7 +211,7 @@ function SortableSong({
         {...rowState}
         selection={selection}
         leading={
-          <span className="w-8 shrink-0 pl-3 text-sm tabular-nums opacity-60">{position}</span>
+          <span className="text-meta w-8 shrink-0 pl-3 tabular-nums opacity-60">{position}</span>
         }
         trailing={
           <span

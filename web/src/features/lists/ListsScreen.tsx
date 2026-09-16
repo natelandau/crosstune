@@ -1,3 +1,4 @@
+import { ErrorText, PageHeading } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { SquarePen, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -29,7 +30,7 @@ export function ListsScreen() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Lists</h1>
+      <PageHeading>Lists</PageHeading>
       <form onSubmit={handleCreate} className="flex gap-2">
         <label className="input flex-1">
           <input
@@ -45,18 +46,14 @@ export function ListsScreen() {
           Create list
         </button>
       </form>
-      {error ? (
-        <p role="alert" className="text-error text-sm">
-          {error}
-        </p>
-      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
       {lists === undefined ? null : lists.length === 0 ? (
         <EmptyState
           title="No lists yet"
           hint="A list is an ordered set of songs, like a setlist."
         />
       ) : (
-        <ul className="space-y-2">
+        <ul className="row-list">
           {lists.map((list) => (
             <li key={list.id}>
               <SwipeRow

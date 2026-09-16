@@ -13,7 +13,7 @@ function ListMark({ mark }: { mark: Mark }) {
   return (
     <span
       aria-hidden="true"
-      className={`grid size-5 shrink-0 place-items-center rounded border-2 text-xs font-bold ${
+      className={`text-small grid size-5 shrink-0 place-items-center rounded border-2 font-bold ${
         mark === 'none' ? 'border-base-content/40' : 'border-primary'
       } ${mark === 'all' ? 'bg-primary text-primary-content' : 'text-primary'}`}
     >
@@ -70,7 +70,7 @@ export function ListPickerSheet({
                 <li key={list.id}>
                   <button
                     type="button"
-                    className="btn btn-ghost min-h-12 w-full justify-start text-base font-normal"
+                    className="btn btn-ghost text-body min-h-12 w-full justify-start font-normal"
                     disabled
                   >
                     <ListMark mark="none" />
@@ -93,13 +93,13 @@ export function ListPickerSheet({
               <li key={list.id}>
                 <button
                   type="button"
-                  className="btn btn-ghost min-h-12 w-full justify-start text-base font-normal"
+                  className="btn btn-ghost text-body min-h-12 w-full justify-start font-normal"
                   disabled={mark === 'all'}
                   onClick={() => onAdd(list)}
                 >
                   <ListMark mark={mark} />
                   <span className="truncate">{list.name}</span>
-                  <span className="ml-auto text-sm opacity-70">{status}</span>
+                  <span className="text-meta ml-auto opacity-70">{status}</span>
                 </button>
               </li>
             )

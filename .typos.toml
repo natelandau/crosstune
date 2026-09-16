@@ -1,5 +1,7 @@
 [default]
     locale = "en-us"
+    # Unicode ranges in @font-face declarations look like misspelled words.
+    extend-ignore-re = ["U\\+[0-9A-Fa-f]{4}(?:-[0-9A-Fa-f]{4})?"]
 
 [files]
     extend-exclude = [".cache", ".venv", "node_modules", "*.lock", "web/src/api/openapi.json", "pnpm-lock.yaml", "web/src/api/schema.d.ts", "web/src/routeTree.gen.ts", "web/dist", "web/dev-dist"]

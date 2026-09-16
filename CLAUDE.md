@@ -30,6 +30,9 @@ aggregate across modules (`just test` runs `api::test` and `web::test`).
   web client together under honcho using `Procfile.dev`. honcho is an API dev
   dependency. Ctrl-C stops both servers; Postgres keeps running until `just dev-down`.
   If either process crashes, honcho stops the other.
+- Postgres data lives in the `crosstune_postgres-data` Docker volume, and the compose
+  project name is fixed to `crosstune`, so every checkout and worktree shares one
+  database. `just dev` from a worktree reuses the running container.
 - New API recipes go in `api/justfile`, new web recipes in `web/justfile`. A
   root aggregate recipe should call both `api::<name>` and `web::<name>`.
 - Tag recipes with `[group('api')]`, `[group('web')]`, or `[group('all')]` so

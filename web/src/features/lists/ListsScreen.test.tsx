@@ -28,7 +28,7 @@ describe('ListsScreen', () => {
     expect(await screen.findByRole('link', { name: /Tuesday jam/ })).toHaveTextContent(
       '1 song · Edited today',
     )
-    expect(screen.getByText('Tuesday jam')).toHaveClass('truncate', 'text-lg', 'font-semibold')
+    expect(screen.getByText('Tuesday jam')).toHaveClass('truncate', 'text-title')
     await userEvent.type(screen.getByRole('textbox', { name: 'New list name' }), 'Square dance')
     await userEvent.click(screen.getByRole('button', { name: 'Create list' }))
     expect(await screen.findByRole('link', { name: /Square dance/ })).toBeInTheDocument()

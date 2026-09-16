@@ -24,16 +24,16 @@ export function SongCard({
   const className = `flex min-h-16 flex-col justify-center gap-0.5 px-3 py-2 ${archived ? 'opacity-60' : ''}`
   const body = (
     <>
-      <span className="truncate text-lg font-semibold">{song.title}</span>
-      <span className="flex min-w-0 items-center gap-3 text-sm">
+      <span className="text-title truncate">{song.title}</span>
+      <span className="text-meta flex min-w-0 items-center gap-3">
         {song.key ? (
-          <span className="font-bold">
+          <span className="font-semibold tabular-nums">
             <span className="sr-only">Key </span>
             {song.key}
           </span>
         ) : null}
         <StatusDot status={userSong.status} />
-        {tunings ? <span className="truncate opacity-70">{tunings}</span> : null}
+        {tunings ? <span className="truncate tabular-nums opacity-70">{tunings}</span> : null}
         {archived ? <span>Archived</span> : null}
       </span>
     </>

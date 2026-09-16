@@ -79,6 +79,9 @@ on a phone home screen. It contains these features.
   carries a value. A tuning filter appears only for those instruments. A new
   account starts as violin only until a later onboarding flow asks the
   question.
+- Appearance. Settings offers light, dark, or the system setting, which
+  follows the phone when it switches, and a text size of compact, regular, or
+  roomy. Both are per device and need no account.
 - Offline. The full catalog is cached on the device. Reads and writes work
   without a connection. Writes sync when the connection returns.
 - Recordings. A user records with the phone's microphone or uploads an audio

@@ -93,7 +93,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         ref={boxRef}
         data-state={visible ? 'open' : 'closed'}
-        className={`rounded-box bg-base-content text-base-100 fixed right-20 bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] left-4 z-30 flex max-w-md items-center gap-2 py-1 pr-1 pl-4 shadow-lg transition-[opacity,translate] duration-(--select-toast-duration) ease-(--ease-emphasized) ${
+        className={`rounded-box bg-base-content text-base-100 fixed right-[calc(var(--measure-inset)+4rem)] bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-height,0px))] left-(--measure-inset) z-30 flex max-w-md items-center gap-2 py-1 pr-1 pl-4 shadow-lg transition-[opacity,translate] duration-(--select-toast-duration) ease-(--ease-emphasized) ${
           visible ? '' : 'pointer-events-none opacity-0 motion-safe:translate-y-4'
         }`}
         onMouseEnter={() => setHovered(true)}
@@ -104,7 +104,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         }}
       >
         {/* The live region stays outside the inert subtree so it is announced as its text changes. */}
-        <p role="status" className="flex-1 text-sm">
+        <p role="status" className="text-meta flex-1">
           {current?.message}
         </p>
         <div inert={!visible} className="flex items-center gap-2">

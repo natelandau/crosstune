@@ -18,7 +18,8 @@ export function RootLayout() {
             <AppBar />
             <main
               tabIndex={-1}
-              className={`flex-1 px-4 pt-3 outline-none ${
+              // One measure for every screen: about 70 characters of body text at the regular size.
+              className={`mx-auto w-full max-w-(--measure) flex-1 px-4 pt-3 outline-none ${
                 fullScreen ? '' : 'pb-[calc(6rem+env(safe-area-inset-bottom))]'
               }`}
             >
