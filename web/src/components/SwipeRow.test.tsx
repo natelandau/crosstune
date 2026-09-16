@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SwipeRow, type SwipeAction } from './SwipeRow'
 
 function renderRow({
@@ -101,5 +101,47 @@ describe('SwipeRow', () => {
     await userEvent.click(screen.getByRole('link', { name: "Soldier's Joy" }))
     expect(onLink).toHaveBeenCalledTimes(1)
     expect(closeOpenRow).not.toHaveBeenCalled()
+  })
+})
+
+describe('SwipeRow with a mouse', () => {
+  function stubFinePointer(matches: boolean) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: matches && query === '(hover: hover) and (pointer: fine)',
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('shows the actions in the row without a swipe', async () => {
+    stubFinePointer(true)
+    const { onEdit, onOpenChange } = renderRow()
+    const edit = editButton()
+    expect(edit.closest('[inert]')).toBeNull()
+    expect(edit).toHaveAttribute('title', 'Edit')
+    await userEvent.click(edit)
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('still lets a tap reach the row content', async () => {
+    stubFinePointer(true)
+    const { onLink } = renderRow()
+    await userEvent.click(screen.getByRole('link', { name: "Soldier's Joy" }))
+    expect(onLink).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the actions while disabled', () => {
+    stubFinePointer(true)
+    renderRow({ disabled: true })
+    expect(screen.queryByRole('button', { name: "Edit Soldier's Joy" })).toBeNull()
+  })
+
+  it('keeps the swipe layout when the pointer is coarse', () => {
+    stubFinePointer(false)
+    renderRow()
+    expect(editButton().closest('[inert]')).not.toBeNull()
   })
 })
