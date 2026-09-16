@@ -22,10 +22,10 @@ format:
 tsc:
     pnpm tsc --noEmit
 
-# Spell check with typos
+# Spell check the client and the brand sources it is built from
 [group('lint')]
 typos:
-    uv run --project ../api typos --config ../.typos.toml .
+    uv run --project ../api typos --config ../.typos.toml . ../brand
 
 # Run all linters
 [group('lint')]
@@ -64,6 +64,12 @@ preview:
 build:
     pnpm vite build
     pnpm wrangler deploy --dry-run
+
+# Regenerate the favicon and PWA icons in public/ from the brand mark in ../brand
+[group('build')]
+icons:
+    cp ../brand/icon-dark.svg public/logo.svg
+    pnpm pwa-assets-generator
 
 # Regenerate the typed client from the committed OpenAPI contract
 [group('contract')]
