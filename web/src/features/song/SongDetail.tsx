@@ -2,12 +2,11 @@ import { removeLink } from '../../commands/links'
 import { deleteSong, setArchived, updateSong, updateUserSong } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
 import { useAction } from '../../components/useAction'
+import { useOpenRow } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { deleteSongMessage } from './deleteSongMessage'
 import { AddLinkForm } from '../links/AddLinkForm'
-import { LinkList } from '../links/LinkList'
 import { AddToListMenu } from '../lists/AddToListMenu'
-import { RecordButtonInline } from '../recording/RecordButton'
 import { UploadRecordingInput } from '../recording/UploadRecordingInput'
 import { RecordingList } from '../recordings/RecordingList'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
@@ -29,6 +28,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const instruments = useInstruments()
   const recordings = useRecordingsWithFiles({ songId })
   const { error, run, runThen } = useAction()
+  const rowState = useOpenRow()
 
   if (view === undefined || instruments === undefined || recordings === undefined) return null
   if (view === null) return <EmptyState title="This song is gone" />
@@ -90,16 +90,13 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
-        <RecordingList views={recordings} showSong={false} />
-        <div className="flex flex-wrap gap-2">
-          <RecordButtonInline songId={song.id} />
-          <UploadRecordingInput songId={song.id} />
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase opacity-60">Links</h2>
-        <LinkList links={links} onRemove={(id) => run(() => removeLink(db, id))} />
+        <RecordingList
+          views={recordings}
+          links={links}
+          onRemoveLink={(id) => run(() => removeLink(db, id))}
+          rowState={rowState}
+        />
+        <UploadRecordingInput songId={song.id} />
         <AddLinkForm songId={song.id} />
       </section>
 

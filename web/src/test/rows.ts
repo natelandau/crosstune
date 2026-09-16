@@ -1,3 +1,4 @@
+import type { SwipeRowState } from '../components/swipe'
 import type { LocalRecordingLink, LocalSong, LocalUserSong } from '../db/types'
 
 export function songRow(id: string, title: string, extra: Partial<LocalSong> = {}): LocalSong {
@@ -65,4 +66,13 @@ export function linkRow(
     position: 0,
     ...extra,
   }
+}
+
+/** Swipe row state for a row that rests closed and never opens. */
+export const closedRow: SwipeRowState = {
+  open: false,
+  otherOpen: false,
+  onOpenChange: () => {},
+  onSwipeStart: () => {},
+  closeOpenRow: () => {},
 }

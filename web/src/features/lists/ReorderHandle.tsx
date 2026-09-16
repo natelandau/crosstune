@@ -1,4 +1,5 @@
 import type { DraggableSyntheticListeners } from '@dnd-kit/core'
+import { GripVertical } from 'lucide-react'
 import {
   useCallback,
   useId,
@@ -73,11 +74,7 @@ export function ReorderHandle({
           listeners?.onPointerDown?.(event)
         }}
       >
-        <svg aria-hidden="true" viewBox="0 0 12 18" className="h-4 w-3 fill-current opacity-60">
-          {[3, 9].flatMap((cx) =>
-            [3, 9, 15].map((cy) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={1.5} />),
-          )}
-        </svg>
+        <GripVertical aria-hidden="true" className="size-4 opacity-60" />
       </button>
       <div
         ref={menuRef}

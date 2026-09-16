@@ -1,3 +1,4 @@
+import { ListMinus, SquarePen } from 'lucide-react'
 import {
   closestCenter,
   DndContext,
@@ -229,8 +230,18 @@ function SortableSong({
           </span>
         }
         actions={[
-          { label: 'Edit', tone: 'neutral', onPress: onEdit },
-          { label: 'Remove', tone: 'error', onPress: onRemove },
+          {
+            label: 'Edit',
+            tone: 'neutral',
+            icon: <SquarePen aria-hidden="true" className="size-5" />,
+            onPress: onEdit,
+          },
+          {
+            label: 'Remove',
+            tone: 'error',
+            icon: <ListMinus aria-hidden="true" className="size-5" />,
+            onPress: onRemove,
+          },
         ]}
       />
     </li>

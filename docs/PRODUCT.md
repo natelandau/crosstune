@@ -82,7 +82,7 @@ on a phone home screen. It contains these features.
 - Offline. The full catalog is cached on the device. Reads and writes work
   without a connection. Writes sync when the connection returns.
 - Recordings. A user records with the phone's microphone or uploads an audio
-  file. A recording attaches to a song or waits unfiled in the Recordings tab.
+  file. A recording is added to a song or waits unfiled in the Recordings tab.
   It plays at once on the device that made it and uploads in the background.
   It reaches the user's other devices when someone plays it, or ahead of time
   on any device where Download all recordings to this device is turned on in

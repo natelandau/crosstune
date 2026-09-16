@@ -1,3 +1,4 @@
+import { Archive, SquarePen } from 'lucide-react'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,8 +26,8 @@ function renderRow({ open = false }: { open?: boolean } = {}) {
   const onSwipeStart = vi.fn()
   const onLink = vi.fn()
   const actions: [SwipeAction, SwipeAction] = [
-    { label: 'Edit', tone: 'neutral', onPress: vi.fn() },
-    { label: 'Archive', tone: 'warning', onPress: vi.fn() },
+    { label: 'Edit', tone: 'neutral', onPress: vi.fn(), icon: <SquarePen aria-hidden="true" /> },
+    { label: 'Archive', tone: 'warning', onPress: vi.fn(), icon: <Archive aria-hidden="true" /> },
   ]
   render(
     <SwipeRow

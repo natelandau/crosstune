@@ -7,9 +7,16 @@ export const DbContext = createContext<CrosstuneDb | null>(null)
 
 export function DbProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const db = useMemo(() => openDatabase(userId), [userId])
-  // Dexie reopens a closed database on its next operation, so a StrictMode
-  // remount after this cleanup still works.
-  useEffect(() => () => db.close(), [db])
+  // A StrictMode remount runs this cleanup and then keeps using the same instance, so the
+  // close must leave auto-open on for the next query. Only an open database is closed: a
+  // soft close would also undo a deliberate hard close, such as sign-out's, and let a
+  // straggling write recreate the database that was just deleted.
+  useEffect(
+    () => () => {
+      if (db.isOpen()) db.close({ disableAutoOpen: false })
+    },
+    [db],
+  )
   return <DbContext.Provider value={db}>{children}</DbContext.Provider>
 }
 

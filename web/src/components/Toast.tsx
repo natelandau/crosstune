@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 import { TOAST_MS, ToastContext, type ToastOptions } from './toastContext'
 
 interface Current extends ToastOptions {
@@ -123,7 +124,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             aria-label="Dismiss"
             onClick={hide}
           >
-            <span aria-hidden="true">×</span>
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
       </div>

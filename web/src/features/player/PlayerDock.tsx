@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RecordingFile } from '../../db/recordings'
 import { useDb } from '../../db/DbProvider'
@@ -234,7 +235,7 @@ export function PlayerDock() {
             aria-label="Close player"
             onClick={close}
           >
-            ✕
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
         {next.kind === 'link' ? (

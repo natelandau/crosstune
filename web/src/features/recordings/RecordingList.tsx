@@ -1,13 +1,19 @@
+import { useNavigate } from '@tanstack/react-router'
+import { FolderInput, FolderOutput, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { Sheet } from '../../components/Sheet'
 import { useAction } from '../../components/useAction'
+import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { isNotUploaded } from '../../db/recordings'
+import type { LocalRecordingLink } from '../../db/types'
+import { LinkRow } from '../links/LinkRow'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { AttachSongPicker } from '../recording/AttachSongPicker'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { RecordingRow } from './RecordingRow'
+import { RenameSheet } from './RenameSheet'
 import type { RecordingView } from './useRecordings'
 
 /** A local file the server has never seen is only ever on this device, so deleting it
@@ -21,19 +27,29 @@ function confirmMessage(view: RecordingView): string {
 
 export function RecordingList({
   views,
-  showSong,
+  links = [],
+  onRemoveLink = () => {},
   label = 'Recordings',
+  rowState,
 }: {
   views: RecordingView[]
-  showSong: boolean
+  /** Linked recordings, listed after the audio recordings as rows of the same shape. */
+  links?: LocalRecordingLink[]
+  onRemoveLink?: (id: string) => void
   label?: string
+  /** Shared by every list on a screen, so only one row is open across all of them. */
+  rowState: (id: string) => SwipeRowState
 }) {
   const db = useDb()
   const engine = useSyncEngine()
+  const navigate = useNavigate()
   const player = usePlayer()
   const { error, run } = useAction()
   const [attaching, setAttaching] = useState<string | null>(null)
-  if (views.length === 0) return <p className="text-sm opacity-70">No recordings yet.</p>
+  const [renaming, setRenaming] = useState<RecordingView | null>(null)
+  if (views.length === 0 && links.length === 0) {
+    return <p className="text-sm opacity-70">No recordings yet.</p>
+  }
   return (
     <>
       <ul className="space-y-2" aria-label={label}>
@@ -41,13 +57,40 @@ export function RecordingList({
           <RecordingRow
             key={view.recording.id}
             view={view}
-            showSong={showSong}
-            onDelete={() => {
-              if (!window.confirm(confirmMessage(view))) return
-              const id = view.recording.id
-              if (isPlaying(player, { kind: 'recording', id })) player.close()
-              run(() => deleteRecording(db, id))
-            }}
+            {...rowState(view.recording.id)}
+            actions={[
+              {
+                label: 'Rename',
+                tone: 'neutral',
+                icon: <Pencil aria-hidden="true" className="size-5" />,
+                onPress: () => setRenaming(view),
+              },
+              view.songId
+                ? {
+                    label: 'Remove from song',
+                    tone: 'warning',
+                    icon: <FolderOutput aria-hidden="true" className="size-5" />,
+                    onPress: () =>
+                      run(() => updateRecording(db, view.recording.id, { song_id: null })),
+                  }
+                : {
+                    label: 'Add to song',
+                    tone: 'warning',
+                    icon: <FolderInput aria-hidden="true" className="size-5" />,
+                    onPress: () => setAttaching(view.recording.id),
+                  },
+              {
+                label: 'Delete',
+                tone: 'error',
+                icon: <Trash2 aria-hidden="true" className="size-5" />,
+                onPress: () => {
+                  if (!window.confirm(confirmMessage(view))) return
+                  const id = view.recording.id
+                  if (isPlaying(player, { kind: 'recording', id })) player.close()
+                  run(() => deleteRecording(db, id))
+                },
+              },
+            ]}
             onRetry={(id) => run(() => engine.retry(id))}
             onRetryUpload={(id) =>
               run(async () => {
@@ -55,8 +98,10 @@ export function RecordingList({
                 void engine.sync()
               })
             }
-            onAttach={(id) => setAttaching(id)}
           />
+        ))}
+        {links.map((link) => (
+          <LinkRow key={link.id} link={link} {...rowState(link.id)} onRemove={onRemoveLink} />
         ))}
       </ul>
       {error ? (
@@ -64,14 +109,30 @@ export function RecordingList({
           {error}
         </p>
       ) : null}
-      <Sheet open={attaching !== null} title="Attach to a song" onClose={() => setAttaching(null)}>
-        <AttachSongPicker
-          onPick={(songId) => {
-            const id = attaching
-            setAttaching(null)
-            if (id) run(() => updateRecording(db, id, { song_id: songId }))
-          }}
-        />
+      <RenameSheet
+        view={renaming}
+        onClose={() => setRenaming(null)}
+        onSave={(id, label) => {
+          setRenaming(null)
+          run(() => updateRecording(db, id, { label }))
+        }}
+      />
+      <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
+        {/* Mounted only while open: the picker searches the whole catalog, and every list on a screen has one. */}
+        {attaching !== null ? (
+          <AttachSongPicker
+            onPick={(songId) => {
+              const id = attaching
+              setAttaching(null)
+              run(() => updateRecording(db, id, { song_id: songId }))
+            }}
+            onCreate={(title) => {
+              const id = attaching
+              setAttaching(null)
+              void navigate({ to: '/songs/new', search: { title, attach: id } })
+            }}
+          />
+        ) : null}
       </Sheet>
     </>
   )

@@ -170,7 +170,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
           method: 'PUT',
           body: blob,
           headers: { 'Content-Type': contentType },
-          // A larger take needs longer than the base allowance to reach R2 over a slow link.
+          // A larger recording needs longer than the base allowance to reach R2 over a slow link.
           signal: AbortSignal.timeout(putTimeoutMs(blob.size)),
         }),
       )

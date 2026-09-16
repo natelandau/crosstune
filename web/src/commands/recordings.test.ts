@@ -15,6 +15,7 @@ import {
   retryUpload,
   setFileState,
   storeDownloadedBlob,
+  defaultRecordingLabel,
   updateRecording,
 } from './recordings'
 import { createSong, deleteSong } from './songs'
@@ -40,6 +41,14 @@ async function captured(songId: string | null = null): Promise<string> {
   await finishCapture(db, id, { songId, mime: 'audio/mp4', durationMs: 10_000, recordedAt: AT })
   return id
 }
+
+describe('defaultRecordingLabel', () => {
+  it('names a recording for its local start time to the minute', () => {
+    const at = new Date(2026, 8, 14, 9, 5, 59)
+    expect(defaultRecordingLabel(at)).toBe('2026-09-14 09:05')
+    expect(defaultRecordingLabel(at.toISOString())).toBe('2026-09-14 09:05')
+  })
+})
 
 describe('capture', () => {
   it('assembles chunks into one blob and queues the synced row', async () => {
@@ -96,7 +105,7 @@ describe('capture', () => {
     expect((await db.recordings.get(id))?.position).toBe(position)
   })
 
-  it('leaves a finished take alone when cancelCapture races it', async () => {
+  it('leaves a finished recording alone when cancelCapture races it', async () => {
     const id = await captured()
     const file = await db.recording_files.get(id)
     const row = await db.recordings.get(id)
@@ -148,10 +157,10 @@ describe('uploads and edits', () => {
   it('updates label and song and queues the row', async () => {
     const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
     const id = await captured()
-    await updateRecording(db, id, { label: 'Take 2', song_id: songId })
-    expect(await db.recordings.get(id)).toMatchObject({ label: 'Take 2', song_id: songId })
+    await updateRecording(db, id, { label: 'Recording 2', song_id: songId })
+    expect(await db.recordings.get(id)).toMatchObject({ label: 'Recording 2', song_id: songId })
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({
-      label: 'Take 2',
+      label: 'Recording 2',
       song_id: songId,
     })
   })
@@ -159,7 +168,7 @@ describe('uploads and edits', () => {
   it('puts a failed upload back in the queue when the recording is edited', async () => {
     const id = await captured()
     await setFileState(db, id, 'failed_upload', 'bad type')
-    await updateRecording(db, id, { label: 'Take 3' })
+    await updateRecording(db, id, { label: 'Recording 3' })
     expect(await db.recording_files.get(id)).toMatchObject({ local_state: 'captured', error: null })
   })
 

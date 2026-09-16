@@ -62,14 +62,14 @@ async function putRecordingRow(
 export async function beginCapture(
   db: CrosstuneDb,
   id: string,
-  take: { songId: string | null; recordedAt: string },
+  fields: { songId: string | null; recordedAt: string },
 ): Promise<void> {
   await db.recording_files.put(
     emptyFile(id, {
       local_state: 'capturing',
       last_chunk_at: Date.now(),
-      song_id: take.songId,
-      recorded_at: take.recordedAt,
+      song_id: fields.songId,
+      recorded_at: fields.recordedAt,
     }),
   )
 }
@@ -88,6 +88,13 @@ export async function appendChunk(
     await db.recording_chunks.put({ recording_id: id, idx, blob })
     await db.recording_files.update(id, { last_chunk_at: Date.now() })
   })
+}
+
+/** The name a new recording gets: when it started, as the local `YYYY-MM-DD HH:MM`. */
+export function defaultRecordingLabel(recordedAt: string | Date): string {
+  const d = new Date(recordedAt)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export async function finishCapture(
@@ -116,7 +123,8 @@ export async function finishCapture(
     await putRecordingRow(db, id, {
       songId: fields.songId,
       source: 'microphone',
-      label: null,
+      // Named for when it started, so a recording is never nameless in a list.
+      label: defaultRecordingLabel(fields.recordedAt),
       recordedAt: fields.recordedAt,
     })
   })
@@ -241,7 +249,7 @@ export async function storeDownloadedBlob(
 }
 
 /** Drop cached audio that can be fetched again. Only a blob the server can
- * actually serve back (its recording is `ready`) exists anywhere else; a take
+ * actually serve back (its recording is `ready`) exists anywhere else; a recording
  * still queued, blocked, failed, or not yet transcoded is the only copy. */
 export async function clearDownloadedBlobs(db: CrosstuneDb): Promise<void> {
   await db.transaction('rw', db.recording_files, db.recordings, async () => {

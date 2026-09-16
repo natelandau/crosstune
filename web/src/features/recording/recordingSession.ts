@@ -3,19 +3,16 @@ import { settingsId } from '../../commands/settings'
 import { getStorage } from '../../db/meta'
 import { AUDIO_BITRATES, CHUNK_MS, pickMimeType, storedAudioQuality } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
-import { liveSong } from '../../db/songs'
 import { createCapture, type Capture, type RecorderLike, type TrackLike } from './capture'
 
-export type TakePhase =
+export type RecordingPhase =
   'starting' | 'recording' | 'interrupted' | 'saving' | 'saved' | 'denied' | 'failed'
 
-export interface TakeSnapshot {
-  phase: TakePhase
+export interface RecordingSnapshot {
+  phase: RecordingPhase
   elapsedMs: number
   analyser: AnalyserNode | null
   error: string | null
-  /** The song the take is filed under: the requested one, or null once it is found deleted. */
-  targetSongId: string | null
 }
 
 export interface MediaStreamLike {
@@ -36,41 +33,39 @@ export interface AudioContextLike<S extends MediaStreamLike> {
   }
 }
 
-export interface TakeClock {
+export interface SessionClock {
   now(): number
   /** Call `fn` every `ms` until the returned function is called. */
   every(ms: number, fn: () => void): () => void
 }
 
 /** Generic over the stream type so the browser's own MediaStream and a test fake both fit. */
-export interface TakeSessionDeps<S extends MediaStreamLike> {
+export interface RecordingSessionDeps<S extends MediaStreamLike> {
   db: CrosstuneDb
   userId: string
   recordingId: string
-  /** Read when the take finishes, so the latest requested song is the one it is filed under. */
-  songId: () => string | null
   getUserMedia: (constraints: MediaStreamConstraints) => Promise<S>
   MediaRecorder: RecorderClass<S>
   acquireCaptureLock: (id: string) => Promise<() => void>
   holdWakeLock: () => () => void
   unlockAudioContext: () => AudioContextLike<S>
-  /** Releases the iOS audio session once a take ends, so it does not keep the mic indicator up. */
+  /** Releases the iOS audio session once a recording ends, so it does not keep the mic indicator up. */
   suspendAudioContext: () => void
   persistStorage: () => void
-  clock: TakeClock
+  clock: SessionClock
 }
 
-export interface TakeSession {
-  /** Run the start sequence. Resolves once the take is recording or has given up. */
+export interface RecordingSession {
+  /** Run the start sequence. Resolves once the recording is recording or has given up. */
   start(): Promise<void>
-  snapshot(): TakeSnapshot
+  snapshot(): RecordingSnapshot
   /** The listener is called on every change after subscribing, never immediately. */
-  subscribe(listener: (snapshot: TakeSnapshot) => void): () => void
-  /** Stop and keep the take. A no-op until the capture exists. */
+  subscribe(listener: (snapshot: RecordingSnapshot) => void): () => void
+  /** Stop and keep the recording. A no-op until the capture exists. */
   finish(): Promise<void>
-  /** Stop and discard the take, including a start still in progress. */
+  /** Stop and discard the recording, including a start still in progress. */
   cancel(): Promise<void>
-  /** Stop reporting. A running take is finished and kept; a start in progress backs out. */
+  /** Stop reporting. A running recording is finished and kept; a start in progress backs out. */
   dispose(): void
 }
 
@@ -87,21 +82,20 @@ const DISCARD_FAILED = 'The recording could not be discarded.'
 const SIZE_LIMIT = 'This recording reached the size limit and was saved.'
 
 // Stopping short of the server's per-file cap leaves room for the chunk the recorder
-// flushes on stop, so the finished take can still upload.
+// flushes on stop, so the finished recording can still upload.
 const SIZE_LIMIT_FRACTION = 0.95
 
-/** One take from one microphone: start, interruptions, and exactly one finish or cancel. */
-export function createTakeSession<S extends MediaStreamLike>(
-  deps: TakeSessionDeps<S>,
-): TakeSession {
+/** One recording from one microphone: start, interruptions, and exactly one finish or cancel. */
+export function createRecordingSession<S extends MediaStreamLike>(
+  deps: RecordingSessionDeps<S>,
+): RecordingSession {
   const { db, recordingId, clock } = deps
-  const listeners = new Set<(snapshot: TakeSnapshot) => void>()
-  let snapshot: TakeSnapshot = {
+  const listeners = new Set<(snapshot: RecordingSnapshot) => void>()
+  let snapshot: RecordingSnapshot = {
     phase: 'starting',
     elapsedMs: 0,
     analyser: null,
     error: null,
-    targetSongId: deps.songId(),
   }
   let startCalled = false
   let disposed = false
@@ -120,7 +114,7 @@ export function createTakeSession<S extends MediaStreamLike>(
   let bytesWritten = 0
   let sizeLimited = false
 
-  const emit = (patch: Partial<TakeSnapshot>) => {
+  const emit = (patch: Partial<RecordingSnapshot>) => {
     snapshot = { ...snapshot, ...patch }
     if (disposed) return
     for (const listener of listeners) listener(snapshot)
@@ -154,7 +148,7 @@ export function createTakeSession<S extends MediaStreamLike>(
 
   // Both run one microtask late so that capture.stop(), which can fire the recorder's
   // 'stop' event synchronously and so re-enter through onState, finds `ending` already set.
-  const finishTake = (): Promise<void> => {
+  const finishRecording = (): Promise<void> => {
     ending ??= Promise.resolve().then(async () => {
       pauseClock()
       emit({ phase: 'saving', elapsedMs: activeMs })
@@ -170,19 +164,16 @@ export function createTakeSession<S extends MediaStreamLike>(
       releaseHardware()
       const writeFailed = await partial
       try {
-        const requested = deps.songId()
-        const song = requested ? await db.songs.get(requested) : undefined
-        const target = liveSong(song)?.id ?? null
-        emit({ targetSongId: target })
+        // Every recording begins unfiled; the recordings tab is where it is added to a song.
         const fields = {
-          songId: target,
+          songId: null,
           // The recorder's own type names what it actually produced, codecs included.
           mime: recorder?.mimeType || 'audio/mp4',
           durationMs: activeMs,
           recordedAt,
         }
         // One retry covers a transient IndexedDB failure; past that the chunks stay put
-        // and sync recovery finishes the take.
+        // and sync recovery finishes the recording.
         await finishCapture(db, recordingId, fields).catch(() =>
           finishCapture(db, recordingId, fields),
         )
@@ -267,7 +258,7 @@ export function createTakeSession<S extends MediaStreamLike>(
       source = node
       emit({ analyser })
     } catch {
-      // The waveform is only a visual cue; a take must never depend on it.
+      // The waveform is only a visual cue; a recording must never depend on it.
     }
 
     const mime = pickMimeType((m) => deps.MediaRecorder.isTypeSupported(m))
@@ -277,12 +268,12 @@ export function createTakeSession<S extends MediaStreamLike>(
     })
     recorder = created
     // Stamped before the row is written so recovery, which reads it from the row, files an
-    // interrupted take under the same start time a normal finish would use.
+    // interrupted recording under the same start time a normal finish would use.
     recordedAt = new Date(clock.now()).toISOString()
-    await beginCapture(db, recordingId, { songId: deps.songId(), recordedAt })
+    await beginCapture(db, recordingId, { songId: null, recordedAt })
     begun = true
     if (abandoned()) return abandonStart()
-    // Asked only once there is a take worth protecting from storage eviction.
+    // Asked only once there is a recording worth protecting from storage eviction.
     deps.persistStorage()
 
     const track = stream.getAudioTracks()[0]
@@ -293,7 +284,7 @@ export function createTakeSession<S extends MediaStreamLike>(
         bytesWritten += blob.size
         if (sizeCap !== null && bytesWritten >= sizeCap && !ending) {
           sizeLimited = true
-          void finishTake()
+          void finishRecording()
         }
         return appendChunk(db, recordingId, idx, blob)
       },
@@ -308,7 +299,7 @@ export function createTakeSession<S extends MediaStreamLike>(
         } else {
           // The recorder stopped without a tap on Stop (the track ended, or the
           // recorder failed): keep what it captured, exactly as Stop would.
-          void finishTake()
+          void finishRecording()
         }
       },
     })
@@ -336,13 +327,13 @@ export function createTakeSession<S extends MediaStreamLike>(
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    finish: () => (capture ? finishTake() : Promise.resolve()),
+    finish: () => (capture ? finishRecording() : Promise.resolve()),
     cancel,
     dispose() {
       if (disposed) return
       disposed = true
       listeners.clear()
-      if (capture) void finishTake()
+      if (capture) void finishRecording()
       else releaseHardware()
     },
   }

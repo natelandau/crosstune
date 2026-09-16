@@ -37,3 +37,11 @@ aggregate across modules (`just test` runs `api::test` and `web::test`).
 - Spell check with `just typos [paths]` (for example `just typos docs`). typos
   is a pinned API dev dependency; never run it, or any other tool, through `uvx`.
 - Do not add duty or any other task runner.
+
+## Icons
+
+Every icon in the web client comes from `lucide-react`. Import the named
+component (`import { X } from 'lucide-react'`), size it with a Tailwind
+`size-*` class, and mark it `aria-hidden` inside a control that already has
+an accessible name. Never draw an inline SVG, never use a text character such
+as `×`, `✕`, or `+` as an icon, and do not add a second icon set.

@@ -55,7 +55,7 @@ export function fakeStream(track: FakeTrack) {
 }
 
 /**
- * Stub every browser global a take touches, handing out one microphone track. Pair with
+ * Stub every browser global a recording touches, handing out one microphone track. Pair with
  * vi.unstubAllGlobals() in afterEach.
  */
 export function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {

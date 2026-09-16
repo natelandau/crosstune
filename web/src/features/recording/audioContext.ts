@@ -19,12 +19,12 @@ export function getAudioContext(): AudioContext | null {
 }
 
 /** Whether a user tap has unlocked the context this session, so a reload or a restored
- * tab knows to ask for one again instead of starting a take with no gesture behind it. */
+ * tab knows to ask for one again instead of starting a recording with no gesture behind it. */
 export function wasUnlockedByTap(): boolean {
   return unlockedByTap
 }
 
-/** Release the iOS audio session between takes without tearing down the context itself. */
+/** Release the iOS audio session between recordings without tearing down the context itself. */
 export function suspendAudioContext(): void {
   if (context && context.state === 'running') void context.suspend().catch(() => {})
 }

@@ -11,25 +11,32 @@ import {
 } from '@dnd-kit/core'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import {
+  ACTION_WIDTH,
   guardTrailingClick,
   releaseVelocity,
   resist,
-  REVEAL_WIDTH,
+  revealWidthFor,
   settleOpen,
+  type SwipeAction,
+  type SwipeActions,
   type SwipeRowState,
   type SwipeSample,
 } from './swipe'
+import { usePointerIsFine } from './useMediaQuery'
 
-export interface SwipeAction {
-  label: string
-  tone: 'neutral' | 'warning' | 'error'
-  onPress: () => void
-}
+export type { SwipeAction, SwipeActions }
 
 const TONE_CLASSES: Record<SwipeAction['tone'], string> = {
   neutral: 'bg-neutral text-neutral-content',
   warning: 'bg-warning text-warning-content',
   error: 'bg-error text-error-content',
+}
+
+// With a mouse the actions sit in the row as plain buttons, so tone tints only the glyph.
+const INLINE_TONE_CLASSES: Record<SwipeAction['tone'], string> = {
+  neutral: '',
+  warning: 'text-warning',
+  error: 'text-error',
 }
 
 // Moving sideways first starts a swipe; moving vertically first leaves the gesture to page scroll.
@@ -46,14 +53,47 @@ const NO_INSTRUCTIONS: ScreenReaderInstructions = { draggable: '' }
 
 type Props = SwipeRowState & {
   name: string
-  actions: readonly [SwipeAction, SwipeAction]
+  actions: SwipeActions
   /** Turns the swipe off and rests the row closed, as while selecting songs. */
   disabled?: boolean
   children: ReactNode
 }
 
+/**
+ * A row whose actions hide behind a leftward swipe on a touch screen. With a mouse there is no
+ * hint that a row swipes, so the same actions sit visibly at its trailing edge instead.
+ */
+export function SwipeRow(props: Props) {
+  const pointerFine = usePointerIsFine()
+  return pointerFine ? <InlineActionsRow {...props} /> : <SwipeActionsRow {...props} />
+}
+
+function InlineActionsRow({ name, actions, disabled = false, children }: Props) {
+  return (
+    <div className="rounded-box bg-base-200 flex items-center">
+      <div className="min-w-0 flex-1">{children}</div>
+      {disabled ? null : (
+        <div className="flex shrink-0 items-center gap-1 pr-2">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              aria-label={`${action.label} ${name}`}
+              title={action.label}
+              className={`btn btn-ghost btn-square min-h-11 min-w-11 ${INLINE_TONE_CLASSES[action.tone]}`}
+              onClick={action.onPress}
+            >
+              {action.icon}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Each row owns its context: inside a sortable list the nearest context must be the swipe's, not the list's.
-export function SwipeRow({
+function SwipeActionsRow({
   name,
   actions,
   open,
@@ -69,11 +109,12 @@ export function SwipeRow({
   const samples = useRef<SwipeSample[]>([])
   const releaseClick = useRef<(() => void) | null>(null)
   const shownOpen = open && !disabled
-  const rest = shownOpen ? -REVEAL_WIDTH : 0
+  const revealWidth = revealWidthFor(actions)
+  const rest = shownOpen ? -revealWidth : 0
 
   useEffect(() => () => releaseClick.current?.(), [])
 
-  const offset = ({ delta }: DragMoveEvent | DragEndEvent) => resist(rest + delta.x, REVEAL_WIDTH)
+  const offset = ({ delta }: DragMoveEvent | DragEndEvent) => resist(rest + delta.x, revealWidth)
 
   const finish = () => {
     setDragX(null)
@@ -103,7 +144,7 @@ export function SwipeRow({
         const next = settleOpen({
           x,
           velocityX: releaseVelocity(samples.current),
-          revealWidth: REVEAL_WIDTH,
+          revealWidth,
         })
         finish()
         onOpenChange(next)
@@ -118,6 +159,7 @@ export function SwipeRow({
         disabled={disabled}
         onOpenChange={onOpenChange}
         closeOpenRow={closeOpenRow}
+        revealWidth={revealWidth}
         x={dragX ?? rest}
         dragging={dragX !== null}
       >
@@ -135,6 +177,7 @@ function SwipeLayers({
   disabled,
   onOpenChange,
   closeOpenRow,
+  revealWidth,
   x,
   dragging,
   children,
@@ -142,6 +185,7 @@ function SwipeLayers({
   Props,
   'name' | 'actions' | 'open' | 'otherOpen' | 'onOpenChange' | 'closeOpenRow' | 'children'
 > & {
+  revealWidth: number
   x: number
   dragging: boolean
   disabled: boolean
@@ -157,7 +201,7 @@ function SwipeLayers({
           revealed ? '' : 'motion-safe:delay-200'
         }`}
         // The front layer's antialiased rounded edge lets colored buttons behind it show through.
-        style={{ width: REVEAL_WIDTH, opacity: revealed ? 1 : 0 }}
+        style={{ width: revealWidth, opacity: revealed ? 1 : 0 }}
         inert={!open}
       >
         {actions.map((action) => (
@@ -165,13 +209,14 @@ function SwipeLayers({
             key={action.label}
             type="button"
             aria-label={`${action.label} ${name}`}
-            className={`flex-1 text-sm font-semibold ${TONE_CLASSES[action.tone]}`}
+            className={`flex items-center justify-center ${TONE_CLASSES[action.tone]}`}
+            style={{ width: ACTION_WIDTH }}
             onClick={() => {
               onOpenChange(false)
               action.onPress()
             }}
           >
-            {action.label}
+            {action.icon}
           </button>
         ))}
       </div>

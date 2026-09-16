@@ -26,7 +26,7 @@ describe('RecordingScreen without a prior tap', () => {
     expect(screen.queryByRole('timer')).toBeNull()
   })
 
-  it('starts the take once the start button is tapped', async () => {
+  it('starts the recording once the start button is tapped', async () => {
     renderApp({ db, path: '/record' })
     await userEvent.click(await screen.findByRole('button', { name: 'Start recording' }))
     await screen.findByRole('timer')

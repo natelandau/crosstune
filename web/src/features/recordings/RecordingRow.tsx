@@ -1,9 +1,13 @@
-import { Link } from '@tanstack/react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { CloudDownload } from 'lucide-react'
+import { useState } from 'react'
+import { SwipeRow, type SwipeActions } from '../../components/SwipeRow'
+import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
-import { useOnline } from '../../sync/SyncProvider'
+import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { fileStateLabel, formatBytes, formatDuration } from '../recording/format'
+import { PlayGlyph, ROW_CLASS, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import type { RecordingView } from './useRecordings'
 
@@ -11,25 +15,31 @@ function recordedAtLabel(recordedAt: string): string {
   return new Date(recordedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+/**
+ * A recording as a swipeable row. The row itself is the one control: it plays a recording this
+ * device holds, fetches one it does not, and does nothing for one the server is still preparing.
+ * Its actions live behind a swipe.
+ */
 export function RecordingRow({
   view,
-  showSong,
-  onDelete,
+  actions,
   onRetry,
   onRetryUpload,
-  onAttach,
-}: {
+  ...rowState
+}: SwipeRowState & {
   view: RecordingView
-  showSong: boolean
-  onDelete: (id: string) => void
+  actions: SwipeActions
   onRetry: (id: string) => void
   onRetryUpload: (id: string) => void
-  onAttach?: (id: string) => void
 }) {
-  const { recording, file, songId, songTitle } = view
+  const { recording, file, songTitle } = view
   const db = useDb()
+  const engine = useSyncEngine()
   const player = usePlayer()
   const online = useOnline()
+  // A tap's download is tracked here because a recording with no file row yet has nowhere
+  // durable to carry that state; the download pass marks the row itself.
+  const [fetch, setFetch] = useState<'idle' | 'fetching' | 'failed'>('idle')
   const title =
     recording.label ?? songTitle ?? `Recording, ${recordedAtLabel(recording.recorded_at)}`
   const blockedQuota = file?.local_state === 'blocked_quota'
@@ -44,85 +54,106 @@ export function RecordingRow({
       : null
   const duration = formatDuration(recording.duration_ms ?? file?.local_duration_ms)
   const item = { kind: 'recording' as const, id: recording.id }
-  const playable = !!file?.blob || (recording.state === 'ready' && online)
+  const held = !!file?.blob
+  // The player keeps its item whether or not the blob is still here, so a playing row must
+  // offer Stop even after its download was cleared.
   const loaded = isPlaying(player, item)
+  const downloadable = !held && recording.state === 'ready'
+  const downloading = downloadable && (fetch === 'fetching' || file?.local_state === 'downloading')
   const uploadFailed = file?.local_state === 'failed_upload'
-  return (
-    <li className="bg-base-200 rounded-box flex min-h-14 items-center gap-3 px-3 py-2">
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{title}</span>
-        <span className="block truncate text-xs opacity-70">
-          {[
-            showSong && songTitle,
-            duration,
-            status,
-            storageLabel,
-            file?.blob ? 'On this device' : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </span>
-        {uploadFailed && file.error ? (
-          <span className="text-error block text-xs">{file.error}</span>
-        ) : null}
+  const errorLine =
+    uploadFailed && file.error ? file.error : fetch === 'failed' ? "Couldn't download" : null
+  const retry = uploadFailed
+    ? { label: `Retry uploading ${title}`, onClick: () => onRetryUpload(recording.id) }
+    : recording.state === 'failed'
+      ? { label: `Retry ${title}`, onClick: () => onRetry(recording.id) }
+      : null
+
+  const download = () => {
+    setFetch('fetching')
+    void engine.download(recording.id).then((blob) => setFetch(blob ? 'idle' : 'failed'))
+  }
+
+  const text = (
+    <span className="min-w-0 flex-1">
+      <span className="block truncate font-medium">{title}</span>
+      <span className="block truncate text-xs opacity-70">
+        {/* A recording that needs nothing from the user shows when it was made instead of a status. */}
+        {[duration, status || recordedAtLabel(recording.recorded_at), storageLabel]
+          .filter(Boolean)
+          .join(' · ')}
       </span>
-      {uploadFailed ? (
-        <button
-          type="button"
-          className="btn btn-sm min-h-11"
-          onClick={() => onRetryUpload(recording.id)}
-          aria-label={`Retry uploading ${title}`}
-        >
-          Retry
-        </button>
-      ) : recording.state === 'failed' ? (
-        <button
-          type="button"
-          className="btn btn-sm min-h-11"
-          onClick={() => onRetry(recording.id)}
-          aria-label={`Retry ${title}`}
-        >
-          Retry
-        </button>
-      ) : null}
-      {!songId && onAttach ? (
-        <button
-          type="button"
-          className="btn btn-sm min-h-11"
-          onClick={() => onAttach(recording.id)}
-          aria-label={`Attach ${title} to a song`}
-        >
-          Attach
-        </button>
-      ) : null}
-      {showSong && songId ? (
-        <Link
-          to="/songs/$id"
-          params={{ id: songId }}
-          className="btn btn-ghost btn-sm min-h-11"
-          aria-label={`Open ${songTitle}`}
-        >
-          Open
-        </Link>
-      ) : null}
-      {playable ? (
-        <button
-          type="button"
-          className={`btn btn-sm min-h-11 min-w-11 ${loaded ? 'btn-primary' : ''}`}
-          onClick={() => (loaded ? player.close() : player.play(item))}
-          aria-label={loaded ? `Close ${title} player` : `Play ${title}`}
-        >
-          {loaded ? 'Close' : 'Play'}
-        </button>
-      ) : null}
+      {errorLine ? <span className="text-error block text-xs">{errorLine}</span> : null}
+    </span>
+  )
+  const cardClass = `${ROW_CLASS} pr-3`
+
+  let card
+  if (held || loaded) {
+    card = (
       <button
         type="button"
-        className="btn btn-ghost btn-sm min-h-11 min-w-11"
-        onClick={() => onDelete(recording.id)}
-        aria-label={`Delete ${title}`}
+        className={cardClass}
+        onClick={() => (loaded ? player.close() : player.play(item))}
+        aria-label={loaded ? `Close ${title} player` : `Play ${title}`}
       >
-        ✕
+        <Slot>{loaded ? <StopGlyph /> : <PlayGlyph />}</Slot>
+        {text}
       </button>
+    )
+  } else if (downloading) {
+    card = (
+      <div className={cardClass} role="status" aria-label={`Downloading ${title}`}>
+        <Slot>
+          <span className="loading loading-spinner loading-sm" />
+        </Slot>
+        {text}
+      </div>
+    )
+  } else if (downloadable) {
+    card = (
+      <button
+        type="button"
+        className={`${cardClass} ${online ? '' : 'opacity-60'}`}
+        // Refused rather than disabled while offline, so the row keeps its control and its name.
+        onClick={() => {
+          if (online) download()
+        }}
+        aria-disabled={online ? undefined : true}
+        aria-label={`Download ${title}`}
+      >
+        <Slot>
+          <CloudDownload aria-hidden="true" className="size-5 shrink-0" />
+        </Slot>
+        {text}
+      </button>
+    )
+  } else {
+    card = (
+      <div className={cardClass}>
+        <Slot />
+        {text}
+      </div>
+    )
+  }
+
+  return (
+    <li>
+      <SwipeRow name={title} actions={actions} {...rowState}>
+        <div className="rounded-box flex items-center">
+          {card}
+          {retry ? (
+            <button
+              type="button"
+              className="btn btn-sm mr-2 min-h-11"
+              onClick={retry.onClick}
+              aria-label={retry.label}
+            >
+              Retry
+            </button>
+          ) : null}
+        </div>
+      </SwipeRow>
     </li>
   )
 }

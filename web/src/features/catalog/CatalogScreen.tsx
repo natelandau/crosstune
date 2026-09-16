@@ -1,4 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
+import { Archive, ArchiveRestore, Plus, SquarePen, X } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { setArchived } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
@@ -143,7 +144,7 @@ function Catalog({
                 searchRef.current?.focus()
               }}
             >
-              <span aria-hidden="true">×</span>
+              <X aria-hidden="true" className="size-4" />
             </button>
           ) : null}
         </label>
@@ -200,6 +201,7 @@ function Catalog({
                       {
                         label: 'Edit',
                         tone: 'neutral',
+                        icon: <SquarePen aria-hidden="true" className="size-5" />,
                         onPress: () =>
                           void navigate({
                             to: '/songs/$id',
@@ -211,6 +213,11 @@ function Catalog({
                       {
                         label: archived ? 'Unarchive' : 'Archive',
                         tone: 'warning',
+                        icon: archived ? (
+                          <ArchiveRestore aria-hidden="true" className="size-5" />
+                        ) : (
+                          <Archive aria-hidden="true" className="size-5" />
+                        ),
                         onPress: () => run(() => setArchived(db, userSong.id, !archived)),
                       },
                     ]}
@@ -241,7 +248,7 @@ function Catalog({
         aria-hidden={selecting}
         tabIndex={selecting ? -1 : undefined}
       >
-        +
+        <Plus aria-hidden="true" className="size-7" />
       </Link>
     </div>
   )

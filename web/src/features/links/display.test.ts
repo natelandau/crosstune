@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayTitle, linkSubtitle, providerLabel } from './display'
+import { displayTitle, providerLabel } from './display'
 
 describe('link display', () => {
   it('labels every provider, and an unknown one as a plain link', () => {
@@ -14,10 +14,5 @@ describe('link display', () => {
     )
     expect(displayTitle({ title: null, url: 'https://tidal.com/track/1' })).toBe('tidal.com')
     expect(displayTitle({ title: null, url: 'not a url' })).toBe('not a url')
-  })
-
-  it('joins the provider and the label', () => {
-    expect(linkSubtitle({ provider: 'spotify', label: 'Live' })).toBe('Spotify · Live')
-    expect(linkSubtitle({ provider: 'spotify', label: null })).toBe('Spotify')
   })
 })

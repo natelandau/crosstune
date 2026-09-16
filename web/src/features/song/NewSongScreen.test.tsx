@@ -51,7 +51,7 @@ describe('NewSongScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add song' }))
     await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/songs\/(?!new)/))
     expect(
-      await screen.findByText('The recording could not be attached to this song.'),
+      await screen.findByText('The recording could not be added to this song.'),
     ).toBeInTheDocument()
     expect(await db.songs.count()).toBe(1)
   })

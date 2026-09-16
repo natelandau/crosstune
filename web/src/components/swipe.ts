@@ -1,7 +1,26 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 
-/** Width of the revealed action area: two 80px buttons. */
-export const REVEAL_WIDTH = 160
+/** Width of one revealed action button. */
+export const ACTION_WIDTH = 56
+
+export interface SwipeAction {
+  /** The accessible name; the button itself shows only the icon. */
+  label: string
+  tone: 'neutral' | 'warning' | 'error'
+  onPress: () => void
+  icon: ReactNode
+}
+
+/** One to three actions, revealed side by side. */
+export type SwipeActions =
+  | readonly [SwipeAction]
+  | readonly [SwipeAction, SwipeAction]
+  | readonly [SwipeAction, SwipeAction, SwipeAction]
+
+/** Total width of the revealed action area for these actions. */
+export function revealWidthFor(actions: SwipeActions): number {
+  return actions.length * ACTION_WIDTH
+}
 
 const FLICK_VELOCITY = 500
 

@@ -4,11 +4,11 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
 import {
-  createTakeSession,
+  createRecordingSession,
   type MediaStreamLike,
-  type TakeSessionDeps,
-  type TakeSnapshot,
-} from './takeSession'
+  type RecordingSessionDeps,
+  type RecordingSnapshot,
+} from './recordingSession'
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {}
@@ -28,7 +28,7 @@ afterEach(async () => {
   await db.delete()
 })
 
-function setup(overrides: Partial<TakeSessionDeps<MediaStreamLike>> = {}) {
+function setup(overrides: Partial<RecordingSessionDeps<MediaStreamLike>> = {}) {
   const track = new FakeTrack()
   const stream: MediaStreamLike = fakeStream(track)
   FakeRecorder.instances = []
@@ -36,11 +36,10 @@ function setup(overrides: Partial<TakeSessionDeps<MediaStreamLike>> = {}) {
   const clock = { time: 1_000 }
   const releaseLock = vi.fn()
   const releaseWakeLock = vi.fn()
-  const deps: TakeSessionDeps<MediaStreamLike> = {
+  const deps: RecordingSessionDeps<MediaStreamLike> = {
     db,
     userId: 'user_1',
     recordingId: 'rec_1',
-    songId: () => null,
     getUserMedia: vi.fn(async () => stream),
     MediaRecorder: FakeRecorder,
     acquireCaptureLock: vi.fn(async () => releaseLock),
@@ -54,13 +53,13 @@ function setup(overrides: Partial<TakeSessionDeps<MediaStreamLike>> = {}) {
     clock: { now: () => clock.time, every: () => () => {} },
     ...overrides,
   }
-  const session = createTakeSession(deps)
-  const snapshots: TakeSnapshot[] = []
+  const session = createRecordingSession(deps)
+  const snapshots: RecordingSnapshot[] = []
   session.subscribe((s) => snapshots.push(s))
   return { session, deps, stream, track, recorders, releaseLock, releaseWakeLock, clock, snapshots }
 }
 
-describe('createTakeSession start sequence', () => {
+describe('createRecordingSession start sequence', () => {
   it('backs out when disposed during the settings read', async () => {
     const { session, deps, releaseWakeLock } = setup()
     const started = session.start()
@@ -132,7 +131,7 @@ describe('createTakeSession start sequence', () => {
   })
 
   it('takes the lock before the capture row and asks for storage once recording', async () => {
-    const { session, deps, snapshots } = setup({ songId: () => 'song_1' })
+    const { session, deps, snapshots } = setup()
     const put = vi.spyOn(db.recording_files, 'put')
     await session.start()
     expect(session.snapshot().phase).toBe('recording')
@@ -142,15 +141,15 @@ describe('createTakeSession start sequence', () => {
     expect(lockAt).toBeLessThan(rowAt!)
     expect(await db.recording_files.get('rec_1')).toMatchObject({
       local_state: 'capturing',
-      song_id: 'song_1',
+      song_id: null,
       recorded_at: new Date(1_000).toISOString(),
     })
     expect(deps.persistStorage).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('createTakeSession finish and cancel', () => {
-  it('keeps a take with a failed chunk write and warns about it', async () => {
+describe('createRecordingSession finish and cancel', () => {
+  it('keeps a recording with a failed chunk write and warns about it', async () => {
     const { session, track, recorders, releaseLock, releaseWakeLock } = setup()
     await session.start()
     vi.spyOn(db.recording_chunks, 'put').mockRejectedValueOnce(new Error('QuotaExceededError'))
@@ -167,7 +166,7 @@ describe('createTakeSession finish and cancel', () => {
     expect(releaseWakeLock).toHaveBeenCalledTimes(1)
   })
 
-  it('discards the take on cancel and releases everything once', async () => {
+  it('discards the recording on cancel and releases everything once', async () => {
     const { session, deps, track, releaseLock, releaseWakeLock } = setup()
     await session.start()
     await session.cancel()
@@ -181,14 +180,14 @@ describe('createTakeSession finish and cancel', () => {
     expect(deps.suspendAudioContext).toHaveBeenCalledTimes(1)
   })
 
-  it('suspends the shared audio context once a take finishes', async () => {
+  it('suspends the shared audio context once a recording finishes', async () => {
     const { session, deps } = setup()
     await session.start()
     await session.finish()
     expect(deps.suspendAudioContext).toHaveBeenCalledTimes(1)
   })
 
-  it('finishes and keeps a take that is still running when disposed', async () => {
+  it('finishes and keeps a recording that is still running when disposed', async () => {
     const { session, releaseLock } = setup()
     await session.start()
     session.dispose()
@@ -197,7 +196,7 @@ describe('createTakeSession finish and cancel', () => {
     expect(await db.recordings.count()).toBe(1)
   })
 
-  it('stops and keeps a take once it nears the per-file size limit', async () => {
+  it('stops and keeps a recording once it nears the per-file size limit', async () => {
     await setStorage(db, { used_bytes: 0, quota_bytes: 1_000, max_file_bytes: 20 })
     const { session, recorders, releaseLock } = setup()
     await session.start()
@@ -212,7 +211,7 @@ describe('createTakeSession finish and cancel', () => {
     expect((await db.recording_files.get('rec_1'))?.local_state).toBe('captured')
   })
 
-  it('never stops a take for size when no storage figures are cached', async () => {
+  it('never stops a recording for size when no storage figures are cached', async () => {
     const { session, recorders } = setup()
     await session.start()
     recorders[0]!.emit('x'.repeat(10_000))

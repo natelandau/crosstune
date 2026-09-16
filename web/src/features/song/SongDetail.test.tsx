@@ -3,7 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../../auth/AuthContext'
 import { addLink } from '../../commands/links'
-import { appendChunk, beginCapture, finishCapture } from '../../commands/recordings'
+import {
+  appendChunk,
+  beginCapture,
+  finishCapture,
+  defaultRecordingLabel,
+} from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { newId } from '../../commands/write'
 import { DbContext } from '../../db/DbProvider'
@@ -198,8 +203,14 @@ describe('SongDetail', () => {
     })
     renderDetail()
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
-    expect(within(recordings).getByRole('button', { name: /^Play / })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
+    const plays = within(recordings).getAllByRole('button', { name: /^Play / })
+    // The recording leads the list; the linked recordings follow it as rows of the same list.
+    expect(plays[0]).toHaveAccessibleName(
+      `Play ${defaultRecordingLabel('2026-09-14T20:00:00.000Z')}`,
+    )
+    expect(plays.length).toBeGreaterThan(1)
+    expect(within(recordings).getAllByRole('link', { name: /^Open .* on / })).not.toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Record' })).toBeNull()
     expect(screen.getByLabelText('Upload audio file')).toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: /offline/i })).toBeNull()
   })
@@ -231,7 +242,9 @@ describe('SongDetail', () => {
     }
     renderDetail()
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
-    await waitFor(() => expect(within(recordings).getAllByRole('listitem')).toHaveLength(2))
+    await waitFor(() =>
+      expect(within(recordings).getAllByRole('button', { name: /^Delete / })).toHaveLength(2),
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(confirm).toHaveBeenCalledWith(
       'Delete "Cluck Old Hen"? This removes its links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',

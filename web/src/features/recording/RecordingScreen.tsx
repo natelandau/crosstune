@@ -1,13 +1,10 @@
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useState } from 'react'
-import { useDb } from '../../db/DbProvider'
-import { liveSong } from '../../db/songs'
+import { useEffect, useState } from 'react'
+import { useToast } from '../../components/toastContext'
 import { unlockAudioContext, wasUnlockedByTap } from './audioContext'
 import { formatDuration } from './format'
 import { LiveWaveform } from './LiveWaveform'
-import { SaveRecordingSheet } from './SaveRecordingSheet'
 import { type CapturePhase, useCapture } from './useCapture'
 
 const STATUS: Record<CapturePhase, string> = {
@@ -21,7 +18,7 @@ const STATUS: Record<CapturePhase, string> = {
 }
 
 /** A reload or a restored tab lands here with no tap behind it, and iOS never lets a
- * take start without one; a fresh Record navigation always arrives already unlocked. */
+ * recording start without one; a fresh Record navigation always arrives already unlocked. */
 export function RecordingScreen() {
   const [unlocked, setUnlocked] = useState(wasUnlockedByTap)
   if (!unlocked) {
@@ -44,40 +41,27 @@ export function RecordingScreen() {
 }
 
 function RecordingCapture() {
-  const db = useDb()
   const navigate = useNavigate()
-  const { song: songId = null } = useSearch({ from: '/record' })
-  const song = useLiveQuery(
-    async () => (songId ? ((await db.songs.get(songId)) ?? null) : null),
-    [db, songId],
-  )
-  const { phase, recordingId, elapsedMs, analyser, error, targetSongId, stop, cancel } = useCapture(
-    { songId },
-  )
+  const toast = useToast()
+  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture()
   const reduceMotion = useReducedMotion()
   const live = phase === 'starting' || phase === 'recording' || phase === 'interrupted'
   const started = live && phase !== 'starting'
   const showTimer = started || phase === 'saving' || phase === 'saved'
 
-  // Every exit replaces this entry, so Back never returns to /record and starts another take.
-  const leave = (target: string | null) => {
-    if (target) void navigate({ to: '/songs/$id', params: { id: target }, replace: true })
-    else void navigate({ to: '/recordings', replace: true })
-  }
-
-  // Until the take is finished, a song deleted in the meantime is only visible in the live row;
-  // while that row is still loading, the requested song is the best answer.
-  const liveSongId = song === undefined ? songId : (liveSong(song)?.id ?? null)
+  // A saved recording goes straight to the recordings tab, where it can be named, filed, or
+  // deleted. Every exit replaces this entry, so Back never returns here and starts another recording.
+  useEffect(() => {
+    if (phase !== 'saved') return
+    if (error) toast.show({ message: error })
+    void navigate({ to: '/recordings', replace: true })
+  }, [phase, error, navigate, toast])
 
   const discard = () => {
     if (started && !window.confirm('Discard this recording?')) return
     // A failed discard is reported by the hook and keeps the user on this screen.
     void cancel()
-      .then(() => {
-        if (liveSongId)
-          void navigate({ to: '/songs/$id', params: { id: liveSongId }, replace: true })
-        else void navigate({ to: '/', replace: true })
-      })
+      .then(() => void navigate({ to: '/', replace: true }))
       .catch(() => {})
   }
 
@@ -86,7 +70,7 @@ function RecordingCapture() {
   return (
     <div className="flex min-h-[70dvh] flex-col items-center justify-between gap-6 py-4">
       <header className="text-center">
-        <h1 className="text-xl font-semibold">{song ? song.title : 'New recording'}</h1>
+        <h1 className="text-xl font-semibold">New recording</h1>
         <p role="status" aria-live="polite" className="text-sm opacity-70">
           {STATUS[phase]}
         </p>
@@ -142,7 +126,11 @@ function RecordingCapture() {
           </motion.button>
         ) : null}
         {phase === 'denied' || phase === 'failed' ? (
-          <button type="button" className="btn min-h-11" onClick={() => leave(liveSongId)}>
+          <button
+            type="button"
+            className="btn min-h-11"
+            onClick={() => void navigate({ to: '/recordings', replace: true })}
+          >
             Back
           </button>
         ) : (
@@ -156,15 +144,6 @@ function RecordingCapture() {
           </button>
         )}
       </div>
-
-      <SaveRecordingSheet
-        open={phase === 'saved'}
-        recordingId={recordingId}
-        songId={targetSongId}
-        songTitle={song?.title ?? null}
-        warning={phase === 'saved' ? error : null}
-        onDone={leave}
-      />
     </div>
   )
 }

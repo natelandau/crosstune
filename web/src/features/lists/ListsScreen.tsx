@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
+import { SquarePen, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createList, deleteList } from '../../commands/lists'
 import { EmptyState } from '../../components/EmptyState'
@@ -65,6 +66,7 @@ export function ListsScreen() {
                   {
                     label: 'Edit',
                     tone: 'neutral',
+                    icon: <SquarePen aria-hidden="true" className="size-5" />,
                     onPress: () =>
                       void navigate({
                         to: '/lists/$id',
@@ -76,6 +78,7 @@ export function ListsScreen() {
                   {
                     label: 'Delete',
                     tone: 'error',
+                    icon: <Trash2 aria-hidden="true" className="size-5" />,
                     onPress: () => {
                       if (window.confirm(`Delete "${list.name}"?`)) {
                         run(() => deleteList(db, list.id))
