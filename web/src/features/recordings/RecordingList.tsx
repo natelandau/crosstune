@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { Sheet } from '../../components/Sheet'
 import { useAction } from '../../components/useAction'
+import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { isNotUploaded } from '../../db/recordings'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -22,12 +23,13 @@ function confirmMessage(view: RecordingView): string {
 
 export function RecordingList({
   views,
-  showSong,
   label = 'Recordings',
+  rowState,
 }: {
   views: RecordingView[]
-  showSong: boolean
   label?: string
+  /** Shared by every list on a screen, so only one row is open across all of them. */
+  rowState: (id: string) => SwipeRowState
 }) {
   const db = useDb()
   const engine = useSyncEngine()
@@ -36,6 +38,7 @@ export function RecordingList({
   const { error, run } = useAction()
   const [attaching, setAttaching] = useState<string | null>(null)
   if (views.length === 0) return <p className="text-sm opacity-70">No recordings yet.</p>
+  const attachingView = views.find((view) => view.recording.id === attaching)
   return (
     <>
       <ul className="space-y-2" aria-label={label}>
@@ -43,13 +46,24 @@ export function RecordingList({
           <RecordingRow
             key={view.recording.id}
             view={view}
-            showSong={showSong}
-            onDelete={() => {
-              if (!window.confirm(confirmMessage(view))) return
-              const id = view.recording.id
-              if (isPlaying(player, { kind: 'recording', id })) player.close()
-              run(() => deleteRecording(db, id))
-            }}
+            {...rowState(view.recording.id)}
+            actions={[
+              {
+                label: view.songId ? 'Move' : 'Add to song',
+                tone: 'neutral',
+                onPress: () => setAttaching(view.recording.id),
+              },
+              {
+                label: 'Delete',
+                tone: 'error',
+                onPress: () => {
+                  if (!window.confirm(confirmMessage(view))) return
+                  const id = view.recording.id
+                  if (isPlaying(player, { kind: 'recording', id })) player.close()
+                  run(() => deleteRecording(db, id))
+                },
+              },
+            ]}
             onRetry={(id) => run(() => engine.retry(id))}
             onRetryUpload={(id) =>
               run(async () => {
@@ -57,7 +71,6 @@ export function RecordingList({
                 void engine.sync()
               })
             }
-            onAttach={(id) => setAttaching(id)}
           />
         ))}
       </ul>
@@ -66,7 +79,11 @@ export function RecordingList({
           {error}
         </p>
       ) : null}
-      <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
+      <Sheet
+        open={attaching !== null}
+        title={attachingView?.songId ? 'Move to a song' : 'Add to a song'}
+        onClose={() => setAttaching(null)}
+      >
         <AttachSongPicker
           onPick={(songId) => {
             const id = attaching

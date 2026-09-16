@@ -298,7 +298,7 @@ describe('RecordingScreen', () => {
       recordedAt: '2026-09-14T20:00:00.000Z',
     })
     const { router } = renderApp({ db, path: '/recordings' })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
     await userEvent.click(within(list).getByRole('button', { name: /^Play / }))
     await screen.findByRole('region', { name: 'Player' })
     await userEvent.click(

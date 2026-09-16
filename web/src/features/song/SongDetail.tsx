@@ -2,6 +2,7 @@ import { removeLink } from '../../commands/links'
 import { deleteSong, setArchived, updateSong, updateUserSong } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
 import { useAction } from '../../components/useAction'
+import { useOpenRow } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { deleteSongMessage } from './deleteSongMessage'
 import { AddLinkForm } from '../links/AddLinkForm'
@@ -29,6 +30,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
   const instruments = useInstruments()
   const recordings = useRecordingsWithFiles({ songId })
   const { error, run, runThen } = useAction()
+  const rowState = useOpenRow()
 
   if (view === undefined || instruments === undefined || recordings === undefined) return null
   if (view === null) return <EmptyState title="This song is gone" />
@@ -90,7 +92,7 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
-        <RecordingList views={recordings} showSong={false} />
+        <RecordingList views={recordings} rowState={rowState} />
         <div className="flex flex-wrap gap-2">
           <RecordButtonInline songId={song.id} />
           <UploadRecordingInput songId={song.id} />

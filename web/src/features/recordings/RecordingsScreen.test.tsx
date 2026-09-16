@@ -6,6 +6,7 @@ import {
   beginCapture,
   finishCapture,
   setFileState,
+  storeDownloadedBlob,
   updateRecording,
 } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
@@ -40,21 +41,24 @@ async function take(songId: string | null, label: string): Promise<string> {
 }
 
 describe('RecordingsScreen', () => {
-  it('lists unfiled recordings first with their state and duration', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+  it('groups unfiled recordings first, then each song under its own header', async () => {
+    const { songId } = await createSong(db, { title: 'Angeline', key: 'D' }, { status: 'known' })
     await take(songId, 'Filed')
     const unfiled = await take(null, 'Loose take')
     await setFileState(db, unfiled, 'blocked_quota')
     renderApp({ db, path: '/recordings' })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
-    const rows = within(list).getAllByRole('listitem')
-    expect(rows[0]).toHaveTextContent('Loose take')
-    expect(rows[0]).toHaveTextContent('Storage full')
-    expect(rows[0]).toHaveTextContent('1:05')
-    expect(rows[1]).toHaveTextContent('Angeline')
-    expect(
-      within(rows[0]!).getByRole('button', { name: 'Add Loose take to a song' }),
-    ).toBeInTheDocument()
+    const loose = await screen.findByRole('list', { name: 'Unfiled' })
+    const row = within(loose).getByRole('listitem')
+    expect(row).toHaveTextContent('Loose take')
+    expect(row).toHaveTextContent('Storage full')
+    expect(row).toHaveTextContent('1:05')
+    expect(within(row).getByRole('button', { name: 'Add to song Loose take' })).toBeInTheDocument()
+    const header = screen.getByRole('link', { name: /Angeline/ })
+    expect(header).toHaveTextContent('Key D')
+    expect(header).toHaveTextContent('Known')
+    const filed = screen.getByRole('list', { name: 'Angeline' })
+    expect(within(filed).getByRole('listitem')).toHaveTextContent('Filed')
+    expect(loose.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("prefers the server's duration once it is known over the local estimate", async () => {
@@ -63,7 +67,7 @@ describe('RecordingsScreen', () => {
     // client's own count of what it recorded.
     await db.recordings.update(id, { duration_ms: 70_000 })
     renderApp({ db, path: '/recordings' })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
     expect(within(list).getByRole('listitem')).toHaveTextContent('1:10')
   })
 
@@ -84,7 +88,7 @@ describe('RecordingsScreen', () => {
     const id = await take(null, 'Stuck')
     await setFileState(db, id, 'blocked_quota')
     renderApp({ db, path: '/recordings' })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
     const row = within(list).getByRole('listitem')
     expect(await within(row).findByText(/500 MB of 1 GB used/)).toBeInTheDocument()
   })
@@ -92,7 +96,7 @@ describe('RecordingsScreen', () => {
   it('offers no per-recording keep offline control', async () => {
     await take(null, 'Loose take')
     renderApp({ db, path: '/recordings' })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
     expect(within(list).queryByRole('checkbox')).toBeNull()
   })
 
@@ -101,7 +105,7 @@ describe('RecordingsScreen', () => {
     await setFileState(db, id, 'failed_upload', 'Unsupported audio type')
     const sync = vi.fn(async () => {})
     renderApp({ db, path: '/recordings', engine: fakeEngine({ sync }) })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
     expect(await within(list).findByText('Unsupported audio type')).toBeInTheDocument()
     await userEvent.click(within(list).getByRole('button', { name: 'Retry uploading Refused' }))
     await vi.waitFor(async () =>
@@ -130,6 +134,37 @@ describe('RecordingsScreen', () => {
     await vi.waitFor(async () => expect((await db.recordings.get(id))?.deleted_at).not.toBeNull())
   })
 
+  it('downloads a take the device does not hold, then offers to play it', async () => {
+    const id = await take(null, 'Remote')
+    await db.recording_files.delete(id)
+    await db.recordings.update(id, { state: 'ready' })
+    let finish!: (blob: Blob | null) => void
+    const download = vi.fn(
+      () =>
+        new Promise<Blob | null>((resolve) => {
+          finish = resolve
+        }),
+    )
+    renderApp({ db, path: '/recordings', engine: fakeEngine({ download }) })
+    await userEvent.click(await screen.findByRole('button', { name: 'Download Remote' }))
+    expect(download).toHaveBeenCalledWith(id)
+    expect(screen.getByRole('status', { name: 'Downloading Remote' })).toBeInTheDocument()
+    const blob = new Blob(['abc'], { type: 'audio/mp4' })
+    await storeDownloadedBlob(db, id, blob, 'audio/mp4')
+    finish(blob)
+    expect(await screen.findByRole('button', { name: 'Play Remote' })).toBeInTheDocument()
+  })
+
+  it('says so and offers the download again when it fails', async () => {
+    const id = await take(null, 'Remote')
+    await db.recording_files.delete(id)
+    await db.recordings.update(id, { state: 'ready' })
+    renderApp({ db, path: '/recordings', engine: fakeEngine({ download: async () => null }) })
+    await userEvent.click(await screen.findByRole('button', { name: 'Download Remote' }))
+    expect(await screen.findByText("Couldn't download")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download Remote' })).toBeInTheDocument()
+  })
+
   it('stores an uploaded file', async () => {
     renderApp({ db, path: '/recordings' })
     const input = await screen.findByLabelText('Upload audio file')
@@ -145,17 +180,17 @@ describe('RecordingsScreen', () => {
     // cascading to this device's copy of the recording.
     await db.songs.update(songId, { deleted_at: '2026-09-14T21:00:00.000Z' })
     renderApp({ db, path: '/recordings' })
-    const list = await screen.findByRole('list', { name: 'Recordings' })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
     expect(
-      within(list).getByRole('button', { name: 'Add Angeline take to a song' }),
+      within(list).getByRole('button', { name: 'Add to song Angeline take' }),
     ).toBeInTheDocument()
-    expect(within(list).queryByRole('link', { name: /Open/ })).not.toBeInTheDocument()
+    expect(within(list).queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('creates a song named for the search and files the take under it', async () => {
     const id = await take(null, 'Loose take')
     const { router } = renderApp({ db, path: '/recordings' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Loose take to a song' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to song Loose take' }))
     await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Soldier')
     await userEvent.click(await screen.findByRole('button', { name: 'Add "Soldier"' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/songs/new'))
@@ -166,6 +201,33 @@ describe('RecordingsScreen', () => {
     const [song] = await db.songs.toArray()
     expect((await db.recordings.get(id))?.song_id).toBe(song!.id)
     expect(await screen.findByText('Loose take')).toBeInTheDocument()
+  })
+
+  it('opens the song from its header, plays a take from its row, and offers Move on swipe', async () => {
+    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+    await take(songId, 'Filed')
+    await take(null, 'Loose take')
+    const { router } = renderApp({ db, path: '/recordings' })
+    const filed = await screen.findByRole('list', { name: 'Angeline' })
+    expect(within(filed).queryByRole('link')).toBeNull()
+    expect(within(filed).getByRole('button', { name: 'Move Filed' })).toBeInTheDocument()
+    await userEvent.click(within(filed).getByRole('button', { name: 'Play Filed' }))
+    expect(await screen.findByRole('region', { name: 'Player' })).toBeInTheDocument()
+    expect(within(filed).getByRole('button', { name: 'Close Filed player' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: /Angeline/ }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
+  })
+
+  it('moves a filed take to another song from its swipe action', async () => {
+    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+    const { songId: other } = await createSong(db, { title: 'Soldier' }, { status: 'known' })
+    const id = await take(songId, 'Filed')
+    renderApp({ db, path: '/recordings' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Move Filed' }))
+    await screen.findByRole('dialog', { name: 'Move to a song' })
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Sold')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to Soldier' }))
+    await vi.waitFor(async () => expect((await db.recordings.get(id))?.song_id).toBe(other))
   })
 
   it('closes the player before deleting a recording that is playing', async () => {
