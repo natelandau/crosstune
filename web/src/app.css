@@ -102,8 +102,8 @@
 }
 
 @theme {
-  /* The app bar and the docked player: the same blue slate in both themes, so it is not a
-     daisyUI theme token. */
+  /* The app bar, the bottom navigation, and the docked player: the same blue slate in both
+     themes, so it is not a daisyUI theme token. */
   --color-chrome: #4f5d75;
   --color-chrome-content: #ffffff;
 
@@ -202,6 +202,50 @@
   font-weight: 500;
   letter-spacing: 0.01em;
 }
+/* The bar is five equal slots edge to edge, and a slot's state is color, never a stroke: the
+   current tab's whole slot, corner to corner and down through the safe area, fills with the
+   bar's text color and takes the bar color for its glyph and label, a slot under a mouse
+   tints faintly, and tabs that are not current mute. daisyUI's inset padding, capped and
+   rounded slots with a bottom margin, underline, and hover fade are all switched off. */
+.dock {
+  padding: 0;
+}
+.dock > :is(a, button) {
+  flex: 1 1 0;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 0;
+  transition:
+    background-color 150ms var(--ease-emphasized),
+    color 150ms var(--ease-emphasized);
+}
+.dock > a {
+  color: color-mix(in oklab, currentColor 65%, transparent);
+}
+.dock > .dock-active {
+  background: var(--color-chrome-content);
+  color: var(--color-chrome);
+}
+.dock > :after {
+  content: none;
+}
+@media (hover: hover) {
+  .dock > :is(a, button):hover {
+    opacity: 1;
+  }
+  .dock > :is(a, button):not(.dock-active, .record-button):hover {
+    background: color-mix(in oklab, currentColor 10%, transparent);
+    color: inherit;
+  }
+}
+/* daisyUI paints a disabled dock slot in 10% of the page text color, which vanishes on the
+   dark action bar. A slot with nothing selected dims and does not vanish, so it keeps the
+   bar's color and dims by opacity alone. */
+.dock > [disabled] {
+  color: inherit;
+}
 /* daisyUI sets fieldsets to 12px helper text and dims every label; here a fieldset holds
    choices, so its options read at body size, its legend at label size, and its labels at
    full strength. Help text has its own component. */
@@ -222,6 +266,10 @@
      not rem, so the text size setting changes the type inside the column and not the column. */
   --measure: 576px;
   --measure-inset: max(1rem, calc((100vw - var(--measure)) / 2 + 1rem));
+  /* How far the record button, ring included, rises above the bottom navigation. The docked
+     player and the navigation's slide both allow for it. */
+  --dock-cap: 0.75rem;
+  --record-ring: 3px;
   --select-bar-duration: 440ms;
   --select-bar-stagger: 120ms;
   --select-slot-duration: 400ms;
@@ -275,28 +323,35 @@
   }
 }
 
-/* The Dock's center control: a red disc in a dark ring, the shape phones use for record.
-   .dock-md is 4rem tall with .5rem padding on all sides (daisyUI dock.css), leaving a
-   content box of 3rem; children also carry daisyUI's own margin-bottom: .5rem. Zeroing
-   that margin and sizing the disc to 3.5rem keeps it inside the bar with room to spare
-   while still standing out against the .6875rem tab labels either side. */
+/* The Dock's center slot: a red disc in a ring, the shape phones use for record. The button
+   is the whole fifth of the bar; the disc is drawn on ::before in the same grid cell as the
+   dot, and both lift until the ring's outer edge sits --dock-cap above the bar's top edge.
+   The bar is fixed, so the cap paints over whatever scrolls beneath it; the bar-colored ring
+   keeps that content off the disc's edge and disappears against the bar itself. */
 .dock > .record-button {
-  flex: 0 0 auto;
-  width: 3.5rem;
-  height: 3.5rem;
-  margin: 0;
-  border-radius: 9999px;
-  background: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-200));
   display: grid;
   place-items: center;
+}
+.dock > .record-button::before,
+.record-button-dot {
+  grid-area: 1 / 1;
+  border-radius: 9999px;
+  translate: 0 calc(var(--record-ring) - var(--dock-cap));
   transition: scale 120ms var(--ease-emphasized);
 }
-.dock > .record-button:active {
+.dock > .record-button::before {
+  content: '';
+  width: 4rem;
+  height: 4rem;
+  background: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-200));
+  box-shadow: 0 0 0 var(--record-ring) var(--color-chrome);
+}
+.dock > .record-button:active::before,
+.dock > .record-button:active .record-button-dot {
   scale: 0.94;
 }
 .record-button-dot {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 9999px;
+  width: 2.5rem;
+  height: 2.5rem;
   background: var(--color-error);
 }

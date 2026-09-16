@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { openTestDb } from '../test/db'
@@ -26,6 +26,15 @@ describe('Dock', () => {
         (c) => c.textContent || c.getAttribute('aria-label'),
       )
       expect(names).toEqual(['Catalog', 'Lists', 'Start a new recording', 'Recordings', 'Settings'])
+      // Each tab is a glyph over a label, and the glyph is hidden from assistive technology.
+      for (const name of ['Catalog', 'Lists', 'Recordings', 'Settings']) {
+        const tab = within(nav).getByRole('link', { name })
+        expect(tab.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+      }
+      // Only the current tab is marked, and the mark is what fills its slot.
+      const current = within(nav).getByRole('link', { current: 'page' })
+      expect(current).toHaveTextContent('Catalog')
+      expect(current).toHaveClass('dock-active')
       expect(screen.getByRole('button', { name: 'Start a new recording' })).toHaveClass(
         'min-h-11',
         'min-w-11',

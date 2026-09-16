@@ -89,10 +89,12 @@ describe('catalog selection', () => {
     await waitFor(() => expect(screen.getByText('1 selected')).toBeInTheDocument())
   })
 
-  it('disables the actions until a song is selected', async () => {
+  it('shows a glyph over each action and disables it until a song is selected', async () => {
     await enterSelection()
     for (const name of ['Status', 'Edit', 'Add to list', 'More']) {
-      expect(within(toolbar()).getByRole('button', { name })).toBeDisabled()
+      const action = within(toolbar()).getByRole('button', { name })
+      expect(action).toBeDisabled()
+      expect(action.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     }
   })
 
