@@ -11,10 +11,10 @@ import {
 } from '@dnd-kit/core'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import {
+  ACTION_WIDTH,
   guardTrailingClick,
   releaseVelocity,
   resist,
-  REVEAL_WIDTH,
   settleOpen,
   type SwipeRowState,
   type SwipeSample,
@@ -46,7 +46,8 @@ const NO_INSTRUCTIONS: ScreenReaderInstructions = { draggable: '' }
 
 type Props = SwipeRowState & {
   name: string
-  actions: readonly [SwipeAction, SwipeAction]
+  /** One or two, revealed side by side at a fixed width each. */
+  actions: readonly [SwipeAction] | readonly [SwipeAction, SwipeAction]
   /** Turns the swipe off and rests the row closed, as while selecting songs. */
   disabled?: boolean
   children: ReactNode
@@ -69,11 +70,12 @@ export function SwipeRow({
   const samples = useRef<SwipeSample[]>([])
   const releaseClick = useRef<(() => void) | null>(null)
   const shownOpen = open && !disabled
-  const rest = shownOpen ? -REVEAL_WIDTH : 0
+  const revealWidth = ACTION_WIDTH * actions.length
+  const rest = shownOpen ? -revealWidth : 0
 
   useEffect(() => () => releaseClick.current?.(), [])
 
-  const offset = ({ delta }: DragMoveEvent | DragEndEvent) => resist(rest + delta.x, REVEAL_WIDTH)
+  const offset = ({ delta }: DragMoveEvent | DragEndEvent) => resist(rest + delta.x, revealWidth)
 
   const finish = () => {
     setDragX(null)
@@ -103,7 +105,7 @@ export function SwipeRow({
         const next = settleOpen({
           x,
           velocityX: releaseVelocity(samples.current),
-          revealWidth: REVEAL_WIDTH,
+          revealWidth,
         })
         finish()
         onOpenChange(next)
@@ -157,7 +159,7 @@ function SwipeLayers({
           revealed ? '' : 'motion-safe:delay-200'
         }`}
         // The front layer's antialiased rounded edge lets colored buttons behind it show through.
-        style={{ width: REVEAL_WIDTH, opacity: revealed ? 1 : 0 }}
+        style={{ width: ACTION_WIDTH * actions.length, opacity: revealed ? 1 : 0 }}
         inert={!open}
       >
         {actions.map((action) => (

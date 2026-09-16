@@ -6,6 +6,8 @@ import { useAction } from '../../components/useAction'
 import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { isNotUploaded } from '../../db/recordings'
+import type { LocalRecordingLink } from '../../db/types'
+import { LinkRow } from '../links/LinkRow'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { AttachSongPicker } from '../recording/AttachSongPicker'
 import { isPlaying, usePlayer } from '../player/usePlayer'
@@ -23,10 +25,15 @@ function confirmMessage(view: RecordingView): string {
 
 export function RecordingList({
   views,
+  links = [],
+  onRemoveLink,
   label = 'Recordings',
   rowState,
 }: {
   views: RecordingView[]
+  /** Linked recordings, listed after the takes as rows of the same shape. */
+  links?: LocalRecordingLink[]
+  onRemoveLink?: (id: string) => void
   label?: string
   /** Shared by every list on a screen, so only one row is open across all of them. */
   rowState: (id: string) => SwipeRowState
@@ -37,7 +44,9 @@ export function RecordingList({
   const player = usePlayer()
   const { error, run } = useAction()
   const [attaching, setAttaching] = useState<string | null>(null)
-  if (views.length === 0) return <p className="text-sm opacity-70">No recordings yet.</p>
+  if (views.length === 0 && links.length === 0) {
+    return <p className="text-sm opacity-70">No recordings yet.</p>
+  }
   return (
     <>
       <ul className="space-y-2" aria-label={label}>
@@ -77,6 +86,14 @@ export function RecordingList({
                 void engine.sync()
               })
             }
+          />
+        ))}
+        {links.map((link) => (
+          <LinkRow
+            key={link.id}
+            link={link}
+            {...rowState(link.id)}
+            onRemove={(id) => onRemoveLink?.(id)}
           />
         ))}
       </ul>

@@ -7,17 +7,12 @@ import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { fileStateLabel, formatBytes, formatDuration } from '../recording/format'
-import { PlayGlyph, StopGlyph } from '../player/PlayButton'
+import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import type { RecordingView } from './useRecordings'
 
 function recordedAtLabel(recordedAt: string): string {
   return new Date(recordedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-/** The slot before a take's title, sized to the row's touch target whatever it holds. */
-function Slot({ children }: { children?: ReactNode }) {
-  return <span className="flex size-11 shrink-0 items-center justify-center">{children}</span>
 }
 
 /**

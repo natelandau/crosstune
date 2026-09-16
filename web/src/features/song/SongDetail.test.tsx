@@ -198,7 +198,11 @@ describe('SongDetail', () => {
     })
     renderDetail()
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
-    expect(within(recordings).getByRole('button', { name: /^Play / })).toBeInTheDocument()
+    const plays = within(recordings).getAllByRole('button', { name: /^Play / })
+    // The take leads the list; the linked recordings follow it as rows of the same list.
+    expect(plays[0]).toHaveAccessibleName('Play Cluck Old Hen')
+    expect(plays.length).toBeGreaterThan(1)
+    expect(within(recordings).getAllByRole('link', { name: /^Open .* on / })).not.toHaveLength(0)
     expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument()
     expect(screen.getByLabelText('Upload audio file')).toBeInTheDocument()
     expect(screen.queryByRole('checkbox', { name: /offline/i })).toBeNull()
@@ -231,7 +235,9 @@ describe('SongDetail', () => {
     }
     renderDetail()
     const recordings = await screen.findByRole('list', { name: 'Recordings' })
-    await waitFor(() => expect(within(recordings).getAllByRole('listitem')).toHaveLength(2))
+    await waitFor(() =>
+      expect(within(recordings).getAllByRole('button', { name: /^Delete / })).toHaveLength(2),
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(confirm).toHaveBeenCalledWith(
       'Delete "Cluck Old Hen"? This removes its links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',

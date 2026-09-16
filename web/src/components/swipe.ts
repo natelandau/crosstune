@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 
-/** Width of the revealed action area: two 80px buttons. */
-export const REVEAL_WIDTH = 160
+/** Width of one revealed action button. */
+export const ACTION_WIDTH = 80
+
+/** Width of the revealed action area for a row with two actions, the common case. */
+export const REVEAL_WIDTH = ACTION_WIDTH * 2
 
 const FLICK_VELOCITY = 500
 

@@ -6,7 +6,6 @@ import { useOpenRow } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { deleteSongMessage } from './deleteSongMessage'
 import { AddLinkForm } from '../links/AddLinkForm'
-import { LinkList } from '../links/LinkList'
 import { AddToListMenu } from '../lists/AddToListMenu'
 import { RecordButtonInline } from '../recording/RecordButton'
 import { UploadRecordingInput } from '../recording/UploadRecordingInput'
@@ -92,16 +91,16 @@ export function SongDetail({ songId, edit, onEditChange, onDeleted }: Props) {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase opacity-60">Recordings</h2>
-        <RecordingList views={recordings} rowState={rowState} />
+        <RecordingList
+          views={recordings}
+          links={links}
+          onRemoveLink={(id) => run(() => removeLink(db, id))}
+          rowState={rowState}
+        />
         <div className="flex flex-wrap gap-2">
           <RecordButtonInline songId={song.id} />
           <UploadRecordingInput songId={song.id} />
         </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase opacity-60">Links</h2>
-        <LinkList links={links} onRemove={(id) => run(() => removeLink(db, id))} />
         <AddLinkForm songId={song.id} />
       </section>
 

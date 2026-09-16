@@ -1,10 +1,37 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEffect } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import type { SwipeRowState } from '../../components/swipe'
+import type { LocalRecordingLink } from '../../db/types'
 import { linkRow } from '../../test/rows'
 import { PlayerProvider } from '../player/PlayerProvider'
 import { usePlayer, type Player } from '../player/usePlayer'
-import { LinkList } from './LinkList'
+import { LinkRow } from './LinkRow'
+
+const closedRow: SwipeRowState = {
+  open: false,
+  otherOpen: false,
+  onOpenChange: () => {},
+  onSwipeStart: () => {},
+  closeOpenRow: () => {},
+}
+
+function Rows({
+  links,
+  onRemove,
+}: {
+  links: LocalRecordingLink[]
+  onRemove: (id: string) => void
+}) {
+  return (
+    <ul>
+      {links.map((link) => (
+        <LinkRow key={link.id} link={link} onRemove={onRemove} {...closedRow} />
+      ))}
+    </ul>
+  )
+}
 
 const spotify = linkRow('l1', 's1', {
   url: 'https://open.spotify.com/track/403iATVGis7FqKA0BcTSRt',
@@ -26,26 +53,32 @@ const jam = linkRow('l3', 's1', {
   position: 2,
 })
 
+/** Hands the player out through a ref so tests can drive it from outside the tree. */
+function Probe({ seenRef }: { seenRef: { current: Player | null } }) {
+  const player = usePlayer()
+  useEffect(() => {
+    seenRef.current = player
+  })
+  return null
+}
+
 function renderList() {
-  const seen: { current: Player | null } = { current: null }
-  function Probe() {
-    seen.current = usePlayer()
-    return null
-  }
+  const seenRef: { current: Player | null } = { current: null }
+  const onRemove = vi.fn()
   render(
     <PlayerProvider>
-      <Probe />
-      <LinkList links={[spotify, tidal, jam]} onRemove={vi.fn()} />
+      <Probe seenRef={seenRef} />
+      <Rows links={[spotify, tidal, jam]} onRemove={onRemove} />
     </PlayerProvider>,
   )
   const player = () => {
-    if (!seen.current) throw new Error('the player probe did not render')
-    return seen.current
+    if (!seenRef.current) throw new Error('the player probe did not render')
+    return seenRef.current
   }
-  return { player }
+  return { player, onRemove }
 }
 
-describe('LinkList', () => {
+describe('LinkRow', () => {
   it('plays a link and turns its row button into Close', async () => {
     const { player } = renderList()
     await userEvent.click(screen.getByRole('button', { name: 'Play Ground Hog' }))
@@ -100,22 +133,30 @@ describe('LinkList', () => {
     expect(play).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('shows only Open for a link without a player', () => {
+  it('names the service on the open button and shows only that for a link without a player', () => {
     renderList()
-    expect(screen.getByRole('link', { name: 'Open Jam recording' })).toBeInTheDocument()
+    const open = screen.getByRole('link', { name: 'Open Ground Hog on TIDAL' })
+    expect(open).toHaveTextContent('TIDAL')
+    expect(open).toHaveAttribute('href', 'https://tidal.com/track/45670321')
+    expect(screen.getByRole('link', { name: 'Open Jam recording on Link' })).toHaveTextContent(
+      'Open',
+    )
     expect(screen.queryByRole('button', { name: /^(Play|Close) Jam recording/ })).toBeNull()
   })
 
-  it('gives every row control a 44px target', () => {
+  it('removes a link from its swipe action', async () => {
+    const { onRemove } = renderList()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Ground Hog' }))
+    expect(onRemove).toHaveBeenCalledWith('l2')
+  })
+
+  it('gives every row control at least a 44px target', () => {
     const { player } = renderList()
     act(() => player().play({ kind: 'link', id: 'l1' }))
-    for (const control of [
-      screen.getByRole('button', { name: 'Play Ground Hog' }),
-      screen.getByRole('button', { name: 'Close Spotify version player' }),
-      screen.getByRole('link', { name: 'Open Ground Hog' }),
-      screen.getByRole('button', { name: 'Remove Ground Hog' }),
-    ]) {
-      expect(control).toHaveClass('min-h-11', 'min-w-11')
-    }
+    expect(screen.getByRole('button', { name: 'Play Ground Hog' })).toHaveClass('min-h-14')
+    expect(screen.getByRole('button', { name: 'Close Spotify version player' })).toHaveClass(
+      'min-h-14',
+    )
+    expect(screen.getByRole('link', { name: 'Open Ground Hog on TIDAL' })).toHaveClass('min-h-11')
   })
 })

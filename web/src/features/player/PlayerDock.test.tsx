@@ -17,7 +17,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLink } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { fakeEngine, renderApp, renderWithProviders } from '../../test/render'
-import { LinkList } from '../links/LinkList'
+import { LinkRow } from '../links/LinkRow'
+import type { SwipeRowState } from '../../components/swipe'
 import { PlayerDock } from './PlayerDock'
 import { PlayerProvider } from './PlayerProvider'
 import { usePlayer, type Player } from './usePlayer'
@@ -301,7 +302,20 @@ describe('PlayerDock', () => {
       function Links() {
         const [links, setLinks] = useState<LocalRecordingLink[]>([loaded])
         list.set = setLinks
-        return <LinkList links={links} onRemove={vi.fn()} />
+        const closedRow: SwipeRowState = {
+          open: false,
+          otherOpen: false,
+          onOpenChange: () => {},
+          onSwipeStart: () => {},
+          closeOpenRow: () => {},
+        }
+        return (
+          <ul>
+            {links.map((link) => (
+              <LinkRow key={link.id} link={link} onRemove={vi.fn()} {...closedRow} />
+            ))}
+          </ul>
+        )
       }
       renderWithProviders(
         <PlayerProvider>
