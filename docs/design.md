@@ -34,9 +34,13 @@ does not repeat their values.
   `Tuesday jam, square dance set, ...`. A search placeholder is an
   imperative with a capital: `Search songs`, `Add a song`.
 - A control that opens more interface ends in an ellipsis: `New list…`.
-- The empty choice in a select reads "Not set". In the bulk edit sheet the
+- The empty choice in a picker reads "Not set". In a filter it reads "All" on
+  the key rail and "Any" inside the filter sheet. In the bulk edit sheet the
   clearing choice reads "No value", the unchanged choice for a yes or no
   field reads "Keep", and a field whose songs differ shows "Mixed".
+- A set filter shows as a filled pill named for its value, and its remove
+  control is named "Remove filter" and the value, so a screen reader hears
+  "Remove filter Cross A (AEAE)".
 - A relative date carries its verb: "Edited today", "Edited yesterday",
   "Edited Mar 4", with the year only when it is not the current year.
 - A control that acts on one thing is named for the action and the thing,
@@ -52,9 +56,10 @@ does not repeat their values.
   the docked player, and the toast align to the column's right edge on a
   wide screen, not the viewport's.
 - The app bar is sticky and painted in the chrome color. It holds the
-  lockup, the mark beside the app name, as a link home on the left and the
-  sync badge on the right. In selection mode the same bar becomes the
-  selection bar in place.
+  lockup, the mark beside the app name, as a link home on the left, any
+  actions the current page publishes, and the sync badge on the right. The
+  song page publishes one More actions menu. In selection mode the same bar
+  becomes the selection bar in place.
 - The bottom navigation holds five slots in this order: Catalog, Lists, the
   record button, Recordings, Settings, as five equal slots edge to edge. A
   tab is a glyph over a short label. The current tab shows by color alone:
@@ -62,11 +67,13 @@ does not repeat their values.
   take the bar color, while the other tabs mute. There is no underline.
   Under a mouse, a slot tints faintly on hover. The selection action bar
   uses the same shape for its four slots.
-- The record button is the only way to start a recording. It sits in the
-  center of the navigation and is the one red control on the screen. Its
-  disc is a step larger than the bar's other controls and its cap rises
-  above the bar's top edge, floating over the content that scrolls beneath
-  it. The docked player sits above the cap.
+- The record button in the navigation and the Record button on a song page
+  are the only ways to start a recording. The song page's button files the
+  new recording under that song. The navigation button sits in the center of
+  the navigation and is the one red control on the screen. Its disc is a
+  step larger than the bar's other controls and its cap rises above the
+  bar's top edge, floating over the content that scrolls beneath it. The
+  docked player sits above the cap.
 - The record screen owns the viewport. It shows no navigation and no docked
   player.
 - The docked player sits above the navigation in the chrome color, full
@@ -75,7 +82,11 @@ does not repeat their values.
 - A screen is a page heading, then sections 32px apart. Inside a section,
   blocks sit 12px apart. A control sits 4px from the help text that explains
   it, and help text follows its control, never precedes it.
-- An error about one control is a short red line beside that control.
+- An error about one control is a short red line under that control. A page
+  action started from the app bar menu reports its failure under the page
+  heading. A row action in a recording or link list reports under that list.
+  A form action started from the save bar reports its failure inside the
+  bar.
 
 ## Color, type, and icons
 
@@ -160,11 +171,13 @@ Everywhere the app lists songs, it uses the same row.
   musician plays. The one exception is a field that already holds a value,
   which is always shown so data never becomes unreachable. A song row is
   stricter and shows a tuning only for a played instrument.
-- Key, tuning, genre, feel, and part structure are free text with
-  suggestions, never a closed list, so a musician can always type a value
-  the suggestions lack. Keys are suggested with flats, not sharps. A tuning
-  suggestion reads as a name and the strings in parentheses, with a
-  lowercase letter for a drone string: "Cross A (AEAE)", "Sawmill (gDGCD)".
+- Key, tuning, genre, feel, and part structure offer their suggestions as
+  chips and an Other… chip that reveals a text field, never a closed list,
+  so a musician can always type a value the suggestions lack. A typed value
+  then shows as a chip of its own. Keys are suggested with flats, not
+  sharps. A tuning suggestion reads as a name and the strings in
+  parentheses, with a lowercase letter for a drone string: "Cross A
+  (AEAE)", "Sawmill (gDGCD)".
 - The labels "Violin tuning" and "Banjo tuning" read the same on the song
   form, in the filter bar, and in the bulk edit sheet.
 
@@ -186,7 +199,7 @@ Every box that searches songs also offers to create one, with the same
 rules in the catalog and in the picker that attaches a recording to a song.
 
 - A non-empty query always shows an add row under the results, labeled
-  `Add "query"`. Titles are not unique, because different tunes share a
+  `Add "query"`. Titles are not unique, because different songs share a
   name, so an exact match never hides the offer. When a song already
   carries the title the row reads `Add another "query"`.
 - When the exact match exists but is hidden by the archived toggle or a
@@ -205,26 +218,40 @@ rules in the catalog and in the picker that attaches a recording to a song.
 - The catalog query lasts for the visit. It survives opening a song and
   coming back. A new launch, a new tab, opening the new song form, and
   sign-out all clear it. Filters persist. Free text does not.
-- Clear filters resets status, facets, and the archived toggle and leaves
-  the query alone.
+- Clearing a filter never touches the query. Status and key clear from
+  their own All chips, a sheet filter from its pill or the sheet's Reset.
 
 ## Filters
 
 Only the catalog has a filter bar.
 
-- Row one is the status group: All, Known, Learning, Want to learn, with
+- Row one is the search field beside the Filters button. The button carries
+  a count of the filters set inside the sheet, and its name reads "Filters,
+  2 set", because filters persist between visits and a stale one must
+  announce itself.
+- Row two is the status group: All, Known, Learning, Want to learn, with
   the pressed one filled.
-- Row two holds one select per facet in this fixed order: key, mode, violin
-  tuning, banjo tuning, genre. Then the Show archived toggle, then Clear
-  filters when any filter is set, then the Select button.
-- A facet select appears only when the catalog holds values for it, and a
-  tuning select only when the musician also plays that instrument. A
-  hidden facet can never narrow the catalog in silence.
-- Each select's first option is its own label and means all.
+- Row three is the key rail: All, then every key the catalog holds, as
+  chips in one scrolling row that fades at its right edge. One tap sets a
+  key, a tap on All or on the pressed key clears it. The rail appears only
+  when the catalog holds keys.
+- Mode, violin tuning, banjo tuning, genre, and Show archived live in the
+  filter sheet, in that order, each facet as a chip group whose first chip
+  is Any. A facet appears only when the catalog holds values for it, and a
+  tuning only when the musician also plays that instrument. A hidden facet
+  can never narrow the catalog in silence.
+- Every tap in the sheet applies at once, and the first line of the sheet's
+  body, under its title, is the live count in the same words as the count
+  row. Reset clears the sheet's filters and nothing else. Done closes it.
+- A set sheet filter also shows under the key rail as a filled pill with a
+  remove control. Show archived reads "Archived shown".
+- Under the filters a count row reads "84 songs", or "11 of 84 songs" while
+  anything narrows the list, and holds the Select button at its right edge.
+  The row is absent while the catalog is empty.
 - Matching ignores case and accents.
 - Catalog filters persist and come back on the next launch. List screens
   have their own Show archived setting, off by default, shared by every
-  list and untouched by the catalog's Clear filters.
+  list and untouched by the catalog.
 
 ## Gestures
 
@@ -293,15 +320,19 @@ The catalog and list detail share one selection mode.
 
 ## Forms
 
-- The song form serves both new and edit. Its field order is title,
-  alternate titles, key and mode, one tuning per visible instrument, genre
-  and feel, time signature and part structure, crooked and has lyrics,
-  status, learned from and learned on, notes. The bulk edit sheet keeps the
-  same order.
+- The song form serves both new and edit and ranks its fields by how often
+  a musician touches them. Title, status, key, one tuning per visible
+  instrument, and notes come first with full controls. Then a Details list
+  gives one line each, in this order, to also known as, mode, genre, time
+  signature, feel, parts, crooked, has lyrics, learned from, and learned
+  on. A line shows its value or "Not set", and a tap opens a picker sheet
+  or a text sheet for it. Crooked and has lyrics are switches in the line,
+  and learned on is a date field in the line. The bulk edit sheet keeps its
+  own order.
 - Only the title is required. The one validation message is "A title is
-  required", shown above the buttons on submit. Every other limit is a
-  length cap the field enforces as the musician types, so there is nothing
-  else to reject.
+  required", shown under the title field on submit, and the title field
+  takes focus. Every other limit is a length cap the field enforces as the
+  musician types, so there is nothing else to reject.
 - Each field in a multi-field form has a visible label. A single-input
   form whose title or placeholder states its purpose, such as a rename
   sheet or the create list row, needs no separate label.
@@ -309,10 +340,12 @@ The catalog and list detail share one selection mode.
   offers suggestions and accepts anything.
 - The tuning fields to show are decided when the form opens, so a field
   never disappears mid-edit.
-- In a page form the primary action comes first and takes the remaining
-  width, with Cancel beside it. In a sheet, Cancel is on the left and the
-  primary action on the right, both the same width. A sheet whose rows are
-  the actions has only a full-width Cancel at the bottom.
+- In a page form the actions sit in a bar fixed above the navigation and
+  the player, so Save is reachable without scrolling: the primary action
+  comes first and takes the remaining width, with Cancel beside it. In a
+  sheet, Cancel is on the left and the primary action on the right, both
+  the same width. A sheet whose rows are the actions has only a full-width
+  Cancel at the bottom.
 - The submit button is disabled while the write is pending and, where the
   form cannot succeed yet, until it can: the link form until the URL is
   valid, the bulk edit sheet until a field is touched.
@@ -324,8 +357,16 @@ The catalog and list detail share one selection mode.
 - A sheet slides up from the bottom on a phone and is a centered dialog on
   a wider screen. It has a title, traps focus, closes on a backdrop tap or
   Escape, and returns focus to where it was.
-- A menu opens over the page, never clipped by the row it belongs to, and
-  focus lands on its first enabled item.
+- A menu is a native popover anchored to its button. It opens over the page,
+  never clipped by the row it belongs to, focus lands on its first enabled
+  item, the arrow keys move focus between items, and Escape or a tap outside
+  closes it and returns focus to the button.
+- The song page's actions, Edit, Add to list, Archive or Unarchive, and
+  Delete, live in a More actions menu in the app bar. Delete follows a
+  divider and is red.
+- The song page's Lists section shows each list the song is in as a pill
+  with a remove control named "Remove from" and the list, beside an Add to
+  list button that opens the shared list picker.
 - A destructive action confirms with the browser's own confirm dialog,
   never a custom one. The message names the consequence and warns when
   data cannot be recovered: `Delete "Soldier's Joy"? This removes its
@@ -409,37 +450,47 @@ Recordings and links share one row shape.
 
 ## Where each pattern lives
 
-Paths are relative to `web/src/`. A new screen composes the component in
-the right column instead of rebuilding the pattern.
+Paths are relative to `web/src/`, except one written as `../index.html`,
+which sits beside it in `web/`. A new screen composes the component in the
+right column instead of rebuilding the pattern.
 
 | Pattern                                   | Implemented in                                                              |
 | ----------------------------------------- | --------------------------------------------------------------------------- |
-| Song count wording                        | `features/selection/copy.ts`                                                |
+| Song count wording                        | `features/selection/copy.ts`, and the catalog's count row in `features/catalog/filters.ts` (`songCountLabel`) |
 | Relative date wording                     | `features/lists/editedLabel.ts`                                             |
 | Column, app bar, navigation, main region  | `components/RootLayout.tsx`, `components/AppBar.tsx`, `components/Dock.tsx` |
+| Page actions in the app bar               | `components/pageChrome.ts`, `components/ActionMenu.tsx`                    |
 | Record button                             | `features/recording/RecordButton.tsx`                                       |
 | Docked player                             | `features/player/PlayerDock.tsx`                                            |
 | Page heading, sections, fields, help text | `components/Page.tsx`                                                       |
 | Palette, type roles, spacing, motion      | `app.css`                                                                   |
 | The mark and the sign-in lockup           | `components/Mark.tsx` (`Mark`, `Lockup`); sources in `brand/` at the root   |
-| Appearance and text size setting          | `features/settings/appearance.ts`, the inline script in `index.html`        |
+| Appearance and text size setting          | `features/settings/appearance.ts`, the inline script in `../index.html`     |
 | Song row                                  | `features/catalog/SongCard.tsx` inside `features/catalog/SongRow.tsx`       |
 | Status dot and labels                     | `features/catalog/StatusDot.tsx`                                            |
 | Key and mode line, facet badges           | `features/song/SongDetail.tsx`                                              |
+| Lists on the song page                    | `features/song/SongLists.tsx`                                               |
 | Which tunings to show                     | `features/settings/instruments.ts`                                          |
 | Suggestion vocabularies                   | `features/song/suggestions.ts`                                              |
 | Search or create                          | `features/catalog/searchIntent.ts`, `features/catalog/SearchSuggestion.tsx` |
 | Catalog query for the visit               | `features/catalog/searchSession.ts`                                         |
-| Filter bar and filter rules               | `features/catalog/FilterBar.tsx`, `features/catalog/filters.ts`             |
+| Filter bar and filter rules               | `features/catalog/FilterBar.tsx`, `features/catalog/FilterSheet.tsx`, `features/catalog/filters.ts` |
+| Filter sheet                              | `features/catalog/FilterSheet.tsx`                                          |
 | Show archived toggle                      | `features/catalog/ShowArchivedToggle.tsx`                                   |
 | Swipe row and actions                     | `components/SwipeRow.tsx`, `components/swipe.ts`                            |
 | Long press                                | `components/useLongPress.ts`                                                |
 | Reorder handle and move menu              | `features/lists/ReorderHandle.tsx`                                          |
 | Selection mode, bars, sheets              | `features/selection/`, `editMode.ts`                                        |
+| Choice chips and their label              | `ChoiceChips` and `ChipsField` in `components/ChoiceChips.tsx`              |
+| Picker and text sheets                    | `components/PickerSheet.tsx`                                                |
+| Detail, switch, and date rows             | `components/DetailRow.tsx`                                                  |
+| Fixed save bar                            | `components/SaveBar.tsx`                                                    |
 | Song form and its limits                  | `features/song/SongForm.tsx`, `features/song/limits.ts`                     |
+| Song form detail fields                   | `features/song/detailFields.ts`                                             |
+| Menu                                      | `components/PopoverMenu.tsx`, the app bar menu in `components/ActionMenu.tsx`, the dock's More in `features/selection/BulkActionBar.tsx` |
 | Sheet                                     | `components/Sheet.tsx`                                                      |
 | Toast                                     | `components/Toast.tsx`                                                      |
-| Inline error beside a control             | `components/useAction.ts`, `ErrorText` in `components/Page.tsx`             |
+| Inline error under a control              | `components/useAction.ts`, `ErrorText` in `components/Page.tsx`             |
 | Recording and link rows                   | `features/recordings/RecordingRow.tsx`, `features/links/LinkRow.tsx`, `features/player/rowGlyphs.tsx` |
 | Recording status words                    | `features/recording/format.ts`                                              |
 | Empty state                               | `components/EmptyState.tsx`                                                 |
