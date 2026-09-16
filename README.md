@@ -1,7 +1,8 @@
 # Crosstune
 
-A song catalog for old-time and bluegrass musicians. Read `docs/PRODUCT.md` for
-what the product is and why it is shaped this way.
+A song catalog for folk musicians. Read `docs/product.md` for what the
+product is and `docs/decisions.md` for why it is shaped this way.
+`docs/README.md` indexes every page under `docs/`.
 
 ## Layout
 
@@ -131,12 +132,12 @@ what a release would do.
 ## Hosting
 
 The API runs on Railway, the database on Neon, the web client on a Cloudflare
-Worker, sign-in on Clerk, and errors go to Sentry. `docs/ARCHITECTURE.md`
-describes what each system does, how they depend on each other, every
-setting and variable each host holds, and the smoke check to run after a
-deploy.
+Worker, sign-in on Clerk, and errors go to Sentry. `docs/architecture.md`
+describes what each system does and how they depend on each other.
+`docs/hosting.md` lists every setting and variable each host holds, and
+`docs/operations.md` covers deploys and the smoke check to run after one.
 
 The client always calls `/v1` on its own origin. Locally the Vite dev server
 proxies it to the API on port 8000. When hosted, the Worker proxies it to the
 API for that environment, and every pull request gets its own API and database
-behind its preview URL. `docs/ARCHITECTURE.md` describes the flow.
+behind its preview URL. `docs/architecture.md` describes the flow.

@@ -1,19 +1,29 @@
 # Crosstune
 
-Read `docs/PRODUCT.md` before any design or implementation work. It records
-what the product is, the first release scope, and the decisions behind the
-architecture.
+## Documentation
 
-`docs/ARCHITECTURE.md` describes how the hosted systems fit together and what
-each host holds. Read it only when the work touches sync, auth, deployment,
-CI, or a hosting setting.
+`docs/README.md` indexes every page and says which question each one
+answers. Read these pages by task:
+
+- `docs/product.md` before any design or implementation work. It records
+  what the product is, the first release scope, and the constraints that
+  hold for every release.
+- `docs/decisions.md` before you propose a different stack, host, or
+  design. It records why each one was chosen and what was rejected.
+- `docs/architecture.md` when the work touches the API, the web client,
+  sync, sign-in, or link resolution.
+- `docs/design.md` before you build or change a screen, a row, a form, a
+  gesture, or a label in the web client. It records the patterns every
+  screen follows and the component that implements each one.
+- `docs/hosting.md` and `docs/operations.md` only when the work touches
+  deployment, CI, or a hosting setting. The first lists what each host
+  holds. The second covers deploys, releases, and the smoke check.
 
 ## Naming
 
-Use formal instrument and music names in the schema, API fields, enum values,
-and all other backend code: `violin`, never `fiddle`. The product serves folk
-musicians from many traditions, and schema names are expensive to change.
-Slang belongs only in UI labels, and only as a deliberate choice.
+The glossary in `docs/product.md` sets the naming rules and the reasons:
+`violin`, never `fiddle`, and song, never tune, in the schema, the API, and
+every label.
 
 ## Task runner
 
