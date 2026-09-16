@@ -7,9 +7,16 @@ export const DbContext = createContext<CrosstuneDb | null>(null)
 
 export function DbProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const db = useMemo(() => openDatabase(userId), [userId])
-  // A StrictMode remount runs this cleanup and then keeps using the same instance.
-  // A plain close() would leave it shut for good; this one lets the next query reopen it.
-  useEffect(() => () => db.close({ disableAutoOpen: false }), [db])
+  // A StrictMode remount runs this cleanup and then keeps using the same instance, so the
+  // close must leave auto-open on for the next query. Only an open database is closed: a
+  // soft close would also undo a deliberate hard close, such as sign-out's, and let a
+  // straggling write recreate the database that was just deleted.
+  useEffect(
+    () => () => {
+      if (db.isOpen()) db.close({ disableAutoOpen: false })
+    },
+    [db],
+  )
   return <DbContext.Provider value={db}>{children}</DbContext.Provider>
 }
 
