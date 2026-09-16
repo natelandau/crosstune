@@ -1,6 +1,10 @@
-import { ErrorText } from '../../components/Page'
-import { useState, type FormEvent } from 'react'
+import { ErrorText, Field, Section } from '../../components/Page'
+import { useRef, useState, type FormEvent } from 'react'
 import type { SongInput, UserSongInput } from '../../commands/songs'
+import { ChipsField, ChoiceChips } from '../../components/ChoiceChips'
+import { DateRow, DetailRow, SwitchRow } from '../../components/DetailRow'
+import { PickerSheet, TextSheet } from '../../components/PickerSheet'
+import { SaveBar } from '../../components/SaveBar'
 import { useAction } from '../../components/useAction'
 import {
   MODES,
@@ -14,9 +18,10 @@ import {
 } from '../../db/types'
 import { isSongStatus } from '../catalog/StatusDot'
 import { TUNING_FIELDS, visibleTunings } from '../settings/instruments'
+import { DETAIL_FIELDS, type DetailField } from './detailFields'
 import { SONG_LIMITS } from './limits'
 import { StatusPicker } from './StatusPicker'
-import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNING_SUGGESTIONS } from './suggestions'
+import { KEYS, TUNING_SUGGESTIONS } from './suggestions'
 
 export interface SongFormValues {
   title: string
@@ -131,86 +136,10 @@ interface Props {
   instruments: ReadonlySet<Instrument>
 }
 
-function TextField({
-  label,
-  name,
-  value,
-  onChange,
-  suggestions,
-  type = 'text',
-  maxLength,
-}: {
-  label: string
-  name: string
-  value: string
-  onChange: (value: string) => void
-  suggestions?: string[]
-  type?: string
-  maxLength?: number
-}) {
-  const listId = suggestions ? `${name}-suggestions` : undefined
-  return (
-    <fieldset className="fieldset">
-      <legend className="fieldset-legend">{label}</legend>
-      <label className="input w-full">
-        <input
-          className="grow"
-          type={type}
-          name={name}
-          aria-label={label}
-          value={value}
-          list={listId}
-          maxLength={maxLength}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </label>
-      {suggestions ? (
-        <datalist id={listId}>
-          {suggestions.map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
-      ) : null}
-    </fieldset>
-  )
-}
-
-function SelectField<Value extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: Value | ''
-  options: readonly Value[]
-  onChange: (value: Value | '') => void
-}) {
-  return (
-    <fieldset className="fieldset">
-      <legend className="fieldset-legend">{label}</legend>
-      <select
-        className="select w-full"
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value as Value | '')}
-      >
-        <option value="">Not set</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </fieldset>
-  )
-}
-
 export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments }: Props) {
   const [values, setValues] = useState<SongFormValues>(initial ?? emptyValues())
   const [validation, setValidation] = useState<string | null>(null)
-  const { error: rejection, pending, run } = useAction()
-  const error = validation ?? rejection
+  const { error: rejection, pending, run, clear: clearRejection } = useAction()
   const set = <K extends keyof SongFormValues>(key: K, value: SongFormValues[K]) =>
     setValues((v) => ({ ...v, [key]: value }))
   // Decided once, like `values`: a field must not vanish mid-edit when its text is cleared
@@ -227,11 +156,21 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
     ),
   )
 
+  const titleRef = useRef<HTMLInputElement>(null)
+  const [openDetail, setOpenDetail] = useState<DetailField['key'] | null>(null)
+  const detailValue = (field: DetailField): string => {
+    const raw = values[field.key]
+    return typeof raw === 'string' ? raw : ''
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     const { song, userSong } = inputsFromValues(values)
     if (!song.title) {
+      // A rejection from an earlier attempt no longer describes this form.
+      clearRejection()
       setValidation('A title is required')
+      titleRef.current?.focus()
       return
     }
     setValidation(null)
@@ -239,140 +178,140 @@ export function SongForm({ initial, submitLabel, onSubmit, onCancel, instruments
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2" noValidate>
-      <TextField
-        label="Title"
-        name="title"
-        value={values.title}
-        onChange={(v) => set('title', v)}
-        maxLength={SONG_LIMITS.title}
-      />
-      <TextField
-        label="Alternate titles"
-        name="alternate_titles"
-        value={values.alternate_titles}
-        onChange={(v) => set('alternate_titles', v)}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <TextField
-          label="Key"
-          name="key"
-          value={values.key}
-          onChange={(v) => set('key', v)}
-          maxLength={SONG_LIMITS.key}
-          suggestions={KEYS}
-        />
-        <SelectField
-          label="Mode"
-          value={values.mode}
-          options={MODES}
-          onChange={(v) => set('mode', v)}
-        />
-      </div>
-      {tunings.map((field) => (
-        <TextField
-          key={field}
-          label={TUNING_FIELDS[field].label}
-          name={field}
-          value={values[field]}
-          onChange={(v) => set(field, v)}
-          maxLength={SONG_LIMITS[field]}
-          suggestions={TUNING_SUGGESTIONS[field]}
-        />
-      ))}
-      <div className="grid grid-cols-2 gap-2">
-        <TextField
-          label="Genre"
-          name="genre"
-          value={values.genre}
-          onChange={(v) => set('genre', v)}
-          maxLength={SONG_LIMITS.genre}
-          suggestions={GENRES}
-        />
-        <TextField
-          label="Feel"
-          name="feel"
-          value={values.feel}
-          onChange={(v) => set('feel', v)}
-          maxLength={SONG_LIMITS.feel}
-          suggestions={FEELS}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <SelectField
-          label="Time signature"
-          value={values.time_signature}
-          options={TIME_SIGNATURES}
-          onChange={(v) => set('time_signature', v)}
-        />
-        <TextField
-          label="Part structure"
-          name="part_structure"
-          value={values.part_structure}
-          onChange={(v) => set('part_structure', v)}
-          maxLength={SONG_LIMITS.part_structure}
-          suggestions={PART_STRUCTURES}
-        />
-      </div>
-      <div className="flex gap-6">
-        <label className="label cursor-pointer gap-2">
-          <input
-            type="checkbox"
-            className="checkbox"
-            checked={values.is_crooked}
-            onChange={(e) => set('is_crooked', e.target.checked)}
+    // Bottom padding clears the fixed save bar, which can hold an error line above its buttons.
+    <form onSubmit={handleSubmit} className="space-y-8 pb-28" noValidate>
+      <Section>
+        <Field>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Title</legend>
+            <label className={`input w-full ${validation ? 'input-error' : ''}`}>
+              <input
+                ref={titleRef}
+                className="grow"
+                name="title"
+                aria-label="Title"
+                aria-invalid={validation ? true : undefined}
+                maxLength={SONG_LIMITS.title}
+                value={values.title}
+                onChange={(e) => {
+                  set('title', e.target.value)
+                  if (validation) setValidation(null)
+                }}
+              />
+            </label>
+          </fieldset>
+          {validation ? <ErrorText>{validation}</ErrorText> : null}
+        </Field>
+        <StatusPicker value={values.status} onChange={(status) => set('status', status)} />
+        <ChipsField label="Key">
+          <ChoiceChips
+            label="Key"
+            value={values.key}
+            options={KEYS}
+            other
+            maxLength={SONG_LIMITS.key}
+            onChange={(v) => set('key', v)}
           />
-          Crooked
-        </label>
-        <label className="label cursor-pointer gap-2">
-          <input
-            type="checkbox"
-            className="checkbox"
-            checked={values.has_lyrics}
-            onChange={(e) => set('has_lyrics', e.target.checked)}
+        </ChipsField>
+        {tunings.map((field) => (
+          <ChipsField key={field} label={TUNING_FIELDS[field].label}>
+            <ChoiceChips
+              label={TUNING_FIELDS[field].label}
+              value={values[field]}
+              options={TUNING_SUGGESTIONS[field]}
+              other
+              maxLength={SONG_LIMITS[field]}
+              onChange={(v) => set(field, v)}
+            />
+          </ChipsField>
+        ))}
+        <fieldset className="fieldset">
+          <legend className="fieldset-legend">Notes</legend>
+          <textarea
+            className="textarea w-full"
+            aria-label="Notes"
+            rows={3}
+            maxLength={SONG_LIMITS.notes}
+            value={values.notes}
+            onChange={(e) => set('notes', e.target.value)}
           />
-          Has lyrics
-        </label>
-      </div>
-      <StatusPicker value={values.status} onChange={(status) => set('status', status)} />
-      <div className="grid grid-cols-2 gap-2">
-        <TextField
-          label="Learned from"
-          name="learned_from"
-          value={values.learned_from}
-          onChange={(v) => set('learned_from', v)}
-          maxLength={SONG_LIMITS.learned_from}
-        />
-        <TextField
-          label="Learned on"
-          name="learned_on"
-          type="date"
-          value={values.learned_on}
-          onChange={(v) => set('learned_on', v)}
-        />
-      </div>
-      <fieldset className="fieldset">
-        <legend className="fieldset-legend">Notes</legend>
-        <textarea
-          className="textarea w-full"
-          aria-label="Notes"
-          rows={4}
-          maxLength={SONG_LIMITS.notes}
-          value={values.notes}
-          onChange={(e) => set('notes', e.target.value)}
-        />
-      </fieldset>
-      {error ? <ErrorText>{error}</ErrorText> : null}
-      <div className="flex gap-2 pt-2">
-        <button type="submit" className="btn btn-primary min-h-11 flex-1" disabled={pending}>
-          {submitLabel}
-        </button>
-        {onCancel ? (
-          <button type="button" className="btn min-h-11" onClick={onCancel}>
-            Cancel
-          </button>
-        ) : null}
-      </div>
+        </fieldset>
+      </Section>
+
+      <Section title="Details">
+        <div className="row-list">
+          {DETAIL_FIELDS.map((field) => {
+            if (field.kind === 'switch') {
+              return (
+                <SwitchRow
+                  key={field.key}
+                  label={field.label}
+                  help={field.help}
+                  checked={values[field.key]}
+                  onChange={(checked) => set(field.key, checked)}
+                />
+              )
+            }
+            if (field.kind === 'date') {
+              return (
+                <DateRow
+                  key={field.key}
+                  label={field.label}
+                  value={values[field.key]}
+                  onChange={(v) => set(field.key, v)}
+                />
+              )
+            }
+            return (
+              <DetailRow
+                key={field.key}
+                label={field.label}
+                value={detailValue(field)}
+                onPress={() => setOpenDetail(field.key)}
+              />
+            )
+          })}
+        </div>
+      </Section>
+
+      {DETAIL_FIELDS.map((field) => {
+        if (field.kind === 'text') {
+          return (
+            <TextSheet
+              key={field.key}
+              open={openDetail === field.key}
+              title={field.label}
+              value={values[field.key]}
+              help={field.help}
+              maxLength={field.maxLength}
+              onChange={(v) => set(field.key, v)}
+              onClose={() => setOpenDetail(null)}
+            />
+          )
+        }
+        if (field.kind === 'pick') {
+          return (
+            <PickerSheet
+              key={field.key}
+              open={openDetail === field.key}
+              title={field.label}
+              value={values[field.key]}
+              options={field.options}
+              other={field.other}
+              maxLength={field.maxLength}
+              onChange={(v) => {
+                if (field.key === 'mode') set('mode', asMode(v))
+                else if (field.key === 'time_signature') set('time_signature', asTimeSignature(v))
+                else set(field.key, v)
+              }}
+              onClose={() => setOpenDetail(null)}
+            />
+          )
+        }
+        return null
+      })}
+
+      <SaveBar submitLabel={submitLabel} pending={pending} error={rejection} onCancel={onCancel} />
     </form>
   )
 }
