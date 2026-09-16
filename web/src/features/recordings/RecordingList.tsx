@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Trash2 } from 'lucide-react'
+import { FolderInput, FolderOutput, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { Sheet } from '../../components/Sheet'
@@ -59,17 +59,24 @@ export function RecordingList({
             view={view}
             {...rowState(view.recording.id)}
             actions={[
-              { label: 'Rename', tone: 'neutral', onPress: () => setRenaming(view) },
+              {
+                label: 'Rename',
+                tone: 'neutral',
+                icon: <Pencil aria-hidden="true" className="size-5" />,
+                onPress: () => setRenaming(view),
+              },
               view.songId
                 ? {
                     label: 'Remove from song',
                     tone: 'warning',
+                    icon: <FolderOutput aria-hidden="true" className="size-5" />,
                     onPress: () =>
                       run(() => updateRecording(db, view.recording.id, { song_id: null })),
                   }
                 : {
                     label: 'Add to song',
                     tone: 'warning',
+                    icon: <FolderInput aria-hidden="true" className="size-5" />,
                     onPress: () => setAttaching(view.recording.id),
                   },
               {

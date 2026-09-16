@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Archive, ArchiveRestore, Plus, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Plus, SquarePen, X } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { setArchived } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
@@ -201,6 +201,7 @@ function Catalog({
                       {
                         label: 'Edit',
                         tone: 'neutral',
+                        icon: <SquarePen aria-hidden="true" className="size-5" />,
                         onPress: () =>
                           void navigate({
                             to: '/songs/$id',
