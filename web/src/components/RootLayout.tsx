@@ -1,6 +1,7 @@
 import { Outlet, useRouterState } from '@tanstack/react-router'
 import { PlayerDock } from '../features/player/PlayerDock'
 import { PlayerProvider } from '../features/player/PlayerProvider'
+import { FirstRunInstruments } from '../features/settings/FirstRunInstruments'
 import { SelectionChromeProvider } from '../features/selection/SelectionChromeProvider'
 import { AppBar } from './AppBar'
 import { Dock } from './Dock'
@@ -29,6 +30,8 @@ export function RootLayout() {
                 {fullScreen ? null : <PlayerDock />}
               </main>
               {fullScreen ? null : <Dock />}
+              {/* Never over a recording in progress; it asks once the musician is back on a screen. */}
+              {fullScreen ? null : <FirstRunInstruments />}
             </div>
           </PageChromeProvider>
         </SelectionChromeProvider>

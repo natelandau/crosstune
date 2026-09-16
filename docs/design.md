@@ -381,6 +381,10 @@ The catalog and list detail share one selection mode.
 - The song page's Lists section shows each list the song is in as a pill
   with a remove control named "Remove from" and the list, beside an Add to
   list button that opens the shared list picker.
+- The one sheet that cannot be dismissed is the first-run question "Which
+  instruments do you play?". It opens once the first clean sync of a
+  session finds no saved answer, never over the record screen and never in
+  an offline session, and Done saves whatever is checked, even nothing.
 - A destructive action confirms with the browser's own confirm dialog,
   never a custom one. The message names the consequence and warns when
   data cannot be recovered: `Delete "Soldier's Joy"? This removes its
@@ -493,6 +497,7 @@ right column instead of rebuilding the pattern.
 | Key and mode line, facet badges           | `features/song/SongDetail.tsx`                                                                                                           |
 | Lists on the song page                    | `features/song/SongLists.tsx`                                                                                                            |
 | Which tunings to show                     | `features/settings/instruments.ts`                                                                                                       |
+| Instrument checkboxes, first-run question | `features/settings/InstrumentPicker.tsx`, `features/settings/FirstRunInstruments.tsx`                                                    |
 | Suggestion vocabularies                   | `features/song/suggestions.ts`                                                                                                           |
 | Search or create                          | `features/catalog/searchIntent.ts`, `features/catalog/SearchSuggestion.tsx`                                                              |
 | Song search picker                        | `features/catalog/SongSearchPicker.tsx`                                                                                                  |

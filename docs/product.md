@@ -79,8 +79,8 @@ on a phone home screen. It contains these features.
 - Instruments. A user records in settings which instruments they play. A
   tuning field appears only for those instruments, or for a song that already
   carries a value. A tuning filter appears only for those instruments. A new
-  account starts as violin only until a later onboarding flow asks the
-  question.
+  account is asked which instruments it plays the first time it syncs, and
+  counts as violin only until it answers.
 - Appearance. Settings offers light, dark, or the system setting, which
   follows the phone when it switches, and a text size of compact, regular, or
   roomy. Both are per device and need no account.

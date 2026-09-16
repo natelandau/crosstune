@@ -8,7 +8,6 @@ import { useAction } from '../../components/useAction'
 import { useDb } from '../../db/DbProvider'
 import { AUDIO_QUALITIES, storedAudioQuality } from '../../db/recordings'
 import { getInvalidChangeCount, getKeepOffline, setKeepOffline } from '../../db/meta'
-import { INSTRUMENTS } from '../../db/types'
 import { SYNC_STATUS_LABELS, TRANSFER_STATUS_LABELS } from '../../sync/labels'
 import { useSyncEngine, useSyncStatus, useTransferStatus } from '../../sync/SyncProvider'
 import { APP_VERSION } from '../../version'
@@ -24,7 +23,7 @@ import {
   useTextSize,
 } from './appearance'
 import { QUALITY_LABELS } from './audioQuality'
-import { INSTRUMENT_LABELS } from './instruments'
+import { InstrumentPicker } from './InstrumentPicker'
 import { signOutAndForget } from './signOut'
 import { useInstruments } from './useInstruments'
 
@@ -74,26 +73,13 @@ export function SettingsScreen() {
       {instruments ? (
         <Section title="Instruments">
           <Field>
-            <fieldset className="fieldset">
-              <legend className="sr-only">Instruments</legend>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {INSTRUMENTS.map((instrument) => (
-                  <label key={instrument} className="label min-h-11 cursor-pointer gap-2">
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={instruments.has(instrument)}
-                      onChange={(e) =>
-                        instrumentAction.run(() =>
-                          toggleInstrumentSetting(db, userId, instrument, e.target.checked),
-                        )
-                      }
-                    />
-                    {INSTRUMENT_LABELS[instrument]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            <InstrumentPicker
+              label="Instruments"
+              value={instruments}
+              onToggle={(instrument, on) =>
+                instrumentAction.run(() => toggleInstrumentSetting(db, userId, instrument, on))
+              }
+            />
             <HelpText>Tuning fields appear only for the instruments you play.</HelpText>
             {instrumentAction.error ? <ErrorText>{instrumentAction.error}</ErrorText> : null}
           </Field>

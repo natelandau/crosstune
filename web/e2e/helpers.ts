@@ -5,6 +5,10 @@ export function unique(name: string): string {
   return `${name} ${Date.now().toString(36)}`
 }
 
+// A fresh database has no settings row for the test user, so the first sign-in of a run
+// meets the first-run prompt; once it is answered the row persists for every later test.
+let instrumentsAnswered = false
+
 export async function signIn(page: Page): Promise<void> {
   const emailAddress = process.env.E2E_CLERK_USER_EMAIL
   if (!emailAddress) throw new Error('E2E_CLERK_USER_EMAIL is not set')
@@ -13,6 +17,23 @@ export async function signIn(page: Page): Promise<void> {
   await clerk.signIn({ page, emailAddress })
   await page.goto('/')
   await expectSynced(page)
+  if (!instrumentsAnswered) {
+    await answerInstrumentsPrompt(page)
+    instrumentsAnswered = true
+  }
+}
+
+/** Answer the first-run instruments prompt if it opens, and carry on if it does not. */
+async function answerInstrumentsPrompt(page: Page): Promise<void> {
+  const prompt = page.getByRole('dialog', { name: 'Which instruments do you play?' })
+  const opened = await prompt
+    .waitFor({ state: 'visible', timeout: 3000 })
+    .then(() => true)
+    .catch(() => false)
+  if (!opened) return
+  await prompt.getByRole('checkbox', { name: 'Violin' }).check()
+  await prompt.getByRole('button', { name: 'Done' }).click()
+  await expect(prompt).toBeHidden()
 }
 
 /**
