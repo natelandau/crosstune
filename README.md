@@ -122,9 +122,9 @@ the change touches. To write a commit interactively, run:
 
 To cut a release, run the bump recipe from the root. It reads the commits
 since the last tag to choose the increment, writes the new version to the
-API package, the web client, and `.cz.toml`, refreshes `api/uv.lock`,
-updates `CHANGELOG.md`, commits, and tags. Each version becomes the Sentry
-release tag for its side.
+API package, the web client, and `.cz.toml`, refreshes `api/uv.lock` and
+the OpenAPI contract, updates `CHANGELOG.md`, commits, and tags. Each
+version becomes the Sentry release tag for its side.
 
     just bump
     git push --follow-tags origin main
