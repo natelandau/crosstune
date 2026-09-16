@@ -1,4 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
+import { Plus, X } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { setArchived } from '../../commands/songs'
 import { EmptyState } from '../../components/EmptyState'
@@ -143,7 +144,7 @@ function Catalog({
                 searchRef.current?.focus()
               }}
             >
-              <span aria-hidden="true">×</span>
+              <X aria-hidden="true" className="size-4" />
             </button>
           ) : null}
         </label>
@@ -241,7 +242,7 @@ function Catalog({
         aria-hidden={selecting}
         tabIndex={selecting ? -1 : undefined}
       >
-        +
+        <Plus aria-hidden="true" className="size-7" />
       </Link>
     </div>
   )

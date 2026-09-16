@@ -1,3 +1,5 @@
+import { X } from 'lucide-react'
+
 export function SelectionBar({
   count,
   allSelected,
@@ -17,9 +19,7 @@ export function SelectionBar({
         aria-label="Cancel selection"
         onClick={onCancel}
       >
-        <span aria-hidden="true" className="text-xl">
-          ×
-        </span>
+        <X aria-hidden="true" className="size-5" />
       </button>
       <p className="flex-1 text-lg font-semibold" aria-live="polite">
         {/* A new key per count replays the drop-in for each change. */}

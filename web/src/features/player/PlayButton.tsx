@@ -1,18 +1,12 @@
+import { Play, Square } from 'lucide-react'
+
 /** A solid play triangle, nudged right: centered, it looks off-center against its own leading edge. */
 export function PlayGlyph() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="ml-0.5 size-5 shrink-0 fill-current">
-      <path d="M7 4.5v15a1 1 0 0 0 1.53.85l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5Z" />
-    </svg>
-  )
+  return <Play aria-hidden="true" fill="currentColor" className="ml-0.5 size-5 shrink-0" />
 }
 
 export function StopGlyph() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-current">
-      <rect x="5" y="5" width="14" height="14" rx="1.5" />
-    </svg>
-  )
+  return <Square aria-hidden="true" fill="currentColor" className="size-4 shrink-0" />
 }
 
 /**

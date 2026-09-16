@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { ChevronRight } from 'lucide-react'
 import { useMemo } from 'react'
 import { useOpenRow } from '../../components/swipe'
 import { SongCard } from '../catalog/SongCard'
@@ -59,13 +60,7 @@ export function RecordingsScreen() {
                 <div className="min-w-0 flex-1">
                   <SongCard entry={entry} instruments={instruments} linked={false} />
                 </div>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="mr-3 size-4 shrink-0 fill-none stroke-current stroke-2 opacity-40"
-                >
-                  <path d="m9 5 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ChevronRight aria-hidden="true" className="mr-3 size-4 shrink-0 opacity-40" />
               </Link>
             ) : (
               <h2 className="flex min-h-11 items-center px-3 text-lg font-semibold opacity-60">

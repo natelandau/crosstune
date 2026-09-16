@@ -1,4 +1,5 @@
 import type { LocalRecordingLink } from '../../db/types'
+import { X } from 'lucide-react'
 import { useOnline } from '../../sync/SyncProvider'
 import { embedFor } from '../player/embed'
 import { PlayButton } from '../player/PlayButton'
@@ -62,7 +63,7 @@ export function LinkList({
               onClick={() => onRemove(link.id)}
               aria-label={`Remove ${title}`}
             >
-              ✕
+              <X aria-hidden="true" className="size-4" />
             </button>
           </li>
         )

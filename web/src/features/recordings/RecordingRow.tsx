@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { CloudDownload } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { SwipeRow, type SwipeAction } from '../../components/SwipeRow'
 import type { SwipeRowState } from '../../components/swipe'
@@ -12,21 +13,6 @@ import type { RecordingView } from './useRecordings'
 
 function recordedAtLabel(recordedAt: string): string {
   return new Date(recordedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function CloudDownloadGlyph() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="size-5 shrink-0 fill-none stroke-current stroke-2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M7 17.5A4.5 4.5 0 0 1 6.2 8.6 6 6 0 0 1 17.8 9.3 3.8 3.8 0 0 1 17.5 17H17" />
-      <path d="M12 11v9m-3-3 3 3 3-3" />
-    </svg>
-  )
 }
 
 /** The slot before a take's title, sized to the row's touch target whatever it holds. */
@@ -140,7 +126,7 @@ export function RecordingRow({
         aria-label={`Download ${title}`}
       >
         <Slot>
-          <CloudDownloadGlyph />
+          <CloudDownload aria-hidden="true" className="size-5 shrink-0" />
         </Slot>
         {text}
       </button>

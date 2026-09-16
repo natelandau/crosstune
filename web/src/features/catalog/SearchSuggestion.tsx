@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Plus } from 'lucide-react'
 import type { SearchOutcome } from './searchIntent'
 
 const LIST_CLASS =
@@ -28,8 +29,8 @@ export function SearchSuggestion({
   const body =
     placement === 'list' ? (
       <>
-        <span aria-hidden="true" className="w-14 shrink-0 text-center text-2xl">
-          +
+        <span className="flex w-14 shrink-0 justify-center">
+          <Plus aria-hidden="true" className="size-6" />
         </span>
         <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
       </>
