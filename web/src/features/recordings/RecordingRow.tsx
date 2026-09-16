@@ -52,15 +52,7 @@ export function RecordingRow({
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{title}</span>
         <span className="block truncate text-xs opacity-70">
-          {[
-            showSong && songTitle,
-            duration,
-            status,
-            storageLabel,
-            file?.blob ? 'On this device' : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+          {[showSong && songTitle, duration, status, storageLabel].filter(Boolean).join(' · ')}
         </span>
         {uploadFailed && file.error ? (
           <span className="text-error block text-xs">{file.error}</span>
