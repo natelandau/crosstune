@@ -40,7 +40,10 @@ test('select songs in a search, set their violin tuning, and undo', async ({ pag
   await expect(page.getByText('2 selected')).toBeVisible()
 
   await toolbar(page).getByRole('button', { name: 'Edit', exact: true }).click()
-  await sheet.getByRole('combobox', { name: 'Violin tuning' }).fill('Cross A (AEAE)')
+  await sheet
+    .getByRole('group', { name: 'Violin tuning' })
+    .getByRole('button', { name: 'Cross A (AEAE)', exact: true })
+    .click()
   await sheet.getByRole('button', { name: 'Apply to 2' }).click()
 
   await expect(toast(page, 'Edited 2 songs')).toBeVisible()

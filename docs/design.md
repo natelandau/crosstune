@@ -323,6 +323,14 @@ The catalog and list detail share one selection mode.
   marks a field "will change" or "will clear" when the musician edits it.
   Only marked fields are saved. Title, alternate titles, and notes are
   never bulk editable.
+- A field with a vocabulary is a chip group like the song form's, with the
+  same suggestions and Other… chip. Its chips show only the pending change:
+  no chip filled keeps every song as it is, the shared value or "Mixed"
+  reads in the field's legend, and a trailing "No value" chip clears the
+  field. Status has no "No value" chip. A tap that lands on the shared
+  value is no change. Crooked and Has lyrics stay Keep, Yes, No; Learned
+  from and Learned on stay a text and a date field, where emptying the
+  field clears it.
 
 ## Forms
 

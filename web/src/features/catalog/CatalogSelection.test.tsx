@@ -346,9 +346,10 @@ describe('catalog bulk edit', () => {
     await userEvent.click(screen.getByText("Elzic's Farewell"))
     await userEvent.click(within(toolbar()).getByRole('button', { name: 'Edit' }))
     const sheet = screen.getByRole('dialog', { name: 'Edit 2 songs' })
-    await userEvent.type(
-      within(sheet).getByRole('combobox', { name: 'Violin tuning' }),
-      'Cross A (AEAE)',
+    await userEvent.click(
+      within(within(sheet).getByRole('group', { name: 'Violin tuning' })).getByRole('button', {
+        name: 'Cross A (AEAE)',
+      }),
     )
     await userEvent.click(within(sheet).getByRole('button', { name: 'Apply to 2' }))
     await waitFor(async () => {
@@ -373,10 +374,15 @@ describe('catalog bulk edit', () => {
     await enterSelection()
     await userEvent.click(screen.getByText('Cluck Old Hen'))
     await userEvent.click(within(toolbar()).getByRole('button', { name: 'Edit' }))
-    await userEvent.type(screen.getByRole('combobox', { name: 'Genre' }), 'Old-time')
+    const genre = () =>
+      within(screen.getByRole('group', { name: 'Genre' })).getByRole('button', {
+        name: 'Old-time',
+      })
+    await userEvent.click(genre())
+    expect(genre()).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await userEvent.click(within(toolbar()).getByRole('button', { name: 'Edit' }))
-    expect(screen.getByRole('combobox', { name: 'Genre' })).toHaveValue('')
+    expect(genre()).toHaveAttribute('aria-pressed', 'false')
   })
 })
 

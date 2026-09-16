@@ -38,16 +38,17 @@ export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   learned_on: 'Learned on',
 }
 
-export const FIELD_KINDS: Record<EditField, 'text' | 'date' | 'select' | 'boolean'> = {
-  status: 'select',
-  key: 'text',
-  mode: 'select',
-  violin_tuning: 'text',
-  banjo_tuning: 'text',
-  genre: 'text',
-  feel: 'text',
-  time_signature: 'select',
-  part_structure: 'text',
+/** A choice field has a vocabulary and is edited as chips; text and date fields are typed. */
+export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolean'> = {
+  status: 'choice',
+  key: 'choice',
+  mode: 'choice',
+  violin_tuning: 'choice',
+  banjo_tuning: 'choice',
+  genre: 'choice',
+  feel: 'choice',
+  time_signature: 'choice',
+  part_structure: 'choice',
   is_crooked: 'boolean',
   has_lyrics: 'boolean',
   learned_from: 'text',
@@ -136,7 +137,7 @@ export function toPatch(touched: Touched): BulkPatch {
   return { song: song as BulkPatch['song'], userSong: userSong as BulkPatch['userSong'] }
 }
 
-function display(field: EditField, value: string | boolean): string {
+export function displayValue(field: EditField, value: string | boolean): string {
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   if (field === 'status' && isSongStatus(value)) return STATUS_LABELS[value]
   return value
@@ -148,7 +149,7 @@ export function describeChanges(touched: Touched): string {
     if (raw === undefined) return []
     const label = EDIT_FIELD_LABELS[field].toLowerCase()
     const value = normalize(raw)
-    return value === null ? [`clear ${label}`] : [`${label} → ${display(field, value)}`]
+    return value === null ? [`clear ${label}`] : [`${label} → ${displayValue(field, value)}`]
   })
   if (parts.length === 0) return ''
   return `${parts.length === 1 ? '1 change' : `${parts.length} changes`}: ${parts.join(', ')}`
