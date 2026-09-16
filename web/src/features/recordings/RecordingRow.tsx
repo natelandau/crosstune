@@ -4,6 +4,7 @@ import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { useOnline } from '../../sync/SyncProvider'
 import { fileStateLabel, formatBytes, formatDuration } from '../recording/format'
+import { PlayButton } from '../player/PlayButton'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import type { RecordingView } from './useRecordings'
 
@@ -98,14 +99,12 @@ export function RecordingRow({
         </Link>
       ) : null}
       {playable ? (
-        <button
-          type="button"
-          className={`btn btn-sm min-h-11 min-w-11 ${loaded ? 'btn-primary' : ''}`}
-          onClick={() => (loaded ? player.close() : player.play(item))}
-          aria-label={loaded ? `Close ${title} player` : `Play ${title}`}
-        >
-          {loaded ? 'Close' : 'Play'}
-        </button>
+        <PlayButton
+          title={title}
+          loaded={loaded}
+          onPlay={() => player.play(item)}
+          onClose={player.close}
+        />
       ) : null}
       <button
         type="button"

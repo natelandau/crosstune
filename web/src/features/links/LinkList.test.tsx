@@ -52,10 +52,9 @@ describe('LinkList', () => {
     expect(player().item?.id).toBe('l2')
 
     const close = screen.getByRole('button', { name: 'Close Ground Hog player' })
-    expect(close).toHaveTextContent('Close')
     expect(close).not.toHaveAttribute('aria-pressed')
     expect(screen.queryByRole('button', { name: 'Play Ground Hog' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Play Spotify version' })).toHaveTextContent('Play')
+    expect(screen.getByRole('button', { name: 'Play Spotify version' })).toBeInTheDocument()
   })
 
   it('closes a loaded link and turns its row button back into Play', async () => {
@@ -65,7 +64,6 @@ describe('LinkList', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Close Spotify version player' }))
     expect(player().item).toBeNull()
     const play = screen.getByRole('button', { name: 'Play Spotify version' })
-    expect(play).toHaveTextContent('Play')
     expect(play).not.toHaveAttribute('aria-pressed')
   })
 

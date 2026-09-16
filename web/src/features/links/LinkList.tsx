@@ -1,6 +1,7 @@
 import type { LocalRecordingLink } from '../../db/types'
 import { useOnline } from '../../sync/SyncProvider'
 import { embedFor } from '../player/embed'
+import { PlayButton } from '../player/PlayButton'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { displayTitle, linkSubtitle, providerLabel } from './display'
 
@@ -37,30 +38,14 @@ export function LinkList({
               <span className="block truncate text-xs opacity-70">{linkSubtitle(link)}</span>
             </span>
             {embed ? (
-              loaded ? (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm min-h-11 min-w-11"
-                  onClick={player.close}
-                  aria-label={`Close ${title} player`}
-                >
-                  Close
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-sm min-h-11 min-w-11"
-                  // aria-disabled rather than disabled keeps focus here when Close turns
-                  // this button into Play while offline.
-                  onClick={() => {
-                    if (online) player.play({ kind: 'link', id: link.id })
-                  }}
-                  aria-disabled={online ? undefined : true}
-                  aria-label={`Play ${title}`}
-                >
-                  Play
-                </button>
-              )
+              <PlayButton
+                title={title}
+                loaded={loaded}
+                onPlay={() => player.play({ kind: 'link', id: link.id })}
+                onClose={player.close}
+                // Refused rather than disabled, so focus stays here when Close turns into Play while offline.
+                playDisabled={!online}
+              />
             ) : null}
             <a
               className="btn btn-sm min-h-11 min-w-11"
