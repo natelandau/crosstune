@@ -7,6 +7,7 @@ on:
   push:
     branches: [main]
     paths: ["web/**", "brand/**", ".github/workflows/web.yml", "justfile"]
+  workflow_call:
 
 permissions:
   contents: read
@@ -14,8 +15,11 @@ permissions:
 env:
   CI: "true"
 
+# A bump commit on `main` skips these jobs, because the Release workflow runs
+# them on the tag it makes. The called jobs see the tag ref, so they run there.
 jobs:
   check:
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
     name: Web check
     runs-on: ubuntu-latest
     defaults:
@@ -39,6 +43,7 @@ jobs:
       - run: just build
 
   contract:
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
     name: Web contract
     runs-on: ubuntu-latest
     defaults:

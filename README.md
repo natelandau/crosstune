@@ -127,6 +127,12 @@ updates `CHANGELOG.md`, commits, and tags. Each version becomes the Sentry
 release tag for its side.
 
     just bump
+    git push --follow-tags origin main
+
+The tag push starts the `Release` workflow, which runs the checks on the
+tagged commit and then deploys both hosts. Nothing reaches production
+until that push. `docs/operations.md` covers the full sequence and the
+rollback.
 
 Both recipes pass extra arguments through, so `just bump --dry-run` shows
 what a release would do.

@@ -8,27 +8,26 @@ the README at the repository root.
 
 ## Delivery
 
-GitHub holds the source, and both hosts deploy from it. Every commit that
-lands on `main` is deployed. There is no release branch, no promotion step,
-and no batching.
+GitHub holds the source, and both hosts deploy from it. A merge to `main`
+deploys the development environment. A version tag deploys production. The
+`Release` workflow moves the `production` branch to the tagged commit, and
+both hosts deploy production from that branch, because neither can trigger
+on a tag. Nothing else writes to `production`.
 
-- Railway builds the API service in the `production` and `development`
-  environments on a push to `main` that touches a file under `api/`. A pull
-  request environment follows its PR branch instead and rebuilds on every push
-  to it.
+- Railway builds the API service in the `development` environment on a push
+  to `main` that touches a file under `api/`, and in the `production`
+  environment on a push to `production`. A pull request environment follows
+  its PR branch instead and rebuilds on every push to it.
 - Workers Builds builds the web client on every push under `web/`. A push to
-  `main` deploys production. A push to any other branch uploads a version
-  under the branch's alias, at
+  `production` deploys production. A push to any other branch, `main`
+  included, uploads a version under the branch's alias, at
   `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`, and Workers
   Builds comments the URL on the pull request.
-- The `Development` workflow force-pushes every commit on `main` to the
-  `development` branch. Workers Builds uploads that branch under the alias
-  `development`, which has no KV entry. The result is one stable URL for the
-  development environment,
-  `https://development-crosstune-web.<workers-subdomain>.workers.dev`. The
-  branch rebuilds only when a push changes a file under `web/`. Do not open a
-  pull request from `development`, because the `Preview` workflow then gives
-  the alias its own API and database.
+- A push to `main` uploads a version under the alias `main`, which has no KV
+  entry, so it reads the development API. That is the development
+  environment's URL,
+  `https://main-crosstune-web.<workers-subdomain>.workers.dev`. It rebuilds
+  only when a push changes a file under `web/`.
 - The `Preview` workflow gives each pull request its own API and database.
   When a PR opens, it creates a Neon branch `pr-<number>` from the development
   database, creates a Railway environment `pr-<number>` copied from
@@ -40,13 +39,17 @@ and no batching.
   If a close event ever fails to clean up, the same workflow runs from the
   Actions tab with the PR number and branch name and deletes them.
 
-GitHub Actions runs on every pull request and on every push to `main`. The
+GitHub Actions runs on every pull request and on every push to `main`,
+except a release bump commit, whose checks run inside the `Release` workflow
+instead. The
 `API` workflow lints, type checks, tests against a real Postgres 18, and
 verifies the committed OpenAPI contract. The `Web` workflow lints, type
 checks, tests, builds, and verifies the generated client types. Railway
-holds a deploy until every workflow for that commit passes, because Wait for
-CI is on in both environments, and skips the deploy when one fails. Workers
-Builds does not wait.
+holds a development deploy until every workflow for that commit passes,
+because Wait for CI is on in that environment, and skips the deploy when one
+fails. Production has no host-side gate. The `Release` workflow runs the
+`API` and `Web` workflows on the tagged commit and moves the `production`
+branch only when both pass, so neither host builds an untested commit.
 
 The `E2E` workflow runs the Playwright suite on each pull request that
 changes `web/` or `api/`, and from the Actions tab on demand. It signs in
@@ -56,9 +59,10 @@ limit at Clerk can block unrelated merges. A new push to the same pull
 request cancels the run in progress, so fewer sign-ins count against the
 instance's usage limits.
 
-Rollback on either host is one click to redeploy an earlier build. A bad
-commit is undone in minutes, and the outbox means a client outage loses no
-edits.
+Rollback on either host is one click to redeploy an earlier build, or one
+run of the `Release` workflow from an earlier tag, which moves both hosts at
+once. A bad commit is undone in minutes, and the outbox means a client
+outage loses no edits.
 
 ## Rebuilding from nothing
 
@@ -103,19 +107,42 @@ The manual test on a phone covers what the script cannot.
 
 ## Releasing
 
-A merge to `main` deploys the API in both environments and the production
-web client. Railway skips the deploy when nothing under `api/` changed.
-Workers Builds skips the deploy when nothing under `web/` changed.
+A merge to `main` deploys the API's `development` environment and the
+`development` preview. Railway skips the deploy when nothing under `api/`
+changed. Workers Builds skips the deploy when nothing under `web/` changed.
+Production changes only when a version tag is pushed.
 
 The app icon's file names never change, so a home-screen install made
 before an icon change keeps the icon it was installed with until the app
 is removed and added again. A release that changes the icon should say
 so.
 
-To cut a version, run `just bump` at the repository root. It runs
-commitizen from `.cz.toml`, which updates the API package version and the
-`version` field in `web/package.json` in one commit, then tags it. Each
-value becomes the Sentry release tag for its side. Tags trigger nothing.
+To cut a release, on `main` with a clean tree:
+
+```bash
+git switch main && git pull
+just bump
+git push --follow-tags origin main
+```
+
+`just bump` runs commitizen from `.cz.toml`, which updates the API package
+version and the `version` field in `web/package.json` in one commit, writes
+the changelog, and tags the commit `v<version>`. Each value becomes the
+Sentry release tag for its side. The tag push starts the `Release` workflow.
+It runs the `API` and `Web` workflows on the tagged commit, and when both
+pass, a final job checks that the commit is on `main` and force-pushes it to
+`production`. Both hosts deploy it. The push of the bump commit to `main`
+skips those two workflows, so each release runs the checks once. Every
+release rebuilds both services, because the bump commit touches a file under
+`api/` and one under `web/`.
+Bump on `main` only: a tag made on a pull request branch points at a commit
+that the squash merge never lands, and the workflow refuses it.
+
+To put an older version back, open the `Release` workflow on the Actions
+tab, click **Run workflow**, and choose that tag under **Use workflow from**.
+Both hosts redeploy the older commit. A rollback across a
+migration fails the pre-deploy command, because the older code does not know
+the newer revision. Roll forward instead, or downgrade the schema first.
 
 When you bump pnpm in the `packageManager` field of `web/package.json`,
 update `PNPM_VERSION` in the Worker's build variables in the same change. A
