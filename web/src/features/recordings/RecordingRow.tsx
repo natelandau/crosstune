@@ -82,9 +82,9 @@ export function RecordingRow({
           type="button"
           className="btn btn-sm min-h-11"
           onClick={() => onAttach(recording.id)}
-          aria-label={`Attach ${title} to a song`}
+          aria-label={`Add ${title} to a song`}
         >
-          Attach
+          Add to song
         </button>
       ) : null}
       {showSong && songId ? (

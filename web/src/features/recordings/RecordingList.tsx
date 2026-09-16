@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { Sheet } from '../../components/Sheet'
@@ -30,6 +31,7 @@ export function RecordingList({
 }) {
   const db = useDb()
   const engine = useSyncEngine()
+  const navigate = useNavigate()
   const player = usePlayer()
   const { error, run } = useAction()
   const [attaching, setAttaching] = useState<string | null>(null)
@@ -64,12 +66,17 @@ export function RecordingList({
           {error}
         </p>
       ) : null}
-      <Sheet open={attaching !== null} title="Attach to a song" onClose={() => setAttaching(null)}>
+      <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
         <AttachSongPicker
           onPick={(songId) => {
             const id = attaching
             setAttaching(null)
             if (id) run(() => updateRecording(db, id, { song_id: songId }))
+          }}
+          onCreate={(title) => {
+            const id = attaching
+            setAttaching(null)
+            if (id) void navigate({ to: '/songs/new', search: { title, attach: id } })
           }}
         />
       </Sheet>

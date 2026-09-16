@@ -20,7 +20,7 @@ export function SaveRecordingSheet({
   songId: string | null
   songTitle: string | null
   warning: string | null
-  /** Called with the song the take ended up attached to, or null when it has none. */
+  /** Called with the song the take ended up added to, or null when it has none. */
   onDone: (songId: string | null) => void
 }) {
   const db = useDb()
@@ -30,6 +30,18 @@ export function SaveRecordingSheet({
   const { error, pending, runThen } = useAction()
   const target = songId ?? attachTo?.id ?? null
   const trimmed = () => label.trim() || null
+  // The take is saved before leaving so a typed name survives the trip to the new-song screen.
+  // Replacing keeps Back from landing on /record, which would start a new take.
+  const createSong = (title?: string) =>
+    runThen(
+      () => updateRecording(db, recordingId, { label: trimmed() }),
+      () =>
+        void navigate({
+          to: '/songs/new',
+          search: title ? { title, attach: recordingId } : { attach: recordingId },
+          replace: true,
+        }),
+    )
 
   return (
     <Sheet open={open} title="Save recording" onClose={() => onDone(songId)} dismissible={false}>
@@ -59,10 +71,10 @@ export function SaveRecordingSheet({
           />
         </label>
         {songId ? (
-          <p className="text-sm">Attached to {songTitle}</p>
+          <p className="text-sm">Added to {songTitle}</p>
         ) : attachTo ? (
           <p className="flex items-center gap-2 text-sm">
-            Attached to {attachTo.title}
+            Added to {attachTo.title}
             <button
               type="button"
               className="btn btn-ghost btn-sm min-h-11"
@@ -73,23 +85,15 @@ export function SaveRecordingSheet({
           </p>
         ) : (
           <>
-            <AttachSongPicker onPick={(id, title) => setAttachTo({ id, title })} />
+            <AttachSongPicker
+              onPick={(id, title) => setAttachTo({ id, title })}
+              onCreate={createSong}
+            />
             <button
               type="button"
               className="btn btn-outline min-h-11 w-full"
               disabled={pending}
-              onClick={() =>
-                runThen(
-                  () => updateRecording(db, recordingId, { label: trimmed() }),
-                  // Replacing keeps Back from landing on /record, which would start a new take.
-                  () =>
-                    void navigate({
-                      to: '/songs/new',
-                      search: { attach: recordingId },
-                      replace: true,
-                    }),
-                )
-              }
+              onClick={() => createSong()}
             >
               New song
             </button>

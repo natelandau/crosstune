@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -53,7 +53,7 @@ describe('RecordingsScreen', () => {
     expect(rows[0]).toHaveTextContent('1:05')
     expect(rows[1]).toHaveTextContent('Angeline')
     expect(
-      within(rows[0]!).getByRole('button', { name: 'Attach Loose take to a song' }),
+      within(rows[0]!).getByRole('button', { name: 'Add Loose take to a song' }),
     ).toBeInTheDocument()
   })
 
@@ -147,9 +147,25 @@ describe('RecordingsScreen', () => {
     renderApp({ db, path: '/recordings' })
     const list = await screen.findByRole('list', { name: 'Recordings' })
     expect(
-      within(list).getByRole('button', { name: 'Attach Angeline take to a song' }),
+      within(list).getByRole('button', { name: 'Add Angeline take to a song' }),
     ).toBeInTheDocument()
     expect(within(list).queryByRole('link', { name: /Open/ })).not.toBeInTheDocument()
+  })
+
+  it('creates a song named for the search and files the take under it', async () => {
+    const id = await take(null, 'Loose take')
+    const { router } = renderApp({ db, path: '/recordings' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Loose take to a song' }))
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Soldier')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add "Soldier"' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/songs/new'))
+    expect(router.state.location.search).toEqual({ title: 'Soldier', attach: id })
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue('Soldier')
+    await userEvent.click(screen.getByRole('button', { name: 'Add song' }))
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/songs\/(?!new)/))
+    const [song] = await db.songs.toArray()
+    expect((await db.recordings.get(id))?.song_id).toBe(song!.id)
+    expect(await screen.findByText('Loose take')).toBeInTheDocument()
   })
 
   it('closes the player before deleting a recording that is playing', async () => {

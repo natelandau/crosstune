@@ -197,11 +197,25 @@ describe('RecordingScreen', () => {
     await screen.findByRole('timer')
     await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
     await screen.findByRole('dialog', { name: 'Save recording' })
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Attach to a song' }), 'Ange')
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach to Angeline' }))
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Ange')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to Angeline' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(router.state.location.pathname).toBe(`/songs/${songId}`))
     expect((await db.recordings.toArray())[0]?.song_id).toBe(songId)
+  })
+
+  it('creates a song named for the search from the save sheet, keeping the typed name', async () => {
+    const { router } = renderApp({ db, path: '/record' })
+    await screen.findByRole('timer')
+    await userEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    await screen.findByRole('dialog', { name: 'Save recording' })
+    await userEvent.type(screen.getByRole('textbox', { name: 'Recording name' }), 'First take')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Add to a song' }), 'Soldier{Enter}')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/songs/new'))
+    const [row] = await db.recordings.toArray()
+    expect(row?.label).toBe('First take')
+    expect(router.state.location.search).toEqual({ title: 'Soldier', attach: row?.id })
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveValue('Soldier')
   })
 
   it('starts one live take under StrictMode', async () => {

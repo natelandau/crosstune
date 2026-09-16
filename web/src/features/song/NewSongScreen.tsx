@@ -32,7 +32,7 @@ export function NewSongScreen() {
             // The song already exists, so a failed attach must not hold the form open where
             // submitting again would create the song a second time.
             await updateRecording(db, attach, { song_id: songId }).catch(() =>
-              toast.show({ message: 'The recording could not be attached to this song.' }),
+              toast.show({ message: 'The recording could not be added to this song.' }),
             )
           }
           await navigate({ to: '/songs/$id', params: { id: songId }, replace: true })
