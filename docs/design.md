@@ -51,9 +51,10 @@ does not repeat their values.
   text size setting scales the type and not the column. Floating controls,
   the docked player, and the toast align to the column's right edge on a
   wide screen, not the viewport's.
-- The app bar is sticky and painted in the chrome color. It holds the app
-  name as a link home on the left and the sync badge on the right. In
-  selection mode the same bar becomes the selection bar in place.
+- The app bar is sticky and painted in the chrome color. It holds the
+  lockup, the mark beside the app name, as a link home on the left and the
+  sync badge on the right. In selection mode the same bar becomes the
+  selection bar in place.
 - The bottom navigation holds five slots in this order: Catalog, Lists, the
   record button, Recordings, Settings, as five equal slots edge to edge. A
   tab is a glyph over a short label. The current tab shows by color alone:
@@ -101,6 +102,29 @@ does not repeat their values.
   swipe actions, and large in the bottom navigation, in the selection
   action bar, and on the primary add controls, where the floating add
   button takes one step more.
+
+## Identity
+
+- The mark is a geometric CT monogram. The C's top arm runs straight into
+  the T's crossbar, and the stroke changes to coral where the T begins. The
+  T is a true T with its stem centered on its crossbar.
+- Two colorways and no others. On a dark surface the C is white; on a light
+  surface the C is slate. The T is always coral. The colorway follows the
+  surface, never the brand. In the client the C takes the text color and
+  the T the `mark` color token, which is the coral the sources are drawn
+  with and does not move with `error`.
+- The app icon, the favicon, and the PWA icons use the dark colorway on the
+  slate tile. They are generated from `brand/icon-dark.svg` by
+  `just web::icons` and never edited by hand.
+- The name is set in Geist semibold in one color, the `brand` or `heading`
+  type role. It is never split or recolored by syllable.
+- A lockup is the bare mark to the left of the name, the mark as tall as
+  the capitals, with a gap of 0.4 of the cap height.
+- Inside the client the mark appears in the lockup, on the sign-in screen
+  and in the app bar. On the bar the C is white on the chrome in both
+  themes, because the bar is the same slate in both.
+- The sources for marketing, bare and tiled in both colorways, live in
+  `brand/` at the repository root.
 
 ## Song rows
 
@@ -397,6 +421,7 @@ the right column instead of rebuilding the pattern.
 | Docked player                             | `features/player/PlayerDock.tsx`                                            |
 | Page heading, sections, fields, help text | `components/Page.tsx`                                                       |
 | Palette, type roles, spacing, motion      | `app.css`                                                                   |
+| The mark and the sign-in lockup           | `components/Mark.tsx` (`Mark`, `Lockup`); sources in `brand/` at the root   |
 | Appearance and text size setting          | `features/settings/appearance.ts`, the inline script in `index.html`        |
 | Song row                                  | `features/catalog/SongCard.tsx` inside `features/catalog/SongRow.tsx`       |
 | Status dot and labels                     | `features/catalog/StatusDot.tsx`                                            |

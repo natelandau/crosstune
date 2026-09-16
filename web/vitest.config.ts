@@ -12,6 +12,7 @@ export default defineConfig((env) =>
           'src/**/*.test.{ts,tsx}',
           'worker/**/*.test.ts',
           'scripts/**/*.test.ts',
+          'brand.test.ts',
           'pwa.test.ts',
           'headers.test.ts',
         ],

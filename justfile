@@ -11,8 +11,8 @@ mod web
 default:
     @just --list
 
-# Run every linter in every module
-lint: api::lint web::lint
+# Run every linter in every module, then spell check the whole repository
+lint: api::lint web::lint typos
 
 # Spell check the whole repository, or only the given paths
 typos *paths:

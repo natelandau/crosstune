@@ -1,12 +1,13 @@
 import { Link } from '@tanstack/react-router'
 import { useShownChrome } from '../features/selection/selectionChrome'
+import { Lockup } from './Mark'
 import { SyncIndicator } from './SyncIndicator'
 
 // Both layers share one grid cell so they crossfade in place.
 const LAYER =
   'col-start-1 row-start-1 mx-auto flex w-full max-w-(--measure) min-w-0 items-center gap-2 px-4 transition-[opacity,translate] duration-(--select-bar-duration) ease-(--ease-emphasized)'
 
-export function AppBar({ title = 'Crosstune' }: { title?: string }) {
+export function AppBar() {
   const { active, bar } = useShownChrome()
   return (
     <header
@@ -20,7 +21,7 @@ export function AppBar({ title = 'Crosstune' }: { title?: string }) {
         aria-hidden={active}
       >
         <Link to="/" className="text-brand flex-1">
-          {title}
+          <Lockup />
         </Link>
         <SyncIndicator />
       </div>

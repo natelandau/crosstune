@@ -3,10 +3,10 @@ name: Web
 
 on:
   pull_request:
-    paths: ["web/**", ".github/workflows/web.yml", "justfile"]
+    paths: ["web/**", "brand/**", ".github/workflows/web.yml", "justfile"]
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/web.yml", "justfile"]
+    paths: ["web/**", "brand/**", ".github/workflows/web.yml", "justfile"]
 
 permissions:
   contents: read

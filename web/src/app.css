@@ -107,6 +107,10 @@
   --color-chrome: #4f5d75;
   --color-chrome-content: #ffffff;
 
+  /* The T of the brand mark: the coral the sources in brand/ are drawn with, on every surface,
+     so it is not a daisyUI theme token and does not move with `error`. */
+  --color-mark: #ef8354;
+
   --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   /* The type scale, in rem so the text size setting scales all of it at once. Each role

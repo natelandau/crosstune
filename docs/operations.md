@@ -95,9 +95,9 @@ just smoke https://<railway-dev-domain> https://<alias>-crosstune-web.<workers-s
 The manual test on a phone covers what the script cannot.
 
 1. Open `https://<domain>` and sign in.
-2. Add a tune and paste a YouTube link.
+2. Add a song and paste a YouTube link.
 3. Install the app to the home screen.
-4. Turn on airplane mode and edit the tune.
+4. Turn on airplane mode and edit the song.
 5. Turn off airplane mode.
 6. Make sure that the edit synced. Settings shows the last sync time.
 
@@ -106,6 +106,11 @@ The manual test on a phone covers what the script cannot.
 A merge to `main` deploys the API in both environments and the production
 web client. Railway skips the deploy when nothing under `api/` changed.
 Workers Builds skips the deploy when nothing under `web/` changed.
+
+The app icon's file names never change, so a home-screen install made
+before an icon change keeps the icon it was installed with until the app
+is removed and added again. A release that changes the icon should say
+so.
 
 To cut a version, run `just bump` at the repository root. It runs
 commitizen from `.cz.toml`, which updates the API package version and the

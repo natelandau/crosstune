@@ -1,5 +1,6 @@
 import { SignIn, useAuth } from '@clerk/react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Lockup } from '../components/Mark'
 import { clearSearchQuery } from '../features/catalog/searchSession'
 import { AuthProvider } from './AuthContext'
 import { forgetUser, rememberedUser, rememberUser } from './session'
@@ -55,12 +56,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function Centered({ children }: { children: ReactNode }) {
-  return <main className="flex min-h-dvh items-center justify-center p-4">{children}</main>
+  return (
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-8 p-4">
+      {children}
+    </main>
+  )
 }
 
 function SignInScreen() {
   return (
     <Centered>
+      <Lockup className="text-heading" />
       <SignIn routing="hash" />
     </Centered>
   )

@@ -56,5 +56,8 @@ aggregate across modules (`just test` runs `api::test` and `web::test`).
 Every icon in the web client comes from `lucide-react`. Import the named
 component (`import { X } from 'lucide-react'`), size it with a Tailwind
 `size-*` class, and mark it `aria-hidden` inside a control that already has
-an accessible name. Never draw an inline SVG, never use a text character such
-as `×`, `✕`, or `+` as an icon, and do not add a second icon set.
+an accessible name. Never draw an inline SVG as an icon, never use a text
+character such as `×`, `✕`, or `+` as an icon, and do not add a second icon
+set. The brand mark in `web/src/components/Mark.tsx` is the one inline SVG in
+the client and is not an icon: it is sized with an `h-*` class to the text
+beside it, and its drawing is fixed by the SVGs in `brand/`.
