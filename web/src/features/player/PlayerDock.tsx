@@ -227,7 +227,7 @@ export function PlayerDock() {
         ref={sectionRef}
         aria-label="Player"
         style={{ height: dockHeight }}
-        className="bg-chrome text-chrome-content rounded-box fixed right-(--measure-inset) bottom-[calc(4rem+var(--dock-cap)+env(safe-area-inset-bottom))] left-(--measure-inset) z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
+        className="bg-chrome text-chrome-content rounded-box fixed right-(--measure-inset) bottom-[calc(var(--dock-height)+var(--dock-cap)+env(safe-area-inset-bottom))] left-(--measure-inset) z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
       >
         <div className="flex h-11 shrink-0 items-center gap-2">
           <span className="text-meta min-w-0 flex-1 truncate font-medium">{title}</span>

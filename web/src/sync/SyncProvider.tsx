@@ -12,7 +12,7 @@ import { useDb } from '../db/DbProvider'
 import { APP_VERSION } from '../version'
 import { createSyncEngine } from './engine'
 import { startSyncTriggers } from './triggers'
-import type { SyncEngine, SyncStatus } from './types'
+import type { SyncEngine, SyncStatus, TransferStatus } from './types'
 
 // Exported so tests can inject a fake engine without going through SyncProvider.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -70,6 +70,13 @@ export function useOnline(): boolean {
 export function useSyncStatus(): SyncStatus {
   const engine = useSyncEngine()
   const status = useSyncExternalStore(engine.subscribe, engine.status)
+  return useOnline() ? status : 'offline'
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useTransferStatus(): TransferStatus {
+  const engine = useSyncEngine()
+  const status = useSyncExternalStore(engine.subscribeTransfer, engine.transferStatus)
   return useOnline() ? status : 'offline'
 }
 

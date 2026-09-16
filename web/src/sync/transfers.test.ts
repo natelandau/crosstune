@@ -208,6 +208,43 @@ describe('uploadPass', () => {
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
   })
 
+  it('keeps the reason on a row it backs off, so the row can say why it waits', async () => {
+    const id = await captured()
+    fake.failSlot(
+      new ApiError(503, {
+        type: 'about:blank',
+        title: 'x',
+        status: 503,
+        detail: 'Storage is down',
+      }),
+    )
+    await pushed(id)
+    await uploadPass(db, fake.api)
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'captured',
+      error: 'Storage is down',
+      upload_attempts: 1,
+    })
+  })
+
+  it('reports a network failure while online as a transfer error, and offline when offline', async () => {
+    const id = await captured()
+    fake.failSlot(new NetworkError(new TypeError('Failed to fetch')))
+    await pushed(id)
+    let online = true
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => online })
+    await engine.transfer()
+    expect(engine.transferStatus()).toBe('error')
+    engine.stop()
+
+    online = false
+    await db.recording_files.update(id, { next_attempt_at: null })
+    const offline = createSyncEngine({ db, api: fake.api, isOnline: () => online })
+    await offline.transfer()
+    expect(offline.transferStatus()).toBe('offline')
+    offline.stop()
+  })
+
   it('skips a row on backoff instead of requesting a slot again right away', async () => {
     const id = await captured()
     fake.failSlot(new ApiError(500, null))
@@ -708,7 +745,7 @@ describe('createSyncEngine recovery and downloads', () => {
     engine.stop()
   })
 
-  it('reports a network failure from putObject as offline transfers without blocking pull', async () => {
+  it('reports a network failure from putObject as a transfer error without blocking pull', async () => {
     const id = await captured()
     fake.failPut(new NetworkError(new TypeError('x')), id)
     fake.queuePull({
@@ -721,7 +758,8 @@ describe('createSyncEngine recovery and downloads', () => {
     expect(await db.songs.get('srv-song')).toBeTruthy()
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect(engine.status()).toBe('idle')
-    expect(engine.transferStatus()).toBe('offline')
+    // The browser says it is online, so a failed PUT is the storage host refusing, not a lost signal.
+    expect(engine.transferStatus()).toBe('error')
     engine.stop()
   })
 

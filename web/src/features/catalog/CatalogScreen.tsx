@@ -248,7 +248,7 @@ function Catalog({
       />
       <Link
         to="/songs/new"
-        className={`btn btn-primary btn-circle btn-lg fixed right-(--measure-inset) bottom-[calc(5rem+env(safe-area-inset-bottom)+var(--player-dock-offset,0px))] z-10 shadow-lg transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
+        className={`btn btn-primary btn-circle btn-lg fixed right-(--measure-inset) bottom-[calc(var(--dock-height)+1rem+env(safe-area-inset-bottom)+var(--player-dock-offset,0px))] z-10 shadow-lg transition-[opacity,scale] duration-(--select-bar-duration) ease-(--ease-emphasized) ${
           selecting ? 'pointer-events-none opacity-0 motion-safe:scale-60' : ''
         }`}
         aria-label="Add song"

@@ -1,4 +1,4 @@
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import 'fake-indexeddb/auto'
 import '@testing-library/jest-dom/vitest'
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer'
@@ -17,6 +17,10 @@ afterEach(() => {
   cleanup()
   if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
 })
+
+// The first test in a file pays for loading the route tree and opening a database, which
+// under a loaded CPU can outlast Testing Library's one second default for findBy queries.
+configure({ asyncUtilTimeout: 3000 })
 
 // jsdom has no layout engine, so it doesn't implement scrollTo; the router calls
 // it on every route mount to reset scroll position. Worker and script tests run

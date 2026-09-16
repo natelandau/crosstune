@@ -215,7 +215,11 @@
    bar's text color and takes the bar color for its glyph and label, a slot under a mouse
    tints faintly, and tabs that are not current mute. daisyUI's inset padding, capped and
    rounded slots with a bottom margin, underline, and hover fade are all switched off. */
+/* The content zone is --dock-height; the phone's home indicator inset extends the bar below
+   it. The zone is only as tall as a glyph over a label needs, so the bar does not read as
+   bottom-heavy once the inset is added. */
 .dock {
+  height: calc(var(--dock-height) + env(safe-area-inset-bottom));
   padding: 0;
 }
 .dock > :is(a, button) {
@@ -278,6 +282,8 @@
      player and the navigation's slide both allow for it. */
   --dock-cap: 0.75rem;
   --record-ring: 3px;
+  --dock-height: 3.5rem;
+  --record-disc: 4rem;
   --select-bar-duration: 440ms;
   --select-bar-stagger: 120ms;
   --select-slot-duration: 400ms;
@@ -344,13 +350,15 @@
 .record-button-dot {
   grid-area: 1 / 1;
   border-radius: 9999px;
-  translate: 0 calc(var(--record-ring) - var(--dock-cap));
+  /* Centered in the zone first, so the lift is measured from where the disc would rest. */
+  translate: 0
+    calc(var(--record-ring) - var(--dock-cap) + (var(--dock-height) - var(--record-disc)) / 2);
   transition: scale 120ms var(--ease-emphasized);
 }
 .dock > .record-button::before {
   content: '';
-  width: 4rem;
-  height: 4rem;
+  width: var(--record-disc);
+  height: var(--record-disc);
   background: color-mix(in oklab, var(--color-base-content) 12%, var(--color-base-200));
   box-shadow: 0 0 0 var(--record-ring) var(--color-chrome);
 }

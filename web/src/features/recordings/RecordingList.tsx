@@ -1,17 +1,18 @@
-import { ErrorText, HelpText } from '../../components/Page'
+import { ErrorText } from '../../components/Page'
 import { useNavigate } from '@tanstack/react-router'
 import { FolderInput, FolderOutput, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
+import { EmptyState } from '../../components/EmptyState'
 import { Sheet } from '../../components/Sheet'
 import { useAction } from '../../components/useAction'
 import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { isNotUploaded } from '../../db/recordings'
 import type { LocalRecordingLink } from '../../db/types'
+import { SongSearchPicker } from '../catalog/SongSearchPicker'
 import { LinkRow } from '../links/LinkRow'
 import { useSyncEngine } from '../../sync/SyncProvider'
-import { AttachSongPicker } from '../recording/AttachSongPicker'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { RecordingRow } from './RecordingRow'
 import { RenameSheet } from './RenameSheet'
@@ -50,7 +51,7 @@ export function RecordingList({
   const [attaching, setAttaching] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   if (views.length === 0 && links.length === 0) {
-    return <HelpText>No recordings yet.</HelpText>
+    return <EmptyState compact title="No recordings yet" />
   }
   return (
     <>
@@ -123,11 +124,13 @@ export function RecordingList({
       <Sheet open={attaching !== null} title="Add to a song" onClose={() => setAttaching(null)}>
         {/* Mounted only while open: the picker searches the whole catalog, and every list on a screen has one. */}
         {attaching !== null ? (
-          <AttachSongPicker
-            onPick={(songId) => {
+          <SongSearchPicker
+            label="Add to a song"
+            rowName={(title) => `Add to ${title}`}
+            onPick={(entry) => {
               const id = attaching
               setAttaching(null)
-              run(() => updateRecording(db, id, { song_id: songId }))
+              run(() => updateRecording(db, id, { song_id: entry.song.id }))
             }}
             onCreate={(title) => {
               const id = attaching

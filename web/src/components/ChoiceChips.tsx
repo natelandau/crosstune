@@ -6,6 +6,8 @@ export interface ChoiceChipsProps {
   /** '' means nothing chosen. */
   value: string
   options: readonly string[]
+  /** The text on an option's chip, when the value itself is not the label. */
+  optionLabel?: (option: string) => string
   onChange: (value: string) => void
   /**
    * A tap that settles the value: an option chip, the empty chip, or the pressed custom chip.
@@ -70,6 +72,7 @@ export function ChoiceChips({
   label,
   value,
   options,
+  optionLabel = (option) => option,
   onChange,
   onCommit,
   emptyOption,
@@ -121,7 +124,7 @@ export function ChoiceChips({
             autoFocus={focused === `option:${option}`}
             onClick={() => toggle(option)}
           >
-            {option}
+            {optionLabel(option)}
           </Chip>
         ))}
         {custom && !editing ? (

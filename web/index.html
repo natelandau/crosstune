@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- The status bar stays opaque and takes theme-color, the chrome slate. A translucent
+         status bar puts the page beneath it, and iOS fills that strip with a blur that washes
+         out the app bar, with no style or meta tag to turn it off. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="theme-color" content="#4f5d75" />
     <!-- The app ships its own light and dark themes. color-scheme tells browsers and
          Dark Reader so; darkreader-lock tells Dark Reader to leave the page alone. -->

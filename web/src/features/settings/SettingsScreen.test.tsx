@@ -40,6 +40,15 @@ describe('SettingsScreen', () => {
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({ db, userId: 'user_1', engine }))
   })
 
+  it('names the sync and recording transfer states', async () => {
+    renderWithProviders(<SettingsScreen />, {
+      db,
+      engine: fakeEngine({ status: () => 'error', transferStatus: () => 'transferring' }),
+    })
+    expect(await screen.findByText('Status: Sync failed')).toBeInTheDocument()
+    expect(screen.getByText('Recordings: Transferring')).toBeInTheDocument()
+  })
+
   it('tells the user how many changes the server rejected', async () => {
     await countInvalidChanges(db, 2)
     renderWithProviders(<SettingsScreen />, { db })

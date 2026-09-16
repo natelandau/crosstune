@@ -1,4 +1,4 @@
-import { ErrorText } from '../../components/Page'
+import { ErrorText, PageHeading } from '../../components/Page'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
@@ -77,7 +77,7 @@ function RecordingCapture() {
   return (
     <div className="flex min-h-[70dvh] flex-col items-center justify-between gap-6 py-4">
       <header className="text-center">
-        <h1 className="text-key font-semibold">New recording</h1>
+        <PageHeading>New recording</PageHeading>
         <p role="status" aria-live="polite" className="text-meta opacity-70">
           {STATUS[phase]}
         </p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fileStateLabel, formatBytes, formatDuration } from './format'
+import { failedTriesLabel, fileStateLabel, formatBytes, formatDuration } from './format'
 
 describe('format', () => {
   it('formats durations as m:ss', () => {
@@ -15,6 +15,11 @@ describe('format', () => {
     expect(formatBytes(2_922_000)).toBe('2.9 MB')
     expect(formatBytes(500_000_000)).toBe('500 MB')
     expect(formatBytes(1_073_741_824)).toBe('1 GB')
+  })
+
+  it('counts failed tries with the right plural', () => {
+    expect(failedTriesLabel(1)).toBe('1 failed try')
+    expect(failedTriesLabel(3)).toBe('3 failed tries')
   })
 
   it('labels the state a user cares about', () => {

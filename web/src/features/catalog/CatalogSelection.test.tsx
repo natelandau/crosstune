@@ -7,6 +7,7 @@ import { CLICK_GUARD_MS } from '../../components/swipe'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderApp } from '../../test/render'
+import { FIRST_RUN_TITLE } from '../settings/FirstRunInstruments'
 
 let db: CrosstuneDb
 
@@ -26,13 +27,14 @@ const selectButton = () => screen.getByRole('button', { name: 'Select' })
 const checkbox = (title: string) => screen.getByRole('checkbox', { name: title })
 const toolbar = () => screen.getByRole('toolbar', { name: 'Selected songs' })
 
-// The catalog's own filter sheet stays mounted at all times, so a count of every
-// dialog in the tree must leave it out to describe only the selection sheets.
+// The catalog's own filter sheet and the first-run instruments prompt stay mounted at all
+// times, so a count of every dialog in the tree must leave them out to describe only the
+// selection sheets.
 function selectionDialogs() {
   return Array.from(document.querySelectorAll('dialog')).filter((dialog) => {
     const labelId = dialog.getAttribute('aria-labelledby')
     const label = labelId && document.getElementById(labelId)?.textContent
-    return label !== 'Filters'
+    return label !== 'Filters' && label !== FIRST_RUN_TITLE
   })
 }
 
@@ -346,9 +348,10 @@ describe('catalog bulk edit', () => {
     await userEvent.click(screen.getByText("Elzic's Farewell"))
     await userEvent.click(within(toolbar()).getByRole('button', { name: 'Edit' }))
     const sheet = screen.getByRole('dialog', { name: 'Edit 2 songs' })
-    await userEvent.type(
-      within(sheet).getByRole('combobox', { name: 'Violin tuning' }),
-      'Cross A (AEAE)',
+    await userEvent.click(
+      within(within(sheet).getByRole('group', { name: 'Violin tuning' })).getByRole('button', {
+        name: 'Cross A (AEAE)',
+      }),
     )
     await userEvent.click(within(sheet).getByRole('button', { name: 'Apply to 2' }))
     await waitFor(async () => {
@@ -373,10 +376,15 @@ describe('catalog bulk edit', () => {
     await enterSelection()
     await userEvent.click(screen.getByText('Cluck Old Hen'))
     await userEvent.click(within(toolbar()).getByRole('button', { name: 'Edit' }))
-    await userEvent.type(screen.getByRole('combobox', { name: 'Genre' }), 'Old-time')
+    const genre = () =>
+      within(screen.getByRole('group', { name: 'Genre' })).getByRole('button', {
+        name: 'Old-time',
+      })
+    await userEvent.click(genre())
+    expect(genre()).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await userEvent.click(within(toolbar()).getByRole('button', { name: 'Edit' }))
-    expect(screen.getByRole('combobox', { name: 'Genre' })).toHaveValue('')
+    expect(genre()).toHaveAttribute('aria-pressed', 'false')
   })
 })
 

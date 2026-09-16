@@ -56,6 +56,8 @@ export async function addToList(
   const at = now()
   const id = newId()
   return writeTx(db, async () => {
+    const list = await db.lists.get(listId)
+    if (!list || list.deleted_at) throw new Error('List not found')
     const items = await activeItems(db, listId)
     const existing = items.find((item) => item.user_song_id === userSongId)
     if (existing) return existing.id

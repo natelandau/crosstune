@@ -59,7 +59,7 @@ export function isInstrument(value: unknown): value is Instrument {
   return typeof value === 'string' && (INSTRUMENTS as readonly string[]).includes(value)
 }
 
-// Placeholder until onboarding asks the question.
+// Stands in until the first-run prompt writes a row, and for a session that never syncs.
 export const DEFAULT_INSTRUMENTS: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
 
 // The server sets ownership from the token; local rows never carry it.

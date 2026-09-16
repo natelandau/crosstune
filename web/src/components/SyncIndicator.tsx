@@ -1,20 +1,22 @@
+import { SYNC_STATUS_LABELS } from '../sync/labels'
 import { useLastSyncedAt, useSyncStatus } from '../sync/SyncProvider'
 import type { SyncStatus } from '../sync/types'
 
 // The badge sits on the app bar's chrome, so the quiet states outline themselves in the bar's
 // own text color and only the states that need attention bring a fill.
-const BADGES: Record<SyncStatus, { label: string; className: string }> = {
-  idle: { label: 'Synced', className: 'badge-outline opacity-80' },
-  syncing: { label: 'Syncing', className: 'badge-outline' },
-  offline: { label: 'Offline', className: 'badge-warning' },
-  unauthorized: { label: 'Sign in again', className: 'badge-error' },
-  error: { label: 'Sync failed', className: 'badge-error' },
+const BADGES: Record<SyncStatus, string> = {
+  idle: 'badge-outline opacity-80',
+  syncing: 'badge-outline',
+  offline: 'badge-warning',
+  unauthorized: 'badge-error',
+  error: 'badge-error',
 }
 
 export function SyncIndicator() {
   const status = useSyncStatus()
   const lastSyncedAt = useLastSyncedAt()
-  const { label, className } = BADGES[status]
+  const label = SYNC_STATUS_LABELS[status]
+  const className = BADGES[status]
   return (
     <span
       role="status"

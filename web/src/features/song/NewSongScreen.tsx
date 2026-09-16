@@ -1,6 +1,7 @@
 import { PageHeading } from '../../components/Page'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { addToList } from '../../commands/lists'
 import { updateRecording } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { useToast } from '../../components/toastContext'
@@ -12,7 +13,7 @@ import { emptyValues, SongForm } from './SongForm'
 export function NewSongScreen() {
   const db = useDb()
   const navigate = useNavigate()
-  const { title, attach } = useSearch({ from: '/songs/new' })
+  const { title, attach, list } = useSearch({ from: '/songs/new' })
   const instruments = useInstruments()
   const toast = useToast()
   // Whatever brought the user here, the search that led to it is spent: saving, cancelling, or
@@ -28,12 +29,17 @@ export function NewSongScreen() {
         initial={title ? { ...emptyValues(), title } : undefined}
         onCancel={() => void navigate({ to: '/' })}
         onSubmit={async (song, userSong) => {
-          const { songId } = await createSong(db, song, userSong)
+          const { songId, userSongId } = await createSong(db, song, userSong)
+          // The song already exists, so a failed attach or add must not hold the form open
+          // where submitting again would create the song a second time.
           if (attach) {
-            // The song already exists, so a failed attach must not hold the form open where
-            // submitting again would create the song a second time.
             await updateRecording(db, attach, { song_id: songId }).catch(() =>
               toast.show({ message: 'The recording could not be added to this song.' }),
+            )
+          }
+          if (list) {
+            await addToList(db, list, userSongId).catch(() =>
+              toast.show({ message: 'The song could not be added to the list.' }),
             )
           }
           await navigate({ to: '/songs/$id', params: { id: songId }, replace: true })

@@ -1,55 +1,25 @@
-import { useMemo, useState } from 'react'
-import { DEFAULT_FILTERS, filterCatalog } from '../catalog/filters'
-import { useCatalog } from '../catalog/useCatalog'
+import { useNavigate } from '@tanstack/react-router'
+import { SongSearchPicker } from '../catalog/SongSearchPicker'
 
+/** Search the catalog for a song to add to a list, or create one by the typed name and add that. */
 export function SongPicker({
-  excludeUserSongIds,
+  listId,
+  inList,
   onPick,
 }: {
-  excludeUserSongIds: Set<string>
+  listId: string
+  /** User song ids already in the list, shown in the results but not offered. */
+  inList: ReadonlySet<string>
   onPick: (userSongId: string) => void
 }) {
-  const entries = useCatalog()
-  const [query, setQuery] = useState('')
-  const matches = useMemo(() => {
-    if (!entries || !query.trim()) return []
-    return filterCatalog(entries, { ...DEFAULT_FILTERS, archived: true }, query)
-      .filter((e) => !excludeUserSongIds.has(e.userSong.id))
-      .slice(0, 8)
-  }, [entries, query, excludeUserSongIds])
-
+  const navigate = useNavigate()
   return (
-    <div className="space-y-2">
-      <label className="input min-h-11 w-full">
-        <input
-          type="search"
-          className="grow"
-          aria-label="Add a song"
-          placeholder="Add a song"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
-      {matches.length ? (
-        <ul className="menu rounded-box border-base-content/20 w-full border">
-          {matches.map(({ song, userSong }) => (
-            <li key={userSong.id}>
-              <button
-                type="button"
-                className="min-h-11"
-                onClick={() => {
-                  onPick(userSong.id)
-                  setQuery('')
-                }}
-                aria-label={`Add ${song.title}`}
-              >
-                <span className="badge badge-sm">{song.key ?? '·'}</span>
-                {song.title}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+    <SongSearchPicker
+      label="Add a song"
+      rowName={(title) => `Add ${title}`}
+      taken={{ ids: inList, label: 'In this list' }}
+      onPick={(entry) => onPick(entry.userSong.id)}
+      onCreate={(title) => void navigate({ to: '/songs/new', search: { title, list: listId } })}
+    />
   )
 }

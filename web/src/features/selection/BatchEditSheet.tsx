@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { BulkPatch } from '../../commands/bulk'
+import { ChoiceChips } from '../../components/ChoiceChips'
 import { Sheet } from '../../components/Sheet'
 import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../db/types'
 import type { CatalogEntry } from '../catalog/filters'
@@ -8,6 +9,7 @@ import { SONG_LIMITS } from '../song/limits'
 import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNING_SUGGESTIONS } from '../song/suggestions'
 import {
   describeChanges,
+  displayValue,
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
   isUnchanged,
@@ -22,24 +24,31 @@ import {
 } from './batchEdit'
 import { countSongs } from './copy'
 
-const SUGGESTIONS: Partial<Record<EditField, readonly string[]>> = {
+const CHOICES: Partial<Record<EditField, readonly string[]>> = {
+  status: STATUSES,
   key: KEYS,
+  mode: MODES,
   violin_tuning: TUNING_SUGGESTIONS.violin_tuning,
   banjo_tuning: TUNING_SUGGESTIONS.banjo_tuning,
   genre: GENRES,
   feel: FEELS,
+  time_signature: TIME_SIGNATURES,
   part_structure: PART_STRUCTURES,
 }
 
-const OPTIONS: Partial<Record<EditField, readonly string[]>> = {
-  status: STATUSES,
-  mode: MODES,
-  time_signature: TIME_SIGNATURES,
-}
+/** Fields whose vocabulary is only a suggestion, so an Other… chip accepts any value. */
+const OPEN_FIELDS: ReadonlySet<EditField> = new Set([
+  'key',
+  'violin_tuning',
+  'banjo_tuning',
+  'genre',
+  'feel',
+  'part_structure',
+])
 
 const LIMITS = SONG_LIMITS as Partial<Record<EditField, number>>
 
-// A sentinel no real option can take, so "No value" is distinct from the unset placeholder.
+// A sentinel no real option can take, so the "No value" chip is distinct from an empty value.
 const CLEAR = '__clear__'
 
 function Control({
@@ -81,37 +90,35 @@ function Control({
     )
   }
 
-  if (kind === 'select') {
-    const selectValue =
-      value === null
-        ? CLEAR
-        : typeof value === 'string'
-          ? value
-          : typeof shared === 'string'
-            ? shared
-            : ''
+  if (kind === 'choice') {
+    // The chips show only a pending change: nothing pressed keeps every song as it is, and
+    // the value the songs share reads beside the field's label instead.
+    const shown = value === null ? CLEAR : typeof value === 'string' ? value : ''
+    const clearable = field !== 'status'
+    const options = CHOICES[field] ?? []
     return (
-      <select
-        className="select w-full"
-        aria-label={label}
-        value={selectValue}
-        onChange={(event) => onChange(event.target.value === CLEAR ? null : event.target.value)}
-      >
-        <option value="" disabled>
-          {summary.kind === 'mixed' ? 'Mixed' : 'Not set'}
-        </option>
-        {(OPTIONS[field] ?? []).map((option) => (
-          <option key={option} value={option}>
-            {field === 'status' && isSongStatus(option) ? STATUS_LABELS[option] : option}
-          </option>
-        ))}
-        {field === 'status' ? null : <option value={CLEAR}>No value</option>}
-      </select>
+      <ChoiceChips
+        label={label}
+        value={shown}
+        options={clearable ? [...options, CLEAR] : options}
+        optionLabel={(option) => {
+          if (option === CLEAR) return 'No value'
+          return field === 'status' && isSongStatus(option) ? STATUS_LABELS[option] : option
+        }}
+        other={OPEN_FIELDS.has(field)}
+        maxLength={LIMITS[field]}
+        onChange={(next) => onChange(next === '' ? undefined : next === CLEAR ? null : next)}
+        // A tap that lands on what the songs already hold is no change. Typing never
+        // settles, so a typed value that happens to match stays a visible change rather
+        // than vanishing from the input mid-edit.
+        onCommit={(next) => {
+          const settled = next === CLEAR ? null : next
+          if (settled !== '' && isUnchanged(summary, settled)) onChange(undefined)
+        }}
+      />
     )
   }
 
-  const suggestions = SUGGESTIONS[field]
-  const listId = suggestions ? `bulk-${field}-suggestions` : undefined
   const text =
     typeof value === 'string'
       ? value
@@ -121,48 +128,41 @@ function Control({
           ? shared
           : ''
 
-  // Browsers ignore `placeholder` on a date input, so an untouched mixed date needs its own hint.
   if (kind === 'date') {
-    const mixed = summary.kind === 'mixed' && value === undefined
     return (
-      <div className="flex items-center gap-2">
-        <input
-          className="input w-full"
-          type="date"
-          aria-label={label}
-          value={text}
-          onChange={(event) => {
-            // A half-typed date reports an empty string; ignore it rather than clear the field.
-            if (event.target.validity.badInput) return
-            onChange(event.target.value)
-          }}
-        />
-        {mixed ? <span className="text-meta opacity-70">Mixed</span> : null}
-      </div>
+      <input
+        className="input w-full"
+        type="date"
+        aria-label={label}
+        value={text}
+        onChange={(event) => {
+          // A half-typed date reports an empty string; ignore it rather than clear the field.
+          if (event.target.validity.badInput) return
+          onChange(event.target.value)
+        }}
+      />
     )
   }
 
   return (
-    <>
-      <input
-        className="input w-full"
-        type="text"
-        aria-label={label}
-        list={listId}
-        maxLength={LIMITS[field]}
-        placeholder={summary.kind === 'mixed' ? 'Mixed' : undefined}
-        value={text}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      {suggestions ? (
-        <datalist id={listId}>
-          {suggestions.map((suggestion) => (
-            <option key={suggestion} value={suggestion} />
-          ))}
-        </datalist>
-      ) : null}
-    </>
+    <input
+      className="input w-full"
+      type="text"
+      aria-label={label}
+      maxLength={LIMITS[field]}
+      value={text}
+      onChange={(event) => onChange(event.target.value)}
+    />
   )
+}
+
+/** What the label row says the songs hold now: a choice field's shared value, or Mixed. */
+function currentLabel(field: EditField, summary: Summary): string | null {
+  if (summary.kind === 'mixed') return 'Mixed'
+  if (summary.kind === 'shared' && FIELD_KINDS[field] === 'choice') {
+    return displayValue(field, summary.value)
+  }
+  return null
 }
 
 export function BatchEditSheet({
@@ -186,10 +186,12 @@ export function BatchEditSheet({
   const touch = (field: EditField, value: TouchedValue | undefined) => {
     setTouched((current) => {
       const next = { ...current }
-      // Yes or No stays marked even when it matches, so the choice does not snap back to Keep.
+      // Yes or No stays marked even when it matches, so the choice does not snap back to
+      // Keep; a choice field settles that question itself, since only a tap can match.
+      const kind = FIELD_KINDS[field]
       const untouched =
         value === undefined ||
-        (FIELD_KINDS[field] !== 'boolean' && isUnchanged(summaries[field], value))
+        ((kind === 'text' || kind === 'date') && isUnchanged(summaries[field], value))
       if (untouched) delete next[field]
       else next[field] = value
       return next
@@ -208,15 +210,21 @@ export function BatchEditSheet({
         {fields.map((field) => {
           const value = touched[field]
           const state = value === undefined ? null : touchState(value)
+          const current = state ? null : currentLabel(field, summaries[field])
           return (
-            <fieldset
+            // Every control names itself, so no fieldset wraps it: a legend would give a
+            // second group the field's name beside the chips' own.
+            <div
               key={field}
-              className={`fieldset rounded-box px-2 transition-[background-color,box-shadow] duration-(--select-tint-duration) ${
+              className={`rounded-box space-y-2 px-2 py-2 transition-[background-color,box-shadow] duration-(--select-tint-duration) ${
                 state ? 'bg-accent/10 ring-accent ring-1' : ''
               }`}
             >
-              <legend className="fieldset-legend flex w-full items-center gap-2">
-                {EDIT_FIELD_LABELS[field]}
+              <div className="flex min-h-11 items-center gap-2">
+                <span className="text-label">{EDIT_FIELD_LABELS[field]}</span>
+                {current ? (
+                  <span className="text-meta font-normal tabular-nums opacity-70">{current}</span>
+                ) : null}
                 {state ? (
                   <span className="badge badge-accent badge-sm">
                     {state === 'clear' ? 'will clear' : 'will change'}
@@ -232,14 +240,14 @@ export function BatchEditSheet({
                 >
                   Undo
                 </button>
-              </legend>
+              </div>
               <Control
                 field={field}
                 summary={summaries[field]}
                 value={value}
                 onChange={(next) => touch(field, next)}
               />
-            </fieldset>
+            </div>
           )
         })}
         {pending > 0 ? (

@@ -206,7 +206,9 @@ export function createSyncEngine({
       await downloadPass(db, api, fetchOne)
       if (uploadError) throw uploadError
     },
-    classify: (error) => (classifyFailure(error, isOnline) === 'offline' ? 'offline' : 'error'),
+    // A failed fetch while the browser reports a connection means the storage host or a
+    // CORS rule refused, which would otherwise sit silently under "offline" forever.
+    classify: (error) => (!isOnline() || error instanceof NoTokenError ? 'offline' : 'error'),
     isStopped: () => stopped,
   })
 

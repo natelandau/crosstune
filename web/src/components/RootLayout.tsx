@@ -1,6 +1,7 @@
 import { Outlet, useRouterState } from '@tanstack/react-router'
 import { PlayerDock } from '../features/player/PlayerDock'
 import { PlayerProvider } from '../features/player/PlayerProvider'
+import { FirstRunInstruments } from '../features/settings/FirstRunInstruments'
 import { SelectionChromeProvider } from '../features/selection/SelectionChromeProvider'
 import { AppBar } from './AppBar'
 import { Dock } from './Dock'
@@ -22,13 +23,15 @@ export function RootLayout() {
                 tabIndex={-1}
                 // One measure for every screen: about 70 characters of body text at the regular size.
                 className={`mx-auto w-full max-w-(--measure) flex-1 px-4 pt-3 outline-none ${
-                  fullScreen ? '' : 'pb-[calc(6rem+env(safe-area-inset-bottom))]'
+                  fullScreen ? '' : 'pb-[calc(var(--dock-height)+2rem+env(safe-area-inset-bottom))]'
                 }`}
               >
                 <Outlet />
                 {fullScreen ? null : <PlayerDock />}
               </main>
               {fullScreen ? null : <Dock />}
+              {/* Never over a recording in progress; it asks once the musician is back on a screen. */}
+              {fullScreen ? null : <FirstRunInstruments />}
             </div>
           </PageChromeProvider>
         </SelectionChromeProvider>

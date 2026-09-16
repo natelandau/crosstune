@@ -38,7 +38,7 @@ export function Dock() {
   return (
     <>
       <nav
-        className={`dock dock-md bg-chrome text-chrome-content ${SLIDE} ${active ? HIDDEN_NAV : ''}`}
+        className={`dock bg-chrome text-chrome-content ${SLIDE} ${active ? HIDDEN_NAV : ''}`}
         aria-label="Primary"
         inert={active}
         aria-hidden={active}
@@ -52,7 +52,7 @@ export function Dock() {
       <div
         role="toolbar"
         aria-label="Selected songs"
-        className={`dock dock-md bg-neutral text-neutral-content ${SLIDE} ${
+        className={`dock bg-neutral text-neutral-content ${SLIDE} ${
           active ? 'delay-(--select-bar-stagger)' : HIDDEN_TOOLBAR
         }`}
         inert={!active}

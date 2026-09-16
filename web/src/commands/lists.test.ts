@@ -53,6 +53,15 @@ describe('lists', () => {
     expect((await pendingFor(db, 'list_items', itemA))?.op).toBe('delete')
   })
 
+  it('refuses to add a song to a list that is missing or deleted', async () => {
+    const [a] = await threeSongs()
+    await expect(addToList(db, 'nope', a)).rejects.toThrow('List not found')
+    const listId = await createList(db, 'Gone')
+    await deleteList(db, listId)
+    await expect(addToList(db, listId, a)).rejects.toThrow('List not found')
+    expect(await db.list_items.count()).toBe(0)
+  })
+
   it('moves an item by rewriting only the positions that changed', async () => {
     const [a, b, c] = await threeSongs()
     const listId = await createList(db, 'L')

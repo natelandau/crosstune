@@ -190,11 +190,17 @@ export async function updateRecording(
 }
 
 /** Put a failed upload back in the queue; the caller starts a sync to send it. */
+/** Put a refused or backed-off upload at the front of the queue, so the next pass tries it now. */
 export async function retryUpload(db: CrosstuneDb, id: string): Promise<void> {
   await db.transaction('rw', db.recording_files, async () => {
     const file = await db.recording_files.get(id)
-    if (file?.local_state !== 'failed_upload') return
-    await db.recording_files.update(id, { local_state: 'captured', error: null })
+    if (file?.local_state !== 'failed_upload' && file?.local_state !== 'captured') return
+    await db.recording_files.update(id, {
+      local_state: 'captured',
+      error: null,
+      upload_attempts: 0,
+      next_attempt_at: null,
+    })
   })
 }
 
