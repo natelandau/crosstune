@@ -415,7 +415,10 @@ Recordings and links share one row shape.
   right edge.
 - Status words are Recording, Waiting to upload, Uploading, Storage full,
   Upload failed, Downloading, Processing, and Couldn't process. A recording
-  that needs nothing from the musician shows no status.
+  that needs nothing from the musician shows no status. A recording whose
+  upload has failed and is waiting to try again adds the count, "3 failed
+  tries", keeps the last error on the red line, and offers Retry, which
+  tries again at once instead of after the backoff.
 - Durations read `m:ss`. Sizes truncate rather than round, so a size never
   overstates.
 - A link's second line is its optional label. Its right-hand control opens
@@ -447,8 +450,11 @@ Recordings and links share one row shape.
   It keeps its name and its focus, dims, and does nothing when pressed.
 - The docked player says "Offline", "Couldn't download", "Downloading", or
   "Not available", with an inline Retry.
-- Settings shows the sync status, a count of changes the server rejected,
-  and a Sync now button. Sign out is disabled offline with the help text
+- Settings shows the sync status, the recordings transfer status (Up to
+  date, Transferring, Offline, Transfer failed), a count of changes the
+  server rejected, and a Sync now button. A failed fetch while the browser
+  reports a connection is a transfer failure, not offline, because the
+  storage host or a blocked origin refused. Sign out is disabled offline with the help text
   "Sign out needs a connection."
 - A remembered musician is admitted offline after a five second grace
   period, and Settings then reads "Signed in (offline)".

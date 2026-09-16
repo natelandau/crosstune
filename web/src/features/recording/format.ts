@@ -17,6 +17,11 @@ export function formatBytes(bytes: number): string {
   return `${value} ${unit}`
 }
 
+/** How many uploads of a waiting recording have failed so far. */
+export function failedTriesLabel(count: number): string {
+  return `${count} failed ${count === 1 ? 'try' : 'tries'}`
+}
+
 const LOCAL_LABELS: Partial<Record<LocalFileState, string>> = {
   capturing: 'Recording',
   captured: 'Waiting to upload',

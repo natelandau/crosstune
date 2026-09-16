@@ -9,7 +9,8 @@ import { useDb } from '../../db/DbProvider'
 import { AUDIO_QUALITIES, storedAudioQuality } from '../../db/recordings'
 import { getInvalidChangeCount, getKeepOffline, setKeepOffline } from '../../db/meta'
 import { INSTRUMENTS } from '../../db/types'
-import { useSyncEngine, useSyncStatus } from '../../sync/SyncProvider'
+import { SYNC_STATUS_LABELS, TRANSFER_STATUS_LABELS } from '../../sync/labels'
+import { useSyncEngine, useSyncStatus, useTransferStatus } from '../../sync/SyncProvider'
 import { APP_VERSION } from '../../version'
 import { formatBytes } from '../recording/format'
 import {
@@ -34,6 +35,7 @@ export function SettingsScreen() {
   const { signOut } = useAuth()
   const engine = useSyncEngine()
   const status = useSyncStatus()
+  const transferStatus = useTransferStatus()
   const rejected = useLiveQuery(() => getInvalidChangeCount(db), [db]) ?? 0
   const { error, pending, run } = useAction()
   const instruments = useInstruments()
@@ -209,7 +211,8 @@ export function SettingsScreen() {
       </Section>
       <Section title="Sync">
         <Field>
-          <p>Status: {status}</p>
+          <p>Status: {SYNC_STATUS_LABELS[status]}</p>
+          <p>Recordings: {TRANSFER_STATUS_LABELS[transferStatus]}</p>
           {rejected > 0 ? (
             <p role="status" className="text-warning text-meta">
               {rejected === 1

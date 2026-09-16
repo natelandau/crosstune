@@ -6,7 +6,7 @@ import type { SwipeRowState } from '../../components/swipe'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
-import { fileStateLabel, formatBytes, formatDuration } from '../recording/format'
+import { failedTriesLabel, fileStateLabel, formatBytes, formatDuration } from '../recording/format'
 import { PlayGlyph, ROW_CLASS, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import type { RecordingView } from './useRecordings'
@@ -60,10 +60,15 @@ export function RecordingRow({
   const loaded = isPlaying(player, item)
   const downloadable = !held && recording.state === 'ready'
   const downloading = downloadable && (fetch === 'fetching' || file?.local_state === 'downloading')
-  const uploadFailed = file?.local_state === 'failed_upload'
+  const attempts = file?.upload_attempts ?? 0
+  const waiting = file?.local_state === 'captured' || file?.local_state === 'uploading'
+  const tries = waiting && attempts > 0 ? failedTriesLabel(attempts) : null
+  // A refused upload, or one the loop keeps failing to send, is stuck until the musician acts.
+  const uploadStuck =
+    file?.local_state === 'failed_upload' || (file?.local_state === 'captured' && attempts > 0)
   const errorLine =
-    uploadFailed && file.error ? file.error : fetch === 'failed' ? "Couldn't download" : null
-  const retry = uploadFailed
+    uploadStuck && file.error ? file.error : fetch === 'failed' ? "Couldn't download" : null
+  const retry = uploadStuck
     ? { label: `Retry uploading ${title}`, onClick: () => onRetryUpload(recording.id) }
     : recording.state === 'failed'
       ? { label: `Retry ${title}`, onClick: () => onRetry(recording.id) }
@@ -79,7 +84,7 @@ export function RecordingRow({
       <span className="block truncate font-medium">{title}</span>
       <span className="text-small block truncate opacity-70">
         {/* A recording that needs nothing from the user shows when it was made instead of a status. */}
-        {[duration, status || recordedAtLabel(recording.recorded_at), storageLabel]
+        {[duration, status || recordedAtLabel(recording.recorded_at), tries, storageLabel]
           .filter(Boolean)
           .join(' · ')}
       </span>

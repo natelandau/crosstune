@@ -186,6 +186,22 @@ describe('uploads and edits', () => {
     expect((await db.recording_files.get(uploaded))?.local_state).toBe('uploaded')
   })
 
+  it('puts a backed-off upload at the front of the queue again', async () => {
+    const id = await captured()
+    await db.recording_files.update(id, {
+      error: 'Network request failed',
+      upload_attempts: 3,
+      next_attempt_at: Date.now() + 60_000,
+    })
+    await retryUpload(db, id)
+    expect(await db.recording_files.get(id)).toMatchObject({
+      local_state: 'captured',
+      error: null,
+      upload_attempts: 0,
+      next_attempt_at: null,
+    })
+  })
+
   it('rejects moving a recording to a deleted song and leaves the row unchanged', async () => {
     const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
     await deleteSong(db, songId)

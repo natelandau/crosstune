@@ -117,6 +117,31 @@ describe('RecordingsScreen', () => {
     await vi.waitFor(() => expect(within(list).queryByText('Unsupported audio type')).toBeNull())
   })
 
+  it('shows how often a waiting upload has failed and lets it try again now', async () => {
+    const id = await saveRecording(null, 'Stalled')
+    await db.recording_files.update(id, {
+      error: 'Network request failed',
+      upload_attempts: 3,
+      next_attempt_at: Date.now() + 60_000,
+    })
+    const sync = vi.fn(async () => {})
+    renderApp({ db, path: '/recordings', engine: fakeEngine({ sync }) })
+    const list = await screen.findByRole('list', { name: 'Unfiled' })
+    const row = within(list).getByRole('listitem')
+    expect(row).toHaveTextContent('Waiting to upload · 3 failed tries')
+    expect(within(row).getByText('Network request failed')).toBeInTheDocument()
+    await userEvent.click(within(row).getByRole('button', { name: 'Retry uploading Stalled' }))
+    await vi.waitFor(async () =>
+      expect(await db.recording_files.get(id)).toMatchObject({
+        upload_attempts: 0,
+        next_attempt_at: null,
+        error: null,
+      }),
+    )
+    await vi.waitFor(() => expect(sync).toHaveBeenCalled())
+    await vi.waitFor(() => expect(row).not.toHaveTextContent('failed tries'))
+  })
+
   it('warns that a recording still uploading cannot be recovered', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const id = await saveRecording(null, 'Sending')

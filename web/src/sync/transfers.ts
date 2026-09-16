@@ -63,14 +63,14 @@ const RETRY_MAX_MS = 30 * 60_000
 
 /** A transient failure goes back to captured for the next pass, but not before a backoff
  * that doubles with each consecutive miss, so a persistent error does not resend the same
- * blob on every pass. */
-async function scheduleRetry(db: CrosstuneDb, id: string): Promise<void> {
+ * blob on every pass. The row keeps the reason, so a recording that keeps waiting can say why. */
+async function scheduleRetry(db: CrosstuneDb, id: string, cause: unknown): Promise<void> {
   const file = await db.recording_files.get(id)
   const attempts = file?.upload_attempts ?? 0
   const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** attempts)
   await db.recording_files.update(id, {
     local_state: 'captured',
-    error: null,
+    error: cause instanceof Error ? cause.message : String(cause),
     upload_attempts: attempts + 1,
     next_attempt_at: Date.now() + delay,
   })
@@ -136,7 +136,7 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
       return
     }
     // Everything else (5xx, 401/403/408/429, network and auth failures, a transfer error) is transient.
-    await scheduleRetry(db, id)
+    await scheduleRetry(db, id, error)
     throw error
   }
 
@@ -147,7 +147,7 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       // The slot expired or the object never landed; the next pass requests a fresh one.
-      await scheduleRetry(db, id)
+      await scheduleRetry(db, id, error)
       return
     }
     if (error instanceof ApiError && error.status === 413) {
@@ -155,7 +155,7 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
       await settleUpload(db, id, 'failed_upload', error.message)
       return
     }
-    await scheduleRetry(db, id)
+    await scheduleRetry(db, id, error)
     throw error
   }
 }
