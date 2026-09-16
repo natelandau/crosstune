@@ -66,7 +66,7 @@ async def test_transcode_passes_an_aac_upload_through(session, media_fixtures, t
     ("fixture", "content_type", "extension"),
     [("webm", "audio/webm", "webm"), ("wav", "audio/wav", "wav"), ("mp3", "audio/mpeg", "mp3")],
 )
-async def test_transcode_encodes_and_keeps_the_original_cold(
+async def test_transcode_encodes_and_keeps_the_original(
     session, media_fixtures, tmp_path, fixture: str, content_type: str, extension: str
 ) -> None:
     store = FakeObjectStore()
@@ -77,7 +77,6 @@ async def test_transcode_encodes_and_keeps_the_original_cold(
     assert rec.original_key == original_key(user.id, rec.id, content_type)
     assert rec.original_key.endswith(f".{extension}")
     assert rec.original_bytes == media_fixtures[fixture].stat().st_size
-    assert store.storage_class(rec.original_key) == "STANDARD_IA"
     assert sorted(store.keys()) == sorted(
         [rec.playback_key, rec.original_key, upload_key(user.id, rec.id)]
     )

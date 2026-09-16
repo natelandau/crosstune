@@ -46,7 +46,7 @@ async def transcode(
         uploaded = await store.head(source_key)
         content_type = uploaded.content_type if uploaded else "application/octet-stream"
         kept = original_key(recording.user_id, recording.id, content_type)
-        await store.copy(source_key, kept, infrequent_access=True)
+        await store.copy(source_key, kept)
         recording.original_key = kept
         recording.original_bytes = source.stat().st_size
     else:

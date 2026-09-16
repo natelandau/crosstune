@@ -14,20 +14,16 @@ class FakeObjectStore:
     """An ObjectStore held in a dict. Presigned URLs are recognizable strings, not signatures."""
 
     def __init__(self) -> None:
-        self._objects: dict[str, tuple[bytes, str, str]] = {}
+        self._objects: dict[str, tuple[bytes, str]] = {}
         self.presigned: list[tuple[str, str]] = []
 
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
         """What a client's PUT to a presigned URL leaves behind."""
-        self._objects[key] = (data, content_type, "STANDARD")
+        self._objects[key] = (data, content_type)
 
     def get_bytes(self, key: str) -> bytes:
         """The stored bytes of one object."""
         return self._objects[key][0]
-
-    def storage_class(self, key: str) -> str:
-        """STANDARD or STANDARD_IA."""
-        return self._objects[key][2]
 
     def keys(self) -> list[str]:
         """Every stored key, sorted."""
@@ -57,17 +53,12 @@ class FakeObjectStore:
     async def upload(self, path: Path, key: str, content_type: str) -> int:
         """Store a local file. Returns the byte count stored."""
         data = path.read_bytes()  # noqa: ASYNC240 -- in-memory fake, no real I/O
-        self._objects[key] = (data, content_type, "STANDARD")
+        self._objects[key] = (data, content_type)
         return len(data)
 
-    async def copy(self, source: str, target: str, *, infrequent_access: bool) -> None:
-        """Copy an object within the bucket, optionally into the Infrequent Access class."""
-        data, content_type, _ = self._objects[source]
-        self._objects[target] = (
-            data,
-            content_type,
-            "STANDARD_IA" if infrequent_access else "STANDARD",
-        )
+    async def copy(self, source: str, target: str) -> None:
+        """Copy an object within the bucket."""
+        self._objects[target] = self._objects[source]
 
     async def delete(self, *keys: str) -> None:
         """Remove objects. Missing keys are not an error."""

@@ -84,8 +84,8 @@ class ObjectStore(Protocol):
         """Store a local file. Returns the byte count stored."""
         ...
 
-    async def copy(self, source: str, target: str, *, infrequent_access: bool) -> None:
-        """Copy an object within the bucket, optionally into the Infrequent Access class."""
+    async def copy(self, source: str, target: str) -> None:
+        """Copy an object within the bucket."""
         ...
 
     async def delete(self, *keys: str) -> None:

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from types_boto3_s3 import S3Client
-    from types_boto3_s3.type_defs import CopyObjectRequestTypeDef
 
 
 class R2Store:
@@ -80,16 +79,19 @@ class R2Store:
         )
         return await asyncio.to_thread(lambda: path.stat().st_size)
 
-    async def copy(self, source: str, target: str, *, infrequent_access: bool) -> None:
-        """Copy an object within the bucket, optionally into the Infrequent Access class."""
-        params: CopyObjectRequestTypeDef = {
-            "Bucket": self._bucket,
-            "Key": target,
-            "CopySource": {"Bucket": self._bucket, "Key": source},
-        }
-        if infrequent_access:
-            params["StorageClass"] = "STANDARD_IA"
-        await asyncio.to_thread(lambda: self._client.copy_object(**params))
+    async def copy(self, source: str, target: str) -> None:
+        """Copy an object within the bucket.
+
+        No storage class is ever passed. Infrequent Access has no free tier and bills
+        operations rounded up to the next million, so one object there costs more in
+        a month than every Standard object the free tier covers.
+        """
+        await asyncio.to_thread(
+            self._client.copy_object,
+            Bucket=self._bucket,
+            Key=target,
+            CopySource={"Bucket": self._bucket, "Key": source},
+        )
 
     async def delete(self, *keys: str) -> None:
         """Remove objects. Missing keys are not an error."""

@@ -83,6 +83,11 @@ limiting.
   code in front of the assets.
 - Audio storage is Cloudflare R2, because it charges no egress and streaming
   recordings is all egress.
+- Every R2 object is in Standard storage. Infrequent Access was rejected for
+  kept originals because it has no free tier and bills operations rounded up
+  to the next million, so one object copied into it costs more in a month than
+  Standard storage of every recording. Its lower storage price cannot cover
+  that until the originals pass roughly two terabytes.
 
 ## Authentication with Clerk
 
