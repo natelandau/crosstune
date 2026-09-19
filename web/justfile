@@ -37,15 +37,32 @@ fix:
     pnpm eslint --fix .
     pnpm prettier --write .
 
-# Run the unit tests; extra args go to vitest
+# Run the unit and browser tests; extra args go to vitest
 [group('test')]
 test *args:
     pnpm vitest run {{ args }}
 
-# Run the Playwright suite against a production build; needs the API on :8000 and Clerk env
+# Run only the jsdom unit project
+[group('test')]
+test-unit *args:
+    pnpm vitest run --project unit {{ args }}
+
+# Run only the Chromium browser projects, in the detected mode and forced iOS
+[group('test')]
+test-browser *args:
+    pnpm vitest run --project browser --project browser-ios {{ args }}
+
+# Run the Playwright suite against a production build; needs the e2e API on :8000 and Clerk env
 [group('test')]
 e2e *args:
-    curl -fsS http://localhost:8000/healthz > /dev/null || { echo "API is not running on :8000 (just api::run)" >&2; exit 1; }
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fix="start one with 'just api::run-e2e'"
+    # Only a database the e2e suite owns names itself in the health response, so an API
+    # bound to anyone's development database is turned away before a fixture is written.
+    health=$(curl -fsS http://localhost:8000/healthz) || { echo "no API answers on :8000: $fix" >&2; exit 1; }
+    node -e 'process.exit(JSON.parse(process.argv[1]).database ? 0 : 1)' "$health" \
+        || { echo "the API on :8000 is not bound to the e2e database: $fix" >&2; exit 1; }
     pnpm playwright test {{ args }}
 
 # Run the dev server with the /v1 proxy
@@ -84,7 +101,7 @@ update:
 # Remove build artifacts and caches
 [group('maintenance')]
 clean:
-    rm -rf dist dev-dist coverage playwright-report test-results node_modules/.vite
+    rm -rf dist dev-dist coverage playwright-report test-results node_modules/.vite .vitest
 
 # Install dependencies, browsers, and create .env from the example if absent
 [group('maintenance')]

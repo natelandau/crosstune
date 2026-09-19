@@ -1,5 +1,5 @@
-import type { SwipeRowState } from '../components/swipe'
-import type { LocalRecordingLink, LocalSong, LocalUserSong } from '../db/types'
+import type { RecordingFile } from '../db/recordings'
+import type { LocalRecording, LocalRecordingLink, LocalSong, LocalUserSong } from '../db/types'
 
 export function songRow(id: string, title: string, extra: Partial<LocalSong> = {}): LocalSong {
   return {
@@ -68,11 +68,41 @@ export function linkRow(
   }
 }
 
-/** Swipe row state for a row that rests closed and never opens. */
-export const closedRow: SwipeRowState = {
-  open: false,
-  otherOpen: false,
-  onOpenChange: () => {},
-  onSwipeStart: () => {},
-  closeOpenRow: () => {},
+export function recordingRow(id: string, extra: Partial<LocalRecording> = {}): LocalRecording {
+  return {
+    id,
+    created_at: 't',
+    updated_at: 't',
+    deleted_at: null,
+    server_seq: 0,
+    song_id: null,
+    label: null,
+    source: 'microphone',
+    recorded_at: '2026-01-01T12:00:00.000Z',
+    position: 0,
+    state: 'ready',
+    duration_ms: null,
+    playback_mime: null,
+    playback_bytes: null,
+    error: null,
+    ...extra,
+  }
+}
+
+export function recordingFile(id: string, extra: Partial<RecordingFile> = {}): RecordingFile {
+  return {
+    id,
+    blob: null,
+    mime: null,
+    bytes: 0,
+    local_duration_ms: null,
+    local_state: 'captured',
+    error: null,
+    last_chunk_at: null,
+    song_id: null,
+    recorded_at: null,
+    next_attempt_at: null,
+    upload_attempts: 0,
+    ...extra,
+  }
 }

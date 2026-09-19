@@ -59,6 +59,32 @@ and accessibility. React Native from day one was rejected because its web output
 is a compromise and the learning load is too high at once. React was chosen over
 Svelte for its larger ecosystem and because it keeps both native paths open.
 
+## Ionic React for the interface
+
+The interface is built with Ionic React. The app must read as native on iOS
+and on Android, and as a well-made web app on a desktop. Ionic gives each
+platform its own components, page transitions, swipe-back gesture, and
+per-tab navigation stacks, and it is the toolkit Capacitor is built around.
+Above Ionic's `md` breakpoint of 768px a persistent sidebar replaces the tab
+bar, so a wide screen never shows a phone app in a browser. daisyUI, a
+component library on Tailwind, was rejected because its screens read as a
+website. The signs are a colored site header, a centered page column on a
+phone, outlined buttons, flat rows, and no transitions. A proof of concept
+built one screen both ways, and the Ionic one felt more cohesive before any
+transitions were in place. Tailwind supplies spacing and layout utilities, and
+no components. A mixed interface was also rejected. Half the screens on Ionic
+and half on daisyUI reads worse than either look alone.
+
+## Ionic's router, not TanStack Router
+
+Routing goes through `@ionic/react-router` on react-router 6. Ionic's page
+transitions, swipe-back gesture, per-tab navigation stacks, and `IonTabs`
+work with no other router. Those four are most of what makes the app feel
+native. TanStack Router was rejected, and its file-based routes and typed
+navigation are the price. Ionic's stacks are not linear browser history, so
+navigation goes only through Ionic's router. `architecture.md` lists the
+routes and the chrome each frame carries.
+
 ## Capacitor as the planned native path
 
 The path to the app stores wraps the web client with Capacitor, with a

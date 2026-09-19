@@ -1,6 +1,7 @@
 import { SignIn, useAuth } from '@clerk/react'
+import { IonSpinner } from '@ionic/react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Lockup } from '../components/Mark'
+import { Lockup } from '../ui/Mark'
 import { clearSearchQuery } from '../features/catalog/searchSession'
 import { AuthProvider } from './AuthContext'
 import { forgetUser, rememberedUser, rememberUser } from './session'
@@ -57,16 +58,20 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 function Centered({ children }: { children: ReactNode }) {
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-8 p-4">
-      {children}
-    </main>
+    // Ionic pins the body and clips ion-app, so a tall form or an open keyboard needs its own
+    // scroll container.
+    <div className="h-full overflow-y-auto">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-8 p-4">
+        {children}
+      </main>
+    </div>
   )
 }
 
 function SignInScreen() {
   return (
     <Centered>
-      <Lockup className="text-heading" />
+      <Lockup className="type-title" />
       <SignIn routing="hash" />
     </Centered>
   )
@@ -75,7 +80,9 @@ function SignInScreen() {
 function Splash() {
   return (
     <Centered>
-      <span className="loading loading-spinner loading-lg" role="status" aria-label="Loading" />
+      <div role="status" aria-label="Loading">
+        <IonSpinner />
+      </div>
     </Centered>
   )
 }

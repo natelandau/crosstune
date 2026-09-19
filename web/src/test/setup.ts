@@ -18,8 +18,8 @@ afterEach(() => {
   if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
 })
 
-// The first test in a file pays for loading the route tree and opening a database, which
-// under a loaded CPU can outlast Testing Library's one second default for findBy queries.
+// The first test in a file pays for opening a database, which under a loaded CPU can outlast
+// Testing Library's one second default for findBy queries.
 configure({ asyncUtilTimeout: 3000 })
 
 // jsdom has no layout engine, so it doesn't implement scrollTo; the router calls

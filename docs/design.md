@@ -1,144 +1,172 @@
 # Crosstune design patterns
 
-This page records how the app behaves on every screen: the words it uses,
-how it lays out a screen, what a row looks like, how gestures work, and what
-the musician sees while something loads, fails, or waits for a connection.
-A new screen follows these rules. When a rule and a screen disagree, the
-rule wins and the screen is the bug.
+This page records how the web client behaves. It covers the words it uses,
+how it lays out a screen, what a row looks like, and how gestures work. It
+also covers what the musician sees while something loads, fails, or waits for
+a connection. A new screen follows these rules. When a rule and a screen
+disagree, the rule wins and the screen is the bug.
 
-Each pattern is implemented once. The table at the end of this page,
-"Where each pattern lives", names the component for each one, so a new
-screen composes it instead of rebuilding it. The palette, the type scale,
-and the spacing scale are decided in the visual design spec in the project
-vault and encoded in the stylesheet. This page describes their effect and
-does not repeat their values.
+The client is built on Ionic React, so each platform supplies its own
+structure and each pattern below says where the two platforms differ on
+purpose. Each pattern is implemented once. The table at the end of this page,
+"Where each pattern lives", names the component for each one, so a new screen
+composes it instead of rebuilding it.
 
 ## Words in the interface
 
 - The glossary in `product.md` defines the terms and sets the two naming
   rules: song, never tune, and violin, never fiddle.
 - Every label, button, heading, and tab is sentence case. Only proper nouns
-  keep their capitals: Crosstune, YouTube, Apple Music, TIDAL.
-- A button is a bare imperative verb: Edit, Save, Cancel, Delete, Archive,
-  Rename, Select, Retry, Undo, Open. An object follows only when the target
-  is ambiguous: Add song, Add link, Create list, Delete list, Add to list,
-  Remove from song, Sync now.
+  keep their capitals: Crosstune, YouTube, Apple Music, TIDAL. The one
+  exception is the selection toolbar on `ios`, where `Select All`,
+  `Deselect All`, and `3 Selected` are copied from Apple's own edit mode.
+- A button is a bare imperative verb: Edit, Save, Cancel, Delete, Create,
+  Rename, Select, Retry, Undo, Done, Reset. An object follows only when the
+  target is ambiguous: Add song, Add songs, Add link, Add to list, Add list,
+  Delete list, Sync now.
 - A count goes into the label of anything that acts on several songs:
-  "Archive 3 songs", "Apply to 5", "Set 3 songs to Learning", "2 of 5 in
-  it". One song reads "1 song".
+  "Archive 3 songs", "Remove 3 from list", "Edit 3 songs", "2 of 5 in it".
+  One song reads "1 song".
 - A song or list title inside a message sits in straight double quotes:
   `Delete "Soldier's Joy"?`, `Add "Soldier"`, `"Soldier's Joy" is archived.`
 - Help text is one or two full sentences with a period. A label has no
   period.
-- A placeholder that gives examples is lowercase and ends in three dots:
-  `Tuesday jam, square dance set, ...`. A search placeholder is an
-  imperative with a capital: `Search songs`, `Add a song`.
-- A control that opens more interface ends in an ellipsis: `New list…`.
+- A placeholder that gives examples is lowercase and ends in an ellipsis:
+  `Tuesday jam, square dance set, …`. A search placeholder is an imperative
+  with a capital: `Search songs`.
+- A control that opens more interface ends in an ellipsis: `New list…`,
+  `Other…`.
 - The empty choice in a picker reads "Not set". In a filter it reads "All" on
-  the key rail and "Any" inside the filter sheet. In the bulk edit sheet the
-  clearing choice reads "No value", the unchanged choice for a yes or no
-  field reads "Keep", and a field whose songs differ shows "Mixed".
-- A set filter shows as a filled pill named for its value, and its remove
+  the status control and the key rail, and "Any" inside the filter sheet. In
+  the bulk edit sheet the clearing choice reads "Clear" and the unchanged
+  choice for a yes or no field reads "Keep". A field whose songs disagree
+  shows "Mixed".
+- A set filter shows as a filled capsule named for its value, and its remove
   control is named "Remove filter" and the value, so a screen reader hears
   "Remove filter Cross A (AEAE)".
 - A relative date carries its verb: "Edited today", "Edited yesterday",
   "Edited Mar 4", with the year only when it is not the current year.
-- A control that acts on one thing is named for the action and the thing,
-  so a screen reader hears "Edit Soldier's Joy", "Reorder Soldier's Joy",
-  "Play Soldier's Joy", "Open Soldier's Joy on YouTube". The visible control
-  can show only an icon, but its name always carries the title.
+- A control that acts on one thing is named for the action and the thing, so
+  a screen reader hears "Edit Soldier's Joy", "Reorder Soldier's Joy", "Open
+  Soldier's Joy on YouTube". Where the row itself is the control, its name is
+  the verb composed with the lines the row shows, so it stays true as those
+  lines change.
 
 ## Layout and chrome
 
-- Every screen's content sits in one centered column about 70 characters
-  wide, with a 16px gutter on a phone. The column is a fixed width, so the
-  text size setting scales the type and not the column. Floating controls,
-  the docked player, and the toast align to the column's right edge on a
-  wide screen, not the viewport's.
-- The app bar is sticky and painted in the chrome color. It holds the
-  lockup, the mark beside the app name, as a link home on the left, any
-  actions the current page publishes, and the sync badge on the right. The
-  song page publishes one More actions menu. In selection mode the same bar
-  becomes the selection bar in place.
-- The bottom navigation holds five slots in this order: Catalog, Lists, the
-  record button, Recordings, Settings, as five equal slots edge to edge. The
-  bar is 56px tall, plus the phone's home indicator inset below, which the
-  bar color and the current slot's fill both run down through. A tab is a
-  glyph over a short label. The current tab shows by color alone:
-  its whole slot fills with the bar's text color and its glyph and label
-  take the bar color, while the other tabs mute. There is no underline.
-  Under a mouse, a slot tints faintly on hover. The selection action bar
-  uses the same shape for its four slots.
-- The record button in the navigation and the Record button on a song page
-  are the only ways to start a recording. The song page's button files the
-  new recording under that song. The navigation button sits in the center of
-  the navigation and is the one red control on the screen. Its disc is a
-  step larger than the bar's other controls and its cap rises above the
-  bar's top edge, floating over the content that scrolls beneath it. The
-  docked player sits above the cap.
-- The record screen owns the viewport. It shows no navigation and no docked
-  player.
-- The docked player sits above the navigation in the chrome color, full
-  width on a phone and a fixed width against the column's right edge on a
-  wider screen. Floating controls and the toast move up to clear it.
-- A screen is a page heading, then sections 32px apart. Inside a section,
-  blocks sit 12px apart. A control sits 4px from the help text that explains
-  it, and help text follows its control, never precedes it.
-- An error about one control is a short red line under that control. A page
-  action started from the app bar menu reports its failure under the page
-  heading. A row action in a recording or link list reports under that list.
-  A form action started from the save bar reports its failure inside the
-  bar.
+Three axes decide the chrome. No screen asks which device it is on.
+
+| Axis    | Values           | Decides                                                      | Source                                        |
+| ------- | ---------------- | ------------------------------------------------------------ | --------------------------------------------- |
+| Mode    | `ios`, `md`      | How components look and animate                              | Ionic's own detection, never forced           |
+| Frame   | `phone`, `wide`  | Tab bar or sidebar, full width or a measured column          | Viewport width at 768px                       |
+| Pointer | `touch`, `mouse` | Swipe or hover, sheet or popover, whether shortcuts exist    | `(hover: hover) and (pointer: fine)`          |
+
+- One router and one outlet always render. `IonTabs` owns the four
+  navigation stacks, and routes are tab-scoped, so a song opened from a list
+  stays in the Lists tab and Back returns to the list. The song page is one
+  component mounted at every path that shows a song. Navigation goes only
+  through Ionic's router, never through browser history.
+- On the phone frame the tab bar holds five equal slots in this order:
+  Catalog, Lists, the record button, Recordings, Settings. A tab is a glyph
+  over a short label, and the current tab shows by color alone, which Ionic
+  draws per mode. The center slot is empty and unreachable, because the
+  record button is a dome that sits over it.
+- The record dome rises above the bar's top edge, over the page that scrolls
+  beneath it, and is the one red control on the screen. It is named "Start a
+  new recording". A recording starts from one of three controls, and all three
+  open the same modal. The dome serves the phone frame and the sidebar's
+  Record item the wide frame. A song page's Record control serves both, and it
+  alone files the recording under a song.
+- On the wide frame the tab bar is hidden rather than unmounted, and an
+  `IonSplitPane` sidebar takes its place. The sidebar holds the lockup, the
+  four destinations, a Record item, and then the sync badge, in that order. It
+  switches tabs through the hidden bar, so each stack keeps its pushed pages
+  on both frames. Content sits in a column 640px wide, set in pixels so the
+  text size setting scales the type and not the column.
+- There is no app bar lockup and no link home. The sidebar's lockup is not a
+  link.
+- `Screen` is the one page component. It renders an `IonPage`, a toolbar, a
+  scrolling content area, and the screen's landmark as `<main tabIndex={-1}>`
+  inside the column. A top-level screen opens with a large title on `ios`,
+  carries the search bar under that title, and shows the sync badge on the
+  phone frame. A pushed screen carries a back button instead. Pass `grouped`
+  for a screen made of inset groups, which takes the grouped background so
+  each group reads as a card.
+- The sync badge shows only the three states that need attention: `Offline`,
+  `Sign in again`, and `Sync failed`. Settings is where the full state is
+  read.
+- An error shows beside the control that produced it. A group's own error
+  replaces its help text in red, a row action reports under the list it acted
+  on, and a screen's actions report above the rows. Settings gives each group
+  its own action, so a refused write lands under the control that made it.
+- The player dock sits in the tab frame's bottom slot, above the tab bar, and
+  reserves its own room there, so no page ends up behind it.
+- The record screen is a modal over whatever tab is open, so finishing returns
+  the musician to where they were.
 
 ## Color, type, and icons
 
-- The palette is eight colors and nothing is derived. Light mode has no
-  grey surfaces. Rows sit flat on the page, not on cards.
-- The app bar, the bottom navigation, and the docked player share one
-  chrome color, the same slate in light and dark mode.
-- Success and info are not green and blue. They are the slate and the clay,
-  because only the status dot and the archived badge use them. Error is the
-  coral, and it marks destructive actions and the record button.
-- Type comes in named roles: timer, page heading, key line, app name, song
-  title, body, control label, metadata, small. A screen uses a role and
-  never sets a size, weight, or tracking of its own.
+- The palette carries meaning and each platform supplies its own structure.
+  Page background, grouped background, fills, separators, and secondary text
+  come from Ionic's per-mode defaults, so an iPhone gets iOS greys and
+  Android gets Material greys.
+- Four Ionic roles are set: `primary` and `success` are the blue slate in
+  light and the silver in dark, `warning` is the clay, and `danger` is the
+  coral. `primary` tints buttons, links, the current tab, and the selection.
+  `success` and `warning` are the known and learning dots. `warning` also
+  marks the archived badge and a cautionary menu item. `danger` marks the
+  record button and every destructive action.
+- Dark mode is Ionic's system palette, switched by the `ion-palette-dark`
+  class the appearance setting writes. The class and the `data-theme`
+  attribute are both stamped by the inline script in `index.html` before
+  the first paint, so there is no flash.
+- On `md` in dark mode a plain list's rows take the page color, so its
+  separators alone carry its structure, which is where Material sits a list
+  item. Inset groups keep their own lighter row, so a card still reads as a
+  card on the page behind it.
+- `src/app/theme/variables.css` is imported outside every layer, because
+  Ionic injects its component styles unlayered at runtime and a layered rule
+  loses to them whatever its specificity.
+- Type comes in named roles: title, headline, body, subheadline, footnote,
+  caption, and timer, each defined once per mode. A screen uses a role and
+  never sets a size, weight, or tracking of its own. The roles live in
+  `layer(components)`, below the utilities, so a utility still wins.
+- Ionic's own label styles sit outside every layer, so each role is applied
+  again unlayered to reach inside an `ion-label`. That rule also beats a
+  color utility on the role element. Inside an `ion-label`, put a color
+  utility on a child span rather than on the role element.
 - Numerals are tabular wherever a number can change or line up: keys,
-  tunings, time signatures, the timer, durations, positions.
+  tunings, time signatures, the timer, durations, positions, and counts.
 - The text size setting has three steps, compact, regular, and roomy, and
-  scales every size at once. Inputs never drop below 16px, so iOS does not
-  zoom on focus.
-- Appearance and text size are per device and need no account. They apply
-  before the first paint, so there is no flash. Sign-out leaves them alone.
-- Every tap target is at least 44px tall. Rows are 56px or 64px tall.
-- Every icon is hidden from assistive technology and sits inside a control
-  that carries its own name. Icons are small inline, medium on row and
-  swipe actions, and large in the bottom navigation, in the selection
-  action bar, and on the primary add controls, where the floating add
-  button takes one step more.
+  moves the root font size, which scales every role at once. Inputs never
+  drop below 16px, so iOS does not zoom on focus. iOS opts out of Dynamic
+  Type, so the in-app setting owns the root size.
+- Appearance and text size are per device and need no account. Sign-out
+  leaves them alone.
+- Every tap target is at least 44px. Ionic injects its own smaller minimum
+  unlayered, so a toolbar control, a row action, a segment button, and a
+  capsule each carry a rule that outranks it. Measure a control rather than
+  trusting the class on it.
+- Every icon comes from `lucide-react` as a named import, sized with a
+  `size-*` class, and hidden from assistive technology inside a control that
+  carries its own name.
 
 ## Identity
 
-- The mark is a geometric CT monogram. The C's top arm runs straight into
-  the T's crossbar, and the stroke changes to coral where the T begins. The
-  T is a true T with its stem centered on its crossbar.
-- Two colorways and no others. On a dark surface the C is white; on a light
-  surface the C is slate. The T is always coral. The colorway follows the
-  surface, never the brand. In the client the C takes the text color and
-  the T the `mark` color token, which is the coral the sources are drawn
-  with and does not move with `error`.
-- The app icon, the favicon, and the PWA icons use the dark colorway on the
-  slate tile. They are generated from `brand/icon-dark.svg` by
-  `just web::icons` and never edited by hand.
-- The name is set in Geist semibold in one color, the `brand` or `heading`
-  type role. It is never split or recolored by syllable.
-- A lockup is the bare mark to the left of the name, the mark as tall as
-  the capitals, with a gap of 0.4 of the cap height.
-- Inside the client the mark appears in the lockup, on the sign-in screen
-  and in the app bar. On the bar the C is white on the chrome in both
-  themes, because the bar is the same slate in both. On a phone home
-  screen the status bar above the app bar is opaque in the same slate,
-  never translucent over the page, so nothing the system draws there
-  washes out the lockup.
+- The mark is a geometric CT monogram. The C's top arm runs straight into the
+  T's crossbar, and the stroke changes to coral where the T begins.
+- Two colorways and no others. On a dark surface the C is white, and on a
+  light surface the C is slate. The T is always coral. The colorway follows
+  the surface, never the brand. In the client the C takes the text color and
+  the T the `mark` token, which does not move with `danger`.
+- A lockup is the bare mark to the left of the name, the mark as tall as the
+  capitals. Inside the client the lockup appears in two places: the sign-in
+  screen and the sidebar header.
+- The app icon, the favicon, and the PWA icons are generated from
+  `brand/icon-dark.svg` by `just web::icons` and never edited by hand.
+- The status bar takes the page background, which the client reads back from
+  the stylesheet whenever the appearance changes.
 - The sources for marketing, bare and tiled in both colorways, live in
   `brand/` at the repository root.
 
@@ -147,384 +175,468 @@ does not repeat their values.
 Everywhere the app lists songs, it uses the same row.
 
 - Line one is the title alone, truncated when long.
-- Line two holds, in this order, each part omitted when unset: the key in
-  bold tabular figures, the status dot with its label, the tunings in a
-  muted tone, and the word "Archived".
+- Line two holds four parts in this order, each omitted when unset: the key
+  in bold tabular figures, the status dot with its label, the tunings in the
+  secondary color, and the word "Archived". A screen reader hears a comma
+  between the parts.
 - Tunings appear only for instruments the musician plays, joined with a
   middle dot, violin before banjo.
 - An archived row is dimmed as a whole.
-- Tapping the row opens the song. While selecting, a tap toggles the row's
-  checkbox instead.
-- In a list, the row gains a position number on the left and a drag handle
-  on the right.
-- The catalog, list detail, the picker that adds a song to a list, the
-  picker that attaches a recording to a song, and the song headings on the
-  Recordings screen all show this row. A screen never lays out a song's
+- Tapping the row opens the song. While selecting, a tap toggles the row
+  instead.
+- In a list, the row gains a position number on the left, and a Reorder
+  button and a drag grip on the right.
+- Five places show this row: the catalog, list detail, the picker that adds
+  songs to a list, the picker that files a recording under a song, and the
+  song headings on the Recordings screen. A screen never lays out a song's
   title and key its own way.
 
 ## Keys, modes, and tunings
 
-- A row shows the key alone, never the mode. Mode and feel belong to the
-  song page and the filter bar.
+- A row shows the key alone, never the mode.
 - The song page shows the key and the mode as one line under the title:
-  "A mixolydian". Modes are lowercase everywhere, in selects, filters, and
+  "A mixolydian". Modes are lowercase everywhere, in pickers, filters, and
   badges.
-- On the song page every other facet is an outline badge, in this order:
-  violin tuning, banjo tuning, time signature, Crooked, feel, genre, part
-  structure, Lyrics. A badge appears only when the song has the value. An
-  archived song adds a warning badge last.
+- On the song page every other facet is a capsule, in this order: violin
+  tuning, banjo tuning, time signature, Crooked, feel, genre, part structure,
+  Lyrics. A capsule appears only when the song has the value. An archived
+  song adds a warning capsule last.
 - A tuning field, filter, or badge appears only for an instrument the
   musician plays. The one exception is a field that already holds a value,
   which is always shown so data never becomes unreachable. A song row is
   stricter and shows a tuning only for a played instrument.
-- Key, tuning, genre, feel, and part structure offer their suggestions as
-  chips and an Other… chip that reveals a text field, never a closed list,
-  so a musician can always type a value the suggestions lack. A typed value
-  then shows as a chip of its own. Keys are suggested with flats, not
-  sharps. A tuning suggestion reads as a name and the strings in
-  parentheses, with a lowercase letter for a drone string: "Cross A
-  (AEAE)", "Sawmill (gDGCD)".
+- Key, tuning, mode, genre, feel, time signature, and part structure are
+  picked from a list of suggestions. The list never closes the door: each one
+  offers an `Other…` choice that reveals a text field, and a typed value
+  then shows as its own option. Suggested keys are spelled with flats: A, Bb,
+  B, C, D, E, F, G. A tuning suggestion reads as a name and the strings in
+  parentheses, with a lowercase letter for a drone string: "Cross A (AEAE)",
+  "Sawmill (gDGCD)".
 - The labels "Violin tuning" and "Banjo tuning" read the same on the song
-  form, in the filter bar, and in the bulk edit sheet.
+  form, in the filter sheet, and in the bulk edit sheet.
 
 ## Status
 
-- A song is known, learning, or want to learn. The labels are "Known",
-  "Learning", and "Want to learn".
+- A song is known, learning, or want to learn, labeled "Known", "Learning",
+  and "Unknown". One word each fits the status control on a phone without
+  wrapping.
 - Status is never shown as color alone. Where a dot appears, its label
   appears beside it. Known is a filled dot in the success color, learning a
-  filled dot in the info color, and want to learn a hollow ring.
-- The dot and label pair appears in song rows and in the bulk status sheet.
-  The status filter, the status picker on the song form, and the bulk edit
-  select show the label alone.
+  filled dot in the warning color, and want to learn a hollow ring.
+- The dot and label pair appears in song rows. Everywhere else status is the
+  label alone. It is a segmented control on the song page and the song form,
+  a select in the bulk edit sheet, a segment in the catalog filters, and a
+  menu of three items for a bulk change.
 - A status value the app does not recognize shows as want to learn.
 
 ## Search and create
 
-Every box that searches songs also offers to create one, with the same
-rules in the catalog, in the picker that adds a song to a list, and in the
-picker that attaches a recording to a song.
+Every box that searches songs also offers to create one. The rules are the
+same in the catalog, in the picker that adds songs to a list, and in the
+picker that files a recording under a song.
 
 - A non-empty query always shows an add row under the results, labeled
-  `Add "query"`. Titles are not unique, because different songs share a
-  name, so an exact match never hides the offer. When a song already
-  carries the title the row reads `Add another "query"`.
-- When the exact match exists but is hidden by the archived toggle or a
-  filter, a note names it with an Open link before the add row:
-  `"Soldier's Joy" is archived.` or `"Soldier's Joy" is hidden by your
-filters.`
-- Enter opens the only visible result, or the hidden exact match when
-  nothing is visible, or creates when nothing matches anywhere. With two or
-  more results Enter only closes the keyboard. Enter never creates a song
-  whose title already exists. That takes a deliberate tap.
+  `Add "query"`. Titles are not unique, because different songs share a name,
+  so an exact match never hides the offer. When a song already carries the
+  title the row reads `Add another "query"`.
+- When the exact match exists but is hidden by the archived setting or a
+  filter, a note names it with an Open link before the add row. The note
+  reads `"Soldier's Joy" is archived.` or
+  `"Soldier's Joy" is hidden by your filters.`
+- Enter opens the only visible result, or the hidden exact match when nothing
+  is visible, or creates when nothing matches anywhere. With two or more
+  results Enter only closes the keyboard. Enter never creates a song whose
+  title already exists. That takes a deliberate tap.
 - The add row carries the typed title into the new song form, so nothing is
   retyped. From a picker it also carries the list or the recording, so the
   saved song is added to the list or holds the recording.
 - A picker never hides a song it cannot offer. A song already in the list
-  stays in the results, dimmed and marked "In this list", so an exact match
-  is never mistaken for a missing song. Enter on it does nothing.
-- The search box's placeholder reads "Search songs", the phone keyboard's
-  return key reads Search, and a clear button inside the box empties the
-  text and keeps focus there.
-- The catalog query lasts for the visit. It survives opening a song and
-  coming back. A new launch, a new tab, opening the new song form, and
+  stays in the results, marked "In this list", so an exact match is never
+  mistaken for a missing song. A tap on it does nothing.
+- A picker searches archived songs too, and an archived row says so in its
+  name.
+- The search field is named for what it searches, and its placeholder
+  repeats that name. The phone keyboard's return key reads Search, and a
+  clear button named "Clear search" appears while the field has focus.
+- The catalog query lasts for the browser session. It survives opening a song
+  and coming back. A new tab, a new session, opening the new song form, and
   sign-out all clear it. Filters persist. Free text does not.
-- Clearing a filter never touches the query. Status and key clear from
-  their own All chips, a sheet filter from its pill or the sheet's Reset.
+- Clearing a filter never touches the query.
 
 ## Filters
 
-Only the catalog has a filter bar.
+Only the catalog has filters.
 
-- Row one is the search field beside the Filters button. The button carries
-  a count of the filters set inside the sheet, and its name reads "Filters,
-  2 set", because filters persist between visits and a stale one must
-  announce itself.
-- Row two is the status group: All, Known, Learning, Want to learn, with
-  the pressed one filled.
-- Row three is the key rail: All, then every key the catalog holds, as
-  chips in one scrolling row that fades at its right edge. One tap sets a
-  key, a tap on All or on the pressed key clears it. The rail appears only
-  when the catalog holds keys.
-- Mode, violin tuning, banjo tuning, genre, and Show archived live in the
-  filter sheet, in that order, each facet as a chip group whose first chip
-  is Any. A facet appears only when the catalog holds values for it, and a
-  tuning only when the musician also plays that instrument. A hidden facet
-  can never narrow the catalog in silence.
-- Every tap in the sheet applies at once, and the first line of the sheet's
-  body, under its title, is the live count in the same words as the count
-  row. Reset clears the sheet's filters and nothing else. Done closes it.
-- A set sheet filter also shows under the key rail as a filled pill with a
-  remove control. Show archived reads "Archived shown".
-- Under the filters a count row reads "84 songs", or "11 of 84 songs" while
-  anything narrows the list, and holds the Select button at its right edge.
-  The row is absent while the catalog is empty.
+- The catalog's toolbar holds Filters and Add song, plus More actions while a
+  song is visible. The Filters control carries a count of the filters set
+  inside the sheet, and its name reads "Filters, 2 set", because filters
+  persist between visits and a stale one must announce itself.
+- The search field sits under the large title on `ios` and in the toolbar on
+  `md`.
+- Under the search comes the status segment: All, Known, Learning, Unknown.
+- Then the key rail: All, then every key the catalog holds, as capsules in
+  one scrolling row that fades at its end while there is more to scroll to.
+  One tap sets a key, a tap on All or on the pressed key clears it. The rail
+  appears only when the catalog holds keys.
+- Then a row of filled capsules, one per filter set inside the sheet, each
+  removable. Show archived reads "Archived shown".
+- Mode, violin tuning, banjo tuning, and genre live in the filter sheet as
+  select rows, in that order, each offering Any first, with Show archived as
+  a toggle below them. A facet appears only when the catalog holds values for
+  it, and a tuning only when the musician also plays that instrument. A
+  hidden facet is cleared by every write, so it can never narrow the catalog
+  in silence. A value the catalog no longer holds still gets an option of its
+  own, so a stale filter never reads as Any.
+- Every choice in the sheet applies at once. The first line of the sheet is
+  the live count, in the same words as the count under the list, and a
+  footnote under the toggle counts the archived songs. Reset clears the
+  sheet's filters and nothing else. Done closes it.
+- Under the list a count reads "84 songs", or "11 of 84 songs" while anything
+  narrows it. The count is absent while the catalog holds no songs at all.
 - Matching ignores case and accents.
-- Catalog filters persist and come back on the next launch. List screens
-  have their own Show archived setting, off by default, shared by every
-  list and untouched by the catalog.
+- Catalog filters persist and come back on the next launch. List screens have
+  their own Show archived setting, off by default, shared by every list and
+  untouched by the catalog.
 
 ## Gestures
 
-Every gesture has a visible equivalent. Swipe actions also exist as buttons
-on the song page, long press has the Select button, and drag has the move
-menu.
+Every gesture has a visible equivalent. Swipe actions also exist as hover
+buttons and as menu items, long press has the Select item, and drag has the
+move menu.
 
-- A list row swipes left to reveal one to three actions as icon buttons.
-  Each action has a tone: neutral, warning, or error.
-- With a mouse the same actions show as visible icon buttons at the row's
-  right edge, because nothing hints that a row swipes.
+- On touch a row swipes left to reveal one to three actions as full-height
+  buttons filled with their tone: neutral, warning, or error. Running an
+  action closes the row it ran on.
+- On a mouse the same actions are icon buttons laid over the row's trailing
+  edge, shown on hover and on keyboard focus, because nothing hints that a
+  row swipes. They keep their place in the tab order at all times.
 - A full swipe only opens the row. It never runs an action, so no swipe is
   ever destructive.
-- One row is open per screen. A scroll closes it. While a row is open, a
-  tap on any row only closes it and does not open the song.
-- These lists swipe, with their actions in order:
+- These lists carry actions, in this order:
 
-| List            | Actions                                                                     |
-| --------------- | --------------------------------------------------------------------------- |
-| Catalog songs   | Edit (neutral), Archive or Unarchive (warning)                              |
-| List songs      | Edit (neutral), Remove (error)                                              |
-| Lists           | Edit (neutral), Delete (error)                                              |
-| Recordings      | Rename (neutral), Add to song or Remove from song (warning), Delete (error) |
-| Recording links | Remove (error)                                                              |
+| List                    | Actions                                                                     |
+| ----------------------- | --------------------------------------------------------------------------- |
+| Catalog songs           | Edit (neutral), Archive or Unarchive (warning)                              |
+| List songs              | Edit (neutral), Remove (error)                                              |
+| Lists                   | Edit (neutral), Delete (error)                                              |
+| Recordings              | Rename (neutral), Add to song or Remove from song (warning), Delete (error) |
+| Links                   | Remove (error)                                                              |
+| Lists on the song page  | Remove (error)                                                              |
 
-- Edit on a song row opens the song page in edit mode, and Save or Cancel
-  returns to the screen the musician came from.
-- Long press exists only on song rows and only to enter selection mode with
-  that row selected. It takes half a second, a swipe or a scroll never
-  counts as one, and the phone vibrates briefly where it can.
-- Reordering in a list uses a grip handle at the row's right edge. A tap,
-  a click, Enter, or Space on the handle opens a menu with Move to top,
-  Move up, Move down, and Move to bottom, so reordering never needs a drag.
-  After any move a screen reader hears the new position.
-- Swipe is off while selecting, and every row rests closed.
+- Edit on a song row opens the song form as a sheet over the screen the
+  musician is on. Cancel and Save both return to that screen.
+- A press held for half a second on a song row enters selection mode with
+  that row selected. It is wired on touch alone, because a mouse has the
+  Select item instead. A movement of more than 10px cancels the hold, so a
+  swipe or a scroll never counts as one, and the phone vibrates briefly where
+  it can.
+- Reordering a list uses `IonReorderGroup`. Each row carries two trailing
+  controls, because `ion-reorder` swallows every click inside it. The first
+  is a `Reorder <title>` button, which opens a move menu with Move to top,
+  Move up, Move down, and Move to bottom. Each item appears only where it
+  applies. The second is a grip that only drags, unnamed because dragging is
+  not a control a screen reader can offer. The grip comes last so that it
+  keeps the row's trailing edge, which is where a drag looks for it. After a
+  move a live region says where the song landed.
+- Both controls appear only while the list holds more than one visible song.
+- Reordering stops while selecting, because a drag and a multi-select cannot
+  share one touch gesture. A selecting row also carries no swipe actions at
+  all.
+- On `ios` a pushed page swipes back, Ionic's own gesture.
+- On a mouse, `/` focuses the search field, the arrow keys walk the rows,
+  Enter opens the focused row, Escape leaves selection mode, and Cmd-A or
+  Ctrl-A selects all. A shortcut stands down while a text field or an overlay
+  holds the keyboard.
 
 ## Selection and bulk actions
 
-The catalog and list detail share one selection mode.
+The catalog and list detail share one selection mode. It is component state,
+not a URL, so a link can never enter it.
 
-- The musician enters with the Select button or a long press on a row, and
-  leaves with the Cancel selection button in the app bar, Escape, Back, or
-  by completing any action. Android Back and browser Back leave the mode
-  before they leave the screen.
-- The app bar becomes the selection bar: Cancel selection on the left, "N
-  selected" in the middle, Select all or Deselect all on the right.
-- The bottom navigation becomes the action bar with four fixed slots in
-  this order on every screen: Status, Edit, Add to list, More, each a
-  glyph over its label like a tab. More holds Archive, Unarchive, and on
-  a list Remove from list, each with its count.
-  A slot with nothing selected dims and does not vanish.
-- The selection holds only visible songs. A song hidden by search, a
-  filter, or the archived toggle leaves the selection, so an action never
-  touches a song the musician cannot see. Select all means every song in
-  the current view.
-- Every action applies at once, ends selection mode, and shows a toast with
-  Undo. There is no confirm. Cancelling a sheet keeps the selection.
-- Shift-click extends the selection from the last toggled row. Ctrl-A or
-  Cmd-A selects all when focus is not in a text field.
-- Focus moves to a row's checkbox on entering and returns to the Select
-  button on leaving.
-- The Edit sheet shows each field's shared value, "Mixed", or empty, and
-  marks a field "will change" or "will clear" when the musician edits it.
-  Only marked fields are saved. Title, alternate titles, and notes are
-  never bulk editable.
-- A field with a vocabulary is a chip group like the song form's, with the
-  same suggestions and Other… chip. Its chips show only the pending change:
-  no chip filled keeps every song as it is, the shared value or "Mixed"
-  reads in the field's legend, and a trailing "No value" chip clears the
-  field. Status has no "No value" chip. A tap that lands on the shared
-  value is no change. Crooked and Has lyrics stay Keep, Yes, No; Learned
-  from and Learned on stay a text and a date field, where emptying the
-  field clears it.
+- The musician enters with `Select`, the first item of the `More actions`
+  menu, on both screens, or with a long press on a row. The catalog offers
+  Select only while a song is visible.
+- Each row's own control becomes its checkbox, carrying `role="checkbox"` and
+  `aria-checked`, and a check mark appears on the leading edge as inert
+  decoration.
+- The chrome is the one place the two platforms diverge on purpose, because
+  edit mode is a strong convention on each and the two disagree.
+
+|             | `ios`                             | `md`, phone and wide                     |
+| ----------- | --------------------------------- | ---------------------------------------- |
+| Leading     | `Select All` or `Deselect All`    | `Cancel selection`                       |
+| Title       | `3 Selected`                      | `3 selected`                             |
+| Trailing    | `Done`                            | Status, Edit, Add to list, More actions  |
+| Actions     | a footer toolbar of text buttons  | the toolbar itself                       |
+| Tab bar     | hidden                            | stays                                    |
+
+- On `md`, Select all and Deselect all live in the More actions menu, which
+  stays live at zero selected because the mode always opens there.
+- The count is a digit beside a word that can elide, so a bar with no room
+  drops the word and never a digit. A screen wearing the selection toolbar
+  shows no back button, because its exit control takes that place.
+- The selection holds only visible songs. A song hidden by search, a filter,
+  or the archived setting leaves the selection, so an action never touches a
+  song the musician cannot see. Select all means every song in the current
+  view.
+- Every action applies at once, ends the mode, and raises a toast with Undo.
+  There is no confirmation, because a confirmation gets clicked through and
+  leaves no way back. A failed write keeps both the mode and the selection.
+  Cancelling a sheet keeps the selection.
+- The musician leaves with the toolbar's own exit control, Escape on a mouse,
+  leaving the screen, or by completing any action, plus, on a native build,
+  the Android hardware back button. The back button is registered below
+  Ionic's overlays and above its router, so Back closes a sheet, then leaves
+  selection, then leaves the screen.
+- Shift-click extends the selection from the last toggled row. Cmd-A or
+  Ctrl-A selects all and never clears it, because the one key that means
+  everything must not also mean nothing.
+- Focus moves to a row's checkbox on entering, the held row or the first one.
+  On leaving it returns to the control the mode opened from, or to the
+  screen's landmark when that control has gone.
+- Status opens a menu of the three statuses. Add to list opens the same list
+  picker the song page uses. The overflow holds Archive and Unarchive, and on
+  a list Remove from list, each counting only the songs it will change. It is
+  named `More actions` in the `md` toolbar and `More` in the `ios` footer.
+- Bulk edit is the song form's own Details list over many songs: Status, Key,
+  a group per visible tuning, then the details. Each row reads the value
+  every selected song shares, `Not set` when they are all empty, or `Mixed`
+  when they disagree. Only a row the musician touches is written, and Save
+  stays dead until one is. A choice row clears through its own Clear option,
+  and a yes or no row keeps every song as it is through Keep. Status has no
+  empty choice at all, because a status cannot be cleared. `Other…` here
+  keeps the current value rather than clearing it, because clearing has its
+  own option.
+- Title, alternate titles, and notes are never bulk editable.
 
 ## Forms
 
-- The song form serves both new and edit and ranks its fields by how often
-  a musician touches them. Title, status, key, one tuning per visible
-  instrument, and notes come first with full controls. Then a Details list
-  gives one line each, in this order, to also known as, mode, genre, time
-  signature, feel, parts, crooked, has lyrics, learned from, and learned
-  on. A line shows its value or "Not set", and a tap opens a picker sheet
-  or a text sheet for it. Crooked and has lyrics are switches in the line,
-  and learned on is a date field in the line. The bulk edit sheet keeps its
-  own order.
+Every form is a sheet, or a centered dialog on a mouse frame. There is no
+form route and no save bar.
+
+- The actions live in the sheet's toolbar: `Cancel` leads, and a bold
+  primary action trails, named for what it does: Save, Add, Create, Add link,
+  Done. The filter sheet leads with Reset instead, and a sheet whose rows are
+  the actions carries Cancel alone.
+- Fields are inset groups. The group header names the field, help text is the
+  footer, and a validation message replaces that footer in red.
+- The song form serves both new and edit and ranks its fields by how often a
+  musician touches them: Title, Status, Key, one tuning per visible
+  instrument, and Notes come first, each in its own group. Then a Details
+  list gives one row each, in this order, to Also known as, Mode, Genre, Time
+  signature, Feel, Parts, Crooked, Has lyrics, Learned from, and Learned on.
+  A detail row is an inline select, input, toggle, or date row, so no sheet
+  stacks on the song form.
 - Only the title is required. The one validation message is "A title is
-  required", shown under the title field on submit, and the title field
-  takes focus. Every other limit is a length cap the field enforces as the
-  musician types, so there is nothing else to reject.
-- Each field in a multi-field form has a visible label. A single-input
-  form whose title or placeholder states its purpose, such as a rename
-  sheet or the create list row, needs no separate label.
-- A select's empty choice reads "Not set". Free text with a vocabulary
-  offers suggestions and accepts anything.
-- The tuning fields to show are decided when the form opens, so a field
-  never disappears mid-edit.
-- In a page form the actions sit in a bar fixed above the navigation and
-  the player, so Save is reachable without scrolling: the primary action
-  comes first and takes the remaining width, with Cancel beside it. In a
-  sheet, Cancel is on the left and the primary action on the right, both
-  the same width. A sheet whose rows are the actions has only a full-width
-  Cancel at the bottom.
-- The submit button is disabled while the write is pending and, where the
-  form cannot succeed yet, until it can: the link form until the URL is
-  valid, the bulk edit sheet until a field is touched.
+  required", shown under the title group on submit, and the title field takes
+  focus. Every other limit is a length cap the field enforces as the musician
+  types, so there is nothing else to reject.
+- The tuning fields to show are decided when the form opens, so a field never
+  disappears mid-edit.
+- The primary action is disabled while the write is pending. Where the form
+  cannot succeed yet, it stays disabled until it can: the bulk edit sheet
+  until a row is touched, the list picker's Create until a name is typed.
+- Five sheets refuse a backdrop tap and a drag down: the song form, the list
+  name sheet, the rename recording sheet, the paste link sheet, and the
+  first-run question. Cancel is the way out of the first four. The filter
+  sheet, the pickers, and the bulk edit sheet do dismiss that way, and each of
+  them closes through its dismissal rather than around it. Any sheet refuses
+  while its own write is pending.
 - Toggling a setting saves it at once. There is no Save button on the
   settings screen.
 
 ## Sheets, menus, confirmations, and toasts
 
-- A sheet slides up from the bottom on a phone and is a centered dialog on
-  a wider screen. It has a title, traps focus, closes on a backdrop tap or
-  Escape, and returns focus to where it was.
-- A menu is a native popover anchored to its button. It opens over the page,
-  never clipped by the row it belongs to, focus lands on its first enabled
-  item, the arrow keys move focus between items, and Escape or a tap outside
-  closes it and returns focus to the button.
-- The song page's actions, Edit, Add to list, Archive or Unarchive, and
-  Delete, live in a More actions menu in the app bar. Delete follows a
-  divider and is red.
-- The song page's Lists section shows each list the song is in as a pill
-  with a remove control named "Remove from" and the list, beside an Add to
-  list button that opens the shared list picker.
-- The one sheet that cannot be dismissed is the first-run question "Which
-  instruments do you play?". It opens once the first clean sync of a
-  session finds no saved answer, never over the record screen and never in
-  an offline session, and Done saves whatever is checked, even nothing.
-- A destructive action confirms with the browser's own confirm dialog,
-  never a custom one. The message names the consequence and warns when
-  data cannot be recovered: `Delete "Soldier's Joy"? This removes its
-links, list entries, and 3 recordings. Some recordings have not uploaded,
-so they cannot be recovered.` A recording that has uploaded reads `It is
-removed from every device.` instead.
-- The exception is a bulk action, which applies at once with Undo in a
-  toast, because a confirm gets clicked through and leaves no way back.
-- A destructive button is an outlined red button. Inside a menu, a
-  destructive item is red and a cautionary one is the warning color.
+Each of these follows the pointer, and each is implemented once.
+
+- A sheet is a bottom sheet with a grabber on touch, opening part way and
+  dragging to full, and a centered dialog 480px wide on a mouse. It has a
+  title, which also names the dialog, because Ionic does not read the toolbar
+  title. A title that counts what is selected stays in step with the count.
+- A menu is an action sheet on touch and a popover anchored to its button on
+  a mouse. A destructive item is red and follows a separator, and a
+  cautionary one takes the warning color. The action sheet adds its own
+  Cancel.
+- The song page's toolbar holds Edit and a More actions menu of Add to list,
+  Archive or Unarchive, and Delete.
+- The song page's Lists group shows each list the song is in as a row. The
+  row opens the list and carries a Remove action. An "Add to list" row below
+  them opens the shared list picker.
+- A destructive action confirms through the app's own overlay, which follows
+  the pointer: an action sheet from the bottom on touch, an alert on a mouse.
+  It resolves true only for the named action, so a backdrop tap, Escape, and
+  Cancel all mean no. The confirming button is the bare verb.
+- The message names the consequence and warns when data cannot be recovered.
+  Deleting a song reads
+  `Delete "Soldier's Joy"? This removes its links and list entries.`, which
+  grows to name the recordings it takes with it, and gains
+  `Some recordings have not uploaded, so they cannot be recovered.` when one
+  of them has not. Deleting a recording reads
+  `It is removed from every device.`, or
+  `It has not been uploaded, so this cannot be undone.` Deleting a list reads
+  `Its songs stay in the catalog.`
+- A bulk action is the exception, and applies at once with Undo in a toast.
 - A toast is for an action that offers Undo, and for the rare error that
   arrives after the musician has left the screen. Every other error shows
   inline beside the control that failed.
-- One toast at a time. A new one replaces the old and drops its Undo. It
-  sits above the navigation and the player, stays about eight seconds,
-  pauses while hovered or focused, and is announced without taking focus.
+- One toast at a time, from one provider mounted in the shell. A new one
+  replaces the old. It stays about eight seconds. On the phone frame it
+  anchors to the tab bar, so a message raised by the action that ended
+  selection mode waits for the bar to come back rather than landing on top of
+  it. The wide frame has no tab bar, so the toast takes the bottom of the
+  page and waits for nothing.
+- The first-run question "Which instruments do you play?" has no Cancel at
+  all, so answering it is the only way out. It opens once the first clean sync
+  of a session finds no saved answer, never over the record screen and never
+  in an offline session. Done saves whatever is checked, even nothing.
 
 ## Recording and link rows
 
 Recordings and links share one row shape.
 
-- The row has a fixed glyph slot on the left. For a recording the slot
-  holds play, stop, a spinner, or a download cloud. For a link it holds the
-  artwork or a badge with the provider's first letter.
-- The row itself is the control. Tapping a recording plays it if the audio
-  is on the device and downloads it if not. Tapping a link plays it in the
-  docked player when the provider can be embedded.
-- A recording's title is its label, then its song's title, then
-  "Recording," with the date and time. Its second line is duration, then
-  status or the recorded time, then size, joined with middle dots. A third
-  red line carries an upload or download error, with a Retry button at the
-  right edge.
+- The row has a fixed glyph slot on the left, at the row's tap height. For a
+  recording the slot holds play, stop, a spinner, or a download cloud. For a
+  link it holds play or stop when the provider can be embedded, and nothing
+  when it cannot.
+- The row itself is the control. Tapping a recording plays it when the audio
+  is on the device and downloads it when it is not. Tapping a link plays it
+  in the dock when the provider can be embedded. A link that cannot be
+  embedded does not open at all, and its trailing control opens the provider.
+- A recording's title is its own label, then the song's title, then
+  "Recording," with the date and time. In a list that already heads the
+  recording's group with that song, the song is skipped, so a row never
+  repeats the heading above it.
+- Its second line joins four parts with middle dots: the duration, the
+  status word or the recorded time, the count of failed uploads, and how much
+  of the quota is spent when a full one blocked it. A download offered while
+  offline reads the duration and "Offline" instead.
+- A third red line carries an upload or download error, with a Retry button
+  at the row's trailing edge.
 - Status words are Recording, Waiting to upload, Uploading, Storage full,
   Upload failed, Downloading, Processing, and Couldn't process. A recording
-  that needs nothing from the musician shows no status. A recording whose
-  upload has failed and is waiting to try again adds the count, "3 failed
-  tries", keeps the last error on the red line, and offers Retry, which
-  tries again at once instead of after the backoff.
+  that needs nothing from the musician shows when it was made instead. A
+  recording whose upload has failed and is waiting to try again adds the
+  count, "3 failed tries", and offers Retry, which tries again at once
+  instead of after the backoff.
 - Durations read `m:ss`. Sizes truncate rather than round, so a size never
   overstates.
-- A link's second line is its optional label. Its right-hand control opens
-  the provider's app or site and is named for the provider: "Open Soldier's
-  Joy on YouTube".
-- On the Recordings screen, recordings group under their song with the song
-  row as the heading, unfiled recordings first under "Unfiled".
-- The docked player opens only from a Play tap. Opening a song never loads
-  a player. At most one recording is loaded, and it stays loaded while the
-  musician browses.
+- A link's title is what the provider resolved it to, then the label the
+  musician typed, then its host. Its second line is that label, unless the
+  label is already the title, and the provider's name. Its trailing control
+  opens the provider's app or site and is named for the provider: "Open
+  Soldier's Joy on YouTube".
+- On the Recordings screen, recordings group under their song. The group is
+  headed by the song's own row where the catalog holds the song, and by a
+  plain header otherwise. Unfiled recordings head their group with "Unfiled".
+- The dock opens only from a play tap. Opening a song never loads a player.
+  At most one item is loaded, and it stays loaded while the musician browses.
+  Starting a recording closes it.
+- The record screen is a modal with a status line, a live waveform, a timer,
+  a round red Stop, and Cancel below it. A live recording refuses a swipe
+  dismissal, so Stop and Cancel are the ways out, and Cancel confirms before
+  it discards anything captured.
 
 ## Empty, loading, sync, and offline states
 
-- An empty list shows a centered title, an optional hint, and an optional
-  action. Titles in use: "No songs yet" with the hint "Add the first song
-  you know.", "Nothing matches", `No song called "query"`, "No lists yet",
-  "Nothing in this list", "Every song here is archived", "This song is
-  gone", "This list is gone", "No recordings yet".
-  Inside a section, such as the recordings on a song page, the empty state
-  is compact so the section's controls stay in reach.
-- Loading is silence, not a spinner. A screen shows nothing until its data
-  is ready. The only spinners are the sign-in splash, a downloading
-  recording row, and the syncing badge.
-- The sync badge in the app bar reads Synced, Syncing, Offline, Sign in
-  again, or Sync failed. Synced and Syncing are quiet outlines. Offline is
-  a warning fill. Sign in again and Sync failed are error fills. Only a
-  state that needs attention takes a fill.
-- Offline, a control that needs the network refuses rather than disables.
-  It keeps its name and its focus, dims, and does nothing when pressed.
-- The docked player says "Offline", "Couldn't download", "Downloading", or
-  "Not available", with an inline Retry.
-- Settings shows the sync status, the recordings transfer status (Up to
-  date, Transferring, Offline, Transfer failed), a count of changes the
-  server rejected, and a Sync now button. A failed fetch while the browser
-  reports a connection is a transfer failure, not offline, because the
-  storage host or a blocked origin refused. Sign out is disabled offline with the help text
-  "Sign out needs a connection."
-- A remembered musician is admitted offline after a five second grace
-  period, and Settings then reads "Signed in (offline)".
+- An empty list shows an icon, a title, an optional hint, and an optional
+  action. Titles in use: "No songs yet" with the hint "Add the first song you
+  know.", "Nothing matches", `No song called "query"`, "No lists yet",
+  "Nothing in this list", "Every song here is archived", "This song is gone",
+  "This list is gone", "No recordings yet", and, inside a section on the song
+  page, the compact "Nothing recorded yet".
+- Loading is silence, not a spinner. A screen renders its one page in every
+  state and shows nothing in the body until its data is read. Swapping the
+  page element after the outlet has mounted it leaves the outlet holding a
+  detached page. The only spinners are the sign-in splash and a downloading
+  recording row.
+- The sync badge shows `Offline`, `Sign in again`, and `Sync failed`, and
+  says nothing while a sync is clean or running. It sits at the leading edge
+  of a top-level toolbar on the phone frame, and last in the sidebar on the
+  wide frame.
+- Settings shows the full state: the sync status (Synced, Syncing, Offline,
+  Sign in again, Sync failed), the recordings transfer status (Up to date,
+  Transferring, Offline, Transfer failed), a count of changes the server
+  rejected, and a Sync now button.
+- Pull to refresh on Catalog, Lists, and Recordings runs a sync on touch.
+  Sync now in Settings is its visible equivalent.
+- Offline, a control that needs the network refuses rather than disables. The
+  download row keeps its name and its tap, dims, and says Offline on its meta
+  line. Sign out is the one control that is disabled instead, with the help
+  text "Sign out needs a connection.". The session cannot be ended without a
+  connection, and the local catalog must not be deleted while the session it
+  belongs to is open.
+- The dock says "Offline", "Couldn't download", "Downloading", or "Not
+  available", with an inline Retry once a download has failed and the device
+  is online again.
+- A remembered musician is admitted offline once the browser reports no
+  connection, or after a five second grace period, and the account row then
+  reads "Signed in (offline)".
 
 ## Motion
 
-- Movement uses one emphasized easing curve. Fades ease out.
-- Under reduced motion, colors and opacity still fade and nothing moves or
-  scales.
-- A swipe row snaps in a fifth of a second. A sheet slides up in about half
-  a second. Entering selection mode animates the bars, the checkbox slots,
-  and the row tints, with a short stagger down the first few rows.
-- State never waits for an animation. A tap during a checkbox slide still
-  toggles the row.
+- Page transitions and swipe-back are Ionic's per-mode defaults, unmodified.
+  On the wide frame they are off, and the pane swaps in place.
+- Sheets, modals, menus, alerts, and toasts use Ionic's own presentation.
+- The app's own motion is two things: the record dome scales down while
+  pressed, and the waveform on the record screen scrolls as it draws.
+- Under reduced motion the dome does not scale and the waveform updates fixed
+  bars in place.
 
 ## Where each pattern lives
 
-Paths are relative to `web/src/`, except one written as `../index.html`,
-which sits beside it in `web/`. A new screen composes the component in the
-right column instead of rebuilding the pattern.
+Paths are relative to `web/`. A new screen composes the component in the right
+column instead of rebuilding the pattern.
 
-| Pattern                                   | Implemented in                                                                                                                           |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Song count wording                        | `features/selection/copy.ts`, and the catalog's count row in `features/catalog/filters.ts` (`songCountLabel`)                            |
-| Relative date wording                     | `features/lists/editedLabel.ts`                                                                                                          |
-| Column, app bar, navigation, main region  | `components/RootLayout.tsx`, `components/AppBar.tsx`, `components/Dock.tsx`                                                              |
-| Page actions in the app bar               | `components/pageChrome.ts`, `components/ActionMenu.tsx`                                                                                  |
-| Record button                             | `features/recording/RecordButton.tsx`                                                                                                    |
-| Docked player                             | `features/player/PlayerDock.tsx`                                                                                                         |
-| Page heading, sections, fields, help text | `components/Page.tsx`                                                                                                                    |
-| Palette, type roles, spacing, motion      | `app.css`                                                                                                                                |
-| The mark and the sign-in lockup           | `components/Mark.tsx` (`Mark`, `Lockup`); sources in `brand/` at the root                                                                |
-| Appearance and text size setting          | `features/settings/appearance.ts`, the inline script in `../index.html`                                                                  |
-| Song row                                  | `features/catalog/SongCard.tsx` inside `features/catalog/SongRow.tsx`                                                                    |
-| Status dot and labels                     | `features/catalog/StatusDot.tsx`                                                                                                         |
-| Key and mode line, facet badges           | `features/song/SongDetail.tsx`                                                                                                           |
-| Lists on the song page                    | `features/song/SongLists.tsx`                                                                                                            |
-| Which tunings to show                     | `features/settings/instruments.ts`                                                                                                       |
-| Instrument checkboxes, first-run question | `features/settings/InstrumentPicker.tsx`, `features/settings/FirstRunInstruments.tsx`                                                    |
-| Suggestion vocabularies                   | `features/song/suggestions.ts`                                                                                                           |
-| Search or create                          | `features/catalog/searchIntent.ts`, `features/catalog/SearchSuggestion.tsx`                                                              |
-| Song search picker                        | `features/catalog/SongSearchPicker.tsx`                                                                                                  |
-| Catalog query for the visit               | `features/catalog/searchSession.ts`                                                                                                      |
-| Filter bar and filter rules               | `features/catalog/FilterBar.tsx`, `features/catalog/FilterSheet.tsx`, `features/catalog/filters.ts`                                      |
-| Filter sheet                              | `features/catalog/FilterSheet.tsx`                                                                                                       |
-| Show archived toggle                      | `features/catalog/ShowArchivedToggle.tsx`                                                                                                |
-| Swipe row and actions                     | `components/SwipeRow.tsx`, `components/swipe.ts`                                                                                         |
-| Long press                                | `components/useLongPress.ts`                                                                                                             |
-| Reorder handle and move menu              | `features/lists/ReorderHandle.tsx`                                                                                                       |
-| Selection mode, bars, sheets              | `features/selection/`, `editMode.ts`                                                                                                     |
-| Choice chips and their label              | `ChoiceChips` and `ChipsField` in `components/ChoiceChips.tsx`                                                                           |
-| Picker and text sheets                    | `components/PickerSheet.tsx`                                                                                                             |
-| Detail, switch, and date rows             | `components/DetailRow.tsx`                                                                                                               |
-| Fixed save bar                            | `components/SaveBar.tsx`                                                                                                                 |
-| Song form and its limits                  | `features/song/SongForm.tsx`, `features/song/limits.ts`                                                                                  |
-| Song form detail fields                   | `features/song/detailFields.ts`                                                                                                          |
-| Menu                                      | `components/PopoverMenu.tsx`, the app bar menu in `components/ActionMenu.tsx`, the dock's More in `features/selection/BulkActionBar.tsx` |
-| Sheet                                     | `components/Sheet.tsx`                                                                                                                   |
-| Toast                                     | `components/Toast.tsx`                                                                                                                   |
-| Inline error under a control              | `components/useAction.ts`, `ErrorText` in `components/Page.tsx`                                                                          |
-| Recording and link rows                   | `features/recordings/RecordingRow.tsx`, `features/links/LinkRow.tsx`, `features/player/rowGlyphs.tsx`                                    |
-| Recording status words                    | `features/recording/format.ts`                                                                                                           |
-| Empty state                               | `components/EmptyState.tsx`                                                                                                              |
-| Sync badge                                | `components/SyncIndicator.tsx`                                                                                                           |
+| Pattern                                   | Implemented in                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| Mode, frame, and pointer                  | `src/platform/mode.ts`, `src/platform/frame.ts`, `src/platform/pointer.ts`                        |
+| Router, outlet, and the two frames        | `src/app/Shell.tsx`, `src/app/routes.tsx`, `src/app/tabs.ts`                                      |
+| Tab bar and the record dome               | `src/app/PhoneTabBar.tsx`, with the dome's styles in `src/app/theme/variables.css`            |
+| Sidebar                                   | `src/app/Sidebar.tsx`                                                                     |
+| Page, toolbar, landmark, content column   | `src/ui/Screen.tsx`                                                                       |
+| Inset group, its header, help, and error  | `src/ui/Group.tsx`, `src/ui/SectionHeader.tsx`                                                |
+| Palette, type roles, layer order          | `src/app/theme/variables.css`, `src/app/theme/typography.css`, `src/app.css`                      |
+| Appearance and text size setting          | `src/features/settings/appearance.ts`, the inline script in `index.html`               |
+| The mark and the lockup                   | `src/ui/Mark.tsx`, with the sources in `brand/` at the root                                        |
+| List row, swipe and hover actions         | `src/ui/Row.tsx`                                                                          |
+| Long press                                | `src/ui/longPress.ts`, with the haptic in `src/platform/haptics.ts`                           |
+| Keyboard shortcuts and arrow keys         | `src/ui/useShortcut.ts`                                                                   |
+| Song row                                  | `src/features/catalog/SongItem.tsx` (`SongItem`, `SongLines`, `StatusDot`)                |
+| List row for lists                        | `src/features/lists/ListItem.tsx`                                                         |
+| Status labels                             | `src/features/catalog/status.ts`                                                          |
+| Key and mode line, facet capsules         | `src/features/song/SongScreen.tsx`                                                        |
+| Capsule, rail chip, and badge             | `src/ui/Capsule.tsx`                                                                      |
+| Which tunings to show                     | `src/features/settings/instruments.ts`                                                    |
+| Instrument checkboxes, first-run question | `src/features/settings/InstrumentRows.tsx`, `src/features/settings/FirstRunSheet.tsx`         |
+| Suggestion vocabularies                   | `src/features/song/suggestions.ts`                                                        |
+| Suggestion picker with `Other…`           | `src/features/song/SuggestSelect.tsx`                                                     |
+| Search field                              | `src/ui/SearchField.tsx`                                                                  |
+| Search or create                          | `src/features/catalog/searchIntent.ts`, `src/features/catalog/SearchOffer.tsx`                |
+| Song search picker                        | `src/features/catalog/SongSearch.tsx`                                                     |
+| Catalog query for the session             | `src/features/catalog/searchSession.ts`                                                   |
+| Filter rules and count wording            | `src/features/catalog/filters.ts`                                                         |
+| Filter bar and filter sheet               | `src/features/catalog/CatalogFilters.tsx`, `src/features/catalog/CatalogFilterSheet.tsx`      |
+| Reorder grip and move menu                | `src/features/lists/ListSongs.tsx`                                                        |
+| Selection mode, focus, keys, back button  | `src/features/selection/useSelection.ts`, `src/features/selection/useSongSelection.ts`        |
+| Selection toolbar and footer              | `src/features/selection/SelectionToolbar.tsx`, `src/features/selection/SelectionFooter.tsx`   |
+| Hiding the tab bar while selecting        | `src/features/selection/SelectionProvider.tsx`                                            |
+| Bulk actions, their toasts and undo       | `src/features/selection/useBulkActions.tsx`, `src/features/selection/copy.ts`                 |
+| Bulk edit sheet                           | `src/features/selection/BulkEditSheet.tsx`, `src/features/selection/batchEdit.ts`             |
+| Song form and its limits                  | `src/features/song/SongFormSheet.tsx`, `src/features/song/limits.ts`                          |
+| Song form detail fields                   | `src/features/song/detailFields.ts`                                                       |
+| List picker and song picker               | `src/features/lists/ListPicker.tsx`, `src/features/lists/SongPickerSheet.tsx`                 |
+| Sheet and dialog                          | `src/ui/Sheet.tsx`                                                                        |
+| Menu                                      | `src/ui/Menu.tsx`                                                                         |
+| Confirmation                              | `src/ui/Confirm.tsx`, message wording in `src/features/song/deleteSongMessage.ts`             |
+| Toast and Undo                            | `src/ui/Toast.tsx`                                                                        |
+| Inline error and one wording for refusals | `src/ui/InlineError.tsx`, `src/ui/useAction.ts`                                               |
+| Recording and link rows                   | `src/features/recordings/RecordingItem.tsx`, `src/features/links/LinkItem.tsx`                |
+| Recording title, meta, and row control    | `src/features/recordings/recordingRow.ts`, `src/features/player/rowGlyphs.tsx`                |
+| Recording status words and sizes          | `src/features/recording/format.ts`                                                        |
+| Row actions on a recording                | `src/features/recordings/useRecordingActions.ts`                                          |
+| Record screen and the one seam into it    | `src/features/recording/RecordModal.tsx`, `src/features/recording/useRecord.tsx`              |
+| Player dock                               | `src/features/player/Dock.tsx`, `src/features/player/playerHeight.ts`                         |
+| Empty state                               | `src/ui/EmptyState.tsx`                                                                   |
+| Sync badge and the full state             | `src/ui/SyncBadge.tsx`, `src/sync/labels.ts`, `src/features/settings/SyncGroup.tsx`               |
+| Relative date wording                     | `src/features/lists/editedLabel.ts`                                                       |
+| Reduced motion                            | `src/platform/motion.ts`, `src/app/theme/variables.css`                                       |

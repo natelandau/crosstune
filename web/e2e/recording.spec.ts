@@ -26,10 +26,23 @@ async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
 /** File an unfiled row under `title` from its swipe action, and return its row under that song. */
 async function addToSong(page: Page, row: Locator, title: string): Promise<Locator> {
   await swipeLeft(page, row)
-  await row.getByRole('button', { name: /^Add to song / }).click()
-  await page.getByRole('searchbox', { name: 'Add to a song' }).fill(title)
+  // The swipe actions are a sibling of the row inside ion-item-sliding, not a descendant of it,
+  // so reaching them means stepping up to the sliding element first.
+  await row
+    .locator('xpath=..')
+    .getByRole('button', { name: /^Add to song / })
+    .click()
+  // The sheet's own controls are never scoped to its dialog, for the reason `addSong` in
+  // helpers.ts records: the dialog is a wrapper inside ion-modal's shadow root and the sheet's
+  // content is slotted light DOM rather than a descendant of it.
+  await page.getByRole('searchbox', { name: 'Search songs' }).fill(title)
   await page.getByRole('button', { name: `Add to ${title}` }).click()
-  const filed = page.getByRole('list', { name: title }).getByRole('listitem').first()
+  // A song's group is headed by the song's own row, so the recording is never the first item.
+  const filed = page
+    .getByRole('list', { name: title })
+    .getByRole('listitem')
+    .filter({ hasText: DEFAULT_LABEL })
+    .first()
   await expect(filed).toContainText(DEFAULT_LABEL)
   return filed
 }
@@ -83,7 +96,7 @@ test('uploads a recording, transcodes it, and plays it back from a second device
       settled = true
       break
     }
-    await page.getByRole('link', { name: 'Settings' }).click()
+    await page.getByRole('tab', { name: 'Settings' }).click()
     await page.getByRole('button', { name: 'Sync now' }).click()
     await page.waitForTimeout(3_000)
     await page.goto(songUrl)

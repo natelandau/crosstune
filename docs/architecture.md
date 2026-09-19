@@ -76,8 +76,68 @@ file gets `index.html`, so a client route loads directly.
 The Worker chooses the API from the request hostname. The custom domain goes
 to the production API. A `workers.dev` preview hostname carries the branch
 alias, and the Worker looks that alias up in a KV namespace to find the pull
-request's own API. No entry, or a failed read, means the development API. So
-the client never knows an API origin. It always calls `/v1` on its own origin.
+request's own API. No entry, or a failed read, means the development API. The
+client calls `/v1` on its own origin unless `VITE_API_ORIGIN` is set at build
+time, which a build that is not served beside the API needs.
+
+The interface is built on `@ionic/react` with `@ionic/react-router` on
+react-router 6. Ionic supplies the per-platform components, the page
+transitions, the swipe-back gesture, and the per-tab navigation stacks.
+Nothing in the client forces Ionic's visual mode. Apple mobile devices get
+`ios`, and every other device gets `md`. `src/app.css` imports Ionic's
+stylesheets, then Tailwind's theme, then Tailwind's utilities, each into its
+own cascade layer. Tailwind supplies spacing and layout utilities only.
+
+Three axes decide the chrome around a screen: Ionic's mode, the frame at a
+viewport width of 768px, and the pointer. `src/platform/` is the only module
+that reads any of them, and one source answers each. `design.md` records what
+the axes and the tab-scoped routes mean on screen.
+
+`IonReactRouter` holds an `IonSplitPane`, which holds the `IonTabs` that owns
+the four navigation stacks. The `IonTabBar` is a child of `IonTabs` on both
+frames. The wide frame hides it rather than unmounting it, because a stack
+loses its pushed pages when its tab button leaves the tree. The sidebar is the
+split pane's own menu, so it sits beside `IonTabs` and switches tabs through
+that hidden bar.
+
+One array in `src/app/routes.tsx` holds every route, and the same routes serve
+both frames. Routes are tab-scoped, so each path belongs to exactly one stack.
+The `/songs/:songId` redirect keeps a shared link working.
+
+| Route                          | Screen                                 |
+| ------------------------------ | -------------------------------------- |
+| `/`                            | Redirects to `/catalog`.               |
+| `/catalog`                     | Catalog.                               |
+| `/catalog/:songId`             | A song, in the Catalog stack.          |
+| `/lists`                       | Lists.                                 |
+| `/lists/:listId`               | One list.                              |
+| `/lists/:listId/songs/:songId` | A song, in the Lists stack.            |
+| `/recordings`                  | Recordings.                            |
+| `/recordings/:songId`          | A song, in the Recordings stack.       |
+| `/settings`                    | Settings.                              |
+| `/songs/:songId`               | Redirects to `/catalog/:songId`.       |
+
+No overlay is a route. A modal or a sheet is presented over whatever is on
+screen, and the URL does not change while it is open. The record screen, the
+song form, the filter sheet, the bulk edit sheet, and the two pickers all work
+this way.
+
+`web/src/` is organized by layer. `app/` holds the shell, the routes, and the
+theme. `platform/` answers every question about the device: the three axes,
+reduced motion, and the two seams a native plugin replaces. `ui/` holds the
+primitives that every screen composes. `features/` holds one folder per
+domain, each with its own screens and logic. Below the interface, `db/`,
+`sync/`, `commands/`, `api/`, and `auth/` hold the data layers. `design.md`
+names the file that implements each screen pattern.
+
+Three rules keep a later Capacitor build cheap. `src/platform/haptics.ts` and
+`src/platform/statusBar.ts` are the only two modules that touch a device
+capability. Each one uses a browser API, and a Capacitor plugin can replace
+it. No code calls `history.go`, `window.location`, or a delta navigation,
+because Ionic's per-tab stacks are not linear browser history. Ionic's router
+is the one way to navigate, so the Android hardware back button pops the
+current stack inside a WebView. The API origin comes from `src/config.ts`,
+which a custom origin needs.
 
 The client keeps a full copy of the user's catalog in IndexedDB, through
 Dexie. The screens read only that copy, through live queries. A user action
@@ -89,13 +149,15 @@ The local database is named after the user, so two accounts on one phone
 never share data. Sign-out deletes the database. Sign-out refuses to run
 while the outbox holds unsent changes, so no edit is lost with it.
 
-A service worker precaches the app shell, the scripts, the styles, the icons,
-and the fonts. The router ships as one bundle, so an offline reload never
-needs a chunk the shell did not load. Responses from the API are never cached
-and never fall back to the shell. The `_headers` file makes the assets layer
-serve the service worker and the manifest with `no-cache`. A new build
-therefore reaches an installed app on its next load. The same file marks the
-hashed assets immutable for a year.
+A service worker precaches the app shell, the scripts, the styles, and the
+icons. The build emits one bundle for the client's own code, and it holds
+every route. Ionic's components load on demand from a set of small chunks
+beside it. The precache holds all of them, so an offline reload never needs a
+file the install did not store. Responses from the API are never cached and
+never fall back to the shell. The `_headers` file makes the assets layer serve
+the service worker and the manifest with `no-cache`. A new build therefore
+reaches an installed app on its next load. The same file marks the hashed
+assets immutable for a year.
 
 The client sends every error the sync engine meets to the `crosstune-web`
 Sentry project, once per failure streak. It also reports each change the

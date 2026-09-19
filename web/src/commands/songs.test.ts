@@ -5,7 +5,14 @@ import { openTestDb } from '../test/db'
 import { addLink } from './links'
 import { addToList, createList } from './lists'
 import { appendChunk, beginCapture, finishCapture } from './recordings'
-import { createSong, deleteSong, setArchived, updateSong, updateUserSong } from './songs'
+import {
+  createSong,
+  deleteSong,
+  setArchived,
+  updateSong,
+  updateSongEntry,
+  updateUserSong,
+} from './songs'
 
 let db: CrosstuneDb
 
@@ -84,6 +91,26 @@ describe('updateSong / updateUserSong', () => {
     expect((await db.user_songs.get(userSongId))?.archived_at).toBe('2026-09-11T10:00:00.000Z')
     await setArchived(db, userSongId, false)
     expect((await db.user_songs.get(userSongId))?.archived_at).toBeNull()
+  })
+})
+
+describe('updateSongEntry', () => {
+  it('saves the song and the user song together', async () => {
+    const ids = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+    await updateSongEntry(db, ids, { key: 'A' }, { notes: 'from Bruce' })
+    expect((await db.songs.get(ids.songId))?.key).toBe('A')
+    expect((await db.user_songs.get(ids.userSongId))?.notes).toBe('from Bruce')
+  })
+
+  it('writes neither row when the user song write fails', async () => {
+    const { songId, userSongId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+    await db.outbox.clear()
+    await db.user_songs.delete(userSongId)
+    await expect(
+      updateSongEntry(db, { songId, userSongId }, { key: 'A' }, { notes: 'from Bruce' }),
+    ).rejects.toThrow('Song not found')
+    expect((await db.songs.get(songId))?.key).toBeNull()
+    expect(await pendingBatch(db)).toHaveLength(0)
   })
 })
 

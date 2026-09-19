@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <!-- The status bar stays opaque and takes theme-color, the chrome slate. A translucent
-         status bar puts the page beneath it, and iOS fills that strip with a blur that washes
-         out the app bar, with no style or meta tag to turn it off. -->
+    <!-- The status bar takes the page background. The two media tags cover the first paint;
+         syncStatusBar replaces them with the exact page color once the stylesheet applies. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#4f5d75" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
     <!-- The app ships its own light and dark themes. color-scheme tells browsers and
          Dark Reader so; darkreader-lock tells Dark Reader to leave the page alone. -->
     <meta name="color-scheme" content="light dark" />
@@ -25,6 +25,10 @@
         var root = document.documentElement
         var theme = localStorage.getItem('crosstune.appearance')
         if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme)
+        var dark =
+          theme === 'dark' ||
+          (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) root.classList.add('ion-palette-dark')
         var size = localStorage.getItem('crosstune.textSize')
         if (size === 'compact' || size === 'roomy') root.setAttribute('data-text-size', size)
       } catch (e) {

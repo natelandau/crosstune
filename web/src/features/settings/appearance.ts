@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { syncStatusBar } from '../../platform/statusBar'
 
 export const APPEARANCES = ['system', 'light', 'dark'] as const
 export type Appearance = (typeof APPEARANCES)[number]
@@ -48,13 +49,6 @@ export function readTextSize(): TextSize {
   return read(TEXT_SIZE_KEY, TEXT_SIZES, 'regular')
 }
 
-/** System means no attribute, which leaves the choice to prefers-color-scheme. */
-export function applyAppearance(appearance: Appearance): void {
-  const root = document.documentElement
-  if (appearance === 'system') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', appearance)
-}
-
 export function applyTextSize(size: TextSize): void {
   const root = document.documentElement
   if (size === 'regular') root.removeAttribute('data-text-size')
@@ -72,6 +66,32 @@ function currentAppearance(): Appearance {
 
 function currentTextSize(): TextSize {
   return (textSize ??= readTextSize())
+}
+
+const DARK_QUERY = '(prefers-color-scheme: dark)'
+
+export function resolveDark(appearance: Appearance): boolean {
+  if (appearance === 'system') return window.matchMedia?.(DARK_QUERY).matches ?? false
+  return appearance === 'dark'
+}
+
+/**
+ * Ionic reads the palette from a class, so the class is what the choice becomes. The attribute
+ * stays for the inline script in index.html and for anything that styles on the choice itself.
+ */
+export function applyAppearance(appearance: Appearance): void {
+  const root = document.documentElement
+  if (appearance === 'system') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', appearance)
+  root.classList.toggle('ion-palette-dark', resolveDark(appearance))
+  syncStatusBar()
+}
+
+// A system choice must follow the device when it switches at sunset.
+if (typeof window !== 'undefined') {
+  window.matchMedia?.(DARK_QUERY).addEventListener('change', () => {
+    if (currentAppearance() === 'system') applyAppearance('system')
+  })
 }
 
 const listeners = new Set<() => void>()

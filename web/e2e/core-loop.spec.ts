@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { addSong, expectSynced, signIn, unique } from './helpers'
 
-test('add a tune, link a recording, find it by key, and play it in the player', async ({
+test('add a song, link a recording, find it by key, and play it in the player', async ({
   page,
 }) => {
   await signIn(page)
@@ -14,18 +14,16 @@ test('add a tune, link a recording, find it by key, and play it in the player', 
     .getByRole('textbox', { name: 'Link' })
     .fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
   await page.getByRole('button', { name: 'Add link' }).click()
-  const links = page.getByRole('list', { name: 'Recordings' })
+  const links = page.getByRole('list', { name: 'Links' })
   await expect(links.getByRole('button', { name: /^Play / })).toBeVisible()
   await expectSynced(page, since)
 
-  await page.getByRole('link', { name: 'Crosstune' }).click()
+  await page.getByRole('tab', { name: 'Catalog' }).click()
   await page.getByRole('group', { name: 'Key' }).getByRole('button', { name: 'D' }).click()
-  const card = page.getByRole('link', { name: new RegExp(title) })
+  const card = page.getByRole('button', { name: new RegExp(title) })
   await expect(card).toBeVisible()
   await card.click()
-  const play = page
-    .getByRole('list', { name: 'Recordings' })
-    .getByRole('button', { name: /^Play / })
+  const play = page.getByRole('list', { name: 'Links' }).getByRole('button', { name: /^Play / })
   await expect(play).toBeVisible()
   await play.click()
   const frame = page.getByRole('region', { name: 'Player' }).locator('iframe[src*="dQw4w9WgXcQ"]')

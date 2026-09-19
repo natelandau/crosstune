@@ -1,32 +1,57 @@
-import { expect, test } from '@playwright/test'
-import { addSong, signIn, swipeLeft, unique } from './helpers'
+import { expect, test, type Page } from '@playwright/test'
+import {
+  addSong,
+  escapeRegExp,
+  expectNoOverlay,
+  expectSynced,
+  openTab,
+  signIn,
+  swipeLeft,
+  unique,
+} from './helpers'
+
+/**
+ * A row, whose name is its title followed by the lines under it. Anchored: an open row's own
+ * actions are named for the same title, and so is the offer to add another song by that name.
+ */
+const row = (page: Page, name: string) =>
+  page.getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}`) })
 
 test('swipe a song row to edit and archive, and a list row to delete', async ({ page }) => {
   await signIn(page)
   const title = unique('Angeline the Baker')
   await addSong(page, title, 'D')
+  const since = new Date().toISOString()
 
-  await page.getByRole('link', { name: 'Crosstune' }).click()
-  const card = page.getByRole('link', { name: new RegExp(title) })
+  await openTab(page, 'Catalog')
+  // Narrowing to the one song keeps it in view whatever else the catalog holds.
+  await page.getByRole('searchbox', { name: 'Search songs' }).fill(title)
+  const card = row(page, title)
+  // The pending write syncs on its own, and the pull rebuilds the list it lands in. A row
+  // replaced under the pointer takes the gesture with it, so the gesture waits for it.
+  await expectSynced(page, since)
   await swipeLeft(page, card)
   await page.getByRole('button', { name: `Edit ${title}` }).click()
-  await expect(page.getByRole('heading', { name: 'Edit song' })).toBeVisible()
-  await page.getByRole('button', { name: 'Cancel' }).click()
-  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('dialog', { name: 'Edit song' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page).toHaveURL('/catalog')
 
   await swipeLeft(page, card)
   await page.getByRole('button', { name: `Archive ${title}` }).click()
   await expect(card).toBeHidden()
 
   const listName = unique('Swipe set')
-  await page.getByRole('link', { name: 'Lists' }).click()
-  await page.getByRole('textbox', { name: 'New list name' }).fill(listName)
-  await page.getByRole('button', { name: 'Create list' }).click()
-  const row = page.getByRole('link', { name: new RegExp(listName) })
-  await swipeLeft(page, row)
-  page.once('dialog', (dialog) => void dialog.accept())
+  await openTab(page, 'Lists')
+  // The screen's own Add list control, not the one the empty state offers.
+  await page.getByRole('banner').getByRole('button', { name: 'Add list' }).click()
+  await page.getByRole('textbox', { name: 'List name' }).fill(listName)
+  await page.getByRole('button', { name: 'Create', exact: true }).click()
+  const listRow = row(page, listName)
+  await swipeLeft(page, listRow)
   await page.getByRole('button', { name: `Delete ${listName}` }).click()
-  await expect(row).toBeHidden()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await expectNoOverlay(page)
+  await expect(listRow).toBeHidden()
 })
 
 test('opening a second swipe row closes the first', async ({ page }) => {
@@ -35,19 +60,28 @@ test('opening a second swipe row closes the first', async ({ page }) => {
   const first = `${tag} Bonaparte Crossing the Rhine`
   const second = `${tag} Blackberry Blossom`
   await addSong(page, first, 'A')
-  await page.getByRole('link', { name: 'Crosstune' }).click()
+  await openTab(page, 'Catalog')
   await addSong(page, second, 'G')
+  const since = new Date().toISOString()
 
-  await page.getByRole('link', { name: 'Crosstune' }).click()
+  await openTab(page, 'Catalog')
   // Narrowing to the pair keeps both rows in view, since a scroll would close the open row on its own.
   await page.getByRole('searchbox', { name: 'Search songs' }).fill(tag)
-  const actionLayer = (title: string) =>
-    page.getByRole('button', { name: `Edit ${title}`, includeHidden: true }).locator('xpath=..')
+  // A row's actions are on screen only while that row is open, so an action's own visibility is
+  // what says whether its row is open.
+  const editAction = (title: string) =>
+    page.getByRole('button', { name: `Edit ${title}`, includeHidden: true })
 
-  await swipeLeft(page, page.getByRole('link', { name: new RegExp(first) }))
-  await expect(actionLayer(first)).not.toHaveAttribute('inert')
+  // The pending write syncs on its own, and the pull rebuilds the list it lands in. A row
+  // replaced under the pointer takes the gesture with it, so the gesture waits for it.
+  await expectSynced(page, since)
+  await swipeLeft(page, row(page, first))
+  await expect(editAction(first)).toBeVisible()
 
-  await swipeLeft(page, page.getByRole('link', { name: new RegExp(second) }))
-  await expect(actionLayer(second)).not.toHaveAttribute('inert')
-  await expect(actionLayer(first)).toHaveAttribute('inert')
+  await swipeLeft(page, row(page, second))
+  await expect(editAction(second)).toBeVisible()
+  // The closed row keeps its actions in the DOM, so the count is what tells a row that closed
+  // from a locator that has gone dead.
+  await expect(editAction(first)).toHaveCount(1)
+  await expect(editAction(first)).toBeHidden()
 })

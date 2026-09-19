@@ -5,6 +5,12 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 py_src := "src/ tests/"
 
+# The database the end-to-end suite owns, beside the development database in the
+# server compose.yml starts. The e2e recipes name only this one, so the data a
+# person built by hand in `crosstune` is out of their reach.
+e2e_db := "crosstune_e2e"
+e2e_database_url := "postgresql+asyncpg://crosstune:crosstune@localhost:5432/" + e2e_db
+
 [private]
 default:
     @just --list api
@@ -52,6 +58,12 @@ test *args:
 run:
     uv run uvicorn crosstune.main:app --reload --reload-dir src --port 8000
 
+# Run the API against the end-to-end database, for `just web::e2e`
+[group('run')]
+run-e2e: e2e-db
+    @echo "serving {{ e2e_db }} on :8000"
+    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run uvicorn crosstune.main:app --port 8000
+
 # Apply pending migrations
 [group('db')]
 migrate:
@@ -61,6 +73,62 @@ migrate:
 [group('db')]
 makemigrations message='auto':
     uv run alembic revision --autogenerate -m '{{ message }}'
+
+# Create the end-to-end database if it is absent and migrate it to head
+[group('db')]
+e2e-db: (_e2e-db "keep")
+
+# Drop the end-to-end database, recreate it empty, and migrate it to head
+[group('db')]
+e2e-db-reset: (_e2e-db "recreate")
+
+[private]
+_e2e-db mode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run python - '{{ e2e_database_url }}' '{{ mode }}' <<'PY'
+    import asyncio
+    import sys
+    from urllib.parse import urlsplit, urlunsplit
+
+    import asyncpg
+
+    url, mode = sys.argv[1], sys.argv[2]
+    parts = urlsplit(url)
+    name = parts.path.lstrip("/")
+    # The one guard between a reset and a developer's own data.
+    if not name.endswith("_e2e"):
+        sys.exit(f"refusing to act on {name}: these recipes own a _e2e database and nothing else")
+    admin_url = urlunsplit(("postgresql", parts.netloc, "/postgres", "", ""))
+    # A quoted identifier ends at its first quote, so every quote in the name is doubled.
+    identifier = name.replace('"', '""')
+
+
+    async def prepare() -> None:
+        try:
+            conn = await asyncpg.connect(admin_url)
+        except OSError as exc:
+            server = parts.netloc.rsplit("@", 1)[-1]
+            sys.exit(f"no Postgres at {server}: {exc}. Start it with `docker compose up -d`")
+        try:
+            if mode == "recreate":
+                # Postgres refuses to drop a database that still has sessions on it, and a
+                # reset follows a run whose API may still hold its pool open.
+                await conn.execute(f'drop database if exists "{identifier}" with (force)')
+                print(f"dropped {name}")
+            if await conn.fetchval("select 1 from pg_database where datname = $1", name):
+                print(f"{name} is already there")
+            else:
+                await conn.execute(f'create database "{identifier}"')
+                print(f"created {name}")
+        finally:
+            await conn.close()
+
+
+    asyncio.run(prepare())
+    PY
+    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run alembic upgrade head
+    echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
 
 # Export the OpenAPI schema for the web client
 [group('contract')]

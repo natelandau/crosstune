@@ -105,11 +105,24 @@ Run every linter, or every test suite, across both modules.
 The end-to-end tests sign in through your Clerk instance. Before you run them,
 set two more values in `web/.env`: `CLERK_SECRET_KEY`, the instance's
 secret key that starts with `sk_test_`, and `E2E_CLERK_USER_EMAIL`, the address
-of a user that exists in that instance. Start the stack with `just dev`, or the
-API alone with `just api::run`, then run the suite in a second terminal. It
-builds the web client and serves it on port 4173 itself.
+of a user that exists in that instance.
 
+The suite owns its own database, `crosstune_e2e`, beside the development
+database in the Postgres server that `compose.yml` starts. Start Postgres with
+`docker compose up -d`, not with `just dev`: that recipe also binds an API to
+the development database, and the suite refuses to run against one. Start the
+API on the e2e database, then run the suite in a second terminal. It builds the
+web client and serves it on port 4173 itself.
+
+    docker compose up -d
+    just api::run-e2e
     just web::e2e
+
+The first recipe creates the database if it is absent and migrates it. The
+suite leaves its fixtures behind, so the database grows with every run. To
+drop it, recreate it empty, and migrate it again, run:
+
+    just api::e2e-db-reset
 
 ### Commit and release
 

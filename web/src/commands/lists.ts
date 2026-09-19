@@ -1,5 +1,6 @@
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem } from '../db/types'
+import { moveBeside } from '../features/lists/order'
 import { activeByPosition, newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
 
 export async function activeItems(db: CrosstuneDb, listId: string): Promise<LocalListItem[]> {
@@ -89,10 +90,7 @@ export async function writeOrder(db: CrosstuneDb, ordered: LocalListItem[]): Pro
   }
 }
 
-/**
- * Move an item just past the target: after it when the target was below, before it when above.
- * Naming a target rather than a step lets a screen that hides some items skip over them.
- */
+/** Move an item just past the target; see moveBeside. */
 export async function moveItem(
   db: CrosstuneDb,
   listId: string,
@@ -101,13 +99,9 @@ export async function moveItem(
 ): Promise<void> {
   await writeTx(db, async () => {
     const items = await activeItems(db, listId)
-    const from = items.findIndex((item) => item.id === itemId)
-    const target = items.findIndex((item) => item.id === targetItemId)
-    if (from < 0 || target < 0 || from === target) return
-    const ordered = [...items]
-    const [moved] = ordered.splice(from, 1)
-    // Removing the item shifts a target below it up by one, which is the slot just past it.
-    ordered.splice(target, 0, moved!)
-    await writeOrder(db, ordered)
+    await writeOrder(
+      db,
+      moveBeside(items, (item) => item.id, itemId, targetItemId),
+    )
   })
 }

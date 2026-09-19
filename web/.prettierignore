@@ -3,6 +3,5 @@ dev-dist
 pnpm-lock.yaml
 playwright-report
 test-results
-src/routeTree.gen.ts
 src/api/schema.d.ts
 src/api/openapi.json

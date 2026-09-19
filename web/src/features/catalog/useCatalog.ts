@@ -2,10 +2,15 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useDb } from '../../db/DbProvider'
 import { catalogEntries, type CatalogEntry } from './filters'
 
-export function useCatalog(): CatalogEntry[] | undefined {
+/**
+ * Every song with its user row, live. A screen that only needs the catalog some of the time,
+ * such as one behind a closed sheet, passes false to stand the query down until it does.
+ */
+export function useCatalog(enabled = true): CatalogEntry[] | undefined {
   const db = useDb()
   return useLiveQuery(
-    async () => catalogEntries(await db.songs.toArray(), await db.user_songs.toArray()),
-    [db],
+    async () =>
+      enabled ? catalogEntries(await db.songs.toArray(), await db.user_songs.toArray()) : undefined,
+    [db, enabled],
   )
 }
