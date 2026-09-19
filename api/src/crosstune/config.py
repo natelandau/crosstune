@@ -53,6 +53,20 @@ class Settings(BaseSettings):
     orphan_sweep_seconds: float = 3600.0
 
     @property
+    def database_name(self) -> str:
+        """The database at the end of the connection string."""
+        return urlsplit(self.database_url).path.lstrip("/")
+
+    @property
+    def e2e_database(self) -> bool:
+        """Whether this API is bound to a database the end-to-end suite owns and resets.
+
+        The suite refuses an API that is bound to anything else, because its fixtures would
+        land in a database someone else fills by hand.
+        """
+        return self.database_name.endswith("_e2e")
+
+    @property
     def r2_configured(self) -> bool:
         """Whether every R2 setting is present. Without them the store stays unbuilt."""
         return bool(

@@ -107,6 +107,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:
+        # A database the end-to-end suite owns names itself, so `just web::e2e` can tell
+        # which database the API on :8000 is bound to. Every other database is never named.
+        if settings.e2e_database:
+            return {"status": "ok", "database": settings.database_name}
         return {"status": "ok"}
 
     return app

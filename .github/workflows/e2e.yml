@@ -36,7 +36,6 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      CROSSTUNE_DATABASE_URL: postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune
       CROSSTUNE_CLERK_ISSUER: ${{ vars.CLERK_ISSUER }}
       CROSSTUNE_CLERK_AUTHORIZED_PARTIES: '["http://localhost:4173"]'
       VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
@@ -59,13 +58,13 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
         working-directory: api
-      - run: just migrate
-        working-directory: api
-      - name: start the api
+      - name: start the api on the database the suite owns
         working-directory: api
         run: |
-          nohup uv run uvicorn crosstune.main:app --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
-          for _ in $(seq 1 30); do
+          nohup just run-e2e > "$RUNNER_TEMP/api.log" 2>&1 &
+          # The recipe creates and migrates the database before it serves, so this waits for
+          # more than a process start.
+          for _ in $(seq 1 90); do
             curl -fsS http://localhost:8000/healthz > /dev/null && exit 0
             sleep 1
           done
