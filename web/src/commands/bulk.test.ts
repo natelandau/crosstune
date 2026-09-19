@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
+import { recordingFile, recordingRow } from '../test/rows'
 import {
   addSongsToList,
   createListWithSongs,
+  deleteSongs,
   removeSongsFromList,
   setArchivedMany,
   updateSongs,
@@ -131,6 +133,45 @@ describe('setArchivedMany', () => {
     expect((await db.user_songs.get(a.userSongId))?.archived_at).toBeNull()
     await undo()
     expect((await db.user_songs.get(a.userSongId))?.archived_at).toBe(archivedAt)
+  })
+})
+
+describe('deleteSongs', () => {
+  it('tombstones each selected song with its user song, list entries, and recordings', async () => {
+    const a = await song('Say Old Man')
+    const b = await song('Lost Indian')
+    const kept = await song('Ducks on the Millpond')
+    const listId = await createList(db, 'Tuesday jam')
+    await addToList(db, listId, a.userSongId)
+    await db.recordings.put(recordingRow('r1', { song_id: a.songId }))
+    await db.recording_files.put(recordingFile('r1'))
+
+    expect(await deleteSongs(db, [a.userSongId, b.userSongId])).toBe(2)
+    expect((await db.songs.get(a.songId))?.deleted_at).not.toBeNull()
+    expect((await db.user_songs.get(a.userSongId))?.deleted_at).not.toBeNull()
+    expect((await db.songs.get(b.songId))?.deleted_at).not.toBeNull()
+    expect((await db.songs.get(kept.songId))?.deleted_at).toBeNull()
+    expect(await activeItems(db, listId)).toEqual([])
+    expect((await db.recordings.get('r1'))?.deleted_at).not.toBeNull()
+    expect(await db.recording_files.get('r1')).toBeUndefined()
+  })
+
+  it('queues one delete per song and none for the rows that go with it', async () => {
+    const a = await song('Say Old Man')
+    await deleteSongs(db, [a.userSongId])
+    expect(await pendingFor(db, 'songs', a.songId)).toMatchObject({ op: 'delete' })
+    expect(await pendingFor(db, 'user_songs', a.userSongId)).toBeUndefined()
+  })
+
+  it('counts two selected user songs of one song once', async () => {
+    const a = await song('Say Old Man')
+    expect(await deleteSongs(db, [a.userSongId, a.userSongId])).toBe(1)
+  })
+
+  it('rejects when a selected song is already gone', async () => {
+    const a = await song('Say Old Man')
+    await deleteSong(db, a.songId)
+    await expect(deleteSongs(db, [a.userSongId])).rejects.toThrow('Song not found')
   })
 })
 

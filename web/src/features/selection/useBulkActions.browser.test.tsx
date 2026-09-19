@@ -8,6 +8,7 @@ import { createSong, setArchived, type SongInput, type UserSongInput } from '../
 import type { CrosstuneDb } from '../../db/schema'
 import type { Instrument } from '../../db/types'
 import { openTestDb } from '../../test/db'
+import { recordingFile, recordingRow } from '../../test/rows'
 import { renderIonic } from '../../test/ionic'
 import { InlineError } from '../../ui/InlineError'
 import { useMenu } from '../../ui/Menu'
@@ -106,6 +107,24 @@ const sheetsClosed = () =>
   vi.waitFor(() => expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull())
 
 const toasts = () => document.querySelectorAll('ion-toast').length
+
+/** The confirmation opens while the menu's popover is still dismissing, so it is scoped. */
+async function alertEl(): Promise<HTMLElement> {
+  return vi.waitFor(() => {
+    const open = document.querySelector<HTMLElement>('ion-alert:not(.overlay-hidden)')
+    if (!open) throw new Error('The confirmation is not open')
+    return open
+  })
+}
+
+async function answer(label: string) {
+  await page
+    .elementLocator(await alertEl())
+    .getByRole('button', { name: label, exact: true })
+    .click()
+}
+
+const deleted = async (entry: CatalogEntry) => (await db.songs.get(entry.song.id))!.deleted_at
 
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 
@@ -222,7 +241,9 @@ describe('useBulkActions', () => {
       await archive(await seed({ title: 'Ducks on the Millpond' })),
     ]
     show(entries)
-    expect(probe().getAttribute('data-more')).toBe('Archive 1 song|Unarchive 2 songs')
+    expect(probe().getAttribute('data-more')).toBe(
+      'Archive 1 song|Unarchive 2 songs|Delete 3 songs',
+    )
     await tap('More')
     await expect.element(page.getByText('Archive 1 song', { exact: true })).toBeVisible()
     await expect.element(page.getByText('Unarchive 2 songs', { exact: true })).toBeVisible()
@@ -254,7 +275,7 @@ describe('useBulkActions', () => {
       await archive(await seed({ title: 'Lost Indian' })),
     ]
     show(entries)
-    expect(probe().getAttribute('data-more')).toBe('Unarchive 2 songs')
+    expect(probe().getAttribute('data-more')).toBe('Unarchive 2 songs|Delete 2 songs')
     await tap('More')
     await expect.element(page.getByText('Unarchive 2 songs', { exact: true })).toBeVisible()
     expect(page.getByText('Archive 2 songs', { exact: true }).elements()).toHaveLength(0)
@@ -291,7 +312,7 @@ describe('useBulkActions', () => {
   it('offers no Remove item on the catalog', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     show(entries)
-    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs')
+    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs|Delete 2 songs')
     await tap('More')
     await expect.element(page.getByText('Archive 2 songs', { exact: true })).toBeVisible()
     expect(page.getByText('Remove 2 from list', { exact: true }).elements()).toHaveLength(0)
@@ -421,7 +442,7 @@ describe('useBulkActions', () => {
     await sheetsClosed()
     expect(onExit).not.toHaveBeenCalled()
     expect(toasts()).toBe(0)
-    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs')
+    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs|Delete 2 songs')
 
     await tap('Edit')
     await editTuning()
@@ -442,13 +463,77 @@ describe('useBulkActions', () => {
     expect(onExit).not.toHaveBeenCalled()
     expect(toasts()).toBe(0)
     expect(await order(listId)).toEqual([])
-    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs')
+    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs|Delete 2 songs')
 
     await tap('Add to list')
     await pick('Tuesday jam')
     await expect.element(page.getByText('Added 2 songs to Tuesday jam')).toBeVisible()
     await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
     await sheetsClosed()
+  })
+
+  it('deletes the selected songs after the confirmation, with nothing to undo', async () => {
+    const one = await seed({ title: 'Say Old Man' })
+    const two = await seed({ title: 'Lost Indian' })
+    const kept = await seed({ title: 'Ducks on the Millpond' })
+    show([one, two])
+    await tap('More')
+    await pick('Delete 2 songs')
+    await answer('Delete')
+
+    await vi.waitFor(async () => {
+      expect(await deleted(one)).not.toBeNull()
+      expect(await deleted(two)).not.toBeNull()
+    })
+    expect(await deleted(kept)).toBeNull()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
+    expect(toasts()).toBe(0)
+  })
+
+  it('keeps the songs and the selection when the confirmation is dismissed', async () => {
+    const one = await seed({ title: 'Say Old Man' })
+    const two = await seed({ title: 'Lost Indian' })
+    show([one, two])
+    await tap('More')
+    await pick('Delete 2 songs')
+    await answer('Cancel')
+
+    await vi.waitFor(() =>
+      expect(document.querySelector('ion-alert:not(.overlay-hidden)')).toBeNull(),
+    )
+    expect(await deleted(one)).toBeNull()
+    expect(await deleted(two)).toBeNull()
+    expect(onExit).not.toHaveBeenCalled()
+    expect(probe().getAttribute('data-more')).toBe('Archive 2 songs|Delete 2 songs')
+  })
+
+  it('counts the recordings the delete takes with it and warns about the unsent ones', async () => {
+    const one = await seed({ title: 'Say Old Man' })
+    const two = await seed({ title: 'Lost Indian' })
+    await db.recordings.put(recordingRow('r1', { song_id: one.song.id }))
+    await db.recordings.put(recordingRow('r2', { song_id: two.song.id }))
+    await db.recording_files.put(recordingFile('r1', { local_state: 'uploaded' }))
+    await db.recording_files.put(recordingFile('r2', { local_state: 'failed_upload' }))
+    show([one, two])
+    await tap('More')
+    await pick('Delete 2 songs')
+
+    expect((await alertEl()).textContent).toContain(
+      'Delete 2 songs? This removes their links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',
+    )
+    await answer('Cancel')
+  })
+
+  it('names one selected song in the question, as the song page does', async () => {
+    const one = await seed({ title: 'Say Old Man' })
+    show([one])
+    await tap('More')
+    await pick('Delete 1 song')
+
+    expect((await alertEl()).textContent).toContain(
+      'Delete "Say Old Man"? This removes its links and list entries.',
+    )
+    await answer('Cancel')
   })
 
   it('keeps every action but offers no More items when nothing is selected', async () => {

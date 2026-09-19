@@ -1,8 +1,8 @@
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem, LocalSong, LocalUserSong } from '../db/types'
 import { activeItems, createList, deleteList, writeOrder } from './lists'
-import type { SongInput, UserSongInput } from './songs'
-import { newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
+import { tombstoneSong, type SongInput, type UserSongInput } from './songs'
+import { newId, nextPosition, now, putRow, recordingTx, tombstone, writeTx } from './write'
 
 export type Undo = () => Promise<void>
 
@@ -132,6 +132,27 @@ export async function setArchivedMany(
     }
   })
   return () => restoreFields(db, snapshots)
+}
+
+/**
+ * Delete the songs behind the given user songs, each with its links, list entries, and
+ * recordings. There is no undo: a recording this takes with it is gone from every device.
+ */
+export async function deleteSongs(
+  db: CrosstuneDb,
+  userSongIds: readonly string[],
+): Promise<number> {
+  return recordingTx(db, async () => {
+    const at = now()
+    const songIds = new Set<string>()
+    for (const id of unique(userSongIds)) {
+      const userSong = await db.user_songs.get(id)
+      if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+      songIds.add(userSong.song_id)
+    }
+    for (const songId of songIds) await tombstoneSong(db, songId, at)
+    return songIds.size
+  })
 }
 
 export async function addSongsToList(

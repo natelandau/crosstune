@@ -1,20 +1,24 @@
 import { ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import {
+  deleteSongs,
   removeSongsFromList,
   setArchivedMany,
   updateSongs,
   type BulkPatch,
   type Undo,
 } from '../../commands/bulk'
+import { activeRecordingsForSong } from '../../commands/recordings'
 import { useAction, type Action } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { STATUSES, type Instrument } from '../../db/types'
+import { useConfirm } from '../../ui/Confirm'
 import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useToast } from '../../ui/Toast'
 import type { CatalogEntry } from '../catalog/filters'
 import { STATUS_LABELS } from '../catalog/status'
 import { ListPicker, type ListAddition } from '../lists/ListPicker'
+import { deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
 import { BulkEditSheet } from './BulkEditSheet'
 import { countSongs } from './copy'
 import type { BulkAction } from './SelectionToolbar'
@@ -54,6 +58,8 @@ type OpenSheet = 'edit' | 'list' | null
  * The one place a bulk action is defined: what it is called, what it writes, what its toast
  * says, and how it is undone. A write applies to the whole selection at once and ends the
  * mode, while a failure keeps both the mode and the selection so it can be tried again.
+ * Delete alone asks first and raises no toast, because it takes recordings with it that no
+ * undo can bring back.
  */
 export function useBulkActions({
   entries,
@@ -64,6 +70,7 @@ export function useBulkActions({
   const db = useDb()
   const toast = useToast()
   const openMenu = useMenu()
+  const confirm = useConfirm()
   // Two actions, because a failed edit belongs in the sheet still holding the musician's
   // work while every other failure belongs on the screen behind it.
   const bar = useAction()
@@ -148,6 +155,28 @@ export function useBulkActions({
     }
   }
 
+  // Read at press time rather than watched, because the count only has to be right for the
+  // question being asked.
+  const confirmDelete = async () => {
+    const songIds = [...new Set(entries.map((entry) => entry.song.id))]
+    const recordings = (
+      await Promise.all(songIds.map((songId) => activeRecordingsForSong(db, songId)))
+    ).flat()
+    const files = await db.recording_files.bulkGet(recordings.map((row) => row.id))
+    const views = files.map((file) => ({ file }))
+    const only = entries.length === 1 ? entries[0] : undefined
+    const ok = await confirm({
+      title: only ? 'Delete song?' : `Delete ${countSongs(entries.length)}?`,
+      message: only
+        ? deleteSongMessage(only.song.title, views)
+        : deleteSongsMessage(countSongs(entries.length), views),
+      action: 'Delete',
+    })
+    if (!ok) return
+    // No toast: this is the one bulk action with nothing to undo.
+    bar.runThen(() => deleteSongs(db, ids), onExit)
+  }
+
   const more: MenuItem[] = [archiveItem(true), archiveItem(false)].filter(
     (item): item is MenuItem => item !== null,
   )
@@ -165,6 +194,16 @@ export function useBulkActions({
           }),
           onExit,
         ),
+    })
+  }
+
+  // Absent at zero selected, where the menu still opens on `md`, so it never offers to delete
+  // nothing; pending keeps a second press off a write already running.
+  if (entries.length > 0 && !bar.pending) {
+    more.push({
+      label: `Delete ${countSongs(entries.length)}`,
+      tone: 'error',
+      onPress: () => void confirmDelete(),
     })
   }
 

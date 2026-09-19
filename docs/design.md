@@ -307,6 +307,11 @@ move menu.
 - On touch a row swipes left to reveal one to three actions as full-height
   buttons filled with their tone: neutral, warning, or error. Running an
   action closes the row it ran on.
+- Every revealed action is 5rem wide, whatever its label reads, so one row's
+  actions are all the same target and the same action lands in the same place
+  on every list. A label too long to read on one line at that width shows a
+  shorter text instead: Add to song reads Add, Remove from song reads Remove.
+  The full label still names the button to a screen reader.
 - On a mouse the same actions are icon buttons laid over the row's trailing
   edge, shown on hover and on keyboard focus, because nothing hints that a
   row swipes. They keep their place in the tab order at all times.
@@ -323,6 +328,9 @@ move menu.
 | Links                   | Remove (error)                                                              |
 | Lists on the song page  | Remove (error)                                                              |
 
+- A destructive action's glyph says what it destroys: the trash for
+  something that is gone for good, such as a song, a recording, a list, or a
+  link, and a list with a cross for a song only taken out of a list.
 - Edit on a song row opens the song form as a sheet over the screen the
   musician is on. Cancel and Save both return to that screen.
 - A press held for half a second on a song row enters selection mode with
@@ -383,6 +391,11 @@ not a URL, so a link can never enter it.
   There is no confirmation, because a confirmation gets clicked through and
   leaves no way back. A failed write keeps both the mode and the selection.
   Cancelling a sheet keeps the selection.
+- Delete is the one exception, because it takes recordings with it and no
+  undo can bring back a recording already gone from the server. It confirms
+  through the app's own overlay, the same question the song page asks, and
+  raises no toast. Dismissing the confirmation keeps the mode and the
+  selection.
 - The musician leaves with the toolbar's own exit control, Escape on a mouse,
   leaving the screen, or by completing any action, plus, on a native build,
   the Android hardware back button. The back button is registered below
@@ -395,9 +408,10 @@ not a URL, so a link can never enter it.
   On leaving it returns to the control the mode opened from, or to the
   screen's landmark when that control has gone.
 - Status opens a menu of the three statuses. Add to list opens the same list
-  picker the song page uses. The overflow holds Archive and Unarchive, and on
-  a list Remove from list, each counting only the songs it will change. It is
-  named `More actions` in the `md` toolbar and `More` in the `ios` footer.
+  picker the song page uses. The overflow holds Archive and Unarchive, on a
+  list Remove from list, and Delete last of all, each counting only the songs
+  it will change. It is named `More actions` in the `md` toolbar and `More` in
+  the `ios` footer.
 - Bulk edit is the song form's own Details list over many songs: Status, Key,
   a group per visible tuning, then the details. Each row reads the value
   every selected song shares, `Not set` when they are all empty, or `Mixed`
@@ -476,6 +490,10 @@ Each of these follows the pointer, and each is implemented once.
   `It has not been uploaded, so this cannot be undone.` Deleting a list reads
   `Its songs stay in the catalog.`
 - A bulk action is the exception, and applies at once with Undo in a toast.
+  Bulk Delete is the exception to that exception: it confirms, and its
+  question counts the selection, `Delete 12 songs? This removes their links,
+  list entries, and 4 recordings.`, naming one selected song by title the way
+  the song page does.
 - A toast is for an action that offers Undo, and for the rare error that
   arrives after the musician has left the screen. Every other error shows
   inline beside the control that failed.
@@ -500,8 +518,8 @@ Recordings and links share one row shape.
   when it cannot.
 - The row itself is the control. Tapping a recording plays it when the audio
   is on the device and downloads it when it is not. Tapping a link plays it
-  in the dock when the provider can be embedded. A link that cannot be
-  embedded does not open at all, and its trailing control opens the provider.
+  in the dock when the provider can be embedded, and opens the provider's own
+  site in a new tab when it cannot, so no row is ever dead to a tap.
 - A recording's title is its own label, then the song's title, then
   "Recording," with the date and time. In a list that already heads the
   recording's group with that song, the song is skipped, so a row never
@@ -521,10 +539,11 @@ Recordings and links share one row shape.
 - Durations read `m:ss`. Sizes truncate rather than round, so a size never
   overstates.
 - A link's title is what the provider resolved it to, then the label the
-  musician typed, then its host. Its second line is that label, unless the
-  label is already the title, and the provider's name. Its trailing control
-  opens the provider's app or site and is named for the provider: "Open
-  Soldier's Joy on YouTube".
+  musician typed, then its host. Its second line is the link out to the
+  provider: the provider's name and an arrow, or "Open" for a provider with
+  no name of its own, named in full for a screen reader as "Open Soldier's
+  Joy on YouTube". The provider is named there and nowhere else on the row,
+  and a label the musician typed shows only where it stands in as the title.
 - On the Recordings screen, recordings group under their song. The group is
   headed by the song's own row where the catalog holds the song, and by a
   plain header otherwise. Unfiled recordings head their group with "Unfiled".

@@ -1,13 +1,32 @@
 import { IonList } from '@ionic/react'
 import { Trash2 } from 'lucide-react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { linkRow } from '../../test/rows'
 import type { RowAction } from '../../ui/Row'
 import type { Player } from '../player/usePlayer'
 import { LinkItem } from './LinkItem'
+
+const realMatchMedia = window.matchMedia
+afterEach(() => {
+  window.matchMedia = realMatchMedia
+})
+
+/** On touch the row lays its own open control over the body, which the link sits above. */
+function forceTouch() {
+  window.matchMedia = (query: string) =>
+    query === MOUSE_QUERY
+      ? ({
+          matches: false,
+          media: query,
+          addEventListener() {},
+          removeEventListener() {},
+        } as unknown as MediaQueryList)
+      : realMatchMedia.call(window, query)
+}
 
 function fakePlayer(overrides: Partial<Player> = {}): Player {
   return {
@@ -61,19 +80,18 @@ describe('LinkItem', () => {
     expect(player.close).toHaveBeenCalled()
   })
 
-  it('shows the provider word from display.ts', async () => {
+  it('names the provider once, in the link under the title', async () => {
     const link = linkRow('l1', 's1', {
       url: 'https://open.spotify.com/track/abc',
       provider: 'spotify',
       title: 'Jam session',
     })
     show(link)
-    // Waits for hydration before the synchronous DOM read below.
-    await expect
-      .element(page.getByRole('link', { name: 'Open Jam session on Spotify' }))
-      .toBeVisible()
-    const meta = document.querySelector('p.type-subheadline')
-    expect(meta?.textContent).toBe('Spotify')
+    const anchor = page.getByRole('link', { name: 'Open Jam session on Spotify' })
+    await expect.element(anchor).toBeVisible()
+    expect(anchor.element().textContent).toBe('Spotify')
+    // The row says the provider in the link and nowhere else.
+    expect(page.getByText('Spotify', { exact: true }).elements()).toHaveLength(1)
   })
 
   it('titles an unresolved link by what the musician called it, said once', async () => {
@@ -87,8 +105,8 @@ describe('LinkItem', () => {
     await expect
       .element(page.getByRole('heading', { name: 'slow version', level: 3 }))
       .toBeVisible()
-    // Standing in as the title, the label does not also ride the meta line.
-    expect(document.querySelector('p.type-subheadline')?.textContent).toBe('Spotify')
+    // Standing in as the title, the label is not repeated under it.
+    expect(page.getByText('slow version', { exact: true }).elements()).toHaveLength(1)
   })
 
   it('falls back to the host when the link has neither name', async () => {
@@ -102,7 +120,9 @@ describe('LinkItem', () => {
     await expect
       .element(page.getByRole('heading', { name: 'open.spotify.com', level: 3 }))
       .toBeVisible()
-    expect(document.querySelector('p.type-subheadline')?.textContent).toBe('Spotify')
+    await expect
+      .element(page.getByRole('link', { name: 'Open open.spotify.com on Spotify' }))
+      .toBeVisible()
   })
 
   it('offers an anchor that opens the link elsewhere and does not also open the player', async () => {
@@ -127,7 +147,7 @@ describe('LinkItem', () => {
     expect(player.play).not.toHaveBeenCalled()
   })
 
-  it('keeps a resolved title and folds the label into the meta line beside the provider', async () => {
+  it('keeps a resolved title and leaves the label the musician typed off the row', async () => {
     const link = linkRow('l1', 's1', {
       url: 'https://open.spotify.com/track/abc',
       provider: 'spotify',
@@ -138,8 +158,52 @@ describe('LinkItem', () => {
     await expect
       .element(page.getByRole('link', { name: 'Open Jam session on Spotify' }))
       .toBeVisible()
-    const meta = document.querySelector('p.type-subheadline')
-    expect(meta?.textContent).toBe('slow version · Spotify')
+    expect(page.getByText('slow version').elements()).toHaveLength(0)
+  })
+
+  it('opens the provider from the row itself when there is nothing to embed', async () => {
+    const player = fakePlayer()
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null)
+    const link = linkRow('l1', 's1', {
+      url: 'https://example.com/x',
+      provider: 'other',
+      title: 'Jam session',
+    })
+    show(link, { player })
+    await page.getByRole('button', { name: 'Open Jam session', exact: true }).click()
+    expect(opened).toHaveBeenCalledWith('https://example.com/x', '_blank', 'noopener,noreferrer')
+    expect(player.play).not.toHaveBeenCalled()
+    opened.mockRestore()
+  })
+
+  it('reads the link out as Open when the provider has no name of its own', async () => {
+    const link = linkRow('l1', 's1', {
+      url: 'https://example.com/x',
+      provider: 'other',
+      title: 'Jam session',
+    })
+    show(link)
+    const anchor = page.getByRole('link', { name: 'Open Jam session on Link' })
+    await expect.element(anchor).toBeVisible()
+    expect(anchor.element().textContent).toBe('Open')
+  })
+
+  it('lets the link take its own tap on touch, where the row is the play control', async () => {
+    forceTouch()
+    const player = fakePlayer()
+    const link = linkRow('l1', 's1', {
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+      provider: 'youtube',
+      provider_ref: 'dQw4w9WgXcQ',
+      title: 'Jam session',
+    })
+    show(link, { player })
+    const anchor = page.getByRole('link', { name: 'Open Jam session on YouTube' })
+    await expect.element(anchor).toBeVisible()
+    const element = anchor.element() as HTMLAnchorElement
+    element.addEventListener('click', (event) => event.preventDefault(), { once: true })
+    await anchor.click()
+    expect(player.play).not.toHaveBeenCalled()
   })
 
   it('names a passed-in Remove action for this link', async () => {

@@ -133,22 +133,28 @@ export async function setArchived(
   })
 }
 
+/**
+ * A song and everything that hangs off it. Call inside a `recordingTx`, which is what deleting
+ * one song and deleting a selection of them share.
+ */
+export async function tombstoneSong(db: CrosstuneDb, songId: string, at: string): Promise<void> {
+  await tombstone(db, 'songs', songId, at)
+  const userSongs = await db.user_songs.where('song_id').equals(songId).toArray()
+  for (const userSong of userSongs) {
+    const items = await db.list_items.where('user_song_id').equals(userSong.id).toArray()
+    for (const item of items) {
+      await tombstone(db, 'list_items', item.id, at, { enqueueDelete: false })
+    }
+    await tombstone(db, 'user_songs', userSong.id, at, { enqueueDelete: false })
+  }
+  const links = await db.recording_links.where('song_id').equals(songId).toArray()
+  for (const link of links) {
+    await tombstone(db, 'recording_links', link.id, at, { enqueueDelete: false })
+  }
+  await tombstoneSongRecordings(db, songId, at)
+}
+
 export async function deleteSong(db: CrosstuneDb, songId: string): Promise<void> {
   const at = now()
-  await recordingTx(db, async () => {
-    await tombstone(db, 'songs', songId, at)
-    const userSongs = await db.user_songs.where('song_id').equals(songId).toArray()
-    for (const userSong of userSongs) {
-      const items = await db.list_items.where('user_song_id').equals(userSong.id).toArray()
-      for (const item of items) {
-        await tombstone(db, 'list_items', item.id, at, { enqueueDelete: false })
-      }
-      await tombstone(db, 'user_songs', userSong.id, at, { enqueueDelete: false })
-    }
-    const links = await db.recording_links.where('song_id').equals(songId).toArray()
-    for (const link of links) {
-      await tombstone(db, 'recording_links', link.id, at, { enqueueDelete: false })
-    }
-    await tombstoneSongRecordings(db, songId, at)
-  })
+  await recordingTx(db, () => tombstoneSong(db, songId, at))
 }
