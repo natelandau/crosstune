@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs'
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
@@ -28,13 +27,7 @@ const allowedHosts = (mode: string) =>
 export default defineConfig(({ mode }) => {
   const hosts = allowedHosts(mode)
   return {
-    plugins: [
-      // One bundle: an offline reload must not fetch a route chunk the shell never loaded.
-      tanstackRouter({ target: 'react', autoCodeSplitting: false }),
-      react(),
-      tailwindcss(),
-      VitePWA(pwaOptions),
-    ],
+    plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     server: { host, port: 5173, proxy: apiProxy, allowedHosts: hosts },
     preview: { host, port: 4173, proxy: apiProxy, allowedHosts: hosts },

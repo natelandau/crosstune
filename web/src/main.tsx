@@ -1,9 +1,11 @@
 import { ClerkProvider } from '@clerk/react'
+import { IonApp, setupIonicReact } from '@ionic/react'
 import * as Sentry from '@sentry/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
-import { App } from './App'
+import { App } from './app/App'
+import { applyAppearance, readAppearance } from './features/settings/appearance'
 import { scrubR2Breadcrumb } from './sentryBreadcrumbs'
 import { APP_VERSION } from './version'
 import './app.css'
@@ -23,10 +25,17 @@ if (!publishableKey) throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
 
 registerSW({ immediate: true })
 
+setupIonicReact()
+// The inline script in index.html stamps the palette before paint; this syncs the status bar
+// color to it now that the stylesheet has applied.
+applyAppearance(readAppearance())
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ClerkProvider publishableKey={publishableKey}>
-      <App />
+      <IonApp>
+        <App />
+      </IonApp>
     </ClerkProvider>
   </StrictMode>,
 )
