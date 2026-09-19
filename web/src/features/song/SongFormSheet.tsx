@@ -30,7 +30,7 @@ import {
   type SongFormValues,
 } from './songFormValues'
 import { SuggestSelect } from './SuggestSelect'
-import { KEYS, TUNING_SUGGESTIONS } from './suggestions'
+import { QUICK_KEYS, TUNING_SUGGESTIONS } from './suggestions'
 
 export type SongFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
 
@@ -210,7 +210,7 @@ export function SongFormSheet({
             label="Key"
             showLabel={false}
             value={values.key}
-            options={KEYS}
+            options={QUICK_KEYS}
             other
             maxLength={SONG_LIMITS.key}
             onChange={(value) => set('key', value)}

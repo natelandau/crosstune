@@ -10,7 +10,7 @@ import type { CatalogEntry } from '../catalog/filters'
 import { STATUS_LABELS } from '../catalog/status'
 import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
 import { SONG_LIMITS } from '../song/limits'
-import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNING_SUGGESTIONS } from '../song/suggestions'
+import { FEELS, GENRES, PART_STRUCTURES, QUICK_KEYS, TUNING_SUGGESTIONS } from '../song/suggestions'
 import { SuggestSelect } from '../song/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
@@ -27,7 +27,7 @@ import {
 import { countSongs } from './copy'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
-  key: { options: KEYS, other: true },
+  key: { options: QUICK_KEYS, other: true },
   mode: { options: MODES, other: false },
   violin_tuning: { options: TUNING_SUGGESTIONS.violin_tuning, other: true },
   banjo_tuning: { options: TUNING_SUGGESTIONS.banjo_tuning, other: true },

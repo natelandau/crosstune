@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 const BASE =
   'inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-3 type-subheadline tabular-nums'
@@ -12,6 +12,7 @@ export function Capsule({
   pressed,
   filled,
   onPress,
+  onPressEvent,
   label,
   tone = 'neutral',
 }: {
@@ -21,6 +22,8 @@ export function Capsule({
    * remove action, say), so it never announces `aria-pressed`. */
   filled?: boolean
   onPress?: () => void
+  /** For a capsule that opens a menu, which anchors its popover to the click. */
+  onPressEvent?: (event: ReactMouseEvent) => void
   label?: string
   tone?: 'neutral' | 'warning' | 'danger'
 }) {
@@ -32,9 +35,9 @@ export function Capsule({
         : tone === 'danger'
           ? 'bg-(--ion-color-danger) text-(--ion-color-danger-contrast)'
           : 'bg-(--fill-tertiary) text-(--ion-text-color)'
-  if (!onPress) return <span className={`${BASE} ${fill}`}>{children}</span>
+  if (!onPress && !onPressEvent) return <span className={`${BASE} ${fill}`}>{children}</span>
   return (
-    <PressTarget pressed={pressed} onPress={onPress} label={label}>
+    <PressTarget pressed={pressed} onPress={onPress} onPressEvent={onPressEvent} label={label}>
       <span className={`${BASE} ${fill}`}>{children}</span>
     </PressTarget>
   )
@@ -49,11 +52,15 @@ export function PressTarget({
   children,
   pressed,
   onPress,
+  onPressEvent,
   label,
 }: {
   children: ReactNode
   pressed?: boolean
-  onPress: () => void
+  onPress?: () => void
+  /** Takes the click itself, for a control that opens a menu anchored to it. Exactly one of
+   * `onPress` and `onPressEvent` is given. */
+  onPressEvent?: (event: ReactMouseEvent) => void
   label?: string
 }) {
   return (
@@ -62,7 +69,10 @@ export function PressTarget({
       aria-pressed={pressed}
       aria-label={label}
       className="grid min-h-11 min-w-11 shrink-0 place-items-center"
-      onClick={onPress}
+      onClick={(event) => {
+        if (onPressEvent) onPressEvent(event)
+        else onPress?.()
+      }}
     >
       {children}
     </button>
