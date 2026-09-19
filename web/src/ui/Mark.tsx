@@ -18,8 +18,8 @@ export function Mark({ className = '' }: { className?: string }) {
   )
 }
 
-/** The mark beside the name at the caller's type role. Geist's cap height is 0.71em, and the
- * gap is 0.4 of it. Inline so it can sit inside a link. */
+/** The mark beside the name at the caller's type role. The system font's cap height is close
+ * to 0.7em, and the gap is 0.4 of it. Inline so it can sit inside a link. */
 export function Lockup({ className = '' }: { className?: string }) {
   return (
     <span className={`inline-flex items-baseline gap-[0.28em] ${className}`}>

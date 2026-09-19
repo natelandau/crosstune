@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from 'react'
-import { guardTrailingClick } from './swipe'
+import { tap } from '../platform/haptics'
 
-export const LONG_PRESS_MS = 500
-// Equal to the swipe activation distance, so a swipe or a scroll never also counts as a hold.
-export const LONG_PRESS_SLOP_PX = 10
+const LONG_PRESS_MS = 500
+// Wide enough that a swipe or a scroll never also counts as a hold.
+const LONG_PRESS_SLOP_PX = 10
+const CLICK_GUARD_MS = 50
 
 export interface LongPressHandlers {
   onPointerDown?: (event: PointerEvent) => void
@@ -12,6 +13,21 @@ export interface LongPressHandlers {
   onPointerCancel?: () => void
   onPointerLeave?: () => void
   onContextMenu?: (event: MouseEvent) => void
+}
+
+/**
+ * Block the click a long press leaves behind until shortly after the returned release runs.
+ * The row's own click handler would otherwise fire right after the finger lifts.
+ */
+function guardTrailingClick(): () => void {
+  const block = (event: globalThis.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  window.addEventListener('click', block, { capture: true })
+  return () => {
+    setTimeout(() => window.removeEventListener('click', block, { capture: true }), CLICK_GUARD_MS)
+  }
 }
 
 export function useLongPress(onLongPress: (() => void) | undefined): LongPressHandlers {
@@ -56,7 +72,7 @@ export function useLongPress(onLongPress: (() => void) | undefined): LongPressHa
       timer.current = setTimeout(() => {
         timer.current = null
         releaseClick.current = guardTrailingClick()
-        if ('vibrate' in navigator) navigator.vibrate(10)
+        tap()
         onLongPress()
       }, LONG_PRESS_MS)
     },

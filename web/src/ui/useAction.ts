@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 
-function messageFor(error: unknown): string {
+/** The one wording for a rejection, so an inline error and a toast read the same. */
+export function messageFor(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong'
 }
 

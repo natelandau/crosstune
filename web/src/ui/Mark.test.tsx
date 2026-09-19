@@ -33,7 +33,7 @@ describe('Mark', () => {
   })
 
   it('binds the mark token to the coral the brand sources are drawn with', () => {
-    const css = readFileSync(resolve(import.meta.dirname, '../app.css'), 'utf8')
+    const css = readFileSync(resolve(import.meta.dirname, '../app/theme/variables.css'), 'utf8')
     const token = /--color-mark:\s*(#[0-9a-f]{6});/.exec(css)?.[1]
     const [t] = markShapes(parseBrand('mark-dark.svg').documentElement)
     expect(token).toBe(t?.getAttribute('stroke'))
@@ -42,11 +42,11 @@ describe('Mark', () => {
 
 describe('Lockup', () => {
   it('sets the mark beside the name at the documented type role and gap', () => {
-    render(<Lockup className="text-heading" />)
+    render(<Lockup className="text-2xl" />)
     const lockup = screen.getByText('Crosstune')
     expect(lockup.tagName).toBe('SPAN')
     expect(lockup).toHaveClass('inline-flex')
-    expect(lockup).toHaveClass('text-heading')
+    expect(lockup).toHaveClass('text-2xl')
     expect(lockup).toHaveClass('items-baseline')
     expect(lockup).toHaveClass('gap-[0.28em]')
     const svg = lockup.querySelector('svg[aria-hidden="true"]')
