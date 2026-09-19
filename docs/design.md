@@ -118,7 +118,11 @@ Three axes decide the chrome. No screen asks which device it is on.
   coral. `primary` tints buttons, links, the current tab, and the selection.
   `success` and `warning` are the known and learning dots. `warning` also
   marks the archived badge and a cautionary menu item. `danger` marks the
-  record button and every destructive action.
+  record button and every destructive action. The key rail is the one
+  exception to `primary` tinting the selection: its chosen capsule fills in
+  the key's own hue, because filling with `primary` would repaint a key from
+  its own color at the moment it is chosen. `All keys` has no pitch and keeps
+  the `primary` fill.
 - Dark mode is Ionic's system palette, switched by the `ion-palette-dark`
   class the appearance setting writes. The class and the `data-theme`
   attribute are both stamped by the inline script in `index.html` before
@@ -288,8 +292,10 @@ Only the catalog has filters.
 - Under the search comes the status segment: All, Known, Learning, Unknown.
 - Then the key rail: All keys, then every key the catalog holds, as capsules
   in one scrolling row that fades at its end while there is more to scroll
-  to. One tap sets a key, a tap on All keys or on the pressed key clears it.
-  The rail appears only when the catalog holds keys.
+  to. Each key wears its own pill, the same one a song row shows, so the rail
+  reads as the keys themselves rather than as plain chips. One tap sets a
+  key, a tap on All keys or on the pressed key clears it. The chosen key
+  fills in its own hue. The rail appears only when the catalog holds keys.
 - Then a row of filled capsules, one per filter set inside the sheet, each
   removable. Show archived reads "Archived shown".
 - Mode, violin tuning, banjo tuning, and genre live in the filter sheet as
