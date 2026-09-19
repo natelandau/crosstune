@@ -6,10 +6,10 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     name: 'Crosstune',
     short_name: 'Crosstune',
     description: 'A song catalog for folk musicians',
-    theme_color: '#4f5d75',
-    // The splash is drawn from the manifest before the page can pick a theme, so it uses the
-    // chrome color that both themes share rather than either theme's page color.
-    background_color: '#4f5d75',
+    // The page sets the status bar color once it knows the theme; until then the manifest
+    // falls back to the light page color.
+    theme_color: '#ffffff',
+    background_color: '#ffffff',
     display: 'standalone',
     start_url: '/',
     scope: '/',

@@ -1,0 +1,578 @@
+/* The palette carries meaning and each platform supplies its own structure: page, grouped
+   background, separators, and secondary text come from Ionic's per-mode defaults. Every
+   palette color below is one of the eight brand colors. This file is imported outside any layer
+   because Ionic injects its component styles unlayered at runtime, and a layered rule would
+   lose to them whatever its specificity. */
+:root {
+  --ion-color-primary: #4f5d75;
+  --ion-color-primary-rgb: 79, 93, 117;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #465267;
+  --ion-color-primary-tint: #616d83;
+
+  --ion-color-success: #4f5d75;
+  --ion-color-success-rgb: 79, 93, 117;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #465267;
+  --ion-color-success-tint: #616d83;
+
+  --ion-color-warning: #9f7065;
+  --ion-color-warning-rgb: 159, 112, 101;
+  --ion-color-warning-contrast: #ffffff;
+  --ion-color-warning-contrast-rgb: 255, 255, 255;
+  --ion-color-warning-shade: #8c6359;
+  --ion-color-warning-tint: #a97e74;
+
+  --ion-color-danger: #ef8354;
+  --ion-color-danger-rgb: 239, 131, 84;
+  --ion-color-danger-contrast: #2d3142;
+  --ion-color-danger-contrast-rgb: 45, 49, 66;
+  --ion-color-danger-shade: #d2734a;
+  --ion-color-danger-tint: #f18f65;
+
+  /* The T of the brand mark, on every surface. */
+  --color-mark: #ef8354;
+
+  /* The fill of a neutral capsule, as translucent gray so it reads on any surface. Ionic
+     defines no fill tokens of its own. */
+  --fill-tertiary: rgba(118, 118, 128, 0.12);
+
+  /* The content column on the wide frame, in px so the text size setting scales the type
+     and not the column. About 70 characters of body text. */
+  --measure: none;
+  /* The space either side of the content column, for a bar that spans the pane but lines its
+     content up with the column. Resolved against the bar's own width where it is used. */
+  --measure-gutter: 0px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --measure: 640px;
+    --measure-gutter: max(0px, (100% - 640px) / 2);
+  }
+}
+
+/* Keeps each mode's own toolbar inset inside the column. */
+html.ios ion-toolbar.screen-column {
+  --padding-start: calc(4px + var(--measure-gutter));
+  --padding-end: calc(4px + var(--measure-gutter));
+}
+html.md ion-toolbar.screen-column {
+  --padding-start: var(--measure-gutter);
+  --padding-end: var(--measure-gutter);
+}
+
+/* The toolbar's start slot carries no inset of its own, so a badge with something to show
+   brings one. A quiet badge is empty and untouched, so it never shifts the title. */
+ion-toolbar .sync-badge {
+  padding-inline-start: 12px;
+}
+
+/* An iOS title is positioned across the whole bar instead of beside what shares it, so a badge
+   in the start slot sits over a title too long to fit. Room at both ends keeps the title clear
+   of the widest badge and still centered, and only while there is a badge to clear. */
+html.ios ion-toolbar:has(.sync-badge) ion-title {
+  padding-inline: 8.5rem;
+}
+
+/* A sheet on a mouse frame is a dialog: fixed width, as tall as its content up to 80vh,
+   centered, no grabber. */
+ion-modal.sheet-dialog {
+  --width: 480px;
+  --height: auto;
+  --max-height: 80vh;
+  --border-radius: 12px;
+}
+
+ion-modal.sheet-dialog > .ion-page {
+  max-height: 80vh;
+}
+
+/* Outranks Ionic's 32px minimum for toolbar buttons, which its runtime styles inject unlayered. */
+ion-modal .sheet-toolbar ion-button {
+  min-height: 44px;
+}
+
+/* A control in a header or footer toolbar, where Ionic's runtime styles inject a 32px minimum
+   unlayered, under the 44px every tap target keeps. Ionic's own selector scores the same as a
+   lone class here, which would leave source order to decide; the toolbar in front outscores it
+   instead. A footer control is a child of the toolbar rather than of ion-buttons, so the
+   toolbar, not the button group, is what both have in common. */
+ion-toolbar ion-button.toolbar-control {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* The selection toolbar's title is a count, and every control beside it is live. An iOS title is
+   laid across the whole bar, so a leading control wider than its padding sits under the count;
+   md's own title padding squeezes the count out at phone width. Between the two button slots
+   instead, the count takes the room the controls leave and gives up its digits last. */
+ion-toolbar ion-title.selection-title {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding-inline: 8px;
+}
+
+/* The count says what the actions beside it will act on, so the word is what gives way when the
+   bar runs out of room: a number elided to its first digits reads as a different number. */
+ion-title.selection-title .selection-title-text {
+  display: flex;
+  gap: 0.25em;
+  min-width: 0;
+}
+html.ios ion-title.selection-title .selection-title-text {
+  justify-content: center;
+}
+ion-title.selection-title .selection-title-count {
+  flex: none;
+}
+ion-title.selection-title .selection-title-word {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A sheet's title can be a whole question, which Ionic would elide at the word that carries it. */
+ion-modal .sheet-toolbar .sheet-title {
+  display: block;
+  white-space: normal;
+}
+
+/* An iOS toolbar title is laid across the whole bar and padded 90px at each end to clear the
+   buttons sitting over it. Between the two button slots instead, it wraps into a bar that grows
+   with it, and the padding that cleared those buttons is no longer holding anything off. */
+html.ios ion-modal .sheet-toolbar ion-title {
+  position: relative;
+  padding-inline: 8px;
+}
+
+/* A title between the two button slots centers in the room they leave, so a bar with one button
+   carries it off center. Matching slots put the middle back on the bar's middle, at the width of
+   the widest control either slot holds. The trailing slot keeps its button against the bar's
+   trailing edge rather than at the start of the room it now reserves. On md the title is
+   left-aligned after the start slot, so none of this applies there. */
+html.ios ion-modal .sheet-toolbar ion-buttons {
+  min-width: 5.25rem;
+}
+
+html.ios ion-modal .sheet-toolbar ion-buttons[slot='end'] {
+  justify-content: flex-end;
+}
+
+ion-modal.sheet-dialog .sheet-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--grouped-background);
+}
+
+/* A screen or sheet made of inset groups, where each group reads as a card. The tokens sit on
+   the element rather than the root so an iOS modal's own background reaches them, and dark mode
+   keeps the page darker than its cards, as each platform's grouped lists do. */
+.grouped {
+  --grouped-background: var(--ion-color-light, #f4f5f8);
+}
+.ion-palette-dark .grouped {
+  --grouped-background: var(--ion-background-color);
+}
+.ion-palette-dark.ios .grouped {
+  --ion-item-background: var(--ion-card-background);
+}
+.ion-palette-dark.ios ion-modal .grouped {
+  --ion-item-background: var(--ion-background-color-step-150);
+}
+ion-content.grouped {
+  --background: var(--grouped-background);
+}
+
+/* A plain list on md in dark mode takes the page color, so the separators alone carry its
+   structure and no edge reads under its last row. Material's list items sit on the surface
+   rather than above it. A grouped screen's cards are inset lists and keep their own lighter
+   row, and a list with no lines has nothing left to give it structure. */
+.ion-palette-dark.md ion-content:not(.grouped) ion-list:not(.list-inset, .list-lines-none) {
+  --ion-item-background: var(--ion-background-color);
+}
+
+/* Ionic clips a toggle's label to one line, so a setting whose name runs past the switch reads
+   as a sentence cut off mid-word. The name wraps instead and the row grows to hold it. */
+ion-toggle::part(label) {
+  white-space: normal;
+}
+
+/* Fits every status label, including "Unknown", on one line in a four-way segmented control
+   at phone width, and keeps each button a 44px tap target. The size is in rem so the text size
+   setting scales it. */
+ion-segment-button {
+  font-size: 0.8125rem;
+  min-height: 44px;
+  --padding-start: 4px;
+  --padding-end: 4px;
+}
+
+/* The key rail fades out at its inline end, so a chip cut off by the edge reads as more to
+   scroll to rather than as the last key. `data-fade` is set only while there is more to scroll
+   to, so the fade never lingers over the last chip once the rail is scrolled all the way. */
+.key-rail[data-fade='true'] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+/* A gradient has no logical direction, so the fade flips by hand in right-to-left text. */
+.key-rail[data-fade='true']:dir(rtl) {
+  mask-image: linear-gradient(to left, #000 calc(100% - 2rem), transparent);
+}
+
+/* A minimal-height rule between a popover menu's items and its destructive one. */
+ion-item-divider.menu-divider {
+  min-height: 1px;
+  --padding-top: 0;
+  --padding-bottom: 0;
+}
+
+/* An action sheet's destructive group starts with a top border, since the sheet only draws a
+   native gap around its cancel button. */
+.action-sheet-button.menu-destructive {
+  border-top: 1px solid var(--ion-background-color-step-150, rgba(0, 0, 0, 0.13));
+}
+
+/* Ionic's destructive role carries a color in ios alone, so md gets it here: a destructive
+   action is red on both platforms, and an overlay whose destructive button reads like its
+   Cancel says nothing about what it is about to do. */
+html.md .alert-button.alert-button-role-destructive,
+html.md .action-sheet-button.action-sheet-destructive {
+  color: var(--ion-color-danger);
+}
+
+/* A toned menu item is its tone's text color on both pointers. Ionic's own destructive role
+   only carries a color in ios, and a popover item takes its text color from the item. */
+.action-sheet-button.menu-warning {
+  color: var(--ion-color-warning);
+}
+.action-sheet-button.menu-danger {
+  color: var(--ion-color-danger);
+}
+ion-item.menu-warning {
+  --color: var(--ion-color-warning);
+}
+ion-item.menu-danger {
+  --color: var(--ion-color-danger);
+}
+
+.ion-palette-dark {
+  --ion-color-primary: #bfc0c0;
+  --ion-color-primary-rgb: 191, 192, 192;
+  --ion-color-primary-contrast: #2d3142;
+  --ion-color-primary-contrast-rgb: 45, 49, 66;
+  --ion-color-primary-shade: #a8a9a9;
+  --ion-color-primary-tint: #c5c6c6;
+
+  --ion-color-success: #bfc0c0;
+  --ion-color-success-rgb: 191, 192, 192;
+  --ion-color-success-contrast: #2d3142;
+  --ion-color-success-contrast-rgb: 45, 49, 66;
+  --ion-color-success-shade: #a8a9a9;
+  --ion-color-success-tint: #c5c6c6;
+
+  --fill-tertiary: rgba(118, 118, 128, 0.24);
+}
+
+/* The record dome in the phone tab bar. --tab-bar-cap is how far its top rises above the bar,
+   which is also the room a screen leaves under its last row so nothing ends up behind it. */
+:root {
+  --tab-bar-cap: 0px;
+  --record-dome-size: 4rem;
+  --record-dome-ring: 3px;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --tab-bar-cap: 1rem;
+  }
+}
+
+/* The ring takes the tab bar's own background, so it separates the dome from the page
+   scrolling beneath it and disappears against the bar. */
+html.ios {
+  --record-dome-ring-color: var(
+    --ion-tab-bar-background,
+    var(--ion-background-color-step-50, #f7f7f7)
+  );
+}
+html.md {
+  --record-dome-ring-color: var(--ion-tab-bar-background, var(--ion-background-color, #ffffff));
+}
+
+/* Equal slots, so the dome's empty center slot sits under the dome; a flex item otherwise keeps
+   its label's width and a long label pushes the center off true center. */
+nav[aria-label='Primary'] ion-tab-button {
+  min-width: 0;
+  --padding-start: 2px;
+  --padding-end: 2px;
+}
+
+/* Tab labels at each platform's own tab bar size. Ionic's slotted label size loses to the
+   label's page-level styles, which leaves a label too wide for an equal slot. */
+html.ios nav[aria-label='Primary'] ion-tab-button ion-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+html.md nav[aria-label='Primary'] ion-tab-button ion-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* The player sits in the tab frame's bottom slot, directly above the tab bar, so it reads as
+   chrome rather than as page content: the bar's own surface, and a hairline to part it from the
+   page above. The variable is set on the frame, not the surface, so the record dome's clearance
+   below the surface takes the same color rather than leaving the page showing through it. */
+html.ios .player-dock-frame {
+  --player-dock-background: var(
+    --ion-tab-bar-background,
+    var(--ion-background-color-step-50, #f7f7f7)
+  );
+}
+html.md .player-dock-frame {
+  --player-dock-background: var(--ion-tab-bar-background, var(--ion-background-color, #ffffff));
+}
+.player-dock-frame {
+  background: var(--player-dock-background, var(--ion-background-color, #ffffff));
+}
+.player-dock {
+  border-top: 0.55px solid
+    var(--ion-tab-bar-border-color, var(--ion-border-color, rgba(0, 0, 0, 0.2)));
+  background: var(--player-dock-background, var(--ion-background-color, #ffffff));
+  /* A recording plays through the browser's own audio control, which takes its face from the
+     color scheme rather than from any palette variable. */
+  color-scheme: light;
+}
+.ion-palette-dark .player-dock {
+  color-scheme: dark;
+}
+/* Ionic's own button height is under the 44px every tap target keeps. */
+.player-dock ion-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.record-dome {
+  position: absolute;
+  z-index: 20;
+  top: calc(-1 * var(--tab-bar-cap));
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: var(--record-dome-size);
+  height: var(--record-dome-size);
+  translate: -50% 0;
+  border-radius: 9999px;
+  background: color-mix(
+    in oklab,
+    var(--ion-text-color, #000000) 10%,
+    var(--record-dome-ring-color)
+  );
+  box-shadow: 0 0 0 var(--record-dome-ring) var(--record-dome-ring-color);
+  transition: scale 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.record-dome:active {
+  scale: 0.94;
+}
+.record-dome:focus-visible {
+  outline: 2px solid var(--ion-color-primary);
+  outline-offset: calc(var(--record-dome-ring) + 2px);
+}
+.record-dome-dot {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: var(--ion-color-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-dome {
+    transition: none;
+  }
+  .record-dome:active {
+    scale: none;
+  }
+}
+
+/* Ionic finds an inset list's last row by tag, so a list that mixes sliding rows with plain
+   items would lose the line under the last row of one kind and keep it under the list's true
+   last row. These rules draw lines by position instead, for lists with default or inset lines,
+   and for full lines. Reorderable rows sit one level deeper, inside the reorder group that
+   drags them, so that group stands in for the list as the row container. A list with
+   lines="none", or an item with its own lines, is left alone. */
+ion-list.list-ios.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-item.item-lines-default:not(:last-child),
+ion-list.list-ios.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default,
+ion-list.list-ios.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-reorder-group
+  > ion-item.item-lines-default:not(:last-child),
+ion-list.list-ios.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-reorder-group
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default {
+  --inner-border-width: 0px 0px 0.55px 0px;
+}
+ion-list.list-md.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-item.item-lines-default:not(:last-child),
+ion-list.list-md.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default,
+ion-list.list-md.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-reorder-group
+  > ion-item.item-lines-default:not(:last-child),
+ion-list.list-md.list-inset:not(.list-lines-none, .list-lines-full)
+  > ion-reorder-group
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default {
+  --inner-border-width: 0 0 1px 0;
+}
+ion-list.list-ios.list-inset.list-lines-full > ion-item.item-lines-default:not(:last-child),
+ion-list.list-ios.list-inset.list-lines-full
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default,
+ion-list.list-ios.list-inset.list-lines-full
+  > ion-reorder-group
+  > ion-item.item-lines-default:not(:last-child),
+ion-list.list-ios.list-inset.list-lines-full
+  > ion-reorder-group
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default {
+  --border-width: 0 0 0.55px 0;
+}
+ion-list.list-md.list-inset.list-lines-full > ion-item.item-lines-default:not(:last-child),
+ion-list.list-md.list-inset.list-lines-full
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default,
+ion-list.list-md.list-inset.list-lines-full
+  > ion-reorder-group
+  > ion-item.item-lines-default:not(:last-child),
+ion-list.list-md.list-inset.list-lines-full
+  > ion-reorder-group
+  > ion-item-sliding:not(:last-child)
+  > ion-item.item-lines-default {
+  --border-width: 0 0 1px 0;
+}
+:is(.list-ios, .list-md).list-inset > ion-item:last-child,
+:is(.list-ios, .list-md).list-inset > ion-reorder-group > ion-item:last-child {
+  --border-width: 0;
+  --inner-border-width: 0;
+}
+
+/* A mouse row: the open button covers the item, so the item draws the hover and focus states
+   the button cannot draw over its own content. Actions stay in the tab order at full size and
+   only appear on hover or focus, laid over the trailing edge so a row never gives up title
+   width to hidden buttons. Their backdrop fades into the row's own surface to cover the text. */
+ion-item:has(.row-actions) {
+  --row-surface: var(--ion-item-background, var(--ion-background-color, #ffffff));
+}
+ion-item.row-link {
+  cursor: pointer;
+}
+/* Hover and focus set --background from --row-surface, so the actions' backdrop matches the
+   row it covers. */
+ion-item.row-link:hover {
+  --row-surface: color-mix(
+    in oklab,
+    var(--ion-text-color, #000000) 4%,
+    var(--ion-item-background, var(--ion-background-color, #ffffff))
+  );
+  --background: var(--row-surface);
+}
+ion-item.row-link:has([data-row-open]:focus-visible) {
+  --row-surface: color-mix(
+    in oklab,
+    var(--ion-text-color, #000000) 12%,
+    var(--ion-item-background, var(--ion-background-color, #ffffff))
+  );
+  --background: var(--row-surface);
+}
+/* A row that opens through its own button is not Ionic's own activatable item, so the press
+   tint an item lays over itself is laid over this button instead, at the weight Ionic uses.
+   ion-activated is the class Ionic's own tap handling adds, which a touch reports sooner and
+   more reliably than :active does. */
+ion-item.row-link [data-row-open]:active::after,
+ion-item.row-link [data-row-open].ion-activated::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--ion-text-color, #000000) 12%, transparent);
+  pointer-events: none;
+}
+/* The ring sits above the item's content and the actions laid over it, so it stays whole. */
+ion-item.row-link:has([data-row-open]:focus-visible)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  border: 2px solid var(--ion-color-primary);
+  pointer-events: none;
+}
+/* The item's ring replaces the button's own outline, which its item clips to one edge. */
+ion-item.row-link [data-row-open]:focus-visible {
+  outline: none;
+}
+/* The open button lives in the start slot, a direct child of the item's native element, so it
+   covers the leading padding and the glyph column as well as the body. The margin reset undoes
+   the gap ion-item gives every other element it slots there, and the stacking order puts it
+   over the item's own inner wrapper but under the trailing controls and the hover actions. */
+ion-item .row-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+ion-item .row-trailing {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+}
+/* Holding only the actions overlay, with no real end control, this container must stay
+   out of the flex flow's width accounting or it steals space from the row's title. */
+ion-item .row-trailing:not(:has(> :not(.row-actions))) {
+  margin-inline-start: 0;
+}
+/* With a real end control, this container becomes the actions' anchor so they float just
+   before it instead of the item's trailing edge, never covering it on hover. */
+ion-item .row-trailing:has(> :not(.row-actions)) {
+  position: relative;
+  z-index: 2;
+}
+ion-item .row-trailing:has(> :not(.row-actions)) > .row-actions {
+  inset-inline-end: 100%;
+}
+ion-item .row-actions {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding-inline: 2rem 0.5rem;
+  background: linear-gradient(to right, transparent, var(--row-surface) 2rem);
+  opacity: 0;
+  /* The fade must not swallow clicks meant for the row beneath it. */
+  pointer-events: none;
+}
+/* A gradient has no logical direction, so the fade flips by hand in right-to-left text. */
+ion-item .row-actions:dir(rtl) {
+  background: linear-gradient(to left, transparent, var(--row-surface) 2rem);
+}
+ion-item:hover .row-actions,
+ion-item:focus-within .row-actions {
+  opacity: 1;
+}
+ion-item .row-action {
+  min-width: 44px;
+  min-height: 44px;
+  pointer-events: auto;
+}
