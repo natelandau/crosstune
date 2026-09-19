@@ -8,11 +8,20 @@ describe('link display', () => {
     expect(providerLabel({ provider: 'napster' })).toBe('Link')
   })
 
-  it('falls back from the title to the hostname to the raw url', () => {
-    expect(displayTitle({ title: 'Ground Hog', url: 'https://tidal.com/track/1' })).toBe(
-      'Ground Hog',
+  it('falls back from the title to the label to the hostname to the raw url', () => {
+    expect(
+      displayTitle({
+        title: 'Ground Hog',
+        label: 'slow version',
+        url: 'https://tidal.com/track/1',
+      }),
+    ).toBe('Ground Hog')
+    expect(
+      displayTitle({ title: null, label: 'slow version', url: 'https://tidal.com/track/1' }),
+    ).toBe('slow version')
+    expect(displayTitle({ title: null, label: null, url: 'https://tidal.com/track/1' })).toBe(
+      'tidal.com',
     )
-    expect(displayTitle({ title: null, url: 'https://tidal.com/track/1' })).toBe('tidal.com')
-    expect(displayTitle({ title: null, url: 'not a url' })).toBe('not a url')
+    expect(displayTitle({ title: null, label: null, url: 'not a url' })).toBe('not a url')
   })
 })

@@ -1,5 +1,5 @@
-import { useReducedMotion } from 'motion/react'
 import { useEffect, useRef } from 'react'
+import { useReducedMotion } from '../../platform/motion'
 import { barCount, createLevels, layoutBars, pushLevel, rmsLevel } from './waveformBars'
 
 /**
@@ -19,7 +19,7 @@ export function LiveWaveform({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pausedRef = useRef(paused)
-  const reduceMotion = useReducedMotion() ?? false
+  const reduceMotion = useReducedMotion()
   useEffect(() => {
     pausedRef.current = paused
   })
@@ -64,5 +64,12 @@ export function LiveWaveform({
     }
   }, [analyser, active, reduceMotion])
 
-  return <canvas ref={canvasRef} aria-hidden="true" className="text-primary block h-32 w-full" />
+  // The draw loop reads this color off the canvas, so the bars follow the palette in either theme.
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      className="block h-32 w-full text-(--ion-color-primary)"
+    />
+  )
 }

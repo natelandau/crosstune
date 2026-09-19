@@ -1,20 +1,18 @@
+import { IonButton } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { RecordingFile } from '../../db/recordings'
 import { useDb } from '../../db/DbProvider'
+import type { RecordingFile } from '../../db/recordings'
 import { liveSong } from '../../db/songs'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { displayTitle } from '../links/display'
 import { fileStateLabel } from '../recording/format'
+import { recordingTitle } from '../recordings/recordingRow'
 import { embedFor, type Embed } from './embed'
+import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
 import { usePlayer } from './usePlayer'
-
-const VIDEO_HEIGHT_PX = 200
-export const AUDIO_HEIGHT_PX = 56
-// The section's `p-1.5` above and below plus its `h-11` header.
-const CHROME_HEIGHT_PX = 6 + 44 + 6
 
 type Shown =
   | { kind: 'link'; link: LocalRecordingLink; embed: Embed }
@@ -91,14 +89,14 @@ function RecordingBody({
         ? 'Downloading'
         : fileStateLabel(recording, file ?? undefined)
   return (
-    <div className="text-meta flex h-14 items-center gap-2 opacity-70">
-      <p role="status" className="flex-1">
+    <div className="flex h-14 items-center gap-2">
+      <p role="status" className="type-footnote min-w-0 flex-1 truncate">
         {label || 'Not available'}
       </p>
+      {/* Offline refuses the tap by not offering it, rather than leaving a control that cannot work. */}
       {failed && online ? (
-        <button
-          type="button"
-          className="btn btn-sm min-h-11"
+        <IonButton
+          fill="outline"
           onClick={() => {
             // Clearing the failed result shows Downloading again until this attempt settles.
             setFetched(null)
@@ -108,13 +106,18 @@ function RecordingBody({
           }}
         >
           Retry
-        </button>
+        </IonButton>
       ) : null}
     </div>
   )
 }
 
-export function PlayerDock() {
+/**
+ * The one player, in the tab frame's bottom slot so it sits above the tab bar and stays put as
+ * the musician moves between screens. It reserves its own room there, so a page never ends up
+ * behind it and the record button's dome keeps its clearance.
+ */
+export function Dock() {
   const db = useDb()
   const { item, close, returnFocus } = usePlayer()
 
@@ -151,7 +154,7 @@ export function PlayerDock() {
   const missingRecording = current !== undefined && item?.kind === 'recording' && recording === null
 
   // Holding the last playable recording through a replacement read keeps the dock and
-  // its spacer mounted, so the page height and scroll position do not jump.
+  // its reserved room mounted, so the page height and scroll position do not jump.
   const [shown, setShown] = useState<Shown | null>(null)
   const resolved: Shown | null =
     link && embed
@@ -194,70 +197,79 @@ export function PlayerDock() {
 
   const embedHeight = next?.kind === 'link' ? next.embed.height : undefined
   const frameHeight = embedHeight === 'video' ? VIDEO_HEIGHT_PX : embedHeight
-  const dockHeight =
-    next?.kind === 'recording'
-      ? CHROME_HEIGHT_PX + AUDIO_HEIGHT_PX
-      : frameHeight === undefined
-        ? null
-        : CHROME_HEIGHT_PX + frameHeight
+  const height =
+    next === null
+      ? null
+      : next.kind === 'link'
+        ? dockHeight({ kind: 'link', height: next.embed.height })
+        : dockHeight({ kind: 'recording' })
 
-  // Floating controls elsewhere in the tree, such as the catalog's add link, rise by this to
-  // stay above the player: its height plus the record button's cap, which the player itself clears.
+  // Chrome fixed to the viewport from outside the tab frame rises by this to clear the player:
+  // its height plus the record button's cap. Anything inside the frame already clears it,
+  // because the frame has given the player a box of its own.
   useLayoutEffect(() => {
-    if (dockHeight === null) return
+    if (height === null) return
     const rootStyle = document.documentElement.style
-    rootStyle.setProperty('--player-dock-offset', `calc(${dockHeight}px + var(--dock-cap))`)
+    rootStyle.setProperty('--player-dock-offset', `calc(${height}px + var(--tab-bar-cap))`)
     return () => {
       rootStyle.removeProperty('--player-dock-offset')
     }
-  }, [dockHeight])
+  }, [height])
 
-  if (!next || dockHeight === null) return null
+  if (!next || height === null) return null
 
   const title =
     next.kind === 'link'
       ? displayTitle(next.link)
-      : (next.recording.label ?? next.songTitle ?? 'Recording')
+      : recordingTitle({
+          recording: next.recording,
+          file: next.file ?? undefined,
+          songId: null,
+          songTitle: next.songTitle,
+        })
 
   return (
-    <>
-      {/* Reserves the cap the player clears as well, so content at the end of the page clears the player by as much as it clears the bar. */}
-      <div aria-hidden="true" style={{ height: `calc(${dockHeight}px + var(--dock-cap))` }} />
+    // The padding is the room the record button's dome rises into, so the dome is never covered.
+    // The pages above are the only item in the frame's column that gives way, so a short
+    // viewport takes its room out of them rather than out of the player.
+    // Positioned, like the tab bar beside it, so the router outlet's own positioned box cannot
+    // paint a page's overscroll over the player; the bar still wins, coming later in the slot.
+    // The frame's own background covers that padding too, so no scrolled row shows through it.
+    <div slot="bottom" className="player-dock-frame relative shrink-0 pb-(--tab-bar-cap)">
       <section
         ref={sectionRef}
         aria-label="Player"
-        style={{ height: dockHeight }}
-        className="bg-chrome text-chrome-content rounded-box fixed right-(--measure-inset) bottom-[calc(var(--dock-height)+var(--dock-cap)+env(safe-area-inset-bottom))] left-(--measure-inset) z-10 flex flex-col p-1.5 shadow sm:left-auto sm:w-[368px]"
+        style={{ height }}
+        className="player-dock flex flex-col py-1.5"
       >
-        <div className="flex h-11 shrink-0 items-center gap-2">
-          <span className="text-meta min-w-0 flex-1 truncate font-medium">{title}</span>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm min-h-11 min-w-11"
-            aria-label="Close player"
-            onClick={close}
-          >
-            <X aria-hidden="true" className="size-4" />
-          </button>
+        {/* The column and the gutter a screen's own body uses, so the loaded item's name starts
+            where the lines above it do rather than out at the column's edge. */}
+        <div className="mx-auto flex h-full w-full max-w-(--measure) flex-col px-5">
+          <div className="flex h-11 shrink-0 items-center gap-2">
+            <span className="type-headline min-w-0 flex-1 truncate">{title}</span>
+            <IonButton fill="clear" aria-label="Close player" onClick={close}>
+              <X aria-hidden="true" className="size-5" />
+            </IonButton>
+          </div>
+          {next.kind === 'link' ? (
+            // A new src navigates the frame anyway; a fresh element also makes the frame take
+            // its sandbox and allow flags before that navigation starts.
+            <iframe
+              key={next.embed.src}
+              src={next.embed.src}
+              title={title}
+              allow={next.embed.allow}
+              sandbox={next.embed.sandbox}
+              height={frameHeight}
+              className={
+                embedHeight === 'video' ? 'mx-auto block w-full max-w-[356px]' : 'block w-full'
+              }
+            />
+          ) : (
+            <RecordingBody recording={next.recording} file={next.file} title={title} />
+          )}
         </div>
-        {next.kind === 'link' ? (
-          // A new src navigates the frame anyway; a fresh element also makes the frame take
-          // its sandbox and allow flags before that navigation starts.
-          <iframe
-            key={next.embed.src}
-            src={next.embed.src}
-            title={title}
-            allow={next.embed.allow}
-            sandbox={next.embed.sandbox}
-            height={frameHeight}
-            className={
-              embedHeight === 'video' ? 'mx-auto block w-full max-w-[356px]' : 'block w-full'
-            }
-          />
-        ) : (
-          <RecordingBody recording={next.recording} file={next.file} title={title} />
-        )}
       </section>
-    </>
+    </div>
   )
 }
