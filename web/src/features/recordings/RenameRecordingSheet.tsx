@@ -90,6 +90,7 @@ export function RenameRecordingSheet({
           <IonItem>
             <IonInput
               aria-label="Recording name"
+              placeholder="Jam at Tom’s, take 2, …"
               maxlength={SONG_LIMITS.title}
               value={name}
               enterkeyhint="done"

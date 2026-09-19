@@ -174,10 +174,44 @@ describe('SongFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await expect.element(page.getByRole('alert')).toHaveTextContent('A title is required')
-    const title = document.querySelector('ion-modal [data-field="title"]')!
-    expect(title.getAttribute('aria-invalid')).toBe('true')
+    // Ionic strips aria-* off the host at load and renders it on the native input, so the
+    // host is not the element a screen reader reads.
+    const input = () =>
+      document.querySelector('ion-modal:not(.overlay-hidden) [data-field="title"] input')
+    await vi.waitFor(() => expect(input()?.getAttribute('aria-invalid')).toBe('true'))
     await page.getByLabelText('Title').fill('Soldier\u2019s Joy')
-    await expect.poll(() => title.getAttribute('aria-invalid')).toBeNull()
+    await expect.poll(() => input()?.getAttribute('aria-invalid')).toBeNull()
+  })
+
+  it('keeps a long alternate title inside its row', async () => {
+    const db = openTestDb()
+    const { songId, userSongId } = await createSong(
+      db,
+      {
+        title: 'Soldier\u2019s Joy',
+        alternate_titles: [
+          'Payday in the Army',
+          'Love Somebody',
+          'The Gal I Left Behind Me',
+          'Sally Ann Johnson',
+        ],
+      },
+      { status: 'known' },
+    )
+    const entry = {
+      song: (await db.songs.get(songId))!,
+      userSong: (await db.user_songs.get(userSongId))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await expect.element(page.getByText('Edit song')).toBeVisible()
+    const row = document.querySelector(
+      'ion-modal:not(.overlay-hidden) [data-detail="Also known as"]',
+    ) as HTMLElement
+    const label = row.querySelector('[data-row-label]') as HTMLElement
+    // The row holds one tap height and the label keeps its width, whatever the value's length.
+    expect(row.getBoundingClientRect().height).toBeLessThan(80)
+    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+    expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1)
   })
 
   it('saves a null key when Unknown is left pressed', async () => {

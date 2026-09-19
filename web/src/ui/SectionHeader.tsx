@@ -7,5 +7,7 @@ import type { ReactNode } from 'react'
  * the group it names rather than as a line adrift between two of them.
  */
 export function SectionHeader({ children }: { children: ReactNode }) {
-  return <h2 className="type-footnote m-0 px-8 pt-0 pb-2">{children}</h2>
+  return (
+    <h2 className="type-footnote m-0 px-(--form-inset) pt-0 pb-(--form-text-gap)">{children}</h2>
+  )
 }

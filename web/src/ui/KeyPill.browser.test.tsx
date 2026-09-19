@@ -31,6 +31,26 @@ describe('KeyPill', () => {
     expect(getComputedStyle(flat!).backgroundColor).toBe(getComputedStyle(sharp!).backgroundColor)
   })
 
+  it.each(['light', 'dark'])('marks a chosen pill with no pitch in %s', async (theme) => {
+    document.documentElement.classList.toggle('ion-palette-dark', theme === 'dark')
+    renderIonic(
+      <>
+        <KeyPill value="modal G" />
+        <KeyPill value="modal G" chosen />
+      </>,
+      { db: openTestDb() },
+    )
+    await expect.element(page.getByText('modal G').first()).toBeVisible()
+    const [resting, chosen] = pills()
+    expect(chosen!.hasAttribute('data-pitch')).toBe(false)
+    // Sharing the resting fill would leave the one pill holding the key looking untaken, and
+    // a tap meant to select it would clear it instead.
+    expect(getComputedStyle(chosen!).backgroundColor).not.toBe(
+      getComputedStyle(resting!).backgroundColor,
+    )
+    expect(glyphContrast(chosen!)).toBeGreaterThanOrEqual(4.5)
+  })
+
   it('keeps the pill but drops the pitch for text that is not a key', async () => {
     renderIonic(<KeyPill value="Am" />, { db: openTestDb() })
     await expect.element(page.getByText('Am', { exact: true })).toBeVisible()

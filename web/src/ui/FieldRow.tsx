@@ -25,22 +25,3 @@ export function FieldRow({
     </IonItem>
   )
 }
-
-/**
- * A row's trailing value, or its placeholder when nothing is set. It gives up its own width
- * before the label does and elides rather than wrapping, so a long value never changes the
- * row's height or pushes its label out of the card.
- */
-export function RowValue({ value, placeholder }: { value: string; placeholder: string }) {
-  const text = value.trim()
-  return (
-    <span
-      data-row-value
-      className={`type-body ms-auto min-w-0 truncate text-end tabular-nums ${
-        text ? '' : 'text-(--ion-color-medium)'
-      }`}
-    >
-      {text || placeholder}
-    </span>
-  )
-}

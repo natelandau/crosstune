@@ -242,6 +242,16 @@ ion-content.grouped {
   --background: var(--grouped-background);
 }
 
+/* The form scale. These are px, not rem, because every edge they line up with is px: Ionic's
+   inset-list margin and an ion-item's inner padding. In rem the text size setting would drift
+   a header off the row labels it names. */
+:root {
+  --form-gutter: 16px;
+  --form-inset: 32px;
+  --form-section-gap: 24px;
+  --form-text-gap: 8px;
+}
+
 /* Group owns every vertical space around an inset group, so the list brings none of its own.
    Ionic injects this margin unlayered at runtime, where a utility in a layer cannot reach it
    whatever its specificity. Ionic's own rule carries two classes, so the tag name in front is
@@ -292,6 +302,14 @@ ion-segment-button {
 .key-pill {
   background: var(--fill-tertiary);
   color: var(--ion-text-color);
+}
+/* A pill with no pitch has no hue to deepen, so it takes the primary fill when chosen, the way
+   the rail's pitchless capsule does. Without it the one pill holding the key would share the
+   resting fill and read as an option that was never taken. The pitched rules below outrank
+   this for a pill that does have a hue. */
+.key-pill[data-chosen] {
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
 }
 .key-pill[data-pitch='0'] {
   background: var(--key-0-bg);

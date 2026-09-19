@@ -65,7 +65,9 @@ export function UploadButton({
           run(() => add(file))
         }}
       />
-      {onError ? null : error ? <InlineError className="px-8 pt-1.5">{error}</InlineError> : null}
+      {onError ? null : error ? (
+        <InlineError className="px-(--form-inset) pt-1.5">{error}</InlineError>
+      ) : null}
     </div>
   )
 }

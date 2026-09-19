@@ -80,8 +80,16 @@ describe('RenameRecordingSheet', () => {
   it('opens on the recording it was given, with its stored name', async () => {
     renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
     await expect.element(page.getByText('Rename recording')).toBeVisible()
-    // The sheet's title names the one field, so the field carries no header of its own.
+    // The sheet's title names the one field, so the field carries no header of its own,
+    // which leaves the placeholder as the only thing showing where to type.
     await expect.element(nameField()).toBeVisible()
+    await vi.waitFor(() =>
+      expect(
+        document
+          .querySelector('ion-modal:not(.overlay-hidden) ion-input input')
+          ?.getAttribute('placeholder'),
+      ).toBe('Jam at Tom\u2019s, take 2, \u2026'),
+    )
     expect(
       document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'),
     ).toHaveLength(0)

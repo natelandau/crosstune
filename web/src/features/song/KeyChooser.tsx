@@ -32,7 +32,7 @@ export function KeyChooser({
   const rest = ALL_KEYS.filter((key) => !shown.includes(key))
 
   return (
-    <div role="group" aria-label="Key" className="flex flex-wrap gap-1.5 px-4">
+    <div role="group" aria-label="Key" className="flex flex-wrap gap-1.5 px-(--form-gutter)">
       <Capsule pressed={chosen === ''} onPress={() => onChange('')} label={emptyLabel}>
         {emptyLabel}
       </Capsule>

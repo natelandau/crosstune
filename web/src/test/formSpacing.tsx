@@ -21,8 +21,8 @@ async function list(): Promise<HTMLElement> {
 
 /**
  * The spacing scale every form and every grouped screen inherits, checked for whichever mode
- * the project forces. The margin assertions are the regression a utility class lost to Ionic's
- * unlayered styles, which is why they are measured rather than read off the class list.
+ * the project forces. Ionic injects an inset list's margin unlayered, where a class in a layer
+ * cannot reach it, so the margins are measured rather than read off the class list.
  */
 export function formSpacingTests(mode: string) {
   describe(`form spacing on ${mode}`, () => {
@@ -80,6 +80,21 @@ export function formSpacingTests(mode: string) {
       await list()
       const section = document.querySelector('section') as HTMLElement
       expect(px(getComputedStyle(section).paddingTop)).toBe(16)
+    })
+
+    it('holds the scale at every text size', async () => {
+      document.documentElement.setAttribute('data-text-size', 'roomy')
+      try {
+        renderIonic(<Group header="Key">{row}</Group>, { db: openTestDb() })
+        const style = getComputedStyle(await list())
+        const header = document.querySelector('h2') as HTMLElement
+        // The row inset the header lines up with is Ionic's, in px, so a scale in rem would
+        // drift the header off the labels it names whenever the setting moves.
+        expect(px(getComputedStyle(header).paddingLeft)).toBe(32)
+        expect(px(style.marginLeft)).toBe(16)
+      } finally {
+        document.documentElement.removeAttribute('data-text-size')
+      }
     })
 
     it('renders a plain group with no list, keeping its header and spacing', async () => {

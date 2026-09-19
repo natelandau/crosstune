@@ -50,7 +50,7 @@ export function CatalogFilterSheet({
         </IonButton>
       }
     >
-      <p className="type-footnote px-8 pt-5 tabular-nums" aria-live="polite">
+      <p className="type-footnote px-(--form-inset) pt-5 tabular-nums" aria-live="polite">
         {songCountLabel(counts.visible, counts.total)}
       </p>
       <Group>

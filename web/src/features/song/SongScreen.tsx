@@ -174,7 +174,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
       ) : null}
       {!ready && !deleted ? <h1 className="sr-only">Song</h1> : null}
       {deletingTitle !== null ? (
-        <header className="space-y-1 px-5 pt-4">
+        <header className="space-y-1 px-(--form-inset) pt-4">
           <h1 className="type-title m-0">{deletingTitle}</h1>
           <p role="status" className="type-footnote m-0">
             Deleting…
@@ -280,7 +280,7 @@ function SongBody({
 
   return (
     <>
-      <header className="space-y-1 px-5 pt-4">
+      <header className="space-y-1 px-(--form-inset) pt-4">
         <h1 className="type-title m-0">{song.title}</h1>
         {song.key || mode ? (
           <p data-key-line className="type-headline m-0 flex items-center gap-2 tabular-nums">

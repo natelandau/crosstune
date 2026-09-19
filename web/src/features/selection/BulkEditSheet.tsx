@@ -303,8 +303,8 @@ export function BulkEditSheet({
       }
     >
       <div className="pb-8">
-        <p className="type-footnote px-8 pt-3">Only fields you change are saved.</p>
-        {error ? <InlineError className="px-8 pt-3">{error}</InlineError> : null}
+        <p className="type-footnote px-(--form-inset) pt-3">Only fields you change are saved.</p>
+        {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
         <Group header="Status">{row('status', false)}</Group>
         <Group header="Key">{row('key', false)}</Group>
         {tunings.map((field) => (

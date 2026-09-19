@@ -34,19 +34,19 @@ export function Group({
   children: ReactNode
 }) {
   return (
-    <section className={header ? 'pt-6' : 'pt-4'}>
+    <section className={header ? 'pt-(--form-section-gap)' : 'pt-(--form-gutter)'}>
       {header ? <SectionHeader>{header}</SectionHeader> : null}
       {plain ? (
         children
       ) : (
-        <IonList inset aria-label={name} className="my-0">
+        <IonList inset aria-label={name}>
           {children}
         </IonList>
       )}
       {error ? (
-        <InlineError className="px-8 pt-2">{error}</InlineError>
+        <InlineError className="px-(--form-inset) pt-(--form-text-gap)">{error}</InlineError>
       ) : footer ? (
-        <p className="type-footnote px-8 pt-2">{footer}</p>
+        <p className="type-footnote px-(--form-inset) pt-(--form-text-gap)">{footer}</p>
       ) : null}
     </section>
   )

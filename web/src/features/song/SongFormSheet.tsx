@@ -8,7 +8,7 @@ import {
   IonTextarea,
   IonToggle,
 } from '@ionic/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createSong, updateSongEntry } from '../../commands/songs'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
@@ -86,6 +86,16 @@ export function SongFormSheet({
       clear()
     }
   }
+
+  // Ionic copies aria-* onto the native input once, while the component loads, and takes them
+  // off the host; an attribute set on the host later reaches nothing. The title is only ever
+  // invalid after that point, so the state is written where a screen reader will read it.
+  useEffect(() => {
+    const input = titleRef.current?.querySelector('input')
+    if (!input) return
+    if (validation) input.setAttribute('aria-invalid', 'true')
+    else input.removeAttribute('aria-invalid')
+  }, [validation])
 
   const set = <K extends keyof SongFormValues>(key: K, value: SongFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }))
@@ -171,7 +181,7 @@ export function SongFormSheet({
         }}
         noValidate
       >
-        {error ? <InlineError className="px-8 pt-3">{error}</InlineError> : null}
+        {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
         {/* A form with several fields submits on Enter only when it has a submit button. */}
         <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
 
@@ -184,7 +194,6 @@ export function SongFormSheet({
               data-field="title"
               aria-label="Title"
               placeholder="Song title"
-              aria-invalid={validation ? 'true' : undefined}
               maxlength={SONG_LIMITS.title}
               value={values.title}
               enterkeyhint="done"
@@ -200,7 +209,7 @@ export function SongFormSheet({
         <Group plain>
           <IonSegment
             aria-label="Status"
-            className="mx-4"
+            className="mx-(--form-gutter)"
             value={values.status}
             onIonChange={(event) => set('status', event.detail.value as SongStatus)}
           >
@@ -256,7 +265,9 @@ export function SongFormSheet({
                     checked={values[field.key]}
                     onIonChange={(event) => set(field.key, event.detail.checked)}
                   >
-                    <span data-row-label>{field.label}</span>
+                    <span data-row-label className="type-body">
+                      {field.label}
+                    </span>
                     {field.help ? <span className="type-footnote block">{field.help}</span> : null}
                   </IonToggle>
                 </IonItem>
