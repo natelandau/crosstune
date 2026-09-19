@@ -70,3 +70,30 @@ export function useMembership(userSongId: string): Map<string, string> {
     }, [db, userSongId]) ?? new Map<string, string>()
   )
 }
+
+/**
+ * How many of the given songs each list holds, keyed by list id. Undefined until the first
+ * result arrives, so a caller can tell "still loading" apart from "loaded, none of these in
+ * it". Depends on the ids joined into one string rather than the array itself, since a caller
+ * that rebuilds the array every render would otherwise resubscribe the query on every render;
+ * pass a memoized array anyway so the caller's own re-renders stay cheap.
+ */
+export function useMembershipCounts(
+  userSongIds: readonly string[],
+): Map<string, number> | undefined {
+  const db = useDb()
+  const key = userSongIds.join(',')
+  return useLiveQuery(async () => {
+    const counts = new Map<string, number>()
+    if (userSongIds.length === 0) return counts
+    const items = await db.list_items
+      .where('user_song_id')
+      .anyOf([...userSongIds])
+      .toArray()
+    for (const item of items) {
+      if (item.deleted_at) continue
+      counts.set(item.list_id, (counts.get(item.list_id) ?? 0) + 1)
+    }
+    return counts
+  }, [db, key])
+}

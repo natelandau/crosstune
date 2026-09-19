@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   activeItems,
   addToList,
@@ -13,7 +13,7 @@ import { createSong } from '../../commands/songs'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { useLists } from './useLists'
+import { useLists, useMembershipCounts } from './useLists'
 
 const OLD = '2020-01-01T00:00:00.000Z'
 
@@ -89,5 +89,47 @@ describe('useLists', () => {
     const [first] = await activeItems(db, listId)
     await removeFromList(db, first!.id)
     await waitFor(() => expect(result.current?.[0]?.count).toBe(1))
+  })
+})
+
+async function renderCounts(ids: string[]) {
+  const { result, rerender } = renderHook(
+    ({ ids }: { ids: string[] }) => useMembershipCounts(ids),
+    {
+      wrapper,
+      initialProps: { ids },
+    },
+  )
+  await waitFor(() => expect(result.current).toBeDefined())
+  return { result, rerender }
+}
+
+describe('useMembershipCounts', () => {
+  it('counts how many of the given songs a list holds', async () => {
+    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { result } = await renderCounts([userSongId])
+    expect(result.current?.get(listId)).toBeUndefined()
+    await addToList(db, listId, userSongId)
+    await waitFor(() => expect(result.current?.get(listId)).toBe(1))
+  })
+
+  it('drops a removed item from the count', async () => {
+    const [first] = await activeItems(db, listId)
+    const { result } = await renderCounts([first!.user_song_id])
+    await waitFor(() => expect(result.current?.get(listId)).toBe(1))
+    await removeFromList(db, first!.id)
+    await waitFor(() => expect(result.current?.get(listId)).toBeUndefined())
+  })
+
+  it('does not requery when a new array carries the same ids', async () => {
+    const [first] = await activeItems(db, listId)
+    const spy = vi.spyOn(db.list_items, 'where')
+    const { result, rerender } = await renderCounts([first!.user_song_id])
+    await waitFor(() => expect(result.current?.get(listId)).toBe(1))
+    const callsAfterFirst = spy.mock.calls.length
+    // A fresh array holding the same id, as an unmemoized caller would pass on every render.
+    rerender({ ids: [first!.user_song_id] })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(spy.mock.calls.length).toBe(callsAfterFirst)
   })
 })
