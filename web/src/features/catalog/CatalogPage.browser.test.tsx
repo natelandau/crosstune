@@ -463,6 +463,30 @@ describe('CatalogPage', () => {
     )
   })
 
+  it('shows a song key as a colored pill, still named for a screen reader', async () => {
+    show()
+    await expect.element(row("Soldier's Joy")).toBeVisible()
+    // The rows sort by title, so Cluck Old Hen's own key pill comes first in the document.
+    const meta = row("Soldier's Joy")
+      .element()
+      .closest('ion-item')!
+      .querySelector('[data-song-meta]')!
+    const pill = meta.querySelector('.key-pill')!
+    expect(pill.getAttribute('data-pitch')).toBe('2')
+    expect(pill.textContent).toBe('D')
+    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key ')
+  })
+
+  it('puts Filters in the search row and leaves the toolbar to Add song and More actions', async () => {
+    show()
+    await expect.element(page.getByRole('button', { name: 'More actions' })).toBeVisible()
+    const searchRow = search().element().closest('ion-toolbar')!
+    expect(searchRow.contains(buttonHost('Filters'))).toBe(true)
+    for (const name of ['Add song', 'More actions']) {
+      expect(searchRow.contains(buttonHost(name)), name).toBe(false)
+    }
+  })
+
   it('opens the filter sheet and names how many filters are set', async () => {
     await db.songs.update(joy.songId, { genre: 'Old-time' })
     await setMeta(db, META_CATALOG_FILTERS, { genre: 'Old-time', archived: true })

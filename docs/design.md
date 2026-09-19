@@ -36,11 +36,12 @@ composes it instead of rebuilding it.
   with a capital: `Search songs`.
 - A control that opens more interface ends in an ellipsis: `New list…`,
   `Other…`.
-- The empty choice in a picker reads "Not set". In a filter it reads "All" on
-  the status control and the key rail, and "Any" inside the filter sheet. In
-  the bulk edit sheet the clearing choice reads "Clear" and the unchanged
-  choice for a yes or no field reads "Keep". A field whose songs disagree
-  shows "Mixed".
+- The empty choice in a picker reads "Not set". In a filter it reads "All"
+  on the status control, "All keys" on the key rail, whose other capsules
+  are bare letters that need the reset to name what they are, and "Any"
+  inside the filter sheet. In the bulk edit sheet the clearing choice reads
+  "Clear" and the unchanged choice for a yes or no field reads "Keep". A
+  field whose songs disagree shows "Mixed".
 - A set filter shows as a filled capsule named for its value, and its remove
   control is named "Remove filter" and the value, so a screen reader hears
   "Remove filter Cross A (AEAE)".
@@ -89,8 +90,9 @@ Three axes decide the chrome. No screen asks which device it is on.
 - `Screen` is the one page component. It renders an `IonPage`, a toolbar, a
   scrolling content area, and the screen's landmark as `<main tabIndex={-1}>`
   inside the column. A top-level screen opens with a large title on `ios`,
-  carries the search bar under that title, and shows the sync badge on the
-  phone frame. A pushed screen carries a back button instead. Pass `grouped`
+  carries the search bar under that title, takes a trailing control for that
+  search row through `searchEnd`, and shows the sync badge on the phone
+  frame. A pushed screen carries a back button instead. Pass `grouped`
   for a screen made of inset groups, which takes the grouped background so
   each group reads as a card.
 - The sync badge shows only the three states that need attention: `Offline`,
@@ -116,7 +118,11 @@ Three axes decide the chrome. No screen asks which device it is on.
   coral. `primary` tints buttons, links, the current tab, and the selection.
   `success` and `warning` are the known and learning dots. `warning` also
   marks the archived badge and a cautionary menu item. `danger` marks the
-  record button and every destructive action.
+  record button and every destructive action. The key rail is the one
+  exception to `primary` tinting the selection: its chosen capsule fills in
+  the key's own hue, because filling with `primary` would repaint a key from
+  its own color at the moment it is chosen. `All keys` has no pitch and keeps
+  the `primary` fill.
 - Dark mode is Ionic's system palette, switched by the `ion-palette-dark`
   class the appearance setting writes. The class and the `data-theme`
   attribute are both stamped by the inline script in `index.html` before
@@ -138,6 +144,16 @@ Three axes decide the chrome. No screen asks which device it is on.
   utility on a child span rather than on the role element.
 - Numerals are tabular wherever a number can change or line up: keys,
   tunings, time signatures, the timer, durations, positions, and counts.
+- A musical key is a colored pill wherever it appears. Its hue comes from the
+  key's pitch class, placed by position on the circle of fifths, so keys a
+  fifth apart are neighbors and two spellings of one pitch match. Lightness
+  and chroma are constant, so no key reads louder than another. A key the
+  client cannot read as a pitch class keeps the pill and takes the neutral
+  capsule fill, so it never borrows a hue. Mode is not part of the key and a
+  key is never inferred from one: "Am" reads as unrecognized. The pill comes
+  in two sizes and no others: the full one fills a 44px tap target in the key
+  rail, and the compact one sits in a line of row metadata without setting
+  that row's height.
 - The text size setting has three steps, compact, regular, and roomy, and
   moves the root font size, which scales every role at once. Inputs never
   drop below 16px, so iOS does not zoom on focus. iOS opts out of Dynamic
@@ -267,17 +283,22 @@ picker that files a recording under a song.
 
 Only the catalog has filters.
 
-- The catalog's toolbar holds Filters and Add song, plus More actions while a
-  song is visible. The Filters control carries a count of the filters set
-  inside the sheet, and its name reads "Filters, 2 set", because filters
-  persist between visits and a stale one must announce itself.
+- The catalog's toolbar holds Add song, plus More actions while a song is
+  visible.
 - The search field sits under the large title on `ios` and in the toolbar on
-  `md`.
+  `md`, and the Filters control sits at the trailing edge of that same row,
+  with the field giving up the room it takes. Filters belongs with the
+  controls it governs, not with the toolbar's actions. It carries a count of
+  the filters set inside the sheet, and its name reads "Filters, 2 set",
+  because filters persist between visits and a stale one must announce
+  itself.
 - Under the search comes the status segment: All, Known, Learning, Unknown.
-- Then the key rail: All, then every key the catalog holds, as capsules in
-  one scrolling row that fades at its end while there is more to scroll to.
-  One tap sets a key, a tap on All or on the pressed key clears it. The rail
-  appears only when the catalog holds keys.
+- Then the key rail: All keys, then every key the catalog holds, as capsules
+  in one scrolling row that fades at its end while there is more to scroll
+  to. Each key wears its own pill, the same one a song row shows, so the rail
+  reads as the keys themselves rather than as plain chips. One tap sets a
+  key, a tap on All keys or on the pressed key clears it. The chosen key
+  fills in its own hue. The rail appears only when the catalog holds keys.
 - Then a row of filled capsules, one per filter set inside the sheet, each
   removable. Show archived reads "Archived shown".
 - Mode, violin tuning, banjo tuning, and genre live in the filter sheet as
@@ -629,6 +650,7 @@ column instead of rebuilding the pattern.
 | Instrument checkboxes, first-run question | `src/features/settings/InstrumentRows.tsx`, `src/features/settings/FirstRunSheet.tsx`         |
 | Suggestion vocabularies                   | `src/features/song/suggestions.ts`                                                        |
 | Suggestion picker with `Other…`           | `src/features/song/SuggestSelect.tsx`                                                     |
+| Key pill and its colors                   | `src/ui/KeyPill.tsx`, `src/ui/keyColor.ts`                                                |
 | Search field                              | `src/ui/SearchField.tsx`                                                                  |
 | Search or create                          | `src/features/catalog/searchIntent.ts`, `src/features/catalog/SearchOffer.tsx`                |
 | Song search picker                        | `src/features/catalog/SongSearch.tsx`                                                     |

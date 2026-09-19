@@ -136,7 +136,7 @@ describe('SongScreen', () => {
   it('shows the title, key line, alternate titles, badges, and notes', async () => {
     show()
     await expect.element(title()).toBeVisible()
-    await expect.element(page.getByText('D major')).toBeVisible()
+    await expect.element(page.getByText('major', { exact: true })).toBeVisible()
     await expect.element(page.getByText('Joy', { exact: true })).toBeVisible()
     for (const badge of ['Standard (GDAE)', 'Crooked', 'Old-time']) {
       await expect.element(page.getByText(badge, { exact: true })).toBeVisible()
@@ -144,6 +144,16 @@ describe('SongScreen', () => {
     await expect.element(page.getByText('Learned from Jim')).toBeVisible()
     await expect.element(page.getByText('Watch the B part.')).toBeVisible()
     expect(page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
+  })
+
+  it('shows the key as a pill beside its mode', async () => {
+    show()
+    await expect.element(title()).toBeVisible()
+    const line = document.querySelector('[data-key-line]')!
+    const pill = line.querySelector('.key-pill')!
+    expect(pill.getAttribute('data-pitch')).toBe('2')
+    expect(pill.textContent).toBe('D')
+    expect(line.textContent).toContain('major')
   })
 
   it('sets its groups as cards on the grouped background', async () => {

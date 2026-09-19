@@ -197,16 +197,6 @@ export function CatalogPage() {
           <>
             <IonButton
               className="toolbar-control"
-              aria-label={setCount > 0 ? `Filters, ${setCount} set` : 'Filters'}
-              onClick={() => setSheetOpen(true)}
-            >
-              <SlidersHorizontal
-                aria-hidden="true"
-                className={`size-6 ${setCount > 0 ? 'fill-current' : ''}`}
-              />
-            </IonButton>
-            <IonButton
-              className="toolbar-control"
               aria-label="Add song"
               onClick={() => setForm({ kind: 'new' })}
             >
@@ -235,6 +225,20 @@ export function CatalogPage() {
           onInput={changeQuery}
           onEnter={submitSearch}
         />
+      }
+      searchEnd={
+        active ? undefined : (
+          <IonButton
+            className="toolbar-control"
+            aria-label={setCount > 0 ? `Filters, ${setCount} set` : 'Filters'}
+            onClick={() => setSheetOpen(true)}
+          >
+            <SlidersHorizontal
+              aria-hidden="true"
+              className={`size-6 ${setCount > 0 ? 'fill-current' : ''}`}
+            />
+          </IonButton>
+        )
       }
       refresher={
         pointer === 'touch' ? (

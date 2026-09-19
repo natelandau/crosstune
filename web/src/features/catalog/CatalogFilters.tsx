@@ -2,7 +2,8 @@ import { IonLabel, IonSegment, IonSegmentButton } from '@ionic/react'
 import { X } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { STATUSES } from '../../db/types'
-import { Capsule } from '../../ui/Capsule'
+import { Capsule, PressTarget } from '../../ui/Capsule'
+import { KeyPill } from '../../ui/KeyPill'
 import {
   sheetFacets,
   type CatalogFilters as Filters,
@@ -76,16 +77,16 @@ export function CatalogFilters({
           className="key-rail -mx-4 flex [scrollbar-width:none] gap-1 overflow-x-auto px-4"
         >
           <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
-            All
+            All keys
           </Capsule>
           {facets.key.map((key) => (
-            <Capsule
+            <PressTarget
               key={key}
               pressed={filters.key === key}
               onPress={() => onChange({ key: filters.key === key ? 'all' : key })}
             >
-              {key}
-            </Capsule>
+              <KeyPill value={key} chosen={filters.key === key} />
+            </PressTarget>
           ))}
         </div>
       ) : null}

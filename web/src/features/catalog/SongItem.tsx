@@ -1,6 +1,7 @@
 import { IonLabel } from '@ionic/react'
 import { Fragment, type ReactNode } from 'react'
 import type { Instrument } from '../../db/types'
+import { KeyPill } from '../../ui/KeyPill'
 import { Row, type RowAction } from '../../ui/Row'
 import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
@@ -44,9 +45,9 @@ export function SongMeta({
   const parts: ReactNode[] = []
   if (song.key) {
     parts.push(
-      <span className="font-semibold text-(--ion-text-color) tabular-nums">
+      <span className="inline-flex items-center">
         <span className="sr-only">Key </span>
-        {song.key}
+        <KeyPill value={song.key} compact />
       </span>,
     )
   }

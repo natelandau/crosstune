@@ -22,14 +22,24 @@ const facets: FacetValues = {
 const visible: Facet[] = ['key', 'mode', 'violin_tuning', 'genre']
 const counts = { visible: 3, total: 5, archived: 2, all: 7 }
 
-function Host({ start = DEFAULT_FILTERS, sheet = false }: { start?: Filters; sheet?: boolean }) {
+function Host({
+  start = DEFAULT_FILTERS,
+  sheet = false,
+  keys,
+}: {
+  start?: Filters
+  sheet?: boolean
+  /** Overrides the key facet, for a rail that holds two spellings of one pitch. */
+  keys?: string[]
+}) {
   const [filters, setFilters] = useState(start)
   const [open, setOpen] = useState(sheet)
   const onChange = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }))
+  const railFacets = keys ? { ...facets, key: keys } : facets
   return (
     <>
       <output data-testid="state">{JSON.stringify(filters)}</output>
-      <CatalogFilters filters={filters} facets={facets} visible={visible} onChange={onChange} />
+      <CatalogFilters filters={filters} facets={railFacets} visible={visible} onChange={onChange} />
       <CatalogFilterSheet
         open={open}
         filters={filters}
@@ -135,14 +145,46 @@ describe('CatalogFilters', () => {
     await expect.poll(() => state().status).toBe('learning')
   })
 
-  it('sets a key in one tap and clears it from All or the pressed key', async () => {
+  it('sets a key in one tap and clears it from All keys or the pressed key', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     const d = page.getByRole('button', { name: 'D', exact: true })
+    // The reset capsule names what the rail filters, so the bare letters beside it read as keys.
+    const allKeys = page.getByRole('button', { name: 'All keys', exact: true })
     await d.click()
     await expect.poll(() => state().key).toBe('D')
     await expect.element(d).toHaveAttribute('aria-pressed', 'true')
+    await allKeys.click()
+    await expect.poll(() => state().key).toBe('all')
+    await expect.element(allKeys).toHaveAttribute('aria-pressed', 'true')
+    await d.click()
+    await expect.poll(() => state().key).toBe('D')
     await d.click()
     await expect.poll(() => state().key).toBe('all')
+  })
+
+  it('colors every key in the rail and fills the chosen one in its own hue', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    const pill = () => document.querySelector('.key-pill[data-pitch="2"]')!
+    await expect.element(page.getByRole('button', { name: 'D', exact: true })).toBeVisible()
+    expect(pill().hasAttribute('data-chosen')).toBe(false)
+    const resting = getComputedStyle(pill()).backgroundColor
+    await page.getByRole('button', { name: 'D', exact: true }).click()
+    await expect.poll(() => state().key).toBe('D')
+    await expect.poll(() => pill().hasAttribute('data-chosen')).toBe(true)
+    expect(getComputedStyle(pill()).backgroundColor).not.toBe(resting)
+    await expect
+      .element(page.getByRole('button', { name: 'D', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('gives two spellings of one pitch the same hue', async () => {
+    renderIonic(<Host keys={['Bb', 'A#']} />, { db: openTestDb() })
+    await expect.element(page.getByRole('button', { name: 'Bb', exact: true })).toBeVisible()
+    const pills = document.querySelectorAll('.key-pill[data-pitch="10"]')
+    expect(pills).toHaveLength(2)
+    expect(getComputedStyle(pills[0]!).backgroundColor).toBe(
+      getComputedStyle(pills[1]!).backgroundColor,
+    )
   })
 
   it('shows a set sheet filter as a removable pill, and Archived shown', async () => {

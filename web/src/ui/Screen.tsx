@@ -33,6 +33,8 @@ export interface ScreenProps {
   end?: ReactNode
   /** A search bar under the title on a top-level screen. */
   search?: ReactNode
+  /** Controls at the trailing edge of the search row, such as the catalog's Filters. */
+  searchEnd?: ReactNode
   /** An `IonRefresher`, which works only as a direct child of the content. */
   refresher?: ReactNode
   /** Something fixed under the content, such as a tab bar or a selection toolbar. */
@@ -59,6 +61,7 @@ export function Screen({
   start,
   end,
   search,
+  searchEnd,
   refresher,
   footer,
   grouped = false,
@@ -84,7 +87,7 @@ export function Screen({
           <IonTitle className={barTitleClass}>{title}</IonTitle>
           <IonButtons slot="end">{end}</IonButtons>
         </IonToolbar>
-        {search && !condense ? <IonToolbar className="screen-column">{search}</IonToolbar> : null}
+        {search && !condense ? <SearchBar search={search} end={searchEnd} /> : null}
       </IonHeader>
       <IonContent fullscreen className={grouped ? 'grouped' : undefined}>
         {refresher}
@@ -95,7 +98,7 @@ export function Screen({
                 {title}
               </IonTitle>
             </IonToolbar>
-            {search ? <IonToolbar className="screen-column">{search}</IonToolbar> : null}
+            {search ? <SearchBar search={search} end={searchEnd} /> : null}
           </IonHeader>
         ) : null}
         {/* The screen's landmark, and the focus target of last resort for a control that
@@ -109,5 +112,18 @@ export function Screen({
       </IonContent>
       {footer}
     </IonPage>
+  )
+}
+
+/**
+ * The search row. Ionic gives unslotted toolbar content the flexible middle, so the field gives
+ * up the room a trailing control takes instead of sitting under it.
+ */
+function SearchBar({ search, end }: { search: ReactNode; end?: ReactNode }) {
+  return (
+    <IonToolbar className="screen-column">
+      {search}
+      {end ? <IonButtons slot="end">{end}</IonButtons> : null}
+    </IonToolbar>
   )
 }

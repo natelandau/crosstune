@@ -34,6 +34,29 @@ export function Capsule({
           : 'bg-(--fill-tertiary) text-(--ion-text-color)'
   if (!onPress) return <span className={`${BASE} ${fill}`}>{children}</span>
   return (
+    <PressTarget pressed={pressed} onPress={onPress} label={label}>
+      <span className={`${BASE} ${fill}`}>{children}</span>
+    </PressTarget>
+  )
+}
+
+/**
+ * The 44px hit area a rail control sits in, with the pressed state it announces. Separate from
+ * `Capsule` so a control that paints its own face, such as a key pill, gets the same target
+ * without `Capsule` having to know what is inside it.
+ */
+export function PressTarget({
+  children,
+  pressed,
+  onPress,
+  label,
+}: {
+  children: ReactNode
+  pressed?: boolean
+  onPress: () => void
+  label?: string
+}) {
+  return (
     <button
       type="button"
       aria-pressed={pressed}
@@ -41,7 +64,7 @@ export function Capsule({
       className="grid min-h-11 min-w-11 shrink-0 place-items-center"
       onClick={onPress}
     >
-      <span className={`${BASE} ${fill}`}>{children}</span>
+      {children}
     </button>
   )
 }
