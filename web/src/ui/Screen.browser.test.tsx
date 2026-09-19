@@ -35,6 +35,39 @@ describe('Screen', () => {
     expect(screen.getByLabelText('Search songs')).toBeInTheDocument()
   })
 
+  it('puts a search-row control after the field, inside the same toolbar', async () => {
+    const { page } = await import('vitest/browser')
+    renderScreen(
+      <Screen
+        title="Catalog"
+        level="top"
+        end={<IonButton aria-label="Add song">+</IonButton>}
+        search={<IonSearchbar aria-label="Search songs" />}
+        searchEnd={<IonButton aria-label="Filters">F</IonButton>}
+      >
+        <p>Body</p>
+      </Screen>,
+      { db: openTestDb(), path: '/catalog' },
+    )
+    expect(await screen.findByText('Body')).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Filters')).toBeInTheDocument()
+    const searchbar = document.querySelector('ion-searchbar')!
+    const row = searchbar.closest('ion-toolbar')!
+    // An ion-button keeps its labeled native button in a shadow root, which `closest` never
+    // leaves, so the host is what shares a toolbar with the field.
+    const host = (name: string) =>
+      (page.getByLabelText(name).element().getRootNode() as ShadowRoot).host
+    expect(row.contains(host('Filters'))).toBe(true)
+    expect(row.contains(host('Add song'))).toBe(false)
+    await vi.waitFor(() => {
+      const field = searchbar.getBoundingClientRect()
+      const control = host('Filters').getBoundingClientRect()
+      expect(field.width).toBeGreaterThan(0)
+      expect(control.width).toBeGreaterThan(0)
+      expect(field.right).toBeLessThanOrEqual(control.left + 1)
+    })
+  })
+
   it('lines the search bar up with the content column on the wide frame', async () => {
     const { page } = await import('vitest/browser')
     await page.viewport(1024, 768)
