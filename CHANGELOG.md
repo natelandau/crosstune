@@ -1,3 +1,10 @@
+## v0.3.0 (2026-09-19)
+
+### Feat
+
+- **web**: delete selected songs and steady every row action (#30)
+- **web**: rebuild the client on ionic react (#29)
+
 ## v0.2.1 (2026-09-16)
 
 ### Fix

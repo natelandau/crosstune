@@ -7,7 +7,7 @@
     name                     = "cz_conventional_commits"
     tag_format               = "v$version"
     update_changelog_on_bump = true
-    version                  = "0.2.1"
+    version                  = "0.3.0"
     version_provider         = "commitizen"
     # Regexes pick the line in each file that carries the version.
     version_files = [
