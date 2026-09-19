@@ -1,6 +1,7 @@
 import { IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useState } from 'react'
 import { usePointer } from '../../platform/pointer'
+import { FieldRow } from '../../ui/FieldRow'
 
 // A sentinel no suggestion list can contain, so choosing Other never collides with a real value.
 const OTHER = '\u0000other'
@@ -14,6 +15,7 @@ const NONE = '\u0000none'
  */
 export function SuggestSelect({
   label,
+  rowLabel,
   value,
   options,
   other,
@@ -26,6 +28,9 @@ export function SuggestSelect({
   onChange,
 }: {
   label: string
+  /** The row's visible label when a header already carries the field's full name. Defaults to
+   * `label`, which stays the accessible name either way. */
+  rowLabel?: string
   value: string
   options: readonly string[]
   /** Offer an Other… choice that reveals a text field. */
@@ -53,42 +58,49 @@ export function SuggestSelect({
   // on its way to a custom value happens to equal a suggestion.
   const [draft, setDraft] = useState('')
   const choices = custom ? [...options, value] : options
+  const select = (
+    <IonSelect
+      aria-label={label}
+      placeholder={placeholder}
+      interface={mouse ? 'popover' : 'action-sheet'}
+      className="ms-auto"
+      value={typing ? OTHER : value}
+      onIonChange={(event) => {
+        const next = String(event.detail.value ?? '')
+        if (next === OTHER) {
+          if (clearOnOther) {
+            // Saves what the Other field shows, never a pick the select no longer displays.
+            const kept = custom ? value : ''
+            setDraft(kept)
+            onChange(kept)
+          } else {
+            setDraft(value)
+          }
+          setTyping(true)
+          return
+        }
+        setTyping(false)
+        onChange(next === NONE ? '' : next)
+      }}
+    >
+      <IonSelectOption value={NONE}>{emptyLabel}</IonSelectOption>
+      {choices.map((choice) => (
+        <IonSelectOption key={choice} value={choice}>
+          {choice}
+        </IonSelectOption>
+      ))}
+      {other ? <IonSelectOption value={OTHER}>Other…</IonSelectOption> : null}
+    </IonSelect>
+  )
   return (
     <>
-      <IonItem data-detail={detail}>
-        <IonSelect
-          label={showLabel ? label : undefined}
-          aria-label={label}
-          placeholder={placeholder}
-          interface={mouse ? 'popover' : 'action-sheet'}
-          value={typing ? OTHER : value}
-          onIonChange={(event) => {
-            const next = String(event.detail.value ?? '')
-            if (next === OTHER) {
-              if (clearOnOther) {
-                // Saves what the Other field shows, never a pick the select no longer displays.
-                const kept = custom ? value : ''
-                setDraft(kept)
-                onChange(kept)
-              } else {
-                setDraft(value)
-              }
-              setTyping(true)
-              return
-            }
-            setTyping(false)
-            onChange(next === NONE ? '' : next)
-          }}
-        >
-          <IonSelectOption value={NONE}>{emptyLabel}</IonSelectOption>
-          {choices.map((choice) => (
-            <IonSelectOption key={choice} value={choice}>
-              {choice}
-            </IonSelectOption>
-          ))}
-          {other ? <IonSelectOption value={OTHER}>Other…</IonSelectOption> : null}
-        </IonSelect>
-      </IonItem>
+      {showLabel ? (
+        <FieldRow label={rowLabel ?? label} detail={detail}>
+          {select}
+        </FieldRow>
+      ) : (
+        <IonItem data-detail={detail}>{select}</IonItem>
+      )}
       {typing ? (
         <IonItem>
           <IonInput

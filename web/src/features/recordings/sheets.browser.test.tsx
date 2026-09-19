@@ -225,7 +225,11 @@ describe('AddToSongSheet', () => {
     expect(page.getByText('New song').elements()).toHaveLength(0)
     read(undefined)
     await expect.element(page.getByText('New song')).toBeVisible()
-    await expect.element(page.getByText('Violin tuning')).toBeVisible()
+    // The Tuning group renders only once there is a tuning to show, so it is the proof.
+    await expect.element(page.getByRole('heading', { name: 'Tuning' })).toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Violin tuning, Not set', exact: true }))
+      .toBeInTheDocument()
   })
 
   it('says so when the song is made but the recording cannot be filed under it', async () => {

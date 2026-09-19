@@ -7,7 +7,8 @@ export type DetailField =
       kind: 'text'
       key: 'alternate_titles' | 'learned_from'
       label: string
-      help?: string
+      /** Shown in the empty field. It demonstrates the format rather than describing it. */
+      placeholder?: string
       maxLength?: number
     }
   | {
@@ -21,13 +22,17 @@ export type DetailField =
   | { kind: 'switch'; key: 'is_crooked' | 'has_lyrics'; label: string; help?: string }
   | { kind: 'date'; key: 'learned_on'; label: string }
 
+/** The Details card's own footer. The rule governs one field but belongs to the card, because
+ *  help text inside a card reads as another row. */
+export const DETAILS_FOOTER = 'Separate alternate names with commas.'
+
 /** The fields a player touches rarely, in the order they read down the Details list. */
 export const DETAIL_FIELDS: readonly DetailField[] = [
   {
     kind: 'text',
     key: 'alternate_titles',
     label: 'Also known as',
-    help: 'Separate names with commas.',
+    placeholder: 'Sally Ann, Great Big Taters',
   },
   { kind: 'pick', key: 'mode', label: 'Mode', options: MODES, other: false },
   {

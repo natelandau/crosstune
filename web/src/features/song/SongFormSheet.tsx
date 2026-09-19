@@ -19,7 +19,9 @@ import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
 import { STATUS_LABELS } from '../catalog/status'
 import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
-import { DETAIL_FIELDS } from './detailFields'
+import { FieldRow } from '../../ui/FieldRow'
+import { KeyChooser } from './KeyChooser'
+import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
 import { SONG_LIMITS } from './limits'
 import {
   asMode,
@@ -30,7 +32,7 @@ import {
   type SongFormValues,
 } from './songFormValues'
 import { SuggestSelect } from './SuggestSelect'
-import { QUICK_KEYS, TUNING_SUGGESTIONS } from './suggestions'
+import { TUNING_SUGGESTIONS } from './suggestions'
 
 export type SongFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
 
@@ -169,15 +171,20 @@ export function SongFormSheet({
         }}
         noValidate
       >
-        {error ? <InlineError className="px-5 pt-3">{error}</InlineError> : null}
+        {error ? <InlineError className="px-8 pt-3">{error}</InlineError> : null}
         {/* A form with several fields submits on Enter only when it has a submit button. */}
         <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
-        <Group header="Title" error={validation}>
+
+        {/* The sheet's own title already says New song or Edit song, so a Title header would
+            only repeat it. The placeholder names the field where the musician is looking. */}
+        <Group error={validation}>
           <IonItem>
             <IonInput
               ref={titleRef}
               data-field="title"
               aria-label="Title"
+              placeholder="Song title"
+              aria-invalid={validation ? 'true' : undefined}
               maxlength={SONG_LIMITS.title}
               value={values.title}
               enterkeyhint="done"
@@ -189,52 +196,48 @@ export function SongFormSheet({
           </IonItem>
         </Group>
 
-        <Group header="Status">
-          <IonItem lines="none">
-            <IonSegment
-              aria-label="Status"
-              value={values.status}
-              onIonChange={(event) => set('status', event.detail.value as SongStatus)}
-            >
-              {STATUSES.map((status) => (
-                <IonSegmentButton key={status} value={status}>
-                  <IonLabel>{STATUS_LABELS[status]}</IonLabel>
-                </IonSegmentButton>
-              ))}
-            </IonSegment>
-          </IonItem>
+        {/* Known, Learning, and Unknown say what the control is, so it carries no header. */}
+        <Group plain>
+          <IonSegment
+            aria-label="Status"
+            className="mx-4"
+            value={values.status}
+            onIonChange={(event) => set('status', event.detail.value as SongStatus)}
+          >
+            {STATUSES.map((status) => (
+              <IonSegmentButton key={status} value={status}>
+                <IonLabel>{STATUS_LABELS[status]}</IonLabel>
+              </IonSegmentButton>
+            ))}
+          </IonSegment>
         </Group>
 
-        <Group header="Key">
-          <SuggestSelect
-            label="Key"
-            showLabel={false}
-            value={values.key}
-            options={QUICK_KEYS}
-            other
-            maxLength={SONG_LIMITS.key}
-            onChange={(value) => set('key', value)}
-          />
+        <Group header="Key" plain>
+          <KeyChooser value={values.key} onChange={(value) => set('key', value)} />
         </Group>
 
-        {tunings.map((field) => (
-          <Group key={field} header={TUNING_FIELDS[field].label}>
-            <SuggestSelect
-              label={TUNING_FIELDS[field].label}
-              showLabel={false}
-              value={values[field]}
-              options={TUNING_SUGGESTIONS[field]}
-              other
-              maxLength={SONG_LIMITS[field]}
-              onChange={(value) => set(field, value)}
-            />
+        {tunings.length > 0 ? (
+          <Group header="Tuning">
+            {tunings.map((field) => (
+              <SuggestSelect
+                key={field}
+                label={TUNING_FIELDS[field].label}
+                rowLabel={TUNING_FIELDS[field].short}
+                value={values[field]}
+                options={TUNING_SUGGESTIONS[field]}
+                other
+                maxLength={SONG_LIMITS[field]}
+                onChange={(value) => set(field, value)}
+              />
+            ))}
           </Group>
-        ))}
+        ) : null}
 
         <Group header="Notes">
           <IonItem>
             <IonTextarea
               aria-label="Notes"
+              placeholder="How it goes, where it came from…"
               autoGrow
               rows={3}
               maxlength={SONG_LIMITS.notes}
@@ -244,7 +247,7 @@ export function SongFormSheet({
           </IonItem>
         </Group>
 
-        <Group header="Details">
+        <Group header="Details" footer={DETAILS_FOOTER}>
           {DETAIL_FIELDS.map((field) => {
             if (field.kind === 'switch') {
               return (
@@ -253,7 +256,7 @@ export function SongFormSheet({
                     checked={values[field.key]}
                     onIonChange={(event) => set(field.key, event.detail.checked)}
                   >
-                    {field.label}
+                    <span data-row-label>{field.label}</span>
                     {field.help ? <span className="type-footnote block">{field.help}</span> : null}
                   </IonToggle>
                 </IonItem>
@@ -261,28 +264,29 @@ export function SongFormSheet({
             }
             if (field.kind === 'date') {
               return (
-                <IonItem key={field.key} data-detail={field.label}>
+                <FieldRow key={field.key} label={field.label} detail={field.label}>
                   <IonInput
                     type="date"
-                    label={field.label}
+                    aria-label={field.label}
+                    className="ms-auto text-end"
                     value={values[field.key]}
                     onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}
                   />
-                </IonItem>
+                </FieldRow>
               )
             }
             if (field.kind === 'text') {
               return (
-                <IonItem key={field.key} data-detail={field.label}>
+                <FieldRow key={field.key} label={field.label} detail={field.label}>
                   <IonInput
-                    label={field.label}
-                    labelPlacement="stacked"
-                    helperText={field.help}
+                    aria-label={field.label}
+                    placeholder={field.placeholder ?? 'Not set'}
+                    className="ms-auto text-end"
                     maxlength={field.maxLength}
                     value={values[field.key]}
                     onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}
                   />
-                </IonItem>
+                </FieldRow>
               )
             }
             return (
