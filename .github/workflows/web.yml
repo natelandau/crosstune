@@ -38,6 +38,9 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v4
       - run: pnpm install --frozen-lockfile
+      # The component tests run in real Chromium, because Ionic is web
+      # components with shadow DOM that jsdom does not render.
+      - run: pnpm exec playwright install --with-deps chromium
       - run: just lint
       - run: just test
       - run: just build
