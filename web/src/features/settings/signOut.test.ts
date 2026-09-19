@@ -5,7 +5,7 @@ import { addUploadedFile, setFileState } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { databaseName, openDatabase } from '../../db/schema'
 import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
-import { fakeEngine } from '../../test/render'
+import { fakeEngine } from '../../test/providers'
 import { signOutAndForget } from './signOut'
 
 function freshUser() {

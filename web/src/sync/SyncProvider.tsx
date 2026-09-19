@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { createApiClient } from '../api/client'
 import { useAuthSession } from '../auth/AuthContext'
+import { API_ORIGIN } from '../config'
 import { useDb } from '../db/DbProvider'
 import { APP_VERSION } from '../version'
 import { createSyncEngine } from './engine'
@@ -26,7 +27,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       createSyncEngine({
         db,
         api: createApiClient({
-          baseUrl: '',
+          baseUrl: API_ORIGIN,
           getToken,
           clientVersion: APP_VERSION,
         }),

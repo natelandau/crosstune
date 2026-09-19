@@ -7,6 +7,7 @@ import {
   applyTextSize,
   readAppearance,
   readTextSize,
+  resolveDark,
   setAppearance,
   setTextSize,
   useAppearance,
@@ -92,6 +93,37 @@ describe('appearance', () => {
     localStorage.setItem(APPEARANCE_KEY, 'light')
     storageChangedElsewhere('other')
     expect(result.current.appearance).toBe('dark')
+  })
+})
+
+describe('applyAppearance', () => {
+  const original = window.matchMedia
+  afterEach(() => {
+    window.matchMedia = original
+    document.documentElement.classList.remove('ion-palette-dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  it('adds the dark palette class for dark and removes it for light', () => {
+    applyAppearance('dark')
+    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(true)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+    applyAppearance('light')
+    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(false)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+
+  it('follows the system preference for system', () => {
+    window.matchMedia = (query: string) =>
+      ({
+        matches: query === '(prefers-color-scheme: dark)',
+        addEventListener() {},
+        removeEventListener() {},
+      }) as unknown as MediaQueryList
+    applyAppearance('system')
+    expect(resolveDark('system')).toBe(true)
+    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(true)
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
   })
 })
 

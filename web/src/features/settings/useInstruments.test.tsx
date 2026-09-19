@@ -1,9 +1,9 @@
-import { screen } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { setInstruments } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { renderWithProviders } from '../../test/render'
+import { dataProviders } from '../../test/providers'
 import { useInstruments } from './useInstruments'
 
 let db: CrosstuneDb
@@ -16,24 +16,23 @@ afterEach(async () => {
   await db.delete()
 })
 
-function Probe() {
-  const instruments = useInstruments()
-  if (instruments === undefined) return <p>loading</p>
-  return <p>{[...instruments].join(',') || 'none'}</p>
+/** The hook's set, as a sorted array, or null while it is still reading. */
+function played(instruments: ReadonlySet<string> | undefined): string[] | null {
+  return instruments === undefined ? null : [...instruments].sort()
 }
 
 describe('useInstruments', () => {
   it('reports violin when the user has no settings row', async () => {
-    renderWithProviders(<Probe />, { db })
-    expect(await screen.findByText('violin')).toBeInTheDocument()
+    const { result } = renderHook(() => useInstruments(), { wrapper: dataProviders({ db }) })
+    await waitFor(() => expect(played(result.current)).toEqual(['violin']))
   })
 
   it("reflects the signed-in user's row and follows changes", async () => {
     await setInstruments(db, 'user_1', ['banjo', 'guitar'])
     await setInstruments(db, 'user_2', ['accordion'])
-    renderWithProviders(<Probe />, { db })
-    expect(await screen.findByText('banjo,guitar')).toBeInTheDocument()
+    const { result } = renderHook(() => useInstruments(), { wrapper: dataProviders({ db }) })
+    await waitFor(() => expect(played(result.current)).toEqual(['banjo', 'guitar']))
     await setInstruments(db, 'user_1', [])
-    expect(await screen.findByText('none')).toBeInTheDocument()
+    await waitFor(() => expect(played(result.current)).toEqual([]))
   })
 })
