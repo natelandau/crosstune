@@ -328,6 +328,9 @@ move menu.
 | Links                   | Remove (error)                                                              |
 | Lists on the song page  | Remove (error)                                                              |
 
+- A destructive action's glyph says what it destroys: the trash for
+  something that is gone for good, such as a song, a recording, a list, or a
+  link, and a list with a cross for a song only taken out of a list.
 - Edit on a song row opens the song form as a sheet over the screen the
   musician is on. Cancel and Save both return to that screen.
 - A press held for half a second on a song row enters selection mode with

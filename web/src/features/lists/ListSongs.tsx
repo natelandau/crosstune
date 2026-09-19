@@ -1,5 +1,5 @@
 import { IonList, IonReorder, IonReorderGroup, type ReorderEndCustomEvent } from '@ionic/react'
-import { ArrowUpDown, GripVertical, Minus, SquarePen } from 'lucide-react'
+import { ArrowUpDown, GripVertical, ListX, SquarePen } from 'lucide-react'
 import {
   useCallback,
   useLayoutEffect,
@@ -426,7 +426,7 @@ export function ListSongs({
                         },
                         {
                           label: 'Remove',
-                          icon: Minus,
+                          icon: ListX,
                           tone: 'error',
                           onPress: () => onRemove(view),
                         },

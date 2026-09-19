@@ -1,5 +1,5 @@
 import { IonButton } from '@ionic/react'
-import { AudioLines, Minus } from 'lucide-react'
+import { AudioLines, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { removeLink } from '../../commands/links'
 import { useDb } from '../../db/DbProvider'
@@ -69,7 +69,7 @@ export function SongMedia({
               actions={[
                 {
                   label: 'Remove',
-                  icon: Minus,
+                  icon: Trash2,
                   tone: 'error',
                   onPress: () => run(() => removeLink(db, link.id)),
                 },

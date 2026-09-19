@@ -6,7 +6,7 @@ import {
   IonSegmentButton,
   useIonRouter,
 } from '@ionic/react'
-import { Ellipsis, Minus, Music } from 'lucide-react'
+import { Ellipsis, ListX, Music } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { removeFromList } from '../../commands/lists'
@@ -323,7 +323,7 @@ function SongBody({
             actions={[
               {
                 label: 'Remove',
-                icon: Minus,
+                icon: ListX,
                 tone: 'error',
                 onPress: () => onRemove(list.itemId),
               },
