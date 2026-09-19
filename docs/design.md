@@ -515,8 +515,8 @@ Recordings and links share one row shape.
   when it cannot.
 - The row itself is the control. Tapping a recording plays it when the audio
   is on the device and downloads it when it is not. Tapping a link plays it
-  in the dock when the provider can be embedded. A link that cannot be
-  embedded does not open at all, and its trailing control opens the provider.
+  in the dock when the provider can be embedded, and opens the provider's own
+  site in a new tab when it cannot, so no row is ever dead to a tap.
 - A recording's title is its own label, then the song's title, then
   "Recording," with the date and time. In a list that already heads the
   recording's group with that song, the song is skipped, so a row never
@@ -536,10 +536,11 @@ Recordings and links share one row shape.
 - Durations read `m:ss`. Sizes truncate rather than round, so a size never
   overstates.
 - A link's title is what the provider resolved it to, then the label the
-  musician typed, then its host. Its second line is that label, unless the
-  label is already the title, and the provider's name. Its trailing control
-  opens the provider's app or site and is named for the provider: "Open
-  Soldier's Joy on YouTube".
+  musician typed, then its host. Its second line is the link out to the
+  provider: the provider's name and an arrow, or "Open" for a provider with
+  no name of its own, named in full for a screen reader as "Open Soldier's
+  Joy on YouTube". The provider is named there and nowhere else on the row,
+  and a label the musician typed shows only where it stands in as the title.
 - On the Recordings screen, recordings group under their song. The group is
   headed by the song's own row where the catalog holds the song, and by a
   plain header otherwise. Unfiled recordings head their group with "Unfiled".

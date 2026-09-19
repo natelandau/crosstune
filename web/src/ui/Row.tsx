@@ -100,9 +100,11 @@ export function Row({
    * through its own button, so a control nested in the body would be a control inside a
    * control, and `start` must hold no control either for the same reason. */
   children: ReactNode
-  /** Content that stays part of the row without naming its open control, such as an error line:
-   * visible and in the accessibility tree on its own, but left out of `openName`'s composed
-   * name, which reads only the verb and the title and meta content above it. */
+  /** Content that stays part of the row without naming its open control, such as an error line
+   * or a link out to another site: visible and in the accessibility tree on its own, but left
+   * out of `openName`'s composed name, which reads only the verb and the title and meta content
+   * above it. A control here is a sibling of the open control rather than nested in it, so
+   * unlike one in the body it is allowed, and it takes its own taps back from the row. */
   note?: ReactNode
 }) {
   if (openName !== undefined && !onOpen) {
@@ -141,7 +143,7 @@ export function Row({
         </span>
       ) : null}
       <div id={contentId}>{children}</div>
-      {note}
+      {note ? <div className="row-note">{note}</div> : null}
     </div>
   )
   // ion-item is Ionic's own activatable only while it is its own button, so a row that opens

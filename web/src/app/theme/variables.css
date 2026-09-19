@@ -577,6 +577,17 @@ ion-item .row-action {
   pointer-events: auto;
 }
 
+/* The note sits above the open control the row lays over its own content, so a control inside
+   one, a link out to another site, can take the taps the body passes through. The note's own
+   text keeps passing them on, so tapping beside the control still opens the row. */
+ion-item .row-note {
+  position: relative;
+  z-index: 2;
+}
+ion-item .row-note :is(a, button) {
+  pointer-events: auto;
+}
+
 /* Every revealed swipe action is the same width, whatever its label reads, so the actions of one
    row, and the same action across lists, are hit the same way. Ionic sizes an option to its own
    label otherwise, which leaves Edit a narrower target than Archive beside it. The trimmed

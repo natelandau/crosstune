@@ -9,7 +9,9 @@ import { displayTitle, providerLabel } from './display'
 
 /**
  * A linked recording as a row shaped like an audio recording's: the row plays it when the
- * provider can be embedded, and the trailing anchor opens it on the provider's own site.
+ * provider can be embedded and opens the provider's own site when it cannot, and the line under
+ * the title is the link out to that site. The provider is named once, by that link, because a
+ * second copy of the name beside it said nothing the link did not.
  */
 export function LinkItem({
   link,
@@ -25,32 +27,30 @@ export function LinkItem({
   const item = { kind: 'link' as const, id: link.id }
   const loaded = isPlaying(player, item)
 
-  let open: { onOpen: () => void; openName: string } | Record<string, never> = {}
+  let open: { onOpen: () => void; openName: string }
   let glyph
-  if (embed) {
-    if (loaded) {
-      open = { onOpen: () => player.close(), openName: 'Close' }
-      glyph = <StopGlyph />
-    } else {
-      open = { onOpen: () => player.play(item), openName: 'Play' }
-      glyph = <PlayGlyph />
+  if (!embed) {
+    // Nothing to load in the dock, so the row is the outbound link, like the one under the title.
+    open = {
+      onOpen: () => window.open(link.url, '_blank', 'noopener,noreferrer'),
+      openName: 'Open',
     }
+  } else if (loaded) {
+    open = { onOpen: () => player.close(), openName: 'Close' }
+    glyph = <StopGlyph />
+  } else {
+    open = { onOpen: () => player.play(item), openName: 'Play' }
+    glyph = <PlayGlyph />
   }
-
-  // The label only repeats itself in the meta line when it is standing in as the title.
-  const meta = [link.label === title ? null : link.label, provider]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ')
 
   return (
     <Row
       name={title}
       actions={actions}
       start={<Slot>{glyph}</Slot>}
-      note={<p className="type-subheadline truncate">{meta}</p>}
-      end={
+      note={
         <a
-          className="row-action type-subheadline flex items-center gap-1 px-2 text-(--ion-color-primary)"
+          className="type-subheadline inline-flex min-h-6 items-center gap-1 py-0.5 text-(--ion-color-primary)"
           href={link.url}
           target="_blank"
           rel="noreferrer"
