@@ -65,7 +65,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     kind: 'switch',
     key: 'is_crooked',
     label: 'Crooked',
-    help: 'An odd number of beats or bars in a part',
+    help: 'An odd number of beats or bars in a part.',
   },
   { kind: 'switch', key: 'has_lyrics', label: 'Has lyrics' },
   { kind: 'text', key: 'learned_from', label: 'Learned from', maxLength: SONG_LIMITS.learned_from },

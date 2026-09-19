@@ -1,0 +1,214 @@
+import { useState } from 'react'
+import { describe, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
+import { openTestDb } from '../../test/db'
+import { renderIonic } from '../../test/ionic'
+import { CatalogFilterSheet } from './CatalogFilterSheet'
+import { CatalogFilters } from './CatalogFilters'
+import {
+  DEFAULT_FILTERS,
+  type CatalogFilters as Filters,
+  type Facet,
+  type FacetValues,
+} from './filters'
+
+const facets: FacetValues = {
+  key: ['A', 'D'],
+  mode: ['major'],
+  violin_tuning: ['Standard (GDAE)'],
+  banjo_tuning: [],
+  genre: ['Old-time'],
+}
+const visible: Facet[] = ['key', 'mode', 'violin_tuning', 'genre']
+const counts = { visible: 3, total: 5, archived: 2, all: 7 }
+
+function Host({ start = DEFAULT_FILTERS, sheet = false }: { start?: Filters; sheet?: boolean }) {
+  const [filters, setFilters] = useState(start)
+  const [open, setOpen] = useState(sheet)
+  const onChange = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }))
+  return (
+    <>
+      <output data-testid="state">{JSON.stringify(filters)}</output>
+      <CatalogFilters filters={filters} facets={facets} visible={visible} onChange={onChange} />
+      <CatalogFilterSheet
+        open={open}
+        filters={filters}
+        facets={facets}
+        visible={visible}
+        counts={counts}
+        onChange={onChange}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  )
+}
+
+const state = () =>
+  JSON.parse(document.querySelector('[data-testid=state]')!.textContent!) as Filters
+
+const manyKeys = ['A', 'A♭', 'B', 'C', 'C♯', 'D', 'D♭', 'E', 'E♭', 'F', 'F♯', 'G', 'G♭']
+const manyKeyFacets: FacetValues = { ...facets, key: manyKeys }
+
+function ManyKeysHost() {
+  return (
+    <CatalogFilters
+      filters={DEFAULT_FILTERS}
+      facets={manyKeyFacets}
+      visible={visible}
+      onChange={() => {}}
+    />
+  )
+}
+
+async function railElement() {
+  const rail = document.querySelector<HTMLElement>('[role=group][aria-label=Key]')!
+  await expect.element(page.getByRole('group', { name: 'Key' })).toBeVisible()
+  return rail
+}
+
+/** No status label, including "Unknown", is clipped at the viewport's phone width. */
+async function expectNoStatusLabelOverflow() {
+  // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
+  await expect.element(page.getByRole('tab', { name: 'Unknown' })).toBeVisible()
+  const labels = document.querySelectorAll('ion-segment-button ion-label')
+  expect(labels.length).toBe(4)
+  for (const label of labels) {
+    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+  }
+}
+
+describe('CatalogFilters', () => {
+  it('fits every status label on one line at phone width', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    await expectNoStatusLabelOverflow()
+  })
+
+  it('scales the status labels with the roomy text size and still fits them', async () => {
+    document.documentElement.dataset.textSize = 'roomy'
+    try {
+      renderIonic(<Host />, { db: openTestDb() })
+      await expectNoStatusLabelOverflow()
+      const button = document.querySelector('ion-segment-button')!
+      expect(getComputedStyle(button).fontSize).toBe('13.8125px')
+    } finally {
+      delete document.documentElement.dataset.textSize
+    }
+  })
+
+  it('shows no fade on the key rail when the keys do not overflow it', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    const rail = await railElement()
+    await vi.waitFor(() => expect(rail.scrollWidth).toBeGreaterThan(0))
+    expect(rail.scrollWidth).toBeLessThanOrEqual(rail.clientWidth)
+    expect(getComputedStyle(rail).maskImage).toBe('none')
+  })
+
+  it('fades the key rail at its inline end and clears the fade once scrolled there', async () => {
+    renderIonic(<ManyKeysHost />, { db: openTestDb() })
+    const rail = await railElement()
+    await vi.waitFor(() =>
+      expect(getComputedStyle(rail).maskImage).toMatch(/^linear-gradient\(to right, /),
+    )
+    rail.scrollLeft = rail.scrollWidth - rail.clientWidth
+    await vi.waitFor(() => expect(getComputedStyle(rail).maskImage).toBe('none'))
+  })
+
+  it('fades the key rail from its inline end in RTL and clears it once scrolled there', async () => {
+    renderIonic(
+      <div dir="rtl">
+        <ManyKeysHost />
+      </div>,
+      { db: openTestDb() },
+    )
+    const rail = await railElement()
+    await vi.waitFor(() =>
+      expect(getComputedStyle(rail).maskImage).toMatch(/^linear-gradient\(to left, /),
+    )
+    rail.scrollLeft = -(rail.scrollWidth - rail.clientWidth)
+    await vi.waitFor(() => expect(getComputedStyle(rail).maskImage).toBe('none'))
+  })
+
+  it('sets status from the segmented control', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
+    await page.getByRole('tab', { name: 'Learning' }).click({ force: true })
+    await expect.poll(() => state().status).toBe('learning')
+  })
+
+  it('sets a key in one tap and clears it from All or the pressed key', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    const d = page.getByRole('button', { name: 'D', exact: true })
+    await d.click()
+    await expect.poll(() => state().key).toBe('D')
+    await expect.element(d).toHaveAttribute('aria-pressed', 'true')
+    await d.click()
+    await expect.poll(() => state().key).toBe('all')
+  })
+
+  it('shows a set sheet filter as a removable pill, and Archived shown', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, mode: 'major', archived: true }} />, {
+      db: openTestDb(),
+    })
+    const pill = page.getByRole('button', { name: 'Remove filter major' })
+    // A pill removes a filter; it is not a toggle, so it never announces aria-pressed.
+    await expect.element(pill).not.toHaveAttribute('aria-pressed')
+    await pill.click()
+    await expect.poll(() => state().mode).toBe('all')
+    await page.getByRole('button', { name: 'Remove filter Archived shown' }).click()
+    await expect.poll(() => state().archived).toBe(false)
+  })
+})
+
+describe('CatalogFilterSheet', () => {
+  it('shows the live count, a select per sheet facet, and the archived switch with its count', async () => {
+    renderIonic(<Host sheet />, { db: openTestDb() })
+    await expect.element(page.getByText('3 of 5 songs')).toBeVisible()
+    // IonSelect's accessible name is "<label>, <value>", and its own button is clipped, so
+    // visibility is asserted on the row that contains it.
+    for (const label of ['Mode', 'Violin tuning', 'Genre']) {
+      await expect
+        .element(
+          page.getByRole('listitem').filter({ has: page.getByLabelText(label, { exact: false }) }),
+        )
+        .toBeVisible()
+    }
+    // Scoped to the sheet: the catalog's own Key rail is also labeled "Key".
+    expect(page.getByRole('dialog').getByLabelText('Key').elements()).toHaveLength(0)
+    await expect.element(page.getByText('2 archived songs')).toBeVisible()
+    // The archived count is tabular, like every other count in the catalog.
+    expect(document.querySelector('ion-modal p.type-footnote span')).toHaveClass('tabular-nums')
+  })
+
+  it('shows a stale sheet-facet value that is no longer in the facet list', async () => {
+    renderIonic(<Host sheet start={{ ...DEFAULT_FILTERS, mode: 'minor' }} />, {
+      db: openTestDb(),
+    })
+    await expect
+      .element(
+        page
+          .getByRole('listitem')
+          .filter({ has: page.getByLabelText('Mode, minor', { exact: false }) }),
+      )
+      .toBeVisible()
+  })
+
+  it('applies a change at once and resets only the sheet filters', async () => {
+    renderIonic(<Host sheet start={{ ...DEFAULT_FILTERS, status: 'known', key: 'D' }} />, {
+      db: openTestDb(),
+    })
+    await page.getByRole('switch', { name: 'Show archived' }).click()
+    await expect.poll(() => state().archived).toBe(true)
+    await page.getByRole('button', { name: 'Reset' }).click()
+    await expect.poll(() => state()).toMatchObject({ archived: false, status: 'known', key: 'D' })
+  })
+
+  it('toggles archived from a tap anywhere on its 44px row, including the label text', async () => {
+    renderIonic(<Host sheet />, { db: openTestDb() })
+    await vi.waitFor(() => {
+      const row = document.querySelector('ion-item:has(ion-toggle)')
+      expect(row?.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    })
+    await page.getByText('Show archived').click()
+    await expect.poll(() => state().archived).toBe(true)
+  })
+})

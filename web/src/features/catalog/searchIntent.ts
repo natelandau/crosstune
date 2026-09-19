@@ -16,7 +16,7 @@ export type EnterAction =
   { kind: 'open'; songId: string } | { kind: 'create'; title: string } | { kind: 'blur' }
 
 /**
- * What the search box should offer beyond the visible results. Different tunes can share a
+ * What the search box should offer beyond the visible results. Different songs can share a
  * title, so an exact match never suppresses create. Exact matches are looked for across the
  * whole catalog so a song hidden by a filter is pointed to before a second one is added.
  */
