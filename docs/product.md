@@ -40,7 +40,8 @@ billing without a rewrite.
 ## The core loop
 
 1. Add a tune to your catalog, with its key, tuning, and other attributes.
-2. Mark it as known, learning, or want to learn.
+2. Mark it as known, learning, or want to learn; the want-to-learn status
+   is labeled Unknown.
 3. Paste one or more links to recordings of it.
 4. At the jam, open the catalog filtered by key, tap the tune, and hear it.
 
@@ -59,7 +60,8 @@ on a phone home screen. It contains these features.
   learned from, date learned, and freeform notes. Time signature is a fixed
   set of values that the web client defaults to 4/4. All other attributes
   except the title are optional.
-- Status. Every song is known, learning, or want to learn.
+- Status. Every song is known, learning, or want to learn; the
+  want-to-learn status is labeled Unknown.
 - Named lists. A user creates ordered lists such as "Tuesday jam" or "Square
   dance set". A song can be in many lists.
 - Linked recordings. A user pastes a URL from YouTube, Spotify, Apple Music,
