@@ -15,6 +15,7 @@ web/dev-dist/
 web/playwright-report/
 web/test-results/
 web/coverage/
+web/.vitest/
 
 # Local dev
 .dev/
