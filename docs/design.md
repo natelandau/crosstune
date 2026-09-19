@@ -221,11 +221,21 @@ Everywhere the app lists songs, it uses the same row.
   musician plays. The one exception is a field that already holds a value,
   which is always shown so data never becomes unreachable. A song row is
   stricter and shows a tuning only for a played instrument.
-- Key, tuning, mode, genre, feel, time signature, and part structure are
-  picked from a list of suggestions. The list never closes the door: each one
-  offers an `Other…` choice that reveals a text field, and a typed value
-  then shows as its own option. Suggested keys are spelled with flats: A, Bb,
-  B, C, D, E, F, G. A tuning suggestion reads as a name and the strings in
+- Tuning, mode, genre, feel, time signature, and part structure are picked
+  from a list of suggestions. Those lists never close the door: each one
+  offers an `Other…` choice that reveals a text field, and a typed value then
+  shows as its own option.
+- Key is the exception, because it is a closed vocabulary: there are twelve
+  pitch classes and no thirteenth, so a key is chosen from a grid of pills
+  and never typed. Unknown leads the grid and is pressed until a key is set,
+  the common keys follow in their own colors, and `More keys…` opens the
+  rest as a menu. Both spellings of a black key are offered, F# and Gb alike,
+  because musicians name them as different keys; the two share one hue,
+  because they are one pitch. A key the grid does not hold, whether picked
+  from that menu or stored by an older client, joins the grid as its own
+  pill, so no stored key is ever unreachable. Which keys the grid shows is
+  `QUICK_KEYS` in `suggestions.ts`, and the menu is whatever `ALL_KEYS` holds
+  that the grid does not. A tuning suggestion reads as a name and the strings in
   parentheses, with a lowercase letter for a drone string: "Cross A (AEAE)",
   "Sawmill (gDGCD)".
 - The labels "Violin tuning" and "Banjo tuning" read the same on the song
@@ -453,19 +463,37 @@ form route and no save bar.
   primary action trails, named for what it does: Save, Add, Create, Add link,
   Done. The filter sheet leads with Reset instead, and a sheet whose rows are
   the actions carries Cancel alone.
-- Fields are inset groups. The group header names the field, help text is the
-  footer, and a validation message replaces that footer in red.
+- A form is a column of sections, not a column of fields. A section is an
+  inset group holding one or more related fields; its header names the group,
+  its footer carries help for the group, and a validation message replaces
+  that footer in red. Help text is never a row inside a card, because a line
+  between two hairlines reads as another row. A control that is not a list, a
+  segmented control or a grid of pills, sits on the grouped background at the
+  same gutter as the cards.
+- One spacing scale serves every form and every grouped screen: a 16px
+  gutter for cards and bare controls, header, footer, help, and error text at
+  the 32px row inset so it lines up with the row labels, 24px above a header,
+  8px below a header and above a footer, 16px between two cards with no
+  header between them, and the 44px row height every tap target keeps.
+- Every field shows where to type. A text field carries a placeholder, and a
+  row with no value reads "Not set" rather than reading as empty space. A
+  placeholder demonstrates the format where a rule would otherwise have to
+  describe it.
+- A single-field sheet carries no header at all: its title already names the
+  field, and a header under it would only repeat it.
 - The song form serves both new and edit and ranks its fields by how often a
-  musician touches them: Title, Status, Key, one tuning per visible
-  instrument, and Notes come first, each in its own group. Then a Details
-  list gives one row each, in this order, to Also known as, Mode, Genre, Time
-  signature, Feel, Parts, Crooked, Has lyrics, Learned from, and Learned on.
-  A detail row is an inline select, input, toggle, or date row, so no sheet
-  stacks on the song form.
+  musician touches them. The title is one field on its own, with no header,
+  since the sheet is titled New song or Edit song. Then the status control,
+  then Key, then a Tuning group holding one row per visible instrument, then
+  Notes. Then a Details list gives one row each, in this order, to Also known
+  as, Mode, Genre, Time signature, Feel, Parts, Crooked, Has lyrics, Learned
+  from, and Learned on. A detail row is an inline select, input, toggle, or
+  date row, so no sheet stacks on the song form.
 - Only the title is required. The one validation message is "A title is
-  required", shown under the title group on submit, and the title field takes
-  focus. Every other limit is a length cap the field enforces as the musician
-  types, so there is nothing else to reject.
+  required", shown under the title field on submit; the field takes focus and
+  marks itself invalid, and the message clears at the first keystroke. Every
+  other limit is a length cap the field enforces as the musician types, so
+  there is nothing else to reject.
 - The tuning fields to show are decided when the form opens, so a field never
   disappears mid-edit.
 - The primary action is disabled while the write is pending. Where the form
@@ -650,6 +678,8 @@ column instead of rebuilding the pattern.
 | Instrument checkboxes, first-run question | `src/features/settings/InstrumentRows.tsx`, `src/features/settings/FirstRunSheet.tsx`         |
 | Suggestion vocabularies                   | `src/features/song/suggestions.ts`                                                        |
 | Suggestion picker with `Other…`           | `src/features/song/SuggestSelect.tsx`                                                     |
+| One shape for a labeled field row         | `src/ui/FieldRow.tsx`                                                                     |
+| Key grid and the two key vocabularies     | `src/features/song/KeyChooser.tsx`, `src/features/song/suggestions.ts`                    |
 | Key pill and its colors                   | `src/ui/KeyPill.tsx`, `src/ui/keyColor.ts`                                                |
 | Search field                              | `src/ui/SearchField.tsx`                                                                  |
 | Search or create                          | `src/features/catalog/searchIntent.ts`, `src/features/catalog/SearchOffer.tsx`                |
