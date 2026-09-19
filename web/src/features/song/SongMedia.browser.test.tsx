@@ -209,6 +209,11 @@ describe('SongMedia', () => {
     const line = page.getByRole('alert')
     await expect.element(line).toHaveTextContent('The song would not let go.')
     expect(line.element().closest('ion-item')).toBeNull()
+    // It sits under the cards, so it lines up with their text rather than starting short of it.
+    const header = document.querySelector('h2')!
+    expect(Number.parseFloat(getComputedStyle(line.element()).paddingLeft)).toBe(
+      Number.parseFloat(getComputedStyle(header).paddingLeft),
+    )
   })
 
   it('opens the rename sheet on the recording a row names', async () => {

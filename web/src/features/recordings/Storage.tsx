@@ -11,7 +11,7 @@ export function Storage() {
   if (!figures || figures.quota_bytes <= 0) return null
   const used = Math.min(1, figures.used_bytes / figures.quota_bytes)
   return (
-    <div className="px-5 py-2">
+    <div className="px-8 py-2">
       <p className="type-footnote tabular-nums">
         {formatBytes(figures.used_bytes)} of {formatBytes(figures.quota_bytes)} used
       </p>

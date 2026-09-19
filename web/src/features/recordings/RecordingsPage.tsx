@@ -143,7 +143,7 @@ export function RecordingsPage() {
               )
             })}
           </div>
-          {error ? <InlineError className="px-5 py-2">{error}</InlineError> : null}
+          {error ? <InlineError className="px-8 py-2">{error}</InlineError> : null}
         </>
       ) : null}
       <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
