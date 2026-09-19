@@ -37,6 +37,19 @@ describe('KeyPill', () => {
     expect(pills()[0]!.hasAttribute('data-pitch')).toBe(false)
   })
 
+  it('sits shorter in a row than it does in a rail', async () => {
+    renderIonic(
+      <>
+        <KeyPill value="D" />
+        <KeyPill value="D" compact />
+      </>,
+      { db: openTestDb() },
+    )
+    await expect.element(page.getByText('D', { exact: true }).first()).toBeVisible()
+    const [full, compact] = pills().map((pill) => pill.getBoundingClientRect().height)
+    expect(full).toBeGreaterThan(compact!)
+  })
+
   it('renders nothing for an empty value', () => {
     renderIonic(<KeyPill value="  " />, { db: openTestDb() })
     expect(pills()).toHaveLength(0)

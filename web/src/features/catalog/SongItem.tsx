@@ -47,7 +47,7 @@ export function SongMeta({
     parts.push(
       <span className="inline-flex items-center">
         <span className="sr-only">Key </span>
-        <KeyPill value={song.key} />
+        <KeyPill value={song.key} compact />
       </span>,
     )
   }

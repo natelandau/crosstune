@@ -150,7 +150,10 @@ Three axes decide the chrome. No screen asks which device it is on.
   and chroma are constant, so no key reads louder than another. A key the
   client cannot read as a pitch class keeps the pill and takes the neutral
   capsule fill, so it never borrows a hue. Mode is not part of the key and a
-  key is never inferred from one: "Am" reads as unrecognized.
+  key is never inferred from one: "Am" reads as unrecognized. The pill comes
+  in two sizes and no others: the full one fills a 44px tap target in the key
+  rail, and the compact one sits in a line of row metadata without setting
+  that row's height.
 - The text size setting has three steps, compact, regular, and roomy, and
   moves the root font size, which scales every role at once. Inputs never
   drop below 16px, so iOS does not zoom on focus. iOS opts out of Dynamic
