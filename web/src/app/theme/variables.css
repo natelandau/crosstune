@@ -242,6 +242,15 @@ ion-content.grouped {
   --background: var(--grouped-background);
 }
 
+/* Group owns every vertical space around an inset group, so the list brings none of its own.
+   Ionic injects this margin unlayered at runtime, where a utility in a layer cannot reach it
+   whatever its specificity. Ionic's own rule carries two classes, so the tag name in front is
+   what outscores it. The inline margin stays Ionic's, and is the gutter every header, footer,
+   and bare control in a form lines up against. */
+ion-list:is(.list-ios, .list-md).list-inset {
+  margin-block: 0;
+}
+
 /* A plain list on md in dark mode takes the page color, so the separators alone carry its
    structure and no edge reads under its last row. Material's list items sit on the surface
    rather than above it. A grouped screen's cards are inset lists and keep their own lighter
