@@ -102,6 +102,20 @@ export async function updateUserSong(
   })
 }
 
+/** Saves an edit to a song and the musician's own row for it, both or neither. */
+export async function updateSongEntry(
+  db: CrosstuneDb,
+  ids: { songId: string; userSongId: string },
+  song: Partial<SongInput>,
+  userSong: Partial<UserSongInput>,
+): Promise<void> {
+  // Each update opens its own writeTx, which Dexie runs inside this one as a nested transaction.
+  await writeTx(db, async () => {
+    await updateSong(db, ids.songId, song)
+    await updateUserSong(db, ids.userSongId, userSong)
+  })
+}
+
 export async function setArchived(
   db: CrosstuneDb,
   userSongId: string,

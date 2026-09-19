@@ -1,7 +1,7 @@
 import type { BulkPatch } from '../../commands/bulk'
 import { MODES, TIME_SIGNATURES, type Instrument } from '../../db/types'
 import type { CatalogEntry } from '../catalog/filters'
-import { isSongStatus, STATUS_LABELS } from '../catalog/StatusDot'
+import { isSongStatus, STATUS_LABELS } from '../catalog/status'
 import { TUNING_FIELDS } from '../settings/instruments'
 
 export const EDIT_FIELDS = [
@@ -38,7 +38,7 @@ export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   learned_on: 'Learned on',
 }
 
-/** A choice field has a vocabulary and is edited as chips; text and date fields are typed. */
+/** A choice field has a vocabulary and is picked from a list; text and date fields are typed. */
 export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolean'> = {
   status: 'choice',
   key: 'choice',
@@ -109,14 +109,10 @@ function normalize(value: TouchedValue): string | boolean | null {
   return typeof value === 'string' ? value.trim() || null : value
 }
 
-export function touchState(value: TouchedValue): 'change' | 'clear' {
-  return normalize(value) === null ? 'clear' : 'change'
-}
-
 /**
  * True when saving the value would leave every selected song as it is. Compares the
- * raw value, not the trimmed one used to save and to describe changes, so a trailing
- * space mid-edit does not snap a text field back to untouched.
+ * raw value, not the trimmed one that is saved, so a trailing space typed mid-edit does
+ * not snap a text field back to untouched.
  */
 export function isUnchanged(summary: Summary, value: TouchedValue): boolean {
   if (value === null || value === '') return summary.kind === 'empty'
@@ -141,16 +137,4 @@ export function displayValue(field: EditField, value: string | boolean): string 
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   if (field === 'status' && isSongStatus(value)) return STATUS_LABELS[value]
   return value
-}
-
-export function describeChanges(touched: Touched): string {
-  const parts = EDIT_FIELDS.flatMap((field) => {
-    const raw = touched[field]
-    if (raw === undefined) return []
-    const label = EDIT_FIELD_LABELS[field].toLowerCase()
-    const value = normalize(raw)
-    return value === null ? [`clear ${label}`] : [`${label} → ${displayValue(field, value)}`]
-  })
-  if (parts.length === 0) return ''
-  return `${parts.length === 1 ? '1 change' : `${parts.length} changes`}: ${parts.join(', ')}`
 }

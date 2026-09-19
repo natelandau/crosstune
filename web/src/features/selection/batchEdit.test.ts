@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../db/types'
 import { songRow, userSongRow } from '../../test/rows'
-import {
-  describeChanges,
-  isUnchanged,
-  summarize,
-  toPatch,
-  touchState,
-  visibleEditFields,
-} from './batchEdit'
+import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
 
 const a = {
   song: songRow('s1', 'Say Old Man', {
@@ -73,14 +66,6 @@ describe('visibleEditFields', () => {
 })
 
 describe('touched fields', () => {
-  it('names a blank or null value a clear', () => {
-    expect(touchState('')).toBe('clear')
-    expect(touchState('  ')).toBe('clear')
-    expect(touchState(null)).toBe('clear')
-    expect(touchState('D')).toBe('change')
-    expect(touchState(false)).toBe('change')
-  })
-
   it('treats a value equal to the shared one, or a blank over empty, as unchanged', () => {
     expect(isUnchanged({ kind: 'shared', value: 'A' }, 'A')).toBe(true)
     expect(isUnchanged({ kind: 'shared', value: 'A' }, ' A ')).toBe(false)
@@ -109,19 +94,5 @@ describe('toPatch', () => {
 
   it('never clears status', () => {
     expect(toPatch({ status: null })).toEqual({ song: {}, userSong: {} })
-  })
-})
-
-describe('describeChanges', () => {
-  it('lists each change in field order', () => {
-    expect(describeChanges({ genre: '', violin_tuning: 'Cross A (AEAE)' })).toBe(
-      '2 changes: violin tuning → Cross A (AEAE), clear genre',
-    )
-    expect(describeChanges({ is_crooked: true })).toBe('1 change: crooked → yes')
-    expect(describeChanges({ status: 'want_to_learn' })).toBe('1 change: status → Want to learn')
-  })
-
-  it('returns an empty string when nothing is touched', () => {
-    expect(describeChanges({})).toBe('')
   })
 })
