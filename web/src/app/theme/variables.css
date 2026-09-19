@@ -39,6 +39,60 @@
      defines no fill tokens of its own. */
   --fill-tertiary: rgba(118, 118, 128, 0.12);
 
+  /* One hue per pitch class, placed by position on the circle of fifths so keys a fifth apart
+     are neighbors. Lightness and chroma are constant at each weight, at the largest chroma that
+     stays in the sRGB gamut for all twelve hues, so no key reads louder than another and none is
+     silently clipped. Derived in OKLCH, committed as hex because a contrast test cannot measure
+     a color it fails to parse as rgb(). The derivation is in the key colors spec. */
+  --key-0-bg: #facac8;
+  --key-0-ink: #5f3434;
+  --key-0-on-bg: #804949;
+  --key-0-on-ink: #ffffff;
+  --key-1-bg: #b3dff6;
+  --key-1-ink: #18485d;
+  --key-1-on-bg: #24627d;
+  --key-1-on-ink: #ffffff;
+  --key-2-bg: #ebd4af;
+  --key-2-ink: #543e17;
+  --key-2-on-bg: #715623;
+  --key-2-on-ink: #ffffff;
+  --key-3-bg: #d6d2fb;
+  --key-3-ink: #423c61;
+  --key-3-on-bg: #5a5383;
+  --key-3-on-ink: #ffffff;
+  --key-4-bg: #c5e1be;
+  --key-4-ink: #304a2a;
+  --key-4-on-bg: #43653c;
+  --key-4-on-ink: #ffffff;
+  --key-5-bg: #f5c9dd;
+  --key-5-ink: #5b3447;
+  --key-5-on-bg: #7b4861;
+  --key-5-on-ink: #ffffff;
+  --key-6-bg: #ade3e6;
+  --key-6-ink: #074c4f;
+  --key-6-on-bg: #0e676c;
+  --key-6-on-ink: #ffffff;
+  --key-7-bg: #f7ceb7;
+  --key-7-ink: #5d3823;
+  --key-7-on-bg: #7d4d32;
+  --key-7-on-ink: #ffffff;
+  --key-8-bg: #c2d9fd;
+  --key-8-ink: #2f4363;
+  --key-8-on-bg: #415b86;
+  --key-8-on-ink: #ffffff;
+  --key-9-bg: #d9dbb1;
+  --key-9-ink: #44451b;
+  --key-9-on-bg: #5d5e28;
+  --key-9-on-ink: #ffffff;
+  --key-10-bg: #e8ccef;
+  --key-10-ink: #513757;
+  --key-10-on-bg: #6e4c75;
+  --key-10-on-ink: #ffffff;
+  --key-11-bg: #b4e4d2;
+  --key-11-ink: #184d3d;
+  --key-11-on-bg: #246954;
+  --key-11-on-ink: #ffffff;
+
   /* The content column on the wide frame, in px so the text size setting scales the type
      and not the column. About 70 characters of body text. */
   --measure: none;
@@ -223,6 +277,111 @@ ion-segment-button {
   mask-image: linear-gradient(to left, #000 calc(100% - 2rem), transparent);
 }
 
+/* A key pill paints from the token pair its pitch class names. Choosing a key changes only the
+   weight, never the hue, so a key never appears to become a different key when it is chosen. A
+   pill with no pitch keeps the neutral capsule fill rather than borrowing a hue. */
+.key-pill {
+  background: var(--fill-tertiary);
+  color: var(--ion-text-color);
+}
+.key-pill[data-pitch='0'] {
+  background: var(--key-0-bg);
+  color: var(--key-0-ink);
+}
+.key-pill[data-pitch='1'] {
+  background: var(--key-1-bg);
+  color: var(--key-1-ink);
+}
+.key-pill[data-pitch='2'] {
+  background: var(--key-2-bg);
+  color: var(--key-2-ink);
+}
+.key-pill[data-pitch='3'] {
+  background: var(--key-3-bg);
+  color: var(--key-3-ink);
+}
+.key-pill[data-pitch='4'] {
+  background: var(--key-4-bg);
+  color: var(--key-4-ink);
+}
+.key-pill[data-pitch='5'] {
+  background: var(--key-5-bg);
+  color: var(--key-5-ink);
+}
+.key-pill[data-pitch='6'] {
+  background: var(--key-6-bg);
+  color: var(--key-6-ink);
+}
+.key-pill[data-pitch='7'] {
+  background: var(--key-7-bg);
+  color: var(--key-7-ink);
+}
+.key-pill[data-pitch='8'] {
+  background: var(--key-8-bg);
+  color: var(--key-8-ink);
+}
+.key-pill[data-pitch='9'] {
+  background: var(--key-9-bg);
+  color: var(--key-9-ink);
+}
+.key-pill[data-pitch='10'] {
+  background: var(--key-10-bg);
+  color: var(--key-10-ink);
+}
+.key-pill[data-pitch='11'] {
+  background: var(--key-11-bg);
+  color: var(--key-11-ink);
+}
+
+.key-pill[data-pitch='0'][data-chosen] {
+  background: var(--key-0-on-bg);
+  color: var(--key-0-on-ink);
+}
+.key-pill[data-pitch='1'][data-chosen] {
+  background: var(--key-1-on-bg);
+  color: var(--key-1-on-ink);
+}
+.key-pill[data-pitch='2'][data-chosen] {
+  background: var(--key-2-on-bg);
+  color: var(--key-2-on-ink);
+}
+.key-pill[data-pitch='3'][data-chosen] {
+  background: var(--key-3-on-bg);
+  color: var(--key-3-on-ink);
+}
+.key-pill[data-pitch='4'][data-chosen] {
+  background: var(--key-4-on-bg);
+  color: var(--key-4-on-ink);
+}
+.key-pill[data-pitch='5'][data-chosen] {
+  background: var(--key-5-on-bg);
+  color: var(--key-5-on-ink);
+}
+.key-pill[data-pitch='6'][data-chosen] {
+  background: var(--key-6-on-bg);
+  color: var(--key-6-on-ink);
+}
+.key-pill[data-pitch='7'][data-chosen] {
+  background: var(--key-7-on-bg);
+  color: var(--key-7-on-ink);
+}
+.key-pill[data-pitch='8'][data-chosen] {
+  background: var(--key-8-on-bg);
+  color: var(--key-8-on-ink);
+}
+.key-pill[data-pitch='9'][data-chosen] {
+  background: var(--key-9-on-bg);
+  color: var(--key-9-on-ink);
+}
+.key-pill[data-pitch='10'][data-chosen] {
+  background: var(--key-10-on-bg);
+  color: var(--key-10-on-ink);
+}
+.key-pill[data-pitch='11'][data-chosen] {
+  background: var(--key-11-on-bg);
+  color: var(--key-11-on-ink);
+}
+
 /* A minimal-height rule between a popover menu's items and its destructive one. */
 ion-item-divider.menu-divider {
   min-height: 1px;
@@ -275,6 +434,55 @@ ion-item.menu-danger {
   --ion-color-success-tint: #c5c6c6;
 
   --fill-tertiary: rgba(118, 118, 128, 0.24);
+
+  --key-0-bg: #5c3232;
+  --key-0-ink: #f9c1bf;
+  --key-0-on-bg: #e48686;
+  --key-0-on-ink: #2a1313;
+  --key-1-bg: #174559;
+  --key-1-ink: #a5daf4;
+  --key-1-on-bg: #48b2df;
+  --key-1-on-ink: #051e29;
+  --key-2-bg: #503c16;
+  --key-2-ink: #e8cda1;
+  --key-2-on-bg: #cb9c47;
+  --key-2-on-ink: #241805;
+  --key-3-bg: #3f3a5d;
+  --key-3-ink: #d0cafa;
+  --key-3-on-bg: #a498e8;
+  --key-3-on-ink: #1a172b;
+  --key-4-bg: #2e4828;
+  --key-4-ink: #bbdcb3;
+  --key-4-on-bg: #7cb66f;
+  --key-4-on-ink: #111f0e;
+  --key-5-bg: #583244;
+  --key-5-ink: #f3c0d7;
+  --key-5-on-bg: #db85af;
+  --key-5-on-ink: #27131d;
+  --key-6-bg: #06494c;
+  --key-6-ink: #9edfe2;
+  --key-6-on-bg: #23bac1;
+  --key-6-on-ink: #002021;
+  --key-7-bg: #593621;
+  --key-7-ink: #f5c5ab;
+  --key-7-on-bg: #df8e5f;
+  --key-7-on-ink: #28150a;
+  --key-8-bg: #2d4060;
+  --key-8-ink: #b8d2fd;
+  --key-8-on-bg: #79a5ed;
+  --key-8-on-ink: #101b2c;
+  --key-9-bg: #424219;
+  --key-9-ink: #d3d5a4;
+  --key-9-on-bg: #a9ab4e;
+  --key-9-on-ink: #1c1c06;
+  --key-10-bg: #4e3554;
+  --key-10-ink: #e5c4ec;
+  --key-10-on-bg: #c58cd2;
+  --key-10-on-ink: #221525;
+  --key-11-bg: #174a3b;
+  --key-11-ink: #a6e0ca;
+  --key-11-on-bg: #48bc99;
+  --key-11-on-ink: #052018;
 }
 
 /* The record dome in the phone tab bar. --tab-bar-cap is how far its top rises above the bar,
