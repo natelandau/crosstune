@@ -388,6 +388,11 @@ not a URL, so a link can never enter it.
   There is no confirmation, because a confirmation gets clicked through and
   leaves no way back. A failed write keeps both the mode and the selection.
   Cancelling a sheet keeps the selection.
+- Delete is the one exception, because it takes recordings with it and no
+  undo can bring back a recording already gone from the server. It confirms
+  through the app's own overlay, the same question the song page asks, and
+  raises no toast. Dismissing the confirmation keeps the mode and the
+  selection.
 - The musician leaves with the toolbar's own exit control, Escape on a mouse,
   leaving the screen, or by completing any action, plus, on a native build,
   the Android hardware back button. The back button is registered below
@@ -400,9 +405,10 @@ not a URL, so a link can never enter it.
   On leaving it returns to the control the mode opened from, or to the
   screen's landmark when that control has gone.
 - Status opens a menu of the three statuses. Add to list opens the same list
-  picker the song page uses. The overflow holds Archive and Unarchive, and on
-  a list Remove from list, each counting only the songs it will change. It is
-  named `More actions` in the `md` toolbar and `More` in the `ios` footer.
+  picker the song page uses. The overflow holds Archive and Unarchive, on a
+  list Remove from list, and Delete last of all, each counting only the songs
+  it will change. It is named `More actions` in the `md` toolbar and `More` in
+  the `ios` footer.
 - Bulk edit is the song form's own Details list over many songs: Status, Key,
   a group per visible tuning, then the details. Each row reads the value
   every selected song shares, `Not set` when they are all empty, or `Mixed`
@@ -481,6 +487,10 @@ Each of these follows the pointer, and each is implemented once.
   `It has not been uploaded, so this cannot be undone.` Deleting a list reads
   `Its songs stay in the catalog.`
 - A bulk action is the exception, and applies at once with Undo in a toast.
+  Bulk Delete is the exception to that exception: it confirms, and its
+  question counts the selection, `Delete 12 songs? This removes their links,
+  list entries, and 4 recordings.`, naming one selected song by title the way
+  the song page does.
 - A toast is for an action that offers Undo, and for the rare error that
   arrives after the musician has left the screen. Every other error shows
   inline beside the control that failed.
