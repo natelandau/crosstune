@@ -80,6 +80,7 @@ export function useRecordingActions({
     if (view.songId) {
       return {
         label: 'Remove from song',
+        short: 'Remove',
         icon: FolderOutput,
         tone: 'warning',
         onPress: () => run(() => updateRecording(db, view.recording.id, { song_id: null })),
@@ -88,6 +89,7 @@ export function useRecordingActions({
     if (!onAddToSong) return null
     return {
       label: 'Add to song',
+      short: 'Add',
       icon: FolderInput,
       tone: 'warning',
       onPress: () => onAddToSong(view),

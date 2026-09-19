@@ -13,7 +13,13 @@ import { usePointer } from '../platform/pointer'
 import { useLongPress } from './longPress'
 
 export interface RowAction {
+  /** Names the action to assistive technology, as "<label> <row name>". */
   label: string
+  /**
+   * The text the swipe button shows in place of the label, for a label too long to read at the
+   * one width every swipe action is revealed at. The label still names the control.
+   */
+  short?: string
   icon: LucideIcon
   tone: 'neutral' | 'warning' | 'error'
   onPress: () => void
@@ -216,9 +222,12 @@ export function Row({
                 action.onPress()
               }}
             >
-              <span aria-hidden className="flex flex-col items-center gap-1 text-xs">
+              <span
+                aria-hidden
+                className="flex w-full flex-col items-center gap-1 text-center text-xs"
+              >
                 <action.icon aria-hidden className="size-6" />
-                {action.label}
+                {action.short ?? action.label}
               </span>
               <span className="sr-only">{`${action.label} ${name}`}</span>
             </IonItemOption>

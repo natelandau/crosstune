@@ -234,6 +234,57 @@ describe('Row on touch', () => {
     expect(document.querySelector('ion-item-option[expandable]')).toBeNull()
   })
 
+  it('reveals every action at one width, whatever its label reads', async () => {
+    forceTouch()
+    renderIonic(<List />, { db: openTestDb() })
+    const sliding = document.querySelector<HTMLIonItemSlidingElement>('ion-item-sliding')!
+    await vi.waitFor(async () => {
+      await sliding.open('end')
+      expect(sliding.classList.contains('item-sliding-active-slide')).toBe(true)
+    })
+    const widths = Array.from(sliding.querySelectorAll('ion-item-option')).map(
+      (option) => option.getBoundingClientRect().width,
+    )
+    expect(widths).toHaveLength(2)
+    expect(new Set(widths).size).toBe(1)
+    expect(widths[0]).toBeGreaterThanOrEqual(44)
+  })
+
+  it('shows the short text of an action while its label still names it', async () => {
+    forceTouch()
+    renderIonic(
+      <IonList inset>
+        <Row
+          name="Take 3"
+          actions={[
+            {
+              label: 'Remove from song',
+              short: 'Remove',
+              icon: Archive,
+              tone: 'warning',
+              onPress: () => {},
+            },
+          ]}
+        >
+          <IonLabel>
+            <h2>Take 3</h2>
+          </IonLabel>
+        </Row>
+      </IonList>,
+      { db: openTestDb() },
+    )
+    const sliding = document.querySelector<HTMLIonItemSlidingElement>('ion-item-sliding')!
+    await vi.waitFor(async () => {
+      await sliding.open('end')
+      expect(sliding.classList.contains('item-sliding-active-slide')).toBe(true)
+    })
+    const option = sliding.querySelector('ion-item-option')!
+    expect(option.querySelector('[aria-hidden]')!.textContent).toBe('Remove')
+    await expect
+      .element(page.getByRole('button', { name: 'Remove from song Take 3' }))
+      .toBeVisible()
+  })
+
   it('lets a control inside the row content take a tap', async () => {
     forceTouch()
     const onPress = vi.fn()

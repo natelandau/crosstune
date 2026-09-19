@@ -307,6 +307,11 @@ move menu.
 - On touch a row swipes left to reveal one to three actions as full-height
   buttons filled with their tone: neutral, warning, or error. Running an
   action closes the row it ran on.
+- Every revealed action is 5rem wide, whatever its label reads, so one row's
+  actions are all the same target and the same action lands in the same place
+  on every list. A label too long to read on one line at that width shows a
+  shorter text instead: Add to song reads Add, Remove from song reads Remove.
+  The full label still names the button to a screen reader.
 - On a mouse the same actions are icon buttons laid over the row's trailing
   edge, shown on hover and on keyboard focus, because nothing hints that a
   row swipes. They keep their place in the tab order at all times.

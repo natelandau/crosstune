@@ -576,3 +576,16 @@ ion-item .row-action {
   min-height: 44px;
   pointer-events: auto;
 }
+
+/* Every revealed swipe action is the same width, whatever its label reads, so the actions of one
+   row, and the same action across lists, are hit the same way. Ionic sizes an option to its own
+   label otherwise, which leaves Edit a narrower target than Archive beside it. The trimmed
+   padding is what lets a one-word label sit on one line at this width; a longer one wraps inside
+   it, which is what a row action's `short` text exists to avoid. */
+ion-item-option {
+  flex-shrink: 0;
+  width: 5rem;
+}
+ion-item-option::part(native) {
+  padding-inline: 0.25rem;
+}
