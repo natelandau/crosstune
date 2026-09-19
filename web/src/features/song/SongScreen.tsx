@@ -19,6 +19,7 @@ import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
+import { KeyPill } from '../../ui/KeyPill'
 import { useMenu } from '../../ui/Menu'
 import { Row } from '../../ui/Row'
 import { Screen } from '../../ui/Screen'
@@ -274,14 +275,19 @@ function SongBody({
   onAddToList: () => void
 }) {
   const archived = userSong.archived_at !== null
-  const keyLine = [song.key, song.mode].filter(Boolean).join(' ')
+  const mode = song.mode ?? ''
   const learned = userSong.learned_from !== null || userSong.learned_on !== null
 
   return (
     <>
       <header className="space-y-1 px-5 pt-4">
         <h1 className="type-title m-0">{song.title}</h1>
-        {keyLine ? <p className="type-headline m-0 tabular-nums">{keyLine}</p> : null}
+        {song.key || mode ? (
+          <p data-key-line className="type-headline m-0 flex items-center gap-2 tabular-nums">
+            {song.key ? <KeyPill value={song.key} /> : null}
+            {mode ? <span>{mode}</span> : null}
+          </p>
+        ) : null}
         {song.alternate_titles.length > 0 ? (
           <p className="type-footnote m-0">{song.alternate_titles.join(', ')}</p>
         ) : null}
