@@ -34,6 +34,21 @@ function Host({
 const sheetOpen = () => document.querySelector('ion-modal:not(.overlay-hidden)') !== null
 
 describe('ListNameSheet', () => {
+  it('shows one named field with no header of its own', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await expect.element(page.getByText('New list')).toBeVisible()
+    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
+    expect(open.querySelectorAll('h2')).toHaveLength(0)
+    // Ionic hoists both onto the native input and leaves neither on the host.
+    await vi.waitFor(() => {
+      const input = open.querySelector('ion-input input')
+      expect(input?.getAttribute('aria-label')).toBe('List name')
+      expect((input as HTMLInputElement | null)?.placeholder).toBe(
+        'Tuesday jam, square dance set, \u2026',
+      )
+    })
+  })
+
   it('creates a list with a trimmed name', async () => {
     const db = openTestDb()
     const onSaved = vi.fn()

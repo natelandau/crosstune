@@ -202,6 +202,16 @@ describe('CatalogFilters', () => {
 })
 
 describe('CatalogFilterSheet', () => {
+  it('gives each facet row the shared field shape and the text inset', async () => {
+    renderIonic(<Host sheet />, { db: openTestDb() })
+    await expect.element(page.getByText('Filters')).toBeVisible()
+    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
+    const labels = Array.from(open.querySelectorAll('[data-row-label]')).map((e) => e.textContent)
+    expect(labels).toEqual(['Mode', 'Violin tuning', 'Genre'])
+    const count = open.querySelector('[aria-live="polite"]') as HTMLElement
+    expect(Number.parseFloat(getComputedStyle(count).paddingLeft)).toBe(32)
+  })
+
   it('shows the live count, a select per sheet facet, and the archived switch with its count', async () => {
     renderIonic(<Host sheet />, { db: openTestDb() })
     await expect.element(page.getByText('3 of 5 songs')).toBeVisible()

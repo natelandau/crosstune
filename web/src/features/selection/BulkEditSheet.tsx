@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BulkPatch } from '../../commands/bulk'
 import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../db/types'
 import { usePointer } from '../../platform/pointer'
+import { FieldRow } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
@@ -127,10 +128,11 @@ function EditRow({
 
   if (kind === 'date') {
     return (
-      <IonItem data-detail={detail}>
+      <FieldRow label={label} detail={detail}>
         <IonInput
           type="date"
-          label={label}
+          aria-label={label}
+          className="ms-auto text-end"
           // A date input shows its own format in place of a placeholder, so the one row that
           // cannot say Mixed where it stands says it underneath.
           helperText={summary.kind === 'mixed' ? 'Mixed' : undefined}
@@ -143,22 +145,22 @@ function EditRow({
             onChange(String(event.detail.value ?? ''))
           }}
         />
-      </IonItem>
+      </FieldRow>
     )
   }
 
   if (kind === 'text') {
     return (
-      <IonItem data-detail={detail}>
+      <FieldRow label={label} detail={detail}>
         <IonInput
-          label={label}
-          labelPlacement="stacked"
+          aria-label={label}
+          className="ms-auto text-end"
           placeholder={placeholder}
           maxlength={LIMITS[field]}
           value={text}
           onIonInput={(event) => onChange(String(event.detail.value ?? ''))}
         />
-      </IonItem>
+      </FieldRow>
     )
   }
 
@@ -301,8 +303,8 @@ export function BulkEditSheet({
       }
     >
       <div className="pb-8">
-        <p className="type-footnote px-5 pt-3">Only fields you change are saved.</p>
-        {error ? <InlineError className="px-5 pt-3">{error}</InlineError> : null}
+        <p className="type-footnote px-8 pt-3">Only fields you change are saved.</p>
+        {error ? <InlineError className="px-8 pt-3">{error}</InlineError> : null}
         <Group header="Status">{row('status', false)}</Group>
         <Group header="Key">{row('key', false)}</Group>
         {tunings.map((field) => (

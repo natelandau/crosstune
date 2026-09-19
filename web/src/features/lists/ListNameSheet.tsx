@@ -105,7 +105,8 @@ export function ListNameSheet({
         }}
       >
         <button type="submit" tabIndex={-1} aria-hidden className="sr-only" />
-        <Group header="Name" error={validation ?? error}>
+        {/* The sheet's title already names the one field, so a header would repeat it. */}
+        <Group error={validation ?? error}>
           <IonItem>
             <IonInput
               ref={inputRef}

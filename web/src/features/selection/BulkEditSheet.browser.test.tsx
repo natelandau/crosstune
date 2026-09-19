@@ -81,6 +81,22 @@ async function openRow(name: string) {
 const save = () => page.getByRole('button', { name: 'Save', exact: true }).click()
 
 describe('BulkEditSheet', () => {
+  it('gives every Details row the shared field shape', async () => {
+    const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
+    renderIonic(<Host entries={entries} />, { db })
+    await expect.element(page.getByText('Edit 2 songs')).toBeVisible()
+    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
+    const details = Array.from(open.querySelectorAll('section')).find(
+      (section) => section.querySelector('h2')?.textContent === 'Details',
+    )!
+    const rows = Array.from(details.querySelectorAll('ion-item'))
+    // Learned from is a text row and Learned on a date row; both read like the select rows.
+    for (const label of ['Learned from', 'Learned on']) {
+      const row = rows.find((item) => item.getAttribute('data-detail') === label)
+      expect(row?.querySelector('[data-row-label]')?.textContent, label).toBe(label)
+    }
+  })
+
   it('reads a shared value on its row', async () => {
     const entries = [
       await seed({ title: 'Say Old Man', key: 'A' }),

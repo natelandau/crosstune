@@ -80,7 +80,11 @@ describe('RenameRecordingSheet', () => {
   it('opens on the recording it was given, with its stored name', async () => {
     renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
     await expect.element(page.getByText('Rename recording')).toBeVisible()
-    await expect.element(page.getByText('Recording name', { exact: true })).toBeVisible()
+    // The sheet's title names the one field, so the field carries no header of its own.
+    await expect.element(nameField()).toBeVisible()
+    expect(
+      document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'),
+    ).toHaveLength(0)
     await expect.element(nameField()).toHaveValue('Jam recording')
   })
 
