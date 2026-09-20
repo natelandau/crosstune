@@ -40,7 +40,28 @@ describe('branch-slug', () => {
   it('cuts a long branch to 40 characters without a trailing dash', () => {
     const branch = `${'a'.repeat(39)}-${'b'.repeat(20)}`
     expect(branch).toHaveLength(60)
-    expect(run([branch])).toMatchObject({ status: 0, stdout: `${'a'.repeat(39)}\n` })
+    const slug = run([branch]).stdout.trim()
+    expect(slug).toHaveLength(40)
+    expect(slug).toMatch(/^a{33}-[0-9a-f]{6}$/)
+  })
+
+  it('keeps two branches sharing the first 40 characters apart', () => {
+    const shared = 'a'.repeat(45)
+    const first = run([`${shared}-one`]).stdout
+    const second = run([`${shared}-two`]).stdout
+    expect(first).not.toBe(second)
+    expect(first.trim()).toHaveLength(40)
+    expect(second.trim()).toHaveLength(40)
+  })
+
+  it('gives a branch the same slug on every run', () => {
+    const branch = `feat/${'long-name-'.repeat(6)}end`
+    expect(run([branch]).stdout).toBe(run([branch]).stdout)
+  })
+
+  it('leaves a branch of exactly 40 characters unhashed', () => {
+    const branch = 'a'.repeat(40)
+    expect(run([branch])).toMatchObject({ status: 0, stdout: `${branch}\n` })
   })
 
   it('reads WORKERS_CI_BRANCH before GITHUB_HEAD_REF', () => {
