@@ -5,7 +5,6 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
-import httpx2
 import sentry_sdk
 from fastapi import FastAPI
 
@@ -14,6 +13,7 @@ from crosstune.auth.jwks import JwksCache
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.errors import install_error_handlers
+from crosstune.http import public_only_client
 from crosstune.jobs.runner import JobRunner
 from crosstune.links.router import router as links_router
 from crosstune.logging import configure_logging
@@ -37,9 +37,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.sessionmaker = make_sessionmaker(app.state.engine)
     built_http_client = app.state.http_client is None
     if built_http_client:
-        app.state.http_client = httpx2.AsyncClient(
-            timeout=settings.resolver_timeout_seconds, follow_redirects=True
-        )
+        app.state.http_client = public_only_client(settings.resolver_timeout_seconds)
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     if app.state.object_store is None and settings.r2_configured:

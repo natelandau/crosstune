@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crosstune.auth.jwks import JwksCache
 from crosstune.config import Settings
 from crosstune.db.engine import make_engine, make_sessionmaker
+from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
 from tests.fakes import FakeObjectStore
 
@@ -250,7 +251,11 @@ class MockHttp:
         return httpx2.Response(404, text="no mock route")
 
     def client(self) -> httpx2.AsyncClient:
-        return httpx2.AsyncClient(transport=httpx2.MockTransport(self.handler))
+        # follow_redirects mirrors the production client, so a hop a resolver takes in
+        # production is a hop these tests take too.
+        return httpx2.AsyncClient(
+            transport=httpx2.MockTransport(self.handler), follow_redirects=True
+        )
 
 
 @pytest.fixture
@@ -258,6 +263,46 @@ def mock_http(settings: Settings, jwks_document: dict) -> MockHttp:
     http = MockHttp()
     http.add(settings.clerk_jwks_url, httpx2.Response(200, json=jwks_document))
     return http
+
+
+class GuardedHttp:
+    """Canned responses behind the real outbound address policy, over a fixed name table.
+
+    Routes are keyed by the URL a caller asks for, while `calls` holds the requests as the
+    guard rewrote them, so a test can assert on both the name and the pinned address.
+    """
+
+    def __init__(self) -> None:
+        self.routes: dict[str, httpx2.Response] = {}
+        self.calls: list[httpx2.Request] = []
+
+    def add(self, url_prefix: str, response: httpx2.Response) -> None:
+        self.routes[url_prefix] = response
+
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
+        self.calls.append(request)
+        asked_for = f"{request.url.scheme}://{request.headers['Host']}{request.url.path}"
+        for prefix, response in self.routes.items():
+            if asked_for.startswith(prefix):
+                return response
+        return httpx2.Response(404, text="no mock route")
+
+    def client(self, hosts: dict[str, list[str]]) -> httpx2.AsyncClient:
+        async def resolve(host: str) -> list[str]:
+            try:
+                return hosts[host]
+            except KeyError:
+                raise OSError(host) from None
+
+        return httpx2.AsyncClient(
+            transport=PublicOnlyTransport(httpx2.MockTransport(self.handler), resolve=resolve),
+            follow_redirects=True,
+        )
+
+
+@pytest.fixture
+def guarded_http() -> GuardedHttp:
+    return GuardedHttp()
 
 
 @pytest.fixture
