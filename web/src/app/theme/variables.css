@@ -252,6 +252,16 @@ ion-content.grouped {
   --form-text-gap: 8px;
 }
 
+/* A field row reads label first, value last. Ionic makes a control inside an item flex:1 1 0,
+   so the control fills the row and its own text would start hard against the label, reading
+   "ViolinNot set". Ionic injects those styles unlayered at runtime, where a utility class
+   cannot reach them. */
+ion-item [data-row-end] ion-select,
+ion-item [data-row-end] ion-input {
+  min-width: 0;
+  text-align: end;
+}
+
 /* Group owns every vertical space around an inset group, so the list brings none of its own.
    Ionic injects this margin unlayered at runtime, where a utility in a layer cannot reach it
    whatever its specificity. Ionic's own rule carries two classes, so the tag name in front is

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { IonInput, IonSelect, IonSelectOption } from '@ionic/react'
+import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
@@ -58,6 +59,46 @@ describe('FieldRow', () => {
     const label = document.querySelector('[data-row-label]')!.getBoundingClientRect()
     const trailing = document.querySelector('[data-row-value]')!.getBoundingClientRect()
     expect(label.left).toBeGreaterThan(trailing.left)
+  })
+
+  it('pushes a select\u2019s value to the trailing edge, clear of its label', async () => {
+    renderIonic(
+      <div style={{ width: '393px' }}>
+        <FieldRow label="Violin">
+          <IonSelect aria-label="Violin tuning" placeholder="Not set">
+            <IonSelectOption value="Cross A (AEAE)">Cross A (AEAE)</IonSelectOption>
+          </IonSelect>
+        </FieldRow>
+      </div>,
+      { db: openTestDb() },
+    )
+    await expect.element(page.getByText('Violin')).toBeVisible()
+    const select = document.querySelector('ion-select')!
+    const label = document.querySelector('[data-row-label]')!.getBoundingClientRect()
+    await vi.waitFor(() => {
+      const shown = select.shadowRoot?.querySelector('.select-placeholder')
+      expect(shown).toBeTruthy()
+      // Ionic makes a control in an item flex:1, so without this the value starts hard against
+      // the label and the row reads "ViolinNot set".
+      expect(shown!.getBoundingClientRect().left).toBeGreaterThan(label.right + 80)
+    })
+  })
+
+  it('pushes an input\u2019s text to the trailing edge', async () => {
+    renderIonic(
+      <div style={{ width: '393px' }}>
+        <FieldRow label="Learned from">
+          <IonInput aria-label="Learned from" value="Uncle Dave" />
+        </FieldRow>
+      </div>,
+      { db: openTestDb() },
+    )
+    await expect.element(page.getByText('Learned from')).toBeVisible()
+    await vi.waitFor(() => {
+      const input = document.querySelector('ion-input input')
+      expect(input).toBeTruthy()
+      expect(['end', 'right']).toContain(getComputedStyle(input!).textAlign)
+    })
   })
 
   it('keeps the row at the 44px tap height', async () => {

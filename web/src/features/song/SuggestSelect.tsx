@@ -63,7 +63,6 @@ export function SuggestSelect({
       aria-label={label}
       placeholder={placeholder}
       interface={mouse ? 'popover' : 'action-sheet'}
-      className="ms-auto"
       value={typing ? OTHER : value}
       onIonChange={(event) => {
         const next = String(event.detail.value ?? '')

@@ -132,7 +132,6 @@ function EditRow({
         <IonInput
           type="date"
           aria-label={label}
-          className="ms-auto text-end"
           // A date input shows its own format in place of a placeholder, so the one row that
           // cannot say Mixed where it stands says it underneath.
           helperText={summary.kind === 'mixed' ? 'Mixed' : undefined}
@@ -154,7 +153,6 @@ function EditRow({
       <FieldRow label={label} detail={detail}>
         <IonInput
           aria-label={label}
-          className="ms-auto text-end"
           placeholder={placeholder}
           maxlength={LIMITS[field]}
           value={text}

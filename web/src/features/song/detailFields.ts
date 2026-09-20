@@ -7,8 +7,6 @@ export type DetailField =
       kind: 'text'
       key: 'alternate_titles' | 'learned_from'
       label: string
-      /** Shown in the empty field. It demonstrates the format rather than describing it. */
-      placeholder?: string
       maxLength?: number
     }
   | {
@@ -32,7 +30,6 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     kind: 'text',
     key: 'alternate_titles',
     label: 'Also known as',
-    placeholder: 'Sally Ann, Great Big Taters',
   },
   { kind: 'pick', key: 'mode', label: 'Mode', options: MODES, other: false },
   {

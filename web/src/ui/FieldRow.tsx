@@ -18,10 +18,14 @@ export function FieldRow({
 }) {
   return (
     <IonItem data-detail={detail}>
-      <span data-row-label className="type-body shrink-0">
+      <span data-row-label className="type-body">
         {label}
       </span>
-      {children}
+      {/* The trailing slot is how an item puts a value against its far edge; a control left in
+          the default slot sizes to its own text and sits hard against the label. */}
+      <div slot="end" data-row-end className="flex min-w-0 items-center">
+        {children}
+      </div>
     </IonItem>
   )
 }

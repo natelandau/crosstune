@@ -1,26 +1,17 @@
-import {
-  IonButton,
-  IonInput,
-  IonItem,
-  IonLabel,
-  IonSegment,
-  IonSegmentButton,
-  IonTextarea,
-  IonToggle,
-} from '@ionic/react'
+import { IonButton, IonInput, IonItem, IonTextarea, IonToggle } from '@ionic/react'
 import { useEffect, useRef, useState } from 'react'
 import { createSong, updateSongEntry } from '../../commands/songs'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { STATUSES, type Instrument, type SongStatus } from '../../db/types'
+import { type Instrument } from '../../db/types'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
-import { STATUS_LABELS } from '../catalog/status'
 import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
 import { FieldRow } from '../../ui/FieldRow'
 import { KeyChooser } from './KeyChooser'
+import { StatusChooser } from './StatusChooser'
 import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
 import { SONG_LIMITS } from './limits'
 import {
@@ -205,20 +196,8 @@ export function SongFormSheet({
           </IonItem>
         </Group>
 
-        {/* Known, Learning, and Unknown say what the control is, so it carries no header. */}
-        <Group plain>
-          <IonSegment
-            aria-label="Status"
-            className="mx-(--form-gutter)"
-            value={values.status}
-            onIonChange={(event) => set('status', event.detail.value as SongStatus)}
-          >
-            {STATUSES.map((status) => (
-              <IonSegmentButton key={status} value={status}>
-                <IonLabel>{STATUS_LABELS[status]}</IonLabel>
-              </IonSegmentButton>
-            ))}
-          </IonSegment>
+        <Group header="Status" plain>
+          <StatusChooser value={values.status} onChange={(status) => set('status', status)} />
         </Group>
 
         <Group header="Key" plain>
@@ -279,7 +258,6 @@ export function SongFormSheet({
                   <IonInput
                     type="date"
                     aria-label={field.label}
-                    className="ms-auto text-end"
                     value={values[field.key]}
                     onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}
                   />
@@ -291,8 +269,7 @@ export function SongFormSheet({
                 <FieldRow key={field.key} label={field.label} detail={field.label}>
                   <IonInput
                     aria-label={field.label}
-                    placeholder={field.placeholder ?? 'Not set'}
-                    className="ms-auto text-end"
+                    placeholder="Not set"
                     maxlength={field.maxLength}
                     value={values[field.key]}
                     onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}

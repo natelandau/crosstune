@@ -240,7 +240,7 @@ describe('SongScreen', () => {
     show()
     await expect.element(title()).toBeVisible()
     // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
     await vi.waitFor(async () =>
       expect((await db.user_songs.get(ids.userSongId))?.status).toBe('known'),
     )
@@ -255,17 +255,17 @@ describe('SongScreen', () => {
     })
     show()
     await expect.element(title()).toBeVisible()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
     await vi.waitFor(() => expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1))
-    await page.getByRole('tab', { name: 'Learning' }).click({ force: true })
+    await page.getByRole('button', { name: 'Learning', exact: true }).click()
     write.open()
     await vi.waitFor(() => expect(songsModule.updateUserSong).toHaveBeenCalledTimes(2))
     await vi.waitFor(async () =>
       expect((await db.user_songs.get(ids.userSongId))?.status).toBe('learning'),
     )
     await expect
-      .element(page.getByRole('tab', { name: 'Learning' }))
-      .toHaveAttribute('aria-selected', 'true')
+      .element(page.getByRole('button', { name: 'Learning', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows the new status while a slow write is in flight', async () => {
@@ -276,18 +276,18 @@ describe('SongScreen', () => {
     })
     show()
     await expect.element(title()).toBeVisible()
-    const known = page.getByRole('tab', { name: 'Known' })
-    await known.click({ force: true })
+    const known = page.getByRole('button', { name: 'Known', exact: true })
+    await known.click()
     await vi.waitFor(() => expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1))
-    await expect.element(known).toHaveAttribute('aria-selected', 'true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     // Two frames give a re-render that restores the stored value the chance to land.
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    expect(known.element().getAttribute('aria-selected')).toBe('true')
+    expect(known.element().getAttribute('aria-pressed')).toBe('true')
     write.open()
     await vi.waitFor(async () =>
       expect((await db.user_songs.get(ids.userSongId))?.status).toBe('known'),
     )
-    await expect.element(known).toHaveAttribute('aria-selected', 'true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1)
   })
 
@@ -299,16 +299,16 @@ describe('SongScreen', () => {
     })
     show()
     await expect.element(title()).toBeVisible()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
-    const unknown = page.getByRole('tab', { name: 'Unknown' })
-    await expect.element(unknown).toHaveAttribute('aria-selected', 'true')
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
+    const unknown = page.getByRole('button', { name: 'Unknown', exact: true })
+    await expect.element(unknown).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
     await vi.waitFor(async () =>
       expect((await db.user_songs.get(ids.userSongId))?.status).toBe('known'),
     )
     await expect
-      .element(page.getByRole('tab', { name: 'Known' }))
-      .toHaveAttribute('aria-selected', 'true')
+      .element(page.getByRole('button', { name: 'Known', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows a failed status change', async () => {
@@ -321,15 +321,15 @@ describe('SongScreen', () => {
     })
     show()
     await expect.element(title()).toBeVisible()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
     await expect
-      .element(page.getByRole('tab', { name: 'Known' }))
-      .toHaveAttribute('aria-selected', 'true')
+      .element(page.getByRole('button', { name: 'Known', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
     write.open()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Could not save')
     await expect
-      .element(page.getByRole('tab', { name: 'Learning' }))
-      .toHaveAttribute('aria-selected', 'true')
+      .element(page.getByRole('button', { name: 'Learning', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
     expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1)
   })
 

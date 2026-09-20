@@ -63,7 +63,6 @@ export function CatalogFilterSheet({
             <FieldRow key={facet} label={FACET_LABELS[facet]}>
               <IonSelect
                 aria-label={FACET_LABELS[facet]}
-                className="ms-auto"
                 interface={pointer === 'mouse' ? 'popover' : 'action-sheet'}
                 value={filters[facet]}
                 onIonChange={(event) => onChange({ [facet]: String(event.detail.value) })}

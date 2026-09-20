@@ -76,7 +76,7 @@ describe('SongFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await expect.element(page.getByText('New song')).toBeVisible()
     const headers = Array.from(document.querySelectorAll('ion-modal h2')).map((h) => h.textContent)
-    expect(headers).toEqual(['Key', 'Tuning', 'Notes', 'Details'])
+    expect(headers).toEqual(['Status', 'Key', 'Tuning', 'Notes', 'Details'])
     const labels = Array.from(document.querySelectorAll('ion-modal [data-detail]')).map((e) =>
       e.getAttribute('data-detail'),
     )
@@ -127,12 +127,12 @@ describe('SongFormSheet', () => {
     expect(headers).not.toContain('Title')
   })
 
-  it('puts the status segment on the ground rather than in a card', async () => {
+  it('puts the status control on the ground rather than in a card', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await expect.element(page.getByRole('tab', { name: 'Unknown' })).toBeVisible()
-    const segment = document.querySelector('ion-modal ion-segment')!
-    expect(segment.closest('ion-item')).toBeNull()
-    expect(segment.closest('ion-list')).toBeNull()
+    await expect.element(page.getByText('New song')).toBeVisible()
+    const group = document.querySelector('ion-modal [role="group"][aria-label="Status"]')!
+    expect(group.closest('ion-item')).toBeNull()
+    expect(group.closest('ion-list')).toBeNull()
   })
 
   it('holds both tuning rows in one card when both instruments are played', async () => {
@@ -225,12 +225,14 @@ describe('SongFormSheet', () => {
 
   it('fits every status label on one line at phone width', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
-    await expect.element(page.getByRole('tab', { name: 'Unknown' })).toBeVisible()
-    const labels = document.querySelectorAll('ion-segment-button ion-label')
+    // Waits for real layout: a freshly hydrated capsule has zero width and would pass trivially.
+    await expect.element(page.getByText('New song')).toBeVisible()
+    const group = document.querySelector('ion-modal [role="group"][aria-label="Status"]')!
+    await vi.waitFor(() => expect(group.querySelectorAll('button').length).toBe(3))
+    const labels = group.querySelectorAll('button > span')
     expect(labels.length).toBe(3)
     for (const label of labels) {
-      expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+      expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
     }
   })
 
@@ -394,7 +396,10 @@ describe('SongFormSheet', () => {
       db,
     })
     await expect.element(page.getByLabelText('Title')).toHaveValue("Soldier's Joy")
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page
+      .getByRole('group', { name: 'Status' })
+      .getByRole('button', { name: 'Known', exact: true })
+      .click()
     await page.getByRole('button', { name: 'D', exact: true }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledOnce())

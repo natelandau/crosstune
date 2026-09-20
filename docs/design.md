@@ -248,11 +248,19 @@ Everywhere the app lists songs, it uses the same row.
   wrapping.
 - Status is never shown as color alone. Where a dot appears, its label
   appears beside it. Known is a filled dot in the success color, learning a
-  filled dot in the warning color, and want to learn a hollow ring.
-- The dot and label pair appears in song rows. Everywhere else status is the
-  label alone. It is a segmented control on the song page and the song form,
-  a select in the bulk edit sheet, a segment in the catalog filters, and a
-  menu of three items for a bulk change.
+  filled dot in the warning color, and want to learn a hollow ring. A chosen
+  capsule fills with `primary`, and success is that same slate, so the chosen
+  dot takes the contrast color rather than disappearing into the fill behind
+  it.
+- The dot and label pair appears in song rows and in the status chooser.
+  Everywhere else status is the label alone. It is a row of capsules on the
+  song page and the song form, the same control the key grid uses, so a form
+  reads as a column of fields rather than as a control beside a toolbar. It is
+  a select in the bulk edit sheet, a segment in the catalog filters, where it
+  filters rather than edits, and a menu of three items for a bulk change.
+- The status chooser never clears: a song always has a status, so pressing the
+  chosen capsule leaves it chosen. The key grid is the opposite, because a
+  song may have no key.
 - A status value the app does not recognize shows as want to learn.
 
 ## Search and create
@@ -475,16 +483,17 @@ form route and no save bar.
   the 32px row inset so it lines up with the row labels, 24px above a header,
   8px below a header and above a footer, 16px between two cards with no
   header between them, and the 44px row height every tap target keeps.
-- Every field shows where to type. A text field carries a placeholder, and a
-  row with no value reads "Not set" rather than reading as empty space. A
-  placeholder demonstrates the format where a rule would otherwise have to
-  describe it.
+- Every field shows where to type. A row with no value reads "Not set" rather
+  than reading as empty space, and a field standing on its own rather than in a
+  row carries a placeholder naming what goes in it. A placeholder is never an
+  example value: a musician cannot tell a hint from something the form already
+  holds, and an example drawn from one tradition means nothing to someone who
+  plays another.
 - A single-field sheet carries no header at all: its title already names the
   field, and a header under it would only repeat it.
 - The song form serves both new and edit and ranks its fields by how often a
   musician touches them. The title is one field on its own, with no header,
-  since the sheet is titled New song or Edit song. Then the status control,
-  then Key, then a Tuning group holding one row per visible instrument, then
+  since the sheet is titled New song or Edit song. Then Status, then Key, then a Tuning group holding one row per visible instrument, then
   Notes. Then a Details list gives one row each, in this order, to Also known
   as, Mode, Genre, Time signature, Feel, Parts, Crooked, Has lyrics, Learned
   from, and Learned on. A detail row is an inline select, input, toggle, or
@@ -679,6 +688,7 @@ column instead of rebuilding the pattern.
 | Suggestion vocabularies                   | `src/features/song/suggestions.ts`                                                        |
 | Suggestion picker with `Other…`           | `src/features/song/SuggestSelect.tsx`                                                     |
 | One shape for a labeled field row         | `src/ui/FieldRow.tsx`                                                                     |
+| Status chooser                            | `src/features/song/StatusChooser.tsx`                                                     |
 | Key grid and the two key vocabularies     | `src/features/song/KeyChooser.tsx`, `src/features/song/suggestions.ts`                    |
 | Key pill and its colors                   | `src/ui/KeyPill.tsx`, `src/ui/keyColor.ts`                                                |
 | Search field                              | `src/ui/SearchField.tsx`                                                                  |
