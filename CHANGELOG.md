@@ -1,3 +1,9 @@
+## v0.4.1 (2026-09-20)
+
+### Fix
+
+- **web**: keep the status filters on one line on a phone (#38)
+
 ## v0.4.0 (2026-09-20)
 
 ### Feat
