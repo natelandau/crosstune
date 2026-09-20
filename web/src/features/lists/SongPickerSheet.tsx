@@ -119,9 +119,9 @@ export function SongPickerSheet({
             onQuery={setQuery}
             keepFocus
           />
-          {error ? <InlineError className="px-5 pt-2">{error}</InlineError> : null}
+          {error ? <InlineError className="px-(--form-inset) pt-2">{error}</InlineError> : null}
           {!query.trim() ? (
-            <p className="type-footnote px-5 pt-4">Search the catalog to add songs.</p>
+            <p className="type-footnote px-(--form-inset) pt-4">Search the catalog to add songs.</p>
           ) : null}
         </>
       ) : null}

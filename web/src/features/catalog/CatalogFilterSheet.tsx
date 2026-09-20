@@ -1,5 +1,6 @@
 import { IonButton, IonItem, IonSelect, IonSelectOption, IonToggle } from '@ionic/react'
 import { usePointer } from '../../platform/pointer'
+import { FieldRow } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import {
@@ -49,7 +50,7 @@ export function CatalogFilterSheet({
         </IonButton>
       }
     >
-      <p className="type-footnote px-5 pt-5 tabular-nums" aria-live="polite">
+      <p className="type-footnote px-(--form-inset) pt-5 tabular-nums" aria-live="polite">
         {songCountLabel(counts.visible, counts.total)}
       </p>
       <Group>
@@ -59,9 +60,8 @@ export function CatalogFilterSheet({
           const stale = filters[facet] !== 'all' && !facets[facet].includes(filters[facet])
           const choices = stale ? [...facets[facet], filters[facet]] : facets[facet]
           return (
-            <IonItem key={facet}>
+            <FieldRow key={facet} label={FACET_LABELS[facet]}>
               <IonSelect
-                label={FACET_LABELS[facet]}
                 aria-label={FACET_LABELS[facet]}
                 interface={pointer === 'mouse' ? 'popover' : 'action-sheet'}
                 value={filters[facet]}
@@ -74,7 +74,7 @@ export function CatalogFilterSheet({
                   </IonSelectOption>
                 ))}
               </IonSelect>
-            </IonItem>
+            </FieldRow>
           )
         })}
       </Group>

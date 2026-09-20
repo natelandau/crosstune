@@ -129,7 +129,7 @@ export function AddToSongSheet({
               query={query}
               onQuery={setQuery}
             />
-            {error ? <InlineError className="px-5 pt-2">{error}</InlineError> : null}
+            {error ? <InlineError className="px-(--form-inset) pt-2">{error}</InlineError> : null}
           </>
         ) : null}
       </Sheet>

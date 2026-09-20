@@ -133,7 +133,11 @@ test('long-press a song, set its status, and add it to a list', async ({ page })
   await hold.release()
 
   await page.getByRole('button', { name: 'Status', exact: true }).click()
-  await page.getByRole('button', { name: 'Known', exact: true }).click()
+  // The status filter above the list offers a capsule with this same word, so the pick is
+  // scoped to the menu that just opened.
+  const statusMenu = page.locator('ion-action-sheet, ion-popover').last()
+  await expect(statusMenu).toBeVisible()
+  await statusMenu.getByText('Known', { exact: true }).click()
   await expectNoOverlay(page)
   await expect(toast(page, 'Set 1 song to Known')).toBeVisible()
 

@@ -40,7 +40,7 @@ function Host({
 }
 
 // Ionic ignores a present while the previous popover is still dismissing.
-async function openKey(name = 'Key, Not set') {
+async function openDetail(name: string) {
   await vi.waitFor(() =>
     expect(document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull(),
   )
@@ -76,7 +76,7 @@ describe('SongFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await expect.element(page.getByText('New song')).toBeVisible()
     const headers = Array.from(document.querySelectorAll('ion-modal h2')).map((h) => h.textContent)
-    expect(headers).toEqual(['Title', 'Status', 'Key', 'Violin tuning', 'Notes', 'Details'])
+    expect(headers).toEqual(['Status', 'Key', 'Tuning', 'Notes', 'Details'])
     const labels = Array.from(document.querySelectorAll('ion-modal [data-detail]')).map((e) =>
       e.getAttribute('data-detail'),
     )
@@ -96,35 +96,143 @@ describe('SongFormSheet', () => {
     expect(crookedHelp).toContain('An odd number of beats or bars in a part.')
   })
 
-  it('names the key and tuning rows by their group header alone, keeping their accessible names', async () => {
+  it('shortens a tuning row under the Tuning header, keeping its accessible name', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await expect.element(page.getByText('New song')).toBeVisible()
-    for (const name of ['Key', 'Violin tuning']) {
-      // ion-select names its shadow button from aria-label plus the shown value.
-      await expect
-        .element(page.getByRole('button', { name: `${name}, Not set`, exact: true }))
-        .toBeInTheDocument()
-      const select = Array.from(document.querySelectorAll('ion-modal section'))
-        .find((group) => group.querySelector('h2')?.textContent === name)!
-        .querySelector('ion-select')!
-      await vi.waitFor(() =>
-        expect(select.shadowRoot?.querySelector('.select-wrapper')).toBeTruthy(),
-      )
-      expect(select.shadowRoot!.textContent).not.toContain(name)
-      expect(select.textContent).not.toContain(name)
+    const tuning = Array.from(document.querySelectorAll('ion-modal section')).find(
+      (section) => section.querySelector('h2')?.textContent === 'Tuning',
+    )!
+    expect(
+      Array.from(tuning.querySelectorAll('[data-row-label]')).map((e) => e.textContent),
+    ).toEqual(['Violin'])
+    // The full name stays the one a screen reader announces.
+    await expect
+      .element(page.getByRole('button', { name: 'Violin tuning, Not set', exact: true }))
+      .toBeInTheDocument()
+  })
+
+  it('gives the title a placeholder and no visible label, keeping its name', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await expect.element(page.getByText('New song')).toBeVisible()
+    // A dismissed sheet from an earlier test is still in the document, so scope to the open one.
+    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
+    const title = open.querySelector('[data-field="title"]')!
+    // Ionic hoists both onto the native input and leaves neither on the host.
+    await vi.waitFor(() => {
+      const input = title.querySelector('input')
+      expect(input?.placeholder).toBe('Song title')
+      expect(input?.getAttribute('aria-label')).toBe('Title')
+    })
+    const headers = Array.from(document.querySelectorAll('ion-modal h2')).map((h) => h.textContent)
+    expect(headers).not.toContain('Title')
+  })
+
+  it('puts the status control on the ground rather than in a card', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await expect.element(page.getByText('New song')).toBeVisible()
+    const group = document.querySelector('ion-modal [role="group"][aria-label="Status"]')!
+    expect(group.closest('ion-item')).toBeNull()
+    expect(group.closest('ion-list')).toBeNull()
+  })
+
+  it('holds both tuning rows in one card when both instruments are played', async () => {
+    const both = new Set<Instrument>(['violin', 'banjo'])
+    renderIonic(
+      <SongFormSheet
+        target={{ kind: 'new' }}
+        instruments={both}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      { db: openTestDb() },
+    )
+    await expect.element(page.getByText('New song')).toBeVisible()
+    const tuning = Array.from(document.querySelectorAll('ion-modal section')).find(
+      (section) => section.querySelector('h2')?.textContent === 'Tuning',
+    )!
+    expect(tuning.querySelectorAll('ion-list')).toHaveLength(1)
+    expect(
+      Array.from(tuning.querySelectorAll('[data-row-label]')).map((e) => e.textContent),
+    ).toEqual(['Violin', 'Banjo'])
+  })
+
+  it('puts the comma rule under the Details card rather than inside it', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await expect.element(page.getByText('New song')).toBeVisible()
+    const details = Array.from(document.querySelectorAll('ion-modal section')).find(
+      (section) => section.querySelector('h2')?.textContent === 'Details',
+    )!
+    const footer = details.querySelector('p')!
+    expect(footer.textContent).toBe('Separate alternate names with commas.')
+    expect(footer.closest('ion-list')).toBeNull()
+    expect(
+      document.querySelector('ion-modal [data-detail="Also known as"]')!.textContent,
+    ).not.toContain('Separate alternate names')
+  })
+
+  it('marks the title invalid on a submit with no title, and clears it as one is typed', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect.element(page.getByRole('alert')).toHaveTextContent('A title is required')
+    // Ionic strips aria-* off the host at load and renders it on the native input, so the
+    // host is not the element a screen reader reads.
+    const input = () =>
+      document.querySelector('ion-modal:not(.overlay-hidden) [data-field="title"] input')
+    await vi.waitFor(() => expect(input()?.getAttribute('aria-invalid')).toBe('true'))
+    await page.getByLabelText('Title').fill('Soldier\u2019s Joy')
+    await expect.poll(() => input()?.getAttribute('aria-invalid')).toBeNull()
+  })
+
+  it('keeps a long alternate title inside its row', async () => {
+    const db = openTestDb()
+    const { songId, userSongId } = await createSong(
+      db,
+      {
+        title: 'Soldier\u2019s Joy',
+        alternate_titles: [
+          'Payday in the Army',
+          'Love Somebody',
+          'The Gal I Left Behind Me',
+          'Sally Ann Johnson',
+        ],
+      },
+      { status: 'known' },
+    )
+    const entry = {
+      song: (await db.songs.get(songId))!,
+      userSong: (await db.user_songs.get(userSongId))!,
     }
-    const mode = document.querySelector('ion-modal [data-detail="Mode"] ion-select')!
-    await vi.waitFor(() => expect(mode.shadowRoot?.textContent).toContain('Mode'))
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await expect.element(page.getByText('Edit song')).toBeVisible()
+    const row = document.querySelector(
+      'ion-modal:not(.overlay-hidden) [data-detail="Also known as"]',
+    ) as HTMLElement
+    const label = row.querySelector('[data-row-label]') as HTMLElement
+    // The row holds one tap height and the label keeps its width, whatever the value's length.
+    expect(row.getBoundingClientRect().height).toBeLessThan(80)
+    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+    expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1)
+  })
+
+  it('saves a null key when Unknown is left pressed', async () => {
+    const db = openTestDb()
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db })
+    await page.getByLabelText('Title').fill('Sally Goodin')
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await vi.waitFor(async () => expect(await db.songs.count()).toBe(1))
+    expect((await db.songs.toArray())[0]?.key).toBeNull()
   })
 
   it('fits every status label on one line at phone width', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
-    await expect.element(page.getByRole('tab', { name: 'Unknown' })).toBeVisible()
-    const labels = document.querySelectorAll('ion-segment-button ion-label')
+    // Waits for real layout: a freshly hydrated capsule has zero width and would pass trivially.
+    await expect.element(page.getByText('New song')).toBeVisible()
+    const group = document.querySelector('ion-modal [role="group"][aria-label="Status"]')!
+    await vi.waitFor(() => expect(group.querySelectorAll('button').length).toBe(3))
+    const labels = group.querySelectorAll('button > span')
     expect(labels.length).toBe(3)
     for (const label of labels) {
-      expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+      expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
     }
   })
 
@@ -288,9 +396,11 @@ describe('SongFormSheet', () => {
       db,
     })
     await expect.element(page.getByLabelText('Title')).toHaveValue("Soldier's Joy")
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
-    await openKey()
-    await page.getByRole('radio', { name: 'D' }).click()
+    await page
+      .getByRole('group', { name: 'Status' })
+      .getByRole('button', { name: 'Known', exact: true })
+      .click()
+    await page.getByRole('button', { name: 'D', exact: true }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalledOnce())
     const [song] = await db.songs.toArray()
@@ -318,33 +428,33 @@ describe('SongFormSheet', () => {
   it('accepts a value the suggestions lack through Other', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
-    await openKey()
+    await openDetail('Genre, Not set')
     await page.getByRole('radio', { name: 'Other…' }).click()
-    await page.getByLabelText('Other key').fill('F#m')
+    await page.getByLabelText('Other genre').fill('Sacred Harp')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.key).toBe('F#m'))
+    await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.genre).toBe('Sacred Harp'))
   })
 
   it('clears the value when Other is chosen, so what is saved is what is shown', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
-    await openKey()
-    await page.getByRole('radio', { name: 'D' }).click()
-    await openKey('Key, D')
+    await openDetail('Genre, Not set')
+    await page.getByRole('radio', { name: 'Irish' }).click()
+    await openDetail('Genre, Irish')
     await page.getByRole('radio', { name: 'Other…' }).click()
-    await expect.element(page.getByLabelText('Other key')).toHaveValue('')
+    await expect.element(page.getByLabelText('Other genre')).toHaveValue('')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect(await db.songs.count()).toBe(1))
-    expect((await db.songs.toArray())[0]?.key).toBeNull()
+    expect((await db.songs.toArray())[0]?.genre).toBeNull()
   })
 
   it('keeps a typed Other value that matches a suggestion', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
-    await openKey()
+    await openDetail('Genre, Not set')
     await page.getByRole('radio', { name: 'Other…' }).click()
-    await page.getByLabelText('Other key').fill('F')
-    await expect.element(page.getByLabelText('Other key')).toHaveValue('F')
+    await page.getByLabelText('Other genre').fill('Blues')
+    await expect.element(page.getByLabelText('Other genre')).toHaveValue('Blues')
   })
 
   it('edits an existing song and saves only on Save', async () => {
@@ -394,10 +504,10 @@ describe('SongFormSheet', () => {
     forceTouch()
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Touch' }} />, { db })
-    await openKey()
-    await page.getByRole('radio', { name: 'G' }).click()
+    await openDetail('Genre, Not set')
+    await page.getByRole('radio', { name: 'Gospel' }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.key).toBe('G'))
+    await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.genre).toBe('Gospel'))
   })
 
   it('shows a tuning field for an unplayed instrument when the song already has a value', async () => {
@@ -412,6 +522,9 @@ describe('SongFormSheet', () => {
       userSong: (await db.user_songs.get(userSongId))!,
     }
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
-    await expect.element(page.getByRole('heading', { name: 'Banjo tuning' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'Tuning' })).toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Banjo tuning, Open G (gDGBD)', exact: true }))
+      .toBeInTheDocument()
   })
 })

@@ -4,14 +4,20 @@ import { InlineError } from './InlineError'
 import { SectionHeader } from './SectionHeader'
 
 /**
- * An inset group: header above, rows, then help text or an error below. Every child must be an
- * IonItem or a Row, since the separator rules find the first and last row by position.
+ * A section of a grouped screen or form: a header, then the rows, then help text or an error.
+ * It owns every vertical space around itself, so no caller adds a margin of its own and one
+ * scale holds across every screen. A headed section stands further from what precedes it than
+ * its header does from its own rows, which is what makes the header read as those rows'.
+ *
+ * Every child of a card must be an IonItem or a Row, since the separator rules find the first
+ * and last row by position.
  */
 export function Group({
   header,
   name,
   footer,
   error,
+  plain = false,
   children,
 }: {
   header?: ReactNode
@@ -19,18 +25,28 @@ export function Group({
   name?: string
   footer?: ReactNode
   error?: string | null
+  /**
+   * Renders the children straight onto the grouped background instead of inside a card, for a
+   * control that is not a list: a segmented control, a rail of pills. Header, footer, and
+   * spacing are identical, so a bare block and a card can never drift apart.
+   */
+  plain?: boolean
   children: ReactNode
 }) {
   return (
-    <section>
+    <section className={header ? 'pt-(--form-section-gap)' : 'pt-(--form-gutter)'}>
       {header ? <SectionHeader>{header}</SectionHeader> : null}
-      <IonList inset aria-label={name} className="my-0">
-        {children}
-      </IonList>
+      {plain ? (
+        children
+      ) : (
+        <IonList inset aria-label={name}>
+          {children}
+        </IonList>
+      )}
       {error ? (
-        <InlineError className="px-5 pt-1.5">{error}</InlineError>
+        <InlineError className="px-(--form-inset) pt-(--form-text-gap)">{error}</InlineError>
       ) : footer ? (
-        <p className="type-footnote px-5 pt-1.5">{footer}</p>
+        <p className="type-footnote px-(--form-inset) pt-(--form-text-gap)">{footer}</p>
       ) : null}
     </section>
   )

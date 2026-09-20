@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BulkPatch } from '../../commands/bulk'
 import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../db/types'
 import { usePointer } from '../../platform/pointer'
+import { FieldRow } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
@@ -10,7 +11,7 @@ import type { CatalogEntry } from '../catalog/filters'
 import { STATUS_LABELS } from '../catalog/status'
 import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
 import { SONG_LIMITS } from '../song/limits'
-import { FEELS, GENRES, KEYS, PART_STRUCTURES, TUNING_SUGGESTIONS } from '../song/suggestions'
+import { FEELS, GENRES, PART_STRUCTURES, QUICK_KEYS, TUNING_SUGGESTIONS } from '../song/suggestions'
 import { SuggestSelect } from '../song/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
@@ -27,7 +28,7 @@ import {
 import { countSongs } from './copy'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
-  key: { options: KEYS, other: true },
+  key: { options: QUICK_KEYS, other: true },
   mode: { options: MODES, other: false },
   violin_tuning: { options: TUNING_SUGGESTIONS.violin_tuning, other: true },
   banjo_tuning: { options: TUNING_SUGGESTIONS.banjo_tuning, other: true },
@@ -127,10 +128,10 @@ function EditRow({
 
   if (kind === 'date') {
     return (
-      <IonItem data-detail={detail}>
+      <FieldRow label={label} detail={detail}>
         <IonInput
           type="date"
-          label={label}
+          aria-label={label}
           // A date input shows its own format in place of a placeholder, so the one row that
           // cannot say Mixed where it stands says it underneath.
           helperText={summary.kind === 'mixed' ? 'Mixed' : undefined}
@@ -143,22 +144,21 @@ function EditRow({
             onChange(String(event.detail.value ?? ''))
           }}
         />
-      </IonItem>
+      </FieldRow>
     )
   }
 
   if (kind === 'text') {
     return (
-      <IonItem data-detail={detail}>
+      <FieldRow label={label} detail={detail}>
         <IonInput
-          label={label}
-          labelPlacement="stacked"
+          aria-label={label}
           placeholder={placeholder}
           maxlength={LIMITS[field]}
           value={text}
           onIonInput={(event) => onChange(String(event.detail.value ?? ''))}
         />
-      </IonItem>
+      </FieldRow>
     )
   }
 
@@ -301,8 +301,8 @@ export function BulkEditSheet({
       }
     >
       <div className="pb-8">
-        <p className="type-footnote px-5 pt-3">Only fields you change are saved.</p>
-        {error ? <InlineError className="px-5 pt-3">{error}</InlineError> : null}
+        <p className="type-footnote px-(--form-inset) pt-3">Only fields you change are saved.</p>
+        {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
         <Group header="Status">{row('status', false)}</Group>
         <Group header="Key">{row('key', false)}</Group>
         {tunings.map((field) => (

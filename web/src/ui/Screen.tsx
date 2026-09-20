@@ -105,7 +105,9 @@ export function Screen({
             leaves while it holds focus. */}
         <main
           tabIndex={-1}
-          className="mx-auto w-full max-w-(--measure) pb-(--tab-bar-cap) outline-none"
+          className={`mx-auto w-full max-w-(--measure) pb-(--tab-bar-cap) outline-none ${
+            grouped ? 'pb-8' : ''
+          }`}
         >
           {children}
         </main>

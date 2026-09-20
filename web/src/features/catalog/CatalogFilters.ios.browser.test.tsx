@@ -14,12 +14,15 @@ async function expectNoStatusLabelOverflow() {
     { db: openTestDb() },
   )
   // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
-  await expect.element(page.getByRole('tab', { name: 'Unknown' })).toBeVisible()
-  const labels = document.querySelectorAll('ion-segment-button ion-label')
+  await expect.element(page.getByRole('button', { name: 'Unknown', exact: true })).toBeVisible()
+  const group = document.querySelector('[role="group"][aria-label="Status"]') as HTMLElement
+  const labels = group.querySelectorAll('button > span')
   expect(labels.length).toBe(4)
   for (const label of labels) {
-    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
   }
+  // The four capsules wrap rather than run off the edge, whatever the text size.
+  expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth + 1)
 }
 
 describe('CatalogFilters on iOS', () => {
@@ -31,8 +34,6 @@ describe('CatalogFilters on iOS', () => {
     document.documentElement.dataset.textSize = 'roomy'
     try {
       await expectNoStatusLabelOverflow()
-      const button = document.querySelector('ion-segment-button')!
-      expect(getComputedStyle(button).fontSize).toBe('13.8125px')
     } finally {
       delete document.documentElement.dataset.textSize
     }

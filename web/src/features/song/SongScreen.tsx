@@ -1,11 +1,4 @@
-import {
-  IonButton,
-  IonItem,
-  IonLabel,
-  IonSegment,
-  IonSegmentButton,
-  useIonRouter,
-} from '@ionic/react'
+import { IonButton, IonItem, IonLabel, useIonRouter } from '@ionic/react'
 import { Ellipsis, ListX, Music } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useParams } from 'react-router-dom'
@@ -13,8 +6,9 @@ import { removeFromList } from '../../commands/lists'
 import { deleteSong, setArchived, updateUserSong } from '../../commands/songs'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { STATUSES, type LocalRecordingLink, type SongStatus } from '../../db/types'
+import { type LocalRecordingLink, type SongStatus } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
+import { StatusChooser } from './StatusChooser'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
@@ -25,7 +19,6 @@ import { Row } from '../../ui/Row'
 import { Screen } from '../../ui/Screen'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import type { CatalogEntry } from '../catalog/filters'
-import { STATUS_LABELS } from '../catalog/status'
 import { ListPicker } from '../lists/ListPicker'
 import { useLists, useMembership } from '../lists/useLists'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
@@ -174,7 +167,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
       ) : null}
       {!ready && !deleted ? <h1 className="sr-only">Song</h1> : null}
       {deletingTitle !== null ? (
-        <header className="space-y-1 px-5 pt-4">
+        <header className="space-y-1 px-(--form-inset) pt-4">
           <h1 className="type-title m-0">{deletingTitle}</h1>
           <p role="status" className="type-footnote m-0">
             Deleting…
@@ -280,7 +273,7 @@ function SongBody({
 
   return (
     <>
-      <header className="space-y-1 px-5 pt-4">
+      <header className="space-y-1 px-(--form-inset) pt-4">
         <h1 className="type-title m-0">{song.title}</h1>
         {song.key || mode ? (
           <p data-key-line className="type-headline m-0 flex items-center gap-2 tabular-nums">
@@ -302,20 +295,8 @@ function SongBody({
         {error ? <InlineError className="pt-2">{error}</InlineError> : null}
       </header>
 
-      <Group header="Status">
-        <IonItem lines="none">
-          <IonSegment
-            aria-label="Status"
-            value={status}
-            onIonChange={(event) => onStatus(event.detail.value as SongStatus)}
-          >
-            {STATUSES.map((status) => (
-              <IonSegmentButton key={status} value={status}>
-                <IonLabel>{STATUS_LABELS[status]}</IonLabel>
-              </IonSegmentButton>
-            ))}
-          </IonSegment>
-        </IonItem>
+      <Group header="Status" plain>
+        <StatusChooser value={status} onChange={onStatus} />
       </Group>
 
       <SongMedia songId={song.id} recordings={recordings} links={links} />

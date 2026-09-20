@@ -79,12 +79,15 @@ async function railElement() {
 /** No status label, including "Unknown", is clipped at the viewport's phone width. */
 async function expectNoStatusLabelOverflow() {
   // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
-  await expect.element(page.getByRole('tab', { name: 'Unknown' })).toBeVisible()
-  const labels = document.querySelectorAll('ion-segment-button ion-label')
+  await expect.element(page.getByRole('button', { name: 'Unknown', exact: true })).toBeVisible()
+  const group = document.querySelector('[role="group"][aria-label="Status"]') as HTMLElement
+  const labels = group.querySelectorAll('button > span')
   expect(labels.length).toBe(4)
   for (const label of labels) {
-    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth)
+    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
   }
+  // The four capsules wrap rather than run off the edge, whatever the text size.
+  expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth + 1)
 }
 
 describe('CatalogFilters', () => {
@@ -98,8 +101,6 @@ describe('CatalogFilters', () => {
     try {
       renderIonic(<Host />, { db: openTestDb() })
       await expectNoStatusLabelOverflow()
-      const button = document.querySelector('ion-segment-button')!
-      expect(getComputedStyle(button).fontSize).toBe('13.8125px')
     } finally {
       delete document.documentElement.dataset.textSize
     }
@@ -141,7 +142,7 @@ describe('CatalogFilters', () => {
   it('sets status from the segmented control', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
-    await page.getByRole('tab', { name: 'Learning' }).click({ force: true })
+    await page.getByRole('button', { name: 'Learning', exact: true }).click({ force: true })
     await expect.poll(() => state().status).toBe('learning')
   })
 
@@ -202,6 +203,16 @@ describe('CatalogFilters', () => {
 })
 
 describe('CatalogFilterSheet', () => {
+  it('gives each facet row the shared field shape and the text inset', async () => {
+    renderIonic(<Host sheet />, { db: openTestDb() })
+    await expect.element(page.getByText('Filters')).toBeVisible()
+    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
+    const labels = Array.from(open.querySelectorAll('[data-row-label]')).map((e) => e.textContent)
+    expect(labels).toEqual(['Mode', 'Violin tuning', 'Genre'])
+    const count = open.querySelector('[aria-live="polite"]') as HTMLElement
+    expect(Number.parseFloat(getComputedStyle(count).paddingLeft)).toBe(32)
+  })
+
   it('shows the live count, a select per sheet facet, and the archived switch with its count', async () => {
     renderIonic(<Host sheet />, { db: openTestDb() })
     await expect.element(page.getByText('3 of 5 songs')).toBeVisible()

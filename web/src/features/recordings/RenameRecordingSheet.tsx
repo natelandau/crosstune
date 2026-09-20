@@ -85,10 +85,12 @@ export function RenameRecordingSheet({
         }}
       >
         <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
-        <Group header="Recording name" error={error}>
+        {/* The sheet's title already names the one field, so a header would repeat it. */}
+        <Group error={error}>
           <IonItem>
             <IonInput
               aria-label="Recording name"
+              placeholder="Jam at Tom’s, take 2, …"
               maxlength={SONG_LIMITS.title}
               value={name}
               enterkeyhint="done"

@@ -103,7 +103,31 @@ const search = () => page.getByRole('searchbox', { name: 'Search songs' })
 const row = (title: string) => page.getByRole('heading', { name: title })
 const sheetOpen = () => document.querySelector('ion-modal:not(.overlay-hidden)')
 const more = () => page.getByRole('button', { name: 'More actions' })
-const menuItem = (name: string) => page.getByRole('button', { name })
+/**
+ * An item in the open menu. The status filter below the toolbar carries the same words, and it
+ * comes first in the document, so the search is scoped to the overlay and the click is
+ * dispatched on the element rather than at a point the dismissing popover still covers.
+ */
+const menuItem = (name: string) => ({
+  click: async () => {
+    const item = await vi.waitFor(() => {
+      const overlay = document.querySelector(
+        'ion-popover:not(.overlay-hidden), ion-action-sheet:not(.overlay-hidden)',
+      )
+      expect(overlay, 'no menu is open').toBeTruthy()
+      const roots: (Element | ShadowRoot)[] = [overlay!]
+      if (overlay!.shadowRoot) roots.push(overlay!.shadowRoot)
+      for (const root of roots) {
+        const found = Array.from(root.querySelectorAll<HTMLElement>('ion-item, button')).find(
+          (el) => el.textContent?.trim() === name,
+        )
+        if (found) return found
+      }
+      throw new Error(`no menu item named ${name}`)
+    })
+    item.click()
+  },
+})
 const leaveSelection = () => page.getByRole('button', { name: 'Cancel selection' })
 const rowCheckbox = (name: RegExp) => page.getByRole('checkbox', { name })
 /** The toolbar title, which reads the count while selecting and the screen's name otherwise. */
@@ -232,7 +256,7 @@ describe('CatalogPage', () => {
   it('persists a status filter in the meta table, not the session query', async () => {
     show()
     // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect
       .poll(
         async () =>
@@ -249,17 +273,17 @@ describe('CatalogPage', () => {
     holdFilterWrites([{ before: write.opened }])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
-    const known = page.getByRole('tab', { name: 'Known' })
+    const known = page.getByRole('button', { name: 'Known', exact: true })
     await known.click({ force: true })
-    await expect.element(known).toHaveAttribute('aria-selected', 'true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     // A song arriving mid-write re-renders the filters with the stored status.
     await createSong(db, { title: 'Angeline the Baker' }, { status: 'known' })
     await expect.element(row('Angeline the Baker')).toBeVisible()
-    expect(known.element().getAttribute('aria-selected')).toBe('true')
+    expect(known.element().getAttribute('aria-pressed')).toBe('true')
     write.open()
     await expect.poll(async () => storedStatus()).toBe('known')
     await expect.poll(() => row('Cluck Old Hen').elements().length).toBe(0)
-    await expect.element(known).toHaveAttribute('aria-selected', 'true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     const filterWrites = vi
       .mocked(metaModule.setMeta)
       .mock.calls.filter(([, key]) => key === META_CATALOG_FILTERS)
@@ -274,18 +298,18 @@ describe('CatalogPage', () => {
     holdFilterWrites([{ before: write.opened, fail: true }])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
-    const known = page.getByRole('tab', { name: 'Known' })
+    const known = page.getByRole('button', { name: 'Known', exact: true })
     await known.click({ force: true })
-    await expect.element(known).toHaveAttribute('aria-selected', 'true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     write.open()
     await expect
-      .element(page.getByRole('tab', { name: 'All' }))
-      .toHaveAttribute('aria-selected', 'true')
+      .element(page.getByRole('button', { name: 'All', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
     await expect.element(row('Cluck Old Hen')).toBeVisible()
     await expect
       .element(page.getByRole('alert'))
       .toHaveTextContent('The filters could not be saved.')
-    await page.getByRole('tab', { name: 'Learning' }).click({ force: true })
+    await page.getByRole('button', { name: 'Learning', exact: true }).click({ force: true })
     await expect.poll(async () => storedStatus()).toBe('learning')
     await expect.poll(() => page.getByRole('alert').elements().length).toBe(0)
   })
@@ -297,19 +321,19 @@ describe('CatalogPage', () => {
     holdFilterWrites([{ before: first.opened, fail: true }, { before: second.opened }])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
-    const learning = page.getByRole('tab', { name: 'Learning' })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
+    const learning = page.getByRole('button', { name: 'Learning', exact: true })
     await learning.click({ force: true })
-    await expect.element(learning).toHaveAttribute('aria-selected', 'true')
+    await expect.element(learning).toHaveAttribute('aria-pressed', 'true')
     first.open()
     await expect.element(page.getByRole('alert')).toBeVisible()
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    expect(learning.element().getAttribute('aria-selected')).toBe('true')
+    expect(learning.element().getAttribute('aria-pressed')).toBe('true')
     expect(warn).toHaveBeenCalledTimes(1)
     second.open()
     await expect.poll(async () => storedStatus()).toBe('learning')
     await expect.poll(() => page.getByRole('alert').elements().length).toBe(0)
-    await expect.element(learning).toHaveAttribute('aria-selected', 'true')
+    await expect.element(learning).toHaveAttribute('aria-pressed', 'true')
     expect(warn).toHaveBeenCalledTimes(1)
   })
 
@@ -323,13 +347,13 @@ describe('CatalogPage', () => {
     ])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
-    const learning = page.getByRole('tab', { name: 'Learning' })
-    await expect.element(learning).toHaveAttribute('aria-selected', 'true')
-    const known = page.getByRole('tab', { name: 'Known' })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
+    const learning = page.getByRole('button', { name: 'Learning', exact: true })
+    await expect.element(learning).toHaveAttribute('aria-pressed', 'true')
+    const known = page.getByRole('button', { name: 'Known', exact: true })
     await known.click({ force: true })
     await expect.poll(async () => storedStatus()).toBe('known')
-    await expect.element(known).toHaveAttribute('aria-selected', 'true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows a filter error and an archive error together and clears each on its own', async () => {
@@ -339,10 +363,10 @@ describe('CatalogPage', () => {
     holdFilterWrites([{ before: write.opened, fail: true }])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect
-      .element(page.getByRole('tab', { name: 'Known' }))
-      .toHaveAttribute('aria-selected', 'true')
+      .element(page.getByRole('button', { name: 'Known', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
     write.open()
     const filterError = page.getByText('The filters could not be saved.')
     await expect.element(filterError).toBeVisible()
@@ -353,7 +377,7 @@ describe('CatalogPage', () => {
     await expect.element(archiveError).toBeVisible()
     await expect.element(filterError).toBeVisible()
     expect(page.getByRole('alert').elements()).toHaveLength(2)
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect.poll(async () => storedStatus()).toBe('known')
     await expect.poll(() => filterError.elements().length).toBe(0)
     await expect.element(archiveError).toBeVisible()
@@ -367,7 +391,7 @@ describe('CatalogPage', () => {
   it('forgets a hidden facet on every filter write', async () => {
     await setMeta(db, META_CATALOG_FILTERS, { banjo_tuning: 'Open G (gDGBD)' })
     show()
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect
       .poll(async () => getMeta<Record<string, unknown> | null>(db, META_CATALOG_FILTERS, null))
       .toMatchObject({ status: 'known', banjo_tuning: 'all' })
@@ -381,7 +405,7 @@ describe('CatalogPage', () => {
     await expect.element(page.getByText('1 of 2 songs')).toBeVisible()
     expect(live()).toBe('')
     await search().fill('')
-    await page.getByRole('tab', { name: 'Learning' }).click({ force: true })
+    await page.getByRole('button', { name: 'Learning', exact: true }).click({ force: true })
     await expect.poll(live).toBe('1 of 2 songs')
     await search().fill('zzz')
     await expect.element(page.getByText('0 of 2 songs')).toBeVisible()
@@ -827,7 +851,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await pickFromMore('Select all')
     await expect.poll(screenTitle).toBe('3 selected')
-    await page.getByRole('tab', { name: 'Known' }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect.poll(screenTitle).toBe('2 selected')
   })
 

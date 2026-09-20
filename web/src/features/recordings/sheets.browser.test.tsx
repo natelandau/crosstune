@@ -80,7 +80,19 @@ describe('RenameRecordingSheet', () => {
   it('opens on the recording it was given, with its stored name', async () => {
     renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
     await expect.element(page.getByText('Rename recording')).toBeVisible()
-    await expect.element(page.getByText('Recording name', { exact: true })).toBeVisible()
+    // The sheet's title names the one field, so the field carries no header of its own,
+    // which leaves the placeholder as the only thing showing where to type.
+    await expect.element(nameField()).toBeVisible()
+    await vi.waitFor(() =>
+      expect(
+        document
+          .querySelector('ion-modal:not(.overlay-hidden) ion-input input')
+          ?.getAttribute('placeholder'),
+      ).toBe('Jam at Tom\u2019s, take 2, \u2026'),
+    )
+    expect(
+      document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'),
+    ).toHaveLength(0)
     await expect.element(nameField()).toHaveValue('Jam recording')
   })
 
@@ -225,7 +237,11 @@ describe('AddToSongSheet', () => {
     expect(page.getByText('New song').elements()).toHaveLength(0)
     read(undefined)
     await expect.element(page.getByText('New song')).toBeVisible()
-    await expect.element(page.getByText('Violin tuning')).toBeVisible()
+    // The Tuning group renders only once there is a tuning to show, so it is the proof.
+    await expect.element(page.getByRole('heading', { name: 'Tuning' })).toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Violin tuning, Not set', exact: true }))
+      .toBeInTheDocument()
   })
 
   it('says so when the song is made but the recording cannot be filed under it', async () => {

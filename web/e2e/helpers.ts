@@ -101,30 +101,28 @@ export async function addSong(page: Page, title: string, key: string): Promise<v
   // rows are still below the fold, and a forced click never waits for a row to arrive.
   await expectSettled(titleField)
   await titleField.fill(title)
-  // A segment button is covered by the segment's own indicator, which an actionability check
-  // reads as an obstruction.
-  const learning = page.getByRole('tab', { name: 'Learning' })
+  // Status and key are rows of capsules, and the catalog behind the sheet carries capsules with
+  // the same words, so each click is scoped to the group that owns it. The sheet's own content
+  // is slotted light DOM under ion-modal, which is why the element scopes it and the dialog
+  // role cannot.
+  const sheet = page.locator('ion-modal.show-modal')
+  const learning = sheet
+    .getByRole('group', { name: 'Status' })
+    .getByRole('button', { name: 'Learning', exact: true })
   await expectSettled(learning)
-  await learning.click({ force: true })
-  // The select names itself by its field and its current value, but a click at its own button
-  // lands on the select's control instead, so the row around it is what opens the choices. They
-  // open in an overlay: an action sheet on touch, a popover on a mouse, so picking by text
-  // serves both.
-  await page
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name: /^Key,/ }) })
-    .click()
-  const choices = page.locator('ion-action-sheet, ion-popover').last()
-  // Counting the choices is a one-shot read, so it has to come after the overlay is up or an
-  // unopened overlay reads as a key with no suggestion.
-  await expect(choices).toBeVisible()
-  const suggested = choices.getByText(key, { exact: true })
-  // A suggested key is one tap; any other key goes through Other and its text field.
-  if ((await suggested.count()) > 0) {
-    await suggested.click()
+  await learning.click()
+  const keys = sheet.getByRole('group', { name: 'Key' })
+  const pill = keys.getByRole('button', { name: key, exact: true })
+  // A key on the grid is one tap. Any other key sits behind More keys…, which opens an action
+  // sheet on touch and a popover on a mouse, so picking by text serves both.
+  if ((await pill.count()) > 0) {
+    await expectSettled(pill)
+    await pill.click()
   } else {
-    await choices.getByText('Other…', { exact: true }).click()
-    await page.getByRole('textbox', { name: 'Other key' }).fill(key)
+    await keys.getByRole('button', { name: 'More keys…', exact: true }).click()
+    const choices = page.locator('ion-action-sheet, ion-popover').last()
+    await expect(choices).toBeVisible()
+    await choices.getByText(key, { exact: true }).click()
   }
   await expectNoOverlay(page)
   await page.getByRole('button', { name: 'Add', exact: true }).click()

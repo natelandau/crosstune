@@ -80,8 +80,8 @@ export function SongMedia({
       ) : null}
       {/* Above the controls, so a refused row action sits beside the rows rather than below
           the three ways to add another one. */}
-      {error ? <InlineError className="px-5 pt-1.5">{error}</InlineError> : null}
-      <div className="flex flex-wrap gap-2 px-5 pt-3">
+      {error ? <InlineError className="px-(--form-inset) pt-1.5">{error}</InlineError> : null}
+      <div className="flex flex-wrap gap-2 px-(--form-gutter) pt-3">
         <IonButton className="min-h-11" onClick={() => start(songId)}>
           Record
         </IonButton>
