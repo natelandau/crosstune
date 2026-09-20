@@ -66,6 +66,31 @@ describe('StatusChooser', () => {
     )
   })
 
+  it('leads with All where it filters rather than edits', async () => {
+    function Filter() {
+      const [value, setValue] = useState<SongStatus | 'all'>('all')
+      return (
+        <>
+          <StatusChooser value={value} onChange={setValue} includeAll />
+          <p data-state>{value}</p>
+        </>
+      )
+    }
+    renderIonic(<Filter />, { db: openTestDb() })
+    await expect.element(chip('All')).toBeVisible()
+    const labels = Array.from(
+      document.querySelectorAll('[role="group"][aria-label="Status"] button'),
+    ).map((button) => button.textContent!.trim())
+    expect(labels).toEqual(['All', 'Known', 'Learning', 'Unknown'])
+    await expect.element(chip('All')).toHaveAttribute('aria-pressed', 'true')
+    await chip('Learning').click()
+    await expect.poll(state).toBe('learning')
+    await expect.element(chip('All')).toHaveAttribute('aria-pressed', 'false')
+    // A filter can be widened again, unlike the form's, which always holds a status.
+    await chip('All').click()
+    await expect.poll(state).toBe('all')
+  })
+
   it('keeps every choice at the 44px tap height', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(chip('Known')).toBeVisible()

@@ -29,17 +29,38 @@ const DOT: Record<SongStatus, { rest: string; chosen: string }> = {
  * A song always has a status, so this one never clears: pressing the chosen capsule leaves it
  * chosen, unlike the key grid where pressing the chosen key means "no key".
  */
-export function StatusChooser({
-  value,
-  onChange,
-}: {
-  /** The stored status, which may be a value this client does not know. */
-  value: string
-  onChange: (value: SongStatus) => void
-}) {
-  const current = isSongStatus(value) ? value : 'want_to_learn'
+type ChooserProps =
+  | {
+      /** The stored status, which may be a value this client cannot read. */
+      value: string
+      onChange: (value: SongStatus) => void
+      includeAll?: false
+    }
+  | {
+      /** The filter's status, or `all` while it narrows nothing. */
+      value: string
+      onChange: (value: SongStatus | 'all') => void
+      /** Leads the row with All, for the catalog, where this narrows a list rather than
+       * setting a song's own status. */
+      includeAll: true
+    }
+
+export function StatusChooser({ value, onChange, includeAll = false }: ChooserProps) {
+  // A status a song holds but this client cannot read still shows as want to learn; a filter
+  // set to all matches none of the three and leaves every capsule unpressed but All.
+  const current = isSongStatus(value) ? value : includeAll ? null : 'want_to_learn'
   return (
     <div role="group" aria-label="Status" className="flex flex-wrap gap-1.5 px-(--form-gutter)">
+      {includeAll ? (
+        <Capsule
+          pressed={current === null}
+          label="All"
+          // Only the includeAll arm can be reached here, and only it accepts `all`.
+          onPress={() => (onChange as (value: SongStatus | 'all') => void)('all')}
+        >
+          All
+        </Capsule>
+      ) : null}
       {STATUSES.map((status) => {
         const chosen = current === status
         return (

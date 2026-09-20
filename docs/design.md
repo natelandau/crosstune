@@ -35,7 +35,9 @@ composes it instead of rebuilding it.
   `Tuesday jam, square dance set, …`. A search placeholder is an imperative
   with a capital: `Search songs`.
 - A control that opens more interface ends in an ellipsis: `New list…`,
-  `Other…`.
+  `Other…`. The key grid's empty choice is the bare glyph `?`, the shorthand a
+  musician already writes on a tune list, named in words for a screen reader
+  because a glyph reads as nothing aloud.
 - The empty choice in a picker reads "Not set". In a filter it reads "All"
   on the status control, "All keys" on the key rail, whose other capsules
   are bare letters that need the reset to name what they are, and "Any"
@@ -254,10 +256,10 @@ Everywhere the app lists songs, it uses the same row.
   it.
 - The dot and label pair appears in song rows and in the status chooser.
   Everywhere else status is the label alone. It is a row of capsules on the
-  song page and the song form, the same control the key grid uses, so a form
-  reads as a column of fields rather than as a control beside a toolbar. It is
-  a select in the bulk edit sheet, a segment in the catalog filters, where it
-  filters rather than edits, and a menu of three items for a bulk change.
+  song page, the song form, and the catalog's filter bar, so one control means
+  one thing everywhere. The filter's row leads with All, the way the key rail
+  leads with All keys, because a filter can narrow nothing. It is a select in
+  the bulk edit sheet and a menu of three items for a bulk change.
 - The status chooser never clears: a song always has a status, so pressing the
   chosen capsule leaves it chosen. The key grid is the opposite, because a
   song may have no key.
@@ -310,7 +312,8 @@ Only the catalog has filters.
   the filters set inside the sheet, and its name reads "Filters, 2 set",
   because filters persist between visits and a stale one must announce
   itself.
-- Under the search comes the status segment: All, Known, Learning, Unknown.
+- Under the search comes the status row: All, Known, Learning, Unknown, as
+  capsules.
 - Then the key rail: All keys, then every key the catalog holds, as capsules
   in one scrolling row that fades at its end while there is more to scroll
   to. Each key wears its own pill, the same one a song row shows, so the rail

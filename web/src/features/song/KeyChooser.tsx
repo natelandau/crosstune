@@ -16,13 +16,14 @@ const isQuick = (key: string) => (QUICK_KEYS as readonly string[]).includes(key)
 export function KeyChooser({
   value,
   onChange,
-  emptyLabel = 'Unknown',
+  emptyLabel = 'Unknown key',
 }: {
   /** The stored key, or an empty string for a song with no key. */
   value: string
   /** Receives an empty string when the empty choice or the chosen key is pressed. */
   onChange: (value: string) => void
-  /** The empty choice's word, for a caller whose empty means something other than unknown. */
+  /** The empty choice's accessible name, for a caller whose empty means something other than
+   * an unknown key. */
   emptyLabel?: string
 }) {
   const openMenu = useMenu()
@@ -33,8 +34,10 @@ export function KeyChooser({
 
   return (
     <div role="group" aria-label="Key" className="flex flex-wrap gap-1.5 px-(--form-gutter)">
+      {/* A question mark sits in a row of single letters as the shorthand a musician already
+          writes on a tune list. It reads as nothing aloud, so the chip is named in words. */}
       <Capsule pressed={chosen === ''} onPress={() => onChange('')} label={emptyLabel}>
-        {emptyLabel}
+        ?
       </Capsule>
       {shown.map((key) => (
         <PressTarget

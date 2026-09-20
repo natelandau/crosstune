@@ -1,16 +1,14 @@
-import { IonLabel, IonSegment, IonSegmentButton } from '@ionic/react'
 import { X } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
-import { STATUSES } from '../../db/types'
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
+import { StatusChooser } from '../song/StatusChooser'
 import {
   sheetFacets,
   type CatalogFilters as Filters,
   type Facet,
   type FacetValues,
 } from './filters'
-import { STATUS_LABELS } from './status'
 
 export function CatalogFilters({
   filters,
@@ -52,21 +50,12 @@ export function CatalogFilters({
   }, [facets.key, visible])
 
   return (
-    <div className="space-y-2 px-4 pt-1 pb-2">
-      <IonSegment
-        aria-label="Status"
+    <div className="space-y-2 pt-1 pb-2">
+      <StatusChooser
         value={filters.status}
-        onIonChange={(event) => onChange({ status: event.detail.value as Filters['status'] })}
-      >
-        <IonSegmentButton value="all">
-          <IonLabel>All</IonLabel>
-        </IonSegmentButton>
-        {STATUSES.map((status) => (
-          <IonSegmentButton key={status} value={status}>
-            <IonLabel>{STATUS_LABELS[status]}</IonLabel>
-          </IonSegmentButton>
-        ))}
-      </IonSegment>
+        includeAll
+        onChange={(status) => onChange({ status })}
+      />
 
       {visible.includes('key') ? (
         <div
@@ -74,7 +63,7 @@ export function CatalogFilters({
           role="group"
           aria-label="Key"
           data-fade={keyRailFade || undefined}
-          className="key-rail -mx-4 flex [scrollbar-width:none] gap-1 overflow-x-auto px-4"
+          className="key-rail flex [scrollbar-width:none] gap-1 overflow-x-auto px-(--form-gutter)"
         >
           <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
             All keys
@@ -92,7 +81,7 @@ export function CatalogFilters({
       ) : null}
 
       {pills.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 px-(--form-gutter)">
           {pills.map((pill) => (
             <Capsule
               key={pill.key}
