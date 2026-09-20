@@ -1,3 +1,17 @@
+## v0.4.0 (2026-09-20)
+
+### Feat
+
+- **web**: pick every setting from a row (#37)
+- **web**: give every screen one background and one hierarchy (#33)
+- **web**: rebuild every form (#32)
+- **web**: color every musical key and move the filters control (#31)
+
+### Fix
+
+- **api**: refuse outbound requests to non-public addresses (#36)
+- **preview**: keep long branches from sharing one preview alias (#35)
+
 ## v0.3.0 (2026-09-19)
 
 ### Feat
