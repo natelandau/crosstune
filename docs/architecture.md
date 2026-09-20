@@ -316,6 +316,19 @@ player needs, and the API stores that id as the link's provider ref. Each
 request times out after five seconds. A failure yields a link with no title,
 never an error.
 
+Because a pasted URL names a host the user chose, every outbound request the
+API makes passes an address policy first. The host is resolved, and the
+request is refused unless every address it answers with is on the public
+internet: loopback, private, link-local, carrier-grade NAT, and reserved
+addresses are all rejected, as are the IPv6 forms that carry one of them
+inside them. Only http and https are fetched. The request then connects to
+the address that was checked rather than to the name, so a host that answers
+differently on a second lookup cannot move the connection, while the Host
+header and the TLS server name keep the original name so a certificate still
+has to match it. The policy sits below redirect handling, so each hop of a
+redirect is checked the same way as the URL the user pasted. A refused URL
+yields a link with no title, like any other failure.
+
 Online, the client calls the resolve route as the user pastes, so the title
 shows before the save. Offline, the client detects the provider from the URL
 pattern, saves the link without a title, and pushes it later. During a push,

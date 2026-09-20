@@ -393,3 +393,34 @@ async def test_push_stores_the_bandcamp_embed_id(client, auth_headers, mock_http
         change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp"),
     )
     assert results[1]["row"]["provider_ref"] == "album:84352595"
+
+
+async def test_open_graph_follows_a_public_redirect(mock_http) -> None:
+    mock_http.add(
+        "https://short.example/x",
+        httpx2.Response(302, headers={"Location": "https://long.example/track"}),
+    )
+    mock_http.add("https://long.example/track", httpx2.Response(200, text=og_html("Cluck Old Hen")))
+    async with mock_http.client() as client:
+        link = await resolve_link("https://short.example/x", client, timeout=5.0)
+    assert link.title == "Cluck Old Hen"
+
+
+async def test_a_link_on_a_private_address_resolves_untitled(guarded_http) -> None:
+    async with guarded_http.client({"internal.example": ["10.0.0.5"]}) as client:
+        link = await resolve_link("https://internal.example/song", client, timeout=5.0)
+    assert link.provider == "other"
+    assert link.url == "https://internal.example/song"
+    assert link.title is None
+    assert guarded_http.calls == []
+
+
+async def test_a_link_that_redirects_to_a_private_address_resolves_untitled(guarded_http) -> None:
+    guarded_http.add(
+        "https://public.example/",
+        httpx2.Response(302, headers={"Location": "http://169.254.169.254/latest/meta-data/"}),
+    )
+    async with guarded_http.client({"public.example": ["93.184.216.34"]}) as client:
+        link = await resolve_link("https://public.example/", client, timeout=5.0)
+    assert link.title is None
+    assert [str(call.url) for call in guarded_http.calls] == ["https://93.184.216.34/"]
