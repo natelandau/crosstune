@@ -45,7 +45,9 @@ export function SongMedia({
       {recordings.length === 0 && links.length === 0 ? (
         <EmptyState compact icon={AudioLines} title="Nothing recorded yet" />
       ) : null}
-      {recordings.length > 0 ? (
+      {recordings.length > 0 || links.length > 0 ? (
+        // One list, because a recording and a link are one row shape doing one job for the
+        // musician: hear this song. Recordings lead, since they are the musician's own.
         <Group header="Recordings" name="Recordings">
           {recordings.map((view) => (
             <RecordingItem
@@ -58,10 +60,6 @@ export function SongMedia({
               onRetry={(kind) => retry(view, kind)}
             />
           ))}
-        </Group>
-      ) : null}
-      {links.length > 0 ? (
-        <Group header="Links" name="Links">
           {links.map((link) => (
             <LinkItem
               key={link.id}

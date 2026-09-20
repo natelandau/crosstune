@@ -171,24 +171,40 @@ describe('SongMedia', () => {
     await expect.element(page.getByRole('link', { name: 'Open youtu.be on YouTube' })).toBeVisible()
   })
 
-  it('lists recordings above links', async () => {
+  it('holds recordings and links in one list, recordings first', async () => {
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Jam recording' }))
     await addLink(db, songId, { ...youtube, title: 'Slow version' })
     show()
     await expect.element(page.getByRole('heading', { name: 'Slow version' })).toBeVisible()
-    expect(sectionHeaders()).toEqual(['Recordings', 'Links'])
+    expect(sectionHeaders()).toEqual(['Recordings'])
     expect(rowTitles()).toEqual(['Jam recording', 'Slow version'])
+    const list = page.getByRole('list', { name: 'Recordings' })
+    await expect.element(list.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
+    await expect.element(list.getByRole('heading', { name: 'Slow version' })).toBeVisible()
   })
 
-  it('names each list, so a row is reached through the group it belongs to', async () => {
+  it("sits a link's provider line where a recording's metadata sits", async () => {
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Jam recording' }))
     await addLink(db, songId, { ...youtube, title: 'Slow version' })
     show()
     await expect.element(page.getByRole('heading', { name: 'Slow version' })).toBeVisible()
-    const recordings = page.getByRole('list', { name: 'Recordings' })
-    const links = page.getByRole('list', { name: 'Links' })
-    await expect.element(recordings.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
-    await expect.element(links.getByRole('heading', { name: 'Slow version' })).toBeVisible()
+    const row = (title: string) =>
+      Array.from(document.querySelectorAll('ion-item')).find(
+        (item) => item.querySelector('h3')?.textContent === title,
+      )!
+    const gap = (item: Element, second: Element) =>
+      second.getBoundingClientRect().top - item.querySelector('h3')!.getBoundingClientRect().bottom
+    await vi.waitFor(() => {
+      const recording = row('Jam recording')
+      const link = row('Slow version')
+      const below = gap(recording, recording.querySelector('p.type-subheadline')!)
+      const under = gap(link, link.querySelector('.row-note a')!)
+      // A pixel of slack covers the rounding a line box takes at a text size the setting moves.
+      expect(
+        Math.abs(under - below),
+        `link ${under} against recording ${below}`,
+      ).toBeLessThanOrEqual(1)
+    })
   })
 
   it('unfiles a recording from its own row', async () => {

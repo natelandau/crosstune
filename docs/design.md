@@ -479,7 +479,9 @@ Recordings and links share one row shape.
   musician typed, what the provider resolved, and what the app can compose from
   the date. Where a heading above the row already carries part of that name, the
   row drops it rather than repeating it.
-- The second line joins the row's metadata with middle dots. A third line, in
+- The second line joins the row's metadata with middle dots, and on a link it is
+  the link out to the provider instead. Either way it sits the same distance
+  under the title, so two rows in one list read as one shape. A third line, in
   red, carries a transfer error and a Retry button at the trailing edge.
 - A state that needs nothing from the musician shows when the item was made
   rather than naming itself, so the words that remain all mean something needs
@@ -488,8 +490,12 @@ Recordings and links share one row shape.
 - Sizes truncate rather than round, so a size never overstates. Durations read
   `m:ss`.
 - The provider is named once on a row and nowhere else on it.
-- Recordings group under their song, headed by that song's name and nothing
-  else. The key, the status, and the tunings stay on the catalog's own song row,
+- A song's recordings and its links are one list, headed Recordings, with the
+  recordings first because they are the musician's own. Both answer the one
+  question the section exists for, how to hear this song, and a second header
+  between them would break that answer in two.
+- On the recordings screen, recordings group under their song, headed by that
+  song's name and nothing else. The key, the status, and the tunings stay on the catalog's own song row,
   because a header that repeats them competes with the rows it introduces. The
   header opens the song.
 - The dock opens only from a play tap. Opening a song never loads a player. At

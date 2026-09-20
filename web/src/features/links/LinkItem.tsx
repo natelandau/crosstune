@@ -50,7 +50,9 @@ export function LinkItem({
       start={<Slot>{glyph}</Slot>}
       note={
         <a
-          className="type-subheadline inline-flex min-h-6 items-center gap-1 py-0.5 text-(--ion-color-primary)"
+          // The row's second line, so it carries the label's own bottom space and adds none of
+          // its own: a link out and a line of metadata sit the same distance under their title.
+          className="type-subheadline mb-2.5 flex min-h-6 w-fit items-center gap-1 text-(--ion-color-primary)"
           href={link.url}
           target="_blank"
           rel="noreferrer"
@@ -62,7 +64,7 @@ export function LinkItem({
       }
       {...open}
     >
-      <IonLabel className="my-2.5 overflow-hidden">
+      <IonLabel className="mt-2.5 mb-0 overflow-hidden">
         <h3 className="type-headline truncate">{title}</h3>
         {/* sr-only: composes with the open verb into "Close <title> player" without changing the visible title. */}
         {loaded ? <p className="sr-only">player</p> : null}
