@@ -139,10 +139,9 @@ describe('CatalogFilters', () => {
     await vi.waitFor(() => expect(getComputedStyle(rail).maskImage).toBe('none'))
   })
 
-  it('sets status from the segmented control', async () => {
+  it('sets status from the status capsules', async () => {
     renderIonic(<Host />, { db: openTestDb() })
-    // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
-    await page.getByRole('button', { name: 'Learning', exact: true }).click({ force: true })
+    await page.getByRole('button', { name: 'Learning', exact: true }).click()
     await expect.poll(() => state().status).toBe('learning')
   })
 

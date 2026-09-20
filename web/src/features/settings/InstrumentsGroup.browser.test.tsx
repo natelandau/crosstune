@@ -23,33 +23,71 @@ afterEach(async () => {
 
 const show = () => renderIonic(<InstrumentsGroup />, { db })
 
+const row = () => page.getByRole('button', { name: /^Instruments/ })
+/** The row's whole name: the label the header lends it, then the set it holds. */
+const rowNamed = (value: string) =>
+  page.getByRole('button', { name: new RegExp(`^Instruments\\s+${value}$`) })
 const box = (name: string) => page.getByRole('checkbox', { name })
 const stored = async () => (await db.user_settings.get(settingsId('user_1')))?.instruments
 
+const openSheet = async () => {
+  await row().click()
+  await expect.element(box('Violin')).toBeVisible()
+}
+
+const closeSheet = async () => {
+  await page.getByRole('button', { name: 'Done' }).click()
+  await vi.waitFor(() =>
+    expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull(),
+  )
+}
+
 describe('InstrumentsGroup', () => {
-  it('checks the instruments the stored row holds and leaves the rest clear', async () => {
+  it('names the group, its instruments, and what the choice changes', async () => {
+    await setInstruments(db, 'user_1', ['violin', 'banjo'])
+    show()
+    await expect.element(page.getByRole('heading', { name: 'Instruments', level: 2 })).toBeVisible()
+    await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
+    await expect.element(page.getByText(HELP)).toBeVisible()
+  })
+
+  it('lists the instruments in one order however they were stored', async () => {
+    await setInstruments(db, 'user_1', ['banjo', 'violin'])
+    show()
+    await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
+  })
+
+  it('reads Not set when no instrument is chosen', async () => {
+    await setInstruments(db, 'user_1', [])
+    show()
+    await expect.element(rowNamed('Not set')).toBeVisible()
+  })
+
+  it('keeps the checkboxes in the sheet until the row is opened', async () => {
     await setInstruments(db, 'user_1', ['violin'])
     show()
+    await expect.element(row()).toBeVisible()
+    expect(page.getByRole('checkbox').elements()).toHaveLength(0)
+
+    await openSheet()
     await expect.element(box('Violin')).toBeChecked()
     await expect.element(box('Banjo')).not.toBeChecked()
   })
 
-  it('adds an instrument to the row and queues one settings change', async () => {
+  it('adds an instrument from the sheet and queues one settings change', async () => {
     await setInstruments(db, 'user_1', ['violin'])
     // The seeding write leaves its own outbox entry, so only what the tap adds is counted.
     await db.outbox.clear()
     show()
-    await expect.element(box('Violin')).toBeChecked()
+    await openSheet()
     await box('Banjo').click()
     await expect.poll(stored).toEqual(['violin', 'banjo'])
     await expect.element(box('Banjo')).toBeChecked()
     expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
-  })
 
-  it('names the group and says what the choice changes', async () => {
-    show()
-    await expect.element(page.getByRole('heading', { name: 'Instruments', level: 2 })).toBeVisible()
-    await expect.element(page.getByText(HELP)).toBeVisible()
+    // The row it was opened from follows the set it holds now.
+    await closeSheet()
+    await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
   })
 
   it('stays away entirely while the settings row is still being read', () => {
@@ -58,17 +96,35 @@ describe('InstrumentsGroup', () => {
     expect(page.getByRole('checkbox').elements()).toHaveLength(0)
   })
 
-  it('shows a refused toggle in the group, in place of the help text', async () => {
+  it('reports a refused toggle in the sheet, then under the row it was made from', async () => {
     vi.mocked(toggleInstrumentSetting).mockRejectedValue(new Error('Settings are read-only'))
     show()
-    await expect.element(box('Banjo')).toBeVisible()
+    await openSheet()
     await box('Banjo').click()
+    await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
+
+    await closeSheet()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
     expect(page.getByText(HELP).elements()).toHaveLength(0)
   })
 
-  it('gives every row a tap target a finger can hit', async () => {
+  it('drops a refusal from the last visit when the sheet opens again', async () => {
+    vi.mocked(toggleInstrumentSetting).mockRejectedValue(new Error('Settings are read-only'))
     show()
+    await openSheet()
+    await box('Banjo').click()
+    await expect.element(page.getByRole('alert')).toBeVisible()
+    await closeSheet()
+
+    await openSheet()
+    expect(page.getByRole('alert').elements()).toHaveLength(0)
+    await closeSheet()
+    await expect.element(page.getByText(HELP)).toBeVisible()
+  })
+
+  it('gives the row and every checkbox a tap target a finger can hit', async () => {
+    show()
+    await openSheet()
     await expect.element(box('Other')).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)

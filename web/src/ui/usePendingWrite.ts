@@ -14,8 +14,7 @@ function matches<T extends object>(stored: T, patch: Partial<T>): boolean {
 /**
  * A live stored value with any patch still being written already applied, and the function
  * that writes a patch. Ionic React assigns every prop back onto a control on each render, so
- * showing only the stored value would snap a control back to its old value mid-write, and a
- * segment would then report the tap a second time.
+ * showing only the stored value would snap a control back to its old value mid-write.
  *
  * Writes run one after another, so back-to-back patches build on each other and the last one
  * is the value stored. The returned promise settles with its own write, and a failure drops

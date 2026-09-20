@@ -255,8 +255,7 @@ describe('CatalogPage', () => {
 
   it('persists a status filter in the meta table, not the session query', async () => {
     show()
-    // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
-    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
     await expect
       .poll(
         async () =>
