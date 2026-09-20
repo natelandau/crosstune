@@ -203,10 +203,14 @@ song's title and key its own way.
 
 ## Keys, modes, and tunings
 
-- A row shows the key alone, never the mode. The song page shows both as one
-  line under the title: "A mixolydian".
+- A row shows the key alone, never the mode.
 - Modes are lowercase everywhere, in pickers, filters, and badges.
 - A facet appears as a capsule only when the song holds the value.
+- The song page carries every facet the song holds in one wrapping row under the
+  title: the key first, then the mode, the status, and the rest. What the song is
+  reads as one thing, so no facet sits on a line of its own and none is ranked
+  above another by where it landed. The row wraps rather than scrolling, because
+  a facet past the edge of a rail is a facet the musician never learns about.
 - A tuning field, filter, or badge appears only for an instrument the musician
   plays. The one exception is a field that already holds a value, which is
   always shown so data never becomes unreachable. A song row is stricter and
@@ -243,6 +247,10 @@ song's title and key its own way.
 - One control means one thing everywhere, so status is a row of capsules wherever
   a musician sets or filters it. A filter's row leads with All, because a filter
   can narrow nothing.
+- The song page shows status as a facet and does not set it. A song is read far
+  more often than its status is changed, and a control on the page would rank
+  status above every other facet beside it, so the change happens where every
+  other facet is changed: the edit sheet.
 - The status control never clears: a song always has a status, so pressing the
   chosen capsule leaves it chosen. A field that can be empty does the opposite,
   and pressing its chosen value clears it.
@@ -558,7 +566,7 @@ column instead of rebuilding the pattern.
 | List row for lists                        | `src/features/lists/ListItem.tsx`                                                            |
 | Status labels                             | `src/features/catalog/status.ts`                                                             |
 | Status chooser                            | `src/features/song/StatusChooser.tsx`                                                        |
-| Key and mode line, facet capsules         | `src/features/song/SongScreen.tsx`                                                           |
+| Facet row under a song's title            | `src/features/song/SongScreen.tsx`                                                           |
 | Capsule, rail chip, and badge             | `src/ui/Capsule.tsx`                                                                         |
 | Which tunings to show                     | `src/features/settings/instruments.ts`                                                       |
 | Instrument checkboxes, first-run question | `src/features/settings/InstrumentRows.tsx`, `src/features/settings/FirstRunSheet.tsx`        |

@@ -36,7 +36,7 @@ vi.mock('../../ui/Confirm', async (importOriginal) => {
   }
 })
 
-const { updateUserSong: realUpdateUserSong, deleteSong: realDeleteSong } =
+const { deleteSong: realDeleteSong } =
   await vi.importActual<typeof SongsModule>('../../commands/songs')
 
 /** A promise and the function that settles it, for holding a write in flight. */
@@ -133,27 +133,34 @@ async function openMenuItem(label: string) {
 }
 
 describe('SongScreen', () => {
-  it('shows the title, key line, alternate titles, badges, and notes', async () => {
+  it('shows the title, alternate titles, facets, and notes', async () => {
     show()
     await expect.element(title()).toBeVisible()
-    await expect.element(page.getByText('major', { exact: true })).toBeVisible()
     await expect.element(page.getByText('Joy', { exact: true })).toBeVisible()
-    for (const badge of ['Standard (GDAE)', 'Crooked', 'Old-time']) {
-      await expect.element(page.getByText(badge, { exact: true })).toBeVisible()
+    for (const facet of ['major', 'Learning', 'Standard (GDAE)', 'Crooked', 'Old-time']) {
+      await expect.element(page.getByText(facet, { exact: true })).toBeVisible()
     }
     await expect.element(page.getByText('Learned from Jim')).toBeVisible()
     await expect.element(page.getByText('Watch the B part.')).toBeVisible()
     expect(page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
   })
 
-  it('shows the key as a pill beside its mode', async () => {
+  it('holds every facet in one row under the title, the key first', async () => {
     show()
     await expect.element(title()).toBeVisible()
-    const line = document.querySelector('[data-key-line]')!
-    const pill = line.querySelector('.key-pill')!
+    const row = document.querySelector('[data-song-facets]')!
+    const pill = row.querySelector('.key-pill')!
     expect(pill.getAttribute('data-pitch')).toBe('2')
     expect(pill.textContent).toBe('D')
-    expect(line.textContent).toContain('major')
+    // Every facet is a child of this one row, so none of them sits on a line of its own.
+    expect(Array.from(row.children).map((child) => child.textContent)).toEqual([
+      'D',
+      'major',
+      'Learning',
+      'Standard (GDAE)',
+      'Crooked',
+      'Old-time',
+    ])
   })
 
   it('sets its groups as cards on the grouped surface', async () => {
@@ -209,14 +216,13 @@ describe('SongScreen', () => {
     await expect.element(page.getByRole('heading', { name: 'Song', level: 1 })).toBeInTheDocument()
   })
 
-  it('shows the recordings group between the status group and the lists group', async () => {
+  it('shows the recordings group above the lists group', async () => {
     await db.recordings.put(recordingRow('r1', { song_id: ids.songId, label: 'Jam recording' }))
     show()
     await expect
       .element(page.getByRole('heading', { name: 'Jam recording', level: 3 }))
       .toBeVisible()
     expect(Array.from(document.querySelectorAll('h2')).map((h) => h.textContent)).toEqual([
-      'Status',
       'Recordings',
       'Lists',
       'Notes',
@@ -228,103 +234,6 @@ describe('SongScreen', () => {
     show()
     await expect.element(title()).toBeVisible()
     expect(document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
-  })
-
-  it('changes status at once', async () => {
-    show()
-    await expect.element(title()).toBeVisible()
-    // ion-segment-button exposes role `tab`, and Ionic makes the inner button ignore clicks.
-    await page.getByRole('button', { name: 'Known', exact: true }).click()
-    await vi.waitFor(async () =>
-      expect((await db.user_songs.get(ids.userSongId))?.status).toBe('known'),
-    )
-    expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1)
-  })
-
-  it('keeps the last of two quick status taps', async () => {
-    const write = gate()
-    vi.mocked(songsModule.updateUserSong).mockImplementationOnce(async (...args) => {
-      await write.opened
-      return realUpdateUserSong(...args)
-    })
-    show()
-    await expect.element(title()).toBeVisible()
-    await page.getByRole('button', { name: 'Known', exact: true }).click()
-    await vi.waitFor(() => expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1))
-    await page.getByRole('button', { name: 'Learning', exact: true }).click()
-    write.open()
-    await vi.waitFor(() => expect(songsModule.updateUserSong).toHaveBeenCalledTimes(2))
-    await vi.waitFor(async () =>
-      expect((await db.user_songs.get(ids.userSongId))?.status).toBe('learning'),
-    )
-    await expect
-      .element(page.getByRole('button', { name: 'Learning', exact: true }))
-      .toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('shows the new status while a slow write is in flight', async () => {
-    const write = gate()
-    vi.mocked(songsModule.updateUserSong).mockImplementationOnce(async (...args) => {
-      await write.opened
-      return realUpdateUserSong(...args)
-    })
-    show()
-    await expect.element(title()).toBeVisible()
-    const known = page.getByRole('button', { name: 'Known', exact: true })
-    await known.click()
-    await vi.waitFor(() => expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1))
-    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
-    // Two frames give a re-render that restores the stored value the chance to land.
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    expect(known.element().getAttribute('aria-pressed')).toBe('true')
-    write.open()
-    await vi.waitFor(async () =>
-      expect((await db.user_songs.get(ids.userSongId))?.status).toBe('known'),
-    )
-    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
-    expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1)
-  })
-
-  it('follows a status synced in after a local write lands', async () => {
-    vi.mocked(songsModule.updateUserSong).mockImplementationOnce(async (...args) => {
-      await realUpdateUserSong(...args)
-      // Another device's change pulled in before this page reads the row again.
-      await db.user_songs.update(ids.userSongId, { status: 'want_to_learn' })
-    })
-    show()
-    await expect.element(title()).toBeVisible()
-    await page.getByRole('button', { name: 'Known', exact: true }).click()
-    const unknown = page.getByRole('button', { name: 'Unknown', exact: true })
-    await expect.element(unknown).toHaveAttribute('aria-pressed', 'true')
-    await page.getByRole('button', { name: 'Known', exact: true }).click()
-    await vi.waitFor(async () =>
-      expect((await db.user_songs.get(ids.userSongId))?.status).toBe('known'),
-    )
-    await expect
-      .element(page.getByRole('button', { name: 'Known', exact: true }))
-      .toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('shows a failed status change', async () => {
-    // The write fails after the tap has finished, as a real IndexedDB write does; a rejection
-    // inside the tap's own events would land between the segment's two change reports.
-    const write = gate()
-    vi.mocked(songsModule.updateUserSong).mockImplementationOnce(async () => {
-      await write.opened
-      throw new Error('Could not save')
-    })
-    show()
-    await expect.element(title()).toBeVisible()
-    await page.getByRole('button', { name: 'Known', exact: true }).click()
-    await expect
-      .element(page.getByRole('button', { name: 'Known', exact: true }))
-      .toHaveAttribute('aria-pressed', 'true')
-    write.open()
-    await expect.element(page.getByRole('alert')).toHaveTextContent('Could not save')
-    await expect
-      .element(page.getByRole('button', { name: 'Learning', exact: true }))
-      .toHaveAttribute('aria-pressed', 'true')
-    expect(songsModule.updateUserSong).toHaveBeenCalledTimes(1)
   })
 
   it('lists the lists the song is in and removes it from one', async () => {
