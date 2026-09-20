@@ -36,27 +36,28 @@ e2e *args:
     # build. Every port here is clear of a dev session, so this runs while `just dev` does.
     docker compose up -d --wait
     health="http://localhost:{{ e2e_api_port }}/healthz"
+    # The run owns the port and the database outright, so it never adopts a server whose
+    # database holds rows it did not write.
     if curl -fsS "$health" > /dev/null 2>&1; then
-        # Dropping a database out from under a live pool is worse than a stale fixture, so a
-        # reused API keeps whatever its database holds. Restart it to get a clean one.
-        echo "reusing the API already on :{{ e2e_api_port }}; its database is not reset"
-    else
-        log="${TMPDIR:-/tmp}/crosstune-e2e-api.log"
-        # CI meets a database that never held a fixture. Locally this one outlives every run,
-        # and rows left by the last one change what a search returns, so it starts empty too.
-        just api::e2e-db-reset
-        echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
-        just api::run-e2e > "$log" 2>&1 &
-        # uvicorn outlives the `just` that spawned it, so its port is what finds it again.
-        trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true' EXIT
-        # The recipe creates and migrates the database before it serves, so this waits for
-        # more than a process start.
-        for _ in $(seq 1 90); do
-            curl -fsS "$health" > /dev/null 2>&1 && break
-            sleep 1
-        done
-        curl -fsS "$health" > /dev/null 2>&1 || { cat "$log"; echo "the e2e API did not start" >&2; exit 1; }
+        echo "something already serves :{{ e2e_api_port }}" >&2
+        echo "stop it, or run 'just web::e2e' to use it and keep its database" >&2
+        exit 1
     fi
+    log="${TMPDIR:-/tmp}/crosstune-e2e-api.log"
+    # The database lives only as long as the run. CI meets one that never held a fixture, and
+    # a local database that outlived a run would feed the next one rows that change what a
+    # search returns. uvicorn outlives the `just` that spawned it, so its port finds it again.
+    trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true; just api::e2e-db-drop > /dev/null' EXIT
+    just api::e2e-db-reset
+    echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
+    just api::run-e2e > "$log" 2>&1 &
+    # The recipe creates and migrates the database before it serves, so this waits for
+    # more than a process start.
+    for _ in $(seq 1 90); do
+        curl -fsS "$health" > /dev/null 2>&1 && break
+        sleep 1
+    done
+    curl -fsS "$health" > /dev/null 2>&1 || { cat "$log"; echo "the e2e API did not start" >&2; exit 1; }
     just web::e2e {{ args }}
 
 # Remove build artifacts and caches everywhere

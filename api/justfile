@@ -86,6 +86,10 @@ e2e-db: (_e2e-db "keep")
 [group('db')]
 e2e-db-reset: (_e2e-db "recreate")
 
+# Drop the end-to-end database, leaving nothing behind
+[group('db')]
+e2e-db-drop: (_e2e-db "drop")
+
 [private]
 _e2e-db mode:
     #!/usr/bin/env bash
@@ -115,11 +119,14 @@ _e2e-db mode:
             server = parts.netloc.rsplit("@", 1)[-1]
             sys.exit(f"no Postgres at {server}: {exc}. Start it with `docker compose up -d`")
         try:
-            if mode == "recreate":
+            if mode in {"recreate", "drop"}:
                 # Postgres refuses to drop a database that still has sessions on it, and a
-                # reset follows a run whose API may still hold its pool open.
+                # drop follows a run whose API may still hold its pool open.
+                existed = await conn.fetchval("select 1 from pg_database where datname = $1", name)
                 await conn.execute(f'drop database if exists "{identifier}" with (force)')
-                print(f"dropped {name}")
+                print(f"dropped {name}" if existed else f"{name} was not there")
+            if mode == "drop":
+                return
             if await conn.fetchval("select 1 from pg_database where datname = $1", name):
                 print(f"{name} is already there")
             else:
@@ -131,8 +138,10 @@ _e2e-db mode:
 
     asyncio.run(prepare())
     PY
-    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run alembic upgrade head
-    echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
+    if [ '{{ mode }}' != "drop" ]; then
+        CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run alembic upgrade head
+        echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
+    fi
 
 # Export the OpenAPI schema for the web client
 [group('contract')]
