@@ -1,14 +1,13 @@
 import { IonButton, IonItem, IonLabel, useIonRouter } from '@ionic/react'
 import { Ellipsis, ListX, Music } from 'lucide-react'
-import { useCallback, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { removeFromList } from '../../commands/lists'
-import { deleteSong, setArchived, updateUserSong } from '../../commands/songs'
+import { deleteSong, setArchived } from '../../commands/songs'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { type LocalRecordingLink, type SongStatus } from '../../db/types'
+import { type LocalRecordingLink } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
-import { StatusChooser } from './StatusChooser'
 import { useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
@@ -17,8 +16,8 @@ import { KeyPill } from '../../ui/KeyPill'
 import { useMenu } from '../../ui/Menu'
 import { Row } from '../../ui/Row'
 import { Screen } from '../../ui/Screen'
-import { usePendingWrite } from '../../ui/usePendingWrite'
 import type { CatalogEntry } from '../catalog/filters'
+import { StatusDot } from '../catalog/SongItem'
 import { ListPicker } from '../lists/ListPicker'
 import { useLists, useMembership } from '../lists/useLists'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
@@ -59,14 +58,6 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
   // Refs rather than state: two presses in one tick both read the same committed state.
   const deleting = useRef(false)
   const removing = useRef(new Set<string>())
-  const updateStatus = useCallback(
-    (patch: { status: SongStatus }) =>
-      view ? updateUserSong(db, view.userSong.id, patch) : Promise.resolve(),
-    [db, view],
-  )
-  // The segment shows the chosen status until the row is read again after its write.
-  const [shownUserSong, writeStatus] = usePendingWrite(view?.userSong, updateStatus)
-
   const ready = view !== undefined && instruments !== undefined && recordings !== undefined
   // One Screen in every state: swapping the IonPage element after the router outlet has
   // mounted it would leave the outlet holding a detached page.
@@ -97,13 +88,6 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
       },
       () => (router.canGoBack() ? router.goBack() : router.push(backHref, 'back', 'replace')),
     )
-  }
-
-  const changeStatus = (status: SongStatus) => {
-    // Started before run() touches any state, so the render that follows already carries the
-    // new value onto the segment.
-    const write = writeStatus({ status })
-    run(() => write)
   }
 
   const removeItem = (itemId: string) => {
@@ -186,8 +170,6 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
             const itemId = membership.get(list.id)
             return itemId ? [{ id: list.id, name: list.name, itemId }] : []
           })}
-          status={shownUserSong?.status ?? song.userSong.status}
-          onStatus={changeStatus}
           onOpenList={(listId) => router.push(`/lists/${listId}`, 'forward', 'push')}
           onRemove={removeItem}
           onAddToList={() => setPicking(true)}
@@ -245,24 +227,20 @@ function formatLearnedOn(value: string): string {
 function SongBody({
   entry: { song, userSong },
   badges,
-  status,
   error,
   recordings,
   links,
   inLists,
-  onStatus,
   onOpenList,
   onRemove,
   onAddToList,
 }: {
   entry: CatalogEntry
   badges: { field: string; label: string }[]
-  status: string
   error: string | null
   recordings: readonly RecordingView[]
   links: readonly LocalRecordingLink[]
   inLists: { id: string; name: string; itemId: string }[]
-  onStatus: (status: SongStatus) => void
   onOpenList: (listId: string) => void
   onRemove: (itemId: string) => void
   onAddToList: () => void
@@ -275,29 +253,25 @@ function SongBody({
     <>
       <header className="space-y-1 px-(--form-inset) pt-4">
         <h1 className="type-title m-0">{song.title}</h1>
-        {song.key || mode ? (
-          <p data-key-line className="type-headline m-0 flex items-center gap-2 tabular-nums">
-            {song.key ? <KeyPill value={song.key} /> : null}
-            {mode ? <span>{mode}</span> : null}
-          </p>
-        ) : null}
+        {/* Another name for the song, so it sits with the title rather than among the facets. */}
         {song.alternate_titles.length > 0 ? (
           <p className="type-footnote m-0">{song.alternate_titles.join(', ')}</p>
         ) : null}
-        {badges.length > 0 || archived ? (
-          <div className="flex flex-wrap gap-1 pt-2">
-            {badges.map((badge) => (
-              <Capsule key={badge.field}>{badge.label}</Capsule>
-            ))}
-            {archived ? <Capsule tone="warning">Archived</Capsule> : null}
-          </div>
-        ) : null}
+        {/* Every facet the song holds, in one wrapping row: what it is comes before anything
+            the screen asks the musician to do about it. */}
+        <div data-song-facets className="flex flex-wrap items-center gap-1 pt-2">
+          {song.key ? <KeyPill value={song.key} /> : null}
+          {mode ? <Capsule>{mode}</Capsule> : null}
+          <Capsule>
+            <StatusDot status={userSong.status} />
+          </Capsule>
+          {badges.map((badge) => (
+            <Capsule key={badge.field}>{badge.label}</Capsule>
+          ))}
+          {archived ? <Capsule tone="warning">Archived</Capsule> : null}
+        </div>
         {error ? <InlineError className="pt-2">{error}</InlineError> : null}
       </header>
-
-      <Group header="Status" plain>
-        <StatusChooser value={status} onChange={onStatus} />
-      </Group>
 
       <SongMedia songId={song.id} recordings={recordings} links={links} />
 

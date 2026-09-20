@@ -97,9 +97,15 @@ Three axes decide the chrome. No screen asks which device it is on.
 ## Color, type, and icons
 
 - The palette carries meaning and each platform supplies its own structure. Page
-  background, grouped background, fills, separators, and secondary text come
-  from Ionic's per-mode defaults, so an iPhone gets iOS greys and Android gets
-  Material greys.
+  background, fills, separators, and secondary text come from Ionic's per-mode
+  defaults, so an iPhone gets iOS greys and Android gets Material greys.
+- Every screen and every sheet takes the page background, whether it is one list
+  or a column of cards, so no screen sits a shade apart from the one beside it in
+  the tab bar. A card is told apart from the page under it by a hairline ring in
+  light mode and by a lighter fill in dark, drawn in the color and weight of the
+  separators between its own rows. The ring is a shadow rather than a border,
+  because a border would shrink the card's content box and drift its rows off the
+  inset that every header and footer lines up against.
 - Four Ionic roles carry meaning and no screen invents a fifth. `primary` tints
   anything chosen, `success` and `warning` mark the status dots, `warning` also
   marks a cautionary action, and `danger` marks every destructive one.
@@ -121,6 +127,17 @@ Three axes decide the chrome. No screen asks which device it is on.
   caption, and timer, each defined once per mode. A screen uses a role and never
   sets a size, weight, or tracking of its own. The roles live in
   `layer(components)`, below the utilities, so a utility still wins.
+- A group header takes one of two roles, chosen by what the header does. One
+  that labels a section of a form takes the footnote role in the secondary
+  color, quieter than the rows it introduces. One that carries the name of the
+  thing those rows belong to, a song over its recordings, takes the title role,
+  a step under the screen's own title, so the screen reads from its title down
+  to its rows rather than flat across them.
+- A naming header keeps the tap height whether or not it opens anything, so
+  every group on a screen sets its rows off by the same distance. Where it leads
+  into what it names, a chevron says so and the whole line is the target. The
+  heading keeps the name by itself and the control is named for the verb and the
+  name, so heading navigation and the control each read the way they should.
 - Ionic's own label styles sit outside every layer, so each role is applied
   again unlayered to reach inside an `ion-label`. That rule also beats a color
   utility on the role element. Inside an `ion-label`, put a color utility on a
@@ -152,7 +169,10 @@ Three axes decide the chrome. No screen asks which device it is on.
   that outranks it. Measure a control rather than trusting the class on it.
 - Every icon comes from `lucide-react` as a named import, sized with a `size-*`
   class, and hidden from assistive technology inside a control that carries its
-  own name. A text character is never an icon.
+  own name.
+- A glyph on a button with a word beside it goes in the button's `start` slot,
+  which the theme spaces. Ionic spaces that slot only for an icon element of its
+  own, so a glyph set anywhere else sits against its word. A text character is never an icon.
 
 ## Identity
 
@@ -186,10 +206,14 @@ song's title and key its own way.
 
 ## Keys, modes, and tunings
 
-- A row shows the key alone, never the mode. The song page shows both as one
-  line under the title: "A mixolydian".
+- A row shows the key alone, never the mode.
 - Modes are lowercase everywhere, in pickers, filters, and badges.
 - A facet appears as a capsule only when the song holds the value.
+- The song page carries every facet the song holds in one wrapping row under the
+  title: the key first, then the mode, the status, and the rest. What the song is
+  reads as one thing, so no facet sits on a line of its own and none is ranked
+  above another by where it landed. The row wraps rather than scrolling, because
+  a facet past the edge of a rail is a facet the musician never learns about.
 - A tuning field, filter, or badge appears only for an instrument the musician
   plays. The one exception is a field that already holds a value, which is
   always shown so data never becomes unreachable. A song row is stricter and
@@ -226,6 +250,10 @@ song's title and key its own way.
 - One control means one thing everywhere, so status is a row of capsules wherever
   a musician sets or filters it. A filter's row leads with All, because a filter
   can narrow nothing.
+- The song page shows status as a facet and does not set it. A song is read far
+  more often than its status is changed, and a control on the page would rank
+  status above every other facet beside it, so the change happens where every
+  other facet is changed: the edit sheet.
 - The status control never clears: a song always has a status, so pressing the
   chosen capsule leaves it chosen. A field that can be empty does the opposite,
   and pressing its chosen value clears it.
@@ -384,7 +412,7 @@ route and no save bar.
   footer in red. Help text is never a row inside a card, because a line between
   two hairlines reads as another row.
 - A control that is not a list, a segmented control or a grid of pills, sits on
-  the grouped background at the same gutter as the cards.
+  the page at the same gutter as the cards.
 - A form ranks its fields by how often a musician touches them. The rare ones go
   last, in one list of rows.
 - One spacing scale serves every form and every grouped screen: a 16px gutter for
@@ -462,7 +490,9 @@ Recordings and links share one row shape.
   musician typed, what the provider resolved, and what the app can compose from
   the date. Where a heading above the row already carries part of that name, the
   row drops it rather than repeating it.
-- The second line joins the row's metadata with middle dots. A third line, in
+- The second line joins the row's metadata with middle dots, and on a link it is
+  the link out to the provider instead. Either way it sits the same distance
+  under the title, so two rows in one list read as one shape. A third line, in
   red, carries a transfer error and a Retry button at the trailing edge.
 - A state that needs nothing from the musician shows when the item was made
   rather than naming itself, so the words that remain all mean something needs
@@ -471,8 +501,14 @@ Recordings and links share one row shape.
 - Sizes truncate rather than round, so a size never overstates. Durations read
   `m:ss`.
 - The provider is named once on a row and nowhere else on it.
-- Recordings group under their song, headed by the song's own row where the
-  catalog holds the song and by a plain header otherwise.
+- A song's recordings and its links are one list, headed Recordings, with the
+  recordings first because they are the musician's own. Both answer the one
+  question the section exists for, how to hear this song, and a second header
+  between them would break that answer in two.
+- On the recordings screen, recordings group under their song, headed by that
+  song's name and nothing else. The key, the status, and the tunings stay on the catalog's own song row,
+  because a header that repeats them competes with the rows it introduces. The
+  header opens the song.
 - The dock opens only from a play tap. Opening a song never loads a player. At
   most one item is loaded, and it stays loaded while the musician browses.
 - A live recording refuses a swipe dismissal, so its own controls are the ways
@@ -533,7 +569,7 @@ column instead of rebuilding the pattern.
 | List row for lists                        | `src/features/lists/ListItem.tsx`                                                            |
 | Status labels                             | `src/features/catalog/status.ts`                                                             |
 | Status chooser                            | `src/features/song/StatusChooser.tsx`                                                        |
-| Key and mode line, facet capsules         | `src/features/song/SongScreen.tsx`                                                           |
+| Facet row under a song's title            | `src/features/song/SongScreen.tsx`                                                           |
 | Capsule, rail chip, and badge             | `src/ui/Capsule.tsx`                                                                         |
 | Which tunings to show                     | `src/features/settings/instruments.ts`                                                       |
 | Instrument checkboxes, first-run question | `src/features/settings/InstrumentRows.tsx`, `src/features/settings/FirstRunSheet.tsx`        |

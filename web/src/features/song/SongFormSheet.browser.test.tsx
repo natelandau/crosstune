@@ -470,11 +470,15 @@ describe('SongFormSheet', () => {
     await expect.element(page.getByText('Edit song')).toBeVisible()
     await page.getByLabelText('Title').fill('Cluck Old Hen (A)')
     await expect.element(page.getByLabelText('Title')).toHaveValue('Cluck Old Hen (A)')
+    // This sheet is where a song's status is changed, so the edit covers it too.
+    await page.getByRole('button', { name: 'Known', exact: true }).click()
     expect((await db.songs.get(songId))?.title).toBe('Cluck Old Hen')
+    expect((await db.user_songs.get(userSongId))?.status).toBe('learning')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await vi.waitFor(async () =>
       expect((await db.songs.get(songId))?.title).toBe('Cluck Old Hen (A)'),
     )
+    expect((await db.user_songs.get(userSongId))?.status).toBe('known')
     const seen = new Set<string>()
     await vi.waitFor(
       () => {

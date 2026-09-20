@@ -220,18 +220,13 @@ ion-modal.sheet-dialog .sheet-dialog-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  background: var(--grouped-background);
+  background: var(--ion-background-color, #ffffff);
 }
 
-/* A screen or sheet made of inset groups, where each group reads as a card. The tokens sit on
-   the element rather than the root so an iOS modal's own background reaches them, and dark mode
-   keeps the page darker than its cards, as each platform's grouped lists do. */
-.grouped {
-  --grouped-background: var(--ion-color-light, #f4f5f8);
-}
-.ion-palette-dark .grouped {
-  --grouped-background: var(--ion-background-color);
-}
+/* A screen or sheet made of inset groups, where each group reads as a card. It takes the page
+   color like every other surface, so a card is told apart by its outline in light mode and by a
+   lighter fill in dark. The row token sits on the element rather than the root so an iOS modal's
+   own background reaches it. */
 .ion-palette-dark.ios .grouped {
   --ion-item-background: var(--ion-card-background);
 }
@@ -239,7 +234,33 @@ ion-modal.sheet-dialog .sheet-dialog-body {
   --ion-item-background: var(--ion-background-color-step-150);
 }
 ion-content.grouped {
-  --background: var(--grouped-background);
+  --background: var(--ion-background-color, #ffffff);
+}
+
+/* A card on a page of its own color has only its outline to give it edges, so light mode rings
+   every inset list in the color and weight of the separators inside it. The ring is a shadow,
+   not a border, because a border would shrink the card's content box and drift its rows off the
+   32px form inset that every header and footer lines up against. Dark mode fills the card
+   lighter instead and needs no ring. */
+html.ios:not(.ion-palette-dark) ion-list.list-inset {
+  box-shadow: 0 0 0 0.55px
+    var(
+      --ion-item-border-color,
+      var(
+        --ion-border-color,
+        var(--ion-color-step-250, var(--ion-background-color-step-250, #c8c7cc))
+      )
+    );
+}
+html.md:not(.ion-palette-dark) ion-list.list-inset {
+  box-shadow: 0 0 0 1px
+    var(
+      --ion-item-border-color,
+      var(
+        --ion-border-color,
+        var(--ion-color-step-150, var(--ion-background-color-step-150, rgba(0, 0, 0, 0.13)))
+      )
+    );
 }
 
 /* The form scale. These are px, not rem, because every edge they line up with is px: Ionic's
@@ -598,6 +619,14 @@ html.md .player-dock-frame {
 .player-dock ion-button {
   min-width: 44px;
   min-height: 44px;
+}
+
+/* Ionic spaces a button's leading glyph only when the slot holds an ion-icon, and every icon
+   here is an svg. The negative start margin is Ionic's own: it pulls the glyph into the
+   button's padding so the glyph and the word stay centered together. */
+ion-button > svg[slot='start'] {
+  margin-inline-start: -0.3em;
+  margin-inline-end: 0.3em;
 }
 
 .record-dome {

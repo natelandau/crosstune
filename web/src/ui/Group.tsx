@@ -9,11 +9,17 @@ import { SectionHeader } from './SectionHeader'
  * scale holds across every screen. A headed section stands further from what precedes it than
  * its header does from its own rows, which is what makes the header read as those rows'.
  *
+ * The header props pass through to `SectionHeader`, which sets what a header at each role reads
+ * like and where it may lead.
+ *
  * Every child of a card must be an IonItem or a Row, since the separator rules find the first
  * and last row by position.
  */
 export function Group({
   header,
+  headerNames = false,
+  onHeaderOpen,
+  headerOpenName,
   name,
   footer,
   error,
@@ -21,6 +27,12 @@ export function Group({
   children,
 }: {
   header?: ReactNode
+  /** Marks a header that names what its rows belong to rather than labeling a section. */
+  headerNames?: boolean
+  /** Opens what a naming header names. */
+  onHeaderOpen?: () => void
+  /** The verb that control takes, read before the header's own name: "Open". */
+  headerOpenName?: string
   /** The list's own accessible name, for a screen whose groups have to be told apart. */
   name?: string
   footer?: ReactNode
@@ -33,9 +45,17 @@ export function Group({
   plain?: boolean
   children: ReactNode
 }) {
+  const opening =
+    onHeaderOpen && headerOpenName !== undefined
+      ? ({ onOpen: onHeaderOpen, openName: headerOpenName } as const)
+      : {}
   return (
     <section className={header ? 'pt-(--form-section-gap)' : 'pt-(--form-gutter)'}>
-      {header ? <SectionHeader>{header}</SectionHeader> : null}
+      {header ? (
+        <SectionHeader names={headerNames} {...opening}>
+          {header}
+        </SectionHeader>
+      ) : null}
       {plain ? (
         children
       ) : (

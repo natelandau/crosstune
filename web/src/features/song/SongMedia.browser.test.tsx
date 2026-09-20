@@ -1,5 +1,4 @@
 import { IonContent, IonPage } from '@ionic/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { addLink } from '../../commands/links'
@@ -99,14 +98,18 @@ const sectionHeaders = () => Array.from(document.querySelectorAll('h2')).map((h)
 const rowTitles = () => Array.from(document.querySelectorAll('h3')).map((h) => h.textContent)
 
 describe('SongMedia', () => {
-  it('names the empty state and the three ways to add a recording', async () => {
+  it('names the empty state and the two ways to add a recording', async () => {
     show()
     await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    for (const name of ['Record', 'Upload', 'Paste link']) {
+    for (const name of ['Record', 'Paste link']) {
       const control = page.getByRole('button', { name, exact: true })
       await expect.element(control).toBeVisible()
       const host = (control.element().getRootNode() as ShadowRoot).host
       expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      // A glyph beside the word, out of the accessibility tree since the word already names it.
+      const glyph = host.querySelector('svg')
+      expect(glyph, `${name} carries no glyph`).not.toBeNull()
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
     }
   })
 
@@ -131,35 +134,6 @@ describe('SongMedia', () => {
     expect(starts).toEqual([songId])
   })
 
-  it('files an uploaded audio file under this song', async () => {
-    show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    await userEvent.upload(
-      page.getByLabelText('Upload audio file').element() as HTMLInputElement,
-      new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }),
-    )
-    await expect.element(page.getByRole('heading', { name: 'jam', level: 3 })).toBeVisible()
-    const [recording] = await db.recordings.toArray()
-    expect(recording?.song_id).toBe(songId)
-  })
-
-  it('shows a refused upload on one line under the groups', async () => {
-    show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    // The accept attribute is only a picker hint; drag-drop and some pickers still deliver a
-    // mismatched file, so the check is bypassed here.
-    await userEvent
-      .setup({ applyAccept: false })
-      .upload(
-        page.getByLabelText('Upload audio file').element() as HTMLInputElement,
-        new File(['x'], 'notes.txt', { type: 'text/plain' }),
-      )
-    const line = page.getByRole('alert')
-    await expect.element(line).toHaveTextContent('Choose an audio file.')
-    expect(line.element().closest('ion-item')).toBeNull()
-    expect(line.element().getBoundingClientRect().width).toBeGreaterThan(200)
-  })
-
   it('adds a pasted link as a row of its own', async () => {
     show()
     await page.getByRole('button', { name: 'Paste link', exact: true }).click()
@@ -171,24 +145,40 @@ describe('SongMedia', () => {
     await expect.element(page.getByRole('link', { name: 'Open youtu.be on YouTube' })).toBeVisible()
   })
 
-  it('lists recordings above links', async () => {
+  it('holds recordings and links in one list, recordings first', async () => {
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Jam recording' }))
     await addLink(db, songId, { ...youtube, title: 'Slow version' })
     show()
     await expect.element(page.getByRole('heading', { name: 'Slow version' })).toBeVisible()
-    expect(sectionHeaders()).toEqual(['Recordings', 'Links'])
+    expect(sectionHeaders()).toEqual(['Recordings'])
     expect(rowTitles()).toEqual(['Jam recording', 'Slow version'])
+    const list = page.getByRole('list', { name: 'Recordings' })
+    await expect.element(list.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
+    await expect.element(list.getByRole('heading', { name: 'Slow version' })).toBeVisible()
   })
 
-  it('names each list, so a row is reached through the group it belongs to', async () => {
+  it("sits a link's provider line where a recording's metadata sits", async () => {
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Jam recording' }))
     await addLink(db, songId, { ...youtube, title: 'Slow version' })
     show()
     await expect.element(page.getByRole('heading', { name: 'Slow version' })).toBeVisible()
-    const recordings = page.getByRole('list', { name: 'Recordings' })
-    const links = page.getByRole('list', { name: 'Links' })
-    await expect.element(recordings.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
-    await expect.element(links.getByRole('heading', { name: 'Slow version' })).toBeVisible()
+    const row = (title: string) =>
+      Array.from(document.querySelectorAll('ion-item')).find(
+        (item) => item.querySelector('h3')?.textContent === title,
+      )!
+    const gap = (item: Element, second: Element) =>
+      second.getBoundingClientRect().top - item.querySelector('h3')!.getBoundingClientRect().bottom
+    await vi.waitFor(() => {
+      const recording = row('Jam recording')
+      const link = row('Slow version')
+      const below = gap(recording, recording.querySelector('p.type-subheadline')!)
+      const under = gap(link, link.querySelector('.row-note a')!)
+      // A pixel of slack covers the rounding a line box takes at a text size the setting moves.
+      expect(
+        Math.abs(under - below),
+        `link ${under} against recording ${below}`,
+      ).toBeLessThanOrEqual(1)
+    })
   })
 
   it('unfiles a recording from its own row', async () => {

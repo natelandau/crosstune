@@ -1,5 +1,5 @@
 import { IonButton } from '@ionic/react'
-import { AudioLines, Trash2 } from 'lucide-react'
+import { AudioLines, Link, Mic, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { removeLink } from '../../commands/links'
 import { useDb } from '../../db/DbProvider'
@@ -13,12 +13,11 @@ import { useRecord } from '../recording/useRecord'
 import { retryKind } from '../recordings/recordingRow'
 import { RecordingItem } from '../recordings/RecordingItem'
 import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
-import { UploadButton } from '../recordings/UploadButton'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
 
 /**
- * How a song sounds: the recordings made of it, the links to it elsewhere, and the three ways to
+ * How a song sounds: the recordings made of it, the links to it elsewhere, and the two ways to
  * add one. Groups only, never a page of its own, so the song screen keeps its single Screen.
  */
 export function SongMedia({
@@ -36,7 +35,7 @@ export function SongMedia({
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   const [pasting, setPasting] = useState(false)
   // No Add to song: every recording here is already filed under the song being looked at.
-  const { error, setUploadError, run, retry, actionsFor } = useRecordingActions({
+  const { error, run, retry, actionsFor } = useRecordingActions({
     onRename: setRenaming,
   })
 
@@ -45,7 +44,9 @@ export function SongMedia({
       {recordings.length === 0 && links.length === 0 ? (
         <EmptyState compact icon={AudioLines} title="Nothing recorded yet" />
       ) : null}
-      {recordings.length > 0 ? (
+      {recordings.length > 0 || links.length > 0 ? (
+        // One list, because a recording and a link are one row shape doing one job for the
+        // musician: hear this song. Recordings lead, since they are the musician's own.
         <Group header="Recordings" name="Recordings">
           {recordings.map((view) => (
             <RecordingItem
@@ -58,10 +59,6 @@ export function SongMedia({
               onRetry={(kind) => retry(view, kind)}
             />
           ))}
-        </Group>
-      ) : null}
-      {links.length > 0 ? (
-        <Group header="Links" name="Links">
           {links.map((link) => (
             <LinkItem
               key={link.id}
@@ -83,10 +80,11 @@ export function SongMedia({
       {error ? <InlineError className="px-(--form-inset) pt-1.5">{error}</InlineError> : null}
       <div className="flex flex-wrap gap-2 px-(--form-gutter) pt-3">
         <IonButton className="min-h-11" onClick={() => start(songId)}>
+          <Mic aria-hidden="true" slot="start" className="size-5" />
           Record
         </IonButton>
-        <UploadButton songId={songId} onError={setUploadError} />
         <IonButton className="min-h-11" onClick={() => setPasting(true)}>
+          <Link aria-hidden="true" slot="start" className="size-5" />
           Paste link
         </IonButton>
       </div>
