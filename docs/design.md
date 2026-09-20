@@ -240,15 +240,15 @@ song's title and key its own way.
 ## Status
 
 - A song is known, learning, or want to learn, labeled "Known", "Learning", and
-  "Unknown". One word each fits the control on a phone without wrapping.
+  "Unknown". One word each keeps the control to one line on a phone.
 - Status is never shown as color alone. Where a dot appears, its label appears
   beside it. Known is a filled dot in the success color, learning a filled dot
   in the warning color, and want to learn a hollow ring.
 - A chosen capsule fills with `primary`, and success is that same slate, so the
   chosen dot takes the contrast color rather than disappearing into the fill
   behind it.
-- One control means one thing everywhere, so status is a row of capsules wherever
-  a musician sets or filters it. A filter's row leads with All, because a filter
+- One control means one thing everywhere, so status is a rail of capsules wherever
+  a musician sets or filters it. A filter's rail leads with All, because a filter
   can narrow nothing.
 - The song page shows status as a facet and does not set it. A song is read far
   more often than its status is changed, and a control on the page would rank
@@ -307,8 +307,11 @@ Only the catalog has filters.
   nothing else. Done closes it.
 - A set filter shows on the screen as a removable capsule, so nothing narrows the
   list without saying so.
-- A rail of chips that can overflow fades at its end while there is more to
-  scroll to, and the fade goes once there is not.
+- A rail of chips stays on one line at every width and text size. It scrolls
+  rather than wrapping, because a control that spills onto a second line reads as
+  two groups. It fades at its end while there is more to scroll to, the fade goes
+  once there is not, and the chosen chip is scrolled into view, so a filter
+  restored from the last session never reads as though nothing is chosen.
 - Under the list a count reads "84 songs", or "11 of 84 songs" while anything
   narrows it. The count is absent while the catalog holds no songs at all.
 - Matching ignores case and accents.
@@ -586,6 +589,7 @@ column instead of rebuilding the pattern.
 | Status chooser                            | `src/features/song/StatusChooser.tsx`                                                        |
 | Facet row under a song's title            | `src/features/song/SongScreen.tsx`                                                           |
 | Capsule, rail chip, and badge             | `src/ui/Capsule.tsx`                                                                         |
+| Scrolling rail with its end fade          | `src/ui/Rail.tsx`                                                                            |
 | Which tunings to show                     | `src/features/settings/instruments.ts`                                                       |
 | Instrument checkboxes and their sheets    | `src/features/settings/InstrumentRows.tsx`, `InstrumentsGroup.tsx`, `FirstRunSheet.tsx`      |
 | Suggestion vocabularies                   | `src/features/song/suggestions.ts`                                                           |
