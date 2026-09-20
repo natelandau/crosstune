@@ -7,6 +7,10 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 mod api
 mod web
 
+# Where the end-to-end API serves, matching e2e_port in api/justfile and e2e_api in
+# web/justfile. Not the :8000 of a dev session, so `just e2e` runs while `just dev` does.
+e2e_api_port := "8001"
+
 [private]
 default:
     @just --list
@@ -21,8 +25,39 @@ typos *paths:
 # Check formatting in every module
 format: api::format web::format
 
-# Run every test suite
+# Run every unit and integration suite; the end-to-end suite is `just e2e`
 test: api::test web::test
+
+# Run the end-to-end suite; extra args go to Playwright
+e2e *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Postgres, the API on the database the suite owns, then Playwright against a production
+    # build. Every port here is clear of a dev session, so this runs while `just dev` does.
+    docker compose up -d --wait
+    health="http://localhost:{{ e2e_api_port }}/healthz"
+    if curl -fsS "$health" > /dev/null 2>&1; then
+        # Dropping a database out from under a live pool is worse than a stale fixture, so a
+        # reused API keeps whatever its database holds. Restart it to get a clean one.
+        echo "reusing the API already on :{{ e2e_api_port }}; its database is not reset"
+    else
+        log="${TMPDIR:-/tmp}/crosstune-e2e-api.log"
+        # CI meets a database that never held a fixture. Locally this one outlives every run,
+        # and rows left by the last one change what a search returns, so it starts empty too.
+        just api::e2e-db-reset
+        echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
+        just api::run-e2e > "$log" 2>&1 &
+        # uvicorn outlives the `just` that spawned it, so its port is what finds it again.
+        trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true' EXIT
+        # The recipe creates and migrates the database before it serves, so this waits for
+        # more than a process start.
+        for _ in $(seq 1 90); do
+            curl -fsS "$health" > /dev/null 2>&1 && break
+            sleep 1
+        done
+        curl -fsS "$health" > /dev/null 2>&1 || { cat "$log"; echo "the e2e API did not start" >&2; exit 1; }
+    fi
+    just web::e2e {{ args }}
 
 # Remove build artifacts and caches everywhere
 clean: api::clean web::clean

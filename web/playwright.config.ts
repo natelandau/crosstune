@@ -6,6 +6,10 @@ try {
   // CI and fresh clones set the variables another way or skip e2e.
 }
 
+// Not the :5173 `just dev` serves, so the suite runs beside a dev session. The Clerk instance
+// and every api/.env already name this origin as an authorized party.
+const PORT = 4173
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
@@ -14,13 +18,16 @@ export default defineConfig({
   timeout: 90_000,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'pnpm vite build && pnpm vite preview --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
+    command: `pnpm vite build && pnpm vite preview --port ${PORT} --strictPort`,
+    url: `http://localhost:${PORT}`,
+    // Never adopt a server someone else started: `just web::preview` serves this port with
+    // the proxy pointed at the development API, and a suite that reused it would write its
+    // fixtures into a database filled by hand. --strictPort makes that collision loud.
+    reuseExistingServer: false,
     timeout: 180_000,
   },
   projects: [

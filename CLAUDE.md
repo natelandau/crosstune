@@ -43,6 +43,12 @@ aggregate across modules (`just test` runs `api::test` and `web::test`).
 - Postgres data lives in the `crosstune_postgres-data` Docker volume, and the compose
   project name is fixed to `crosstune`, so every checkout and worktree shares one
   database. `just dev` from a worktree reuses the running container.
+- `just test` does not run the Playwright suite. `just e2e` does, and it runs beside a
+  `just dev` session: it serves the API on `:8001` against the `crosstune_e2e` database,
+  which it resets first, and Playwright previews the production build on `:4173`. Extra
+  args narrow the run (`just e2e e2e/core-loop.spec.ts`). It needs the Clerk keys in
+  `web/.env`. Change a label, a heading, or a group name and check `web/e2e/` too: those
+  specs query by accessible name and only `just e2e` catches a rename.
 - New API recipes go in `api/justfile`, new web recipes in `web/justfile`. A
   root aggregate recipe should call both `api::<name>` and `web::<name>`.
 - Tag recipes with `[group('api')]`, `[group('web')]`, or `[group('all')]` so

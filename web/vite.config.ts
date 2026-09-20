@@ -9,8 +9,11 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
   version: string
 }
 
-// Same-origin in dev and preview so the API needs no CORS locally.
-const apiProxy = { '/v1': { target: 'http://localhost:8000', changeOrigin: true } }
+// Same-origin in dev and preview so the API needs no CORS locally. The end-to-end suite
+// overrides the target, because it serves its own API on a database it is free to reset.
+const apiProxy = (env: Record<string, string>) => ({
+  '/v1': { target: env.API_PROXY_TARGET || 'http://localhost:8000', changeOrigin: true },
+})
 
 // Node resolves localhost to ::1 first on macOS, which would leave nothing on
 // 127.0.0.1 for a proxy such as Tailscale Serve, which only targets IPv4.
@@ -18,18 +21,22 @@ const host = '127.0.0.1'
 
 // Vite answers only to localhost and IP addresses unless a hostname is listed
 // here, so a proxy such as Tailscale Serve needs its hostname allowed.
-const allowedHosts = (mode: string) =>
-  (loadEnv(mode, process.cwd(), '').DEV_SERVER_ALLOWED_HOSTS ?? '')
+const allowedHosts = (env: Record<string, string>) =>
+  (env.DEV_SERVER_ALLOWED_HOSTS ?? '')
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
 
 export default defineConfig(({ mode }) => {
-  const hosts = allowedHosts(mode)
+  // An empty prefix takes the process environment too, which is how a recipe hands the
+  // end-to-end suite's API origin down to the preview server Playwright starts.
+  const env = loadEnv(mode, process.cwd(), '')
+  const proxy = apiProxy(env)
+  const hosts = allowedHosts(env)
   return {
     plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-    server: { host, port: 5173, proxy: apiProxy, allowedHosts: hosts },
-    preview: { host, port: 4173, proxy: apiProxy, allowedHosts: hosts },
+    server: { host, port: 5173, proxy, allowedHosts: hosts },
+    preview: { host, port: 4173, proxy, allowedHosts: hosts },
   }
 })

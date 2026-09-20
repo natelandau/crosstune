@@ -65,7 +65,7 @@ jobs:
           # The recipe creates and migrates the database before it serves, so this waits for
           # more than a process start.
           for _ in $(seq 1 90); do
-            curl -fsS http://localhost:8000/healthz > /dev/null && exit 0
+            curl -fsS http://localhost:8001/healthz > /dev/null && exit 0
             sleep 1
           done
           cat "$RUNNER_TEMP/api.log"

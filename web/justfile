@@ -3,6 +3,10 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Where `just api::run-e2e` serves. Not the :8000 of a dev session, so the suite and
+# `just dev` run side by side.
+e2e_api := "http://localhost:8001"
+
 [private]
 default:
     @just --list web
@@ -52,18 +56,20 @@ test-unit *args:
 test-browser *args:
     pnpm vitest run --project browser --project browser-ios {{ args }}
 
-# Run the Playwright suite against a production build; needs the e2e API on :8000 and Clerk env
+# Run the Playwright suite against a production build; needs the e2e API and Clerk env
 [group('test')]
 e2e *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    fix="start one with 'just api::run-e2e'"
+    fix="run 'just e2e' from the repository root, which starts one"
     # Only a database the e2e suite owns names itself in the health response, so an API
     # bound to anyone's development database is turned away before a fixture is written.
-    health=$(curl -fsS http://localhost:8000/healthz) || { echo "no API answers on :8000: $fix" >&2; exit 1; }
+    health=$(curl -fsS {{ e2e_api }}/healthz) || { echo "no API answers on {{ e2e_api }}: $fix" >&2; exit 1; }
     node -e 'process.exit(JSON.parse(process.argv[1]).database ? 0 : 1)' "$health" \
-        || { echo "the API on :8000 is not bound to the e2e database: $fix" >&2; exit 1; }
-    pnpm playwright test {{ args }}
+        || { echo "the API on {{ e2e_api }} is not bound to the e2e database: $fix" >&2; exit 1; }
+    # The preview server Playwright starts proxies /v1, so this is what sends the suite's
+    # writes to the e2e database rather than to whatever :8000 is serving.
+    API_PROXY_TARGET='{{ e2e_api }}' pnpm playwright test {{ args }}
 
 # Run the dev server with the /v1 proxy
 [group('run')]

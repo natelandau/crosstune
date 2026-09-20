@@ -11,6 +11,10 @@ py_src := "src/ tests/"
 e2e_db := "crosstune_e2e"
 e2e_database_url := "postgresql+asyncpg://crosstune:crosstune@localhost:5432/" + e2e_db
 
+# Not the :8000 `just dev` serves, so the suite runs without stopping a dev session. The root
+# justfile starts this port and web/justfile points the preview proxy at it.
+e2e_port := "8001"
+
 [private]
 default:
     @just --list api
@@ -61,8 +65,8 @@ run:
 # Run the API against the end-to-end database, for `just web::e2e`
 [group('run')]
 run-e2e: e2e-db
-    @echo "serving {{ e2e_db }} on :8000"
-    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run uvicorn crosstune.main:app --port 8000
+    @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
+    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run uvicorn crosstune.main:app --port {{ e2e_port }}
 
 # Apply pending migrations
 [group('db')]
