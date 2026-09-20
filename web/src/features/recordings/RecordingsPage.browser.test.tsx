@@ -112,20 +112,14 @@ describe('RecordingsPage', () => {
     expect(headings).toEqual(['H2', 'H3'])
   })
 
-  it('draws a group as a card against a page of another color', async () => {
+  it('lays its groups out as cards on the grouped surface', async () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     const item = document.querySelector('ion-item')!
-    const content = document.querySelector('ion-content')!
+    expect(document.querySelector('ion-content')!.classList.contains('grouped')).toBe(true)
     await vi.waitFor(() => {
-      const card = item.shadowRoot?.querySelector('.item-native')
-      const behind = content.shadowRoot?.querySelector('#background-content')
-      expect(card, 'the row has not hydrated').toBeTruthy()
-      expect(behind, 'the content has not hydrated').toBeTruthy()
-      expect(getComputedStyle(card!).backgroundColor).not.toBe(
-        getComputedStyle(behind!).backgroundColor,
-      )
+      expect(item.closest('ion-list')!.classList.contains('list-inset')).toBe(true)
     })
   })
 

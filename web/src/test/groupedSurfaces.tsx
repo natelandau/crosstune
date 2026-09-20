@@ -36,13 +36,26 @@ async function cardRow(): Promise<Element> {
   return label.closest('ion-item')!
 }
 
-async function expectCardLighter(surface: () => string, card: Element) {
+/** The ring the card's list paints, or 'none' where it paints none. */
+function ring(card: Element): string {
+  const list = card.closest('ion-list')
+  return list ? getComputedStyle(list).boxShadow : 'none'
+}
+
+/**
+ * Every surface takes the page color, so a card is told apart by one of two means and each mode
+ * uses only its own: dark mode fills the card lighter, light mode rings it.
+ */
+async function expectCardReads(theme: string, surface: () => string, card: Element) {
   await vi.waitFor(() => {
     const cardColor = shadowBackground(card, '.item-native')
     const surfaceColor = surface()
-    expect(luminance(cardColor), `card ${cardColor} on ${surfaceColor}`).toBeGreaterThan(
-      luminance(surfaceColor),
-    )
+    const where = `card ${cardColor} on ${surfaceColor}`
+    if (theme === 'dark') {
+      expect(luminance(cardColor), where).toBeGreaterThan(luminance(surfaceColor))
+    } else {
+      expect(ring(card), where).not.toBe('none')
+    }
   })
 }
 
@@ -61,8 +74,9 @@ function forceTouch() {
 }
 
 /**
- * Checks that a grouped screen, a touch sheet, and a mouse dialog draw their cards lighter than
- * the background behind them, in light and in dark mode, for whichever mode the project forces.
+ * Checks that a grouped screen, a touch sheet, and a mouse dialog each draw a card that reads
+ * against the background behind it, in light and in dark mode, for whichever mode the project
+ * forces.
  */
 export function groupedSurfaceTests(mode: string) {
   describe.each(['light', 'dark'])(`grouped surfaces on ${mode} in %s mode`, (theme) => {
@@ -74,7 +88,7 @@ export function groupedSurfaceTests(mode: string) {
     const applyTheme = () =>
       document.documentElement.classList.toggle('ion-palette-dark', theme === 'dark')
 
-    it('sets a grouped screen card lighter than the page', async () => {
+    it('sets a grouped screen card apart from the page', async () => {
       applyTheme()
       renderScreen(
         <Screen title="Song" level="pushed" grouped>
@@ -84,10 +98,10 @@ export function groupedSurfaceTests(mode: string) {
       )
       const card = await cardRow()
       const content = card.closest('ion-content')!
-      await expectCardLighter(() => shadowBackground(content, '#background-content'), card)
+      await expectCardReads(theme, () => shadowBackground(content, '#background-content'), card)
     })
 
-    it('sets a touch sheet card lighter than the sheet', async () => {
+    it('sets a touch sheet card apart from the sheet', async () => {
       applyTheme()
       forceTouch()
       renderIonic(
@@ -98,10 +112,10 @@ export function groupedSurfaceTests(mode: string) {
       )
       const card = await cardRow()
       const content = card.closest('ion-content')!
-      await expectCardLighter(() => shadowBackground(content, '#background-content'), card)
+      await expectCardReads(theme, () => shadowBackground(content, '#background-content'), card)
     })
 
-    it('sets a mouse dialog card lighter than the dialog', async () => {
+    it('sets a mouse dialog card apart from the dialog', async () => {
       applyTheme()
       renderIonic(
         <Sheet open title="Edit song" onClose={() => {}}>
@@ -111,7 +125,7 @@ export function groupedSurfaceTests(mode: string) {
       )
       const card = await cardRow()
       const body = card.closest('.sheet-dialog-body')!
-      await expectCardLighter(() => getComputedStyle(body).backgroundColor, card)
+      await expectCardReads(theme, () => getComputedStyle(body).backgroundColor, card)
     })
   })
 }

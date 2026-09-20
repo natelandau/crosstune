@@ -97,9 +97,15 @@ Three axes decide the chrome. No screen asks which device it is on.
 ## Color, type, and icons
 
 - The palette carries meaning and each platform supplies its own structure. Page
-  background, grouped background, fills, separators, and secondary text come
-  from Ionic's per-mode defaults, so an iPhone gets iOS greys and Android gets
-  Material greys.
+  background, fills, separators, and secondary text come from Ionic's per-mode
+  defaults, so an iPhone gets iOS greys and Android gets Material greys.
+- Every screen and every sheet takes the page background, whether it is one list
+  or a column of cards, so no screen sits a shade apart from the one beside it in
+  the tab bar. A card is told apart from the page under it by a hairline ring in
+  light mode and by a lighter fill in dark, drawn in the color and weight of the
+  separators between its own rows. The ring is a shadow rather than a border,
+  because a border would shrink the card's content box and drift its rows off the
+  inset that every header and footer lines up against.
 - Four Ionic roles carry meaning and no screen invents a fifth. `primary` tints
   anything chosen, `success` and `warning` mark the status dots, `warning` also
   marks a cautionary action, and `danger` marks every destructive one.
@@ -384,7 +390,7 @@ route and no save bar.
   footer in red. Help text is never a row inside a card, because a line between
   two hairlines reads as another row.
 - A control that is not a list, a segmented control or a grid of pills, sits on
-  the grouped background at the same gutter as the cards.
+  the page at the same gutter as the cards.
 - A form ranks its fields by how often a musician touches them. The rare ones go
   last, in one list of rows.
 - One spacing scale serves every form and every grouped screen: a 16px gutter for

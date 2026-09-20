@@ -156,20 +156,14 @@ describe('SongScreen', () => {
     expect(line.textContent).toContain('major')
   })
 
-  it('sets its groups as cards on the grouped background', async () => {
+  it('sets its groups as cards on the grouped surface', async () => {
     show()
     await expect.element(title()).toBeVisible()
     const content = title().element().closest('ion-content')!
-    const item = content.querySelector('ion-list ion-item')!
-    const surface = (host: Element, part: string) =>
-      vi.waitFor(() => {
-        const element = host.shadowRoot?.querySelector(part)
-        if (!element) throw new Error(`${part} has not rendered`)
-        return getComputedStyle(element).backgroundColor
-      })
-    const card = await surface(item, '.item-native')
-    await expect.poll(() => surface(content, '#background-content')).not.toBe(card)
-    expect(await surface(content, '#background-content')).not.toBe('rgba(0, 0, 0, 0)')
+    expect(content.classList.contains('grouped')).toBe(true)
+    await vi.waitFor(() => {
+      expect(content.querySelector('ion-list')!.classList.contains('list-inset')).toBe(true)
+    })
   })
 
   it('says when a song was learned when only the date is set', async () => {
