@@ -97,30 +97,37 @@ Run the web unit tests.
 
     just web::test
 
-Run every linter, or every test suite, across both modules.
+Run every linter, or every unit and integration suite, across both modules.
+Neither recipe runs the end-to-end tests.
 
     just lint
     just test
 
-The end-to-end tests sign in through your Clerk instance. Before you run them,
-set two more values in `web/.env`: `CLERK_SECRET_KEY`, the instance's
-secret key that starts with `sk_test_`, and `E2E_CLERK_USER_EMAIL`, the address
-of a user that exists in that instance.
+The end-to-end tests sign in through your Clerk instance, and every run spends
+against that instance's usage limits. Before you run them, set two more values
+in `web/.env`. `CLERK_SECRET_KEY` is the instance's secret key that starts with
+`sk_test_`. `E2E_CLERK_USER_EMAIL` is the address of a user that exists in that
+instance.
 
-The suite owns its own database, `crosstune_e2e`, beside the development
-database in the Postgres server that `compose.yml` starts. Start Postgres with
-`docker compose up -d`, not with `just dev`: that recipe also binds an API to
-the development database, and the suite refuses to run against one. Start the
-API on the e2e database, then run the suite in a second terminal. It builds the
-web client and serves it on port 4173 itself.
+Run the suite from the repository root. Extra arguments go to Playwright.
 
-    docker compose up -d
+    just e2e
+    just e2e e2e/core-loop.spec.ts
+
+The recipe starts Postgres, serves the API on port 8001, and builds the web
+client onto port 4173. Port 8000 stays free, so the suite runs beside a
+`just dev` session. The suite owns the database `crosstune_e2e`, beside the
+development database in the Postgres server that `compose.yml` starts. The
+recipe creates that database for the run and drops it afterwards, so every run
+starts from an empty one.
+
+To keep a database to examine after a failure, serve the API yourself. Then run
+the suite against it from a second terminal. This form drops nothing.
+
     just api::run-e2e
     just web::e2e
 
-The first recipe creates the database if it is absent and migrates it. The
-suite leaves its fixtures behind, so the database grows with every run. To
-drop it, recreate it empty, and migrate it again, run:
+To empty that database between runs, run:
 
     just api::e2e-db-reset
 

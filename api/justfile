@@ -11,6 +11,10 @@ py_src := "src/ tests/"
 e2e_db := "crosstune_e2e"
 e2e_database_url := "postgresql+asyncpg://crosstune:crosstune@localhost:5432/" + e2e_db
 
+# Not the :8000 `just dev` serves, so the suite runs without stopping a dev session. The root
+# justfile starts this port and web/justfile points the preview proxy at it.
+e2e_port := "8001"
+
 [private]
 default:
     @just --list api
@@ -61,8 +65,8 @@ run:
 # Run the API against the end-to-end database, for `just web::e2e`
 [group('run')]
 run-e2e: e2e-db
-    @echo "serving {{ e2e_db }} on :8000"
-    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run uvicorn crosstune.main:app --port 8000
+    @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
+    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run uvicorn crosstune.main:app --port {{ e2e_port }}
 
 # Apply pending migrations
 [group('db')]
@@ -81,6 +85,10 @@ e2e-db: (_e2e-db "keep")
 # Drop the end-to-end database, recreate it empty, and migrate it to head
 [group('db')]
 e2e-db-reset: (_e2e-db "recreate")
+
+# _e2e-db also takes "drop", which leaves no database behind. It has no recipe of its own,
+# because `just e2e` drops what it created and nothing else has a database to drop.
+
 
 [private]
 _e2e-db mode:
@@ -111,11 +119,14 @@ _e2e-db mode:
             server = parts.netloc.rsplit("@", 1)[-1]
             sys.exit(f"no Postgres at {server}: {exc}. Start it with `docker compose up -d`")
         try:
-            if mode == "recreate":
+            if mode in {"recreate", "drop"}:
                 # Postgres refuses to drop a database that still has sessions on it, and a
-                # reset follows a run whose API may still hold its pool open.
+                # drop follows a run whose API may still hold its pool open.
+                existed = await conn.fetchval("select 1 from pg_database where datname = $1", name)
                 await conn.execute(f'drop database if exists "{identifier}" with (force)')
-                print(f"dropped {name}")
+                print(f"dropped {name}" if existed else f"{name} was not there")
+            if mode == "drop":
+                return
             if await conn.fetchval("select 1 from pg_database where datname = $1", name):
                 print(f"{name} is already there")
             else:
@@ -127,8 +138,10 @@ _e2e-db mode:
 
     asyncio.run(prepare())
     PY
-    CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run alembic upgrade head
-    echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
+    if [ '{{ mode }}' != "drop" ]; then
+        CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run alembic upgrade head
+        echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
+    fi
 
 # Export the OpenAPI schema for the web client
 [group('contract')]

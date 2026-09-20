@@ -52,7 +52,9 @@ fails. Production has no host-side gate. The `Release` workflow runs the
 branch only when both pass, so neither host builds an untested commit.
 
 The `E2E` workflow runs the Playwright suite on each pull request that
-changes `web/` or `api/`, and from the Actions tab on demand. It signs in
+changes `web/` or `api/`, and from the Actions tab on demand. `just e2e` runs
+the same suite locally, against the API on the `crosstune_e2e` database rather
+than the one a development session serves, so it needs no session stopped. It signs in
 through the live Clerk development instance. Its job is not a required
 status check in the `main` ruleset. As a required check, an outage or a rate
 limit at Clerk can block unrelated merges. A new push to the same pull
