@@ -621,6 +621,14 @@ html.md .player-dock-frame {
   min-height: 44px;
 }
 
+/* Ionic spaces a button's leading glyph only when the slot holds an ion-icon, and every icon
+   here is an svg. The negative start margin is Ionic's own: it pulls the glyph into the
+   button's padding so the glyph and the word stay centered together. */
+ion-button > svg[slot='start'] {
+  margin-inline-start: -0.3em;
+  margin-inline-end: 0.3em;
+}
+
 .record-dome {
   position: absolute;
   z-index: 20;

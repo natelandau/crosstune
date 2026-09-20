@@ -169,7 +169,10 @@ Three axes decide the chrome. No screen asks which device it is on.
   that outranks it. Measure a control rather than trusting the class on it.
 - Every icon comes from `lucide-react` as a named import, sized with a `size-*`
   class, and hidden from assistive technology inside a control that carries its
-  own name. A text character is never an icon.
+  own name.
+- A glyph on a button with a word beside it goes in the button's `start` slot,
+  which the theme spaces. Ionic spaces that slot only for an icon element of its
+  own, so a glyph set anywhere else sits against its word. A text character is never an icon.
 
 ## Identity
 

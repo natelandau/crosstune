@@ -1,5 +1,4 @@
 import { IonContent, IonPage } from '@ionic/react'
-import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { addLink } from '../../commands/links'
@@ -99,14 +98,18 @@ const sectionHeaders = () => Array.from(document.querySelectorAll('h2')).map((h)
 const rowTitles = () => Array.from(document.querySelectorAll('h3')).map((h) => h.textContent)
 
 describe('SongMedia', () => {
-  it('names the empty state and the three ways to add a recording', async () => {
+  it('names the empty state and the two ways to add a recording', async () => {
     show()
     await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    for (const name of ['Record', 'Upload', 'Paste link']) {
+    for (const name of ['Record', 'Paste link']) {
       const control = page.getByRole('button', { name, exact: true })
       await expect.element(control).toBeVisible()
       const host = (control.element().getRootNode() as ShadowRoot).host
       expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      // A glyph beside the word, out of the accessibility tree since the word already names it.
+      const glyph = host.querySelector('svg')
+      expect(glyph, `${name} carries no glyph`).not.toBeNull()
+      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
     }
   })
 
@@ -129,35 +132,6 @@ describe('SongMedia', () => {
     await page.getByRole('button', { name: 'Record', exact: true }).click()
     await expect.element(page.getByRole('dialog', { name: 'New recording' })).toBeInTheDocument()
     expect(starts).toEqual([songId])
-  })
-
-  it('files an uploaded audio file under this song', async () => {
-    show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    await userEvent.upload(
-      page.getByLabelText('Upload audio file').element() as HTMLInputElement,
-      new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }),
-    )
-    await expect.element(page.getByRole('heading', { name: 'jam', level: 3 })).toBeVisible()
-    const [recording] = await db.recordings.toArray()
-    expect(recording?.song_id).toBe(songId)
-  })
-
-  it('shows a refused upload on one line under the groups', async () => {
-    show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    // The accept attribute is only a picker hint; drag-drop and some pickers still deliver a
-    // mismatched file, so the check is bypassed here.
-    await userEvent
-      .setup({ applyAccept: false })
-      .upload(
-        page.getByLabelText('Upload audio file').element() as HTMLInputElement,
-        new File(['x'], 'notes.txt', { type: 'text/plain' }),
-      )
-    const line = page.getByRole('alert')
-    await expect.element(line).toHaveTextContent('Choose an audio file.')
-    expect(line.element().closest('ion-item')).toBeNull()
-    expect(line.element().getBoundingClientRect().width).toBeGreaterThan(200)
   })
 
   it('adds a pasted link as a row of its own', async () => {
