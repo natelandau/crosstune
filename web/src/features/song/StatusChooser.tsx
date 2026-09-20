@@ -1,5 +1,6 @@
 import { STATUSES, type SongStatus } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
+import { Rail } from '../../ui/Rail'
 import { isSongStatus, STATUS_LABELS } from '../catalog/status'
 
 /**
@@ -23,7 +24,7 @@ const DOT: Record<SongStatus, { rest: string; chosen: string }> = {
 }
 
 /**
- * A song's status as a row of capsules, the same control the key grid uses directly below it,
+ * A song's status as a rail of capsules, the same control the key rail uses directly below it,
  * so the two read as two fields rather than as a control and a toolbar.
  *
  * A song always has a status, so this one never clears: pressing the chosen capsule leaves it
@@ -50,7 +51,7 @@ export function StatusChooser({ value, onChange, includeAll = false }: ChooserPr
   // set to all matches none of the three and leaves every capsule unpressed but All.
   const current = isSongStatus(value) ? value : includeAll ? null : 'want_to_learn'
   return (
-    <div role="group" aria-label="Status" className="flex flex-wrap gap-1.5 px-(--form-gutter)">
+    <Rail label="Status">
       {includeAll ? (
         <Capsule
           pressed={current === null}
@@ -79,6 +80,6 @@ export function StatusChooser({ value, onChange, includeAll = false }: ChooserPr
           </Capsule>
         )
       })}
-    </div>
+    </Rail>
   )
 }

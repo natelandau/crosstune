@@ -306,14 +306,14 @@ ion-toggle::part(label) {
   white-space: normal;
 }
 
-/* The key rail fades out at its inline end, so a chip cut off by the edge reads as more to
-   scroll to rather than as the last key. `data-fade` is set only while there is more to scroll
-   to, so the fade never lingers over the last chip once the rail is scrolled all the way. */
-.key-rail[data-fade='true'] {
+/* A rail fades out at its inline end, so a chip cut off by the edge reads as more to scroll to
+   rather than as the last one. `data-fade` is set only while there is more to scroll to, so the
+   fade never lingers over the last chip once the rail is scrolled all the way. */
+.rail[data-fade='true'] {
   mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
 }
 /* A gradient has no logical direction, so the fade flips by hand in right-to-left text. */
-.key-rail[data-fade='true']:dir(rtl) {
+.rail[data-fade='true']:dir(rtl) {
   mask-image: linear-gradient(to left, #000 calc(100% - 2rem), transparent);
 }
 

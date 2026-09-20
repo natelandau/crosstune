@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
+import { Rail } from '../../ui/Rail'
 import { StatusChooser } from '../song/StatusChooser'
 import {
   sheetFacets,
@@ -27,28 +27,6 @@ export function CatalogFilters({
   if (filters.archived)
     pills.push({ key: 'archived', label: 'Archived shown', patch: { archived: false } })
 
-  const railRef = useRef<HTMLDivElement>(null)
-  const [keyRailFade, setKeyRailFade] = useState(false)
-
-  useLayoutEffect(() => {
-    const rail = railRef.current
-    if (!rail) return
-    const updateFade = () => {
-      const overflow = rail.scrollWidth - rail.clientWidth > 1
-      // In RTL, scrollLeft runs zero at the start to negative at the end, mirroring LTR's
-      // zero-to-positive, so its absolute value measures distance from the start either way.
-      const atEnd = Math.abs(rail.scrollLeft) >= rail.scrollWidth - rail.clientWidth - 1
-      setKeyRailFade(overflow && !atEnd)
-    }
-    updateFade()
-    rail.addEventListener('scroll', updateFade, { passive: true })
-    window.addEventListener('resize', updateFade)
-    return () => {
-      rail.removeEventListener('scroll', updateFade)
-      window.removeEventListener('resize', updateFade)
-    }
-  }, [facets.key, visible])
-
   return (
     <div className="space-y-2 pt-1 pb-2">
       <StatusChooser
@@ -58,13 +36,7 @@ export function CatalogFilters({
       />
 
       {visible.includes('key') ? (
-        <div
-          ref={railRef}
-          role="group"
-          aria-label="Key"
-          data-fade={keyRailFade || undefined}
-          className="key-rail flex [scrollbar-width:none] gap-1 overflow-x-auto px-(--form-gutter)"
-        >
+        <Rail label="Key">
           <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
             All keys
           </Capsule>
@@ -77,7 +49,7 @@ export function CatalogFilters({
               <KeyPill value={key} chosen={filters.key === key} />
             </PressTarget>
           ))}
-        </div>
+        </Rail>
       ) : null}
 
       {pills.length > 0 ? (

@@ -7,7 +7,7 @@ import { DEFAULT_FILTERS, type FacetValues } from './filters'
 
 const facets: FacetValues = { key: [], mode: [], violin_tuning: [], banjo_tuning: [], genre: [] }
 
-/** No status label, including "Unknown", is clipped at the viewport's phone width. */
+/** No status label is clipped, and the four capsules stay on one line, at phone width. */
 async function expectNoStatusLabelOverflow() {
   renderIonic(
     <CatalogFilters filters={DEFAULT_FILTERS} facets={facets} visible={[]} onChange={() => {}} />,
@@ -16,13 +16,16 @@ async function expectNoStatusLabelOverflow() {
   // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
   await expect.element(page.getByRole('button', { name: 'Unknown', exact: true })).toBeVisible()
   const group = document.querySelector('[role="group"][aria-label="Status"]') as HTMLElement
-  const labels = group.querySelectorAll('button > span')
-  expect(labels.length).toBe(4)
-  for (const label of labels) {
+  const buttons = [...group.querySelectorAll('button')]
+  expect(buttons.length).toBe(4)
+  for (const button of buttons) {
+    const label = button.firstElementChild as HTMLElement
     expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
   }
-  // The four capsules wrap rather than run off the edge, whatever the text size.
-  expect(group.scrollWidth).toBeLessThanOrEqual(group.clientWidth + 1)
+  // One line, whatever the text size: a capsule past the edge scrolls into reach rather than
+  // dropping onto a second row.
+  const tops = new Set(buttons.map((button) => button.offsetTop))
+  expect(tops.size).toBe(1)
 }
 
 describe('CatalogFilters on iOS', () => {
