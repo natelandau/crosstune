@@ -63,6 +63,8 @@ export function SuggestSelect({
       aria-label={label}
       placeholder={placeholder}
       interface={mouse ? 'popover' : 'action-sheet'}
+      // The sheet names the field it sets; its options alone do not say what they belong to.
+      interfaceOptions={{ header: label }}
       value={typing ? OTHER : value}
       onIonChange={(event) => {
         const next = String(event.detail.value ?? '')

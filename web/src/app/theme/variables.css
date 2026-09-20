@@ -306,16 +306,6 @@ ion-toggle::part(label) {
   white-space: normal;
 }
 
-/* Fits every status label, including "Unknown", on one line in a four-way segmented control
-   at phone width, and keeps each button a 44px tap target. The size is in rem so the text size
-   setting scales it. */
-ion-segment-button {
-  font-size: 0.8125rem;
-  min-height: 44px;
-  --padding-start: 4px;
-  --padding-end: 4px;
-}
-
 /* The key rail fades out at its inline end, so a chip cut off by the edge reads as more to
    scroll to rather than as the last key. `data-fade` is set only while there is more to scroll
    to, so the fade never lingers over the last chip once the rail is scrolled all the way. */

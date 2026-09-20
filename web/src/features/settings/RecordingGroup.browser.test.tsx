@@ -14,7 +14,7 @@ import { RecordingGroup } from './RecordingGroup'
 vi.mock('../../commands/settings', { spy: true })
 vi.mock('../../commands/recordings', { spy: true })
 
-const QUALITY_FOOTER = 'Higher quality makes larger files. Standard is fine for a jam.'
+const QUALITY_FOOTER = 'Higher quality makes larger files.'
 const CLEAR_FOOTER =
   'Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept.'
 const KEEP_OFFLINE = 'Download all recordings to this device'
@@ -32,9 +32,29 @@ afterEach(async () => {
 
 const show = (engine?: SyncEngine) => renderIonic(<RecordingGroup />, { db, engine })
 
-const qualityTab = (name: string) => page.getByRole('tab', { name })
 const keepToggle = () => page.getByRole('switch', { name: KEEP_OFFLINE })
 const clearButton = () => page.getByRole('button', { name: 'Remove downloaded audio' })
+
+/** The name a screen reader announces for the quality row: the field and the preset it holds. */
+const qualityRow = (preset: string) =>
+  page.getByRole('button', { name: `Quality, ${preset}`, exact: true })
+
+/** Ionic's own inner button takes no clicks, so the row is what opens the picker. */
+async function openQuality(preset: string) {
+  // Ionic ignores a present while the previous popover is still dismissing.
+  await vi.waitFor(() =>
+    expect(document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull(),
+  )
+  await page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('button', { name: `Quality, ${preset}` }) })
+    .click()
+}
+
+async function chooseQuality(from: string, to: string) {
+  await openQuality(from)
+  await page.getByRole('radio', { name: to, exact: true }).click()
+}
 
 /** Replaces navigator so the permission prompt the toggle raises can be counted. */
 function stubPersist() {
@@ -67,20 +87,32 @@ async function seedDownload(bytes: string) {
 }
 
 describe('RecordingGroup', () => {
-  it('names the quality segment and starts it on Standard with no settings row', async () => {
+  it('names the quality row, its preset, and its rate, with no settings row', async () => {
     show()
-    await expect.element(page.getByRole('tablist', { name: 'Recording quality' })).toBeVisible()
-    await expect.element(qualityTab('Standard')).toHaveAttribute('aria-selected', 'true')
+    await expect.element(page.getByRole('heading', { name: 'Recording', level: 2 })).toBeVisible()
+    await expect.element(qualityRow('Standard, 64 kbps')).toBeInTheDocument()
     expect(await db.user_settings.toArray()).toEqual([])
+  })
+
+  it('offers every preset with the rate it records at', async () => {
+    show()
+    await openQuality('Standard, 64 kbps')
+    await expect.element(page.getByRole('radio', { name: 'Low, 48 kbps' })).toBeVisible()
+    expect(
+      page
+        .getByRole('radio')
+        .elements()
+        .map((option) => option.textContent?.trim()),
+    ).toEqual(['Low, 48 kbps', 'Standard, 64 kbps', 'High, 128 kbps'])
   })
 
   it('stores a chosen quality and queues one settings change', async () => {
     show()
-    await qualityTab('High').click({ force: true })
+    await chooseQuality('Standard, 64 kbps', 'High, 128 kbps')
     await expect
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
       .toBe('high')
-    await expect.element(qualityTab('High')).toHaveAttribute('aria-selected', 'true')
+    await expect.element(qualityRow('High, 128 kbps')).toBeInTheDocument()
     expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
   })
 
@@ -138,13 +170,13 @@ describe('RecordingGroup', () => {
   it('shows a refused quality under quality, and clears it on the next choice', async () => {
     vi.mocked(setAudioQuality).mockRejectedValue(new Error('Settings are read-only'))
     show()
-    await qualityTab('High').click({ force: true })
+    await chooseQuality('Standard, 64 kbps', 'High, 128 kbps')
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
     expect(page.getByText(QUALITY_FOOTER).elements()).toHaveLength(0)
     await expect.element(page.getByText(CLEAR_FOOTER)).toBeVisible()
 
     vi.mocked(setAudioQuality).mockRestore()
-    await qualityTab('Low').click({ force: true })
+    await chooseQuality('Standard, 64 kbps', 'Low, 48 kbps')
     await expect
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
       .toBe('low')
@@ -181,9 +213,6 @@ describe('RecordingGroup', () => {
     await expect.element(clearButton()).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
-    }
-    for (const button of document.querySelectorAll('ion-segment-button')) {
-      expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

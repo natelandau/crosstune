@@ -1,4 +1,4 @@
-import { IonItem, IonLabel, IonSegment, IonSegmentButton, IonToggle } from '@ionic/react'
+import { IonItem, IonLabel, IonToggle } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
@@ -9,6 +9,7 @@ import { useDb } from '../../db/DbProvider'
 import { getKeepOffline, setKeepOffline } from '../../db/meta'
 import { AUDIO_QUALITIES, storedAudioQuality, type AudioQuality } from '../../db/recordings'
 import { useSyncEngine } from '../../sync/SyncProvider'
+import { ChoiceRow } from '../../ui/ChoiceRow'
 import { Group } from '../../ui/Group'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
@@ -55,24 +56,16 @@ export function RecordingGroup() {
     <>
       <Group
         header="Recording"
-        footer="Higher quality makes larger files. Standard is fine for a jam."
+        footer="Higher quality makes larger files."
         error={qualityAction.error}
       >
-        <IonItem lines="none">
-          <IonSegment
-            aria-label="Recording quality"
-            value={quality?.quality ?? 'standard'}
-            onIonChange={(event) =>
-              qualityAction.run(() => writeQuality({ quality: event.detail.value as AudioQuality }))
-            }
-          >
-            {AUDIO_QUALITIES.map((option) => (
-              <IonSegmentButton key={option} value={option}>
-                <IonLabel>{QUALITY_LABELS[option]}</IonLabel>
-              </IonSegmentButton>
-            ))}
-          </IonSegment>
-        </IonItem>
+        <ChoiceRow
+          label="Quality"
+          value={quality?.quality ?? 'standard'}
+          options={AUDIO_QUALITIES}
+          labels={QUALITY_LABELS}
+          onChange={(next) => qualityAction.run(() => writeQuality({ quality: next }))}
+        />
       </Group>
       <Group
         footer="Your recordings are always saved to your account and show up on every device you sign in on. A recording is kept on this device once you play it here. Turn this on to download every recording ahead of time, so all of them play even with no signal."

@@ -39,7 +39,7 @@ export function Group({
   error?: string | null
   /**
    * Renders the children straight onto the grouped background instead of inside a card, for a
-   * control that is not a list: a segmented control, a rail of pills. Header, footer, and
+   * control that is not a list: a grid of pills, a rail of chips. Header, footer, and
    * spacing are identical, so a bare block and a card can never drift apart.
    */
   plain?: boolean

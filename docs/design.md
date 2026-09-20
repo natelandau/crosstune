@@ -411,8 +411,19 @@ route and no save bar.
   footer carries help for the group, and a validation message replaces that
   footer in red. Help text is never a row inside a card, because a line between
   two hairlines reads as another row.
-- A control that is not a list, a segmented control or a grid of pills, sits on
-  the page at the same gutter as the cards.
+- A control that is not a list, a grid of pills or a rail of chips, sits on the
+  page at the same gutter as the cards.
+- A closed choice is a field row whose value opens the client's one picker. A
+  segmented control is never that row: it announces itself to assistive
+  technology as a tab list, and it spends the row's width on the values a
+  musician is not choosing rather than on the one they chose. A grid of pills
+  stands in only where the values carry their own color, or where the field is
+  what the musician came to the screen for, which is status and key on the song
+  form and nothing else.
+- A set a musician answers once sits behind a row that names what is chosen,
+  rather than as a list of rows on the screen: the row shows the set and opens
+  the list in a sheet, where each tap still writes at once. A question answered
+  at install must not push every setting under it off the screen.
 - A form ranks its fields by how often a musician touches them. The rare ones go
   last, in one list of rows.
 - One spacing scale serves every form and every grouped screen: a 16px gutter for
@@ -423,6 +434,9 @@ route and no save bar.
 - Every labeled field in a card takes one shape: the label leads and the value
   trails. A long value gives up its width first and elides, so the label is never
   the thing that gets clipped.
+- Every field carries a name a musician can read. An accessible name is not
+  one, so a control whose only name is its `aria-label`, under a header that
+  names something else, is a field nobody can name.
 - Every field shows where to type. A row with no value reads "Not set" rather
   than reading as empty space, and a field standing on its own rather than in a
   row carries a placeholder naming what goes in it. A placeholder is never an
@@ -559,6 +573,7 @@ column instead of rebuilding the pattern.
 | Page, toolbar, landmark, content column   | `src/ui/Screen.tsx`                                                                          |
 | Inset group, its header, help, and error  | `src/ui/Group.tsx`, `src/ui/SectionHeader.tsx`                                               |
 | One shape for a labeled field row         | `src/ui/FieldRow.tsx`                                                                        |
+| One shape for a closed choice             | `src/ui/ChoiceRow.tsx`                                                                       |
 | Palette, type roles, layer order          | `src/app/theme/variables.css`, `src/app/theme/typography.css`, `src/app.css`                 |
 | Appearance and text size setting          | `src/features/settings/appearance.ts`, the inline script in `index.html`                     |
 | The mark and the lockup                   | `src/ui/Mark.tsx`, with the sources in `brand/` at the root                                  |
@@ -572,7 +587,7 @@ column instead of rebuilding the pattern.
 | Facet row under a song's title            | `src/features/song/SongScreen.tsx`                                                           |
 | Capsule, rail chip, and badge             | `src/ui/Capsule.tsx`                                                                         |
 | Which tunings to show                     | `src/features/settings/instruments.ts`                                                       |
-| Instrument checkboxes, first-run question | `src/features/settings/InstrumentRows.tsx`, `src/features/settings/FirstRunSheet.tsx`        |
+| Instrument checkboxes and their sheets    | `src/features/settings/InstrumentRows.tsx`, `InstrumentsGroup.tsx`, `FirstRunSheet.tsx`      |
 | Suggestion vocabularies                   | `src/features/song/suggestions.ts`                                                           |
 | Suggestion picker with `Other…`           | `src/features/song/SuggestSelect.tsx`                                                        |
 | Key grid and the two key vocabularies     | `src/features/song/KeyChooser.tsx`, `src/features/song/suggestions.ts`                       |
