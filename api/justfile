@@ -86,9 +86,9 @@ e2e-db: (_e2e-db "keep")
 [group('db')]
 e2e-db-reset: (_e2e-db "recreate")
 
-# Drop the end-to-end database, leaving nothing behind
-[group('db')]
-e2e-db-drop: (_e2e-db "drop")
+# _e2e-db also takes "drop", which leaves no database behind. It has no recipe of its own,
+# because `just e2e` drops what it created and nothing else has a database to drop.
+
 
 [private]
 _e2e-db mode:

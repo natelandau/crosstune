@@ -127,10 +127,9 @@ the suite against it from a second terminal. This form drops nothing.
     just api::run-e2e
     just web::e2e
 
-To empty that database between runs, or to remove it, run one of:
+To empty that database between runs, run:
 
     just api::e2e-db-reset
-    just api::e2e-db-drop
 
 ### Commit and release
 

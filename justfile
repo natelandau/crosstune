@@ -47,7 +47,7 @@ e2e *args:
     # The database lives only as long as the run. CI meets one that never held a fixture, and
     # a local database that outlived a run would feed the next one rows that change what a
     # search returns. uvicorn outlives the `just` that spawned it, so its port finds it again.
-    trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true; just api::e2e-db-drop > /dev/null' EXIT
+    trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true; just api::_e2e-db drop > /dev/null' EXIT
     just api::e2e-db-reset
     echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
     just api::run-e2e > "$log" 2>&1 &
