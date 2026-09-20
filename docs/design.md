@@ -127,6 +127,17 @@ Three axes decide the chrome. No screen asks which device it is on.
   caption, and timer, each defined once per mode. A screen uses a role and never
   sets a size, weight, or tracking of its own. The roles live in
   `layer(components)`, below the utilities, so a utility still wins.
+- A group header takes one of two roles, chosen by what the header does. One
+  that labels a section of a form takes the footnote role in the secondary
+  color, quieter than the rows it introduces. One that carries the name of the
+  thing those rows belong to, a song over its recordings, takes the title role,
+  a step under the screen's own title, so the screen reads from its title down
+  to its rows rather than flat across them.
+- A naming header keeps the tap height whether or not it opens anything, so
+  every group on a screen sets its rows off by the same distance. Where it leads
+  into what it names, a chevron says so and the whole line is the target. The
+  heading keeps the name by itself and the control is named for the verb and the
+  name, so heading navigation and the control each read the way they should.
 - Ionic's own label styles sit outside every layer, so each role is applied
   again unlayered to reach inside an `ion-label`. That rule also beats a color
   utility on the role element. Inside an `ion-label`, put a color utility on a
@@ -477,8 +488,10 @@ Recordings and links share one row shape.
 - Sizes truncate rather than round, so a size never overstates. Durations read
   `m:ss`.
 - The provider is named once on a row and nowhere else on it.
-- Recordings group under their song, headed by the song's own row where the
-  catalog holds the song and by a plain header otherwise.
+- Recordings group under their song, headed by that song's name and nothing
+  else. The key, the status, and the tunings stay on the catalog's own song row,
+  because a header that repeats them competes with the rows it introduces. The
+  header opens the song.
 - The dock opens only from a play tap. Opening a song never loads a player. At
   most one item is loaded, and it stays loaded while the musician browses.
 - A live recording refuses a swipe dismissal, so its own controls are the ways

@@ -95,21 +95,22 @@ describe('RecordingsPage', () => {
     expect(groupNames()).toEqual(['Unfiled', "Soldier's Joy"])
   })
 
-  it("heads a song's group with the shared song row, above its recordings", async () => {
+  it("heads a song's group with its name alone, above its recordings", async () => {
     const songId = await addSong("Soldier's Joy")
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Filed take' }))
     show()
-    const group = page.getByRole('list', { name: "Soldier's Joy" })
-    await expect.element(group).toBeVisible()
-    // The shared row, not a header line of this screen's own: it carries the key and the status.
-    expect(group.element().querySelector('[data-song-meta]')?.textContent).toBe('Key A, Known')
-    // The group's heading sits a level above the recordings inside it.
-    await expect
-      .element(page.getByRole('heading', { name: "Soldier's Joy", level: 2 }))
-      .toBeVisible()
+    const heading = page.getByRole('heading', { name: "Soldier's Joy", level: 2 })
+    await expect.element(heading).toBeVisible()
+    // The name and nothing else: the key, the status, and the tunings stay on the catalog's row.
+    expect(heading.element().textContent).toBe("Soldier's Joy")
+    expect(document.querySelectorAll('[data-song-meta]')).toHaveLength(0)
+    // The heading sits above the group rather than inside it, and its recordings a level under.
     await expect.element(page.getByRole('heading', { name: 'Filed take', level: 3 })).toBeVisible()
-    const headings = Array.from(group.element().querySelectorAll('h2, h3')).map((h) => h.tagName)
-    expect(headings).toEqual(['H2', 'H3'])
+    const group = page.getByRole('list', { name: "Soldier's Joy" }).element()
+    expect(Array.from(group.querySelectorAll('h2, h3')).map((h) => h.tagName)).toEqual(['H3'])
+    expect(
+      heading.element().compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 
   it('lays its groups out as cards on the grouped surface', async () => {
@@ -139,9 +140,8 @@ describe('RecordingsPage', () => {
     const row = page.getByRole('heading', { name: 'Recording, ', exact: false, level: 3 })
     await expect.element(row).toBeVisible()
     const title = row.element().textContent!
-    // The song's name belongs to the heading row alone: SongItem's own h2, not a repeat below it.
-    const headings = Array.from(group.element().querySelectorAll('h2, h3'))
-    expect(headings.filter((h) => h.textContent === "Soldier's Joy")).toHaveLength(1)
+    // The song's name belongs to the heading above the group, never to a row inside it.
+    expect(group.element().textContent).not.toContain("Soldier's Joy")
     expect(title).not.toContain("Soldier's Joy")
     // The row's actions are named from the same title.
     await expect.element(page.getByRole('button', { name: `Rename ${title}` })).toBeInTheDocument()
@@ -314,12 +314,15 @@ describe('RecordingsPage', () => {
     expect(sync).toHaveBeenCalledOnce()
   })
 
-  it("opens a group's song from its heading row", async () => {
+  it("opens a group's song from its heading, and leaves Unfiled's heading inert", async () => {
     const songId = await addSong("Soldier's Joy")
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Filed take' }))
+    await db.recordings.put(recordingRow('r2', { label: 'Jam recording' }))
     show({ probes: { '/recordings/:songId': 'Song probe' } })
-    const heading = page.getByRole('button', { name: "Soldier's Joy", exact: false })
+    const heading = page.getByRole('button', { name: "Open Soldier's Joy" })
     await expect.element(heading).toBeVisible()
+    // Unfiled names no song, so its heading is a label rather than a way into anything.
+    expect(page.getByRole('button', { name: 'Open Unfiled' }).elements()).toEqual([])
     await heading.click()
     await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
   })
