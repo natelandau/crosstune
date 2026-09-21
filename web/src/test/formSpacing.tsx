@@ -44,10 +44,23 @@ export function formSpacingTests(mode: string) {
       renderIonic(<Group header="Key">{row}</Group>, { db: openTestDb() })
       await list()
       const section = document.querySelector('section') as HTMLElement
-      const header = section.querySelector('h2') as HTMLElement
+      // The header's line owns the inset and the gap, so a control on it lines up with the
+      // label beside it.
+      const header = section.querySelector('[data-section-header]') as HTMLElement
       expect(px(getComputedStyle(section).paddingTop)).toBe(24)
       expect(px(getComputedStyle(header).paddingTop)).toBe(0)
       expect(px(getComputedStyle(header).paddingBottom)).toBe(8)
+    })
+
+    it('keeps a header near the card it names, whatever its line is tall enough for', async () => {
+      renderIonic(<Group header="Key">{row}</Group>, { db: openTestDb() })
+      const card = await list()
+      // The padding above says nothing about where the text sits once the line is tall enough
+      // to hold a control, so this measures the text to the card instead.
+      const text = document.querySelector('[data-section-header] h2') as HTMLElement
+      const gap = card.getBoundingClientRect().top - text.getBoundingClientRect().bottom
+      expect(gap).toBeGreaterThanOrEqual(0)
+      expect(gap).toBeLessThanOrEqual(24)
     })
 
     it('aligns a header, a footer, and an error to the 32px text inset', async () => {
@@ -63,7 +76,7 @@ export function formSpacingTests(mode: string) {
         { db: openTestDb() },
       )
       await list()
-      const header = document.querySelector('h2') as HTMLElement
+      const header = document.querySelector('[data-section-header]') as HTMLElement
       const footer = document.querySelector('section p') as HTMLElement
       const error = document.querySelector('[role="alert"]') as HTMLElement
       for (const element of [header, footer, error]) {
@@ -87,7 +100,7 @@ export function formSpacingTests(mode: string) {
       try {
         renderIonic(<Group header="Key">{row}</Group>, { db: openTestDb() })
         const style = getComputedStyle(await list())
-        const header = document.querySelector('h2') as HTMLElement
+        const header = document.querySelector('[data-section-header]') as HTMLElement
         // The row inset the header lines up with is Ionic's, in px, so a scale in rem would
         // drift the header off the labels it names whenever the setting moves.
         expect(px(getComputedStyle(header).paddingLeft)).toBe(32)
@@ -108,7 +121,9 @@ export function formSpacingTests(mode: string) {
       expect(document.querySelector('ion-list')).toBeNull()
       const section = document.querySelector('section') as HTMLElement
       expect(px(getComputedStyle(section).paddingTop)).toBe(24)
-      expect(px(getComputedStyle(section.querySelector('h2')!).paddingBottom)).toBe(8)
+      expect(
+        px(getComputedStyle(section.querySelector('[data-section-header]')!).paddingBottom),
+      ).toBe(8)
     })
   })
 }

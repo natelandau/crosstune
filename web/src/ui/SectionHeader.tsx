@@ -25,14 +25,34 @@ type Opening =
 export function SectionHeader({
   children,
   names = false,
+  actions,
   onOpen,
   openName,
-}: { children: ReactNode; names?: boolean } & Opening) {
+}: {
+  children: ReactNode
+  names?: boolean
+  /**
+   * Controls at the trailing edge. A header that opens something of its own has no room for
+   * them: its whole line is the control, and anything laid over that line would take the taps
+   * meant for it. Such a header drops them.
+   */
+  actions?: ReactNode
+} & Opening) {
   const verbId = useId()
   const nameId = useId()
   if (!names) {
     return (
-      <h2 className="type-footnote m-0 px-(--form-inset) pt-0 pb-(--form-text-gap)">{children}</h2>
+      // The line is a 44px control plus the gap a header keeps from its card, since the box
+      // includes that padding. The height holds whether or not this header carries a control,
+      // so two groups on one screen set their cards off alike. A sheet's field sections have
+      // nothing to add to and stay dense.
+      <div
+        data-section-header
+        className="flex min-h-[calc(44px+var(--form-text-gap))] items-center gap-2 px-(--form-inset) pb-(--form-text-gap) [ion-modal_&]:min-h-0"
+      >
+        <h2 className="type-footnote m-0 min-w-0 flex-1 truncate">{children}</h2>
+        {actions}
+      </div>
     )
   }
   const heading = (
@@ -41,9 +61,15 @@ export function SectionHeader({
     </h2>
   )
   const line = 'flex min-h-[44px] items-center gap-2 px-(--form-inset) pb-(--form-text-gap)'
-  if (!onOpen) return <div className={line}>{heading}</div>
+  if (!onOpen)
+    return (
+      <div data-section-header className={line}>
+        {heading}
+        {actions}
+      </div>
+    )
   return (
-    <div className={`relative ${line}`}>
+    <div data-section-header className={`relative ${line}`}>
       {heading}
       <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-(--ion-color-medium)" />
       {/* The verb sits beside the name rather than on the control, so the heading keeps the

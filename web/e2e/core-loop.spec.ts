@@ -9,7 +9,9 @@ test('add a song, link a recording, find it by key, and play it in the player', 
   const since = new Date().toISOString()
   await addSong(page, title, 'D')
 
-  await page.getByRole('button', { name: 'Paste link' }).click()
+  // Both ways to add one live behind the plus on the Recordings header.
+  await page.getByRole('button', { name: 'Add recording' }).click()
+  await page.getByRole('button', { name: 'Paste link', exact: true }).click()
   await page
     .getByRole('textbox', { name: 'Link' })
     .fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
