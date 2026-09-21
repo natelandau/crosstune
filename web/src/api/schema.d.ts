@@ -699,8 +699,6 @@ export interface components {
             feel?: string | null;
             /** Genre */
             genre?: string | null;
-            /** Has Lyrics */
-            has_lyrics?: boolean | null;
             /**
              * Id
              * Format: uuid
@@ -713,6 +711,8 @@ export interface components {
             is_crooked: boolean;
             /** Key */
             key?: string | null;
+            /** Lyrics */
+            lyrics?: string | null;
             /** Mode */
             mode?: string | null;
             /** Owner User Id */

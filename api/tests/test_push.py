@@ -354,3 +354,18 @@ async def test_user_settings_rejects_an_unknown_instrument(client, auth_headers)
     )
     assert results[0]["status"] == "invalid"
     assert "instruments" in results[0]["reason"]
+
+
+async def test_lyrics_round_trip_through_push_and_pull(client, auth_headers) -> None:
+    song_id = uid()
+    words = "Did you ever go to meeting, Uncle Joe\n\nDon't mind the weather"
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song_id, T0, title="Uncle Joe", lyrics=words),
+    )
+    assert results[0]["status"] == "applied"
+    response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
+    assert response.status_code == 200, response.text
+    rows = [r for r in response.json()["rows"] if r["table"] == "songs"]
+    assert rows[0]["row"]["lyrics"] == words

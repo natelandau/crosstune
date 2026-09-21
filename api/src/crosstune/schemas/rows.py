@@ -61,7 +61,7 @@ class SongData(_Data):
     alternate_titles: list[Annotated[str, Field(max_length=200)]] = []
     genre: str | None = Field(default=None, max_length=100)
     feel: str | None = Field(default=None, max_length=100)
-    has_lyrics: bool | None = None
+    lyrics: str | None = Field(default=None, max_length=20_000)
     key: str | None = Field(default=None, max_length=10)
     mode: Mode | None = None
     violin_tuning: str | None = Field(default=None, max_length=100)

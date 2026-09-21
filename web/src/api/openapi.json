@@ -1175,17 +1175,6 @@
             ],
             "title": "Genre"
           },
-          "has_lyrics": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Has Lyrics"
-          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1207,6 +1196,18 @@
               }
             ],
             "title": "Key"
+          },
+          "lyrics": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lyrics"
           },
           "mode": {
             "anyOf": [

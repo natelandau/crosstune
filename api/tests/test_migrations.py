@@ -430,3 +430,69 @@ async def test_downgrade_to_0005_and_back_restores_head_shape(
         assert column.all() == []
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+async def test_songs_carries_lyrics_and_not_has_lyrics(session: AsyncSession) -> None:
+    result = await session.execute(
+        text("select column_name from information_schema.columns where table_name = 'songs'")
+    )
+    columns = {row[0] for row in result}
+    assert "lyrics" in columns
+    assert "has_lyrics" not in columns
+
+
+async def test_downgrade_to_0006_and_back_restores_head_shape(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000021"
+    with_lyrics = "018f0000-0000-7000-8000-000000000022"
+    empty_lyrics = "018f0000-0000-7000-8000-000000000023"
+    # command.downgrade drives migrations on its own connection, so these rows must be
+    # committed here rather than left on the session fixture's rolled-back transaction.
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_lyrics', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into songs (id, owner_user_id, title, lyrics, is_crooked, "
+                "created_at, updated_at) values "
+                "(:id, :owner, 'Old Joe Clark', 'true love never was a burden', "
+                "false, now(), now())"
+            ),
+            {"id": with_lyrics, "owner": user},
+        )
+        await conn.execute(
+            text(
+                "insert into songs (id, owner_user_id, title, lyrics, is_crooked, "
+                "created_at, updated_at) values "
+                "(:id, :owner, 'Cripple Creek', '', false, now(), now())"
+            ),
+            {"id": empty_lyrics, "owner": user},
+        )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0006")
+        async with engine.connect() as conn:
+            result = await conn.execute(
+                text("select id::text, has_lyrics from songs where id = any(:ids)"),
+                {"ids": [with_lyrics, empty_lyrics]},
+            )
+            by_id = dict(result.all())
+        assert by_id[with_lyrics] is True
+        assert by_id[empty_lyrics] is None
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("select column_name from information_schema.columns where table_name = 'songs'")
+        )
+        columns = {row[0] for row in result}
+    assert "lyrics" in columns
+    assert "has_lyrics" not in columns
