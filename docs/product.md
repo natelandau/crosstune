@@ -56,7 +56,7 @@ on a phone home screen. It contains these features.
   private to its owner.
 - Song catalog. Create, edit, and archive songs.
 - Song attributes. Title, alternate titles, key, mode, violin tuning, banjo
-  tuning, genre, feel, time signature, crooked, part structure, has lyrics,
+  tuning, genre, feel, time signature, crooked, part structure, lyrics,
   learned from, date learned, and freeform notes. Time signature is a fixed
   set of values that the web client defaults to 4/4. All other attributes
   except the title are optional.
@@ -73,6 +73,10 @@ on a phone home screen. It contains these features.
   docked above the navigation that stays loaded while the user browses.
   Streaming services play a preview unless the listener is signed in to the
   service. Every link also opens the streaming app or website.
+- Lyrics. A song carries its words as free-form text. A reading view opens
+  from the song, fills the screen, keeps it awake, and offers nothing but the
+  words and their size, so a musician can read from a phone on a stand while
+  playing.
 - Browse. The home screen is the catalog filtered by status, key, mode, violin
   tuning, banjo tuning, and genre, with a text search. Filters persist between
   visits. The search text lasts only while the app is open, and it clears when

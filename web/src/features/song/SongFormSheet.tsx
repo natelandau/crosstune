@@ -8,6 +8,7 @@ import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
+import { LyricsSheet } from '../lyrics/LyricsSheet'
 import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
 import { FieldRow } from '../../ui/FieldRow'
 import { KeyChooser } from './KeyChooser'
@@ -59,6 +60,7 @@ export function SongFormSheet({
   // same `pending` state.
   const savingFor = useRef<SongFormTarget | null>(null)
   const [openedFor, setOpenedFor] = useState<SongFormTarget | null>(null)
+  const [editingLyrics, setEditingLyrics] = useState(false)
   // The last target shown, so the title and action label hold while the sheet animates closed.
   const [shown, setShown] = useState<SongFormTarget | null>(null)
   // Set by Cancel or a save; the sheet closes itself and reports it once, when dismissal ends.
@@ -74,6 +76,7 @@ export function SongFormSheet({
       setValues(initialValues(target))
       setTunings(visibleTunings(instruments, target.kind === 'edit' ? target.entry.song : null))
       setValidation(null)
+      setEditingLyrics(false)
       clear()
     }
   }
@@ -151,6 +154,7 @@ export function SongFormSheet({
     <Sheet
       open={target !== null && !closing}
       title={editing ? 'Edit song' : 'New song'}
+      height="full"
       dismissible={false}
       onClose={dismissed}
       start={
@@ -252,6 +256,24 @@ export function SongFormSheet({
                 </IonItem>
               )
             }
+            if (field.kind === 'lyrics') {
+              // Not a field of this form: the words have a form of their own, and this is the
+              // way to it. The chevron says so, and nothing about the body is counted here,
+              // because no count of a song's words is one a musician would trust.
+              return (
+                <IonItem
+                  key={field.key}
+                  button
+                  detail
+                  data-detail={field.label}
+                  onClick={() => setEditingLyrics(true)}
+                >
+                  <span data-row-label className="type-body">
+                    {field.label}
+                  </span>
+                </IonItem>
+              )
+            }
             if (field.kind === 'date') {
               return (
                 <FieldRow key={field.key} label={field.label} detail={field.label}>
@@ -296,6 +318,16 @@ export function SongFormSheet({
             )
           })}
         </Group>
+
+        <LyricsSheet
+          open={editingLyrics}
+          value={values.lyrics}
+          onCancel={() => setEditingLyrics(false)}
+          onSave={(next) => {
+            set('lyrics', next)
+            setEditingLyrics(false)
+          }}
+        />
       </form>
     </Sheet>
   )

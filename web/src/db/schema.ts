@@ -15,6 +15,12 @@ import {
   type TableName,
 } from './types'
 
+/** Replace the old yes-or-no lyrics flag with the body the server now stores. */
+function dropHasLyrics(song: Record<string, unknown>): void {
+  delete song.has_lyrics
+  song.lyrics ??= null
+}
+
 /** Move a song's single tuning into violin_tuning and give both instruments a slot. */
 function splitTuning(song: Record<string, unknown>): void {
   if ('tuning' in song) {
@@ -75,6 +81,19 @@ export class CrosstuneDb extends Dexie {
       recording_files: 'id, local_state',
       recording_chunks: '[recording_id+idx], recording_id',
     })
+    this.version(4).upgrade((tx) =>
+      Promise.all([
+        tx.table('songs').toCollection().modify(dropHasLyrics),
+        // A queued songs upsert still carries the old field shape and is rejected on push otherwise.
+        tx
+          .table('outbox')
+          .where('[table+row_id]')
+          .between(['songs', Dexie.minKey], ['songs', Dexie.maxKey])
+          .modify((entry: { data: Record<string, unknown> | null }) => {
+            if (entry.data) dropHasLyrics(entry.data)
+          }),
+      ]),
+    )
   }
 }
 

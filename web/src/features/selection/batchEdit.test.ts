@@ -28,7 +28,6 @@ describe('summarize', () => {
     expect(summary.genre).toEqual({ kind: 'empty' })
     expect(summary.status).toEqual({ kind: 'mixed' })
     expect(summary.is_crooked).toEqual({ kind: 'shared', value: false })
-    expect(summary.has_lyrics).toEqual({ kind: 'empty' })
   })
 
   it('treats a mode this client does not know as no value', () => {

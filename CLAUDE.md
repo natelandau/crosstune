@@ -11,13 +11,50 @@ answers. Read these pages by task:
 - `docs/decisions.md` before you propose a different stack, host, or
   design. It records why each one was chosen and what was rejected.
 - `docs/architecture.md` when the work touches the API, the web client,
-  sync, sign-in, or link resolution.
+  sync, sign-in, or link resolution. It records how the systems fit
+  together, not what any one of them returns.
 - `docs/design.md` before you build or change a screen, a row, a form, a
   gesture, or a label in the web client. It records the patterns every
   screen follows and the component that implements each one.
 - `docs/hosting.md` and `docs/operations.md` only when the work touches
   deployment, CI, or a hosting setting. The first lists what each host
-  holds. The second covers deploys, releases, and the smoke check.
+  holds. The second covers deploys, releases, and the smoke check. Both
+  are the record rather than a description of one, for the reason below.
+
+### What goes in documentation
+
+Every page under `docs/` records what holds beyond the thing in front of
+you. One test governs all of them: does someone working on a different
+screen, endpoint, or deploy have to know it? If not, it does not belong,
+however true it is.
+
+- `design.md` takes a rule that binds screens which do not exist yet.
+  "Every modal carries its edit control at the foot of its content" is
+  such a rule. "The lyrics modal carries an edit control" is not.
+- `architecture.md` takes what holds across the systems: the shape of
+  sync, what the client may read, where a boundary sits. Not what one
+  endpoint returns this week.
+- `product.md` takes what is true of every release, not what is true of
+  this one.
+- `decisions.md` takes why a choice was made and what was rejected,
+  which is what stops the next person reopening it.
+
+Three kinds of writing fail the test and stay out:
+
+- An inventory of what something holds today. The code already says
+  that, and says it accurately; a copy goes stale and then lies.
+- A decision that binds one feature or one screen. Its spec in the
+  memory vault holds it.
+- Anything a reader would learn faster from the code, unless it is a trap
+  that catches whoever comes next. Ionic's unlayered styles are such a
+  trap. The name of a constant is not.
+
+That last one has an exception, and it is what `hosting.md` and
+`operations.md` are for. Where no code can answer the question, the page
+is the record rather than a copy of one: a setting held in a host's
+console, the order two deploys have to land in, the check that says a
+release worked. Write those down in full, because there is nothing else
+to read.
 
 ## Naming
 

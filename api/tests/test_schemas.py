@@ -80,3 +80,19 @@ def test_user_settings_rejects_a_repeated_instrument() -> None:
 
 def test_user_settings_defaults_to_no_instruments() -> None:
     assert UserSettingsData(created_at=NOW).instruments == []
+
+
+def test_song_accepts_lyrics_at_the_cap() -> None:
+    data = SongData(title="Sally Ann", lyrics="a" * 20_000, created_at=NOW)
+    assert data.lyrics is not None
+    assert len(data.lyrics) == 20_000
+
+
+def test_song_rejects_lyrics_past_the_cap() -> None:
+    with pytest.raises(ValidationError):
+        SongData(title="Sally Ann", lyrics="a" * 20_001, created_at=NOW)
+
+
+def test_song_rejects_the_removed_has_lyrics_field() -> None:
+    with pytest.raises(ValidationError):
+        SongData(title="Sally Ann", has_lyrics=True, created_at=NOW)

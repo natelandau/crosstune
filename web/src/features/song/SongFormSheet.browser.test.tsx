@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { createSong } from '../../commands/songs'
 import type { Instrument } from '../../db/types'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { forceTouch } from '../../test/pointer'
 import { SONG_LIMITS } from './limits'
 import { SongFormSheet, type SongFormTarget } from './SongFormSheet'
 
@@ -53,24 +53,6 @@ async function openDetail(name: string) {
 const sheetDismissed = () =>
   vi.waitFor(() => expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull())
 
-const originalMatchMedia = window.matchMedia
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
-
-afterEach(() => {
-  window.matchMedia = originalMatchMedia
-})
-
 describe('SongFormSheet', () => {
   it('orders title, status, key, tuning, notes, then details', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
@@ -88,7 +70,7 @@ describe('SongFormSheet', () => {
       'Feel',
       'Parts',
       'Crooked',
-      'Has lyrics',
+      'Lyrics',
       'Learned from',
       'Learned on',
     ])
@@ -211,6 +193,35 @@ describe('SongFormSheet', () => {
     // The row holds one tap height and the label keeps its width, whatever the value's length.
     expect(row.getBoundingClientRect().height).toBeLessThan(80)
     expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+    expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1)
+  })
+
+  it('keeps the Lyrics label beside a long opening line', async () => {
+    const db = openTestDb()
+    const { songId, userSongId } = await createSong(
+      db,
+      {
+        title: 'Uncle Joe',
+        lyrics: 'Did you ever go to meeting, Uncle Joe, Uncle Joe, Uncle Joe\n\nAnd again',
+      },
+      { status: 'known' },
+    )
+    const entry = {
+      song: (await db.songs.get(songId))!,
+      userSong: (await db.user_songs.get(userSongId))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await expect.element(page.getByText('Edit song')).toBeVisible()
+    const row = document.querySelector(
+      'ion-modal:not(.overlay-hidden) [data-detail="Lyrics"]',
+    ) as HTMLElement
+    const label = row.querySelector('[data-row-label]') as HTMLElement
+    // A way into the lyrics form, so it names itself and shows none of the song. Nothing about
+    // the body reaches this row, however long its first line is.
+    expect(label.textContent).toBe('Lyrics')
+    expect(row.textContent).toBe('Lyrics')
+    expect(label.getBoundingClientRect().width).toBeGreaterThan(0)
+    expect(row.getBoundingClientRect().height).toBeLessThan(80)
     expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1)
   })
 
@@ -505,13 +516,17 @@ describe('SongFormSheet', () => {
   })
 
   it('picks a suggestion from an action sheet on touch', async () => {
-    forceTouch()
-    const db = openTestDb()
-    renderIonic(<Host initial={{ kind: 'new', title: 'Touch' }} />, { db })
-    await openDetail('Genre, Not set')
-    await page.getByRole('radio', { name: 'Gospel' }).click()
-    await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.genre).toBe('Gospel'))
+    const restore = forceTouch()
+    try {
+      const db = openTestDb()
+      renderIonic(<Host initial={{ kind: 'new', title: 'Touch' }} />, { db })
+      await openDetail('Genre, Not set')
+      await page.getByRole('radio', { name: 'Gospel' }).click()
+      await page.getByRole('button', { name: 'Add', exact: true }).click()
+      await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.genre).toBe('Gospel'))
+    } finally {
+      restore()
+    }
   })
 
   it('shows a tuning field for an unplayed instrument when the song already has a value', async () => {
@@ -530,5 +545,19 @@ describe('SongFormSheet', () => {
     await expect
       .element(page.getByRole('button', { name: 'Banjo tuning, Open G (gDGBD)', exact: true }))
       .toBeInTheDocument()
+  })
+
+  it('opens the lyrics sheet from the details row and carries the words back', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    const row = page.getByRole('button', { name: 'Lyrics', exact: true })
+    await expect.element(row).toBeVisible()
+    await row.click()
+    const field = page.getByRole('textbox', { name: 'Lyrics' })
+    await expect.element(field).toBeVisible()
+    await field.fill('Did you ever go to meeting\n\nAnd again')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    // The row is a way in, so it reads the same before and after: the words live on the other
+    // side of it.
+    await expect.element(row).toBeVisible()
   })
 })

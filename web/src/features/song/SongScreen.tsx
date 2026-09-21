@@ -1,5 +1,5 @@
 import { IonButton, IonItem, IonLabel, useIonRouter } from '@ionic/react'
-import { Ellipsis, ListX, Music } from 'lucide-react'
+import { Ellipsis, ListX, Music, Plus } from 'lucide-react'
 import { useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { removeFromList } from '../../commands/lists'
@@ -20,6 +20,8 @@ import type { CatalogEntry } from '../catalog/filters'
 import { StatusDot } from '../catalog/SongItem'
 import { ListPicker } from '../lists/ListPicker'
 import { useLists, useMembership } from '../lists/useLists'
+import { lyricOpening } from '../lyrics/lyricLines'
+import { LyricsModal } from '../lyrics/LyricsModal'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
 import { visibleTunings } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
@@ -51,6 +53,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
   // rows as they were when Edit was pressed rather than following every live update.
   const [editTarget, setEditTarget] = useState<SongFormTarget | null>(null)
   const [picking, setPicking] = useState(false)
+  const [reading, setReading] = useState(false)
   // The title of a song whose confirmed delete is running, so the live query reporting the song
   // gone does not flash "This song is gone" while the screen navigates away.
   const [deletingTitle, setDeletingTitle] = useState<string | null>(null)
@@ -173,6 +176,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
           onOpenList={(listId) => router.push(`/lists/${listId}`, 'forward', 'push')}
           onRemove={removeItem}
           onAddToList={() => setPicking(true)}
+          onReadLyrics={() => setReading(true)}
         />
       ) : null}
       {view && instruments ? (
@@ -188,6 +192,13 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
             userSongIds={pickerSongIds}
             title="Add to a list"
             onClose={() => setPicking(false)}
+          />
+          <LyricsModal
+            open={reading && !deleted}
+            songId={view.song.id}
+            title={view.song.title}
+            lyrics={view.song.lyrics ?? ''}
+            onClose={() => setReading(false)}
           />
         </>
       ) : null}
@@ -206,7 +217,6 @@ function badgesFor(
     { field: 'feel', label: song.feel },
     { field: 'genre', label: song.genre },
     { field: 'part_structure', label: song.part_structure },
-    { field: 'has_lyrics', label: song.has_lyrics ? 'Lyrics' : null },
   ].filter((badge): badge is { field: string; label: string } => Boolean(badge.label))
 }
 
@@ -234,6 +244,7 @@ function SongBody({
   onOpenList,
   onRemove,
   onAddToList,
+  onReadLyrics,
 }: {
   entry: CatalogEntry
   badges: { field: string; label: string }[]
@@ -244,10 +255,13 @@ function SongBody({
   onOpenList: (listId: string) => void
   onRemove: (itemId: string) => void
   onAddToList: () => void
+  onReadLyrics: () => void
 }) {
   const archived = userSong.archived_at !== null
   const mode = song.mode ?? ''
   const learned = userSong.learned_from !== null || userSong.learned_on !== null
+  // A body runs to 20,000 characters, and this screen re-renders on every change to the song.
+  const hasLyrics = useMemo(() => lyricOpening(song.lyrics, 1).length > 0, [song.lyrics])
 
   return (
     <>
@@ -275,7 +289,31 @@ function SongBody({
 
       <SongMedia songId={song.id} recordings={recordings} links={links} />
 
-      <Group header="Lists" footer={inLists.length === 0 ? 'Not in any list yet.' : undefined}>
+      {/* Words, not a body: whitespace alone would open the reading view on a blank page. */}
+      {hasLyrics ? (
+        <div className="px-(--form-gutter) pt-(--form-section-gap)">
+          <IonButton expand="block" className="min-h-11" onClick={onReadLyrics}>
+            Open lyrics
+          </IonButton>
+        </div>
+      ) : null}
+
+      <Group
+        header="Lists"
+        name="Lists"
+        actions={
+          <IonButton
+            fill="clear"
+            className="section-action"
+            aria-label="Add to list"
+            onClick={onAddToList}
+          >
+            <Plus aria-hidden="true" className="size-5" />
+          </IonButton>
+        }
+        plain={inLists.length === 0}
+        footer={inLists.length === 0 ? 'Not in any list yet.' : undefined}
+      >
         {inLists.map((list) => (
           <Row
             key={list.id}
@@ -293,9 +331,6 @@ function SongBody({
             <IonLabel className="truncate">{list.name}</IonLabel>
           </Row>
         ))}
-        <IonItem button detail={false} onClick={onAddToList}>
-          <IonLabel color="primary">Add to list</IonLabel>
-        </IonItem>
       </Group>
 
       {userSong.notes || learned ? (

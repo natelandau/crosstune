@@ -1,37 +1,10 @@
 import { IonButtons, IonContent, IonHeader, IonModal, IonTitle, IonToolbar } from '@ionic/react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { usePointer } from '../platform/pointer'
+import { useDialogName } from './dialogName'
 
 // A role-less dismiss is the sheet closing itself through `open`, which must always succeed.
 const refuseGesture = async (_data?: unknown, role?: string) => role !== 'gesture'
-
-/**
- * Keep the dialog named for the title it is showing now. ion-modal reads `aria-label` from its
- * host once, while it loads, copies it onto the element inside its shadow root that carries
- * `role="dialog"`, and takes the attribute off the host; it never reads the host again. A title
- * that counts what a screen has selected therefore names the dialog for the count the sheet
- * first rendered with, which is before anything is selected. The `aria-label` prop below is
- * where that first name comes from, and this puts every later title in its place.
- *
- * Ionic's own re-renders, for a breakpoint or a present, leave the name alone: Stencil skips
- * writing an attribute whose value has not changed, and the value it holds never changes.
- */
-function useDialogName(modal: React.RefObject<HTMLIonModalElement | null>, title: string): void {
-  useEffect(() => {
-    const element = modal.current
-    if (!element) return
-    let live = true
-    // The element carries componentOnReady once Ionic has defined it, and its shadow root holds
-    // nothing before then.
-    void Promise.resolve(element.componentOnReady?.()).then(() => {
-      if (!live) return
-      element.shadowRoot?.querySelector('[role="dialog"]')?.setAttribute('aria-label', title)
-    })
-    return () => {
-      live = false
-    }
-  }, [modal, title])
-}
 
 /**
  * A bottom sheet with a grabber that opens at a medium height and drags to full on touch, and
@@ -44,6 +17,7 @@ export function Sheet({
   start,
   end,
   dismissible = true,
+  height = 'sheet',
   children,
 }: {
   open: boolean
@@ -55,6 +29,8 @@ export function Sheet({
   end?: ReactNode
   /** False keeps the sheet open through a backdrop tap or a drag down. */
   dismissible?: boolean
+  /** `full` opens at the top breakpoint, for a sheet whose control needs the whole screen. */
+  height?: 'sheet' | 'full'
   children: ReactNode
 }) {
   const touch = usePointer() === 'touch'
@@ -69,8 +45,8 @@ export function Sheet({
       onDidDismiss={onClose}
       backdropDismiss={dismissible}
       canDismiss={dismissible ? true : refuseGesture}
-      breakpoints={touch ? [0, 0.6, 1] : undefined}
-      initialBreakpoint={touch ? 0.6 : undefined}
+      breakpoints={touch ? (height === 'full' ? [0, 1] : [0, 0.6, 1]) : undefined}
+      initialBreakpoint={touch ? (height === 'full' ? 1 : 0.6) : undefined}
       handle={touch}
       className={touch ? '' : 'sheet-dialog'}
     >

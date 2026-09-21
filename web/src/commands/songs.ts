@@ -8,7 +8,7 @@ export interface SongInput {
   alternate_titles?: string[]
   genre?: string | null
   feel?: string | null
-  has_lyrics?: boolean | null
+  lyrics?: string | null
   key?: string | null
   mode?: Mode | null
   violin_tuning?: string | null
@@ -46,7 +46,7 @@ export async function createSong(
       alternate_titles: song.alternate_titles ?? [],
       genre: song.genre ?? null,
       feel: song.feel ?? null,
-      has_lyrics: song.has_lyrics ?? null,
+      lyrics: song.lyrics ?? null,
       key: song.key ?? null,
       mode: song.mode ?? null,
       violin_tuning: song.violin_tuning ?? null,

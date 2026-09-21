@@ -4,30 +4,14 @@ import { Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import { MOUSE_QUERY } from '../platform/pointer'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
+import { forceTouch } from '../test/pointer'
 import { useConfirm, type ConfirmOptions } from './Confirm'
 
 type Confirm = (options: ConfirmOptions) => Promise<boolean>
 import { useMenu, type MenuItem } from './Menu'
 import { Sheet } from './Sheet'
-
-function forceTouch() {
-  const original = window.matchMedia
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : original.call(window, query)
-  return () => {
-    window.matchMedia = original
-  }
-}
 
 /** The palette's danger color as the browser computes it, so the palette itself can change. */
 function dangerColor(): string {

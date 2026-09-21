@@ -114,6 +114,24 @@ A merge to `main` deploys the API's `development` environment and the
 changed. Workers Builds skips the deploy when nothing under `web/` changed.
 Production changes only when a version tag is pushed.
 
+A change to the shape of a song row is refused in both directions while the
+two sides disagree. The API turns away a push carrying a field it does not
+know and a push missing one it now expects, so an old client against the new
+API and a new client against the old API fail alike. A refused push is
+settled rather than retried, and its queued entry is dropped, so the edit
+behind it is lost.
+
+One tag rebuilds both services, so no single release moves one side alone:
+the two deploys land within minutes of each other, in whichever order the
+builds finish, and a song edited inside that window is an edit lost.
+Splitting the change over two releases puts the order in your hands. Send
+the client first and keep the gap to minutes, because you then choose when
+the API follows; an API sent first leaves every install broken until its
+service worker updates.
+
+The only path that loses nothing is a transitional API release that accepts
+both shapes, then a later one that drops the old field.
+
 The app icon's file names never change, so a home-screen install made
 before an icon change keeps the icon it was installed with until the app
 is removed and added again. A release that changes the icon should say

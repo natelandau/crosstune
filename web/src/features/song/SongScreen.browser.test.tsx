@@ -390,4 +390,62 @@ describe('SongScreen', () => {
     await deleteSong(db, ids.songId)
     await expect.element(page.getByText('This song is gone')).toBeVisible()
   })
+
+  it('offers no way to read lyrics for a song with none', async () => {
+    show()
+    await expect.element(title()).toBeVisible()
+    await expect.element(page.getByRole('button', { name: /^Open lyrics/ })).not.toBeInTheDocument()
+  })
+
+  it('offers no way to read lyrics for a body of whitespace', async () => {
+    // Any writer but this client can store one: the API neither trims the body nor asks for a
+    // length.
+    const fresh = await createSong(
+      db,
+      { title: 'Uncle Joe', lyrics: '   \n  ' },
+      { status: 'known' },
+    )
+    show(fresh.songId)
+    await expect.element(page.getByRole('heading', { name: 'Uncle Joe' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: /^Open lyrics/ })).not.toBeInTheDocument()
+  })
+
+  it('adds to a list from the header, with no row inside the card', async () => {
+    show()
+    await expect.element(title()).toBeVisible()
+    // Ionic takes an aria-label off the host once it loads, so the control is found by role
+    // inside the line that carries it.
+    const headers = Array.from(document.querySelectorAll<HTMLElement>('[data-section-header]'))
+    const lists = headers.find((line) => line.textContent?.startsWith('Lists'))!
+    await expect
+      .element(page.elementLocator(lists).getByRole('button', { name: 'Add to list' }))
+      .toBeVisible()
+    expect(document.querySelector('ion-list[aria-label="Lists"]')).toBeNull()
+    await expect.element(page.getByText('Not in any list yet.')).toBeVisible()
+  })
+
+  it('reads lyrics from a filled button rather than a row', async () => {
+    const words = 'Did you ever go to meeting\nUncle Joe'
+    const fresh = await createSong(db, { title: 'Uncle Joe', lyrics: words }, { status: 'known' })
+    show(fresh.songId)
+    const open = page.getByRole('button', { name: 'Open lyrics' })
+    await expect.element(open).toBeVisible()
+    // A filled block button rather than a card row: the one bold control on the screen.
+    const host = document.querySelector<HTMLElement>('ion-button[expand="block"]')!
+    expect(host.textContent).toContain('Open lyrics')
+    expect(Math.round(host.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
+    expect(host.closest('ion-list')).toBeNull()
+  })
+
+  it('opens the reading view from the lyrics button', async () => {
+    const words = 'Did you ever go to meeting\nUncle Joe'
+    const fresh = await createSong(db, { title: 'Uncle Joe', lyrics: words }, { status: 'known' })
+    show(fresh.songId)
+    const open = page.getByRole('button', { name: 'Open lyrics' })
+    await expect.element(open).toBeVisible()
+    // The words belong to the reading view, not to the song screen, which shows none of them.
+    await expect.element(page.getByText('Did you ever go to meeting')).not.toBeInTheDocument()
+    await open.click()
+    await expect.element(page.getByRole('button', { name: 'Larger text' })).toBeVisible()
+  })
 })

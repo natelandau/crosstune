@@ -18,6 +18,7 @@ import { SectionHeader } from './SectionHeader'
 export function Group({
   header,
   headerNames = false,
+  actions,
   onHeaderOpen,
   headerOpenName,
   name,
@@ -29,6 +30,9 @@ export function Group({
   header?: ReactNode
   /** Marks a header that names what its rows belong to rather than labeling a section. */
   headerNames?: boolean
+  /** Controls at the header's trailing edge, for adding to what the header names. A header
+   * that opens what it names has no room for them and drops them; see SectionHeader. */
+  actions?: ReactNode
   /** Opens what a naming header names. */
   onHeaderOpen?: () => void
   /** The verb that control takes, read before the header's own name: "Open". */
@@ -52,7 +56,7 @@ export function Group({
   return (
     <section className={header ? 'pt-(--form-section-gap)' : 'pt-(--form-gutter)'}>
       {header ? (
-        <SectionHeader names={headerNames} {...opening}>
+        <SectionHeader names={headerNames} actions={actions} {...opening}>
           {header}
         </SectionHeader>
       ) : null}

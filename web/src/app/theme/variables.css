@@ -159,6 +159,24 @@ ion-toolbar ion-button.toolbar-control {
   min-height: 44px;
 }
 
+/* A control on a section header, where Ionic's runtime styles inject the same 32px minimum and
+   the toolbar rule above cannot reach. Its own margin would stand the header's line taller than
+   a header without a control, which is the distance every group on a screen shares. */
+ion-button.section-action {
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+}
+
+/* A control at the end of its range carries aria-disabled rather than disabled, so that a
+   keyboard keeps its place on it, and takes the disabled look from here instead. */
+ion-toolbar ion-button.control-at-limit {
+  --ripple-color: transparent;
+  --background-activated: transparent;
+  cursor: default;
+  opacity: 0.5;
+}
+
 /* The selection toolbar's title is a count, and every control beside it is live. An iOS title is
    laid across the whole bar, so a leading control wider than its padding sits under the count;
    md's own title padding squeezes the count out at phone width. Between the two button slots
@@ -214,6 +232,15 @@ html.ios ion-modal .sheet-toolbar ion-buttons {
 
 html.ios ion-modal .sheet-toolbar ion-buttons[slot='end'] {
   justify-content: flex-end;
+}
+
+/* An iOS title otherwise spans the whole bar padded for one control, and this toolbar carries
+   three. Between the two button slots instead, it takes only the room they leave, and shrinks
+   below its own text width so the song's name gives up its own letters rather than the
+   controls giving up the bar. */
+html.ios ion-modal .lyrics-toolbar ion-title {
+  position: relative;
+  padding-inline: 8px;
 }
 
 ion-modal.sheet-dialog .sheet-dialog-body {

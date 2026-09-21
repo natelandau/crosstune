@@ -1,10 +1,10 @@
-"""A tune with all of its musical facets."""
+"""A song with all of its musical facets."""
 
 from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,7 +38,7 @@ class Song(SyncColumns, Base):
     )
     genre: Mapped[str | None] = mapped_column(String(100), nullable=True)
     feel: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    has_lyrics: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    lyrics: Mapped[str | None] = mapped_column(Text, nullable=True)
     key: Mapped[str | None] = mapped_column(String(10), nullable=True)
     mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
     violin_tuning: Mapped[str | None] = mapped_column(String(100), nullable=True)

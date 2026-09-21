@@ -88,6 +88,17 @@ function show() {
   )
 }
 
+// Menu items render in a popover on a mouse; scoping to it keeps a label from matching the
+// control that opened the menu.
+async function menuItem(label: string) {
+  const popover = await vi.waitFor(() => {
+    const open = document.querySelector<HTMLElement>('ion-popover:not(.overlay-hidden)')
+    if (!open) throw new Error('The menu is not open')
+    return open
+  })
+  return page.elementLocator(popover).getByText(label, { exact: true })
+}
+
 const youtube = {
   url: 'https://youtu.be/dQw4w9WgXcQ',
   provider: 'youtube' as const,
@@ -98,19 +109,17 @@ const sectionHeaders = () => Array.from(document.querySelectorAll('h2')).map((h)
 const rowTitles = () => Array.from(document.querySelectorAll('h3')).map((h) => h.textContent)
 
 describe('SongMedia', () => {
-  it('names the empty state and the two ways to add a recording', async () => {
+  it('names the empty state and the one way into adding a recording', async () => {
     show()
     await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    for (const name of ['Record', 'Paste link']) {
-      const control = page.getByRole('button', { name, exact: true })
-      await expect.element(control).toBeVisible()
-      const host = (control.element().getRootNode() as ShadowRoot).host
-      expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
-      // A glyph beside the word, out of the accessibility tree since the word already names it.
-      const glyph = host.querySelector('svg')
-      expect(glyph, `${name} carries no glyph`).not.toBeNull()
-      expect(glyph?.getAttribute('aria-hidden')).toBe('true')
-    }
+    const control = page.getByRole('button', { name: 'Add recording', exact: true })
+    await expect.element(control).toBeVisible()
+    const host = (control.element().getRootNode() as ShadowRoot).host
+    expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    // A glyph out of the accessibility tree, since the control's own name says what it does.
+    const glyph = host.querySelector('svg')
+    expect(glyph, 'Add recording carries no glyph').not.toBeNull()
+    expect(glyph?.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('titles an unlabeled recording by its date rather than repeating the page title', async () => {
@@ -129,14 +138,16 @@ describe('SongMedia', () => {
   it('opens the record modal for this song', async () => {
     fakeMedia()
     show()
-    await page.getByRole('button', { name: 'Record', exact: true }).click()
+    await page.getByRole('button', { name: 'Add recording', exact: true }).click()
+    await (await menuItem('New recording')).click()
     await expect.element(page.getByRole('dialog', { name: 'New recording' })).toBeInTheDocument()
     expect(starts).toEqual([songId])
   })
 
   it('adds a pasted link as a row of its own', async () => {
     show()
-    await page.getByRole('button', { name: 'Paste link', exact: true }).click()
+    await page.getByRole('button', { name: 'Add recording', exact: true }).click()
+    await (await menuItem('Paste link')).click()
     await expect.element(page.getByLabelText('Link')).toBeVisible()
     await page.getByLabelText('Link').fill(youtube.url)
     await page.getByRole('button', { name: 'Add link', exact: true }).click()
@@ -200,7 +211,7 @@ describe('SongMedia', () => {
     await expect.element(line).toHaveTextContent('The song would not let go.')
     expect(line.element().closest('ion-item')).toBeNull()
     // It sits under the cards, so it lines up with their text rather than starting short of it.
-    const header = document.querySelector('h2')!
+    const header = document.querySelector('[data-section-header]')!
     expect(Number.parseFloat(getComputedStyle(line.element()).paddingLeft)).toBe(
       Number.parseFloat(getComputedStyle(header).paddingLeft),
     )
@@ -238,5 +249,66 @@ describe('SongMedia', () => {
       expect((await db.recording_links.get(linkId))?.deleted_at).not.toBeNull(),
     )
     await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+  })
+
+  it('records from a song with nothing recorded yet', async () => {
+    // The control lives on the group's header, and an empty group would take it off the
+    // screen with it.
+    show()
+    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+    await expect.element(page.getByText('Record one, or paste a link to one.')).toBeVisible()
+    await expect.element(page.getByRole('button', { name: 'Add recording' })).toBeVisible()
+  })
+
+  it('renders no card around the empty state', async () => {
+    show()
+    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+    expect(document.querySelector('ion-list.list-inset')).toBeNull()
+  })
+
+  it('names both ways to add one in words, behind the plus every other screen uses', async () => {
+    show()
+    await expect.element(page.getByRole('button', { name: 'Add recording' })).toBeVisible()
+    // Ionic copies an aria-label onto its inner native button and takes it off the host, so the
+    // control is found by role rather than by the attribute it was written with. Scoped to the
+    // header, so a control left behind below the card could not satisfy this.
+    const header = page.elementLocator(document.querySelector('[data-section-header]')!)
+    const add = header.getByRole('button', { name: 'Add recording' })
+    await expect.element(add).toBeVisible()
+    await add.click()
+    // A glyph reads as nothing aloud and, on a song synced from another device, the empty
+    // state that names these is never seen. The menu is where the words are.
+    for (const label of ['New recording', 'Paste link']) {
+      await expect.element(await menuItem(label)).toBeVisible()
+    }
+  })
+
+  it('opens the paste link sheet from the menu', async () => {
+    show()
+    const add = page.getByRole('button', { name: 'Add recording' })
+    await expect.element(add).toBeVisible()
+    await add.click()
+    await (await menuItem('Paste link')).click()
+    await expect.element(page.getByRole('textbox', { name: 'Link' })).toBeVisible()
+  })
+
+  it('keeps the header text legible beside its control at 320px', async () => {
+    await page.viewport(320, 640)
+    try {
+      show()
+      await expect.element(page.getByRole('button', { name: 'Add recording' })).toBeVisible()
+      const line = document.querySelector<HTMLElement>('[data-section-header]')!
+      const heading = line.querySelector<HTMLElement>('h2')!
+      const controls = Array.from(line.querySelectorAll<HTMLElement>('ion-button'))
+      expect(controls).toHaveLength(1)
+      // Flex alone keeps these from overlapping, so what this pins is that the heading is not
+      // ellipsised away and the control is not pushed off the screen to do it.
+      expect(heading.scrollWidth).toBeLessThanOrEqual(heading.clientWidth)
+      const box = controls[0]!.getBoundingClientRect()
+      expect(Math.round(box.width)).toBeGreaterThanOrEqual(44)
+      expect(Math.round(box.right)).toBeLessThanOrEqual(320)
+    } finally {
+      await page.viewport(390, 844)
+    }
   })
 })
