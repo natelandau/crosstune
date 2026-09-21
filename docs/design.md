@@ -127,6 +127,10 @@ Three axes decide the chrome. No screen asks which device it is on.
   caption, and timer, each defined once per mode. A screen uses a role and never
   sets a size, weight, or tracking of its own. The roles live in
   `layer(components)`, below the utilities, so a utility still wins.
+- A role whose size is the point of the screen takes the size as a step on the
+  role rather than as a size on the screen. The lyrics role is defined once per
+  step and chosen with a data attribute, so a reading view sets no size of its
+  own and the rule above still holds.
 - A group header takes one of two roles, chosen by what the header does. One
   that labels a section of a form takes the footnote role in the secondary
   color, quieter than the rows it introduces. One that carries the name of the
@@ -138,6 +142,18 @@ Three axes decide the chrome. No screen asks which device it is on.
   into what it names, a chevron says so and the whole line is the target. The
   heading keeps the name by itself and the control is named for the verb and the
   name, so heading navigation and the control each read the way they should.
+- A group's add-action is a control on its header, at the trailing edge, rather
+  than a row inside the card or a button loose on the page. The header names the
+  thing and the control adds to the thing it names, so adding stops outweighing
+  the rows it adds to.
+- A labeling header on a grouped screen keeps a constant height whether or not
+  it carries such a control, for the same reason a naming header does. That
+  height is a tap target plus the gap a header keeps from its card, and the
+  header's line owns the inset, so a control on it lines up with the row labels
+  below. Inside a sheet the header keeps its compact line, because a field
+  section has nothing to add to and a form's headers are dense by intent. The
+  constant is per kind: a naming header and a labeling one each hold their own,
+  and no screen today mixes the two.
 - Ionic's own label styles sit outside every layer, so each role is applied
   again unlayered to reach inside an `ion-label`. That rule also beats a color
   utility on the role element. Inside an `ion-label`, put a color utility on a
@@ -209,11 +225,11 @@ song's title and key its own way.
 - A row shows the key alone, never the mode.
 - Modes are lowercase everywhere, in pickers, filters, and badges.
 - A facet appears as a capsule only when the song holds the value.
-- The song page carries every facet the song holds in one wrapping row under the
-  title: the key first, then the mode, the status, and the rest. What the song is
-  reads as one thing, so no facet sits on a line of its own and none is ranked
-  above another by where it landed. The row wraps rather than scrolling, because
-  a facet past the edge of a rail is a facet the musician never learns about.
+- A screen showing what a song is puts every facet it holds in one wrapping row,
+  the key first. What the song is reads as one thing, so no facet sits on a line
+  of its own and none is ranked above another by where it landed. The row wraps
+  rather than scrolling, because a facet past the edge of a rail is a facet the
+  musician never learns about.
 - A tuning field, filter, or badge appears only for an instrument the musician
   plays. The one exception is a field that already holds a value, which is
   always shown so data never becomes unreachable. A song row is stricter and
@@ -433,13 +449,22 @@ route and no save bar.
   cards and bare controls, header, footer, help, and error text at the 32px row
   inset so it lines up with the row labels, 24px above a header, 8px below a
   header and above a footer, 16px between two cards with no header between them,
-  and the 44px row height every tap target keeps.
+  and the 44px row height every tap target keeps. On a grouped screen a labeling
+  header centers its text in the taller band the rule above gives it, so the 8px
+  is the gap under that band rather than under the text.
 - Every labeled field in a card takes one shape: the label leads and the value
   trails. A long value gives up its width first and elides, so the label is never
   the thing that gets clipped.
-- Every field carries a name a musician can read. An accessible name is not
-  one, so a control whose only name is its `aria-label`, under a header that
-  names something else, is a field nobody can name.
+- Every control in a form carries a visible label, with no exceptions for a
+  control whose purpose looks obvious. An accessible name is not a label, so a
+  control whose only name is its `aria-label`, under a header that names
+  something else, is a field nobody can name.
+- A row that opens a form of its own is a way in, not a field. It carries its
+  name and a chevron and nothing else: it has no value to show, because the
+  thing it leads to owns that value and its own Cancel and Done. A summary of
+  what waits on the other side is a summary nobody can trust, and a line
+  of the content itself reads as content that leaked onto the form, which stops
+  the label beside it registering as a label at all.
 - Every field shows where to type. A row with no value reads "Not set" rather
   than reading as empty space, and a field standing on its own rather than in a
   row carries a placeholder naming what goes in it. A placeholder is never an
@@ -471,6 +496,10 @@ Each of these follows the pointer, and each is implemented once.
   dragging to full, and a centered dialog 480px wide on a mouse. It has a title,
   which also names the dialog, because Ionic does not read the toolbar title. A
   title that counts what is selected stays in step with the count.
+- A sheet whose control needs the whole screen opens at full height on touch
+  rather than part way. A long body of text and a form of many fields both take
+  it, so the musician starts at the size they will work at. On a mouse the
+  sheet is the centered dialog either way, because height is a touch behavior.
 - A menu is an action sheet on touch and a popover anchored to its button on a
   mouse. A destructive item is red and follows a separator, and a cautionary one
   takes the warning color. The action sheet adds its own Cancel.
@@ -518,14 +547,14 @@ Recordings and links share one row shape.
 - Sizes truncate rather than round, so a size never overstates. Durations read
   `m:ss`.
 - The provider is named once on a row and nowhere else on it.
-- A song's recordings and its links are one list, headed Recordings, with the
-  recordings first because they are the musician's own. Both answer the one
-  question the section exists for, how to hear this song, and a second header
-  between them would break that answer in two.
-- On the recordings screen, recordings group under their song, headed by that
-  song's name and nothing else. The key, the status, and the tunings stay on the catalog's own song row,
-  because a header that repeats them competes with the rows it introduces. The
-  header opens the song.
+- Rows that answer one question share one list under one header, whatever their
+  kinds. A song's recordings and its links are one list headed Recordings, the
+  musician's own first, because a second header between them would break the one
+  answer the section exists to give.
+- A header carries the name of what its rows belong to and nothing else. The
+  facets that name the thing elsewhere stay where they are, because a header
+  that repeats what its rows already show competes with them. Where the header
+  leads to what it names, the whole line opens it.
 - The dock opens only from a play tap. Opening a song never loads a player. At
   most one item is loaded, and it stays loaded while the musician browses.
 - A live recording refuses a swipe dismissal, so its own controls are the ways
@@ -575,6 +604,7 @@ column instead of rebuilding the pattern.
 | Sidebar                                   | `src/app/Sidebar.tsx`                                                                        |
 | Page, toolbar, landmark, content column   | `src/ui/Screen.tsx`                                                                          |
 | Inset group, its header, help, and error  | `src/ui/Group.tsx`, `src/ui/SectionHeader.tsx`                                               |
+| Group header action and its height        | `src/ui/SectionHeader.tsx`, `.section-action` in `src/app/theme/variables.css`               |
 | One shape for a labeled field row         | `src/ui/FieldRow.tsx`                                                                        |
 | One shape for a closed choice             | `src/ui/ChoiceRow.tsx`                                                                       |
 | Palette, type roles, layer order          | `src/app/theme/variables.css`, `src/app/theme/typography.css`, `src/app.css`                 |
@@ -626,3 +656,5 @@ column instead of rebuilding the pattern.
 | Sync badge and the full state             | `src/ui/SyncBadge.tsx`, `src/sync/labels.ts`, `src/features/settings/SyncGroup.tsx`          |
 | Relative date wording                     | `src/features/lists/editedLabel.ts`                                                          |
 | Reduced motion                            | `src/platform/motion.ts`, `src/app/theme/variables.css`                                      |
+| Lyrics role, reading view, and editor     | `src/app/theme/typography.css`, `src/features/lyrics/`                                       |
+| Screen wake lock                          | `src/platform/wakeLock.ts`                                                                   |

@@ -1,7 +1,8 @@
 /* Content type roles. Ionic sets toolbar titles itself; these cover everything inside a
    screen. Each role is a size, a line height, a weight, and a tracking, and a screen uses a
    role rather than setting any of those on its own. Values are in rem so the text size setting
-   scales every role at once. */
+   scales every role at once, except the lyrics role, which is in px and scales through its own
+   steps instead. */
 
 @layer components {
   html.ios {
@@ -37,6 +38,29 @@
   :root {
     --type-timer: 600 3rem/1 var(--ion-font-family);
     --type-timer-tracking: -0.03em;
+    --type-lyrics: 400 32px/1.3 var(--ion-font-family);
+  }
+
+  /* A reading view's own scale, in px rather than rem: it is an absolute size for a phone on a
+     music stand, not a step of the in-app text size, which sets the distance for reading in
+     the hand. */
+  [data-lyrics-size='1'] {
+    --type-lyrics: 400 18px/1.3 var(--ion-font-family);
+  }
+  [data-lyrics-size='2'] {
+    --type-lyrics: 400 22px/1.3 var(--ion-font-family);
+  }
+  [data-lyrics-size='3'] {
+    --type-lyrics: 400 26px/1.3 var(--ion-font-family);
+  }
+  [data-lyrics-size='4'] {
+    --type-lyrics: 400 32px/1.3 var(--ion-font-family);
+  }
+  [data-lyrics-size='5'] {
+    --type-lyrics: 400 38px/1.3 var(--ion-font-family);
+  }
+  [data-lyrics-size='6'] {
+    --type-lyrics: 400 44px/1.3 var(--ion-font-family);
   }
 
   .type-title {
@@ -69,12 +93,20 @@
     --role-tracking: var(--type-caption-tracking);
     --role-color: currentcolor;
   }
+  /* Page-only: no lyrics line renders inside an ion-label, so this role does not join the
+     ion-label escalation list below. */
+  .type-lyrics {
+    --role-font: var(--type-lyrics);
+    --role-tracking: 0;
+    --role-color: currentcolor;
+  }
   .type-title,
   .type-headline,
   .type-body,
   .type-subheadline,
   .type-footnote,
-  .type-caption {
+  .type-caption,
+  .type-lyrics {
     font: var(--role-font);
     letter-spacing: var(--role-tracking);
     color: var(--role-color);
