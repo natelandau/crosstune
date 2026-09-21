@@ -287,6 +287,7 @@ export function BulkEditSheet({
     <Sheet
       open={open && !closing}
       title={`Edit ${countSongs(entries.length)}`}
+      height="full"
       dismissible={!pending}
       onClose={dismissed}
       start={

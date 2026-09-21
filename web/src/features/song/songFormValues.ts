@@ -22,7 +22,7 @@ export interface SongFormValues {
   part_structure: string
   time_signature: TimeSignature | ''
   is_crooked: boolean
-  has_lyrics: boolean
+  lyrics: string
   status: SongStatus
   learned_from: string
   learned_on: string
@@ -42,7 +42,7 @@ export function emptyValues(): SongFormValues {
     part_structure: '',
     time_signature: '4/4',
     is_crooked: false,
-    has_lyrics: false,
+    lyrics: '',
     status: 'want_to_learn',
     learned_from: '',
     learned_on: '',
@@ -71,7 +71,7 @@ export function valuesFromRows(song: LocalSong, userSong: LocalUserSong): SongFo
     part_structure: song.part_structure ?? '',
     time_signature: asTimeSignature(song.time_signature),
     is_crooked: song.is_crooked,
-    has_lyrics: song.has_lyrics ?? false,
+    lyrics: song.lyrics ?? '',
     status: isSongStatus(userSong.status) ? userSong.status : 'want_to_learn',
     learned_from: userSong.learned_from ?? '',
     learned_on: userSong.learned_on ?? '',
@@ -101,7 +101,7 @@ export function inputsFromValues(values: SongFormValues): {
       part_structure: blankToNull(values.part_structure),
       time_signature: values.time_signature || null,
       is_crooked: values.is_crooked,
-      has_lyrics: values.has_lyrics,
+      lyrics: blankToNull(values.lyrics),
     },
     userSong: {
       status: values.status,

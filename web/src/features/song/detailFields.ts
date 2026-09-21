@@ -17,7 +17,8 @@ export type DetailField =
       other: boolean
       maxLength?: number
     }
-  | { kind: 'switch'; key: 'is_crooked' | 'has_lyrics'; label: string; help?: string }
+  | { kind: 'switch'; key: 'is_crooked'; label: string; help?: string }
+  | { kind: 'lyrics'; key: 'lyrics'; label: string }
   | { kind: 'date'; key: 'learned_on'; label: string }
 
 /** The Details card's own footer. The rule governs one field but belongs to the card, because
@@ -69,7 +70,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     label: 'Crooked',
     help: 'An odd number of beats or bars in a part.',
   },
-  { kind: 'switch', key: 'has_lyrics', label: 'Has lyrics' },
+  { kind: 'lyrics', key: 'lyrics', label: 'Lyrics' },
   { kind: 'text', key: 'learned_from', label: 'Learned from', maxLength: SONG_LIMITS.learned_from },
   { kind: 'date', key: 'learned_on', label: 'Learned on' },
 ]

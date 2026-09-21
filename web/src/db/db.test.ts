@@ -33,7 +33,7 @@ const song: LocalSong = {
   alternate_titles: [],
   genre: null,
   feel: null,
-  has_lyrics: null,
+  lyrics: null,
   key: 'D',
   mode: 'major',
   violin_tuning: null,
@@ -113,14 +113,57 @@ describe('schema', () => {
     }
   })
 
-  it('opens version 3 with the recording tables', async () => {
+  it('upgrades a version 3 database by replacing has_lyrics with a lyrics body', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v3 = new Dexie(name)
+    v3.version(3).stores({
+      songs: 'id, title',
+      user_songs: 'id, song_id',
+      recording_links: 'id, song_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_song_id',
+      user_settings: 'id',
+      recordings: 'id, song_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const legacy: Record<string, unknown> = { ...song, has_lyrics: true }
+    delete legacy.lyrics
+    await v3.table('songs').put(legacy)
+    const legacyChangeData: Record<string, unknown> = { ...toChangeData(song), has_lyrics: true }
+    delete legacyChangeData.lyrics
+    await v3.table('outbox').add({
+      table: 'songs',
+      row_id: song.id,
+      op: 'upsert',
+      updated_at: song.updated_at,
+      data: legacyChangeData,
+    })
+    v3.close()
+
+    const upgraded = new CrosstuneDb(name)
+    try {
+      const row = await upgraded.songs.get(song.id)
+      expect(row).toMatchObject({ lyrics: null })
+      expect(row !== undefined && 'has_lyrics' in row).toBe(false)
+      const entry = await pendingFor(upgraded, 'songs', song.id)
+      expect(entry?.data).toMatchObject({ lyrics: null })
+      expect(entry?.data && 'has_lyrics' in entry.data).toBe(false)
+    } finally {
+      await upgraded.delete()
+    }
+  })
+
+  it('opens at the current version with the recording tables', async () => {
     const db = openTestDb()
     try {
       await db.open()
       expect(db.tables.map((t) => t.name)).toEqual(
         expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
       )
-      expect(db.verno).toBe(3)
+      expect(db.verno).toBe(4)
     } finally {
       await db.delete()
     }
@@ -215,9 +258,9 @@ describe('row shaping', () => {
       'created_at',
       'feel',
       'genre',
-      'has_lyrics',
       'is_crooked',
       'key',
+      'lyrics',
       'mode',
       'part_structure',
       'time_signature',

@@ -197,7 +197,7 @@ export function serverSong(overrides: Partial<SongRow> & { id: string }): SongRo
     alternate_titles: [],
     genre: null,
     feel: null,
-    has_lyrics: null,
+    lyrics: null,
     key: null,
     mode: null,
     violin_tuning: null,

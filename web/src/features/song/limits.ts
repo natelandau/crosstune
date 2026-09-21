@@ -8,5 +8,6 @@ export const SONG_LIMITS = {
   feel: 100,
   part_structure: 100,
   learned_from: 200,
+  lyrics: 20_000,
   notes: 20_000,
 } as const

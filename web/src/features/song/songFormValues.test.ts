@@ -41,4 +41,12 @@ describe('songFormValues', () => {
     const values = valuesFromRows(song, userSongRow('u1', 's1', { status: 'bogus' }))
     expect(values).toMatchObject({ mode: '', time_signature: '', status: 'want_to_learn' })
   })
+
+  it('carries lyrics through and nulls a whitespace-only body', () => {
+    const song = songRow('s1', 'Uncle Joe', { lyrics: 'Did you ever go to meeting' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    expect(values.lyrics).toBe('Did you ever go to meeting')
+    expect(inputsFromValues(values).song.lyrics).toBe('Did you ever go to meeting')
+    expect(inputsFromValues({ ...values, lyrics: '  \n\n  ' }).song.lyrics).toBeNull()
+  })
 })

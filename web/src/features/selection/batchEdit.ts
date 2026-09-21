@@ -15,7 +15,6 @@ export const EDIT_FIELDS = [
   'time_signature',
   'part_structure',
   'is_crooked',
-  'has_lyrics',
   'learned_from',
   'learned_on',
 ] as const
@@ -33,7 +32,6 @@ export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   time_signature: 'Time signature',
   part_structure: 'Part structure',
   is_crooked: 'Crooked',
-  has_lyrics: 'Has lyrics',
   learned_from: 'Learned from',
   learned_on: 'Learned on',
 }
@@ -50,7 +48,6 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   time_signature: 'choice',
   part_structure: 'choice',
   is_crooked: 'boolean',
-  has_lyrics: 'boolean',
   learned_from: 'text',
   learned_on: 'date',
 }
