@@ -10,9 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
+from crosstune.vocabulary import LIMITS, Mode, TimeSignature
 
-MODES: tuple[str, ...] = ("major", "minor", "mixolydian", "dorian", "other")
-TIME_SIGNATURES: tuple[str, ...] = ("4/4", "2/4", "2/2", "3/4", "6/8", "9/8", "12/8", "other")
+SONG = LIMITS["songs"]
 
 
 class Song(SyncColumns, Base):
@@ -20,8 +20,10 @@ class Song(SyncColumns, Base):
 
     __tablename__ = "songs"
     __table_args__ = (
-        CheckConstraint(in_list("mode", MODES), name="ck_songs_mode"),
-        CheckConstraint(in_list("time_signature", TIME_SIGNATURES), name="ck_songs_time_signature"),
+        CheckConstraint(in_list("mode", tuple(Mode)), name="ck_songs_mode"),
+        CheckConstraint(
+            in_list("time_signature", tuple(TimeSignature)), name="ck_songs_time_signature"
+        ),
         Index("ix_songs_owner_user_id_server_seq", "owner_user_id", "server_seq"),
     )
 
@@ -32,17 +34,19 @@ class Song(SyncColumns, Base):
     merged_into_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("songs.id", ondelete="SET NULL"), nullable=True
     )
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    title: Mapped[str] = mapped_column(String(SONG["title"]), nullable=False)
     alternate_titles: Mapped[list[str]] = mapped_column(
-        ARRAY(String(200)), nullable=False, default=list
+        ARRAY(String(SONG["alternate_titles"])), nullable=False, default=list
     )
-    genre: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    feel: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    genre: Mapped[str | None] = mapped_column(String(SONG["genre"]), nullable=True)
+    feel: Mapped[str | None] = mapped_column(String(SONG["feel"]), nullable=True)
     lyrics: Mapped[str | None] = mapped_column(Text, nullable=True)
-    key: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    key: Mapped[str | None] = mapped_column(String(SONG["key"]), nullable=True)
     mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    violin_tuning: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    banjo_tuning: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    part_structure: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    violin_tuning: Mapped[str | None] = mapped_column(String(SONG["violin_tuning"]), nullable=True)
+    banjo_tuning: Mapped[str | None] = mapped_column(String(SONG["banjo_tuning"]), nullable=True)
+    part_structure: Mapped[str | None] = mapped_column(
+        String(SONG["part_structure"]), nullable=True
+    )
     time_signature: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_crooked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

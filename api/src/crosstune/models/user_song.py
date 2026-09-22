@@ -23,8 +23,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-
-STATUSES: tuple[str, ...] = ("known", "learning", "want_to_learn")
+from crosstune.vocabulary import LIMITS, SongStatus
 
 
 class UserSong(SyncColumns, Base):
@@ -33,7 +32,9 @@ class UserSong(SyncColumns, Base):
     __tablename__ = "user_songs"
     __table_args__ = (
         UniqueConstraint("user_id", "song_id", name="uq_user_songs_user_song"),
-        CheckConstraint(in_list("status", STATUSES, nullable=False), name="ck_user_songs_status"),
+        CheckConstraint(
+            in_list("status", tuple(SongStatus), nullable=False), name="ck_user_songs_status"
+        ),
         Index("ix_user_songs_user_id_server_seq", "user_id", "server_seq"),
     )
 
@@ -45,7 +46,9 @@ class UserSong(SyncColumns, Base):
         UUID(as_uuid=True), ForeignKey("songs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    learned_from: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    learned_from: Mapped[str | None] = mapped_column(
+        String(LIMITS["user_songs"]["learned_from"]), nullable=True
+    )
     learned_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

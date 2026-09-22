@@ -1,6 +1,16 @@
 {
   "components": {
     "schemas": {
+      "AudioQuality": {
+        "description": "A capture bitrate preset.",
+        "enum": [
+          "low",
+          "standard",
+          "high"
+        ],
+        "title": "AudioQuality",
+        "type": "string"
+      },
       "Change": {
         "description": "One client change. updated_at is the client's clock and decides last-write-wins.",
         "properties": {
@@ -56,6 +66,22 @@
         ],
         "title": "Change",
         "type": "object"
+      },
+      "Instrument": {
+        "description": "An instrument a player can say they play.",
+        "enum": [
+          "violin",
+          "banjo",
+          "guitar",
+          "mandolin",
+          "ukulele",
+          "bass",
+          "dulcimer",
+          "accordion",
+          "other"
+        ],
+        "title": "Instrument",
+        "type": "string"
       },
       "ListChangeResult": {
         "description": "The outcome of one change to a list.",
@@ -366,6 +392,18 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "Mode": {
+        "description": "A song's mode.",
+        "enum": [
+          "major",
+          "minor",
+          "mixolydian",
+          "dorian",
+          "other"
+        ],
+        "title": "Mode",
+        "type": "string"
+      },
       "Problem": {
         "description": "An RFC 9457 problem details body, the shape of every error this API returns.",
         "properties": {
@@ -409,6 +447,21 @@
         ],
         "title": "Problem",
         "type": "object"
+      },
+      "Provider": {
+        "description": "Where a recording link points.",
+        "enum": [
+          "youtube",
+          "spotify",
+          "apple_music",
+          "bandcamp",
+          "soundcloud",
+          "tidal",
+          "internet_archive",
+          "other"
+        ],
+        "title": "Provider",
+        "type": "string"
       },
       "PullResponse": {
         "description": "A page of rows changed since the given cursor.",
@@ -723,8 +776,7 @@
             "type": "integer"
           },
           "provider": {
-            "title": "Provider",
-            "type": "string"
+            "$ref": "#/components/schemas/Provider"
           },
           "provider_ref": {
             "anyOf": [
@@ -912,12 +964,10 @@
             "title": "Song Id"
           },
           "source": {
-            "title": "Source",
-            "type": "string"
+            "$ref": "#/components/schemas/RecordingSource"
           },
           "state": {
-            "title": "State",
-            "type": "string"
+            "$ref": "#/components/schemas/RecordingState"
           },
           "updated_at": {
             "format": "date-time",
@@ -947,6 +997,27 @@
         ],
         "title": "RecordingRow",
         "type": "object"
+      },
+      "RecordingSource": {
+        "description": "How a recording's audio arrived.",
+        "enum": [
+          "microphone",
+          "upload"
+        ],
+        "title": "RecordingSource",
+        "type": "string"
+      },
+      "RecordingState": {
+        "description": "Where a recording's file is in the upload and transcode pipeline.",
+        "enum": [
+          "pending_upload",
+          "uploaded",
+          "processing",
+          "ready",
+          "failed"
+        ],
+        "title": "RecordingState",
+        "type": "string"
       },
       "ResolveRequest": {
         "description": "Body of a resolve request: the URL the user just pasted.",
@@ -1212,13 +1283,12 @@
           "mode": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/Mode"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Mode"
+            ]
           },
           "owner_user_id": {
             "anyOf": [
@@ -1251,13 +1321,12 @@
           "time_signature": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/TimeSignature"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Time Signature"
+            ]
           },
           "title": {
             "maxLength": 200,
@@ -1295,6 +1364,16 @@
         "title": "SongRow",
         "type": "object"
       },
+      "SongStatus": {
+        "description": "Where a player stands with a song.",
+        "enum": [
+          "known",
+          "learning",
+          "want_to_learn"
+        ],
+        "title": "SongStatus",
+        "type": "string"
+      },
       "StorageResponse": {
         "description": "How much of the recording quota is in use.",
         "properties": {
@@ -1318,6 +1397,21 @@
         ],
         "title": "StorageResponse",
         "type": "object"
+      },
+      "TimeSignature": {
+        "description": "A song's time signature.",
+        "enum": [
+          "4/4",
+          "2/4",
+          "2/2",
+          "3/4",
+          "6/8",
+          "9/8",
+          "12/8",
+          "other"
+        ],
+        "title": "TimeSignature",
+        "type": "string"
       },
       "UploadSlotRequest": {
         "description": "What the client is about to upload.",
@@ -1416,9 +1510,8 @@
         "description": "A stored settings row, as push and pull return it.",
         "properties": {
           "audio_quality": {
-            "default": "standard",
-            "title": "Audio Quality",
-            "type": "string"
+            "$ref": "#/components/schemas/AudioQuality",
+            "default": "standard"
           },
           "created_at": {
             "format": "date-time",
@@ -1445,7 +1538,7 @@
           "instruments": {
             "default": [],
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/Instrument"
             },
             "title": "Instruments",
             "type": "array"
@@ -1630,8 +1723,7 @@
             "type": "string"
           },
           "status": {
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/SongStatus"
           },
           "updated_at": {
             "format": "date-time",

@@ -1,5 +1,6 @@
 """The OpenAPI document is the contract the web client is generated from."""
 
+from crosstune import vocabulary
 from crosstune.main import create_app
 
 
@@ -58,3 +59,36 @@ def test_openapi_rows_carry_a_required_discriminator() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     assert "table" in schemas["SongPullRow"]["required"]
     assert "table" in schemas["SongChangeResult"]["required"]
+
+
+def test_openapi_publishes_every_vocabulary_as_a_named_enum() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    for enum in (
+        vocabulary.Instrument,
+        vocabulary.SongStatus,
+        vocabulary.Mode,
+        vocabulary.TimeSignature,
+        vocabulary.Provider,
+        vocabulary.AudioQuality,
+        vocabulary.RecordingSource,
+        vocabulary.RecordingState,
+    ):
+        assert schemas[enum.__name__]["enum"] == [member.value for member in enum], enum.__name__
+        assert schemas[enum.__name__]["type"] == "string"
+
+
+def test_openapi_publishes_every_limit_on_its_row() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    rows = {
+        "songs": "SongRow",
+        "user_songs": "UserSongRow",
+        "lists": "ListRow",
+        "recording_links": "RecordingLinkRow",
+        "recordings": "RecordingRow",
+    }
+    for table, fields in vocabulary.LIMITS.items():
+        properties = schemas[rows[table]]["properties"]
+        for field, limit in fields.items():
+            prop = properties[field]
+            candidates = [prop, *prop.get("anyOf", []), prop.get("items", {})]
+            assert limit in {c.get("maxLength") for c in candidates}, f"{table}.{field}"

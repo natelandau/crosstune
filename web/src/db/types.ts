@@ -30,7 +30,14 @@ export function isInstrument(value: unknown): value is Instrument {
 export const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
 type OwnershipKey = (typeof OWNERSHIP_KEYS)[number]
 
-export type Local<Row> = Omit<Row, OwnershipKey>
+// A pulled row may carry a value from a server newer than this client, so the local copy
+// keeps every server vocabulary as a plain string and reads it through a guard such as
+// isInstrument. The contract's unions stay the type of what this client itself offers.
+type Loosen<T> = T extends string ? string : T extends readonly (infer Item)[] ? Loosen<Item>[] : T
+
+export type Local<Row> = {
+  [Key in keyof Omit<Row, OwnershipKey>]: Loosen<Omit<Row, OwnershipKey>[Key]>
+}
 
 export type LocalSong = Local<SongRow>
 export type LocalUserSong = Local<UserSongRow>

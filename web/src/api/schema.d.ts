@@ -175,6 +175,12 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AudioQuality
+         * @description A capture bitrate preset.
+         * @enum {string}
+         */
+        AudioQuality: "low" | "standard" | "high";
+        /**
          * Change
          * @description One client change. updated_at is the client's clock and decides last-write-wins.
          */
@@ -204,6 +210,12 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * Instrument
+         * @description An instrument a player can say they play.
+         * @enum {string}
+         */
+        Instrument: "violin" | "banjo" | "guitar" | "mandolin" | "ukulele" | "bass" | "dulcimer" | "accordion" | "other";
         /**
          * ListChangeResult
          * @description The outcome of one change to a list.
@@ -375,6 +387,12 @@ export interface components {
             storage: components["schemas"]["StorageResponse"];
         };
         /**
+         * Mode
+         * @description A song's mode.
+         * @enum {string}
+         */
+        Mode: "major" | "minor" | "mixolydian" | "dorian" | "other";
+        /**
          * Problem
          * @description An RFC 9457 problem details body, the shape of every error this API returns.
          */
@@ -395,6 +413,12 @@ export interface components {
              */
             type: string;
         };
+        /**
+         * Provider
+         * @description Where a recording link points.
+         * @enum {string}
+         */
+        Provider: "youtube" | "spotify" | "apple_music" | "bandcamp" | "soundcloud" | "tidal" | "internet_archive" | "other";
         /**
          * PullResponse
          * @description A page of rows changed since the given cursor.
@@ -514,8 +538,7 @@ export interface components {
              * @default 0
              */
             position: number;
-            /** Provider */
-            provider: string;
+            provider: components["schemas"]["Provider"];
             /** Provider Ref */
             provider_ref?: string | null;
             /** Server Seq */
@@ -588,10 +611,8 @@ export interface components {
             server_seq: number;
             /** Song Id */
             song_id?: string | null;
-            /** Source */
-            source: string;
-            /** State */
-            state: string;
+            source: components["schemas"]["RecordingSource"];
+            state: components["schemas"]["RecordingState"];
             /**
              * Updated At
              * Format: date-time
@@ -603,6 +624,18 @@ export interface components {
              */
             user_id: string;
         };
+        /**
+         * RecordingSource
+         * @description How a recording's audio arrived.
+         * @enum {string}
+         */
+        RecordingSource: "microphone" | "upload";
+        /**
+         * RecordingState
+         * @description Where a recording's file is in the upload and transcode pipeline.
+         * @enum {string}
+         */
+        RecordingState: "pending_upload" | "uploaded" | "processing" | "ready" | "failed";
         /**
          * ResolveRequest
          * @description Body of a resolve request: the URL the user just pasted.
@@ -713,16 +746,14 @@ export interface components {
             key?: string | null;
             /** Lyrics */
             lyrics?: string | null;
-            /** Mode */
-            mode?: string | null;
+            mode?: components["schemas"]["Mode"] | null;
             /** Owner User Id */
             owner_user_id: string | null;
             /** Part Structure */
             part_structure?: string | null;
             /** Server Seq */
             server_seq: number;
-            /** Time Signature */
-            time_signature?: string | null;
+            time_signature?: components["schemas"]["TimeSignature"] | null;
             /** Title */
             title: string;
             /**
@@ -733,6 +764,12 @@ export interface components {
             /** Violin Tuning */
             violin_tuning?: string | null;
         };
+        /**
+         * SongStatus
+         * @description Where a player stands with a song.
+         * @enum {string}
+         */
+        SongStatus: "known" | "learning" | "want_to_learn";
         /**
          * StorageResponse
          * @description How much of the recording quota is in use.
@@ -745,6 +782,12 @@ export interface components {
             /** Used Bytes */
             used_bytes: number;
         };
+        /**
+         * TimeSignature
+         * @description A song's time signature.
+         * @enum {string}
+         */
+        TimeSignature: "4/4" | "2/4" | "2/2" | "3/4" | "6/8" | "9/8" | "12/8" | "other";
         /**
          * UploadSlotRequest
          * @description What the client is about to upload.
@@ -796,11 +839,8 @@ export interface components {
          * @description A stored settings row, as push and pull return it.
          */
         UserSettingsRow: {
-            /**
-             * Audio Quality
-             * @default standard
-             */
-            audio_quality: string;
+            /** @default standard */
+            audio_quality: components["schemas"]["AudioQuality"];
             /**
              * Created At
              * Format: date-time
@@ -817,7 +857,7 @@ export interface components {
              * Instruments
              * @default []
              */
-            instruments: string[];
+            instruments: components["schemas"]["Instrument"][];
             /** Server Seq */
             server_seq: number;
             /**
@@ -899,8 +939,7 @@ export interface components {
              * Format: uuid
              */
             song_id: string;
-            /** Status */
-            status: string;
+            status: components["schemas"]["SongStatus"];
             /**
              * Updated At
              * Format: date-time
