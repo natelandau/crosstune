@@ -10,7 +10,7 @@ import { forceTouch } from '../test/pointer'
 import { useConfirm, type ConfirmOptions } from './Confirm'
 
 type Confirm = (options: ConfirmOptions) => Promise<boolean>
-import { useMenu, type MenuItem } from './Menu'
+import { MORE_ACTIONS, useMenu, type MenuItem } from './Menu'
 import { Sheet } from './Sheet'
 
 /** The palette's danger color as the browser computes it, so the palette itself can change. */
@@ -92,7 +92,7 @@ function MenuHost({ onDelete }: { onDelete: () => void }) {
     ],
     [onDelete],
   )
-  return <IonButton onClick={(event) => openMenu(event, 'More actions', items)}>More</IonButton>
+  return <IonButton onClick={(event) => openMenu(event, MORE_ACTIONS, items)}>More</IonButton>
 }
 
 function WarningMenuHost({ onArchive }: { onArchive: () => void }) {
@@ -101,7 +101,7 @@ function WarningMenuHost({ onArchive }: { onArchive: () => void }) {
     () => [{ label: 'Archive', tone: 'warning', onPress: onArchive }],
     [onArchive],
   )
-  return <IonButton onClick={(event) => openMenu(event, 'More actions', items)}>More</IonButton>
+  return <IonButton onClick={(event) => openMenu(event, MORE_ACTIONS, items)}>More</IonButton>
 }
 
 function MixedMenuHost() {
@@ -113,7 +113,7 @@ function MixedMenuHost() {
     ],
     [],
   )
-  return <IonButton onClick={(event) => openMenu(event, 'More actions', items)}>More</IonButton>
+  return <IonButton onClick={(event) => openMenu(event, MORE_ACTIONS, items)}>More</IonButton>
 }
 
 function ChainedMenuHost({ onMove }: { onMove: () => void }) {
@@ -121,7 +121,7 @@ function ChainedMenuHost({ onMove }: { onMove: () => void }) {
   return (
     <IonButton
       onClick={(event) =>
-        openMenu(event, 'More actions', [
+        openMenu(event, MORE_ACTIONS, [
           {
             label: 'Move',
             onPress: () => openMenu(event, 'Move to', [{ label: 'Move to top', onPress: onMove }]),
@@ -289,7 +289,7 @@ describe('useMenu', () => {
   it('names the popover with the title the action sheet shows as its header', async () => {
     renderIonic(<MenuHost onDelete={() => {}} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('More'))
-    await expect.element(page.getByRole('group', { name: 'More actions' })).toBeVisible()
+    await expect.element(page.getByRole('group', { name: MORE_ACTIONS })).toBeVisible()
   })
 
   it('shows a separator before the destructive item', async () => {
@@ -430,7 +430,7 @@ describe('on touch', () => {
       renderIonic(<MenuHost onDelete={() => {}} />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('More'))
       await waitFor(() =>
-        expect(document.querySelector('.action-sheet-title')?.textContent).toBe('More actions'),
+        expect(document.querySelector('.action-sheet-title')?.textContent).toBe(MORE_ACTIONS),
       )
     })
 

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Instrument } from '../../db/types'
+import type { Instrument } from '../../api/vocabulary'
 import { instrumentsFrom } from './instruments'
 import { useSettingsRow } from './useSettingsRow'
 

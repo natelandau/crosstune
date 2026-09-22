@@ -6,13 +6,16 @@ import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import { liveSong } from '../../db/songs'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
+import { OFFLINE } from '../../sync/labels'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { displayTitle } from '../links/display'
-import { fileStateLabel } from '../recording/format'
+import { DOWNLOAD_FAILED, DOWNLOADING, fileStateLabel } from '../recording/format'
 import { recordingTitle } from '../recordings/recordingRow'
 import { embedFor, type Embed } from './embed'
 import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
 import { usePlayer } from './usePlayer'
+
+export const CLOSE_PLAYER = 'Close player'
 
 type Shown =
   | { kind: 'link'; link: LocalRecordingLink; embed: Embed }
@@ -82,11 +85,11 @@ function RecordingBody({
   if (src)
     return <audio src={src} controls autoPlay aria-label={title} className="block h-14 w-full" />
   const label = !online
-    ? 'Offline'
+    ? OFFLINE
     : failed
-      ? "Couldn't download"
+      ? DOWNLOAD_FAILED
       : recording.state === 'ready'
-        ? 'Downloading'
+        ? DOWNLOADING
         : fileStateLabel(recording, file ?? undefined)
   return (
     <div className="flex h-14 items-center gap-2">
@@ -247,7 +250,7 @@ export function Dock() {
         <div className="mx-auto flex h-full w-full max-w-(--measure) flex-col px-5">
           <div className="flex h-11 shrink-0 items-center gap-2">
             <span className="type-headline min-w-0 flex-1 truncate">{title}</span>
-            <IonButton fill="clear" aria-label="Close player" onClick={close}>
+            <IonButton fill="clear" aria-label={CLOSE_PLAYER} onClick={close}>
               <X aria-hidden="true" className="size-5" />
             </IonButton>
           </div>

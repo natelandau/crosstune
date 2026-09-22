@@ -1,17 +1,28 @@
 import { IonButton, IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  MODES,
+  SONG_LIMITS,
+  STATUSES,
+  TIME_SIGNATURES,
+  type Instrument,
+} from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import { MODES, STATUSES, TIME_SIGNATURES, type Instrument } from '../../db/types'
+import {
+  FEELS,
+  GENRES,
+  PART_STRUCTURES,
+  QUICK_KEYS,
+  STATUS_LABELS,
+  TUNING_SUGGESTIONS,
+} from '../../constants'
 import { usePointer } from '../../platform/pointer'
-import { FieldRow } from '../../ui/FieldRow'
+import { FieldRow, NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
-import { STATUS_LABELS } from '../catalog/status'
 import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
-import { SONG_LIMITS } from '../song/limits'
-import { FEELS, GENRES, PART_STRUCTURES, QUICK_KEYS, TUNING_SUGGESTIONS } from '../song/suggestions'
 import { SuggestSelect } from '../song/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
@@ -70,7 +81,7 @@ function StatusRow({
       {/* Status can be set but never cleared, so this row carries no empty choice. */}
       <IonSelect
         aria-label="Status"
-        placeholder={summary.kind === 'mixed' ? 'Mixed' : 'Not set'}
+        placeholder={summary.kind === 'mixed' ? 'Mixed' : NOT_SET}
         interface={mouse ? 'popover' : 'action-sheet'}
         value={typeof value === 'string' ? value : ''}
         onIonChange={(event) => onChange(String(event.detail.value ?? ''))}
@@ -104,7 +115,7 @@ function EditRow({
     return <StatusRow summary={summary} touched={touched} onChange={onChange} />
 
   const label = EDIT_FIELD_LABELS[field]
-  const placeholder = summary.kind === 'mixed' ? 'Mixed' : 'Not set'
+  const placeholder = summary.kind === 'mixed' ? 'Mixed' : NOT_SET
   const detail = showLabel ? label : undefined
   const value = rowValue(summary, touched)
   const text = typeof value === 'string' ? value : ''

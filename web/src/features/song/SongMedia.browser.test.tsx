@@ -9,10 +9,15 @@ import { openTestDb } from '../../test/db'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderScreen } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
+import { ADD_LINK, PASTE_LINK } from '../links/PasteLinkSheet'
+import { NEW_RECORDING } from '../recording/RecordModal'
 import type * as RecordModule from '../recording/useRecord'
 import { RecordProvider } from '../recording/useRecord'
+import { DELETE_SYNCED_NOTE } from '../recordings/recordingRow'
+import { RECORDING_NAME_LABEL, RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
+import { DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
-import { SongMedia } from './SongMedia'
+import { ADD_RECORDING, NO_MEDIA_HINT, NO_MEDIA_TITLE, SongMedia } from './SongMedia'
 import { useSong } from './useSong'
 
 vi.mock('../../commands/recordings', { spy: true })
@@ -111,8 +116,8 @@ const rowTitles = () => Array.from(document.querySelectorAll('h3')).map((h) => h
 describe('SongMedia', () => {
   it('names the empty state and the one way into adding a recording', async () => {
     show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    const control = page.getByRole('button', { name: 'Add recording', exact: true })
+    await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
+    const control = page.getByRole('button', { name: ADD_RECORDING, exact: true })
     await expect.element(control).toBeVisible()
     const host = (control.element().getRootNode() as ShadowRoot).host
     expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
@@ -138,19 +143,19 @@ describe('SongMedia', () => {
   it('opens the record modal for this song', async () => {
     fakeMedia()
     show()
-    await page.getByRole('button', { name: 'Add recording', exact: true }).click()
-    await (await menuItem('New recording')).click()
-    await expect.element(page.getByRole('dialog', { name: 'New recording' })).toBeInTheDocument()
+    await page.getByRole('button', { name: ADD_RECORDING, exact: true }).click()
+    await (await menuItem(NEW_RECORDING)).click()
+    await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeInTheDocument()
     expect(starts).toEqual([songId])
   })
 
   it('adds a pasted link as a row of its own', async () => {
     show()
-    await page.getByRole('button', { name: 'Add recording', exact: true }).click()
-    await (await menuItem('Paste link')).click()
+    await page.getByRole('button', { name: ADD_RECORDING, exact: true }).click()
+    await (await menuItem(PASTE_LINK)).click()
     await expect.element(page.getByLabelText('Link')).toBeVisible()
     await page.getByLabelText('Link').fill(youtube.url)
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
     await expect.element(page.getByRole('heading', { name: 'youtu.be', level: 3 })).toBeVisible()
     await expect.element(page.getByRole('link', { name: 'Open youtu.be on YouTube' })).toBeVisible()
@@ -198,7 +203,7 @@ describe('SongMedia', () => {
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     await page.getByRole('button', { name: 'Remove from song Jam recording' }).click()
     await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.song_id).toBeNull())
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+    await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
   })
 
   it('reports a refused row action on one line under the groups', async () => {
@@ -221,9 +226,9 @@ describe('SongMedia', () => {
     await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Jam recording' }))
     show()
     await page.getByRole('button', { name: 'Rename Jam recording' }).click()
-    await expect.element(page.getByText('Rename recording')).toBeVisible()
+    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
     await expect
-      .element(page.getByRole('textbox', { name: 'Recording name' }))
+      .element(page.getByRole('textbox', { name: RECORDING_NAME_LABEL }))
       .toHaveValue('Jam recording')
   })
 
@@ -233,11 +238,11 @@ describe('SongMedia', () => {
     )
     show()
     await page.getByRole('button', { name: 'Delete Jam recording' }).click()
-    await expect.element(page.getByText('Delete this recording?')).toBeVisible()
-    await expect.element(page.getByText('It is removed from every device.')).toBeVisible()
+    await expect.element(page.getByText(DELETE_RECORDING_TITLE)).toBeVisible()
+    await expect.element(page.getByText(DELETE_SYNCED_NOTE)).toBeVisible()
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.deleted_at).not.toBeNull())
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+    await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
   })
 
   it('drops a link from its own row', async () => {
@@ -248,47 +253,47 @@ describe('SongMedia', () => {
     await vi.waitFor(async () =>
       expect((await db.recording_links.get(linkId))?.deleted_at).not.toBeNull(),
     )
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+    await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
   })
 
   it('records from a song with nothing recorded yet', async () => {
     // The control lives on the group's header, and an empty group would take it off the
     // screen with it.
     show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
-    await expect.element(page.getByText('Record one, or paste a link to one.')).toBeVisible()
-    await expect.element(page.getByRole('button', { name: 'Add recording' })).toBeVisible()
+    await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NO_MEDIA_HINT)).toBeVisible()
+    await expect.element(page.getByRole('button', { name: ADD_RECORDING })).toBeVisible()
   })
 
   it('renders no card around the empty state', async () => {
     show()
-    await expect.element(page.getByText('Nothing recorded yet')).toBeVisible()
+    await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
     expect(document.querySelector('ion-list.list-inset')).toBeNull()
   })
 
   it('names both ways to add one in words, behind the plus every other screen uses', async () => {
     show()
-    await expect.element(page.getByRole('button', { name: 'Add recording' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: ADD_RECORDING })).toBeVisible()
     // Ionic copies an aria-label onto its inner native button and takes it off the host, so the
     // control is found by role rather than by the attribute it was written with. Scoped to the
     // header, so a control left behind below the card could not satisfy this.
     const header = page.elementLocator(document.querySelector('[data-section-header]')!)
-    const add = header.getByRole('button', { name: 'Add recording' })
+    const add = header.getByRole('button', { name: ADD_RECORDING })
     await expect.element(add).toBeVisible()
     await add.click()
     // A glyph reads as nothing aloud and, on a song synced from another device, the empty
     // state that names these is never seen. The menu is where the words are.
-    for (const label of ['New recording', 'Paste link']) {
+    for (const label of [NEW_RECORDING, PASTE_LINK]) {
       await expect.element(await menuItem(label)).toBeVisible()
     }
   })
 
   it('opens the paste link sheet from the menu', async () => {
     show()
-    const add = page.getByRole('button', { name: 'Add recording' })
+    const add = page.getByRole('button', { name: ADD_RECORDING })
     await expect.element(add).toBeVisible()
     await add.click()
-    await (await menuItem('Paste link')).click()
+    await (await menuItem(PASTE_LINK)).click()
     await expect.element(page.getByRole('textbox', { name: 'Link' })).toBeVisible()
   })
 
@@ -296,7 +301,7 @@ describe('SongMedia', () => {
     await page.viewport(320, 640)
     try {
       show()
-      await expect.element(page.getByRole('button', { name: 'Add recording' })).toBeVisible()
+      await expect.element(page.getByRole('button', { name: ADD_RECORDING })).toBeVisible()
       const line = document.querySelector<HTMLElement>('[data-section-header]')!
       const heading = line.querySelector<HTMLElement>('h2')!
       const controls = Array.from(line.querySelectorAll<HTMLElement>('ion-button'))

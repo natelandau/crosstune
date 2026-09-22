@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { SONG_NOT_FOUND } from '../../commands/messages'
 import { createSong } from '../../commands/songs'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { DEFAULT_LYRICS_STEP, LYRICS_SIZE_KEY, LYRICS_STEPS, setLyricsStep } from './lyricsSize'
-import { LyricsModal } from './LyricsModal'
+import { EDIT_LYRICS, LARGER_TEXT, LyricsModal, SMALLER_TEXT } from './LyricsModal'
 
 const WORDS = 'Did you ever go to meeting\nUncle Joe\n\nDon’t mind the weather'
 
@@ -68,7 +69,7 @@ it('shows every line, grouped into verses', async () => {
 
 it('steps the text size, remembers it, and clamps at the top', async () => {
   show()
-  const larger = page.getByRole('button', { name: 'Larger text' })
+  const larger = page.getByRole('button', { name: LARGER_TEXT })
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe('4'))
   await larger.click()
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe('5'))
@@ -77,12 +78,12 @@ it('steps the text size, remembers it, and clamps at the top', async () => {
   expect(localStorage.getItem(LYRICS_SIZE_KEY)).toBe(String(LYRICS_STEPS))
   await expect.element(larger).toHaveAttribute('aria-disabled', 'true')
   // A control out of scale still reads as unavailable, dimmed as a disabled one is.
-  expect(Number(getComputedStyle(buttonHost('Larger text')).opacity)).toBeLessThan(1)
+  expect(Number(getComputedStyle(buttonHost(LARGER_TEXT)).opacity)).toBeLessThan(1)
 })
 
 it('keeps focus on the control that reached the end of the scale', async () => {
   show()
-  const larger = page.getByRole('button', { name: 'Larger text' })
+  const larger = page.getByRole('button', { name: LARGER_TEXT })
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe('4'))
   await larger.click()
   await larger.click()
@@ -94,14 +95,14 @@ it('keeps focus on the control that reached the end of the scale', async () => {
 it('reports the step to a screen reader only after a press', async () => {
   show()
   await vi.waitFor(() => expect(status()?.textContent).toBe(''))
-  await page.getByRole('button', { name: 'Smaller text' }).click()
+  await page.getByRole('button', { name: SMALLER_TEXT }).click()
   await vi.waitFor(() => expect(status()?.textContent).toBe('Text size 3 of 6'))
 })
 
 it('says nothing about the last step when it opens again', async () => {
   renderIonic(<Reopenable />, { db: openTestDb() })
   const toggle = () => document.querySelector<HTMLButtonElement>('[data-toggle]')!
-  await page.getByRole('button', { name: 'Smaller text' }).click()
+  await page.getByRole('button', { name: SMALLER_TEXT }).click()
   await vi.waitFor(() => expect(status()?.textContent).toBe('Text size 3 of 6'))
   toggle().click()
   await vi.waitFor(() => expect(document.querySelector('ion-modal.overlay-hidden')).not.toBeNull())
@@ -127,7 +128,7 @@ it('opens where the wake lock API is missing', async () => {
 
 it('steps the text size down and clamps at the bottom', async () => {
   show()
-  const smaller = page.getByRole('button', { name: 'Smaller text' })
+  const smaller = page.getByRole('button', { name: SMALLER_TEXT })
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe('4'))
   for (let i = 0; i < 3; i++) await smaller.click()
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe('1'))
@@ -153,7 +154,7 @@ it('pulls a line back to the margin by exactly its own hanging indent', async ()
 it('gives every toolbar control a 44px tap target', async () => {
   show()
   await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible()
-  for (const name of ['Smaller text', 'Larger text', 'Close']) {
+  for (const name of [SMALLER_TEXT, LARGER_TEXT, 'Close']) {
     const box = buttonHost(name).getBoundingClientRect()
     // A control sized to the exact 44px minimum can render a few thousandths of a pixel under
     // it, from float rounding in the layout engine rather than from the rule itself.
@@ -200,7 +201,7 @@ it('edits the words from the end of them, and writes without a form', async () =
   )
   // Past the last verse, where a musician who has read to the end already is, and where a
   // scroll mid-song never reaches.
-  const edit = page.getByRole('button', { name: 'Edit lyrics' })
+  const edit = page.getByRole('button', { name: EDIT_LYRICS })
   await expect.element(edit).toBeVisible()
   const lastLine = Array.from(document.querySelectorAll<HTMLElement>('[data-verse] p')).at(-1)!
   const host = document.querySelector<HTMLElement>('ion-button[expand="block"]')!
@@ -233,14 +234,14 @@ it('keeps refused words in the box, with the reason, rather than dropping them',
     <LyricsModal open songId={songId} title="Uncle Joe" lyrics={WORDS} onClose={() => {}} />,
     { db },
   )
-  await page.getByRole('button', { name: 'Edit lyrics' }).click()
+  await page.getByRole('button', { name: EDIT_LYRICS }).click()
   const field = page.getByRole('textbox', { name: 'Lyrics' })
   await expect.element(field).toHaveValue(WORDS)
   await field.clear()
   await field.fill('Words worth keeping')
   await page.getByRole('button', { name: 'Done', exact: true }).click()
 
-  await expect.element(page.getByRole('alert')).toHaveTextContent('Song not found')
+  await expect.element(page.getByRole('alert')).toHaveTextContent(SONG_NOT_FOUND)
   await expect
     .element(page.getByRole('textbox', { name: 'Lyrics' }))
     .toHaveValue('Words worth keeping')
@@ -271,14 +272,14 @@ it('opens on the words after a close that left the editor up', async () => {
     )
   }
   renderIonic(<Screen />, { db })
-  await page.getByRole('button', { name: 'Edit lyrics' }).click()
+  await page.getByRole('button', { name: EDIT_LYRICS }).click()
   await expect.element(page.getByRole('textbox', { name: 'Lyrics' })).toBeVisible()
   // The screen closing under an open editor, the way a synced delete or a route change does.
   const toggle = document.querySelector<HTMLElement>('[data-toggle]')!
   toggle.click()
   await vi.waitFor(() => expect(document.querySelector('[data-lyrics-size]')).toBeNull())
   toggle.click()
-  await expect.element(page.getByRole('button', { name: 'Edit lyrics' })).toBeVisible()
+  await expect.element(page.getByRole('button', { name: EDIT_LYRICS })).toBeVisible()
   expect(document.querySelector('ion-textarea')).toBeNull()
 })
 
@@ -308,7 +309,7 @@ it('names the dialog for the title the song carries now', async () => {
   // A rename on the screen behind the modal, which is mounted with that screen and closed.
   document.querySelector<HTMLElement>('[data-rename]')!.click()
   document.querySelector<HTMLElement>('[data-open]')!.click()
-  await expect.element(page.getByRole('button', { name: 'Edit lyrics' })).toBeVisible()
+  await expect.element(page.getByRole('button', { name: EDIT_LYRICS })).toBeVisible()
   await vi.waitFor(() =>
     expect(
       document

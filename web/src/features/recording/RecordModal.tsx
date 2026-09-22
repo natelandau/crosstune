@@ -11,19 +11,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useConfirm } from '../../ui/Confirm'
 import { InlineError } from '../../ui/InlineError'
 import { useToast } from '../../ui/Toast'
-import { formatDuration } from './format'
+import { formatDuration, RECORDING } from './format'
 import { LiveWaveform } from './LiveWaveform'
 import { type CapturePhase, useCapture } from './useCapture'
 import type { RecordTarget } from './useRecord'
 
+export const NEW_RECORDING = 'New recording'
+export const DISCARD_TITLE = 'Discard this recording?'
+export const NOT_RECORDING = 'Not recording'
+export const STARTING_MICROPHONE = 'Starting the microphone'
+
 const STATUS: Record<CapturePhase, string> = {
-  starting: 'Starting the microphone',
-  recording: 'Recording',
+  starting: STARTING_MICROPHONE,
+  recording: RECORDING,
   interrupted: 'Interrupted',
   saving: 'Saving',
   saved: 'Saved',
-  denied: 'Not recording',
-  failed: 'Not recording',
+  denied: NOT_RECORDING,
+  failed: NOT_RECORDING,
 }
 
 /**
@@ -88,13 +93,13 @@ export function RecordModal({
   return (
     <IonModal
       isOpen={target !== null && !closing}
-      aria-label="New recording"
+      aria-label={NEW_RECORDING}
       canDismiss={refuseGesture}
       onDidDismiss={dismissed}
     >
       <IonHeader>
         <IonToolbar>
-          <IonTitle>New recording</IonTitle>
+          <IonTitle>{NEW_RECORDING}</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent>
@@ -147,7 +152,7 @@ function Capture({
     ending.current = true
     const asked = started
       ? confirm({
-          title: 'Discard this recording?',
+          title: DISCARD_TITLE,
           message: 'The recording is not saved.',
           action: 'Discard',
         })

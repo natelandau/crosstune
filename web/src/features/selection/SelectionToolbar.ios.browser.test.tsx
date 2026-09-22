@@ -5,9 +5,15 @@ import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
-import type { MenuItem } from '../../ui/Menu'
+import { MORE_ACTIONS, type MenuItem } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
-import { useSelectionToolbar, type BulkAction } from './SelectionToolbar'
+import { ADD_TO_LIST } from '../lists/ListPicker'
+import {
+  DESELECT_ALL_IOS,
+  SELECT_ALL_IOS,
+  useSelectionToolbar,
+  type BulkAction,
+} from './SelectionToolbar'
 import type { SongSelection } from './useSongSelection'
 
 let db: CrosstuneDb
@@ -18,7 +24,7 @@ const toggleAll = vi.fn()
 const ACTIONS: readonly BulkAction[] = [
   { label: 'Status', icon: Tag, onPress: () => {} },
   { label: 'Edit', icon: SquarePen, onPress: () => {} },
-  { label: 'Add to list', icon: ListPlus, onPress: () => {} },
+  { label: ADD_TO_LIST, icon: ListPlus, onPress: () => {} },
 ]
 const MORE: readonly MenuItem[] = [{ label: 'Archive 2 songs', onPress: () => {} }]
 
@@ -79,11 +85,11 @@ describe('useSelectionToolbar on iOS', () => {
 
   it('leads with Select All and flips it to Deselect All', async () => {
     show(2)
-    await expect.element(control('Select All')).toBeVisible()
-    await control('Select All').click()
+    await expect.element(control(SELECT_ALL_IOS)).toBeVisible()
+    await control(SELECT_ALL_IOS).click()
     expect(toggleAll).toHaveBeenCalledOnce()
-    await expect.element(control('Deselect All')).toBeVisible()
-    expect(control('Select All').elements()).toHaveLength(0)
+    await expect.element(control(DESELECT_ALL_IOS)).toBeVisible()
+    expect(control(SELECT_ALL_IOS).elements()).toHaveLength(0)
   })
 
   it('trails with Done, which exits', async () => {
@@ -96,7 +102,7 @@ describe('useSelectionToolbar on iOS', () => {
   it('puts no action icons in the toolbar', async () => {
     show(2)
     await expect.element(control('Done')).toBeVisible()
-    for (const name of ['Status', 'Edit', 'Add to list', 'More actions']) {
+    for (const name of ['Status', 'Edit', ADD_TO_LIST, MORE_ACTIONS]) {
       expect(control(name).elements()).toHaveLength(0)
     }
     expect(document.querySelectorAll('ion-toolbar svg')).toHaveLength(0)
@@ -117,9 +123,9 @@ describe('useSelectionToolbar on iOS', () => {
     await page.viewport(320, 640)
     try {
       show(130)
-      await expect.element(control('Select All')).toBeVisible()
-      await control('Select All').click()
-      await expect.element(control('Deselect All')).toBeVisible()
+      await expect.element(control(SELECT_ALL_IOS)).toBeVisible()
+      await control(SELECT_ALL_IOS).click()
+      await expect.element(control(DESELECT_ALL_IOS)).toBeVisible()
       const title = document
         .querySelector('ion-header ion-title')!
         .shadowRoot!.querySelector('.toolbar-title')!
@@ -128,7 +134,7 @@ describe('useSelectionToolbar on iOS', () => {
       for (const size of ['regular', 'roomy'] as const) {
         if (size === 'roomy') document.documentElement.dataset.textSize = 'roomy'
         expect(title.getBoundingClientRect().left, size).toBeGreaterThanOrEqual(
-          host('Deselect All').getBoundingClientRect().right,
+          host(DESELECT_ALL_IOS).getBoundingClientRect().right,
         )
         const digits = document.querySelector('.selection-title-count')!
         expect(digits.scrollWidth, size).toBeLessThanOrEqual(digits.clientWidth)
@@ -142,7 +148,7 @@ describe('useSelectionToolbar on iOS', () => {
   it('gives both controls a 44px tap target', async () => {
     show(2)
     await expect.element(control('Done')).toBeVisible()
-    for (const name of ['Select All', 'Done']) {
+    for (const name of [SELECT_ALL_IOS, 'Done']) {
       const box = host(name).getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
       expect(box.width).toBeGreaterThanOrEqual(44)

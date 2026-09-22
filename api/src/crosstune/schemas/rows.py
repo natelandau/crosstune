@@ -8,37 +8,25 @@ from typing import TYPE_CHECKING, Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from crosstune.models import (
-    AUDIO_QUALITIES,
-    INSTRUMENTS,
-    MODES,
-    PROVIDERS,
-    SOURCES,
-    STATUSES,
-    TIME_SIGNATURES,
+from crosstune.vocabulary import (
+    LIMITS,
+    AudioQuality,
+    Instrument,
+    Mode,
+    Provider,
+    RecordingSource,
+    RecordingState,
+    SongStatus,
+    TimeSignature,
 )
 
 if TYPE_CHECKING:
     from crosstune.schemas.common import TableName
 
 
-def _one_of(allowed: tuple[str, ...]):  # noqa: ANN202
-    def check(value: str) -> str:
-        if value not in allowed:
-            msg = f"must be one of {', '.join(allowed)}"
-            raise ValueError(msg)
-        return value
-
-    return check
-
-
-Mode = Annotated[str, AfterValidator(_one_of(MODES))]
-TimeSignature = Annotated[str, AfterValidator(_one_of(TIME_SIGNATURES))]
-StatusValue = Annotated[str, AfterValidator(_one_of(STATUSES))]
-Provider = Annotated[str, AfterValidator(_one_of(PROVIDERS))]
-Instrument = Annotated[str, AfterValidator(_one_of(INSTRUMENTS))]
-AudioQuality = Annotated[str, AfterValidator(_one_of(AUDIO_QUALITIES))]
-Source = Annotated[str, AfterValidator(_one_of(SOURCES))]
+SONG = LIMITS["songs"]
+USER_SONG = LIMITS["user_songs"]
+LINK = LIMITS["recording_links"]
 
 
 def _distinct(values: list[str]) -> list[str]:
@@ -48,8 +36,10 @@ def _distinct(values: list[str]) -> list[str]:
     return values
 
 
+# A validated enum is stored as its plain string, so rows and pushes carry what the
+# database holds rather than enum members.
 class _Data(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
     created_at: datetime
 
@@ -57,16 +47,16 @@ class _Data(BaseModel):
 class SongData(_Data):
     """Client-editable fields of a song."""
 
-    title: str = Field(min_length=1, max_length=200)
-    alternate_titles: list[Annotated[str, Field(max_length=200)]] = []
-    genre: str | None = Field(default=None, max_length=100)
-    feel: str | None = Field(default=None, max_length=100)
-    lyrics: str | None = Field(default=None, max_length=20_000)
-    key: str | None = Field(default=None, max_length=10)
+    title: str = Field(min_length=1, max_length=SONG["title"])
+    alternate_titles: list[Annotated[str, Field(max_length=SONG["alternate_titles"])]] = []
+    genre: str | None = Field(default=None, max_length=SONG["genre"])
+    feel: str | None = Field(default=None, max_length=SONG["feel"])
+    lyrics: str | None = Field(default=None, max_length=SONG["lyrics"])
+    key: str | None = Field(default=None, max_length=SONG["key"])
     mode: Mode | None = None
-    violin_tuning: str | None = Field(default=None, max_length=100)
-    banjo_tuning: str | None = Field(default=None, max_length=100)
-    part_structure: str | None = Field(default=None, max_length=100)
+    violin_tuning: str | None = Field(default=None, max_length=SONG["violin_tuning"])
+    banjo_tuning: str | None = Field(default=None, max_length=SONG["banjo_tuning"])
+    part_structure: str | None = Field(default=None, max_length=SONG["part_structure"])
     time_signature: TimeSignature | None = None
     is_crooked: bool = False
 
@@ -75,10 +65,10 @@ class UserSongData(_Data):
     """Client-editable fields of a user's relationship to a song."""
 
     song_id: uuid.UUID
-    status: StatusValue
-    learned_from: str | None = Field(default=None, max_length=200)
+    status: SongStatus
+    learned_from: str | None = Field(default=None, max_length=USER_SONG["learned_from"])
     learned_on: date | None = None
-    notes: str | None = Field(default=None, max_length=20_000)
+    notes: str | None = Field(default=None, max_length=USER_SONG["notes"])
     archived_at: datetime | None = None
 
 
@@ -86,19 +76,19 @@ class RecordingLinkData(_Data):
     """Client-editable fields of a recording link."""
 
     song_id: uuid.UUID
-    url: str = Field(min_length=1, max_length=2048)
+    url: str = Field(min_length=1, max_length=LINK["url"])
     provider: Provider
-    provider_ref: str | None = Field(default=None, max_length=200)
-    title: str | None = Field(default=None, max_length=300)
-    artwork_url: str | None = Field(default=None, max_length=2048)
-    label: str | None = Field(default=None, max_length=200)
+    provider_ref: str | None = Field(default=None, max_length=LINK["provider_ref"])
+    title: str | None = Field(default=None, max_length=LINK["title"])
+    artwork_url: str | None = Field(default=None, max_length=LINK["artwork_url"])
+    label: str | None = Field(default=None, max_length=LINK["label"])
     position: int = 0
 
 
 class ListData(_Data):
     """Client-editable fields of a list."""
 
-    name: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=LIMITS["lists"]["name"])
     position: int = 0
 
 
@@ -114,8 +104,8 @@ class RecordingData(_Data):
     """Client-editable fields of a recording. The file columns are server-owned."""
 
     song_id: uuid.UUID | None = None
-    label: str | None = Field(default=None, max_length=200)
-    source: Source
+    label: str | None = Field(default=None, max_length=LIMITS["recordings"]["label"])
+    source: RecordingSource
     recorded_at: datetime
     position: int = 0
 
@@ -124,7 +114,8 @@ class UserSettingsData(_Data):
     """Client-editable fields of a user's settings."""
 
     instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
-    audio_quality: AudioQuality = "standard"
+    # The default is validated too, so it is stored as a plain string like a sent value.
+    audio_quality: AudioQuality = Field(default=AudioQuality.STANDARD, validate_default=True)
 
 
 class _Row(BaseModel):
@@ -134,7 +125,7 @@ class _Row(BaseModel):
     dropped instead of rejected.
     """
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", use_enum_values=True)
 
     id: uuid.UUID
     updated_at: datetime
@@ -186,7 +177,7 @@ class RecordingRow(RecordingData, _Row):
     model_config = ConfigDict(extra="ignore")
 
     user_id: uuid.UUID
-    state: str
+    state: RecordingState
     duration_ms: int | None
     playback_mime: str | None
     playback_bytes: int | None

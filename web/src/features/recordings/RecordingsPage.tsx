@@ -22,6 +22,9 @@ import { UploadButton } from './UploadButton'
 import { useRecordingActions } from './useRecordingActions'
 import { useRecordingsWithFiles, type RecordingView } from './useRecordings'
 
+export const NO_RECORDINGS_TITLE = 'No recordings yet'
+export const NO_RECORDINGS_HINT = 'Use the record button to make one, or upload an audio file.'
+
 interface RecordingGroup {
   songId: string | null
   title: string
@@ -87,11 +90,7 @@ export function RecordingsPage() {
       {ready ? (
         <>
           {groups.length === 0 ? (
-            <EmptyState
-              icon={AudioLines}
-              title="No recordings yet"
-              hint="Use the record button to make one, or upload an audio file."
-            />
+            <EmptyState icon={AudioLines} title={NO_RECORDINGS_TITLE} hint={NO_RECORDINGS_HINT} />
           ) : null}
           {/* One container across every group, so the arrow keys walk the whole screen rather
               than stopping at the last row of a group. */}

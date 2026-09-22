@@ -1,6 +1,7 @@
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem, LocalSong, LocalUserSong } from '../db/types'
 import { activeItems, createList, deleteList, writeOrder } from './lists'
+import { LIST_NOT_FOUND, SONG_NOT_FOUND, SONG_NOT_IN_LIST } from './messages'
 import { tombstoneSong, type SongInput, type UserSongInput } from './songs'
 import { newId, nextPosition, now, putRow, recordingTx, tombstone, writeTx } from './write'
 
@@ -79,9 +80,9 @@ export async function updateSongs(
     const at = now()
     for (const userSongId of unique(userSongIds)) {
       const userSong = await db.user_songs.get(userSongId)
-      if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
       const song = await db.songs.get(userSong.song_id)
-      if (!song || song.deleted_at) throw new Error('Song not found')
+      if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
 
       const songChanges = changes(song, songPatch)
       if (Object.keys(songChanges).length > 0) {
@@ -121,7 +122,7 @@ export async function setArchivedMany(
     const at = now()
     for (const id of unique(userSongIds)) {
       const userSong = await db.user_songs.get(id)
-      if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
       if ((userSong.archived_at !== null) === archived) continue
       snapshots.push({ table: 'user_songs', id, before: { archived_at: userSong.archived_at } })
       await putRow(db, 'user_songs', {
@@ -147,7 +148,7 @@ export async function deleteSongs(
     const songIds = new Set<string>()
     for (const id of unique(userSongIds)) {
       const userSong = await db.user_songs.get(id)
-      if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
       songIds.add(userSong.song_id)
     }
     for (const songId of songIds) await tombstoneSong(db, songId, at)
@@ -163,7 +164,7 @@ export async function addSongsToList(
   const created: string[] = []
   await writeTx(db, async () => {
     const list = await db.lists.get(listId)
-    if (!list || list.deleted_at) throw new Error('List not found')
+    if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
     const items = await activeItems(db, listId)
     const members = new Set(items.map((item) => item.user_song_id))
     let position = nextPosition(items)
@@ -171,7 +172,7 @@ export async function addSongsToList(
     for (const userSongId of unique(userSongIds)) {
       if (members.has(userSongId)) continue
       const userSong = await db.user_songs.get(userSongId)
-      if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
       const id = newId()
       await putRow(db, 'list_items', {
         id,
@@ -222,7 +223,7 @@ export async function removeSongsFromList(
     const at = now()
     for (const id of unique(itemIds)) {
       const item = await db.list_items.get(id)
-      if (!item || item.deleted_at) throw new Error('Song not found in list')
+      if (!item || item.deleted_at) throw new Error(SONG_NOT_IN_LIST)
       await tombstone(db, 'list_items', id, at)
       removed.push(id)
     }

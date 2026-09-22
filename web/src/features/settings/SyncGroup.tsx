@@ -7,6 +7,10 @@ import { SYNC_STATUS_LABELS, TRANSFER_STATUS_LABELS } from '../../sync/labels'
 import { useSyncEngine, useSyncStatus, useTransferStatus } from '../../sync/SyncProvider'
 import { Group } from '../../ui/Group'
 
+export const ONE_REJECTED = '1 change was rejected by the server and is only on this device.'
+
+export const SYNC_NOW = 'Sync now'
+
 /**
  * The full sync state: the badge above the tab bar shows only the states that need attention, so
  * this is the one place a musician can see a clean or running sync too.
@@ -36,7 +40,7 @@ export function SyncGroup() {
           <IonLabel className="whitespace-normal">
             <p role="status" className="type-footnote">
               {rejected === 1
-                ? '1 change was rejected by the server and is only on this device.'
+                ? ONE_REJECTED
                 : `${rejected} changes were rejected by the server and are only on this device.`}
             </p>
           </IonLabel>
@@ -48,7 +52,7 @@ export function SyncGroup() {
         disabled={syncAction.pending}
         onClick={() => syncAction.run(() => engine.sync())}
       >
-        <IonLabel>Sync now</IonLabel>
+        <IonLabel>{SYNC_NOW}</IonLabel>
       </IonItem>
     </Group>
   )

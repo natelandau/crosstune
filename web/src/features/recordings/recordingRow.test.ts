@@ -3,6 +3,7 @@ import type { StorageFigures } from '../../db/meta'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
 import { recordingFile, recordingRow } from '../../test/rows'
+import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import type { RecordingView } from './useRecordings'
 import { recordingMeta, recordingTitle, retryKind, rowControl } from './recordingRow'
 
@@ -82,7 +83,7 @@ describe('recordingMeta', () => {
       }),
       null,
     )
-    expect(result).toEqual(['0:42', 'Waiting to upload', '2 failed tries'])
+    expect(result).toEqual(['0:42', WAITING_TO_UPLOAD, '2 failed tries'])
   })
 
   it('adds the storage label for a blocked upload when storage figures are known', () => {
@@ -113,7 +114,7 @@ describe('recordingMeta', () => {
 
   it("says Couldn't process for a recording the server failed to transcode", () => {
     const result = recordingMeta(view({ recording: { state: 'failed' } }), null)
-    expect(result).toContain("Couldn't process")
+    expect(result).toContain(PROCESS_FAILED)
   })
 
   it('leaves out the failed tries count for a refused upload', () => {
@@ -121,7 +122,7 @@ describe('recordingMeta', () => {
       view({ file: recordingFile('r1', { local_state: 'failed_upload', upload_attempts: 3 }) }),
       null,
     )
-    expect(result).toEqual(['Upload failed'])
+    expect(result).toEqual([UPLOAD_FAILED])
   })
 })
 

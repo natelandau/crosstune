@@ -159,6 +159,10 @@ Everywhere the app lists songs it uses one row.
 - A field's label reads the same on every screen. A row under a header that
   carries half the name may show less, but a screen reader hears the full
   name.
+- Every string a musician reads is written once. A label, title, footer,
+  placeholder, or message that more than one file needs is an exported
+  constant beside the component that shows it, and the other files, tests
+  included, import it, so a wording change is one edit.
 
 ## Status
 

@@ -5,6 +5,8 @@ import { openTestDb } from '../../test/db'
 import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
 import {
   createRecordingSession,
+  PARTIAL_SAVE,
+  SIZE_LIMIT,
   type MediaStreamLike,
   type RecordingSessionDeps,
   type RecordingSnapshot,
@@ -158,7 +160,7 @@ describe('createRecordingSession finish and cancel', () => {
     await session.finish()
     expect(session.snapshot()).toMatchObject({
       phase: 'saved',
-      error: 'Part of this recording could not be saved.',
+      error: PARTIAL_SAVE,
     })
     const file = await db.recording_files.get('rec_1')
     expect(file).toMatchObject({ local_state: 'captured', bytes: LAST_CHUNK.length })
@@ -206,7 +208,7 @@ describe('createRecordingSession finish and cancel', () => {
     expect(session.snapshot().phase).toBe('recording')
     recorders[0]!.emit('0123456789')
     await vi.waitFor(() => expect(session.snapshot().phase).toBe('saved'))
-    expect(session.snapshot().error).toBe('This recording reached the size limit and was saved.')
+    expect(session.snapshot().error).toBe(SIZE_LIMIT)
     expect(recorders[0]?.state).toBe('inactive')
     expect(releaseLock).toHaveBeenCalledTimes(1)
     expect((await db.recording_files.get('rec_1'))?.local_state).toBe('captured')

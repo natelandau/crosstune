@@ -7,10 +7,13 @@ import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import type { CatalogEntry } from '../catalog/filters'
-import { SongSearch } from '../catalog/SongSearch'
+import { SEARCH_SONGS, SongSearch } from '../catalog/SongSearch'
 import { useInstruments } from '../settings/useInstruments'
 import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
 import type { RecordingView } from './useRecordings'
+
+export const ADD_TO_SONG_TITLE = 'Add to a song'
+export const ADD_TO_SONG_ERROR = 'The recording could not be added to this song.'
 
 /**
  * Search for the song a recording belongs to, or start a new one to file it under.
@@ -102,7 +105,7 @@ export function AddToSongSheet({
     if (id === null) return
     // The song already exists by now, so a refused filing reports where the closed sheet cannot.
     void updateRecording(db, id, { song_id: songId }).catch(() =>
-      toast({ message: 'The recording could not be added to this song.' }),
+      toast({ message: ADD_TO_SONG_ERROR }),
     )
   }
 
@@ -110,7 +113,7 @@ export function AddToSongSheet({
     <>
       <Sheet
         open={view !== null && !closing}
-        title="Add to a song"
+        title={ADD_TO_SONG_TITLE}
         onClose={dismissed}
         start={
           <IonButton disabled={pending} onClick={() => setClosing(true)}>
@@ -122,7 +125,7 @@ export function AddToSongSheet({
         {view ? (
           <>
             <SongSearch
-              name="Search songs"
+              name={SEARCH_SONGS}
               rowName={(title) => `Add to ${title}`}
               onPick={pick}
               onCreate={create}

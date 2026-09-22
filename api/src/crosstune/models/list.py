@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
+from crosstune.vocabulary import LIMITS
 
 
 class List(SyncColumns, Base):
@@ -21,7 +22,7 @@ class List(SyncColumns, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(LIMITS["lists"]["name"]), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 

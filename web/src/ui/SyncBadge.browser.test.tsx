@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { WIDE_QUERY } from '../platform/frame'
 import { Shell } from '../app/Shell'
+import { SYNC_STATUS_LABELS } from '../sync/labels'
 import { fakeEngine } from '../test/providers'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
@@ -61,7 +62,7 @@ describe('SyncBadge in a screen toolbar', () => {
   it('shows the state needing attention in a top-level toolbar on the phone frame', async () => {
     forceFrame(false)
     renderScreenWithSync('top')
-    const badge = page.getByText('Sync failed')
+    const badge = page.getByText(SYNC_STATUS_LABELS.error)
     await expect.element(badge).toBeVisible()
     const toolbar = await settledToolbar()
     expect(toolbar.contains(badge.element())).toBe(true)
@@ -124,7 +125,7 @@ describe('SyncBadge in the sidebar', () => {
         engine: fakeEngine({ status: () => 'error' }),
       })
       const sidebar = page.getByRole('navigation', { name: 'Sidebar' })
-      const badge = sidebar.getByText('Sync failed')
+      const badge = sidebar.getByText(SYNC_STATUS_LABELS.error)
       await expect.element(badge).toBeVisible()
       const record = sidebar.getByText('Record').element().getBoundingClientRect()
       const box = badge.element().getBoundingClientRect()

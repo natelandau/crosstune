@@ -12,6 +12,7 @@ import {
   updateSongs,
 } from './bulk'
 import { activeItems, addToList, createList, moveItem, removeFromList } from './lists'
+import { LIST_NAME_REQUIRED, LIST_NOT_FOUND, SONG_NOT_FOUND, SONG_NOT_IN_LIST } from './messages'
 import { createSong, deleteSong, setArchived, updateSong } from './songs'
 
 let db: CrosstuneDb
@@ -52,7 +53,7 @@ describe('updateSongs', () => {
     await deleteSong(db, b.songId)
     await expect(
       updateSongs(db, [a.userSongId, b.userSongId], { userSong: { status: 'known' } }),
-    ).rejects.toThrow('Song not found')
+    ).rejects.toThrow(SONG_NOT_FOUND)
     expect((await db.user_songs.get(a.userSongId))?.status).toBe('learning')
   })
 
@@ -171,7 +172,7 @@ describe('deleteSongs', () => {
   it('rejects when a selected song is already gone', async () => {
     const a = await song('Say Old Man')
     await deleteSong(db, a.songId)
-    await expect(deleteSongs(db, [a.userSongId])).rejects.toThrow('Song not found')
+    await expect(deleteSongs(db, [a.userSongId])).rejects.toThrow(SONG_NOT_FOUND)
   })
 })
 
@@ -203,7 +204,7 @@ describe('addSongsToList', () => {
 
   it('writes nothing when the list is gone', async () => {
     const a = await song('A')
-    await expect(addSongsToList(db, 'missing', [a.userSongId])).rejects.toThrow('List not found')
+    await expect(addSongsToList(db, 'missing', [a.userSongId])).rejects.toThrow(LIST_NOT_FOUND)
   })
 })
 
@@ -224,16 +225,14 @@ describe('createListWithSongs', () => {
 
   it('rejects a blank name and writes nothing', async () => {
     const a = await song('A')
-    await expect(createListWithSongs(db, ' ', [a.userSongId])).rejects.toThrow(
-      'A list needs a name',
-    )
+    await expect(createListWithSongs(db, ' ', [a.userSongId])).rejects.toThrow(LIST_NAME_REQUIRED)
     expect(await db.lists.count()).toBe(0)
   })
 
   it('writes nothing when a song is missing', async () => {
     const a = await song('A')
     await expect(createListWithSongs(db, 'Tuesday jam', [a.userSongId, 'missing'])).rejects.toThrow(
-      'Song not found',
+      SONG_NOT_FOUND,
     )
     expect((await db.lists.toArray()).some((l) => !l.deleted_at)).toBe(false)
     expect(await db.list_items.count()).toBe(0)
@@ -283,7 +282,7 @@ describe('removeSongsFromList', () => {
     const ia = await addToList(db, listId, a.userSongId)
     const ib = await addToList(db, listId, b.userSongId)
     await removeFromList(db, ib)
-    await expect(removeSongsFromList(db, [ia, ib])).rejects.toThrow('Song not found in list')
+    await expect(removeSongsFromList(db, [ia, ib])).rejects.toThrow(SONG_NOT_IN_LIST)
     expect((await activeItems(db, listId)).map((i) => i.id)).toEqual([ia])
   })
 

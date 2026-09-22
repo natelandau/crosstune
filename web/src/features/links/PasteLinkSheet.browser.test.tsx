@@ -8,7 +8,13 @@ import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
-import { PasteLinkSheet } from './PasteLinkSheet'
+import {
+  ADD_LINK,
+  LINK_PLACEHOLDER,
+  LINK_REQUIRED,
+  PASTE_LINK,
+  PasteLinkSheet,
+} from './PasteLinkSheet'
 
 function Host({ songId, onClose = () => {} }: { songId: string | null; onClose?: () => void }) {
   const [current, setCurrent] = useState(songId)
@@ -44,11 +50,9 @@ describe('PasteLinkSheet', () => {
     const db = openTestDb()
     const songId = await song(db)
     show(songId, { db })
-    await expect.element(page.getByText('Paste link')).toBeVisible()
+    await expect.element(page.getByText(PASTE_LINK)).toBeVisible()
     await expect.element(page.getByLabelText('Link')).toBeVisible()
-    await expect
-      .element(page.getByPlaceholder('Paste a YouTube, Spotify, or other link'))
-      .toBeVisible()
+    await expect.element(page.getByPlaceholder(LINK_PLACEHOLDER)).toBeVisible()
     await expect.element(page.getByLabelText('Label')).toBeVisible()
     await expect.element(page.getByPlaceholder('slow version, jam recording, …')).toBeVisible()
   })
@@ -58,7 +62,7 @@ describe('PasteLinkSheet', () => {
     const songId = await song(db)
     show(songId, { db })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
     const [link] = await db.recording_links.toArray()
     expect(link?.provider).toBe('youtube')
@@ -70,7 +74,7 @@ describe('PasteLinkSheet', () => {
     const songId = await song(db)
     show(songId, { db })
     await page.getByLabelText('Link').fill('https://example.com/some-recording')
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
     const [link] = await db.recording_links.toArray()
     expect(link?.provider).toBe('other')
@@ -89,7 +93,7 @@ describe('PasteLinkSheet', () => {
     }
     show(songId, { db, engine: fakeEngine({ resolveLink: async () => resolved }) })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
     const [link] = await db.recording_links.toArray()
     expect(link?.title).toBe('Resolved title')
@@ -100,7 +104,7 @@ describe('PasteLinkSheet', () => {
     const songId = await song(db)
     show(songId, { db, engine: fakeEngine({ resolveLink: async () => null }) })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
     const [link] = await db.recording_links.toArray()
     expect(link?.title).toBeNull()
@@ -110,8 +114,8 @@ describe('PasteLinkSheet', () => {
     const db = openTestDb()
     const songId = await song(db)
     show(songId, { db })
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent('Paste a link to add it')
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
+    await expect.element(page.getByRole('alert')).toHaveTextContent(LINK_REQUIRED)
     expect(await db.recording_links.count()).toBe(0)
   })
 
@@ -133,7 +137,7 @@ describe('PasteLinkSheet', () => {
     const onClose = vi.fn()
     show(songId, { db, onClose })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
-    await page.getByRole('button', { name: 'Add link', exact: true }).click()
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -185,11 +189,11 @@ describe('PasteLinkSheet', () => {
     }
 
     renderIonic(<ReopenHost />, { db })
-    await expect.element(page.getByText('Paste link')).toBeVisible()
+    await expect.element(page.getByText(PASTE_LINK)).toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
     await page.getByRole('button', { name: 'Reopen', exact: true }).click()
-    await expect.element(page.getByText('Paste link')).toBeVisible()
+    await expect.element(page.getByText(PASTE_LINK)).toBeVisible()
     await expect.element(page.getByLabelText('Link')).toHaveValue('')
   })
 })

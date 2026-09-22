@@ -1,15 +1,17 @@
 import { IonButton } from '@ionic/react'
 import { useEffect, useRef, useState } from 'react'
+import type { Instrument } from '../../api/vocabulary'
 import { useAuthSession } from '../../auth/AuthContext'
 import { setInstruments } from '../../commands/settings'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { storedInstruments, type Instrument } from '../../db/types'
+import { storedInstruments } from '../../db/types'
 import { useLastSyncedAt } from '../../sync/SyncProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
+import { useAction } from '../../ui/useAction'
 import { useRecord } from '../recording/useRecord'
 import { InstrumentRows } from './InstrumentRows'
+import { INSTRUMENTS_HELP } from './instruments'
 import { useSettingsRow } from './useSettingsRow'
 
 // The sync status can announce a clean run a beat before the live query delivers the row that
@@ -17,6 +19,7 @@ import { useSettingsRow } from './useSettingsRow'
 export const FIRST_RUN_GRACE_MS = 750
 
 export const FIRST_RUN_TITLE = 'Which instruments do you play?'
+export const FIRST_RUN_HELP = `${INSTRUMENTS_HELP} You can change this any time in Settings.`
 
 const NONE: ReadonlySet<Instrument> = new Set()
 
@@ -92,10 +95,7 @@ export function FirstRunSheet() {
         </IonButton>
       }
     >
-      <Group
-        footer="Tuning fields appear only for the instruments you play. You can change this any time in Settings."
-        error={error}
-      >
+      <Group footer={FIRST_RUN_HELP} error={error}>
         <InstrumentRows
           value={chosen}
           onToggle={(instrument, on) =>

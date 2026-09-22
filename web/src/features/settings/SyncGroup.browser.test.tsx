@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { countInvalidChanges } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
+import { SYNC_STATUS_LABELS, TRANSFER_STATUS_LABELS } from '../../sync/labels'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import type { SyncEngine } from '../../sync/types'
-import { SyncGroup } from './SyncGroup'
+import { ONE_REJECTED, SYNC_NOW, SyncGroup } from './SyncGroup'
 
-const ONE_REJECTED = '1 change was rejected by the server and is only on this device.'
 const TWO_REJECTED = '2 changes were rejected by the server and are only on this device.'
 
 let db: CrosstuneDb
@@ -23,13 +23,13 @@ afterEach(async () => {
 
 const show = (engine?: SyncEngine) => renderIonic(<SyncGroup />, { db, engine })
 
-const syncButton = () => page.getByRole('button', { name: 'Sync now' })
+const syncButton = () => page.getByRole('button', { name: SYNC_NOW })
 
 describe('SyncGroup', () => {
   it('reports a failing sync and a stalled recording transfer', async () => {
     show(fakeEngine({ status: () => 'error', transferStatus: () => 'transferring' }))
     await expect.element(page.getByText('Status')).toBeVisible()
-    await expect.element(page.getByText('Sync failed')).toBeVisible()
+    await expect.element(page.getByText(SYNC_STATUS_LABELS.error)).toBeVisible()
     await expect.element(page.getByText('Recordings')).toBeVisible()
     await expect.element(page.getByText('Transferring')).toBeVisible()
   })
@@ -37,7 +37,7 @@ describe('SyncGroup', () => {
   it('reports a clean sync and an up to date transfer', async () => {
     show()
     await expect.element(page.getByText('Synced')).toBeVisible()
-    await expect.element(page.getByText('Up to date')).toBeVisible()
+    await expect.element(page.getByText(TRANSFER_STATUS_LABELS.idle)).toBeVisible()
   })
 
   it('names the one change the server rejected', async () => {

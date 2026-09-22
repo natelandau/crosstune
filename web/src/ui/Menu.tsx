@@ -18,6 +18,8 @@ import {
 } from 'react'
 import { usePointer } from '../platform/pointer'
 
+export const MORE_ACTIONS = 'More actions'
+
 export interface MenuItem {
   label: string
   icon?: LucideIcon
@@ -35,11 +37,11 @@ const TONE_CLASS = { neutral: undefined, warning: 'menu-warning', error: 'menu-d
 function PopoverMenu({
   title,
   items,
-  onDismiss,
+  onChoose,
 }: {
   title: string
   items: MenuItem[]
-  onDismiss: () => void
+  onChoose: (item: MenuItem) => void
 }) {
   const firstDestructive = items.findIndex((item) => item.tone === 'error')
   return (
@@ -54,10 +56,7 @@ function PopoverMenu({
               button
               detail={false}
               className={TONE_CLASS[item.tone ?? 'neutral']}
-              onClick={() => {
-                onDismiss()
-                item.onPress()
-              }}
+              onClick={() => onChoose(item)}
             >
               <IonLabel>{item.label}</IonLabel>
               {item.icon ? <item.icon aria-hidden className="size-5" slot="end" /> : null}
@@ -83,10 +82,23 @@ export function useMenu(): (
 
   const [menu, setMenu] = useState<{ title: string; items: MenuItem[] }>({ title: '', items: [] })
   const dismissRef = useRef<() => void>(() => {})
+  // The item picked from the open menu. It runs once the menu has finished dismissing, never
+  // while the menu is still up: an action that presents a sheet would otherwise overlap the
+  // menu, and with two overlays presented at once Ionic cannot tell which dismissal should give
+  // the page back to assistive technology, so the screen stays hidden from it.
+  const chosen = useRef<(() => void) | null>(null)
+  const runChosen = () => {
+    const action = chosen.current
+    chosen.current = null
+    action?.()
+  }
   // Stable for the component's life, so componentProps only changes identity when the items
   // it shows actually change; the effect below keeps the dismiss it calls current.
-  const onDismiss = useCallback(() => dismissRef.current(), [])
-  const popoverProps = useMemo(() => ({ ...menu, onDismiss }), [menu, onDismiss])
+  const onChoose = useCallback((item: MenuItem) => {
+    chosen.current = item.onPress
+    dismissRef.current()
+  }, [])
+  const popoverProps = useMemo(() => ({ ...menu, onChoose }), [menu, onChoose])
   const [presentPopover, dismissPopover] = useIonPopover(PopoverMenu, popoverProps)
 
   useEffect(() => {
@@ -106,8 +118,14 @@ export function useMenu(): (
             new Promise<void>((dismissed) => {
               // The macrotask lets React commit the closed overlay before the next present,
               // or the popover reopens with no content mounted. A present that throws or
-              // rejects still releases the next menu.
-              const release = () => setTimeout(dismissed)
+              // rejects still releases the next menu. The chosen item runs in the same step,
+              // once Ionic has hidden the menu and dropped it from the page, so a sheet it
+              // opens never overlaps the menu.
+              const release = () =>
+                setTimeout(() => {
+                  dismissed()
+                  runChosen()
+                })
               Promise.resolve()
                 .then(() => present(release))
                 .catch(release)
@@ -132,7 +150,9 @@ export function useMenu(): (
                   text: item.label,
                   role: item.tone === 'error' ? ('destructive' as const) : undefined,
                   cssClass: classes.length > 0 ? classes : undefined,
-                  handler: item.onPress,
+                  handler: () => {
+                    chosen.current = item.onPress
+                  },
                 }
               }),
               { text: 'Cancel', role: 'cancel' },

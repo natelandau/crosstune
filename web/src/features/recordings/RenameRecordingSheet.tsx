@@ -1,12 +1,16 @@
 import { IonButton, IonInput, IonItem } from '@ionic/react'
 import { useRef, useState } from 'react'
+import { RECORDING_LIMITS } from '../../api/vocabulary'
 import { updateRecording } from '../../commands/recordings'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { SONG_LIMITS } from '../song/limits'
+import { useAction } from '../../ui/useAction'
 import type { RecordingView } from './useRecordings'
+
+export const RECORDING_NAME_LABEL = 'Recording name'
+export const RECORDING_NAME_PLACEHOLDER = 'Jam at Tom’s, take 2, …'
+export const RENAME_RECORDING_TITLE = 'Rename recording'
 
 /** One box for a recording's name. Saving a blank name clears it. */
 export function RenameRecordingSheet({
@@ -63,7 +67,7 @@ export function RenameRecordingSheet({
   return (
     <Sheet
       open={view !== null && !closing}
-      title="Rename recording"
+      title={RENAME_RECORDING_TITLE}
       dismissible={false}
       onClose={dismissed}
       start={
@@ -89,9 +93,9 @@ export function RenameRecordingSheet({
         <Group error={error}>
           <IonItem>
             <IonInput
-              aria-label="Recording name"
-              placeholder="Jam at Tom’s, take 2, …"
-              maxlength={SONG_LIMITS.title}
+              aria-label={RECORDING_NAME_LABEL}
+              placeholder={RECORDING_NAME_PLACEHOLDER}
+              maxlength={RECORDING_LIMITS.label}
               value={name}
               enterkeyhint="done"
               onIonInput={(event) => {

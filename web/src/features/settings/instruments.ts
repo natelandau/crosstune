@@ -1,23 +1,11 @@
+import type { Instrument } from '../../api/vocabulary'
+import { DEFAULT_INSTRUMENTS } from '../../constants'
 import {
-  DEFAULT_INSTRUMENTS,
   isInstrument,
   storedInstruments,
-  type Instrument,
   type LocalSong,
   type LocalUserSettings,
 } from '../../db/types'
-
-export const INSTRUMENT_LABELS: Record<Instrument, string> = {
-  violin: 'Violin',
-  banjo: 'Banjo',
-  guitar: 'Guitar',
-  mandolin: 'Mandolin',
-  ukulele: 'Ukulele',
-  bass: 'Bass',
-  dulcimer: 'Dulcimer',
-  accordion: 'Accordion',
-  other: 'Other',
-}
 
 /**
  * Each song tuning field, the instrument it belongs to, its label, and the shorter label a row
@@ -32,6 +20,9 @@ export const TUNING_FIELDS = {
 export type TuningField = keyof typeof TUNING_FIELDS
 
 export const TUNING_FIELD_NAMES = Object.keys(TUNING_FIELDS) as TuningField[]
+
+/** The footer under the instruments setting, wherever it is asked. */
+export const INSTRUMENTS_HELP = 'Songs show a tuning field for each instrument chosen here.'
 
 export function instrumentsFrom(
   row: LocalUserSettings | null | undefined,

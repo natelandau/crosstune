@@ -16,26 +16,27 @@ import {
   SquarePen,
 } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type { Instrument } from '../../api/vocabulary'
 import { setArchived } from '../../commands/songs'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import type { Instrument } from '../../db/types'
 import { usePointer } from '../../platform/pointer'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
-import { useMenu } from '../../ui/Menu'
+import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
+import { useAction } from '../../ui/useAction'
 import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
 import { SelectionFooter } from '../selection/SelectionFooter'
 import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useBulkActions, type SelectionContext } from '../selection/useBulkActions'
 import { useSelection } from '../selection/useSelection'
 import { useInstruments } from '../settings/useInstruments'
+import { ARCHIVE, UNARCHIVE } from '../song/archiveLabels'
 import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
-import { CatalogFilterSheet } from './CatalogFilterSheet'
 import { CatalogFilters } from './CatalogFilters'
+import { CatalogFilterSheet } from './CatalogFilterSheet'
 import {
   facetValues,
   filterCatalog,
@@ -48,12 +49,17 @@ import {
   type CatalogEntry,
   type CatalogFilters as Filters,
 } from './filters'
-import { HiddenMatchNote, SearchOfferRow } from './SearchOffer'
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
+import { HiddenMatchNote, SearchOfferRow } from './SearchOffer'
 import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSession'
 import { SongItem } from './SongItem'
+import { SEARCH_SONGS } from './SongSearch'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
+
+export const ADD_SONG = 'Add song'
+export const NO_SONGS_HINT = 'Add the first song you know.'
+export const NO_SONGS_TITLE = 'No songs yet'
 
 const NO_ENTRIES: CatalogEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
@@ -179,7 +185,7 @@ export function CatalogPage() {
   const sheetOwnsScreen = sheetOpen || form !== null
 
   const noSongs = entries.length === 0 && !query.trim()
-  let emptyTitle = noSongs ? 'No songs yet' : 'Nothing matches'
+  let emptyTitle = noSongs ? NO_SONGS_TITLE : 'Nothing matches'
   if (outcome.kind === 'create' && !outcome.another)
     emptyTitle = `No song called "${outcome.title}"`
 
@@ -197,7 +203,7 @@ export function CatalogPage() {
           <>
             <IonButton
               className="toolbar-control"
-              aria-label="Add song"
+              aria-label={ADD_SONG}
               onClick={() => setForm({ kind: 'new' })}
             >
               <Plus aria-hidden="true" className="size-7" />
@@ -206,9 +212,9 @@ export function CatalogPage() {
               <IonButton
                 ref={selectRef}
                 className="toolbar-control"
-                aria-label="More actions"
+                aria-label={MORE_ACTIONS}
                 onClick={(event) =>
-                  openMenu(event, 'More actions', [{ label: 'Select', onPress: () => enter() }])
+                  openMenu(event, MORE_ACTIONS, [{ label: 'Select', onPress: () => enter() }])
                 }
               >
                 <Ellipsis aria-hidden="true" className="size-6" />
@@ -220,7 +226,7 @@ export function CatalogPage() {
       search={
         <SearchField
           ref={searchRef}
-          name="Search songs"
+          name={SEARCH_SONGS}
           value={query}
           onInput={changeQuery}
           onEnter={submitSearch}
@@ -269,7 +275,7 @@ export function CatalogPage() {
             <EmptyState
               icon={Music}
               title={emptyTitle}
-              hint={noSongs ? 'Add the first song you know.' : undefined}
+              hint={noSongs ? NO_SONGS_HINT : undefined}
               action={
                 outcome.kind === 'create' ? (
                   <>
@@ -282,7 +288,7 @@ export function CatalogPage() {
                   </>
                 ) : noSongs ? (
                   <IonButton shape="round" onClick={() => setForm({ kind: 'new' })}>
-                    Add song
+                    {ADD_SONG}
                   </IonButton>
                 ) : null
               }
@@ -313,7 +319,7 @@ export function CatalogPage() {
                                 onPress: () => setForm({ kind: 'edit', entry }),
                               },
                               {
-                                label: archived ? 'Unarchive' : 'Archive',
+                                label: archived ? UNARCHIVE : ARCHIVE,
                                 icon: archived ? ArchiveRestore : Archive,
                                 tone: 'warning',
                                 onPress: () => run(() => setArchived(db, userSong.id, !archived)),

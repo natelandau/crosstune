@@ -1,14 +1,16 @@
 import { IonButton, IonItem, IonLabel } from '@ionic/react'
 import { useState } from 'react'
+import { INSTRUMENTS } from '../../api/vocabulary'
 import { useAuthSession } from '../../auth/AuthContext'
 import { toggleInstrumentSetting } from '../../commands/settings'
+import { INSTRUMENT_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
-import { INSTRUMENTS } from '../../db/types'
+import { NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { InstrumentRows } from './InstrumentRows'
-import { INSTRUMENT_LABELS } from './instruments'
+import { INSTRUMENTS_HELP } from './instruments'
 import { useInstruments } from './useInstruments'
 
 /**
@@ -37,7 +39,7 @@ export function InstrumentsGroup() {
     <>
       <Group
         header="Instruments"
-        footer="Tuning fields appear only for the instruments you play."
+        footer={INSTRUMENTS_HELP}
         // While the sheet is up it holds the checkboxes, so a refusal reports there instead.
         error={showing ? null : error}
       >
@@ -54,7 +56,7 @@ export function InstrumentsGroup() {
               snapshot taken once, so the name is content a screen reader reads as it changes. */}
           <IonLabel className="truncate">
             <span className="sr-only">Instruments</span>
-            {summary || 'Not set'}
+            {summary || NOT_SET}
           </IonLabel>
         </IonItem>
       </Group>

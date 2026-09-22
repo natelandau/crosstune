@@ -20,15 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-
-SOURCES: tuple[str, ...] = ("microphone", "upload")
-RECORDING_STATES: tuple[str, ...] = (
-    "pending_upload",
-    "uploaded",
-    "processing",
-    "ready",
-    "failed",
-)
+from crosstune.vocabulary import LIMITS, RecordingSource, RecordingState
 
 
 class Recording(SyncColumns, Base):
@@ -39,9 +31,11 @@ class Recording(SyncColumns, Base):
 
     __tablename__ = "recordings"
     __table_args__ = (
-        CheckConstraint(in_list("source", SOURCES, nullable=False), name="ck_recordings_source"),
         CheckConstraint(
-            in_list("state", RECORDING_STATES, nullable=False), name="ck_recordings_state"
+            in_list("source", tuple(RecordingSource), nullable=False), name="ck_recordings_source"
+        ),
+        CheckConstraint(
+            in_list("state", tuple(RecordingState), nullable=False), name="ck_recordings_state"
         ),
         Index("ix_recordings_user_id_server_seq", "user_id", "server_seq"),
     )
@@ -55,12 +49,14 @@ class Recording(SyncColumns, Base):
     song_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("songs.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    label: Mapped[str | None] = mapped_column(String(LIMITS["recordings"]["label"]), nullable=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    state: Mapped[str] = mapped_column(String(20), nullable=False, default="pending_upload")
+    state: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=RecordingState.PENDING_UPLOAD.value
+    )
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     playback_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     playback_mime: Mapped[str | None] = mapped_column(String(100), nullable=True)

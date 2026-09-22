@@ -1,5 +1,6 @@
+import type { Provider } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
-import type { Provider } from '../db/types'
+import { SONG_NOT_FOUND } from './messages'
 import { newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
 
 export interface LinkInput {
@@ -16,7 +17,7 @@ export async function addLink(db: CrosstuneDb, songId: string, link: LinkInput):
   const id = newId()
   await writeTx(db, async () => {
     const song = await db.songs.get(songId)
-    if (!song || song.deleted_at) throw new Error('Song not found')
+    if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
     const existing = await db.recording_links.where('song_id').equals(songId).toArray()
     const active = existing.filter((l) => !l.deleted_at)
     await putRow(db, 'recording_links', {

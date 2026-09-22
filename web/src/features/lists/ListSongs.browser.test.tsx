@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import type { Instrument } from '../../api/vocabulary'
 import { addToList, createList } from '../../commands/lists'
 import type * as ListsModule from '../../commands/lists'
 import { createSong, setArchived } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument } from '../../db/types'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
-import { ListSongs } from './ListSongs'
+import { ListSongs, MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './ListSongs'
 import { useListView } from './useLists'
 
 vi.mock('../../commands/lists', { spy: true })
@@ -169,7 +169,7 @@ describe('ListSongs', () => {
   it('moves a song down from its move menu, stores it, and announces it', async () => {
     renderIonic(<Host />, { db })
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () =>
       expect(await storedTitles()).toEqual([
         'Angeline the Baker',
@@ -192,13 +192,13 @@ describe('ListSongs', () => {
   it('moves to the top and bottom and leaves out moves that go nowhere', async () => {
     renderIonic(<Host />, { db })
     await openMoveMenu('Angeline the Baker')
-    await expect.element(page.getByText('Move down', { exact: true })).toBeVisible()
-    expect(page.getByText('Move up', { exact: true }).elements()).toHaveLength(0)
-    expect(page.getByText('Move to top', { exact: true }).elements()).toHaveLength(0)
-    await page.getByText('Move to bottom', { exact: true }).click()
+    await expect.element(page.getByText(MOVE_DOWN, { exact: true })).toBeVisible()
+    expect(page.getByText(MOVE_UP, { exact: true }).elements()).toHaveLength(0)
+    expect(page.getByText(MOVE_TO_TOP, { exact: true }).elements()).toHaveLength(0)
+    await page.getByText(MOVE_TO_BOTTOM, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles()).at(-1)).toBe('Angeline the Baker'))
     await openMoveMenu('Forked Deer')
-    await page.getByText('Move to top', { exact: true }).click()
+    await page.getByText(MOVE_TO_TOP, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles())[0]).toBe('Forked Deer'))
   })
 
@@ -230,7 +230,7 @@ describe('ListSongs', () => {
   it("keeps focus on the moved song's move button after a menu move", async () => {
     renderIonic(<Host />, { db })
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles())[2]).toBe("Soldier's Joy"))
     await settleOverlays()
     const button = page.getByRole('button', { name: "Reorder Soldier's Joy" }).element()
@@ -250,7 +250,7 @@ describe('ListSongs', () => {
     )
     expect(numbers).toEqual(['1', '2', '3'])
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () =>
       expect(await storedTitles()).toEqual([
         'Angeline the Baker',
@@ -291,7 +291,7 @@ describe('ListSongs', () => {
     vi.spyOn(lists, 'moveItem').mockReturnValueOnce(held.promise)
     renderIonic(<Host onError={onError} />, { db })
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move up', { exact: true }).click()
+    await page.getByText(MOVE_UP, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         "Soldier's Joy",
@@ -318,7 +318,7 @@ describe('ListSongs', () => {
     vi.spyOn(lists, 'moveItem').mockReturnValueOnce(held.promise)
     renderIonic(<Host onError={onError} />, { db })
     await openMoveMenu('Angeline the Baker')
-    await page.getByText('Move to bottom', { exact: true }).click()
+    await page.getByText(MOVE_TO_BOTTOM, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         "Soldier's Joy",
@@ -328,7 +328,7 @@ describe('ListSongs', () => {
       ]),
     )
     await openMoveMenu('Forked Deer')
-    await page.getByText('Move to top', { exact: true }).click()
+    await page.getByText(MOVE_TO_TOP, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         'Forked Deer',
@@ -351,7 +351,7 @@ describe('ListSongs', () => {
     vi.spyOn(lists, 'moveItem').mockReturnValueOnce(held.promise)
     renderIonic(<Host />, { db })
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move to bottom', { exact: true }).click()
+    await page.getByText(MOVE_TO_BOTTOM, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         'Angeline the Baker',
@@ -385,7 +385,7 @@ describe('ListSongs', () => {
     vi.spyOn(lists, 'moveItem').mockReturnValueOnce(held.promise)
     renderIonic(<Host onError={onError} />, { db })
     await openMoveMenu('Angeline the Baker')
-    await page.getByText('Move to bottom', { exact: true }).click()
+    await page.getByText(MOVE_TO_BOTTOM, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         "Soldier's Joy",
@@ -395,7 +395,7 @@ describe('ListSongs', () => {
       ]),
     )
     await openMoveMenu('Angeline the Baker')
-    await page.getByText('Move up', { exact: true }).click()
+    await page.getByText(MOVE_UP, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         "Soldier's Joy",
@@ -422,7 +422,7 @@ describe('ListSongs', () => {
     })
     renderIonic(<Host />, { db })
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         'Angeline the Baker',
@@ -432,7 +432,7 @@ describe('ListSongs', () => {
       ]),
     )
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move up', { exact: true }).click()
+    await page.getByText(MOVE_UP, { exact: true }).click()
     // The second move shows while the first is still being written, not once it lands.
     await vi.waitFor(() => expect(shownTitles()).toEqual(titles))
     held.resolve()
@@ -448,7 +448,7 @@ describe('ListSongs', () => {
     vi.spyOn(lists, 'moveItem').mockReturnValueOnce(held.promise)
     renderIonic(<Host />, { db })
     await openMoveMenu('Angeline the Baker')
-    await page.getByText('Move to bottom', { exact: true }).click()
+    await page.getByText(MOVE_TO_BOTTOM, { exact: true }).click()
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual([
         "Soldier's Joy",
@@ -484,7 +484,7 @@ describe('ListSongs', () => {
       expect(shownTitles()).toEqual(['Angeline the Baker', "Soldier's Joy", 'Forked Deer']),
     )
     await openMoveMenu("Soldier's Joy")
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     const settled = ['Angeline the Baker', 'Forked Deer', "Soldier's Joy"]
     await vi.waitFor(async () =>
       expect(await storedTitles()).toEqual([
@@ -515,7 +515,7 @@ describe('ListSongs', () => {
   it('sends a menu move where the rows now are, not where they were when it opened', async () => {
     renderIonic(<Host />, { db })
     await openMoveMenu('Cluck Old Hen')
-    await expect.element(page.getByText('Move down', { exact: true })).toBeVisible()
+    await expect.element(page.getByText(MOVE_DOWN, { exact: true })).toBeVisible()
     const { userSongId } = await createSong(
       db,
       { title: 'Whiskey Before Breakfast' },
@@ -523,7 +523,7 @@ describe('ListSongs', () => {
     )
     await addToList(db, listId, userSongId)
     await vi.waitFor(() => expect(shownTitles()).toHaveLength(5))
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent('Moved Cluck Old Hen to position 4 of 5')
@@ -540,7 +540,7 @@ describe('ListSongs on touch', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('.action-sheet-title')?.textContent).toBe("Move Soldier's Joy"),
     )
-    await page.getByText('Move down', { exact: true }).click()
+    await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles())[2]).toBe("Soldier's Joy"))
     await settleOverlays()
     expect(document.activeElement).toBe(

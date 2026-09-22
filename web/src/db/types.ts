@@ -8,6 +8,7 @@ import type {
   UserSettingsRow,
   UserSongRow,
 } from '../api/types'
+import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 
 export type { TableName }
 
@@ -21,52 +22,23 @@ export const TABLE_NAMES = [
   'user_settings',
 ] as const satisfies readonly TableName[]
 
-export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
-export type SongStatus = (typeof STATUSES)[number]
-
-export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'other'] as const
-export type Mode = (typeof MODES)[number]
-
-export const TIME_SIGNATURES = ['4/4', '2/4', '2/2', '3/4', '6/8', '9/8', '12/8', 'other'] as const
-export type TimeSignature = (typeof TIME_SIGNATURES)[number]
-
-export const PROVIDERS = [
-  'youtube',
-  'spotify',
-  'apple_music',
-  'bandcamp',
-  'soundcloud',
-  'tidal',
-  'internet_archive',
-  'other',
-] as const
-export type Provider = (typeof PROVIDERS)[number]
-
-export const INSTRUMENTS = [
-  'violin',
-  'banjo',
-  'guitar',
-  'mandolin',
-  'ukulele',
-  'bass',
-  'dulcimer',
-  'accordion',
-  'other',
-] as const
-export type Instrument = (typeof INSTRUMENTS)[number]
-
 export function isInstrument(value: unknown): value is Instrument {
   return typeof value === 'string' && (INSTRUMENTS as readonly string[]).includes(value)
 }
-
-// Stands in until the first-run prompt writes a row, and for a session that never syncs.
-export const DEFAULT_INSTRUMENTS: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
 
 // The server sets ownership from the token; local rows never carry it.
 export const OWNERSHIP_KEYS = ['owner_user_id', 'user_id', 'added_by_user_id'] as const
 type OwnershipKey = (typeof OWNERSHIP_KEYS)[number]
 
-export type Local<Row> = Omit<Row, OwnershipKey>
+// A pulled row may carry a value from a server newer than this client, so the local copy
+// keeps every server vocabulary as a plain string and reads it through a guard such as
+// isInstrument. The contract's unions stay the type of what this client itself offers. The
+// widening covers every string literal on a row, not only the vocabularies.
+type Loosen<T> = T extends string ? string : T extends readonly (infer Item)[] ? Loosen<Item>[] : T
+
+export type Local<Row> = {
+  [Key in keyof Omit<Row, OwnershipKey>]: Loosen<Omit<Row, OwnershipKey>[Key]>
+}
 
 export type LocalSong = Local<SongRow>
 export type LocalUserSong = Local<UserSongRow>

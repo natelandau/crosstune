@@ -1,11 +1,17 @@
 import { IonButton, IonInput, IonItem } from '@ionic/react'
 import { useRef, useState } from 'react'
+import { LIST_LIMITS } from '../../api/vocabulary'
 import { createList, renameList } from '../../commands/lists'
-import { useAction } from '../../ui/useAction'
+import { LIST_NAME_REQUIRED } from '../../commands/messages'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { LIST_NAME_MAX_LENGTH } from './limits'
+import { useAction } from '../../ui/useAction'
+
+export const LIST_NAME_PLACEHOLDER = 'Tuesday jam, square dance set, …'
+export const LIST_NAME_LABEL = 'List name'
+export const NEW_LIST_TITLE = 'New list'
+export const RENAME_LIST_TITLE = 'Rename list'
 
 export type ListNameTarget = { kind: 'new' } | { kind: 'rename'; listId: string; name: string }
 
@@ -54,7 +60,7 @@ export function ListNameSheet({
     const trimmed = name.trim()
     if (!trimmed) {
       clear()
-      setValidation('A list needs a name')
+      setValidation(LIST_NAME_REQUIRED)
       void inputRef.current?.setFocus()
       return
     }
@@ -83,7 +89,7 @@ export function ListNameSheet({
   return (
     <Sheet
       open={target !== null && !closing}
-      title={renaming ? 'Rename list' : 'New list'}
+      title={renaming ? RENAME_LIST_TITLE : NEW_LIST_TITLE}
       dismissible={false}
       onClose={dismissed}
       start={
@@ -110,9 +116,9 @@ export function ListNameSheet({
           <IonItem>
             <IonInput
               ref={inputRef}
-              aria-label="List name"
-              placeholder="Tuesday jam, square dance set, …"
-              maxlength={LIST_NAME_MAX_LENGTH}
+              aria-label={LIST_NAME_LABEL}
+              placeholder={LIST_NAME_PLACEHOLDER}
+              maxlength={LIST_LIMITS.name}
               value={name}
               enterkeyhint="done"
               onIonInput={(event) => {

@@ -1,13 +1,18 @@
 import { IonButton, IonInput, IonItem, IonLabel, IonNote } from '@ionic/react'
 import { useRef, useState } from 'react'
+import { LIST_LIMITS } from '../../api/vocabulary'
 import { addSongsToList, createListWithSongs, type Undo } from '../../commands/bulk'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { countSongs } from '../selection/copy'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { LIST_NAME_MAX_LENGTH } from './limits'
+import { useAction } from '../../ui/useAction'
+import { countSongs } from '../selection/copy'
+import { LIST_NAME_PLACEHOLDER } from './ListNameSheet'
 import { useLists, useMembershipCounts } from './useLists'
+
+export const ADD_TO_LIST = 'Add to list'
+export const NEW_LIST_NAME_LABEL = 'New list name'
+export const NEW_LIST_ITEM = 'New list…'
 
 /**
  * What one successful add did. The picker reports the facts rather than a sentence, so the
@@ -170,10 +175,10 @@ export function ListPicker({
         {creating ? (
           <IonItem>
             <IonInput
-              aria-label="New list name"
-              placeholder="Tuesday jam, square dance set, …"
+              aria-label={NEW_LIST_NAME_LABEL}
+              placeholder={LIST_NAME_PLACEHOLDER}
               autofocus
-              maxlength={LIST_NAME_MAX_LENGTH}
+              maxlength={LIST_LIMITS.name}
               value={name}
               onIonInput={(event) => setName(String(event.detail.value ?? ''))}
               onKeyDown={(event) => {
@@ -186,7 +191,7 @@ export function ListPicker({
           </IonItem>
         ) : (
           <IonItem button detail={false} disabled={pending} onClick={() => setCreating(true)}>
-            <IonLabel color="primary">New list…</IonLabel>
+            <IonLabel color="primary">{NEW_LIST_ITEM}</IonLabel>
           </IonItem>
         )}
       </Group>

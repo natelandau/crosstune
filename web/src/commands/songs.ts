@@ -1,5 +1,6 @@
+import type { Mode, SongStatus, TimeSignature } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
-import type { Mode, SongStatus, TimeSignature } from '../db/types'
+import { SONG_NOT_FOUND } from './messages'
 import { tombstoneSongRecordings } from './recordings'
 import { defined, newId, now, putRow, recordingTx, tombstone, writeTx } from './write'
 
@@ -84,7 +85,7 @@ export async function updateSong(
   }
   await writeTx(db, async () => {
     const song = await db.songs.get(songId)
-    if (!song || song.deleted_at) throw new Error('Song not found')
+    if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
     await putRow(db, 'songs', { ...song, ...changes, updated_at: now() })
   })
 }
@@ -97,7 +98,7 @@ export async function updateUserSong(
   const changes = defined(patch)
   await writeTx(db, async () => {
     const userSong = await db.user_songs.get(userSongId)
-    if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+    if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
     await putRow(db, 'user_songs', { ...userSong, ...changes, updated_at: now() })
   })
 }
@@ -124,7 +125,7 @@ export async function setArchived(
   const at = now()
   await writeTx(db, async () => {
     const userSong = await db.user_songs.get(userSongId)
-    if (!userSong || userSong.deleted_at) throw new Error('Song not found')
+    if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
     await putRow(db, 'user_songs', {
       ...userSong,
       archived_at: archived ? at : null,

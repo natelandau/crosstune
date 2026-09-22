@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Instrument } from '../../db/types'
+import type { Instrument } from '../../api/vocabulary'
 import { songRow, userSongRow } from '../../test/rows'
 import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
 

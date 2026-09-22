@@ -1,8 +1,10 @@
+import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import { MODES, TIME_SIGNATURES, type Instrument } from '../../db/types'
+import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
-import { isSongStatus, STATUS_LABELS } from '../catalog/status'
+import { isSongStatus } from '../catalog/status'
 import { TUNING_FIELDS } from '../settings/instruments'
+import { DETAIL_LABELS } from '../song/detailFields'
 
 export const EDIT_FIELDS = [
   'status',
@@ -24,16 +26,16 @@ export type EditField = (typeof EDIT_FIELDS)[number]
 export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   status: 'Status',
   key: 'Key',
-  mode: 'Mode',
+  mode: DETAIL_LABELS.mode,
   violin_tuning: TUNING_FIELDS.violin_tuning.label,
   banjo_tuning: TUNING_FIELDS.banjo_tuning.label,
-  genre: 'Genre',
-  feel: 'Feel',
-  time_signature: 'Time signature',
+  genre: DETAIL_LABELS.genre,
+  feel: DETAIL_LABELS.feel,
+  time_signature: DETAIL_LABELS.time_signature,
   part_structure: 'Part structure',
-  is_crooked: 'Crooked',
-  learned_from: 'Learned from',
-  learned_on: 'Learned on',
+  is_crooked: DETAIL_LABELS.is_crooked,
+  learned_from: DETAIL_LABELS.learned_from,
+  learned_on: DETAIL_LABELS.learned_on,
 }
 
 /** A choice field has a vocabulary and is picked from a list; text and date fields are typed. */

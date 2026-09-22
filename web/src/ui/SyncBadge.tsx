@@ -1,11 +1,12 @@
+import { SYNC_STATUS_LABELS } from '../sync/labels'
 import type { SyncStatus } from '../sync/types'
 import { useLastSyncedAt, useSyncStatus } from '../sync/SyncProvider'
 import { Capsule } from './Capsule'
 
 const ATTENTION: Partial<Record<SyncStatus, { label: string; tone: 'warning' | 'danger' }>> = {
-  offline: { label: 'Offline', tone: 'warning' },
-  unauthorized: { label: 'Sign in again', tone: 'danger' },
-  error: { label: 'Sync failed', tone: 'danger' },
+  offline: { label: SYNC_STATUS_LABELS.offline, tone: 'warning' },
+  unauthorized: { label: SYNC_STATUS_LABELS.unauthorized, tone: 'danger' },
+  error: { label: SYNC_STATUS_LABELS.error, tone: 'danger' },
 }
 
 /**

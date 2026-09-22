@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AUDIO_BITRATES, baseContentType, pickMimeType, storedAudioQuality } from './recordings'
+import { AUDIO_BITRATES } from '../constants'
+import { baseContentType, pickMimeType, storedAudioQuality } from './recordings'
 
 describe('recordings helpers', () => {
   it('prefers mp4, then opus in webm, then plain webm', () => {

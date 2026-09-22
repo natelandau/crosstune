@@ -1,7 +1,10 @@
+import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { useMenu } from '../../ui/Menu'
-import { ALL_KEYS, QUICK_KEYS } from './suggestions'
+
+export const MORE_KEYS = 'More keys…'
+export const UNKNOWN_KEY = 'Unknown key'
 
 const isQuick = (key: string) => (QUICK_KEYS as readonly string[]).includes(key)
 
@@ -16,7 +19,7 @@ const isQuick = (key: string) => (QUICK_KEYS as readonly string[]).includes(key)
 export function KeyChooser({
   value,
   onChange,
-  emptyLabel = 'Unknown key',
+  emptyLabel = UNKNOWN_KEY,
 }: {
   /** The stored key, or an empty string for a song with no key. */
   value: string
@@ -51,7 +54,7 @@ export function KeyChooser({
         </PressTarget>
       ))}
       <Capsule
-        label="More keys…"
+        label={MORE_KEYS}
         onPressEvent={(event) =>
           openMenu(
             event,
@@ -60,7 +63,7 @@ export function KeyChooser({
           )
         }
       >
-        More keys…
+        {MORE_KEYS}
       </Capsule>
     </div>
   )

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { SYNC_STATUS_LABELS } from '../sync/labels'
 import { SyncBadge } from './SyncBadge'
 import type { SyncStatus } from '../sync/types'
 
@@ -30,9 +31,9 @@ describe('SyncBadge', () => {
 
   it('names each state that needs attention', () => {
     for (const [state, label] of [
-      ['offline', 'Offline'],
-      ['unauthorized', 'Sign in again'],
-      ['error', 'Sync failed'],
+      ['offline', SYNC_STATUS_LABELS.offline],
+      ['unauthorized', SYNC_STATUS_LABELS.unauthorized],
+      ['error', SYNC_STATUS_LABELS.error],
     ] as const) {
       status = state
       const { unmount } = render(<SyncBadge />)

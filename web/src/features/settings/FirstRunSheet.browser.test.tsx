@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { INSTRUMENTS } from '../../api/vocabulary'
 import type { AuthSession } from '../../auth/AuthContext'
 import { setInstruments, settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
@@ -9,15 +10,13 @@ import { openTestDb } from '../../test/db'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine, testSession } from '../../test/providers'
+import { NEW_RECORDING } from '../recording/RecordModal'
 import { RecordProvider, useRecord } from '../recording/useRecord'
-import { FIRST_RUN_GRACE_MS, FIRST_RUN_TITLE, FirstRunSheet } from './FirstRunSheet'
+import { FIRST_RUN_GRACE_MS, FIRST_RUN_HELP, FIRST_RUN_TITLE, FirstRunSheet } from './FirstRunSheet'
 import { useSettingsRow } from './useSettingsRow'
 
 vi.mock('./useSettingsRow', { spy: true })
 vi.mock('../../commands/settings', { spy: true })
-
-const HELP =
-  'Tuning fields appear only for the instruments you play. You can change this any time in Settings.'
 
 let db: CrosstuneDb
 let restoreMedia: (() => void) | null = null
@@ -112,7 +111,7 @@ describe('FirstRunSheet', () => {
     show()
     await elapse()
     await expect.element(sheet()).toBeVisible()
-    await expect.element(page.getByText(HELP)).toBeVisible()
+    await expect.element(page.getByText(FIRST_RUN_HELP)).toBeVisible()
     await box('Violin').click()
     await done().click()
     await expect.poll(stored).toEqual(['violin'])
@@ -171,7 +170,7 @@ describe('FirstRunSheet', () => {
     // The rejection belonged to the question it was given under, so the new one carries the help
     // text the alert replaces rather than an error about an answer nobody has given yet.
     expect(page.getByRole('alert').elements()).toHaveLength(0)
-    await expect.element(page.getByText(HELP)).toBeVisible()
+    await expect.element(page.getByText(FIRST_RUN_HELP)).toBeVisible()
   })
 
   it('waits out the grace again when a pull clears the stored answer', async () => {
@@ -207,7 +206,7 @@ describe('FirstRunSheet', () => {
     await expect.element(sheet()).toBeVisible()
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
     const items = open.querySelectorAll('ion-item')
-    expect(items).toHaveLength(9)
+    expect(items).toHaveLength(INSTRUMENTS.length)
     for (const item of items) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
@@ -265,12 +264,12 @@ describe('FirstRunSheet', () => {
   it('stays quiet under the record modal, and asks once the recording is over', async () => {
     denyMicrophone()
     show({ recording: true })
-    await expect.element(page.getByRole('dialog', { name: 'New recording' })).toBeVisible()
+    await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeVisible()
     await settle()
     expect(sheet().elements()).toHaveLength(0)
 
     await done().click()
-    await gone(page.getByRole('dialog', { name: 'New recording' }))
+    await gone(page.getByRole('dialog', { name: NEW_RECORDING }))
     await elapse()
     await expect.element(sheet()).toBeVisible()
   })

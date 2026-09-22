@@ -9,6 +9,7 @@ import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
 import type { MenuItem } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
+import { ADD_TO_LIST } from '../lists/ListPicker'
 import { SelectionFooter } from './SelectionFooter'
 import { SelectionProvider, useSelectionChrome } from './SelectionProvider'
 import type { BulkAction } from './SelectionToolbar'
@@ -21,10 +22,10 @@ const onStatus = vi.fn()
 const ACTIONS: readonly BulkAction[] = [
   { label: 'Status', icon: Tag, onPress: onStatus },
   { label: 'Edit', icon: SquarePen, onPress: () => {} },
-  { label: 'Add to list', icon: ListPlus, onPress: () => {} },
+  { label: ADD_TO_LIST, icon: ListPlus, onPress: () => {} },
 ]
 const MORE: readonly MenuItem[] = [{ label: 'Archive 2 songs', onPress: () => {} }]
-const NAMES = ['Status', 'Edit', 'Add to list', 'More']
+const NAMES = ['Status', 'Edit', ADD_TO_LIST, 'More']
 
 /** Reports the flag the footer publishes for the tab bar. */
 function ChromeProbe() {

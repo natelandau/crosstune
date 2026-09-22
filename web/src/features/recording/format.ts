@@ -1,5 +1,13 @@
 import type { LocalFileState } from '../../db/recordings'
 
+export const DOWNLOAD_FAILED = "Couldn't download"
+export const DOWNLOADING = 'Downloading'
+export const PROCESS_FAILED = "Couldn't process"
+export const RECORDING = 'Recording'
+export const STORAGE_FULL = 'Storage full'
+export const UPLOAD_FAILED = 'Upload failed'
+export const WAITING_TO_UPLOAD = 'Waiting to upload'
+
 export function formatDuration(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return ''
   const total = Math.round(ms / 1000)
@@ -23,18 +31,18 @@ export function failedTriesLabel(count: number): string {
 }
 
 const LOCAL_LABELS: Partial<Record<LocalFileState, string>> = {
-  capturing: 'Recording',
-  captured: 'Waiting to upload',
+  capturing: RECORDING,
+  captured: WAITING_TO_UPLOAD,
   uploading: 'Uploading',
-  blocked_quota: 'Storage full',
-  failed_upload: 'Upload failed',
-  downloading: 'Downloading',
+  blocked_quota: STORAGE_FULL,
+  failed_upload: UPLOAD_FAILED,
+  downloading: DOWNLOADING,
 }
 
 const SERVER_LABELS: Record<string, string> = {
   uploaded: 'Processing',
   processing: 'Processing',
-  failed: "Couldn't process",
+  failed: PROCESS_FAILED,
 }
 
 /** What to tell the user about a recording that is not simply playable. Empty when it is. */

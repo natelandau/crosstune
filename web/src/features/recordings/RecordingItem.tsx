@@ -4,12 +4,14 @@ import { CloudDownload } from 'lucide-react'
 import { useState } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
+import { OFFLINE } from '../../sync/labels'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { InlineError } from '../../ui/InlineError'
 import { Row, type RowAction } from '../../ui/Row'
+import { CLOSE_PLAYER } from '../player/Dock'
 import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
-import { formatDuration } from '../recording/format'
+import { DOWNLOAD_FAILED, formatDuration } from '../recording/format'
 import { recordingMeta, recordingTitle, retryKind, rowControl } from './recordingRow'
 import type { RecordingView } from './useRecordings'
 
@@ -60,7 +62,7 @@ export function RecordingItem({
   // meta parts (tries, storage) never apply here; Offline takes the status word's place, the
   // way every other state does, rather than riding along as a suffix on the control's name.
   const metaParts = offlineDownload
-    ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), 'Offline'].filter(
+    ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), OFFLINE].filter(
         (part): part is string => Boolean(part),
       )
     : recordingMeta(view, storage ?? null)
@@ -73,7 +75,7 @@ export function RecordingItem({
 
   const open =
     control === 'close'
-      ? { onOpen: () => player.close(), openName: 'Close player' }
+      ? { onOpen: () => player.close(), openName: CLOSE_PLAYER }
       : control === 'play'
         ? { onOpen: () => player.play(item), openName: 'Play' }
         : control === 'download'
@@ -122,7 +124,7 @@ export function RecordingItem({
     </IonButton>
   ) : undefined
 
-  const shownError = error ?? (fetch === 'failed' ? "Couldn't download" : null)
+  const shownError = error ?? (fetch === 'failed' ? DOWNLOAD_FAILED : null)
 
   return (
     <Row

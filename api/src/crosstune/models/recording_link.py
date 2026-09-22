@@ -10,17 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
+from crosstune.vocabulary import LIMITS, Provider
 
-PROVIDERS: tuple[str, ...] = (
-    "youtube",
-    "spotify",
-    "apple_music",
-    "bandcamp",
-    "soundcloud",
-    "tidal",
-    "internet_archive",
-    "other",
-)
+LINK = LIMITS["recording_links"]
 
 
 class RecordingLink(SyncColumns, Base):
@@ -29,7 +21,7 @@ class RecordingLink(SyncColumns, Base):
     __tablename__ = "recording_links"
     __table_args__ = (
         CheckConstraint(
-            in_list("provider", PROVIDERS, nullable=False), name="ck_recording_links_provider"
+            in_list("provider", tuple(Provider), nullable=False), name="ck_recording_links_provider"
         ),
         Index("ix_recording_links_added_by_user_id_server_seq", "added_by_user_id", "server_seq"),
     )
@@ -43,8 +35,8 @@ class RecordingLink(SyncColumns, Base):
     )
     url: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str] = mapped_column(String(20), nullable=False)
-    provider_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    title: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    provider_ref: Mapped[str | None] = mapped_column(String(LINK["provider_ref"]), nullable=True)
+    title: Mapped[str | None] = mapped_column(String(LINK["title"]), nullable=True)
     artwork_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    label: Mapped[str | None] = mapped_column(String(LINK["label"]), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

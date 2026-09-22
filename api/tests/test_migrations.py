@@ -35,6 +35,24 @@ async def test_catalog_tables_exist(session: AsyncSession) -> None:
     assert {"songs", "user_songs", "recording_links", "lists", "list_items"} <= tables
 
 
+async def test_mode_check_constraint_accepts_modal(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+        )
+    )
+    await session.execute(
+        text(
+            "insert into songs (id, owner_user_id, title, mode, is_crooked, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
+            "'Cluck Old Hen', 'modal', false, now(), now())"
+        )
+    )
+    stored = await session.execute(text("select mode from songs"))
+    assert stored.scalar_one() == "modal"
+
+
 async def test_time_signature_check_constraint_rejects_unknown_value(session: AsyncSession) -> None:
     await session.execute(
         text(
@@ -496,3 +514,61 @@ async def test_downgrade_to_0006_and_back_restores_head_shape(
         columns = {row[0] for row in result}
     assert "lyrics" in columns
     assert "has_lyrics" not in columns
+
+
+async def test_0008_strips_retired_instruments_and_resequences_only_those_rows(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    users = {
+        "018f0000-0000-7000-8000-000000000001": ("user_a", ["violin", "guitar", "other"]),
+        "018f0000-0000-7000-8000-000000000002": ("user_b", ["banjo"]),
+        "018f0000-0000-7000-8000-000000000003": ("user_c", ["accordion"]),
+    }
+    settings = {
+        user: user.replace("7000-8000-0000000000", "7000-8000-0000000001") for user in users
+    }
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0007")
+        async with engine.begin() as conn:
+            for user, (clerk_id, instruments) in users.items():
+                await conn.execute(
+                    text(
+                        "insert into users (id, clerk_user_id, created_at, updated_at) "
+                        "values (:id, :clerk_id, now(), now())"
+                    ),
+                    {"id": user, "clerk_id": clerk_id},
+                )
+                await conn.execute(
+                    text(
+                        "insert into user_settings "
+                        "(id, user_id, instruments, audio_quality, created_at, updated_at) "
+                        "values (:id, :user, :instruments, 'standard', now(), now())"
+                    ),
+                    {"id": settings[user], "user": user, "instruments": instruments},
+                )
+            before = dict(
+                (await conn.execute(text("select id::text, server_seq from user_settings")))
+                .tuples()
+                .all()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text("select id::text as id, instruments, server_seq from user_settings")
+            )
+        }
+    stripped = rows[settings["018f0000-0000-7000-8000-000000000001"]]
+    assert stripped.instruments == ["violin"]
+    assert stripped.server_seq > before[stripped.id]
+    untouched = rows[settings["018f0000-0000-7000-8000-000000000002"]]
+    assert untouched.instruments == ["banjo"]
+    assert untouched.server_seq == before[untouched.id]
+    emptied = rows[settings["018f0000-0000-7000-8000-000000000003"]]
+    assert emptied.instruments == []
+    assert emptied.server_seq > before[emptied.id]

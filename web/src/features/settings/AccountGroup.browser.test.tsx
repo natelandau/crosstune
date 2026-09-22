@@ -5,7 +5,7 @@ import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine, testSession } from '../../test/providers'
-import { AccountGroup } from './AccountGroup'
+import { AccountGroup, SIGN_OUT, SIGN_OUT_OFFLINE, SIGNED_IN_OFFLINE } from './AccountGroup'
 import { signOutAndForget } from './signOut'
 
 const clerk = vi.hoisted(() => ({
@@ -41,7 +41,7 @@ function show(options: { engine?: SyncEngine; offline?: boolean } = {}) {
   })
 }
 
-const signOutRow = () => page.getByRole('button', { name: 'Sign out' })
+const signOutRow = () => page.getByRole('button', { name: SIGN_OUT })
 
 describe('AccountGroup', () => {
   it('names the signed-in account by its email', async () => {
@@ -58,8 +58,8 @@ describe('AccountGroup', () => {
   it('says the session is offline and refuses to sign out without a connection', async () => {
     clerk.user = null
     show({ offline: true })
-    await expect.element(page.getByText('Signed in (offline)')).toBeVisible()
-    await expect.element(page.getByText('Sign out needs a connection.')).toBeVisible()
+    await expect.element(page.getByText(SIGNED_IN_OFFLINE)).toBeVisible()
+    await expect.element(page.getByText(SIGN_OUT_OFFLINE)).toBeVisible()
     await expect.element(signOutRow()).toBeDisabled()
   })
 

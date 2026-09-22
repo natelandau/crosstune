@@ -1,5 +1,6 @@
 import { ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { STATUSES, type Instrument } from '../../api/vocabulary'
 import {
   deleteSongs,
   removeSongsFromList,
@@ -9,16 +10,16 @@ import {
   type Undo,
 } from '../../commands/bulk'
 import { activeRecordingsForSong } from '../../commands/recordings'
-import { useAction, type Action } from '../../ui/useAction'
+import { STATUS_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
-import { STATUSES, type Instrument } from '../../db/types'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETE, useConfirm } from '../../ui/Confirm'
 import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useToast } from '../../ui/Toast'
+import { useAction, type Action } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
-import { STATUS_LABELS } from '../catalog/status'
-import { ListPicker, type ListAddition } from '../lists/ListPicker'
-import { deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
+import { ADD_TO_LIST, ListPicker, type ListAddition } from '../lists/ListPicker'
+import { ARCHIVE, UNARCHIVE } from '../song/archiveLabels'
+import { DELETE_SONG_TITLE, deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
 import { BulkEditSheet } from './BulkEditSheet'
 import { countSongs } from './copy'
 import type { BulkAction } from './SelectionToolbar'
@@ -127,14 +128,14 @@ export function useBulkActions({
         setSheet('edit')
       },
     },
-    { label: 'Add to list', icon: ListPlus, onPress: () => setSheet('list') },
+    { label: ADD_TO_LIST, icon: ListPlus, onPress: () => setSheet('list') },
   ]
 
   // Only the songs in the opposite state, so the count names what the item will actually change.
   const archiveItem = (archive: boolean): MenuItem | null => {
     const targets = entries.filter((entry) => (entry.userSong.archived_at === null) === archive)
     if (targets.length === 0) return null
-    const verb = archive ? 'Archive' : 'Unarchive'
+    const verb = archive ? ARCHIVE : UNARCHIVE
     const count = countSongs(targets.length)
     return {
       label: `${verb} ${count}`,
@@ -166,11 +167,11 @@ export function useBulkActions({
     const views = files.map((file) => ({ file }))
     const only = entries.length === 1 ? entries[0] : undefined
     const ok = await confirm({
-      title: only ? 'Delete song?' : `Delete ${countSongs(entries.length)}?`,
+      title: only ? DELETE_SONG_TITLE : `Delete ${countSongs(entries.length)}?`,
       message: only
         ? deleteSongMessage(only.song.title, views)
         : deleteSongsMessage(countSongs(entries.length), views),
-      action: 'Delete',
+      action: DELETE,
     })
     if (!ok) return
     // No toast: this is the one bulk action with nothing to undo.

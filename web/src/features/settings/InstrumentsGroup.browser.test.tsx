@@ -1,15 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { INSTRUMENTS } from '../../api/vocabulary'
 import { setInstruments, settingsId, toggleInstrumentSetting } from '../../commands/settings'
+import { INSTRUMENT_LABELS } from '../../constants'
 import { pendingBatch } from '../../db/outbox'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { NOT_SET } from '../../ui/FieldRow'
+import { INSTRUMENTS_HELP } from './instruments'
 import { InstrumentsGroup } from './InstrumentsGroup'
 
 vi.mock('../../commands/settings', { spy: true })
-
-const HELP = 'Tuning fields appear only for the instruments you play.'
 
 let db: CrosstuneDb
 
@@ -48,7 +50,7 @@ describe('InstrumentsGroup', () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Instruments', level: 2 })).toBeVisible()
     await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
-    await expect.element(page.getByText(HELP)).toBeVisible()
+    await expect.element(page.getByText(INSTRUMENTS_HELP)).toBeVisible()
   })
 
   it('lists the instruments in one order however they were stored', async () => {
@@ -60,7 +62,7 @@ describe('InstrumentsGroup', () => {
   it('reads Not set when no instrument is chosen', async () => {
     await setInstruments(db, 'user_1', [])
     show()
-    await expect.element(rowNamed('Not set')).toBeVisible()
+    await expect.element(rowNamed(NOT_SET)).toBeVisible()
   })
 
   it('keeps the checkboxes in the sheet until the row is opened', async () => {
@@ -105,7 +107,7 @@ describe('InstrumentsGroup', () => {
 
     await closeSheet()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
-    expect(page.getByText(HELP).elements()).toHaveLength(0)
+    expect(page.getByText(INSTRUMENTS_HELP).elements()).toHaveLength(0)
   })
 
   it('drops a refusal from the last visit when the sheet opens again', async () => {
@@ -119,13 +121,13 @@ describe('InstrumentsGroup', () => {
     await openSheet()
     expect(page.getByRole('alert').elements()).toHaveLength(0)
     await closeSheet()
-    await expect.element(page.getByText(HELP)).toBeVisible()
+    await expect.element(page.getByText(INSTRUMENTS_HELP)).toBeVisible()
   })
 
   it('gives the row and every checkbox a tap target a finger can hit', async () => {
     show()
     await openSheet()
-    await expect.element(box('Other')).toBeVisible()
+    await expect.element(box(INSTRUMENT_LABELS[INSTRUMENTS[INSTRUMENTS.length - 1]!])).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }

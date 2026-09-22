@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { CatalogFilterSheet } from './CatalogFilterSheet'
-import { CatalogFilters } from './CatalogFilters'
+import { TUNING_FIELDS } from '../settings/instruments'
+import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
+import { ALL_KEYS_LABEL, CatalogFilters } from './CatalogFilters'
 import {
   DEFAULT_FILTERS,
   type CatalogFilters as Filters,
@@ -149,7 +150,7 @@ describe('CatalogFilters', () => {
     renderIonic(<Host />, { db: openTestDb() })
     const d = page.getByRole('button', { name: 'D', exact: true })
     // The reset capsule names what the rail filters, so the bare letters beside it read as keys.
-    const allKeys = page.getByRole('button', { name: 'All keys', exact: true })
+    const allKeys = page.getByRole('button', { name: ALL_KEYS_LABEL, exact: true })
     await d.click()
     await expect.poll(() => state().key).toBe('D')
     await expect.element(d).toHaveAttribute('aria-pressed', 'true')
@@ -207,7 +208,7 @@ describe('CatalogFilterSheet', () => {
     await expect.element(page.getByText('Filters')).toBeVisible()
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
     const labels = Array.from(open.querySelectorAll('[data-row-label]')).map((e) => e.textContent)
-    expect(labels).toEqual(['Mode', 'Violin tuning', 'Genre'])
+    expect(labels).toEqual(['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre'])
     const count = open.querySelector('[aria-live="polite"]') as HTMLElement
     expect(Number.parseFloat(getComputedStyle(count).paddingLeft)).toBe(32)
   })
@@ -217,7 +218,7 @@ describe('CatalogFilterSheet', () => {
     await expect.element(page.getByText('3 of 5 songs')).toBeVisible()
     // IonSelect's accessible name is "<label>, <value>", and its own button is clipped, so
     // visibility is asserted on the row that contains it.
-    for (const label of ['Mode', 'Violin tuning', 'Genre']) {
+    for (const label of ['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre']) {
       await expect
         .element(
           page.getByRole('listitem').filter({ has: page.getByLabelText(label, { exact: false }) }),
@@ -248,7 +249,7 @@ describe('CatalogFilterSheet', () => {
     renderIonic(<Host sheet start={{ ...DEFAULT_FILTERS, status: 'known', key: 'D' }} />, {
       db: openTestDb(),
     })
-    await page.getByRole('switch', { name: 'Show archived' }).click()
+    await page.getByRole('switch', { name: SHOW_ARCHIVED }).click()
     await expect.poll(() => state().archived).toBe(true)
     await page.getByRole('button', { name: 'Reset' }).click()
     await expect.poll(() => state()).toMatchObject({ archived: false, status: 'known', key: 'D' })
@@ -260,7 +261,7 @@ describe('CatalogFilterSheet', () => {
       const row = document.querySelector('ion-item:has(ion-toggle)')
       expect(row?.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     })
-    await page.getByText('Show archived').click()
+    await page.getByText(SHOW_ARCHIVED).click()
     await expect.poll(() => state().archived).toBe(true)
   })
 })

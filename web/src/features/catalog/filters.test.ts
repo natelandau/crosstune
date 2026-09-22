@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Instrument } from '../../db/types'
+import type { Instrument } from '../../api/vocabulary'
 import { songRow as song, userSongRow as userSong } from '../../test/rows'
 import {
   catalogEntries,

@@ -11,6 +11,7 @@ import {
   removeFromList,
   renameList,
 } from './lists'
+import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from './messages'
 import { createSong } from './songs'
 
 let db: CrosstuneDb
@@ -55,10 +56,10 @@ describe('lists', () => {
 
   it('refuses to add a song to a list that is missing or deleted', async () => {
     const [a] = await threeSongs()
-    await expect(addToList(db, 'nope', a)).rejects.toThrow('List not found')
+    await expect(addToList(db, 'nope', a)).rejects.toThrow(LIST_NOT_FOUND)
     const listId = await createList(db, 'Gone')
     await deleteList(db, listId)
-    await expect(addToList(db, listId, a)).rejects.toThrow('List not found')
+    await expect(addToList(db, listId, a)).rejects.toThrow(LIST_NOT_FOUND)
     expect(await db.list_items.count()).toBe(0)
   })
 
@@ -78,7 +79,7 @@ describe('lists', () => {
   it('trims a new list name and refuses an empty one', async () => {
     const listId = await createList(db, '  Tuesday jam  ')
     expect((await db.lists.get(listId))?.name).toBe('Tuesday jam')
-    await expect(createList(db, '   ')).rejects.toThrow('A list needs a name')
+    await expect(createList(db, '   ')).rejects.toThrow(LIST_NAME_REQUIRED)
   })
 
   it.each([

@@ -10,6 +10,8 @@ import {
   type FacetValues,
 } from './filters'
 
+export const ALL_KEYS_LABEL = 'All keys'
+
 export function CatalogFilters({
   filters,
   facets,
@@ -38,7 +40,7 @@ export function CatalogFilters({
       {visible.includes('key') ? (
         <Rail label="Key">
           <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
-            All keys
+            {ALL_KEYS_LABEL}
           </Capsule>
           {facets.key.map((key) => (
             <PressTarget

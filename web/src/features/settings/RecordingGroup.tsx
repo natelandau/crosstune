@@ -1,20 +1,27 @@
 import { IonItem, IonLabel, IonToggle } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
+import { AUDIO_QUALITIES, type AudioQuality } from '../../api/vocabulary'
 import { useAuthSession } from '../../auth/AuthContext'
 import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings'
 import { setAudioQuality, settingsId } from '../../commands/settings'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { getKeepOffline, setKeepOffline } from '../../db/meta'
-import { AUDIO_QUALITIES, storedAudioQuality, type AudioQuality } from '../../db/recordings'
+import { storedAudioQuality } from '../../db/recordings'
 import { persistStorage } from '../../platform/storage'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { ChoiceRow } from '../../ui/ChoiceRow'
 import { Group } from '../../ui/Group'
+import { useAction } from '../../ui/useAction'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
 import { QUALITY_LABELS } from './audioQuality'
+
+export const KEEP_OFFLINE_LABEL = 'Download all recordings to this device'
+export const REMOVE_DOWNLOADS_FOOTER =
+  'Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept.'
+export const QUALITY_FOOTER = 'Higher quality makes larger files.'
+export const REMOVE_DOWNLOADS = 'Remove downloaded audio'
 
 /**
  * Capture quality and what audio this device keeps. One control per group, each with its own
@@ -55,11 +62,7 @@ export function RecordingGroup() {
 
   return (
     <>
-      <Group
-        header="Recording"
-        footer="Higher quality makes larger files."
-        error={qualityAction.error}
-      >
+      <Group header="Recording" footer={QUALITY_FOOTER} error={qualityAction.error}>
         <ChoiceRow
           label="Quality"
           value={quality?.quality ?? 'standard'}
@@ -80,14 +83,11 @@ export function RecordingGroup() {
               keepAction.run(() => writeKeep({ on: next }))
             }}
           >
-            Download all recordings to this device
+            {KEEP_OFFLINE_LABEL}
           </IonToggle>
         </IonItem>
       </Group>
-      <Group
-        footer="Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept."
-        error={clearAction.error}
-      >
+      <Group footer={REMOVE_DOWNLOADS_FOOTER} error={clearAction.error}>
         <IonItem lines="full">
           <IonLabel className="tabular-nums">
             {formatBytes(localBytes ?? 0)} of audio on this device
@@ -99,7 +99,7 @@ export function RecordingGroup() {
           disabled={on || clearAction.pending}
           onClick={() => clearAction.run(() => clearDownloadedBlobs(db))}
         >
-          <IonLabel>Remove downloaded audio</IonLabel>
+          <IonLabel>{REMOVE_DOWNLOADS}</IonLabel>
         </IonItem>
       </Group>
     </>

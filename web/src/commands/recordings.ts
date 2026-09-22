@@ -1,6 +1,7 @@
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
+import { RECORDING_NOT_FOUND, SONG_NOT_FOUND } from './messages'
 import { activeByPosition, newId, nextPosition, now, putRow, recordingTx, tombstone } from './write'
 
 function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): RecordingFile {
@@ -167,11 +168,11 @@ export async function updateRecording(
 ): Promise<void> {
   await recordingTx(db, async () => {
     const row = await db.recordings.get(id)
-    if (!row || row.deleted_at) throw new Error('Recording not found')
+    if (!row || row.deleted_at) throw new Error(RECORDING_NOT_FOUND)
     let position = row.position
     if (patch.song_id !== undefined && patch.song_id !== row.song_id && patch.song_id) {
       const song = await db.songs.get(patch.song_id)
-      if (!song || song.deleted_at) throw new Error('Song not found')
+      if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
       position = nextPosition(await activeRecordingsForSong(db, patch.song_id))
     }
     await putRow(db, 'recordings', {

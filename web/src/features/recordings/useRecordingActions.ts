@@ -4,11 +4,14 @@ import { deleteRecording, retryUpload, updateRecording } from '../../commands/re
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETE, useConfirm } from '../../ui/Confirm'
 import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { deleteRecordingMessage } from './recordingRow'
 import type { RecordingView } from './useRecordings'
+
+export const DELETE_RECORDING_TITLE = 'Delete this recording?'
+export const REMOVE_FROM_SONG = 'Remove from song'
 
 export interface RecordingActions {
   /** One line for every refusal a list of recordings can report, wherever the control sits. */
@@ -51,9 +54,9 @@ export function useRecordingActions({
 
   const remove = async (view: RecordingView) => {
     const ok = await confirm({
-      title: 'Delete this recording?',
+      title: DELETE_RECORDING_TITLE,
       message: deleteRecordingMessage(view),
-      action: 'Delete',
+      action: DELETE,
     })
     if (!ok) return
     const id = view.recording.id
@@ -79,7 +82,7 @@ export function useRecordingActions({
   const filing = (view: RecordingView): RowAction | null => {
     if (view.songId) {
       return {
-        label: 'Remove from song',
+        label: REMOVE_FROM_SONG,
         short: 'Remove',
         icon: FolderOutput,
         tone: 'warning',

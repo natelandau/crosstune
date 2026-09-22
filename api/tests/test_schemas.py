@@ -22,6 +22,10 @@ def test_song_requires_title() -> None:
         SongData(created_at=NOW)
 
 
+def test_song_accepts_the_modal_mode() -> None:
+    assert SongData(title="Cluck Old Hen", mode="modal", created_at=NOW).mode == "modal"
+
+
 def test_song_rejects_unknown_mode() -> None:
     with pytest.raises(ValidationError):
         SongData(title="Sally Ann", mode="lydian", created_at=NOW)
@@ -71,6 +75,11 @@ def test_song_accepts_a_tuning_per_instrument() -> None:
 def test_user_settings_rejects_unknown_instrument() -> None:
     with pytest.raises(ValidationError):
         UserSettingsData(instruments=["kazoo"], created_at=NOW)
+
+
+def test_user_settings_rejects_a_retired_instrument() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(instruments=["other"], created_at=NOW)
 
 
 def test_user_settings_rejects_a_repeated_instrument() -> None:

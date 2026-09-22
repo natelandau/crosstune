@@ -2,6 +2,7 @@ import userEvent from '@testing-library/user-event'
 import { useEffect, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { addUploadedFile, updateRecording } from '../../commands/recordings'
 import { createSong } from '../../commands/songs'
 import { setStorage } from '../../db/meta'
@@ -9,11 +10,18 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
-import { AddToSongSheet } from './AddToSongSheet'
-import { RenameRecordingSheet } from './RenameRecordingSheet'
-import { Storage } from './Storage'
+import { SEARCH_SONGS } from '../catalog/SongSearch'
+import { NEW_SONG_TITLE } from '../song/SongFormSheet'
+import { ADD_TO_SONG_ERROR, ADD_TO_SONG_TITLE, AddToSongSheet } from './AddToSongSheet'
+import {
+  RECORDING_NAME_LABEL,
+  RECORDING_NAME_PLACEHOLDER,
+  RENAME_RECORDING_TITLE,
+  RenameRecordingSheet,
+} from './RenameRecordingSheet'
+import { Storage, STORAGE_USED } from './Storage'
 import type { RecordingView } from './useRecordings'
-import { UploadButton } from './UploadButton'
+import { EMPTY_FILE_ERROR, NOT_AUDIO_ERROR, UPLOAD_AUDIO, UploadButton } from './UploadButton'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -61,8 +69,8 @@ function Host({
   )
 }
 
-const nameField = () => page.getByRole('textbox', { name: 'Recording name' })
-const search = () => page.getByRole('searchbox', { name: 'Search songs' })
+const nameField = () => page.getByRole('textbox', { name: RECORDING_NAME_LABEL })
+const search = () => page.getByRole('searchbox', { name: SEARCH_SONGS })
 const closed = () =>
   vi.waitFor(() => expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull())
 
@@ -71,7 +79,7 @@ async function createFrom(title: string) {
   await search().fill(title)
   await page.getByRole('button', { name: `Add "${title}"` }).click()
   // The form only opens once the picker's dismissal has finished, so wait for its title.
-  await expect.element(page.getByText('New song')).toBeVisible()
+  await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
   await expect.element(page.getByRole('textbox', { name: 'Title' })).toHaveValue(title)
   await page.getByRole('button', { name: 'Add' }).click()
 }
@@ -79,7 +87,7 @@ async function createFrom(title: string) {
 describe('RenameRecordingSheet', () => {
   it('opens on the recording it was given, with its stored name', async () => {
     renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
-    await expect.element(page.getByText('Rename recording')).toBeVisible()
+    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
     // The sheet's title names the one field, so the field carries no header of its own,
     // which leaves the placeholder as the only thing showing where to type.
     await expect.element(nameField()).toBeVisible()
@@ -88,7 +96,7 @@ describe('RenameRecordingSheet', () => {
         document
           .querySelector('ion-modal:not(.overlay-hidden) ion-input input')
           ?.getAttribute('placeholder'),
-      ).toBe('Jam at Tom\u2019s, take 2, \u2026'),
+      ).toBe(RECORDING_NAME_PLACEHOLDER),
     )
     expect(
       document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'),
@@ -160,7 +168,7 @@ describe('AddToSongSheet', () => {
 
   it('opens under its own title with the shared song search', async () => {
     renderIonic(<Host sheet="add" target={view()} onClose={vi.fn()} />, { db })
-    await expect.element(page.getByText('Add to a song')).toBeVisible()
+    await expect.element(page.getByText(ADD_TO_SONG_TITLE)).toBeVisible()
     await expect.element(search()).toBeVisible()
   })
 
@@ -203,7 +211,7 @@ describe('AddToSongSheet', () => {
     // next open waits for the close to reach the modal, not only for its hidden class.
     await vi.waitFor(() => expect(sheet.isOpen).toBe(false))
     reopen(view('Barn dance'))
-    await expect.element(page.getByText('Add to a song')).toBeVisible()
+    await expect.element(page.getByText(ADD_TO_SONG_TITLE)).toBeVisible()
     await expect.element(search()).toBeVisible()
   })
 
@@ -234,9 +242,9 @@ describe('AddToSongSheet', () => {
     await search().fill('Sally Goodin')
     await page.getByRole('button', { name: 'Add "Sally Goodin"' }).click()
     await new Promise((resolve) => setTimeout(resolve, 400))
-    expect(page.getByText('New song').elements()).toHaveLength(0)
+    expect(page.getByText(NEW_SONG_TITLE).elements()).toHaveLength(0)
     read(undefined)
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     // The Tuning group renders only once there is a tuning to show, so it is the proof.
     await expect.element(page.getByRole('heading', { name: 'Tuning' })).toBeVisible()
     await expect
@@ -255,16 +263,14 @@ describe('AddToSongSheet', () => {
     await createFrom('Sally Goodin')
     await closed()
     // The song is saved and both sheets are gone, so the only surface left is the app's toast.
-    fail(new Error('Recording not found'))
-    await expect
-      .element(page.getByText('The recording could not be added to this song.'))
-      .toBeVisible()
+    fail(new Error(RECORDING_NOT_FOUND))
+    await expect.element(page.getByText(ADD_TO_SONG_ERROR)).toBeVisible()
     expect(await db.songs.where('title').equals('Sally Goodin').count()).toBe(1)
   })
 })
 
 describe('UploadButton', () => {
-  const picker = () => page.getByLabelText('Upload audio file').element() as HTMLInputElement
+  const picker = () => page.getByLabelText(UPLOAD_AUDIO).element() as HTMLInputElement
 
   it('offers a real file picker behind a control big enough to tap', async () => {
     renderIonic(<UploadButton songId={null} />, { db })
@@ -284,7 +290,7 @@ describe('UploadButton', () => {
     await userEvent
       .setup({ applyAccept: false })
       .upload(picker(), new File(['x'], 'notes.txt', { type: 'text/plain' }))
-    await expect.element(page.getByRole('alert')).toHaveTextContent('Choose an audio file.')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(NOT_AUDIO_ERROR)
     expect(vi.mocked(addUploadedFile)).not.toHaveBeenCalled()
   })
 
@@ -292,7 +298,7 @@ describe('UploadButton', () => {
     renderIonic(<UploadButton songId={null} />, { db })
     await expect.element(page.getByRole('button', { name: 'Upload' })).toBeVisible()
     await userEvent.upload(picker(), new File([], 'empty.wav', { type: 'audio/wav' }))
-    await expect.element(page.getByRole('alert')).toHaveTextContent('This file is empty.')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(EMPTY_FILE_ERROR)
     expect(vi.mocked(addUploadedFile)).not.toHaveBeenCalled()
   })
 
@@ -326,7 +332,7 @@ describe('UploadButton', () => {
     await userEvent
       .setup({ applyAccept: false })
       .upload(picker(), new File(['x'], 'notes.txt', { type: 'text/plain' }))
-    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith('Choose an audio file.'))
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(NOT_AUDIO_ERROR))
     // The pick itself drops whatever the last one left behind, before it can fail again.
     expect(onError.mock.calls[0]).toEqual([null])
     expect(page.getByRole('alert').elements()).toHaveLength(0)
@@ -338,7 +344,7 @@ describe('Storage', () => {
     await setStorage(db, { used_bytes: 1_000_000, quota_bytes: 2_000_000, max_file_bytes: 500_000 })
     renderIonic(<Storage />, { db })
     await expect.element(page.getByText('1 MB of 2 MB used')).toBeVisible()
-    await expect.element(page.getByRole('progressbar', { name: 'Storage used' })).toBeVisible()
+    await expect.element(page.getByRole('progressbar', { name: STORAGE_USED })).toBeVisible()
   })
 
   it('shows no meter until a quota is known', async () => {

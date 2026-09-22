@@ -11,7 +11,9 @@ import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import { recordingFile, recordingRow } from '../../test/rows'
 import type { RowAction } from '../../ui/Row'
+import { CLOSE_PLAYER } from '../player/Dock'
 import type { Player } from '../player/usePlayer'
+import { DOWNLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import { RecordingItem } from './RecordingItem'
 import type { RecordingView } from './useRecordings'
 
@@ -117,7 +119,7 @@ describe('RecordingItem', () => {
   it('closes the loaded recording from a button named for its player', async () => {
     const player = fakePlayer({ item: { kind: 'recording', id: 'r1' } })
     show(view(), { player })
-    await openControl('Close player').click()
+    await openControl(CLOSE_PLAYER).click()
     expect(player.close).toHaveBeenCalled()
   })
 
@@ -138,7 +140,7 @@ describe('RecordingItem', () => {
     await expect.element(playButton).toBeVisible()
     const named = playButton.element()
     // Every part of the row's own state names the same one control, not a separate element.
-    for (const part of ['0:42', 'Waiting to upload', '2 failed tries']) {
+    for (const part of ['0:42', WAITING_TO_UPLOAD, '2 failed tries']) {
       const located = openControl(part)
       await expect.element(located).toBeVisible()
       expect(located.element()).toBe(named)
@@ -191,7 +193,7 @@ describe('RecordingItem', () => {
     const download = vi.fn(async () => null)
     show(view({ recording: { state: 'ready' } }), { engine: fakeEngine({ download }) })
     await openControl('Download Jam recording').click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent("Couldn't download")
+    await expect.element(page.getByRole('alert')).toHaveTextContent(DOWNLOAD_FAILED)
     // The row still offers another attempt once the failed one has settled.
     const named = openControl('Download Jam recording')
     await expect.element(named).toBeVisible()

@@ -2,8 +2,14 @@ import { IonButton } from '@ionic/react'
 import { Ellipsis, X, type LucideIcon } from 'lucide-react'
 import { Fragment, type ReactNode } from 'react'
 import { getMode } from '../../platform/mode'
-import { useMenu, type MenuItem } from '../../ui/Menu'
+import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
 import type { SongSelection } from './useSongSelection'
+
+export const CANCEL_SELECTION = 'Cancel selection'
+export const DESELECT_ALL_IOS = 'Deselect All'
+export const DESELECT_ALL = 'Deselect all'
+export const SELECT_ALL_IOS = 'Select All'
+export const SELECT_ALL = 'Select all'
 
 export interface BulkAction {
   label: string
@@ -76,7 +82,7 @@ export function useSelectionToolbar({
         <Fragment key={START_KEY}>
           {announcement}
           <IonButton className="toolbar-control" onClick={toggleAll}>
-            {allSelected ? 'Deselect All' : 'Select All'}
+            {allSelected ? DESELECT_ALL_IOS : SELECT_ALL_IOS}
           </IonButton>
         </Fragment>
       ),
@@ -91,7 +97,7 @@ export function useSelectionToolbar({
   }
 
   const items: MenuItem[] = [
-    { label: allSelected ? 'Deselect all' : 'Select all', onPress: toggleAll },
+    { label: allSelected ? DESELECT_ALL : SELECT_ALL, onPress: toggleAll },
     ...more,
   ]
   return {
@@ -100,7 +106,7 @@ export function useSelectionToolbar({
     start: (
       <Fragment key={START_KEY}>
         {announcement}
-        <IonButton className="toolbar-control" aria-label="Cancel selection" onClick={onExit}>
+        <IonButton className="toolbar-control" aria-label={CANCEL_SELECTION} onClick={onExit}>
           <X aria-hidden="true" className="size-5" />
         </IonButton>
       </Fragment>
@@ -121,8 +127,8 @@ export function useSelectionToolbar({
         {/* Live at any count: Select all lives in here, and the mode always opens at zero. */}
         <IonButton
           className="toolbar-control"
-          aria-label="More actions"
-          onClick={(event) => openMenu(event, 'More actions', items)}
+          aria-label={MORE_ACTIONS}
+          onClick={(event) => openMenu(event, MORE_ACTIONS, items)}
         >
           <Ellipsis aria-hidden="true" className="size-6" />
         </IonButton>

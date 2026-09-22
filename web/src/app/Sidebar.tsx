@@ -3,7 +3,7 @@ import { Mic } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { Lockup } from '../ui/Mark'
 import { SyncBadge } from '../ui/SyncBadge'
-import { TABS } from './tabs'
+import { RECORD_LABEL, TABS } from './tabs'
 
 /**
  * The wide frame's navigation: the lockup, the four destinations, the record control, and the
@@ -51,7 +51,7 @@ export function Sidebar({
           })}
         </IonList>
         <IonList lines="none">
-          <IonItem button detail={false} aria-label="Start a new recording" onClick={onRecord}>
+          <IonItem button detail={false} aria-label={RECORD_LABEL} onClick={onRecord}>
             <Mic aria-hidden="true" slot="start" className="size-5" />
             <IonLabel>Record</IonLabel>
           </IonItem>

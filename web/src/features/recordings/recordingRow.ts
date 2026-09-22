@@ -3,11 +3,14 @@ import { isNotUploaded } from '../../db/recordings'
 import { failedTriesLabel, fileStateLabel, formatBytes, formatDuration } from '../recording/format'
 import type { RecordingView } from './useRecordings'
 
+export const DELETE_UNSYNCED_NOTE = 'It has not been uploaded, so this cannot be undone.'
+export const DELETE_SYNCED_NOTE = 'It is removed from every device.'
+
 /** What a delete costs: a recording the server has never seen is only ever on this device. */
 export function deleteRecordingMessage(view: RecordingView): string {
   return view.recording.state === 'pending_upload' && isNotUploaded(view.file)
-    ? 'It has not been uploaded, so this cannot be undone.'
-    : 'It is removed from every device.'
+    ? DELETE_UNSYNCED_NOTE
+    : DELETE_SYNCED_NOTE
 }
 
 function recordedAtLabel(recordedAt: string): string {

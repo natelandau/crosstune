@@ -11,11 +11,16 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
+import { DELETING } from '../../ui/Confirm'
+import { MORE_ACTIONS } from '../../ui/Menu'
+import { ADD_TO_LIST } from '../lists/ListPicker'
+import { LARGER_TEXT } from '../lyrics/LyricsModal'
 import { RecordProvider } from '../recording/useRecord'
 import * as recordingsModule from '../recordings/useRecordings'
 import type * as ConfirmModule from '../../ui/Confirm'
 import type * as SongsModule from '../../commands/songs'
-import { SongScreen } from './SongScreen'
+import { EDIT_SONG_TITLE } from './SongFormSheet'
+import { ADD_TO_LIST_TITLE, NOT_IN_LIST, OPEN_LYRICS, SONG_GONE, SongScreen } from './SongScreen'
 
 vi.mock('../../commands/songs', { spy: true })
 vi.mock('../../commands/lists', { spy: true })
@@ -128,7 +133,7 @@ async function alertButton(label: string) {
 }
 
 async function openMenuItem(label: string) {
-  await page.getByRole('button', { name: 'More actions' }).click()
+  await page.getByRole('button', { name: MORE_ACTIONS }).click()
   await (await menuItem(label)).click()
 }
 
@@ -242,7 +247,7 @@ describe('SongScreen', () => {
     show()
     await expect.element(page.getByText('Tuesday jam')).toBeVisible()
     await page.getByRole('button', { name: 'Remove Tuesday jam' }).click()
-    await expect.element(page.getByText('Not in any list yet.')).toBeVisible()
+    await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
   })
 
   it('removes from a list once when Remove is pressed twice', async () => {
@@ -254,7 +259,7 @@ describe('SongScreen', () => {
     const button = remove.element() as HTMLElement
     button.click()
     button.click()
-    await expect.element(page.getByText('Not in any list yet.')).toBeVisible()
+    await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
     expect(listsModule.removeFromList).toHaveBeenCalledTimes(1)
   })
 
@@ -263,10 +268,10 @@ describe('SongScreen', () => {
     const itemId = await addToList(db, list, ids.userSongId)
     show()
     await page.getByRole('button', { name: 'Remove Tuesday jam' }).click()
-    await expect.element(page.getByText('Not in any list yet.')).toBeVisible()
+    await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
     await db.list_items.update(itemId, { deleted_at: null })
     await page.getByRole('button', { name: 'Remove Tuesday jam' }).click()
-    await expect.element(page.getByText('Not in any list yet.')).toBeVisible()
+    await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
     expect(listsModule.removeFromList).toHaveBeenCalledTimes(2)
   })
 
@@ -282,8 +287,8 @@ describe('SongScreen', () => {
 
   it('opens the list picker from Add to list', async () => {
     show()
-    await page.getByRole('button', { name: 'Add to list' }).first().click()
-    await expect.element(page.getByText('Add to a list')).toBeVisible()
+    await page.getByRole('button', { name: ADD_TO_LIST }).first().click()
+    await expect.element(page.getByText(ADD_TO_LIST_TITLE)).toBeVisible()
   })
 
   it('archives from the More actions menu', async () => {
@@ -331,13 +336,13 @@ describe('SongScreen', () => {
     button.click()
     await expect.element(page.getByRole('heading', { name: 'Catalog probe' })).toBeVisible()
     expect(songsModule.deleteSong).toHaveBeenCalledTimes(1)
-    expect(page.getByText('This song is gone').elements()).toHaveLength(0)
+    expect(page.getByText(SONG_GONE).elements()).toHaveLength(0)
   })
 
   it('asks once when the Delete menu item is pressed twice', async () => {
     show()
     await expect.element(title()).toBeVisible()
-    await page.getByRole('button', { name: 'More actions' }).click()
+    await page.getByRole('button', { name: MORE_ACTIONS }).click()
     const deleteItem = await menuItem('Delete')
     await expect.element(deleteItem).toBeVisible()
     const item = deleteItem.element() as HTMLElement
@@ -356,9 +361,9 @@ describe('SongScreen', () => {
     show()
     await openMenuItem('Delete')
     await (await alertButton('Delete')).click()
-    await expect.element(page.getByText('Deleting…')).toBeVisible()
+    await expect.element(page.getByText(DELETING)).toBeVisible()
     await expect.element(title()).toBeVisible()
-    expect(page.getByRole('button', { name: 'More actions' }).elements()).toHaveLength(0)
+    expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
     write.open()
     await expect.element(page.getByRole('heading', { name: 'Catalog probe' })).toBeVisible()
   })
@@ -375,12 +380,12 @@ describe('SongScreen', () => {
   it('opens the form sheet from Edit', async () => {
     show()
     await page.getByRole('button', { name: 'Edit', exact: true }).click()
-    await expect.element(page.getByText('Edit song')).toBeVisible()
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
   })
 
   it('says the song is gone for an unknown id', async () => {
     show('missing')
-    await expect.element(page.getByText('This song is gone')).toBeVisible()
+    await expect.element(page.getByText(SONG_GONE)).toBeVisible()
     expect(document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
   })
 
@@ -388,7 +393,7 @@ describe('SongScreen', () => {
     show()
     await expect.element(title()).toBeVisible()
     await deleteSong(db, ids.songId)
-    await expect.element(page.getByText('This song is gone')).toBeVisible()
+    await expect.element(page.getByText(SONG_GONE)).toBeVisible()
   })
 
   it('offers no way to read lyrics for a song with none', async () => {
@@ -418,21 +423,21 @@ describe('SongScreen', () => {
     const headers = Array.from(document.querySelectorAll<HTMLElement>('[data-section-header]'))
     const lists = headers.find((line) => line.textContent?.startsWith('Lists'))!
     await expect
-      .element(page.elementLocator(lists).getByRole('button', { name: 'Add to list' }))
+      .element(page.elementLocator(lists).getByRole('button', { name: ADD_TO_LIST }))
       .toBeVisible()
     expect(document.querySelector('ion-list[aria-label="Lists"]')).toBeNull()
-    await expect.element(page.getByText('Not in any list yet.')).toBeVisible()
+    await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
   })
 
   it('reads lyrics from a filled button rather than a row', async () => {
     const words = 'Did you ever go to meeting\nUncle Joe'
     const fresh = await createSong(db, { title: 'Uncle Joe', lyrics: words }, { status: 'known' })
     show(fresh.songId)
-    const open = page.getByRole('button', { name: 'Open lyrics' })
+    const open = page.getByRole('button', { name: OPEN_LYRICS })
     await expect.element(open).toBeVisible()
     // A filled block button rather than a card row: the one bold control on the screen.
     const host = document.querySelector<HTMLElement>('ion-button[expand="block"]')!
-    expect(host.textContent).toContain('Open lyrics')
+    expect(host.textContent).toContain(OPEN_LYRICS)
     expect(Math.round(host.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
     expect(host.closest('ion-list')).toBeNull()
   })
@@ -441,11 +446,11 @@ describe('SongScreen', () => {
     const words = 'Did you ever go to meeting\nUncle Joe'
     const fresh = await createSong(db, { title: 'Uncle Joe', lyrics: words }, { status: 'known' })
     show(fresh.songId)
-    const open = page.getByRole('button', { name: 'Open lyrics' })
+    const open = page.getByRole('button', { name: OPEN_LYRICS })
     await expect.element(open).toBeVisible()
     // The words belong to the reading view, not to the song screen, which shows none of them.
     await expect.element(page.getByText('Did you ever go to meeting')).not.toBeInTheDocument()
     await open.click()
-    await expect.element(page.getByRole('button', { name: 'Larger text' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: LARGER_TEXT })).toBeVisible()
   })
 })

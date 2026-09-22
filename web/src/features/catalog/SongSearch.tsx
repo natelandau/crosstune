@@ -1,7 +1,7 @@
 import { IonItem, IonLabel, IonNote } from '@ionic/react'
 import { Plus } from 'lucide-react'
 import { useMemo, useRef } from 'react'
-import type { Instrument } from '../../db/types'
+import type { Instrument } from '../../api/vocabulary'
 import { Group } from '../../ui/Group'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
 import { useInstruments } from '../settings/useInstruments'
@@ -9,6 +9,8 @@ import { DEFAULT_FILTERS, filterCatalog, type CatalogEntry } from './filters'
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
 import { SongItem, SongLines } from './SongItem'
 import { useCatalog } from './useCatalog'
+
+export const SEARCH_SONGS = 'Search songs'
 
 // Archived songs are searchable in every picker, so each filter is open and only the query narrows.
 const PICKER_FILTERS = { ...DEFAULT_FILTERS, archived: true }

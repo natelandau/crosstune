@@ -50,3 +50,6 @@ every label. The glossary in `docs/product.md` has the reasons.
   name. No inline SVG icons, no text characters as icons, no second icon
   set. `web/src/ui/Mark.tsx` is the one inline SVG and is not an icon.
 - Outbound HTTP in the API uses `httpx2`, never `httpx`.
+- A user-facing string that more than one file needs, tests included, is an
+  exported constant beside the component that shows it; never retype it.
+  The rule and its reason are in `docs/design.md`.

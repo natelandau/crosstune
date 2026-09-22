@@ -2,17 +2,18 @@ import { IonButton } from '@ionic/react'
 import { screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import type { Instrument } from '../../api/vocabulary'
 import * as bulk from '../../commands/bulk'
 import { activeItems, addToList, createList } from '../../commands/lists'
 import { createSong, setArchived, type SongInput, type UserSongInput } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument } from '../../db/types'
 import { openTestDb } from '../../test/db'
-import { recordingFile, recordingRow } from '../../test/rows'
 import { renderIonic } from '../../test/ionic'
+import { recordingFile, recordingRow } from '../../test/rows'
 import { InlineError } from '../../ui/InlineError'
-import { useMenu } from '../../ui/Menu'
+import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import type { CatalogEntry } from '../catalog/filters'
+import { ADD_TO_LIST, NEW_LIST_ITEM, NEW_LIST_NAME_LABEL } from '../lists/ListPicker'
 import { useBulkActions, type SelectionContext } from './useBulkActions'
 
 vi.mock('../../commands/bulk', { spy: true })
@@ -68,7 +69,7 @@ function Host({
           {action.label}
         </IonButton>
       ))}
-      <IonButton onClick={(event) => openMenu(event, 'More actions', [...more])}>More</IonButton>
+      <IonButton onClick={(event) => openMenu(event, MORE_ACTIONS, [...more])}>More</IonButton>
       <p
         className="sr-only"
         data-probe
@@ -347,7 +348,7 @@ describe('useBulkActions', () => {
     const listId = await createList(db, 'Tuesday jam')
     await addToList(db, listId, one.userSong.id)
     show([one, two])
-    await tap('Add to list')
+    await tap(ADD_TO_LIST)
     await expect.element(page.getByText('Add 2 songs to a list')).toBeVisible()
     await expect.element(page.getByText('1 of 2 in it')).toBeVisible()
     await pick('Tuesday jam')
@@ -367,9 +368,9 @@ describe('useBulkActions', () => {
     const one = await seed({ title: 'Say Old Man' })
     const two = await seed({ title: 'Lost Indian' })
     show([one, two])
-    await tap('Add to list')
-    await page.getByRole('button', { name: 'New list\u2026' }).click()
-    await page.getByLabelText('New list name').fill('Violin club')
+    await tap(ADD_TO_LIST)
+    await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
+    await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Violin club')
     await page.getByRole('button', { name: 'Create' }).click()
 
     await expect.element(page.getByText('Created Violin club with 2 songs')).toBeVisible()
@@ -393,7 +394,7 @@ describe('useBulkActions', () => {
     const listId = await createList(db, 'Tuesday jam')
     vi.mocked(bulk.addSongsToList).mockRejectedValueOnce(new Error('Disk full'))
     show([one, two])
-    await tap('Add to list')
+    await tap(ADD_TO_LIST)
     await expect.element(page.getByText('none in it')).toBeVisible()
     await pick('Tuesday jam')
 
@@ -456,7 +457,7 @@ describe('useBulkActions', () => {
     const two = await seed({ title: 'Lost Indian' })
     const listId = await createList(db, 'Tuesday jam')
     show([one, two])
-    await tap('Add to list')
+    await tap(ADD_TO_LIST)
     await expect.element(page.getByText('none in it')).toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await sheetsClosed()
@@ -465,7 +466,7 @@ describe('useBulkActions', () => {
     expect(await order(listId)).toEqual([])
     expect(probe().getAttribute('data-more')).toBe('Archive 2 songs|Delete 2 songs')
 
-    await tap('Add to list')
+    await tap(ADD_TO_LIST)
     await pick('Tuesday jam')
     await expect.element(page.getByText('Added 2 songs to Tuesday jam')).toBeVisible()
     await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())

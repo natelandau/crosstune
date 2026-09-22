@@ -1,20 +1,19 @@
 import { IonButton, IonInput, IonItem, IonTextarea, IonToggle } from '@ionic/react'
 import { useEffect, useRef, useState } from 'react'
+import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createSong, updateSongEntry } from '../../commands/songs'
-import { useAction } from '../../ui/useAction'
+import { TUNING_SUGGESTIONS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
-import { type Instrument } from '../../db/types'
+import { FieldRow, NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
+import { useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { LyricsSheet } from '../lyrics/LyricsSheet'
 import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
-import { FieldRow } from '../../ui/FieldRow'
-import { KeyChooser } from './KeyChooser'
-import { StatusChooser } from './StatusChooser'
 import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
-import { SONG_LIMITS } from './limits'
+import { KeyChooser } from './KeyChooser'
 import {
   asMode,
   asTimeSignature,
@@ -23,8 +22,13 @@ import {
   valuesFromRows,
   type SongFormValues,
 } from './songFormValues'
+import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
-import { TUNING_SUGGESTIONS } from './suggestions'
+
+export const TITLE_REQUIRED = 'A title is required'
+export const EDIT_SONG_TITLE = 'Edit song'
+export const NEW_SONG_TITLE = 'New song'
+export const SONG_TITLE_LABEL = 'Song title'
 
 export type SongFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
 
@@ -102,7 +106,7 @@ export function SongFormSheet({
     if (!song.title) {
       // A rejection from an earlier attempt no longer describes this form.
       clear()
-      setValidation('A title is required')
+      setValidation(TITLE_REQUIRED)
       void titleRef.current?.setFocus()
       return
     }
@@ -153,7 +157,7 @@ export function SongFormSheet({
   return (
     <Sheet
       open={target !== null && !closing}
-      title={editing ? 'Edit song' : 'New song'}
+      title={editing ? EDIT_SONG_TITLE : NEW_SONG_TITLE}
       height="full"
       dismissible={false}
       onClose={dismissed}
@@ -188,7 +192,7 @@ export function SongFormSheet({
               ref={titleRef}
               data-field="title"
               aria-label="Title"
-              placeholder="Song title"
+              placeholder={SONG_TITLE_LABEL}
               maxlength={SONG_LIMITS.title}
               value={values.title}
               enterkeyhint="done"
@@ -291,7 +295,7 @@ export function SongFormSheet({
                 <FieldRow key={field.key} label={field.label} detail={field.label}>
                   <IonInput
                     aria-label={field.label}
-                    placeholder="Not set"
+                    placeholder={NOT_SET}
                     maxlength={field.maxLength}
                     value={values[field.key]}
                     onIonInput={(event) => set(field.key, String(event.detail.value ?? ''))}

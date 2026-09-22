@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import type { Instrument, SongStatus } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { createSong, type SongInput, type UserSongInput } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument, SongStatus } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
+import { TUNING_FIELDS } from '../settings/instruments'
+import { DETAIL_LABELS } from '../song/detailFields'
 import { BulkEditSheet } from './BulkEditSheet'
 
 const violin = new Set<Instrument>(['violin'])
@@ -91,7 +93,7 @@ describe('BulkEditSheet', () => {
     )!
     const rows = Array.from(details.querySelectorAll('ion-item'))
     // Learned from is a text row and Learned on a date row; both read like the select rows.
-    for (const label of ['Learned from', 'Learned on']) {
+    for (const label of [DETAIL_LABELS.learned_from, DETAIL_LABELS.learned_on]) {
       const row = rows.find((item) => item.getAttribute('data-detail') === label)
       expect(row?.querySelector('[data-row-label]')?.textContent, label).toBe(label)
     }
@@ -253,9 +255,11 @@ describe('BulkEditSheet', () => {
   it('hides a tuning nobody plays and shows one some song already has', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
-    await expect.element(page.getByRole('heading', { name: 'Violin tuning' })).toBeVisible()
     await expect
-      .element(page.getByRole('heading', { name: 'Banjo tuning' }))
+      .element(page.getByRole('heading', { name: TUNING_FIELDS.violin_tuning.label }))
+      .toBeVisible()
+    await expect
+      .element(page.getByRole('heading', { name: TUNING_FIELDS.banjo_tuning.label }))
       .not.toBeInTheDocument()
   })
 
@@ -265,7 +269,9 @@ describe('BulkEditSheet', () => {
       await seed({ title: 'Lost Indian' }),
     ]
     renderIonic(<Host entries={entries} />, { db })
-    await expect.element(page.getByRole('heading', { name: 'Banjo tuning' })).toBeVisible()
+    await expect
+      .element(page.getByRole('heading', { name: TUNING_FIELDS.banjo_tuning.label }))
+      .toBeVisible()
   })
 
   it('opens with fresh rows every time', async () => {
@@ -316,8 +322,10 @@ describe('BulkEditSheet', () => {
     ]
     const onApply = vi.fn()
     renderIonic(<Host entries={entries} onApply={onApply} />, { db })
-    await expect.element(page.getByLabelText('Learned from')).toHaveValue('Bruce Molsky')
-    await page.getByLabelText('Learned from').fill('Bruce Molsky ')
+    await expect
+      .element(page.getByLabelText(DETAIL_LABELS.learned_from))
+      .toHaveValue('Bruce Molsky')
+    await page.getByLabelText(DETAIL_LABELS.learned_from).fill('Bruce Molsky ')
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
@@ -330,11 +338,11 @@ describe('BulkEditSheet', () => {
       await seed({ title: 'Lost Indian' }, { learned_on: '2024-03-01' }),
     ]
     renderIonic(<Host entries={entries} />, { db })
-    await expect.element(page.getByLabelText('Learned on')).toHaveValue('2024-03-01')
-    await page.getByLabelText('Learned on').click()
+    await expect.element(page.getByLabelText(DETAIL_LABELS.learned_on)).toHaveValue('2024-03-01')
+    await page.getByLabelText(DETAIL_LABELS.learned_on).click()
     // Clears one part of the date, which is how a date reads mid-edit: empty, but not blank.
     await userEvent.keyboard('{Backspace}')
-    const input = page.getByLabelText('Learned on').element() as HTMLInputElement
+    const input = page.getByLabelText(DETAIL_LABELS.learned_on).element() as HTMLInputElement
     expect(input.value).toBe('')
     expect(input.validity.badInput).toBe(true)
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()

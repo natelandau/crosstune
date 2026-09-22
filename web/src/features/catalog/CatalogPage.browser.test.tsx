@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import * as bulkModule from '../../commands/bulk'
 import { activeItems, createList } from '../../commands/lists'
+import { SONG_NOT_FOUND } from '../../commands/messages'
 import * as songsModule from '../../commands/songs'
 import { createSong, setArchived } from '../../commands/songs'
 import * as metaModule from '../../db/meta'
@@ -14,10 +15,18 @@ import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic, renderScreen } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
-import { CatalogPage } from './CatalogPage'
+import { MORE_ACTIONS } from '../../ui/Menu'
+import { CLEAR_SEARCH } from '../../ui/SearchField'
+import { ADD_TO_LIST } from '../lists/ListPicker'
+import { CANCEL_SELECTION, DESELECT_ALL, SELECT_ALL } from '../selection/SelectionToolbar'
+import { EDIT_SONG_TITLE, NEW_SONG_TITLE } from '../song/SongFormSheet'
+import { SHOW_ARCHIVED } from './CatalogFilterSheet'
+import { ADD_SONG, CatalogPage, NO_SONGS_HINT, NO_SONGS_TITLE } from './CatalogPage'
 import { META_CATALOG_FILTERS } from './filters'
 import { readSearchQuery, writeSearchQuery } from './searchSession'
+import { SEARCH_SONGS } from './SongSearch'
 import * as catalogModule from './useCatalog'
+import { FILTER_SAVE_ERROR } from './useCatalogFilters'
 
 vi.mock('../../commands/bulk', { spy: true })
 vi.mock('../../commands/songs', { spy: true })
@@ -99,10 +108,10 @@ afterEach(async () => {
 })
 
 const show = () => renderScreen(<CatalogPage />, { db, path: '/catalog' })
-const search = () => page.getByRole('searchbox', { name: 'Search songs' })
+const search = () => page.getByRole('searchbox', { name: SEARCH_SONGS })
 const row = (title: string) => page.getByRole('heading', { name: title })
 const sheetOpen = () => document.querySelector('ion-modal:not(.overlay-hidden)')
-const more = () => page.getByRole('button', { name: 'More actions' })
+const more = () => page.getByRole('button', { name: MORE_ACTIONS })
 /**
  * An item in the open menu. The status filter below the toolbar carries the same words, and it
  * comes first in the document, so the search is scoped to the overlay and the click is
@@ -128,7 +137,7 @@ const menuItem = (name: string) => ({
     item.click()
   },
 })
-const leaveSelection = () => page.getByRole('button', { name: 'Cancel selection' })
+const leaveSelection = () => page.getByRole('button', { name: CANCEL_SELECTION })
 const rowCheckbox = (name: RegExp) => page.getByRole('checkbox', { name })
 /** The toolbar title, which reads the count while selecting and the screen's name otherwise. */
 const screenTitle = () => document.querySelector('ion-title')!.textContent?.trim()
@@ -305,9 +314,7 @@ describe('CatalogPage', () => {
       .element(page.getByRole('button', { name: 'All', exact: true }))
       .toHaveAttribute('aria-pressed', 'true')
     await expect.element(row('Cluck Old Hen')).toBeVisible()
-    await expect
-      .element(page.getByRole('alert'))
-      .toHaveTextContent('The filters could not be saved.')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(FILTER_SAVE_ERROR)
     await page.getByRole('button', { name: 'Learning', exact: true }).click({ force: true })
     await expect.poll(async () => storedStatus()).toBe('learning')
     await expect.poll(() => page.getByRole('alert').elements().length).toBe(0)
@@ -367,12 +374,12 @@ describe('CatalogPage', () => {
       .element(page.getByRole('button', { name: 'Known', exact: true }))
       .toHaveAttribute('aria-pressed', 'true')
     write.open()
-    const filterError = page.getByText('The filters could not be saved.')
+    const filterError = page.getByText(FILTER_SAVE_ERROR)
     await expect.element(filterError).toBeVisible()
-    vi.mocked(songsModule.setArchived).mockRejectedValueOnce(new Error('Song not found'))
+    vi.mocked(songsModule.setArchived).mockRejectedValueOnce(new Error(SONG_NOT_FOUND))
     await userEvent.hover(document.querySelector('[data-row-open]')!)
     await page.getByRole('button', { name: "Archive Soldier's Joy" }).click()
-    const archiveError = page.getByText('Song not found')
+    const archiveError = page.getByText(SONG_NOT_FOUND)
     await expect.element(archiveError).toBeVisible()
     await expect.element(filterError).toBeVisible()
     expect(page.getByRole('alert').elements()).toHaveLength(2)
@@ -502,10 +509,10 @@ describe('CatalogPage', () => {
 
   it('puts Filters in the search row and leaves the toolbar to Add song and More actions', async () => {
     show()
-    await expect.element(page.getByRole('button', { name: 'More actions' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
     const searchRow = search().element().closest('ion-toolbar')!
     expect(searchRow.contains(buttonHost('Filters'))).toBe(true)
-    for (const name of ['Add song', 'More actions']) {
+    for (const name of [ADD_SONG, MORE_ACTIONS]) {
       expect(searchRow.contains(buttonHost(name)), name).toBe(false)
     }
   })
@@ -519,7 +526,7 @@ describe('CatalogPage', () => {
       .element(page.getByRole('button', { name: 'Remove filter Archived shown' }))
       .toBeVisible()
     await page.getByRole('button', { name: 'Filters, 2 set' }).click()
-    await expect.element(page.getByText('Show archived')).toBeVisible()
+    await expect.element(page.getByText(SHOW_ARCHIVED)).toBeVisible()
   })
 
   it('names the empty states', async () => {
@@ -539,8 +546,8 @@ describe('CatalogPage', () => {
     await db.user_songs.clear()
     await db.songs.clear()
     show()
-    await expect.element(page.getByText('No songs yet')).toBeVisible()
-    await expect.element(page.getByText('Add the first song you know.')).toBeVisible()
+    await expect.element(page.getByText(NO_SONGS_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NO_SONGS_HINT)).toBeVisible()
     expect(page.getByText(/\d+ songs?$/).elements()).toHaveLength(0)
   })
 
@@ -548,7 +555,7 @@ describe('CatalogPage', () => {
     show()
     await search().fill('Sally Goodin')
     await userEvent.keyboard('{Enter}')
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue('Sally Goodin')
     expect(readSearchQuery()).toBe('')
   })
@@ -570,7 +577,7 @@ describe('CatalogPage', () => {
     await setMeta(db, META_CATALOG_FILTERS, { status: 'learning' })
     show()
     await search().fill('cluck')
-    await page.getByRole('button', { name: 'Clear search' }).click()
+    await page.getByRole('button', { name: CLEAR_SEARCH }).click()
     await expect.element(search()).toHaveValue('')
     expect(readSearchQuery()).toBe('')
     expect((await getMeta<{ status: string } | null>(db, META_CATALOG_FILTERS, null))?.status).toBe(
@@ -589,14 +596,14 @@ describe('CatalogPage', () => {
 
   it('opens the form from Add song in the toolbar', async () => {
     show()
-    await page.getByRole('button', { name: 'Add song' }).click()
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await page.getByRole('button', { name: ADD_SONG }).click()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
   })
 
   it('opens a new song after saving it and leaves no sheet open', async () => {
     showInRouter()
-    await page.getByRole('button', { name: 'Add song' }).click()
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await page.getByRole('button', { name: ADD_SONG }).click()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     await page.getByLabelText('Title').fill('Sally Goodin')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await expect.poll(() => db.songs.where('title').equals('Sally Goodin').count()).toBe(1)
@@ -615,10 +622,10 @@ describe('CatalogPage', () => {
     await expect
       .poll(async () => (await db.user_songs.get(joy.userSongId))?.archived_at)
       .not.toBeNull()
-    vi.mocked(songsModule.setArchived).mockRejectedValueOnce(new Error('Song not found'))
+    vi.mocked(songsModule.setArchived).mockRejectedValueOnce(new Error(SONG_NOT_FOUND))
     await page.getByRole('button', { name: 'Archive Cluck Old Hen' }).click()
     const alert = page.getByRole('alert')
-    await expect.element(alert).toHaveTextContent('Song not found')
+    await expect.element(alert).toHaveTextContent(SONG_NOT_FOUND)
     const list = document.querySelector('ion-list')!
     expect(
       alert.element().compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -636,7 +643,7 @@ describe('CatalogPage', () => {
   it('edits a song from its row in the form sheet', async () => {
     show()
     await page.getByRole('button', { name: "Edit Soldier's Joy" }).click()
-    await expect.element(page.getByText('Edit song')).toBeVisible()
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue("Soldier's Joy")
   })
 
@@ -664,8 +671,8 @@ describe('CatalogPage', () => {
 
   it('ignores / while the form sheet is open', async () => {
     show()
-    await page.getByRole('button', { name: 'Add song' }).click()
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await page.getByRole('button', { name: ADD_SONG }).click()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     ;(document.activeElement as HTMLElement | null)?.blur()
     expect(await pressSlash()).toBe(false)
     expect(document.activeElement?.closest('ion-searchbar')).toBeNull()
@@ -731,8 +738,8 @@ describe('CatalogPage', () => {
 describe('CatalogPage selection', () => {
   it('gives every toolbar control a 44px tap target', async () => {
     show()
-    await expect.element(page.getByRole('button', { name: 'More actions' })).toBeVisible()
-    for (const name of ['Filters', 'Add song', 'More actions']) {
+    await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
+    for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
       const box = buttonHost(name).getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
       expect(box.width).toBeGreaterThanOrEqual(44)
@@ -744,14 +751,14 @@ describe('CatalogPage selection', () => {
     try {
       show()
       await expect.element(more()).toBeVisible()
-      for (const name of ['Filters', 'Add song', 'More actions']) {
+      for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)
       }
       await search().fill('zzz')
       await expect.element(more()).not.toBeInTheDocument()
-      for (const name of ['Filters', 'Add song']) {
+      for (const name of ['Filters', ADD_SONG]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)
@@ -767,7 +774,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await expect.element(page.getByRole('button', { name: 'Status' })).toBeVisible()
     await leaveSelection().click()
-    for (const name of ['Filters', 'Add song', 'More actions']) {
+    for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
       await expect.element(page.getByRole('button', { name })).toBeVisible()
     }
     expect(page.getByRole('button', { name: 'Status' }).elements()).toHaveLength(0)
@@ -780,7 +787,7 @@ describe('CatalogPage selection', () => {
     await expect.poll(screenTitle).toBe('0 selected')
     await leaveSelection().click()
     await expect.poll(screenTitle).toBe('Catalog')
-    await expect.element(page.getByRole('button', { name: 'Add song' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: ADD_SONG })).toBeVisible()
   })
 
   it('enters from a long press with that row selected', async () => {
@@ -818,9 +825,9 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
-    await pickFromMore('Deselect all')
+    await pickFromMore(DESELECT_ALL)
     await expect.poll(screenTitle).toBe('0 selected')
   })
 
@@ -848,7 +855,7 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(row('Angeline the Baker')).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('3 selected')
     await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect.poll(screenTitle).toBe('2 selected')
@@ -858,7 +865,7 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
     await search().fill('cluck')
     await expect.poll(screenTitle).toBe('1 selected')
@@ -877,7 +884,7 @@ describe('CatalogPage selection', () => {
 
   it('hides Add song and Filters while selecting', async () => {
     show()
-    const add = page.getByRole('button', { name: 'Add song' })
+    const add = page.getByRole('button', { name: ADD_SONG })
     const filters = page.getByRole('button', { name: 'Filters' })
     await expect.element(add).toBeVisible()
     await expect.element(filters).toBeVisible()
@@ -962,10 +969,10 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await rowCheckbox(/^Select Soldier's Joy/).click()
     await expect.poll(screenTitle).toBe('1 selected')
-    vi.mocked(bulkModule.updateSongs).mockRejectedValueOnce(new Error('Song not found'))
+    vi.mocked(bulkModule.updateSongs).mockRejectedValueOnce(new Error(SONG_NOT_FOUND))
     await page.getByRole('button', { name: 'Status' }).click()
     await menuItem('Learning').click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent('Song not found')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(SONG_NOT_FOUND)
     expect(screenTitle()).toBe('1 selected')
   })
 
@@ -973,7 +980,7 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
     await pickFromMore('Archive 2 songs')
     await expect.poll(archivedCount).toBe(2)
@@ -993,7 +1000,7 @@ describe('CatalogPage selection', () => {
     await expect.poll(screenTitle).toBe('Catalog')
     // The menu holds the keyboard until it has finished dismissing and then hands focus back to
     // a control the action took away, so the mode's own restore has to outlast it.
-    await vi.waitFor(() => expect(document.activeElement).toBe(buttonHost('More actions')), {
+    await vi.waitFor(() => expect(document.activeElement).toBe(buttonHost(MORE_ACTIONS)), {
       timeout: 3000,
     })
     await page.getByRole('button', { name: 'Undo' }).click()
@@ -1004,7 +1011,7 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
     await pickFromMore('Archive 2 songs')
     await expect.poll(archivedCount).toBe(2)
@@ -1044,7 +1051,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await rowCheckbox(/^Select Cluck Old Hen/).click()
     await expect.poll(screenTitle).toBe('1 selected')
-    await page.getByRole('button', { name: 'Add to list' }).click()
+    await page.getByRole('button', { name: ADD_TO_LIST }).click()
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
     await expect.poll(async () => (await activeItems(db, listId)).length).toBe(1)
     await expect.poll(screenTitle).toBe('Catalog')

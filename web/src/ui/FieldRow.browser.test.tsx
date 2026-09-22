@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
-import { FieldRow } from './FieldRow'
+import { FieldRow, NOT_SET } from './FieldRow'
 
 const value = (text: string) => (
   <span data-row-value className="ms-auto truncate text-end">
@@ -23,11 +23,11 @@ describe('FieldRow', () => {
   it('names the detail field it edits', async () => {
     renderIonic(
       <FieldRow label="Genre" detail="Genre">
-        {value('Not set')}
+        {value(NOT_SET)}
       </FieldRow>,
       { db: openTestDb() },
     )
-    await expect.element(page.getByText('Not set')).toBeVisible()
+    await expect.element(page.getByText(NOT_SET)).toBeVisible()
     expect(document.querySelector('[data-detail="Genre"]')).toBeTruthy()
   })
 
@@ -65,7 +65,7 @@ describe('FieldRow', () => {
     renderIonic(
       <div style={{ width: '393px' }}>
         <FieldRow label="Violin">
-          <IonSelect aria-label="Violin tuning" placeholder="Not set">
+          <IonSelect aria-label="Violin tuning" placeholder={NOT_SET}>
             <IonSelectOption value="Cross A (AEAE)">Cross A (AEAE)</IonSelectOption>
           </IonSelect>
         </FieldRow>

@@ -6,7 +6,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from './filters'
-import { SongSearch } from './SongSearch'
+import { SEARCH_SONGS, SongSearch } from './SongSearch'
 
 let db: CrosstuneDb
 let joy: { songId: string; userSongId: string }
@@ -42,7 +42,7 @@ function Host({
   return (
     <>
       <SongSearch
-        name="Search songs"
+        name={SEARCH_SONGS}
         taken={taken}
         takenLabel={takenLabel}
         rowName={rowName}
@@ -63,7 +63,7 @@ function Host({
   )
 }
 
-const search = () => page.getByRole('searchbox', { name: 'Search songs' })
+const search = () => page.getByRole('searchbox', { name: SEARCH_SONGS })
 const held = () => document.querySelector('[data-testid=query]')!.textContent
 
 describe('SongSearch', () => {

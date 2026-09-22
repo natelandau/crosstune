@@ -1,13 +1,12 @@
-import type { SongInput, UserSongInput } from '../../commands/songs'
 import {
   MODES,
   TIME_SIGNATURES,
-  type LocalSong,
-  type LocalUserSong,
   type Mode,
   type SongStatus,
   type TimeSignature,
-} from '../../db/types'
+} from '../../api/vocabulary'
+import type { SongInput, UserSongInput } from '../../commands/songs'
+import type { LocalSong, LocalUserSong } from '../../db/types'
 import { isSongStatus } from '../catalog/status'
 
 export interface SongFormValues {

@@ -2,6 +2,9 @@ import { useIonActionSheet, useIonAlert } from '@ionic/react'
 import { useCallback, useRef } from 'react'
 import { usePointer } from '../platform/pointer'
 
+export const DELETE = 'Delete'
+export const DELETING = 'Deleting…'
+
 export interface ConfirmOptions {
   title: string
   message: string

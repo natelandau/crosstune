@@ -326,7 +326,7 @@ async def test_user_settings_upsert_applies_and_a_second_row_is_invalid(
     assert results[0]["status"] == "applied"
     assert results[0]["row"]["instruments"] == ["violin", "banjo"]
     results = await push(
-        client, auth_headers("user_a"), change("user_settings", second, T1, instruments=["guitar"])
+        client, auth_headers("user_a"), change("user_settings", second, T1, instruments=["banjo"])
     )
     assert results[0]["status"] == "invalid"
     assert "constraint violation" in results[0]["reason"]

@@ -98,6 +98,8 @@ icons:
 [group('contract')]
 contract:
     pnpm openapi-typescript src/api/openapi.json -o src/api/schema.d.ts
+    node scripts/vocabulary.mjs src/api/openapi.json src/api/vocabulary.ts
+    pnpm exec prettier --write src/api/vocabulary.ts > /dev/null
 
 # Upgrade dependencies
 [group('maintenance')]

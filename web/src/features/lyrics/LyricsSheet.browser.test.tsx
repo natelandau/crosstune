@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { SONG_LIMITS } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { SONG_LIMITS } from '../song/limits'
 import { LyricsSheet } from './LyricsSheet'
 
 function Host({ initial = '' }: { initial?: string }) {

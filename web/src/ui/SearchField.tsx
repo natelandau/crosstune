@@ -1,6 +1,8 @@
 import { IonSearchbar } from '@ionic/react'
 import { useEffect, useImperativeHandle, useRef, type Ref } from 'react'
 
+export const CLEAR_SEARCH = 'Clear search'
+
 export interface SearchFieldHandle {
   focus: () => void
   blur: () => void
@@ -38,7 +40,7 @@ export function SearchField({
     const element = searchbar.current
     void element?.getInputElement().then((input) => {
       input.setAttribute('aria-label', name)
-      element.querySelector('.searchbar-clear-button')?.setAttribute('aria-label', 'Clear search')
+      element.querySelector('.searchbar-clear-button')?.setAttribute('aria-label', CLEAR_SEARCH)
     })
   }, [name])
 

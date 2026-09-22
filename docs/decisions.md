@@ -101,3 +101,16 @@ reopens one without new information. Add a new entry at the end.
   pass, so a large upload never blocks a sync.
 - A sync engine with per-field merges was rejected as more than the product
   needs. `architecture.md` describes the protocol.
+
+## Validated values live in the API and reach the client through the contract
+
+- Every list the server checks, and every field length, is written once in
+  `api/src/crosstune/vocabulary.py`. The models, the row schemas, and the
+  OpenAPI document derive from it, and the client's copies are generated.
+- A database table of vocabularies was rejected. Every value has code
+  behind it on at least one side, the client is offline first and would
+  still need a synced copy, and the lists hold three to nine values.
+- Display labels stay in the client, typed against the generated unions, so
+  a new server value fails the client build until it has a label.
+- The check constraints stay. A value change is one edit plus a migration,
+  which is also where existing rows are reshaped when a value is retired.

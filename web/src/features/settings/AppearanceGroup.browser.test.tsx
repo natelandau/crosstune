@@ -4,7 +4,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { setAppearance, setTextSize } from './appearance'
-import { AppearanceGroup } from './AppearanceGroup'
+import { APPEARANCE_FOOTER, AppearanceGroup, TEXT_SIZE_LABEL } from './AppearanceGroup'
 
 let db: CrosstuneDb
 
@@ -53,7 +53,7 @@ describe('AppearanceGroup', () => {
     expect(document.querySelectorAll('ion-list')).toHaveLength(1)
     expect(
       Array.from(document.querySelectorAll('[data-row-label]')).map((label) => label.textContent),
-    ).toEqual(['Theme', 'Text size'])
+    ).toEqual(['Theme', TEXT_SIZE_LABEL])
   })
 
   it('starts the theme on System with no data-theme set', async () => {
@@ -93,13 +93,7 @@ describe('AppearanceGroup', () => {
 
   it('says the choices are per device and that System follows the phone', async () => {
     show()
-    await expect
-      .element(
-        page.getByText(
-          'These apply to this device only. System follows the phone when it switches.',
-        ),
-      )
-      .toBeVisible()
+    await expect.element(page.getByText(APPEARANCE_FOOTER)).toBeVisible()
   })
 
   it('gives every row a tap target a finger can hit', async () => {

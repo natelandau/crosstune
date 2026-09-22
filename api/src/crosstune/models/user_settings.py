@@ -10,19 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-
-INSTRUMENTS: tuple[str, ...] = (
-    "violin",
-    "banjo",
-    "guitar",
-    "mandolin",
-    "ukulele",
-    "bass",
-    "dulcimer",
-    "accordion",
-    "other",
-)
-AUDIO_QUALITIES: tuple[str, ...] = ("low", "standard", "high")
+from crosstune.vocabulary import AudioQuality
 
 
 class UserSettings(SyncColumns, Base):
@@ -36,7 +24,7 @@ class UserSettings(SyncColumns, Base):
     __table_args__ = (
         UniqueConstraint("user_id", name="uq_user_settings_user_id"),
         CheckConstraint(
-            in_list("audio_quality", AUDIO_QUALITIES, nullable=False),
+            in_list("audio_quality", tuple(AudioQuality), nullable=False),
             name="ck_user_settings_audio_quality",
         ),
     )
@@ -46,4 +34,6 @@ class UserSettings(SyncColumns, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     instruments: Mapped[list[str]] = mapped_column(ARRAY(String(20)), nullable=False, default=list)
-    audio_quality: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")
+    audio_quality: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=AudioQuality.STANDARD.value
+    )

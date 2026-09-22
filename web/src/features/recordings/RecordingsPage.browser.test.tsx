@@ -10,8 +10,14 @@ import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import { recordingFile, recordingRow, songRow } from '../../test/rows'
+import { SEARCH_SONGS } from '../catalog/SongSearch'
 import type { Player } from '../player/usePlayer'
-import { RecordingsPage } from './RecordingsPage'
+import { ADD_TO_SONG_TITLE } from './AddToSongSheet'
+import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from './recordingRow'
+import { NO_RECORDINGS_HINT, NO_RECORDINGS_TITLE, RecordingsPage } from './RecordingsPage'
+import { RECORDING_NAME_LABEL, RENAME_RECORDING_TITLE } from './RenameRecordingSheet'
+import { NOT_AUDIO_ERROR, UPLOAD_AUDIO } from './UploadButton'
+import { DELETE_RECORDING_TITLE } from './useRecordingActions'
 import { useRecordingsWithFiles } from './useRecordings'
 
 vi.mock('../../commands/recordings', { spy: true })
@@ -72,10 +78,8 @@ const addSong = (title: string, key = 'A') =>
 describe('RecordingsPage', () => {
   it('names the empty state and what to do about it', async () => {
     show()
-    await expect.element(page.getByText('No recordings yet')).toBeVisible()
-    await expect
-      .element(page.getByText('Use the record button to make one, or upload an audio file.'))
-      .toBeVisible()
+    await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NO_RECORDINGS_HINT)).toBeVisible()
   })
 
   it('groups recordings under their song, unfiled first', async () => {
@@ -160,9 +164,9 @@ describe('RecordingsPage', () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
     show()
     await page.getByRole('button', { name: 'Rename Jam recording' }).click()
-    await expect.element(page.getByText('Rename recording')).toBeVisible()
+    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
     await expect
-      .element(page.getByRole('textbox', { name: 'Recording name' }))
+      .element(page.getByRole('textbox', { name: RECORDING_NAME_LABEL }))
       .toHaveValue('Jam recording')
   })
 
@@ -174,8 +178,8 @@ describe('RecordingsPage', () => {
       [],
     )
     await page.getByRole('button', { name: 'Add to song Jam recording' }).click()
-    await expect.element(page.getByText('Add to a song')).toBeVisible()
-    await expect.element(page.getByRole('searchbox', { name: 'Search songs' })).toBeVisible()
+    await expect.element(page.getByText(ADD_TO_SONG_TITLE)).toBeVisible()
+    await expect.element(page.getByRole('searchbox', { name: SEARCH_SONGS })).toBeVisible()
   })
 
   it('unfiles a filed recording from its own row', async () => {
@@ -207,10 +211,8 @@ describe('RecordingsPage', () => {
     await db.recording_files.put(recordingFile('r1', { local_state: 'captured' }))
     show()
     await page.getByRole('button', { name: 'Delete Jam recording' }).click()
-    await expect.element(page.getByText('Delete this recording?')).toBeVisible()
-    await expect
-      .element(page.getByText('It has not been uploaded, so this cannot be undone.'))
-      .toBeVisible()
+    await expect.element(page.getByText(DELETE_RECORDING_TITLE)).toBeVisible()
+    await expect.element(page.getByText(DELETE_UNSYNCED_NOTE)).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
     await vi.waitFor(() => expect(document.querySelector('ion-alert')).toBeNull())
     expect((await db.recordings.get('r1'))?.deleted_at).toBeNull()
@@ -223,7 +225,7 @@ describe('RecordingsPage', () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording', state: 'ready' }))
     show()
     await page.getByRole('button', { name: 'Delete Jam recording' }).click()
-    await expect.element(page.getByText('It is removed from every device.')).toBeVisible()
+    await expect.element(page.getByText(DELETE_SYNCED_NOTE)).toBeVisible()
   })
 
   it('closes the player before deleting the recording it holds', async () => {
@@ -268,14 +270,14 @@ describe('RecordingsPage', () => {
 
   it('adds an unfiled recording from the toolbar', async () => {
     show()
-    await expect.element(page.getByText('No recordings yet')).toBeVisible()
+    await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
     const upload = page.getByRole('button', { name: 'Upload' })
     await expect.element(upload).toBeVisible()
     expect(
       (upload.element().getRootNode() as ShadowRoot).host.closest('ion-toolbar'),
     ).not.toBeNull()
     await userEvent.upload(
-      page.getByLabelText('Upload audio file').element() as HTMLInputElement,
+      page.getByLabelText(UPLOAD_AUDIO).element() as HTMLInputElement,
       new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }),
     )
     await expect.element(page.getByRole('heading', { name: 'jam' })).toBeVisible()
@@ -284,17 +286,17 @@ describe('RecordingsPage', () => {
 
   it('shows a refused upload where the toolbar cannot', async () => {
     show()
-    await expect.element(page.getByText('No recordings yet')).toBeVisible()
+    await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
     // The accept attribute is only a picker hint; drag-drop and some pickers still deliver a
     // mismatched file, so the check is bypassed here.
     await userEvent
       .setup({ applyAccept: false })
       .upload(
-        page.getByLabelText('Upload audio file').element() as HTMLInputElement,
+        page.getByLabelText(UPLOAD_AUDIO).element() as HTMLInputElement,
         new File(['x'], 'notes.txt', { type: 'text/plain' }),
       )
     const line = page.getByRole('alert')
-    await expect.element(line).toHaveTextContent('Choose an audio file.')
+    await expect.element(line).toHaveTextContent(NOT_AUDIO_ERROR)
     // The toolbar clips its own contents, so a message there would be a few characters wide.
     expect(line.element().closest('ion-toolbar')).toBeNull()
     expect(line.element().getBoundingClientRect().width).toBeGreaterThan(200)
@@ -305,7 +307,7 @@ describe('RecordingsPage', () => {
     const engine = fakeEngine()
     const sync = vi.spyOn(engine, 'sync')
     show({ engine })
-    await expect.element(page.getByText('No recordings yet')).toBeVisible()
+    await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
     const refresher = document.querySelector('ion-refresher')!
     expect(refresher.parentElement?.tagName).toBe('ION-CONTENT')
     const complete = vi.fn()
@@ -339,7 +341,7 @@ describe('RecordingsPage', () => {
       show()
       await vi.waitFor(() => expect(document.querySelectorAll('h1')).toHaveLength(1))
       expect(page.getByRole('list').elements()).toEqual([])
-      expect(page.getByText('No recordings yet').elements()).toEqual([])
+      expect(page.getByText(NO_RECORDINGS_TITLE).elements()).toEqual([])
     } finally {
       rows.mockImplementation(real!)
     }

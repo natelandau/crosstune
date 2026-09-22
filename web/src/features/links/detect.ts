@@ -1,4 +1,4 @@
-import { PROVIDERS, type Provider } from '../../db/types'
+import { PROVIDERS, type Provider } from '../../api/vocabulary'
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/
 const SPOTIFY_PATH = /^\/(?:intl-[a-z]{2}\/)?(track|album|episode|playlist)\/([A-Za-z0-9]+)/

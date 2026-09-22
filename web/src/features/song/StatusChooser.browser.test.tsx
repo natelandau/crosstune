@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
-import type { SongStatus } from '../../db/types'
+import type { SongStatus } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { StatusChooser } from './StatusChooser'
