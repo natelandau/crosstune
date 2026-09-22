@@ -35,6 +35,24 @@ async def test_catalog_tables_exist(session: AsyncSession) -> None:
     assert {"songs", "user_songs", "recording_links", "lists", "list_items"} <= tables
 
 
+async def test_mode_check_constraint_accepts_modal(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+        )
+    )
+    await session.execute(
+        text(
+            "insert into songs (id, owner_user_id, title, mode, is_crooked, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
+            "'Cluck Old Hen', 'modal', false, now(), now())"
+        )
+    )
+    stored = await session.execute(text("select mode from songs"))
+    assert stored.scalar_one() == "modal"
+
+
 async def test_time_signature_check_constraint_rejects_unknown_value(session: AsyncSession) -> None:
     await session.execute(
         text(

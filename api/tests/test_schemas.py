@@ -22,6 +22,10 @@ def test_song_requires_title() -> None:
         SongData(created_at=NOW)
 
 
+def test_song_accepts_the_modal_mode() -> None:
+    assert SongData(title="Cluck Old Hen", mode="modal", created_at=NOW).mode == "modal"
+
+
 def test_song_rejects_unknown_mode() -> None:
     with pytest.raises(ValidationError):
         SongData(title="Sally Ann", mode="lydian", created_at=NOW)

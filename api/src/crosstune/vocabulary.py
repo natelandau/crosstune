@@ -34,6 +34,7 @@ class Mode(StrEnum):
     MINOR = "minor"
     MIXOLYDIAN = "mixolydian"
     DORIAN = "dorian"
+    MODAL = "modal"
     OTHER = "other"
 
 

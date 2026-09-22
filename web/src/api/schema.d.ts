@@ -391,7 +391,7 @@ export interface components {
          * @description A song's mode.
          * @enum {string}
          */
-        Mode: "major" | "minor" | "mixolydian" | "dorian" | "other";
+        Mode: "major" | "minor" | "mixolydian" | "dorian" | "modal" | "other";
         /**
          * Problem
          * @description An RFC 9457 problem details body, the shape of every error this API returns.

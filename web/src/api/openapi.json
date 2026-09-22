@@ -392,6 +392,7 @@
           "minor",
           "mixolydian",
           "dorian",
+          "modal",
           "other"
         ],
         "title": "Mode",
