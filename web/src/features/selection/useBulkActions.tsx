@@ -11,17 +11,16 @@ import {
 import { activeRecordingsForSong } from '../../commands/recordings'
 import { useAction, type Action } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { STATUSES, type Instrument } from '../../db/types'
 import { useConfirm } from '../../ui/Confirm'
 import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useToast } from '../../ui/Toast'
 import type { CatalogEntry } from '../catalog/filters'
-import { STATUS_LABELS } from '../catalog/status'
 import { ListPicker, type ListAddition } from '../lists/ListPicker'
 import { deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
 import { BulkEditSheet } from './BulkEditSheet'
 import { countSongs } from './copy'
 import type { BulkAction } from './SelectionToolbar'
+import { STATUS_LABELS, STATUSES, type Instrument } from '../../constants'
 
 /** Where the selection is being made, since a list offers one action the catalog cannot. */
 export type SelectionContext =

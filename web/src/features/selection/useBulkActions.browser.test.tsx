@@ -6,7 +6,6 @@ import * as bulk from '../../commands/bulk'
 import { activeItems, addToList, createList } from '../../commands/lists'
 import { createSong, setArchived, type SongInput, type UserSongInput } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { recordingFile, recordingRow } from '../../test/rows'
 import { renderIonic } from '../../test/ionic'
@@ -14,6 +13,7 @@ import { InlineError } from '../../ui/InlineError'
 import { useMenu } from '../../ui/Menu'
 import type { CatalogEntry } from '../catalog/filters'
 import { useBulkActions, type SelectionContext } from './useBulkActions'
+import type { Instrument } from '../../constants'
 
 vi.mock('../../commands/bulk', { spy: true })
 

@@ -1,6 +1,11 @@
-import { MODES, TIME_SIGNATURES } from '../../db/types'
-import { SONG_LIMITS } from './limits'
-import { FEELS, GENRES, PART_STRUCTURES } from './suggestions'
+import {
+  FEELS,
+  GENRES,
+  MODES,
+  PART_STRUCTURES,
+  SONG_LIMITS,
+  TIME_SIGNATURES,
+} from '../../constants'
 
 export type DetailField =
   | {

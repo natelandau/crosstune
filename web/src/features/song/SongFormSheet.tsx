@@ -3,18 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 import { createSong, updateSongEntry } from '../../commands/songs'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { type Instrument } from '../../db/types'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
 import { LyricsSheet } from '../lyrics/LyricsSheet'
-import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
+import { visibleTunings } from '../settings/instruments'
 import { FieldRow } from '../../ui/FieldRow'
 import { KeyChooser } from './KeyChooser'
 import { StatusChooser } from './StatusChooser'
 import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
-import { SONG_LIMITS } from './limits'
 import {
   asMode,
   asTimeSignature,
@@ -24,7 +22,13 @@ import {
   type SongFormValues,
 } from './songFormValues'
 import { SuggestSelect } from './SuggestSelect'
-import { TUNING_SUGGESTIONS } from './suggestions'
+import {
+  SONG_LIMITS,
+  TUNING_FIELDS,
+  TUNING_SUGGESTIONS,
+  type Instrument,
+  type TuningField,
+} from '../../constants'
 
 export type SongFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
 

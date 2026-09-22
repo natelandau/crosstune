@@ -1,37 +1,16 @@
 import {
   DEFAULT_INSTRUMENTS,
+  TUNING_FIELD_NAMES,
+  TUNING_FIELDS,
+  type Instrument,
+  type TuningField,
+} from '../../constants'
+import {
   isInstrument,
   storedInstruments,
-  type Instrument,
   type LocalSong,
   type LocalUserSettings,
 } from '../../db/types'
-
-export const INSTRUMENT_LABELS: Record<Instrument, string> = {
-  violin: 'Violin',
-  banjo: 'Banjo',
-  guitar: 'Guitar',
-  mandolin: 'Mandolin',
-  ukulele: 'Ukulele',
-  bass: 'Bass',
-  dulcimer: 'Dulcimer',
-  accordion: 'Accordion',
-  other: 'Other',
-}
-
-/**
- * Each song tuning field, the instrument it belongs to, its label, and the shorter label a row
- * shows when a header above it already says Tuning. `label` stays the accessible name in both
- * places, so a row reading "Violin" is still announced as "Violin tuning".
- */
-export const TUNING_FIELDS = {
-  violin_tuning: { instrument: 'violin', label: 'Violin tuning', short: 'Violin' },
-  banjo_tuning: { instrument: 'banjo', label: 'Banjo tuning', short: 'Banjo' },
-} as const satisfies Record<string, { instrument: Instrument; label: string; short: string }>
-
-export type TuningField = keyof typeof TUNING_FIELDS
-
-export const TUNING_FIELD_NAMES = Object.keys(TUNING_FIELDS) as TuningField[]
 
 export function instrumentsFrom(
   row: LocalUserSettings | null | undefined,

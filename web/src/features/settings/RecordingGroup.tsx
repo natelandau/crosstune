@@ -7,7 +7,7 @@ import { setAudioQuality, settingsId } from '../../commands/settings'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { getKeepOffline, setKeepOffline } from '../../db/meta'
-import { AUDIO_QUALITIES, storedAudioQuality, type AudioQuality } from '../../db/recordings'
+import { storedAudioQuality } from '../../db/recordings'
 import { persistStorage } from '../../platform/storage'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { ChoiceRow } from '../../ui/ChoiceRow'
@@ -15,6 +15,7 @@ import { Group } from '../../ui/Group'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
 import { QUALITY_LABELS } from './audioQuality'
+import { AUDIO_QUALITIES, type AudioQuality } from '../../constants'
 
 /**
  * Capture quality and what audio this device keeps. One control per group, each with its own

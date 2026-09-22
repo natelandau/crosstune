@@ -1,7 +1,7 @@
-import { STATUSES, type SongStatus } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
 import { Rail } from '../../ui/Rail'
-import { isSongStatus, STATUS_LABELS } from '../catalog/status'
+import { isSongStatus } from '../catalog/status'
+import { STATUS_LABELS, STATUSES, type SongStatus } from '../../constants'
 
 /**
  * The dot beside each label. A chosen capsule fills with `primary`, and `success` is that same

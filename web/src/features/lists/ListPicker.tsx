@@ -6,8 +6,8 @@ import { useDb } from '../../db/DbProvider'
 import { countSongs } from '../selection/copy'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { LIST_NAME_MAX_LENGTH } from './limits'
 import { useLists, useMembershipCounts } from './useLists'
+import { LIST_NAME_MAX_LENGTH } from '../../constants'
 
 /**
  * What one successful add did. The picker reports the facts rather than a sentence, so the

@@ -4,13 +4,13 @@ import { addToList, createList } from '../../commands/lists'
 import type * as ListsModule from '../../commands/lists'
 import { createSong, setArchived } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument } from '../../db/types'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
 import { ListSongs } from './ListSongs'
 import { useListView } from './useLists'
+import type { Instrument } from '../../constants'
 
 vi.mock('../../commands/lists', { spy: true })
 

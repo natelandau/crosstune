@@ -1,13 +1,12 @@
 import { IonLabel } from '@ionic/react'
 import { Fragment, type ReactNode } from 'react'
-import type { Instrument } from '../../db/types'
 import { KeyPill } from '../../ui/KeyPill'
 import { Row, type RowAction } from '../../ui/Row'
 import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
-import { TUNING_FIELDS, TUNING_FIELD_NAMES } from '../settings/instruments'
 import type { CatalogEntry } from './filters'
-import { isSongStatus, STATUS_LABELS } from './status'
+import { isSongStatus } from './status'
+import { STATUS_LABELS, TUNING_FIELD_NAMES, TUNING_FIELDS, type Instrument } from '../../constants'
 
 const DOT = {
   known: 'bg-(--ion-color-success)',

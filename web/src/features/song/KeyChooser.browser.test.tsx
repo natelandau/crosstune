@@ -4,7 +4,7 @@ import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { KeyChooser } from './KeyChooser'
-import { ALL_KEYS, QUICK_KEYS } from './suggestions'
+import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 
 function Host({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)

@@ -4,11 +4,11 @@ import { page, userEvent } from 'vitest/browser'
 import type { BulkPatch } from '../../commands/bulk'
 import { createSong, type SongInput, type UserSongInput } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument, SongStatus } from '../../db/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
 import { BulkEditSheet } from './BulkEditSheet'
+import type { Instrument, SongStatus } from '../../constants'
 
 const violin = new Set<Instrument>(['violin'])
 

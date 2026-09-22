@@ -3,8 +3,8 @@ import { expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { SONG_LIMITS } from '../song/limits'
 import { LyricsSheet } from './LyricsSheet'
+import { SONG_LIMITS } from '../../constants'
 
 function Host({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)

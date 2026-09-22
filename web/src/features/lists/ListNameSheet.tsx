@@ -5,7 +5,7 @@ import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { LIST_NAME_MAX_LENGTH } from './limits'
+import { LIST_NAME_MAX_LENGTH } from '../../constants'
 
 export type ListNameTarget = { kind: 'new' } | { kind: 'rename'; listId: string; name: string }
 

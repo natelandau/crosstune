@@ -2,15 +2,13 @@ import { IonButton, IonInput, IonItem } from '@ionic/react'
 import { useRef, useState } from 'react'
 import type { ResolveResponse } from '../../api/types'
 import { addLink } from '../../commands/links'
+import { LINK_LIMITS } from '../../constants'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { detectProvider, isProvider } from './detect'
-
-const URL_MAX_LENGTH = 2048
-const LABEL_MAX_LENGTH = 200
 
 /** Pastes a link to a recording elsewhere onto a song, over whatever screen asked. */
 export function PasteLinkSheet({
@@ -128,7 +126,7 @@ export function PasteLinkSheet({
               type="url"
               inputmode="url"
               placeholder="Paste a YouTube, Spotify, or other link"
-              maxlength={URL_MAX_LENGTH}
+              maxlength={LINK_LIMITS.url}
               value={url}
               enterkeyhint="next"
               onIonInput={(event) => {
@@ -144,7 +142,7 @@ export function PasteLinkSheet({
             <IonInput
               aria-label="Label"
               placeholder="slow version, jam recording, …"
-              maxlength={LABEL_MAX_LENGTH}
+              maxlength={LINK_LIMITS.label}
               value={label}
               enterkeyhint="done"
               onIonInput={(event) => setLabel(String(event.detail.value ?? ''))}

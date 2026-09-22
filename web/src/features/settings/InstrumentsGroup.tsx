@@ -3,13 +3,12 @@ import { useState } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
 import { toggleInstrumentSetting } from '../../commands/settings'
 import { useDb } from '../../db/DbProvider'
-import { INSTRUMENTS } from '../../db/types'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { InstrumentRows } from './InstrumentRows'
-import { INSTRUMENT_LABELS } from './instruments'
 import { useInstruments } from './useInstruments'
+import { INSTRUMENT_LABELS, INSTRUMENTS } from '../../constants'
 
 /**
  * The instruments a musician plays, which decide the tuning fields a song shows. The set is

@@ -1,6 +1,5 @@
 import { IonCheckbox, IonItem } from '@ionic/react'
-import { INSTRUMENTS, type Instrument } from '../../db/types'
-import { INSTRUMENT_LABELS } from './instruments'
+import { INSTRUMENT_LABELS, INSTRUMENTS, type Instrument } from '../../constants'
 
 /** One checkbox row per instrument, the same rows on the settings screen and at first run. */
 export function InstrumentRows({

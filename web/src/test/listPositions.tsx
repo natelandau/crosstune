@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { addToList, createList } from '../commands/lists'
 import { createSong } from '../commands/songs'
 import type { CrosstuneDb } from '../db/schema'
-import type { Instrument } from '../db/types'
 import { ListSongs } from '../features/lists/ListSongs'
 import { useListView } from '../features/lists/useLists'
 import { openTestDb } from './db'
 import { renderIonic } from './ionic'
+import type { Instrument } from '../constants'
 
 const VIOLIN: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
 const SONGS = 105

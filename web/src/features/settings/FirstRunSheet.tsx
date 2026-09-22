@@ -4,13 +4,14 @@ import { useAuthSession } from '../../auth/AuthContext'
 import { setInstruments } from '../../commands/settings'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { storedInstruments, type Instrument } from '../../db/types'
+import { storedInstruments } from '../../db/types'
 import { useLastSyncedAt } from '../../sync/SyncProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useRecord } from '../recording/useRecord'
 import { InstrumentRows } from './InstrumentRows'
 import { useSettingsRow } from './useSettingsRow'
+import type { Instrument } from '../../constants'
 
 // The sync status can announce a clean run a beat before the live query delivers the row that
 // run pulled, so the question waits this long to be sure the row is really absent.

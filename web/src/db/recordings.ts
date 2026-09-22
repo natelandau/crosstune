@@ -1,11 +1,4 @@
-export const AUDIO_QUALITIES = ['low', 'standard', 'high'] as const
-export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
-
-export const AUDIO_BITRATES: Record<AudioQuality, number> = {
-  low: 48_000,
-  standard: 64_000,
-  high: 128_000,
-}
+import { AUDIO_QUALITIES, type AudioQuality } from '../constants'
 
 export function isAudioQuality(value: unknown): value is AudioQuality {
   return typeof value === 'string' && (AUDIO_QUALITIES as readonly string[]).includes(value)

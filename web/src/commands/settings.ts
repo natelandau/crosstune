@@ -1,15 +1,9 @@
 import { v5 as uuidv5 } from 'uuid'
-import { storedAudioQuality, type AudioQuality } from '../db/recordings'
+import { storedAudioQuality } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
-import {
-  DEFAULT_INSTRUMENTS,
-  INSTRUMENTS,
-  isInstrument,
-  storedInstruments,
-  type Instrument,
-  type LocalUserSettings,
-} from '../db/types'
+import { isInstrument, storedInstruments, type LocalUserSettings } from '../db/types'
 import { now, putRow, writeTx } from './write'
+import { DEFAULT_INSTRUMENTS, INSTRUMENTS, type AudioQuality, type Instrument } from '../constants'
 
 // Every device derives the same id for a user's single settings row, so offline
 // edits on two devices converge by last-write-wins instead of colliding.

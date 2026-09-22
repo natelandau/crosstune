@@ -11,7 +11,6 @@ import {
 } from 'react'
 import { activeItems, moveItem } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
-import type { Instrument } from '../../db/types'
 import { useMenu, type MenuItem } from '../../ui/Menu'
 import { SongItem } from '../catalog/SongItem'
 import type { BulkAction } from '../selection/SelectionToolbar'
@@ -20,6 +19,7 @@ import { useSelection } from '../selection/useSelection'
 import type { SongSelection } from '../selection/useSongSelection'
 import { placeBeside } from './order'
 import type { ListItemView } from './useLists'
+import type { Instrument } from '../../constants'
 
 interface Move {
   itemId: string

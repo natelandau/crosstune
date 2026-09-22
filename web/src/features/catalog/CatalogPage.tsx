@@ -19,7 +19,6 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { setArchived } from '../../commands/songs'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import type { Instrument } from '../../db/types'
 import { usePointer } from '../../platform/pointer'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { EmptyState } from '../../ui/EmptyState'
@@ -54,6 +53,7 @@ import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSes
 import { SongItem } from './SongItem'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
+import type { Instrument } from '../../constants'
 
 const NO_ENTRIES: CatalogEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()

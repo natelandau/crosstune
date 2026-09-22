@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
-import type { Instrument } from '../../db/types'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
@@ -12,6 +11,7 @@ import { Screen } from '../../ui/Screen'
 import { SongItem } from '../catalog/SongItem'
 import { selectionCheckboxId } from './ids'
 import { useSelection } from './useSelection'
+import type { Instrument } from '../../constants'
 
 const ENTRIES = [
   { song: songRow('s1', 'Angeline the Baker'), userSong: userSongRow('u1', 's1') },

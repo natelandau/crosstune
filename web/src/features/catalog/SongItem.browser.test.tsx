@@ -3,12 +3,12 @@ import { SquarePen } from 'lucide-react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import type { Instrument } from '../../db/types'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { songRow, userSongRow } from '../../test/rows'
 import { SongItem } from './SongItem'
+import type { Instrument } from '../../constants'
 
 const originalMatchMedia = window.matchMedia
 afterEach(() => {

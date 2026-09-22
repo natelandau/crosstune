@@ -1,7 +1,7 @@
 import type { CrosstuneDb } from '../db/schema'
-import type { Mode, SongStatus, TimeSignature } from '../db/types'
 import { tombstoneSongRecordings } from './recordings'
 import { defined, newId, now, putRow, recordingTx, tombstone, writeTx } from './write'
+import type { Mode, SongStatus, TimeSignature } from '../constants'
 
 export interface SongInput {
   title: string

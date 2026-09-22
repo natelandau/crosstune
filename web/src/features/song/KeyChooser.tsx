@@ -1,7 +1,7 @@
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { useMenu } from '../../ui/Menu'
-import { ALL_KEYS, QUICK_KEYS } from './suggestions'
+import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 
 const isQuick = (key: string) => (QUICK_KEYS as readonly string[]).includes(key)
 

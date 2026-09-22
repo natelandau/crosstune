@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { Instrument } from '../../db/types'
 import { songRow as song, userSongRow as userSong } from '../../test/rows'
 import {
   catalogEntries,
@@ -13,6 +12,7 @@ import {
   songCountLabel,
   visibleFacets,
 } from './filters'
+import type { Instrument } from '../../constants'
 
 const songs = [
   song('s1', "soldier's joy", {
