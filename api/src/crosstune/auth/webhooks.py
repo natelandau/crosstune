@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import time
@@ -30,7 +31,11 @@ def verify_svix_signature(
     if abs((now or time.time()) - ts) > TIMESTAMP_TOLERANCE_SECONDS:
         return False
 
-    key = base64.b64decode(secret.removeprefix("whsec_"))
+    try:
+        key = base64.b64decode(secret.removeprefix("whsec_"))
+    except binascii.Error:
+        # A secret that is not base64 can sign nothing; refuse rather than crash.
+        return False
     signed = f"{msg_id}.{ts}.".encode() + body
     expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest())
     for entry in signatures.split():

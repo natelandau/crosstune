@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from crosstune.db.locks import lock_user
 from crosstune.jobs.media import encode, needs_encode, probe, remux
 from crosstune.recordings.service import bump_server_seq
 from crosstune.storage.store import PLAYBACK_MIME, original_key, playback_key, upload_key
@@ -62,5 +63,8 @@ async def transcode(
     recording.duration_ms = result.duration_ms
     recording.state = "ready"
     recording.error = None
+    # The lock is what keeps this seq in commit order with the user's pushes; the
+    # caller's commit releases it.
+    await lock_user(session, recording.user_id)
     bump_server_seq(recording)
     await session.flush()

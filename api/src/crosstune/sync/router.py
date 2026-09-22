@@ -92,6 +92,10 @@ async def push(
 ) -> PushResponse:
     """Apply a batch of client changes. One result per change, in order."""
     settings = request.app.state.settings
+    # Resolving the user opened a transaction, and with it a pooled connection. Commit it
+    # so the resolution pass, which can wait on the network for its whole budget, holds
+    # no connection out of the pool while it does.
+    await session.commit()
     resolved = await _resolve_untitled_links(
         body.changes, request.app.state.http_client, settings.resolver_timeout_seconds
     )

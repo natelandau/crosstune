@@ -115,3 +115,17 @@ async def test_party_matching_neither_list_nor_regex_is_401(
             await verify_clerk_token(
                 token, jwks, settings.clerk_issuer, settings.clerk_authorized_parties, PREVIEW_REGEX
             )
+
+
+async def test_an_unreadable_jwks_entry_does_not_hide_the_readable_ones(
+    settings, mock_http, jwks_document
+) -> None:
+    broken = {"kid": "broken", "kty": "RSA", "use": "sig", "alg": "RS256"}
+    mock_http.add(
+        settings.clerk_jwks_url,
+        httpx2.Response(200, json={"keys": [broken, *jwks_document["keys"]]}),
+    )
+    async with mock_http.client() as http:
+        cache = JwksCache(settings.clerk_jwks_url, http)
+        assert await cache.get_key("test-kid") is not None
+        assert await cache.get_key("broken") is None
