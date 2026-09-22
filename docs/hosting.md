@@ -1,13 +1,22 @@
 # Crosstune hosting reference
 
-This page records what each hosted service holds, because those settings
-live in the hosts and nowhere in the code. Railway's `railway.json` config
-files are deprecated, and a service created after 2026-08-28 cannot use
-them, so the dashboards are the source of truth. For how the systems fit
-together, read `architecture.md`. For the order to rebuild the hosts from
-nothing, read `operations.md`.
+What each hosted service holds and how the app reads it. These settings
+live in dashboards and nowhere in the code, so this page is the record.
+Railway's `railway.json` is deprecated for services created after
+2026-08-28, so its dashboard is the only source. How the systems fit
+together is in `architecture.md`. Deploys and the rebuild order are in
+`operations.md`.
 
-Values pass between hosts as follows.
+## How each deployable reads its settings
+
+| Deployable     | Reads                                                      | From                                                                                             |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| API            | `CROSSTUNE_*` environment variables, via pydantic-settings | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
+| Web client     | `VITE_*` variables at build time                           | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
+| Worker         | `vars` and the KV binding                                  | `web/wrangler.jsonc`, in the repository                                                          |
+| GitHub Actions | `vars.*` and `secrets.*`                                   | Repository settings                                                                              |
+
+## Values that cross hosts
 
 | Value                                                       | Produced by    | Consumed by                          |
 | ----------------------------------------------------------- | -------------- | ------------------------------------ |
@@ -27,170 +36,113 @@ Values pass between hosts as follows.
 
 ## Neon
 
-Two projects, `crosstune-production` and `crosstune-development`, both in
-AWS US East (N. Virginia), the metro that matches Railway's US East region.
-Each holds one database named `crosstune`. The API reads the database name
-from the connection string, so any name works.
-
-Railway receives each project's connection string with connection pooling
-off. The hostname must not contain `-pooler`. The string goes in as Neon
-prints it. The API rewrites `sslmode` to the form asyncpg accepts and drops
-`channel_binding`.
-
-Object storage, functions, the AI gateway, and Neon Auth are off. Clerk owns
-authentication, and audio storage is Cloudflare R2.
+- Two projects, `crosstune-production` and `crosstune-development`, in AWS
+  US East (N. Virginia), the metro Railway's US East region uses.
+- Each holds one database named `crosstune`. The API reads the name from
+  the connection string, so any name works.
+- Railway gets each connection string with pooling off. The hostname must
+  not contain `-pooler`. Alembic needs a direct connection. Paste the string
+  as Neon prints it; the API rewrites `sslmode` and drops `channel_binding`.
+- Object storage, functions, the AI gateway, and Neon Auth are off.
 
 ## Sentry
 
-Two projects, `crosstune-api` on the Python FastAPI platform and
-`crosstune-web` on the React platform. Only error monitoring is in use. The
-API sets its trace sample rate to zero. The web client configures no replay,
-tracing, logging, or metrics integration. The other Sentry products receive
-nothing until the code changes.
-
-The GitHub repository is connected for stack trace links, with the root
-directory `api/` on the API project and `web/` on the web project. Suspect
-commits stay empty, because nothing associates a release with commits, and
-the web build emits no source maps.
+- Two projects: `crosstune-api` (Python FastAPI) and `crosstune-web`
+  (React). Error monitoring only. The API's trace sample rate is zero and
+  the web client configures no replay, tracing, logging, or metrics.
+- The GitHub repository is connected for stack trace links, root directory
+  `api/` on the API project and `web/` on the web project. Suspect commits
+  stay empty because nothing associates a release with commits, and the web
+  build emits no source maps.
 
 ## Clerk
 
-One application with two instances. The development instance runs on
-`https://<slug>.clerk.accounts.dev` with `pk_test_` and `sk_test_` keys. The
-production instance is a clone of it with the home URL `https://<domain>`,
-the issuer `https://clerk.<domain>`, and a `pk_live_` key. Its public keys
-are at `https://clerk.<domain>/.well-known/jwks.json`.
+- One application, two instances. Development runs on
+  `https://<slug>.clerk.accounts.dev` with `pk_test_` and `sk_test_` keys.
+  Production is a clone with home URL `https://<domain>`, issuer
+  `https://clerk.<domain>`, and a `pk_live_` key.
+- Production needs five CNAME records in Cloudflare DNS: `clerk`,
+  `accounts`, `clkmail`, `clk._domainkey`, `clk2._domainkey`. Proxy off on
+  each, because Clerk's validation fails behind it. Clerk issues the
+  certificates from the production instance's Home page once every task
+  there is done.
+- Production social sign-in uses your own Google and Apple OAuth
+  credentials. A production instance refuses Clerk's shared ones.
+- Each instance has one webhook endpoint subscribed to `user.deleted` only.
+  Production: `https://api.<domain>/v1/webhooks/clerk`. Development: the
+  Railway development hostname with the same path. Each endpoint's signing
+  secret is `CROSSTUNE_CLERK_WEBHOOK_SECRET` in the matching Railway
+  environment.
 
-The production instance needs five CNAME records in Cloudflare DNS, named
-`clerk`, `accounts`, `clkmail`, `clk._domainkey`, and `clk2._domainkey`.
-Each record has the proxy off, because Clerk's validation fails behind it.
-Clerk issues certificates for those hostnames from the Home page of the
-production instance, after every task on that page is done. Social sign-in
-in production uses your own Google and Apple OAuth credentials, because a
-production instance refuses Clerk's shared ones.
-
-> **Note:** If certificate issuance hangs, look for CAA records on the domain
-> that exclude Let's Encrypt or Google Trust Services.
-
-Each instance has one webhook endpoint subscribed to `user.deleted` only.
-The production endpoint is `https://api.<domain>/v1/webhooks/clerk`. The
-development endpoint is the Railway development hostname with the same path.
-Each endpoint's signing secret is `CROSSTUNE_CLERK_WEBHOOK_SECRET` in the
-matching Railway environment.
+> **Note:** If certificate issuance hangs, look for CAA records on the
+> domain that exclude Let's Encrypt or Google Trust Services.
 
 ## Railway
 
-One project, `crosstune`, with one service, `api`, in the US East (Virginia)
-region, with two environments, `production` and `development`. The
-`production` environment deploys from the `production` branch, which the
-`Release` workflow moves to each version tag. The `development` environment
-deploys from `main`.
+One project, `crosstune`, one service, `api`, region US East (Virginia),
+environments `production` and `development`.
 
-> **Note:** Creating a project from a GitHub repository starts a build from
-> the repository root, which has no Dockerfile. That first build fails. The
-> service needs its settings, not a new project.
+> **Note:** Creating a project from the repository starts a build from the
+> root, which has no Dockerfile, and that first build fails. Set the service
+> settings; do not create a new project.
 
-| Service setting     | Value                                            |
-| ------------------- | ------------------------------------------------ |
-| Root directory      | `api`                                            |
+| Service setting     | Value                                             |
+| ------------------- | ------------------------------------------------- |
+| Root directory      | `api`                                             |
 | Branch              | `production` in production, `main` in development |
-| Watch paths         | `/api/**`                                        |
-| Pre-deploy command  | `alembic upgrade head`                           |
-| Healthcheck path    | `/healthz`                                       |
-| Healthcheck timeout | 300 seconds, the default                         |
-| Replicas            | 1, the default                                   |
-| Restart policy      | On failure, ten retries, the default             |
-| Wait for CI         | On in development, off in production             |
-| Production domain   | `api.<domain>`, a CNAME in Cloudflare, proxy off |
-| Development domain  | Generated by Railway                             |
+| Watch paths         | `/api/**`                                         |
+| Pre-deploy command  | `alembic upgrade head`                            |
+| Healthcheck path    | `/healthz`                                        |
+| Healthcheck timeout | 300 seconds, the default                          |
+| Replicas            | 1, the default                                    |
+| Restart policy      | On failure, ten retries, the default              |
+| Wait for CI         | On in development, off in production              |
+| Production domain   | `api.<domain>`, a CNAME in Cloudflare, proxy off  |
+| Development domain  | Generated by Railway                              |
 
-Railway detects the Dockerfile in the root directory on its own and injects
-`PORT`, which the container reads. Wait for CI holds a development deploy
-until the GitHub workflows for that commit pass. Production has no host-side
-gate, because the `Release` workflow runs the same workflows before it
-moves the `production` branch. The pre-deploy command runs from the
-image's working directory, where `alembic.ini` sits, with the service
-variables, so it reaches the database the same way the API does.
+- Railway detects the Dockerfile and injects `PORT`.
+- The pre-deploy command runs from the image's working directory with the
+  service variables, so it reaches the database the way the API does.
+- A pull request environment `pr-<number>` is a copy of `development` that
+  the `Preview` workflow creates with the Railway CLI, with three overrides:
+  `CROSSTUNE_DATABASE_URL` is the Neon branch's direct string,
+  `CROSSTUNE_ENVIRONMENT` is `pr-<number>`, and the service branch is the PR
+  branch. The workflow deletes it when the PR closes.
+- The account token the workflow uses must belong to an account without
+  two-factor authentication. The CLI cannot answer the prompt and the
+  delete hangs.
 
-A pull request environment is a third kind, named `pr-<number>`. The `Preview`
-workflow creates it with the Railway CLI, as a copy of `development`, on the
-first run that finds it missing, then overrides two variables and one
-setting: `CROSSTUNE_DATABASE_URL` is the Neon branch's direct connection
-string, `CROSSTUNE_ENVIRONMENT` is `pr-<number>`, and the service's branch is
-the PR branch. Railway generates a public domain for it, and the workflow
-reads that domain back. The workflow deletes the environment when the PR
-closes. The account token it uses must belong to an account without
-two-factor authentication, because the CLI cannot answer the prompt and the
-delete hangs.
+Variables, both environments unless noted:
 
-Production variables:
+| Variable                                 | Production                         | Development                                                             |
+| ---------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------- |
+| `CROSSTUNE_ENVIRONMENT`                  | `production`                       | `development`                                                           |
+| `CROSSTUNE_DEBUG`                        | `false`                            | `false`                                                                 |
+| `CROSSTUNE_DATABASE_URL`                 | Neon production string, as printed | Neon development string, as printed                                     |
+| `CROSSTUNE_CLERK_ISSUER`                 | `https://clerk.<domain>`           | `https://<slug>.clerk.accounts.dev`                                     |
+| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["https://<domain>"]`             | `["http://localhost:5173","http://localhost:4173"]`                     |
+| `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | Unset                              | `^https://[a-z0-9-]+-crosstune-web\.<workers-subdomain>\.workers\.dev$` |
+| `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Production endpoint secret         | Development endpoint secret                                             |
+| `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                | `crosstune-api` DSN                                                     |
+| `CROSSTUNE_R2_ACCOUNT_ID`                | Cloudflare account ID              | Cloudflare account ID                                                   |
+| `CROSSTUNE_R2_BUCKET`                    | `crosstune-recordings`             | `crosstune-recordings-dev`                                              |
+| `CROSSTUNE_R2_ACCESS_KEY_ID`             | Production bucket token key ID     | Development bucket token key ID                                         |
+| `CROSSTUNE_R2_SECRET_ACCESS_KEY`         | Production bucket token secret     | Development bucket token secret                                         |
 
-| Variable                             | Value                                       |
-| ------------------------------------ | ------------------------------------------- |
-| `CROSSTUNE_ENVIRONMENT`              | `production`                                |
-| `CROSSTUNE_DEBUG`                    | `false`                                     |
-| `CROSSTUNE_DATABASE_URL`             | Neon production string, as printed          |
-| `CROSSTUNE_CLERK_ISSUER`             | `https://clerk.<domain>`                    |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES` | `["https://<domain>"]`                      |
-| `CROSSTUNE_CLERK_WEBHOOK_SECRET`     | Production endpoint signing secret          |
-| `CROSSTUNE_SENTRY_DSN`               | `crosstune-api` DSN                         |
-| `CROSSTUNE_R2_ACCOUNT_ID`            | Cloudflare account ID                       |
-| `CROSSTUNE_R2_BUCKET`                | `crosstune-recordings`                      |
-| `CROSSTUNE_R2_ACCESS_KEY_ID`         | Production bucket's API token access key ID |
-| `CROSSTUNE_R2_SECRET_ACCESS_KEY`     | Production bucket's API token secret        |
-| `CROSSTUNE_RECORDING_QUOTA_BYTES`    | Optional. Default `1073741824`              |
-| `CROSSTUNE_RECORDING_MAX_FILE_BYTES` | Optional. Default `52428800`                |
-| `CROSSTUNE_JOB_POLL_SECONDS`         | Optional. Default `3.0`                     |
-| `CROSSTUNE_ORPHAN_SWEEP_SECONDS`     | Optional. Default `3600.0`                  |
-
-Development variables:
-
-| Variable                                 | Value                                                                   |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
-| `CROSSTUNE_ENVIRONMENT`                  | `development`                                                           |
-| `CROSSTUNE_DEBUG`                        | `false`                                                                 |
-| `CROSSTUNE_DATABASE_URL`                 | Neon development string, as printed                                     |
-| `CROSSTUNE_CLERK_ISSUER`                 | `https://<slug>.clerk.accounts.dev`                                     |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["http://localhost:5173","http://localhost:4173"]`                     |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | `^https://[a-z0-9-]+-crosstune-web\.<workers-subdomain>\.workers\.dev$` |
-| `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Development endpoint signing secret                                     |
-| `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                                                     |
-| `CROSSTUNE_R2_ACCOUNT_ID`                | Cloudflare account ID                                                   |
-| `CROSSTUNE_R2_BUCKET`                    | `crosstune-recordings-dev`                                              |
-| `CROSSTUNE_R2_ACCESS_KEY_ID`             | Development bucket's API token access key ID                            |
-| `CROSSTUNE_R2_SECRET_ACCESS_KEY`         | Development bucket's API token secret                                   |
-| `CROSSTUNE_RECORDING_QUOTA_BYTES`        | Optional. Default `1073741824`                                          |
-| `CROSSTUNE_RECORDING_MAX_FILE_BYTES`     | Optional. Default `52428800`                                            |
-| `CROSSTUNE_JOB_POLL_SECONDS`             | Optional. Default `3.0`                                                 |
-| `CROSSTUNE_ORPHAN_SWEEP_SECONDS`         | Optional. Default `3600.0`                                              |
-
-A pull request environment inherits the development variables from the copy,
-so it uses the `crosstune-recordings-dev` bucket too.
-
-The regex writes the account's `workers.dev` subdomain literally. A subdomain
-of `acme` gives `^https://[a-z0-9-]+-crosstune-web\.acme\.workers\.dev$`. It
-admits every preview alias and every version preview of the Worker, and a PR
-environment inherits it from the copy.
+Quota, file size, job polling, sweep, resolver timeout, and pull page size
+keep the defaults in `api/src/crosstune/config.py` and are not set on the
+host. The regex
+writes the `workers.dev` subdomain literally and admits every preview alias.
 
 ## Cloudflare Workers
 
-One Worker, `crosstune-web`, connected to the GitHub repository through
-Workers Builds with the production branch `production`. The configuration that
-Cloudflare reads from the repository is `web/wrangler.jsonc`: the entry point
-`worker/index.ts`, the assets directory `dist` with the single-page fallback
-and `run_worker_first` limited to `/v1/*`, the custom domain route, the KV
-binding `PREVIEW_API_ORIGINS`, and three runtime variables, `WORKER_NAME`,
-`API_ORIGIN_PRODUCTION`, and `API_ORIGIN_DEVELOPMENT`. The product domain and
-the Railway development hostname are literal in that file because the runtime
-needs them and both are public in DNS already.
-
-`workers_dev` is off and `preview_urls` is on. The bare
-`crosstune-web.<workers-subdomain>.workers.dev` hostname serves nothing, and
-every non-production version gets a preview URL. The deploy command for a
-non-production branch passes `--preview-alias` with the slug that
-`web/scripts/branch-slug.mjs` prints, so a branch has one stable URL across
-pushes: `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`.
-Cloudflare keeps the newest thousand aliases. Nothing retires them.
+One Worker, `crosstune-web`, connected to the repository through Workers
+Builds with production branch `production`. `web/wrangler.jsonc` holds the
+entry point, the assets directory with the single-page fallback and
+`run_worker_first` for `/v1/*`, the custom domain route, the KV binding
+`PREVIEW_API_ORIGINS`, and the three runtime variables. The product domain
+and the Railway development hostname are literal there because both are
+public in DNS.
 
 | Build setting                        | Value                 |
 | ------------------------------------ | --------------------- |
@@ -210,114 +162,67 @@ Build variables, shared by every branch:
 | `VITE_SENTRY_DSN`                   | `crosstune-web` DSN |
 | `PNPM_VERSION`                      | `12.4.1`            |
 
-`web/scripts/hosted-build.sh` picks the Clerk key and sets
-`VITE_SENTRY_ENVIRONMENT` from the branch: `production` gets the production
-key and `production`, every other branch the development key and
-`development`. `main` is a non-production branch, so a merge that touches
-`web/` uploads a preview under the alias `main`, which is the development
-environment's URL.
-Workers Builds reads the Node version from `web/.node-version`. It ignores
-the `packageManager` field, so `PNPM_VERSION` must match it. A stale value
-fails the next build on the lockfile version.
-
-The KV namespace `crosstune-preview-api` holds one key per preview alias whose
-value is the pull request's API origin, `https://<railway hostname>`. The
-`Preview` workflow writes and deletes the keys with `wrangler kv key`. The
-Worker reads them at request time. A missing key means the development API.
-
-On the Worker's Domains tab, the Worker URL rows carry two toggles. The
-production `workers.dev` toggle is off and the preview toggle is on. A branch
-upload never changes them, and previews return a 404 while the preview
-toggle is off. The custom domain `<domain>` is attached on the same tab and
-Cloudflare manages its DNS record and certificate. The Clerk production
-instance is bound to that domain. `web/public/_headers` ships in the assets
-directory and sets `X-Content-Type-Options`, `X-Frame-Options`, and
-`Referrer-Policy` on every response, plus `no-cache` on the service worker and
-the manifest.
-
-The API token the workflow uses has one permission, Workers KV Storage Edit,
-on this account only.
+- `web/scripts/hosted-build.sh` picks the Clerk key and sets
+  `VITE_SENTRY_ENVIRONMENT` by branch: `production` gets the production key,
+  every other branch the development key.
+- Workers Builds reads Node from `web/.node-version` and ignores
+  `packageManager`, so `PNPM_VERSION` must match it or the next build fails
+  on the lockfile version.
+- `workers_dev` is off and `preview_urls` is on. The bare
+  `crosstune-web.<workers-subdomain>.workers.dev` serves nothing. A
+  non-production branch deploys with `--preview-alias` set to the slug from
+  `web/scripts/branch-slug.mjs`, giving one stable URL per branch:
+  `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`. `main` is
+  such a branch, and its alias is the development environment. Cloudflare
+  keeps the newest thousand aliases.
+- On the Worker's Domains tab, the production `workers.dev` toggle is off
+  and the preview toggle is on. Previews return 404 while the preview toggle
+  is off. The custom domain `<domain>` is attached there and Cloudflare
+  manages its record and certificate.
+- The KV namespace `crosstune-preview-api` maps a preview alias to a pull
+  request's API origin. The `Preview` workflow writes and deletes keys; the
+  Worker reads them per request. A missing key means the development API.
+- The API token the workflow uses has one permission, Workers KV Storage
+  Edit, on this account only.
+- `web/public/_headers` ships in the assets directory: security headers on
+  every response, `no-cache` on the service worker and manifest, a year of
+  immutable caching on hashed assets.
 
 ## Cloudflare R2
 
-Two buckets, `crosstune-recordings` for production and
-`crosstune-recordings-dev` for development, pull request environments, and
-local work. The API signs upload and download URLs, and it does a HEAD
-check, a copy, and a delete for cleanup. The browser sends the file straight
-to R2 with the signed PUT and plays it back with the signed GET.
+Two buckets: `crosstune-recordings` for production and
+`crosstune-recordings-dev` for development, pull requests, and local work.
 
-| Bucket setting        | Value                                                        |
-| --------------------- | ------------------------------------------------------------ |
-| Location hint         | Eastern North America (ENAM), the metro Railway and Neon use |
-| Default storage class | Standard                                                     |
-| Lifecycle rules       | None                                                         |
-| API token scope       | Object Read & Write, on that bucket alone                    |
-| CORS methods          | `GET`, `PUT`, `HEAD`                                         |
-| CORS headers          | Allowed: `Content-Type`. Exposed: `ETag`.                    |
-| CORS max age          | 3600 seconds                                                 |
+| Bucket setting        | Value                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location hint         | Eastern North America (ENAM), the metro the others use                                                                                                   |
+| Default storage class | Standard                                                                                                                                                 |
+| Lifecycle rules       | None                                                                                                                                                     |
+| API token scope       | Object Read & Write, on that bucket alone                                                                                                                |
+| CORS methods          | `GET`, `PUT`, `HEAD`                                                                                                                                     |
+| CORS headers          | Allowed `Content-Type`. Exposed `ETag`.                                                                                                                  |
+| CORS max age          | 3600 seconds                                                                                                                                             |
+| CORS origins          | Production: `https://<domain>`. Development: `http://localhost:5173`, `http://localhost:4173`, `https://*-crosstune-web.<workers-subdomain>.workers.dev` |
 
-Every object stays in Standard storage. Do not set Infrequent Access as a
-bucket default, add a lifecycle rule that transitions to it, or pass a storage
-class from the API. Infrequent Access has no free tier, and Cloudflare bills
-its operations rounded up to the next million, so a single copy into it costs
-the full million-operation price for the month. If an object is ever found
-outside Standard, an S3 `CopyObject` onto its own key with the `STANDARD`
-storage class moves it back; a lifecycle rule cannot.
-
-Each bucket has its own token. Railway holds a token's access key ID and
-secret in `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY`,
-next to `CROSSTUNE_R2_ACCOUNT_ID` and `CROSSTUNE_R2_BUCKET`. The Railway
-variable tables above list both environments.
-
-The production bucket's CORS policy allows only the production web origin.
-
-```json
-[
-  {
-    "AllowedOrigins": ["https://<domain>"],
-    "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["Content-Type"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-The development bucket's CORS policy allows the local Vite server and every
-preview alias, `main` included.
-
-```json
-[
-  {
-    "AllowedOrigins": [
-      "http://localhost:5173",
-      "http://localhost:4173",
-      "https://*-crosstune-web.<workers-subdomain>.workers.dev"
-    ],
-    "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["Content-Type"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-The Cloudflare account has a billing notification for R2 usage.
+- Every object stays in Standard storage. Never set Infrequent Access as a
+  default, add a lifecycle rule that transitions to it, or pass a storage
+  class from the API. `decisions.md` has the cost reason. An object found
+  outside Standard moves back with an S3 `CopyObject` onto its own key with
+  the `STANDARD` class; a lifecycle rule cannot.
+- Each bucket has its own token, held in the Railway variables above.
+- The account has a billing notification for R2 usage.
 
 ## Cloudflare zone
 
-The zone for `<domain>` holds the DNS records for the Worker, the API, and
-Clerk.
-Every record that Railway or Clerk validates has the proxy off. Under
-SSL/TLS, Always Use HTTPS is on and the encryption mode is Full (strict).
-HTTP Strict Transport Security is on with these settings: a max age of six
-months, applied to subdomains, preload off, and the no-sniff header on. The
-`_headers` file cannot set HSTS, which is why it is a zone setting.
-
-Cloudflare injects the HSTS header only on proxied hostnames, which here is
-the apex alone. Browsers apply the subdomain rule from the apex visit, so
-`api.<domain>` and the Clerk hostnames inherit the policy. A subdomain that
-later drops HTTPS is unreachable until the max age expires.
+- The zone for `<domain>` holds the records for the Worker, the API, and
+  Clerk. Every record that Railway or Clerk validates has the proxy off.
+- SSL/TLS: Always Use HTTPS on, encryption mode Full (strict).
+- HSTS on: max age six months, applied to subdomains, preload off, no-sniff
+  on. `_headers` cannot set HSTS, which is why it is a zone setting.
+- Cloudflare injects HSTS only on proxied hostnames, which is the apex
+  alone. Browsers apply the subdomain rule from the apex visit, so
+  `api.<domain>` and the Clerk hostnames inherit it. A subdomain that drops
+  HTTPS is unreachable until the max age expires.
 
 ## GitHub
 
@@ -338,23 +243,22 @@ Actions variables:
 
 Actions secrets:
 
-| Secret                       | Used by   | Value                                                       |
-| ---------------------------- | --------- | ----------------------------------------------------------- |
-| `CLERK_SECRET_KEY`           | `E2E`     | The development instance's `sk_test_...` key                |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `E2E`     | The development instance's `pk_test_...` key                |
-| `E2E_CLERK_USER_EMAIL`       | `E2E`     | The email of a user that exists in the development instance |
-| `NEON_API_KEY`               | `Preview` | A Neon API key                                              |
-| `RAILWAY_API_TOKEN`          | `Preview` | A Railway account token, not a project token                |
-| `CLOUDFLARE_API_TOKEN`       | `Preview` | The KV-only token described under Cloudflare Workers        |
+| Secret                       | Used by   | Value                                                |
+| ---------------------------- | --------- | ---------------------------------------------------- |
+| `CLERK_SECRET_KEY`           | `E2E`     | The development instance's `sk_test_...` key         |
+| `VITE_CLERK_PUBLISHABLE_KEY` | `E2E`     | The development instance's `pk_test_...` key         |
+| `E2E_CLERK_USER_EMAIL`       | `E2E`     | The email of a user in the development instance      |
+| `NEON_API_KEY`               | `Preview` | A Neon API key                                       |
+| `RAILWAY_API_TOKEN`          | `Preview` | A Railway account token, not a project token         |
+| `CLOUDFLARE_API_TOKEN`       | `Preview` | The KV-only token described under Cloudflare Workers |
 
-The repository allows only squash merges, with the pull request title and
-body as the commit message, and deletes head branches after merge. A branch
-ruleset named `main` requires a pull request, the five workflow jobs as
-status checks, and linear history. It blocks force pushes and deletion.
-GitHub enforces rulesets on private repositories only on paid plans. On the
-free plan the ruleset exists and does nothing, and not pushing to `main` is a
-matter of habit.
+- Squash merges only, with the PR title and body as the commit message.
+  Head branches are deleted after merge.
+- A ruleset named `main` requires a pull request, the five workflow jobs as
+  status checks, and linear history, and blocks force pushes and deletion.
+  GitHub enforces rulesets on private repositories only on paid plans, so on
+  the free plan it exists and does nothing.
 
-> **Note:** Before enforcement is turned on, remove the `paths` filter from
+> **Note:** Before turning enforcement on, remove the `paths` filter from
 > the `pull_request` trigger in both workflows. A required check that never
 > starts blocks the merge.

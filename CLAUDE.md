@@ -2,108 +2,51 @@
 
 ## Documentation
 
-`docs/README.md` indexes every page and says which question each one
-answers. Read these pages by task:
+Read `docs/README.md` first. It maps each task to a page and says what each
+page holds and never holds. Check that contract before you write to a page.
+The code is the source of truth for everything except `docs/architecture.md`
+and `docs/hosting.md`.
 
-- `docs/product.md` before any design or implementation work. It records
-  what the product is, the first release scope, and the constraints that
-  hold for every release.
-- `docs/decisions.md` before you propose a different stack, host, or
-  design. It records why each one was chosen and what was rejected.
-- `docs/architecture.md` when the work touches the API, the web client,
-  sync, sign-in, or link resolution. It records how the systems fit
-  together, not what any one of them returns.
-- `docs/design.md` before you build or change a screen, a row, a form, a
-  gesture, or a label in the web client. It records the patterns every
-  screen follows and the component that implements each one.
-- `docs/hosting.md` and `docs/operations.md` only when the work touches
-  deployment, CI, or a hosting setting. The first lists what each host
-  holds. The second covers deploys, releases, and the smoke check. Both
-  are the record rather than a description of one, for the reason below.
+- Design or implementation work: `docs/product.md`, then `docs/decisions.md`
+  before you propose a different stack, host, or approach.
+- The API, the client's data layers, sync, sign-in, links, or recordings:
+  `docs/architecture.md`.
+- A screen, row, form, gesture, or label: `docs/design.md`.
+- Deployment, CI, or a host setting: `docs/hosting.md` and
+  `docs/operations.md`.
 
-### What goes in documentation
-
-Every page under `docs/` records what holds beyond the thing in front of
-you. One test governs all of them: does someone working on a different
-screen, endpoint, or deploy have to know it? If not, it does not belong,
-however true it is.
-
-- `design.md` takes a rule that binds screens which do not exist yet.
-  "Every modal carries its edit control at the foot of its content" is
-  such a rule. "The lyrics modal carries an edit control" is not.
-- `architecture.md` takes what holds across the systems: the shape of
-  sync, what the client may read, where a boundary sits. Not what one
-  endpoint returns this week.
-- `product.md` takes what is true of every release, not what is true of
-  this one.
-- `decisions.md` takes why a choice was made and what was rejected,
-  which is what stops the next person reopening it.
-
-Three kinds of writing fail the test and stay out:
-
-- An inventory of what something holds today. The code already says
-  that, and says it accurately; a copy goes stale and then lies.
-- A decision that binds one feature or one screen. Its spec in the
-  memory vault holds it.
-- Anything a reader would learn faster from the code, unless it is a trap
-  that catches whoever comes next. Ionic's unlayered styles are such a
-  trap. The name of a constant is not.
-
-That last one has an exception, and it is what `hosting.md` and
-`operations.md` are for. Where no code can answer the question, the page
-is the record rather than a copy of one: a setting held in a host's
-console, the order two deploys have to land in, the check that says a
-release worked. Write those down in full, because there is nothing else
-to read.
+Feature specs, plans, and design records go in the vault, never under
+`docs/`.
 
 ## Naming
 
-The glossary in `docs/product.md` sets the naming rules and the reasons:
 `violin`, never `fiddle`, and song, never tune, in the schema, the API, and
-every label.
+every label. The glossary in `docs/product.md` has the reasons.
 
 ## Task runner
 
-The repo uses [just](https://just.systems) in a root-plus-module layout. The
-root `justfile` declares `mod api` and `mod web`; each module's recipes live in
-`api/justfile` and `web/justfile` next to the code they act on. Root recipes
-aggregate across modules (`just test` runs `api::test` and `web::test`).
-`just --list` shows everything.
+- [just](https://just.systems), root plus modules. From the root:
+  `just api::test`, `just web::lint`. Inside `api/` or `web/`, `just test`
+  resolves to that module. `just --list` shows everything.
+- `just dev` runs Postgres, migrations, the API, and the web client
+  together. Every checkout and worktree shares one Postgres container and
+  database.
+- `just test` never runs Playwright. `just e2e` does, beside `just dev`,
+  against its own `crosstune_e2e` database. It signs in against the shared
+  Clerk development instance and spends its usage limits, and needs the
+  Clerk keys in `web/.env`.
+- A renamed label, heading, or group name needs `web/e2e/` checked. Those
+  specs query by accessible name and only `just e2e` catches a rename.
+- New recipes go in `api/justfile` or `web/justfile`, tagged with a
+  `[group(...)]` that matches their neighbors. A root aggregate calls both
+  modules.
+- Spell check with `just typos [paths]`. Never run typos or any other tool
+  through `uvx`. Do not add another task runner.
 
-- From the repo root, address a module recipe as `just api::test`, `just web::lint`,
-  `just api::migrate`.
-- From inside `api/` or `web/`, `just test` resolves to that module directly.
-- `just dev` starts Postgres via Docker, applies migrations, then runs the API and
-  web client together under honcho using `Procfile.dev`. honcho is an API dev
-  dependency. Ctrl-C stops both servers; Postgres keeps running until `just dev-down`.
-  If either process crashes, honcho stops the other.
-- Postgres data lives in the `crosstune_postgres-data` Docker volume, and the compose
-  project name is fixed to `crosstune`, so every checkout and worktree shares one
-  database. `just dev` from a worktree reuses the running container.
-- `just test` does not run the Playwright suite, because that suite signs in against the
-  shared Clerk development instance and spends its usage limits. `just e2e` runs it, beside
-  a `just dev` session: it serves the API on `:8001` and Playwright previews the production
-  build on `:4173`. It creates `crosstune_e2e` for the run and drops it afterwards, so every
-  run meets the empty database CI meets. To keep a database to look at after a failure, run
-  `just api::run-e2e` yourself and then `just web::e2e`. Extra args narrow the run
-  (`just e2e e2e/core-loop.spec.ts`). It needs the Clerk keys in `web/.env`. Change a label,
-  a heading, or a group name and check `web/e2e/` too: those specs query by accessible name
-  and only `just e2e` catches a rename.
-- New API recipes go in `api/justfile`, new web recipes in `web/justfile`. A
-  root aggregate recipe should call both `api::<name>` and `web::<name>`.
-- Tag recipes with `[group('api')]`, `[group('web')]`, or `[group('all')]` so
-  `just --list` reads in blocks.
-- Spell check with `just typos [paths]` (for example `just typos docs`). typos
-  is a pinned API dev dependency; never run it, or any other tool, through `uvx`.
-- Do not add duty or any other task runner.
+## Conventions
 
-## Icons
-
-Every icon in the web client comes from `lucide-react`. Import the named
-component (`import { X } from 'lucide-react'`), size it with a Tailwind
-`size-*` class, and mark it `aria-hidden` inside a control that already has
-an accessible name. Never draw an inline SVG as an icon, never use a text
-character such as `×`, `✕`, or `+` as an icon, and do not add a second icon
-set. The brand mark in `web/src/ui/Mark.tsx` is the one inline SVG in
-the client and is not an icon: it is sized with an `h-*` class to the text
-beside it, and its drawing is fixed by the SVGs in `brand/`.
+- Every icon is a `lucide-react` named import, sized with a Tailwind
+  `size-*` class and `aria-hidden` inside a control that has an accessible
+  name. No inline SVG icons, no text characters as icons, no second icon
+  set. `web/src/ui/Mark.tsx` is the one inline SVG and is not an icon.
+- Outbound HTTP in the API uses `httpx2`, never `httpx`.

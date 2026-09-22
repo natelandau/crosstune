@@ -1,143 +1,112 @@
 # Crosstune operations
 
-This page covers how code reaches the hosts and how to confirm that a
-deploy works: the delivery pipeline, pull request environments, releases,
-the smoke check, and the order to rebuild the hosts from nothing. For the
-settings each host holds, read `hosting.md`. For local development, read
-the README at the repository root.
+How to work on Crosstune: set up, run, test, commit, release, deploy, roll
+back, smoke check, and rebuild. The settings each host holds are in
+`hosting.md`.
+
+## Prerequisites
+
+| Tool                                          | Version        | Notes                                                                |
+| --------------------------------------------- | -------------- | -------------------------------------------------------------------- |
+| [uv](https://docs.astral.sh/uv/)              | any            | Installs Python 3.13, the API's dependencies, and the git hooks.     |
+| [Node.js](https://nodejs.org/)                | 22.12 or newer | Runs the web toolchain.                                              |
+| [pnpm](https://pnpm.io/)                      | 12.4.1         | Pinned in `web/package.json`. `corepack enable` installs it.         |
+| [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                   |
+| [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 for development and the API tests. Must be running. |
+| [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip. |
+
+You also need a free [Clerk](https://clerk.com) development instance with
+email magic link sign-in enabled. From its dashboard, copy the Frontend API
+URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
+(`pk_test_...`).
+
+## Set up once
+
+1. Start Docker.
+2. Run `just dev-setup`. It installs the Python and JavaScript dependencies
+   and Chromium, installs the git hooks, creates `api/.env` and `web/.env`
+   from their examples, and starts Postgres.
+3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL.
+4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key.
+
+Migrations run every time `just dev` starts. Nothing is created by hand.
+
+## Run
+
+| Command             | Does                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `just dev`          | Starts Postgres, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. |
+| `just dev-down`     | Stops Postgres.                                                                                          |
+| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                     |
+| `just web::run`     | The web client alone.                                                                                    |
+| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                    |
+
+Open http://localhost:5173 and sign in with an email address. The API
+answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
+and worktree shares one Postgres container and one database.
+
+## Test
+
+| Command                 | Runs                                                                       |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `just lint`             | Every linter in both modules, then a spell check.                          |
+| `just test`             | API tests in their own Postgres container, and web unit and browser tests. |
+| `just api::test [args]` | API tests. Args narrow the run and drop coverage.                          |
+| `just web::test [args]` | Web tests. Args go to vitest.                                              |
+| `just typos [paths]`    | Spell check.                                                               |
+| `just e2e [args]`       | The Playwright suite. Args go to Playwright.                               |
+
+The end-to-end suite:
+
+- Signs in through the Clerk development instance and spends its usage
+  limits. It needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAIL` in
+  `web/.env`.
+- Serves the API on 8001 against `crosstune_e2e`, created for the run and
+  dropped afterwards, so it runs beside `just dev` and starts empty.
+- To keep the database after a failure, run `just api::run-e2e`, then
+  `just web::e2e` in a second terminal. `just api::e2e-db-reset` empties it.
+- Queries by accessible name. A renamed label, heading, or group needs
+  `web/e2e/` checked, and only this suite catches it.
+
+## Commit
+
+- Commit messages follow conventional commits. The commit-msg hook rejects
+  any other. `just commit` writes one interactively.
+- Commitizen is configured in `.cz.toml` at the root, so every `cz` command
+  runs from the root.
+- A model change: `just api::makemigrations "message"`, review the file,
+  then `just api::migrate`.
+- An API change: `just contract` regenerates the OpenAPI file and the typed
+  web client. CI fails when the committed copies drift.
+- The repository takes squash merges only. The PR title and body become the
+  commit message.
 
 ## Delivery
 
-GitHub holds the source, and both hosts deploy from it. A merge to `main`
-deploys the development environment. A version tag deploys production. The
-`Release` workflow moves the `production` branch to the tagged commit, and
-both hosts deploy production from that branch, because neither can trigger
-on a tag. Nothing else writes to `production`.
+- A merge to `main` deploys development. Railway rebuilds the API when a
+  file under `api/` changed. Workers Builds uploads the web client under the
+  alias `main` when a file under `web/` changed.
+- A version tag deploys production. The `Release` workflow moves the
+  `production` branch to the tag, and both hosts deploy from that branch.
+  Nothing else writes to `production`.
+- Every pull request gets its own API and database. The `Preview` workflow
+  creates a Neon branch `pr-<n>` from development, a Railway environment
+  `pr-<n>` on the PR branch, and a KV entry that maps the PR's preview alias
+  to that API. Every push resets the Neon branch, so preview data is lost.
+  Closing the PR deletes all three. If cleanup fails, run the workflow from
+  the Actions tab with the PR number and branch name.
+- CI runs on every pull request and push to `main`. `API` lints, type
+  checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
+  lints, type checks, tests, builds, and checks the generated types. `E2E`
+  runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
+  is not a required check, because a Clerk outage would block unrelated
+  merges.
+- A development deploy waits for CI (Railway's Wait for CI). Production has
+  no host-side gate; the `Release` workflow is the gate.
 
-- Railway builds the API service in the `development` environment on a push
-  to `main` that touches a file under `api/`, and in the `production`
-  environment on a push to `production`. A pull request environment follows
-  its PR branch instead and rebuilds on every push to it.
-- Workers Builds builds the web client on every push under `web/`. A push to
-  `production` deploys production. A push to any other branch, `main`
-  included, uploads a version under the branch's alias, at
-  `https://<alias>-crosstune-web.<workers-subdomain>.workers.dev`, and Workers
-  Builds comments the URL on the pull request.
-- A push to `main` uploads a version under the alias `main`, which has no KV
-  entry, so it reads the development API. That is the development
-  environment's URL,
-  `https://main-crosstune-web.<workers-subdomain>.workers.dev`. It rebuilds
-  only when a push changes a file under `web/`.
-- The `Preview` workflow gives each pull request its own API and database.
-  When a PR opens, it creates a Neon branch `pr-<number>` from the development
-  database, creates a Railway environment `pr-<number>` copied from
-  `development` with that branch as its database and the PR branch as its
-  source, reads the environment's generated hostname, and stores it in KV under
-  the branch alias. On every push it resets the Neon branch to its parent, so
-  each build migrates a clean copy of the development data and test data
-  entered in the preview is lost. When the PR closes, it deletes all three.
-  If a close event ever fails to clean up, the same workflow runs from the
-  Actions tab with the PR number and branch name and deletes them.
+## Release
 
-GitHub Actions runs on every pull request and on every push to `main`,
-except a release bump commit, whose checks run inside the `Release` workflow
-instead. The
-`API` workflow lints, type checks, tests against a real Postgres 18, and
-verifies the committed OpenAPI contract. The `Web` workflow lints, type
-checks, tests, builds, and verifies the generated client types. Railway
-holds a development deploy until every workflow for that commit passes,
-because Wait for CI is on in that environment, and skips the deploy when one
-fails. Production has no host-side gate. The `Release` workflow runs the
-`API` and `Web` workflows on the tagged commit and moves the `production`
-branch only when both pass, so neither host builds an untested commit.
-
-The `E2E` workflow runs the Playwright suite on each pull request that
-changes `web/` or `api/`, and from the Actions tab on demand. `just e2e` runs
-the same suite locally, against the API on the `crosstune_e2e` database rather
-than the one a development session serves, so it needs no session stopped. It signs in
-through the live Clerk development instance. Its job is not a required
-status check in the `main` ruleset. As a required check, an outage or a rate
-limit at Clerk can block unrelated merges. A new push to the same pull
-request cancels the run in progress, so fewer sign-ins count against the
-instance's usage limits.
-
-Rollback on either host is one click to redeploy an earlier build, or one
-run of the `Release` workflow from an earlier tag, which moves both hosts at
-once. A bad commit is undone in minutes, and the outbox means a client
-outage loses no edits.
-
-## Rebuilding from nothing
-
-A rebuild from nothing works through the hosts in the order Neon, Sentry,
-Clerk, Railway, Cloudflare, GitHub, then the smoke check. It returns to Clerk
-for the webhooks once Railway has hostnames.
-
-## Smoke check
-
-After a deploy, run the smoke check from the repository root. It needs no
-credentials.
-
-```bash
-just smoke https://api.<domain> https://<domain>
-```
-
-The **Smoke** workflow in the Actions tab runs the same script. A blank input
-uses the `PRODUCTION_API_ORIGIN` and `PRODUCTION_WEB_ORIGIN` Actions
-variables listed in `hosting.md`.
-
-The script proves seven things. The API answers `{"status":"ok"}` at
-`/healthz`. It refuses an anonymous call to `/v1/me` with a 401 and a
-problem-details body. The web origin proxies `/v1/me` to the API and
-returns its 401 problem document. The web origin serves the app shell, a
-manifest that names Crosstune, the service worker, and the app shell again
-for a client-side route.
-
-For a pull request, point it at the PR's Railway hostname and its preview URL.
-
-```bash
-just smoke https://<railway-dev-domain> https://<alias>-crosstune-web.<workers-subdomain>.workers.dev
-```
-
-The manual test on a phone covers what the script cannot.
-
-1. Open `https://<domain>` and sign in.
-2. Add a song and paste a YouTube link.
-3. Install the app to the home screen.
-4. Turn on airplane mode and edit the song.
-5. Turn off airplane mode.
-6. Make sure that the edit synced. Settings shows the last sync time.
-
-## Releasing
-
-A merge to `main` deploys the API's `development` environment and the
-`development` preview. Railway skips the deploy when nothing under `api/`
-changed. Workers Builds skips the deploy when nothing under `web/` changed.
-Production changes only when a version tag is pushed.
-
-A change to the shape of a song row is refused in both directions while the
-two sides disagree. The API turns away a push carrying a field it does not
-know and a push missing one it now expects, so an old client against the new
-API and a new client against the old API fail alike. A refused push is
-settled rather than retried, and its queued entry is dropped, so the edit
-behind it is lost.
-
-One tag rebuilds both services, so no single release moves one side alone:
-the two deploys land within minutes of each other, in whichever order the
-builds finish, and a song edited inside that window is an edit lost.
-Splitting the change over two releases puts the order in your hands. Send
-the client first and keep the gap to minutes, because you then choose when
-the API follows; an API sent first leaves every install broken until its
-service worker updates.
-
-The only path that loses nothing is a transitional API release that accepts
-both shapes, then a later one that drops the old field.
-
-The app icon's file names never change, so a home-screen install made
-before an icon change keeps the icon it was installed with until the app
-is removed and added again. A release that changes the icon should say
-so.
-
-To cut a release, on `main` with a clean tree:
+On `main` with a clean tree:
 
 ```bash
 git switch main && git pull
@@ -145,25 +114,69 @@ just bump
 git push --follow-tags origin main
 ```
 
-`just bump` runs commitizen from `.cz.toml`, which updates the API package
-version and the `version` field in `web/package.json` in one commit, writes
-the changelog, and tags the commit `v<version>`. Each value becomes the
-Sentry release tag for its side. The tag push starts the `Release` workflow.
-It runs the `API` and `Web` workflows on the tagged commit, and when both
-pass, a final job checks that the commit is on `main` and force-pushes it to
-`production`. Both hosts deploy it. The push of the bump commit to `main`
-skips those two workflows, so each release runs the checks once. Every
-release rebuilds both services, because the bump commit touches a file under
-`api/` and one under `web/`.
-Bump on `main` only: a tag made on a pull request branch points at a commit
-that the squash merge never lands, and the workflow refuses it.
+- `just bump` runs commitizen. It picks the increment from the commits,
+  writes the version to the API package, `web/package.json`, and `.cz.toml`,
+  refreshes `api/uv.lock`, updates `CHANGELOG.md`, commits, and tags
+  `v<version>`. `just bump --dry-run` shows the plan.
+- Bump on `main` only. A tag on a PR branch points at a commit the squash
+  merge never lands, and the workflow refuses it.
+- The tag push runs the `API` and `Web` workflows on the tagged commit,
+  checks that it is on `main`, and force-pushes `production`. The bump
+  commit itself skips CI on `main`, so each release runs the checks once.
+  Every release rebuilds both services.
+- Each version is its side's Sentry release tag.
+- A home-screen install keeps the icon it was installed with. A release that
+  changes the icon says so.
+- When you bump pnpm in `web/package.json`, change `PNPM_VERSION` in the
+  Worker's build variables in the same change. Node is `web/.node-version`.
 
-To put an older version back, open the `Release` workflow on the Actions
-tab, click **Run workflow**, and choose that tag under **Use workflow from**.
-Both hosts redeploy the older commit. A rollback across a
-migration fails the pre-deploy command, because the older code does not know
-the newer revision. Roll forward instead, or downgrade the schema first.
+A change to the shape of a synced row:
 
-When you bump pnpm in the `packageManager` field of `web/package.json`,
-update `PNPM_VERSION` in the Worker's build variables in the same change. A
-Node bump is one edit to `web/.node-version`.
+- The API refuses a push with an unknown or missing field, and the refused
+  edit is lost. One tag deploys both sides within minutes of each other, in
+  either order, and an edit in that window is lost.
+- The lossless path is an API release that accepts both shapes, then a
+  later one that drops the old field.
+- Otherwise ship the client first and the API minutes later. An API shipped
+  first breaks every install until its service worker updates.
+
+Rollback:
+
+- One host: redeploy an earlier build from its dashboard.
+- Both hosts: Actions tab, `Release` workflow, **Run workflow**, choose the
+  older tag under **Use workflow from**.
+- A rollback across a migration fails the pre-deploy command. Roll forward,
+  or downgrade the schema first.
+- A client outage loses no edits. The outbox holds them.
+
+## Smoke check
+
+After a deploy, from the repository root, with no credentials:
+
+```bash
+just smoke https://api.<domain> https://<domain>
+```
+
+The `Smoke` workflow runs the same script. Blank inputs use the
+`PRODUCTION_API_ORIGIN` and `PRODUCTION_WEB_ORIGIN` Actions variables. It
+checks that `/healthz` answers ok, that an anonymous `/v1/me` is a 401
+problem document from the API and through the web origin, and that the web
+origin serves the app shell, the manifest, the service worker, and the
+shell for a client-side route.
+
+For a pull request, point it at the PR's Railway hostname and preview URL.
+
+The manual phone test covers what the script cannot:
+
+1. Open `https://<domain>` and sign in.
+2. Add a song and paste a YouTube link.
+3. Install the app to the home screen.
+4. Turn on airplane mode and edit the song.
+5. Turn off airplane mode.
+6. Confirm the edit synced. Settings shows the last sync time.
+
+## Rebuilding from nothing
+
+Work through the hosts in this order: Neon, Sentry, Clerk, Railway,
+Cloudflare, GitHub, then the smoke check. Return to Clerk for the webhooks
+once Railway has hostnames. `hosting.md` holds every setting.
