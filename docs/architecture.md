@@ -30,9 +30,9 @@ Cloudflare also hosts the DNS zone for the product domain.
   exception: they move over presigned R2 URLs in a transfer pass of their
   own.
 - The API knows nothing about the web client. Its OpenAPI schema is the
-  contract. The client's TypeScript types are generated from it, and CI
-  fails when the committed copy drifts. A native client uses the same
-  endpoints.
+  contract. The client's TypeScript types, and its copies of every value
+  and length limit the API validates, are generated from it, and CI fails
+  when a committed copy drifts. A native client uses the same endpoints.
 - Every `/v1` route except the Clerk webhook requires a Clerk bearer token.
   No user ID appears in a URL or a body. The server sets ownership from the
   token and scopes every query to the caller.

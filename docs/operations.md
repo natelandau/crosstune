@@ -76,8 +76,13 @@ The end-to-end suite:
   runs from the root.
 - A model change: `just api::makemigrations "message"`, review the file,
   then `just api::migrate`.
-- An API change: `just contract` regenerates the OpenAPI file and the typed
-  web client. CI fails when the committed copies drift.
+- An API change: `just contract` regenerates the OpenAPI file, the typed
+  web client, and the client's generated vocabulary file. CI fails when
+  the committed copies drift.
+- A validated value or length limit: edit `api/src/crosstune/vocabulary.py`,
+  write the migration for the check constraint or column it changes, run
+  `just contract`, and give any new value its label in
+  `web/src/constants.ts`.
 - The repository takes squash merges only. The PR title and body become the
   commit message.
 
