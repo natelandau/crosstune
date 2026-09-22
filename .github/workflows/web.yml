@@ -67,4 +67,4 @@ jobs:
       - run: just contract
       - name: fail if the committed client types are stale
         working-directory: .
-        run: git diff --exit-code -- web/src/api/schema.d.ts
+        run: git diff --exit-code -- web/src/api/schema.d.ts web/src/api/vocabulary.ts
