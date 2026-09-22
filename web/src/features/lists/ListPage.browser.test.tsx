@@ -8,7 +8,25 @@ import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
-import { ListPage } from './ListPage'
+import { DELETING } from '../../ui/Confirm'
+import { MORE_ACTIONS } from '../../ui/Menu'
+import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
+import { SEARCH_SONGS } from '../catalog/SongSearch'
+import { CANCEL_SELECTION, SELECT_ALL } from '../selection/SelectionToolbar'
+import { EDIT_SONG_TITLE, NEW_SONG_TITLE } from '../song/SongFormSheet'
+import { LIST_NAME_LABEL } from './ListNameSheet'
+import {
+  ALL_ARCHIVED_TITLE,
+  DELETE_LIST,
+  EMPTY_LIST_HINT,
+  EMPTY_LIST_TITLE,
+  HIDE_ARCHIVED,
+  LIST_GONE,
+  ListPage,
+} from './ListPage'
+import { ADD_TO_LIST } from './ListPicker'
+import { MOVE_DOWN } from './ListSongs'
+import { ADD_SONGS } from './SongPickerSheet'
 import { META_LIST_SHOW_ARCHIVED } from './useListShowArchived'
 
 vi.mock('../../commands/bulk', { spy: true })
@@ -48,7 +66,7 @@ const show = (id = listId) =>
 const items = async () =>
   (await db.list_items.where('list_id').equals(listId).toArray()).filter((i) => !i.deleted_at)
 const more = async (label: string) => {
-  await page.getByRole('button', { name: 'More actions' }).click()
+  await page.getByRole('button', { name: MORE_ACTIONS }).click()
   await page.getByText(label, { exact: true }).click()
 }
 
@@ -60,14 +78,14 @@ const addAngeline = async () => {
 
 const moveDown = async (title: string) => {
   await page.getByRole('button', { name: `Reorder ${title}` }).click()
-  await page.getByText('Move down', { exact: true }).click()
+  await page.getByText(MOVE_DOWN, { exact: true }).click()
 }
 
 const ORDER_FAILED = 'The order could not be saved.'
 const REMOVE_FAILED = 'The song could not be removed.'
 const BULK_REMOVE_FAILED = 'Song not found in list.'
 
-const leaveSelection = () => page.getByRole('button', { name: 'Cancel selection' })
+const leaveSelection = () => page.getByRole('button', { name: CANCEL_SELECTION })
 const rowCheckbox = (name: RegExp) => page.getByRole('checkbox', { name })
 /** The toolbar title, which reads the count while selecting and the list's name otherwise. */
 const screenTitle = () => document.querySelector('ion-title')!.textContent?.trim()
@@ -134,16 +152,16 @@ describe('ListPage', () => {
 
   it('names an empty list and opens the picker from its button', async () => {
     show()
-    await expect.element(page.getByText('Nothing in this list')).toBeVisible()
-    await expect.element(page.getByText('Add songs to start this list.')).toBeVisible()
-    await page.getByRole('button', { name: 'Add songs' }).last().click()
-    await expect.element(page.getByRole('searchbox', { name: 'Search songs' })).toBeVisible()
+    await expect.element(page.getByText(EMPTY_LIST_TITLE)).toBeVisible()
+    await expect.element(page.getByText(EMPTY_LIST_HINT)).toBeVisible()
+    await page.getByRole('button', { name: ADD_SONGS }).last().click()
+    await expect.element(page.getByRole('searchbox', { name: SEARCH_SONGS })).toBeVisible()
   })
 
   it('adds a song through the picker', async () => {
     show()
-    await page.getByRole('button', { name: 'Add songs' }).first().click()
-    await page.getByRole('searchbox', { name: 'Search songs' }).fill('soldier')
+    await page.getByRole('button', { name: ADD_SONGS }).first().click()
+    await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('soldier')
     await page.getByRole('button', { name: "Add Soldier's Joy" }).click()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
@@ -151,10 +169,10 @@ describe('ListPage', () => {
 
   it('creates a song from the picker, adds it to the list, and stays on the list', async () => {
     show()
-    await page.getByRole('button', { name: 'Add songs' }).first().click()
-    await page.getByRole('searchbox', { name: 'Search songs' }).fill('Sally Goodin')
+    await page.getByRole('button', { name: ADD_SONGS }).first().click()
+    await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('Sally Goodin')
     await page.getByRole('button', { name: 'Add "Sally Goodin"' }).click()
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue('Sally Goodin')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect(await items()).toHaveLength(1))
@@ -167,27 +185,27 @@ describe('ListPage', () => {
     show()
     await page.getByRole('button', { name: "Remove Soldier's Joy" }).click()
     await vi.waitFor(async () => expect(await items()).toHaveLength(0))
-    await expect.element(page.getByText('Nothing in this list')).toBeVisible()
+    await expect.element(page.getByText(EMPTY_LIST_TITLE)).toBeVisible()
   })
 
   it('says every song is archived and shows them from the empty state, saving the setting', async () => {
     await addToList(db, listId, joy.userSongId)
     await setArchived(db, joy.userSongId, true)
     show()
-    await expect.element(page.getByText('Every song here is archived')).toBeVisible()
-    await page.getByRole('button', { name: 'Show archived' }).click()
+    await expect.element(page.getByText(ALL_ARCHIVED_TITLE)).toBeVisible()
+    await page.getByRole('button', { name: SHOW_ARCHIVED }).click()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await vi.waitFor(async () =>
       expect(await getMeta(db, META_LIST_SHOW_ARCHIVED, false)).toBe(true),
     )
-    await more('Hide archived')
-    await expect.element(page.getByText('Every song here is archived')).toBeVisible()
+    await more(HIDE_ARCHIVED)
+    await expect.element(page.getByText(ALL_ARCHIVED_TITLE)).toBeVisible()
   })
 
   it('renames the list from More actions', async () => {
     show()
     await more('Rename')
-    await page.getByLabelText('List name').fill('Wednesday jam')
+    await page.getByLabelText(LIST_NAME_LABEL).fill('Wednesday jam')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect
       .element(page.getByRole('heading', { name: 'Wednesday jam', level: 1 }))
@@ -201,17 +219,17 @@ describe('ListPage', () => {
       route: '/lists/:listId',
       probes: { '/lists': 'Lists probe' },
     })
-    await more('Delete list')
+    await more(DELETE_LIST)
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await vi.waitFor(async () => expect((await db.lists.get(listId))?.deleted_at).not.toBeNull())
     await expect.element(page.getByRole('heading', { name: 'Lists probe' })).toBeVisible()
-    expect(page.getByText('This list is gone').elements()).toHaveLength(0)
+    expect(page.getByText(LIST_GONE).elements()).toHaveLength(0)
   })
 
   it('says a missing list is gone, under a named toolbar', async () => {
     show('missing')
-    await expect.element(page.getByText('This list is gone')).toBeVisible()
-    expect(page.getByRole('button', { name: 'More actions' }).elements()).toHaveLength(0)
+    await expect.element(page.getByText(LIST_GONE)).toBeVisible()
+    expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
     expect(document.querySelector('ion-title')?.textContent).toBe('List')
   })
 
@@ -224,9 +242,9 @@ describe('ListPage', () => {
       }),
     )
     show()
-    await more('Delete list')
+    await more(DELETE_LIST)
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
-    await expect.element(page.getByRole('status')).toHaveTextContent('Deleting…')
+    await expect.element(page.getByRole('status')).toHaveTextContent(DELETING)
     expect(document.querySelector('ion-title')?.textContent).toBe('Tuesday jam')
     expect(document.querySelector('h1')?.textContent).toBe('Tuesday jam')
     finish()
@@ -244,8 +262,8 @@ describe('ListPage', () => {
       await expect
         .element(page.getByRole('heading', { name: 'Tuesday jam', level: 1 }))
         .toBeVisible()
-      expect(page.getByRole('button', { name: 'More actions' }).elements()).toHaveLength(0)
-      expect(page.getByRole('button', { name: 'Add songs' }).elements()).toHaveLength(0)
+      expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
+      expect(page.getByRole('button', { name: ADD_SONGS }).elements()).toHaveLength(0)
     } finally {
       unread.mockRestore()
     }
@@ -255,7 +273,7 @@ describe('ListPage', () => {
     await addToList(db, listId, joy.userSongId)
     show()
     await page.getByRole('button', { name: "Edit Soldier's Joy" }).click()
-    await expect.element(page.getByText('Edit song')).toBeVisible()
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue("Soldier's Joy")
   })
 
@@ -329,8 +347,8 @@ describe('ListPage selection', () => {
   it('gives every toolbar control a 44px tap target', async () => {
     await addToList(db, listId, joy.userSongId)
     show()
-    await expect.element(page.getByRole('button', { name: 'More actions' })).toBeVisible()
-    for (const name of ['Add songs', 'More actions']) {
+    await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
+    for (const name of [ADD_SONGS, MORE_ACTIONS]) {
       const box = buttonHost(name).getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
       expect(box.width).toBeGreaterThanOrEqual(44)
@@ -347,7 +365,7 @@ describe('ListPage selection', () => {
     await expect.poll(screenTitle).toBe('1 selected')
     await leaveSelection().click()
     await expect.poll(screenTitle).toBe('Tuesday jam')
-    await expect.element(page.getByRole('button', { name: 'Add songs' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: ADD_SONGS })).toBeVisible()
   })
 
   it('stands its exit control in for the back button while selecting', async () => {
@@ -374,14 +392,14 @@ describe('ListPage selection', () => {
     expect(page.getByRole('button', { name: "Reorder Soldier's Joy" }).elements()).toHaveLength(0)
     expect(document.querySelectorAll('ion-reorder')).toHaveLength(0)
     expect(reorderGroup().disabled).toBe(true)
-    expect(page.getByRole('button', { name: 'Add songs' }).elements()).toHaveLength(0)
+    expect(page.getByRole('button', { name: ADD_SONGS }).elements()).toHaveLength(0)
     expect(positions()).toEqual(['1', '2'])
     expect(document.querySelectorAll('[data-row-check]')).toHaveLength(2)
 
-    await page.getByRole('button', { name: 'More actions' }).click()
-    await expect.element(page.getByText('Select all', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: MORE_ACTIONS }).click()
+    await expect.element(page.getByText(SELECT_ALL, { exact: true })).toBeVisible()
     expect(page.getByText('Rename', { exact: true }).elements()).toHaveLength(0)
-    expect(page.getByText('Delete list', { exact: true }).elements()).toHaveLength(0)
+    expect(page.getByText(DELETE_LIST, { exact: true }).elements()).toHaveLength(0)
   })
 
   it('shows the reorder controls again after leaving', async () => {
@@ -405,15 +423,18 @@ describe('ListPage selection', () => {
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await pickFromMore('Rename')
-    await expect.element(page.getByLabelText('List name')).toBeVisible()
+    await expect.element(page.getByLabelText(LIST_NAME_LABEL)).toBeVisible()
     await longPressRow(0)
     expect(screenTitle()).toBe('Tuesday jam')
     expect(leaveSelection().elements()).toHaveLength(0)
 
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await vi.waitFor(() => expect(page.getByLabelText('List name').elements()).toHaveLength(0), {
-      timeout: 3000,
-    })
+    await vi.waitFor(
+      () => expect(page.getByLabelText(LIST_NAME_LABEL).elements()).toHaveLength(0),
+      {
+        timeout: 3000,
+      },
+    )
     await longPressRow(0)
     await expect.poll(screenTitle).toBe('1 selected')
   })
@@ -503,7 +524,7 @@ describe('ListPage selection', () => {
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
     // The setting is shared, so another tab or a sync can turn it off mid-selection.
     await setMeta(db, META_LIST_SHOW_ARCHIVED, false)
@@ -515,10 +536,10 @@ describe('ListPage selection', () => {
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await startSelecting()
-    await pickFromMore('Select all')
+    await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('1 selected')
     await pickFromMore('Remove 1 from list')
-    await expect.element(page.getByText('Nothing in this list')).toBeVisible()
+    await expect.element(page.getByText(EMPTY_LIST_TITLE)).toBeVisible()
     await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('main')), {
       timeout: 3000,
     })
@@ -534,7 +555,7 @@ describe('ListPage selection', () => {
     await startSelecting()
     await rowCheckbox(/^Select Soldier's Joy/).click()
     await expect.poll(screenTitle).toBe('1 selected')
-    await page.getByRole('button', { name: 'Add to list' }).click()
+    await page.getByRole('button', { name: ADD_TO_LIST }).click()
     await expect.element(page.getByRole('button', { name: /Square dance set/ })).toBeVisible()
     // The open list would be offered as a row reading "all in it", since it already holds the
     // song; it is the only list that could read that way.

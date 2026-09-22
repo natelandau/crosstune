@@ -5,21 +5,32 @@ import { useParams } from 'react-router-dom'
 import { addToList, deleteList, removeFromList } from '../../commands/lists'
 import { messageFor } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETING, useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
-import { useMenu, type MenuItem } from '../../ui/Menu'
+import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
 import { useRowArrowKeys } from '../../ui/useShortcut'
+import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
 import { SelectionFooter } from '../selection/SelectionFooter'
 import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useInstruments } from '../settings/useInstruments'
 import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
+import { DELETE_LIST_MESSAGE } from './deleteListMessage'
 import { ListNameSheet, type ListNameTarget } from './ListNameSheet'
 import { ListSongs, type ListSelectionState } from './ListSongs'
-import { SongPickerSheet } from './SongPickerSheet'
+import { ADD_SONGS, SongPickerSheet } from './SongPickerSheet'
 import { useListShowArchived } from './useListShowArchived'
 import { useListView, type ListItemView } from './useLists'
+
+export const EMPTY_LIST_HINT = 'Add songs to start this list.'
+export const DELETE_LIST = 'Delete list'
+export const ALL_ARCHIVED_TITLE = 'Every song here is archived'
+export const HIDE_ARCHIVED = 'Hide archived'
+export const EMPTY_LIST_TITLE = 'Nothing in this list'
+export const LIST_GONE = 'This list is gone'
+// Names the toggle, so the hint follows a rename of it.
+const ARCHIVED_HINT = `Turn on ${SHOW_ARCHIVED} to see them.`
 
 const noop = () => {}
 
@@ -113,7 +124,7 @@ export function ListPage() {
     deleting.current = true
     const ok = await confirm({
       title: `Delete "${list.name}"?`,
-      message: 'Its songs stay in the catalog.',
+      message: DELETE_LIST_MESSAGE,
       action: 'Delete',
     })
     if (!ok) {
@@ -153,11 +164,11 @@ export function ListPage() {
         onPress: () => setNaming({ kind: 'rename', listId: list.id, name: list.name }),
       },
       showArchived
-        ? { label: 'Hide archived', onPress: () => void setShowArchived(false) }
-        : { label: 'Show archived', onPress: () => void setShowArchived(true) },
-      { label: 'Delete list', tone: 'error', onPress: () => void removeList() },
+        ? { label: HIDE_ARCHIVED, onPress: () => void setShowArchived(false) }
+        : { label: SHOW_ARCHIVED, onPress: () => void setShowArchived(true) },
+      { label: DELETE_LIST, tone: 'error', onPress: () => void removeList() },
     ]
-    openMenu(event, 'More actions', menu)
+    openMenu(event, MORE_ACTIONS, menu)
   }
 
   return (
@@ -178,7 +189,7 @@ export function ListPage() {
           <>
             <IonButton
               className="toolbar-control"
-              aria-label="Add songs"
+              aria-label={ADD_SONGS}
               onClick={() => setPicking(true)}
             >
               <Plus aria-hidden="true" className="size-7" />
@@ -186,7 +197,7 @@ export function ListPage() {
             <IonButton
               ref={selection?.selectRef}
               className="toolbar-control"
-              aria-label="More actions"
+              aria-label={MORE_ACTIONS}
               onClick={actions}
             >
               <Ellipsis aria-hidden="true" className="size-6" />
@@ -207,10 +218,10 @@ export function ListPage() {
       <h1 className="sr-only">{list?.name ?? deletingName ?? 'List'}</h1>
       {deleted ? (
         <p role="status" className="type-footnote px-5 pt-4">
-          Deleting…
+          {DELETING}
         </p>
       ) : null}
-      {notFound ? <EmptyState icon={ListMusic} title="This list is gone" /> : null}
+      {notFound ? <EmptyState icon={ListMusic} title={LIST_GONE} /> : null}
       {view && list && showArchived !== undefined && instruments !== undefined ? (
         <>
           {pageError ? <InlineError className="px-5 py-2">{pageError}</InlineError> : null}
@@ -220,22 +231,22 @@ export function ListPage() {
           {view.items.length === 0 ? (
             <EmptyState
               icon={ListMusic}
-              title="Nothing in this list"
-              hint="Add songs to start this list."
+              title={EMPTY_LIST_TITLE}
+              hint={EMPTY_LIST_HINT}
               action={
                 <IonButton shape="round" onClick={() => setPicking(true)}>
-                  Add songs
+                  {ADD_SONGS}
                 </IonButton>
               }
             />
           ) : visibleCount === 0 ? (
             <EmptyState
               icon={ListMusic}
-              title="Every song here is archived"
-              hint="Turn on Show archived to see them."
+              title={ALL_ARCHIVED_TITLE}
+              hint={ARCHIVED_HINT}
               action={
                 <IonButton shape="round" onClick={() => void setShowArchived(true)}>
-                  Show archived
+                  {SHOW_ARCHIVED}
                 </IonButton>
               }
             />

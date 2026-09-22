@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
-import { SearchField, type SearchFieldHandle } from './SearchField'
+import { CLEAR_SEARCH, SearchField, type SearchFieldHandle } from './SearchField'
 
 function Host({ onEnter = () => {} }: { onEnter?: () => void }) {
   const [value, setValue] = useState('')
@@ -40,7 +40,7 @@ describe('SearchField', () => {
     renderIonic(<Host />, { db: openTestDb() })
     await input().fill('cluck')
     await expect.poll(value).toBe('cluck')
-    await page.getByRole('button', { name: 'Clear search' }).click()
+    await page.getByRole('button', { name: CLEAR_SEARCH }).click()
     await expect.poll(value).toBe('')
     await expect.element(input()).toHaveValue('')
   })

@@ -2,11 +2,14 @@ import { IonButton, IonContent, IonPage, useIonRouter } from '@ionic/react'
 import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { RECORD_LABEL } from '../../app/tabs'
 import { createSong } from '../../commands/songs'
 import { openTestDb } from '../../test/db'
 import { fakeStream, FakeRecorder, stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic, renderScreen } from '../../test/ionic'
 import type * as ToastModule from '../../ui/Toast'
+import { PARTIAL_SAVE } from './recordingSession'
+import { DISCARD_TITLE, NEW_RECORDING, NOT_RECORDING, STARTING_MICROPHONE } from './RecordModal'
 import { RecordProvider, useRecord } from './useRecord'
 
 let toasts: string[] = []
@@ -34,7 +37,7 @@ function Host({ songId, onReady }: { songId?: string; onReady?: (start: Start) =
     onReady?.(start)
   }, [onReady, start])
   return (
-    <IonButton aria-label="Start a new recording" onClick={() => start(songId)}>
+    <IonButton aria-label={RECORD_LABEL} onClick={() => start(songId)}>
       Record
     </IonButton>
   )
@@ -96,9 +99,9 @@ describe('RecordModal', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
-    await expect.element(page.getByText('New recording')).toBeVisible()
-    await expect.element(page.getByRole('dialog', { name: 'New recording' })).toBeInTheDocument()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
+    await expect.element(page.getByText(NEW_RECORDING)).toBeVisible()
+    await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeInTheDocument()
   })
 
   it('closes the player before it opens', async () => {
@@ -119,7 +122,7 @@ describe('RecordModal', () => {
         },
       },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     expect(close).toHaveBeenCalledOnce()
   })
 
@@ -132,11 +135,11 @@ describe('RecordModal', () => {
       { db: openTestDb() },
     )
     // Ionic hydrates asynchronously, so the modal only carries its hidden class once it has.
-    const record = page.getByRole('button', { name: 'Start a new recording' })
+    const record = page.getByRole('button', { name: RECORD_LABEL })
     await expect.element(record).toBeVisible()
     expect(shown()).toBe(false)
     await record.click()
-    await expect.element(page.getByText('New recording')).toBeVisible()
+    await expect.element(page.getByText(NEW_RECORDING)).toBeVisible()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await vi.waitFor(() => expect(shown()).toBe(false))
   })
@@ -149,7 +152,7 @@ describe('RecordModal', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    const record = page.getByRole('button', { name: 'Start a new recording' })
+    const record = page.getByRole('button', { name: RECORD_LABEL })
     await expect.element(record).toBeVisible()
     expect(media.getUserMedia).not.toHaveBeenCalled()
 
@@ -167,7 +170,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     media.muteTrack()
     const banner = page.getByText('Recording interrupted.', { exact: false })
@@ -187,7 +190,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     await expect.element(page.getByRole('timer')).toHaveTextContent('0:00')
     expect(document.querySelector('ion-modal canvas')).not.toBeNull()
@@ -201,7 +204,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     const canvas = document.querySelector('ion-modal canvas')!
     // A probe beside the canvas resolves the palette color, so the palette itself can change.
@@ -235,7 +238,7 @@ describe('RecordModal capture', () => {
         probes: { '/catalog/:songId': 'Song probe' },
       },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await page.getByRole('button', { name: 'Stop' }).click()
     await vi.waitFor(async () => expect(await db.recordings.count()).toBe(1))
     await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
@@ -261,7 +264,7 @@ describe('RecordModal capture', () => {
       </IonPage>,
       { db, path: `/catalog/${songId}`, route: '/catalog/:songId' },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await page.getByRole('button', { name: 'Stop' }).click()
     await vi.waitFor(async () => expect(await db.recordings.count()).toBe(1))
     await vi.waitFor(() => expect(shown()).toBe(false))
@@ -287,7 +290,7 @@ describe('RecordModal capture', () => {
         probes: { '/catalog/:songId': 'Song probe' },
       },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     vi.spyOn(db.recording_chunks, 'put').mockRejectedValueOnce(new Error('QuotaExceededError'))
     await page.getByRole('button', { name: 'Stop' }).click()
@@ -295,7 +298,7 @@ describe('RecordModal capture', () => {
     // The landing pushes a route, which re-memoizes the router the saved handler reads.
     await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
     await vi.waitFor(() => expect(shown()).toBe(false))
-    expect(toasts).toEqual(['Part of this recording could not be saved.'])
+    expect(toasts).toEqual([PARTIAL_SAVE])
   })
 
   it('asks before discarding once recording has started, and keeps the recording when it is refused', async () => {
@@ -307,10 +310,10 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect.element(page.getByText('Discard this recording?')).toBeVisible()
+    await expect.element(page.getByText(DISCARD_TITLE)).toBeVisible()
     // Both the confirmation and the modal's footer offer a Cancel, so this one is the alert's.
     await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click()
     // The alert removes itself as it dismisses; the next tap must not land on its backdrop.
@@ -338,8 +341,8 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
-    await expect.element(page.getByRole('status')).toHaveTextContent('Starting the microphone')
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
+    await expect.element(page.getByRole('status')).toHaveTextContent(STARTING_MICROPHONE)
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await vi.waitFor(() => expect(shown()).toBe(false))
     expect(document.querySelector('ion-alert')).toBeNull()
@@ -356,7 +359,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     const cancel = page.getByRole('button', { name: 'Cancel', exact: true })
     await expect.element(cancel).toBeVisible()
@@ -373,8 +376,8 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
-    await expect.element(page.getByRole('status')).toHaveTextContent('Not recording')
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
+    await expect.element(page.getByRole('status')).toHaveTextContent(NOT_RECORDING)
     // The interruption banner carries role="alert" too, so the query names its line instead.
     await expect
       .element(page.getByText('Crosstune needs microphone access.', { exact: false }))
@@ -396,7 +399,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     media.muteTrack()
     await expect.element(page.getByRole('status')).toHaveTextContent('Interrupted')
@@ -418,7 +421,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     unmount()
     await vi.waitFor(async () => expect(await db.recordings.count()).toBe(1))
@@ -432,7 +435,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db: openTestDb() },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     const modal = document.querySelector('ion-modal') as HTMLIonModalElement
     const canDismiss = modal.canDismiss as (data?: unknown, role?: string) => Promise<boolean>
@@ -455,7 +458,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db },
     )
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     // Another song would hand the capture a new song id, tearing the live session down.
     again(songId)
@@ -477,7 +480,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db },
     )
-    const record = page.getByRole('button', { name: 'Start a new recording' })
+    const record = page.getByRole('button', { name: RECORD_LABEL })
     await record.click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     await userEvent.keyboard('{Escape}')
@@ -496,7 +499,7 @@ describe('RecordModal capture', () => {
       </RecordProvider>,
       { db },
     )
-    const record = page.getByRole('button', { name: 'Start a new recording' })
+    const record = page.getByRole('button', { name: RECORD_LABEL })
     await record.click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     await document.querySelector('ion-modal')!.dismiss(undefined, 'backdrop')

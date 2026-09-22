@@ -10,6 +10,11 @@ import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { detectProvider, isProvider } from './detect'
 
+export const PASTE_LINK = 'Paste link'
+export const ADD_LINK = 'Add link'
+export const LINK_PLACEHOLDER = 'Paste a YouTube, Spotify, or other link'
+export const LINK_REQUIRED = 'Paste a link to add it'
+
 /** Pastes a link to a recording elsewhere onto a song, over whatever screen asked. */
 export function PasteLinkSheet({
   songId,
@@ -55,7 +60,7 @@ export function PasteLinkSheet({
     const trimmed = url.trim()
     if (!trimmed) {
       clear()
-      setValidation('Paste a link to add it')
+      setValidation(LINK_REQUIRED)
       void urlRef.current?.setFocus()
       return
     }
@@ -95,7 +100,7 @@ export function PasteLinkSheet({
   return (
     <Sheet
       open={songId !== null && !closing}
-      title="Paste link"
+      title={PASTE_LINK}
       dismissible={false}
       onClose={dismissed}
       start={
@@ -105,7 +110,7 @@ export function PasteLinkSheet({
       }
       end={
         <IonButton strong disabled={pending || closing} onClick={submit}>
-          Add link
+          {ADD_LINK}
         </IonButton>
       }
     >
@@ -125,7 +130,7 @@ export function PasteLinkSheet({
               aria-label="Link"
               type="url"
               inputmode="url"
-              placeholder="Paste a YouTube, Spotify, or other link"
+              placeholder={LINK_PLACEHOLDER}
               maxlength={LINK_LIMITS.url}
               value={url}
               enterkeyhint="next"

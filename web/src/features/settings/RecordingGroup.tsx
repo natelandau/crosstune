@@ -17,6 +17,12 @@ import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
 import { QUALITY_LABELS } from './audioQuality'
 
+export const KEEP_OFFLINE_LABEL = 'Download all recordings to this device'
+export const REMOVE_DOWNLOADS_FOOTER =
+  'Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept.'
+export const QUALITY_FOOTER = 'Higher quality makes larger files.'
+export const REMOVE_DOWNLOADS = 'Remove downloaded audio'
+
 /**
  * Capture quality and what audio this device keeps. One control per group, each with its own
  * action, so a refused write reads under the control that produced it.
@@ -56,11 +62,7 @@ export function RecordingGroup() {
 
   return (
     <>
-      <Group
-        header="Recording"
-        footer="Higher quality makes larger files."
-        error={qualityAction.error}
-      >
+      <Group header="Recording" footer={QUALITY_FOOTER} error={qualityAction.error}>
         <ChoiceRow
           label="Quality"
           value={quality?.quality ?? 'standard'}
@@ -81,14 +83,11 @@ export function RecordingGroup() {
               keepAction.run(() => writeKeep({ on: next }))
             }}
           >
-            Download all recordings to this device
+            {KEEP_OFFLINE_LABEL}
           </IonToggle>
         </IonItem>
       </Group>
-      <Group
-        footer="Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept."
-        error={clearAction.error}
-      >
+      <Group footer={REMOVE_DOWNLOADS_FOOTER} error={clearAction.error}>
         <IonItem lines="full">
           <IonLabel className="tabular-nums">
             {formatBytes(localBytes ?? 0)} of audio on this device
@@ -100,7 +99,7 @@ export function RecordingGroup() {
           disabled={on || clearAction.pending}
           onClick={() => clearAction.run(() => clearDownloadedBlobs(db))}
         >
-          <IonLabel>Remove downloaded audio</IonLabel>
+          <IonLabel>{REMOVE_DOWNLOADS}</IonLabel>
         </IonItem>
       </Group>
     </>

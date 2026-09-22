@@ -1,5 +1,7 @@
 import { isNotUploaded, type LocalFileState } from '../../db/recordings'
 
+export const DELETE_SONG_TITLE = 'Delete song?'
+
 /** Only each recording's file state is read, so any recording view satisfies this. */
 interface Recorded {
   file: { local_state: LocalFileState } | null | undefined

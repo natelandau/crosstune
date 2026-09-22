@@ -1,5 +1,5 @@
 import { IonLabel, IonTabBar, IonTabButton } from '@ionic/react'
-import { TABS } from './tabs'
+import { RECORD_LABEL, TABS } from './tabs'
 
 /**
  * Five equal slots: two tabs, the record button, two tabs. The current tab shows by color
@@ -35,7 +35,7 @@ export function PhoneTabBar({ hidden, onRecord }: { hidden: boolean; onRecord: (
       <button
         type="button"
         className="record-dome"
-        aria-label="Start a new recording"
+        aria-label={RECORD_LABEL}
         data-toast-anchor
         onClick={onRecord}
       >

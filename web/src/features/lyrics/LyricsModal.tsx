@@ -18,6 +18,10 @@ import { lyricLines } from './lyricLines'
 import { LyricsSheet } from './LyricsSheet'
 import { LYRICS_STEPS, stepLyricsSize, useLyricsStep } from './lyricsSize'
 
+export const EDIT_LYRICS = 'Edit lyrics'
+export const LARGER_TEXT = 'Larger text'
+export const SMALLER_TEXT = 'Smaller text'
+
 /**
  * Keep a toolbar control's disabled state where a screen reader reads it. Ionic copies aria-*
  * from an ion-button onto the native button inside its shadow root once, while the component
@@ -112,7 +116,7 @@ export function LyricsModal({
             <IonButton
               ref={smaller}
               className={atSmallest ? 'toolbar-control control-at-limit' : 'toolbar-control'}
-              aria-label="Smaller text"
+              aria-label={SMALLER_TEXT}
               // aria-disabled rather than disabled: a disabled element cannot hold focus, so a
               // keyboard reaching the end of the scale would be dropped to the document.
               aria-disabled={atSmallest}
@@ -123,7 +127,7 @@ export function LyricsModal({
             <IonButton
               ref={larger}
               className={atLargest ? 'toolbar-control control-at-limit' : 'toolbar-control'}
-              aria-label="Larger text"
+              aria-label={LARGER_TEXT}
               aria-disabled={atLargest}
               onClick={() => move(1)}
             >
@@ -155,7 +159,7 @@ export function LyricsModal({
               here, and a scroll mid-song never reaches it. */}
           <div className="pt-(--form-section-gap)">
             <IonButton fill="clear" expand="block" onClick={() => setEditing(true)}>
-              Edit lyrics
+              {EDIT_LYRICS}
             </IonButton>
           </div>
         </div>

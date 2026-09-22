@@ -17,7 +17,7 @@ import {
   TUNING_SUGGESTIONS,
 } from '../../constants'
 import { usePointer } from '../../platform/pointer'
-import { FieldRow } from '../../ui/FieldRow'
+import { FieldRow, NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
@@ -81,7 +81,7 @@ function StatusRow({
       {/* Status can be set but never cleared, so this row carries no empty choice. */}
       <IonSelect
         aria-label="Status"
-        placeholder={summary.kind === 'mixed' ? 'Mixed' : 'Not set'}
+        placeholder={summary.kind === 'mixed' ? 'Mixed' : NOT_SET}
         interface={mouse ? 'popover' : 'action-sheet'}
         value={typeof value === 'string' ? value : ''}
         onIonChange={(event) => onChange(String(event.detail.value ?? ''))}
@@ -115,7 +115,7 @@ function EditRow({
     return <StatusRow summary={summary} touched={touched} onChange={onChange} />
 
   const label = EDIT_FIELD_LABELS[field]
-  const placeholder = summary.kind === 'mixed' ? 'Mixed' : 'Not set'
+  const placeholder = summary.kind === 'mixed' ? 'Mixed' : NOT_SET
   const detail = showLabel ? label : undefined
   const value = rowValue(summary, touched)
   const text = typeof value === 'string' ? value : ''

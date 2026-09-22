@@ -13,6 +13,7 @@ import type { Instrument } from '../../api/vocabulary'
 import { activeItems, moveItem } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import { useMenu, type MenuItem } from '../../ui/Menu'
+import { messageFor } from '../../ui/useAction'
 import { SongItem } from '../catalog/SongItem'
 import type { BulkAction } from '../selection/SelectionToolbar'
 import { useBulkActions } from '../selection/useBulkActions'
@@ -20,6 +21,11 @@ import { useSelection } from '../selection/useSelection'
 import type { SongSelection } from '../selection/useSongSelection'
 import { placeBeside } from './order'
 import type { ListItemView } from './useLists'
+
+export const MOVE_DOWN = 'Move down'
+export const MOVE_TO_BOTTOM = 'Move to bottom'
+export const MOVE_TO_TOP = 'Move to top'
+export const MOVE_UP = 'Move up'
 
 interface Move {
   itemId: string
@@ -331,7 +337,7 @@ export function ListSongs({
           setMoving((current) => current.filter((queued) => queued !== next))
           // The song is back where it was, so this move's announcement would still claim it moved.
           setAnnouncement((current) => (current === said ? '' : current))
-          onError(caught instanceof Error ? caught.message : 'Something went wrong')
+          onError(messageFor(caught))
         },
       )
   }
@@ -347,14 +353,14 @@ export function ListSongs({
     const menu: MenuItem[] = [
       ...(index > 0
         ? [
-            { label: 'Move to top', onPress: go(PLACES.top) },
-            { label: 'Move up', onPress: go(PLACES.up) },
+            { label: MOVE_TO_TOP, onPress: go(PLACES.top) },
+            { label: MOVE_UP, onPress: go(PLACES.up) },
           ]
         : []),
       ...(index < last
         ? [
-            { label: 'Move down', onPress: go(PLACES.down) },
-            { label: 'Move to bottom', onPress: go(PLACES.bottom) },
+            { label: MOVE_DOWN, onPress: go(PLACES.down) },
+            { label: MOVE_TO_BOTTOM, onPress: go(PLACES.bottom) },
           ]
         : []),
     ]

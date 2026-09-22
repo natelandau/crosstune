@@ -1,7 +1,7 @@
 import { IonButton, IonFooter, IonToolbar } from '@ionic/react'
 import { useEffect, type ReactElement } from 'react'
 import { getMode } from '../../platform/mode'
-import { useMenu, type MenuItem } from '../../ui/Menu'
+import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
 import { useSelectionChrome } from './SelectionProvider'
 import type { BulkAction } from './SelectionToolbar'
 import type { SongSelection } from './useSongSelection'
@@ -55,7 +55,7 @@ export function SelectionFooter({
             className="toolbar-control"
             fill="clear"
             disabled={disabled || more.length === 0}
-            onClick={(event) => openMenu(event, 'More actions', [...more])}
+            onClick={(event) => openMenu(event, MORE_ACTIONS, [...more])}
           >
             More
           </IonButton>

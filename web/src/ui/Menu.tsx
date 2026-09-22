@@ -18,6 +18,8 @@ import {
 } from 'react'
 import { usePointer } from '../platform/pointer'
 
+export const MORE_ACTIONS = 'More actions'
+
 export interface MenuItem {
   label: string
   icon?: LucideIcon

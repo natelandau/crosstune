@@ -9,15 +9,16 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import type { SyncEngine } from '../../sync/types'
-import { RecordingGroup } from './RecordingGroup'
+import {
+  KEEP_OFFLINE_LABEL,
+  QUALITY_FOOTER,
+  RecordingGroup,
+  REMOVE_DOWNLOADS,
+  REMOVE_DOWNLOADS_FOOTER,
+} from './RecordingGroup'
 
 vi.mock('../../commands/settings', { spy: true })
 vi.mock('../../commands/recordings', { spy: true })
-
-const QUALITY_FOOTER = 'Higher quality makes larger files.'
-const CLEAR_FOOTER =
-  'Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept.'
-const KEEP_OFFLINE = 'Download all recordings to this device'
 
 let db: CrosstuneDb
 
@@ -32,8 +33,8 @@ afterEach(async () => {
 
 const show = (engine?: SyncEngine) => renderIonic(<RecordingGroup />, { db, engine })
 
-const keepToggle = () => page.getByRole('switch', { name: KEEP_OFFLINE })
-const clearButton = () => page.getByRole('button', { name: 'Remove downloaded audio' })
+const keepToggle = () => page.getByRole('switch', { name: KEEP_OFFLINE_LABEL })
+const clearButton = () => page.getByRole('button', { name: REMOVE_DOWNLOADS })
 
 /** The name a screen reader announces for the quality row: the field and the preset it holds. */
 const qualityRow = (preset: string) =>
@@ -120,7 +121,7 @@ describe('RecordingGroup', () => {
     show()
     await expect.element(keepToggle()).not.toBeChecked()
     await expect.element(clearButton()).toBeEnabled()
-    await expect.element(page.getByText(KEEP_OFFLINE)).toBeVisible()
+    await expect.element(page.getByText(KEEP_OFFLINE_LABEL)).toBeVisible()
   })
 
   it('downloads everything, starts a transfer, and asks to keep the storage', async () => {
@@ -173,7 +174,7 @@ describe('RecordingGroup', () => {
     await chooseQuality('Standard, 64 kbps', 'High, 128 kbps')
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
     expect(page.getByText(QUALITY_FOOTER).elements()).toHaveLength(0)
-    await expect.element(page.getByText(CLEAR_FOOTER)).toBeVisible()
+    await expect.element(page.getByText(REMOVE_DOWNLOADS_FOOTER)).toBeVisible()
 
     vi.mocked(setAudioQuality).mockRestore()
     await chooseQuality('Standard, 64 kbps', 'Low, 48 kbps')
@@ -189,7 +190,7 @@ describe('RecordingGroup', () => {
     show()
     await clearButton().click()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Storage is busy')
-    expect(page.getByText(CLEAR_FOOTER).elements()).toHaveLength(0)
+    expect(page.getByText(REMOVE_DOWNLOADS_FOOTER).elements()).toHaveLength(0)
     await expect.element(page.getByText(QUALITY_FOOTER)).toBeVisible()
   })
 

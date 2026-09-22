@@ -8,6 +8,10 @@ import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import type { RecordingView } from './useRecordings'
 
+export const RECORDING_NAME_LABEL = 'Recording name'
+export const RECORDING_NAME_PLACEHOLDER = 'Jam at Tom’s, take 2, …'
+export const RENAME_RECORDING_TITLE = 'Rename recording'
+
 /** One box for a recording's name. Saving a blank name clears it. */
 export function RenameRecordingSheet({
   view,
@@ -63,7 +67,7 @@ export function RenameRecordingSheet({
   return (
     <Sheet
       open={view !== null && !closing}
-      title="Rename recording"
+      title={RENAME_RECORDING_TITLE}
       dismissible={false}
       onClose={dismissed}
       start={
@@ -89,8 +93,8 @@ export function RenameRecordingSheet({
         <Group error={error}>
           <IonItem>
             <IonInput
-              aria-label="Recording name"
-              placeholder="Jam at Tom’s, take 2, …"
+              aria-label={RECORDING_NAME_LABEL}
+              placeholder={RECORDING_NAME_PLACEHOLDER}
               maxlength={SONG_LIMITS.title}
               value={name}
               enterkeyhint="done"

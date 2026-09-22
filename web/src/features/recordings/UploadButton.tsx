@@ -7,6 +7,10 @@ import { getStorage } from '../../db/meta'
 import { InlineError } from '../../ui/InlineError'
 import { formatBytes } from '../recording/format'
 
+export const NOT_AUDIO_ERROR = 'Choose an audio file.'
+export const EMPTY_FILE_ERROR = 'This file is empty.'
+export const UPLOAD_AUDIO = 'Upload audio file'
+
 /** Adds an audio file already on the device as a recording. */
 export function UploadButton({
   songId,
@@ -28,8 +32,8 @@ export function UploadButton({
   const add = async (file: File) => {
     // The server refuses all three of these permanently; storing them would only leave a row
     // stuck waiting on an upload that can never succeed.
-    if (!file.type.startsWith('audio/')) throw new Error('Choose an audio file.')
-    if (file.size === 0) throw new Error('This file is empty.')
+    if (!file.type.startsWith('audio/')) throw new Error(NOT_AUDIO_ERROR)
+    if (file.size === 0) throw new Error(EMPTY_FILE_ERROR)
     // Read at the moment of the check, so a file picked right after the screen opens is held
     // to the cached limit rather than slipping past an unread one.
     const figures = await getStorage(db)
@@ -50,7 +54,7 @@ export function UploadButton({
         ref={picker}
         type="file"
         accept="audio/*"
-        aria-label="Upload audio file"
+        aria-label={UPLOAD_AUDIO}
         tabIndex={-1}
         className="sr-only"
         onChange={(event) => {

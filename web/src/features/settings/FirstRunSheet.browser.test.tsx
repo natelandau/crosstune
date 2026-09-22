@@ -10,6 +10,7 @@ import { openTestDb } from '../../test/db'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine, testSession } from '../../test/providers'
+import { NEW_RECORDING } from '../recording/RecordModal'
 import { RecordProvider, useRecord } from '../recording/useRecord'
 import { FIRST_RUN_GRACE_MS, FIRST_RUN_HELP, FIRST_RUN_TITLE, FirstRunSheet } from './FirstRunSheet'
 import { useSettingsRow } from './useSettingsRow'
@@ -263,12 +264,12 @@ describe('FirstRunSheet', () => {
   it('stays quiet under the record modal, and asks once the recording is over', async () => {
     denyMicrophone()
     show({ recording: true })
-    await expect.element(page.getByRole('dialog', { name: 'New recording' })).toBeVisible()
+    await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeVisible()
     await settle()
     expect(sheet().elements()).toHaveLength(0)
 
     await done().click()
-    await gone(page.getByRole('dialog', { name: 'New recording' }))
+    await gone(page.getByRole('dialog', { name: NEW_RECORDING }))
     await elapse()
     await expect.element(sheet()).toBeVisible()
   })

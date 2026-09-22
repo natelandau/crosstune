@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { failedTriesLabel, fileStateLabel, formatBytes, formatDuration } from './format'
+import {
+  failedTriesLabel,
+  fileStateLabel,
+  formatBytes,
+  formatDuration,
+  PROCESS_FAILED,
+  STORAGE_FULL,
+  UPLOAD_FAILED,
+  WAITING_TO_UPLOAD,
+} from './format'
 
 describe('format', () => {
   it('formats durations as m:ss', () => {
@@ -24,15 +33,15 @@ describe('format', () => {
 
   it('labels the state a user cares about', () => {
     const row = { state: 'pending_upload', error: null } as const
-    expect(fileStateLabel(row, { local_state: 'captured' })).toBe('Waiting to upload')
+    expect(fileStateLabel(row, { local_state: 'captured' })).toBe(WAITING_TO_UPLOAD)
     expect(fileStateLabel(row, { local_state: 'uploading' })).toBe('Uploading')
-    expect(fileStateLabel(row, { local_state: 'blocked_quota' })).toBe('Storage full')
-    expect(fileStateLabel(row, { local_state: 'failed_upload' })).toBe('Upload failed')
+    expect(fileStateLabel(row, { local_state: 'blocked_quota' })).toBe(STORAGE_FULL)
+    expect(fileStateLabel(row, { local_state: 'failed_upload' })).toBe(UPLOAD_FAILED)
     expect(fileStateLabel({ state: 'processing', error: null }, { local_state: 'uploaded' })).toBe(
       'Processing',
     )
     expect(fileStateLabel({ state: 'failed', error: 'x' }, { local_state: 'uploaded' })).toBe(
-      "Couldn't process",
+      PROCESS_FAILED,
     )
     expect(fileStateLabel({ state: 'ready', error: null }, { local_state: 'uploaded' })).toBe('')
     expect(fileStateLabel({ state: 'ready', error: null }, undefined)).toBe('')

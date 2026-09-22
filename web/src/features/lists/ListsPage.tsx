@@ -18,9 +18,14 @@ import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
 import { Screen } from '../../ui/Screen'
 import { useRowArrowKeys } from '../../ui/useShortcut'
+import { DELETE_LIST_MESSAGE } from './deleteListMessage'
 import { ListItem } from './ListItem'
 import { ListNameSheet, type ListNameTarget } from './ListNameSheet'
 import { useLists, type ListSummary } from './useLists'
+
+export const NO_LISTS_HINT = 'A list is an ordered set of songs, like a setlist.'
+export const ADD_LIST = 'Add list'
+export const NO_LISTS_TITLE = 'No lists yet'
 
 export function ListsPage() {
   const lists = useLists()
@@ -37,7 +42,7 @@ export function ListsPage() {
   const remove = async (list: ListSummary) => {
     const ok = await confirm({
       title: `Delete "${list.name}"?`,
-      message: 'Its songs stay in the catalog.',
+      message: DELETE_LIST_MESSAGE,
       action: 'Delete',
     })
     if (ok) run(() => deleteList(db, list.id))
@@ -52,7 +57,7 @@ export function ListsPage() {
       title="Lists"
       level="top"
       end={
-        <IonButton aria-label="Add list" onClick={() => setNaming({ kind: 'new' })}>
+        <IonButton aria-label={ADD_LIST} onClick={() => setNaming({ kind: 'new' })}>
           <Plus aria-hidden="true" className="size-7" />
         </IonButton>
       }
@@ -71,11 +76,11 @@ export function ListsPage() {
           {lists.length === 0 ? (
             <EmptyState
               icon={ListMusic}
-              title="No lists yet"
-              hint="A list is an ordered set of songs, like a setlist."
+              title={NO_LISTS_TITLE}
+              hint={NO_LISTS_HINT}
               action={
                 <IonButton shape="round" onClick={() => setNaming({ kind: 'new' })}>
-                  Add list
+                  {ADD_LIST}
                 </IonButton>
               }
             />

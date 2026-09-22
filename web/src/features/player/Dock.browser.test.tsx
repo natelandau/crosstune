@@ -5,6 +5,7 @@ import { Route } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { PhoneTabBar } from '../../app/PhoneTabBar'
+import { RECORD_LABEL } from '../../app/tabs'
 import { addLink, removeLink } from '../../commands/links'
 import {
   appendChunk,
@@ -22,7 +23,8 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import { Screen } from '../../ui/Screen'
-import { Dock } from './Dock'
+import { DOWNLOAD_FAILED } from '../recording/format'
+import { CLOSE_PLAYER, Dock } from './Dock'
 import { usePlayer, type PlayerItem } from './usePlayer'
 
 let db: CrosstuneDb
@@ -181,7 +183,7 @@ const dockElement = () => document.querySelector<HTMLElement>('section[aria-labe
 
 /** Puts focus in the dock, where a tap on its close button leaves it. */
 function focusClose() {
-  const button = dock().getByRole('button', { name: 'Close player' }).element()
+  const button = dock().getByRole('button', { name: CLOSE_PLAYER }).element()
   const native = button.shadowRoot?.querySelector('button') ?? button
   ;(native as HTMLElement).focus()
 }
@@ -262,7 +264,7 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play second' }).click()
     await expect.element(page.getByText('Second recording')).toBeVisible()
     await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
-    await dock().getByRole('button', { name: 'Close player' }).click()
+    await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
     await expect.poll(() => dockElement()).toBeNull()
 
     // StrictMode mounts each body twice, so the count is not the point here: every url that was
@@ -342,7 +344,7 @@ describe('Dock', () => {
     })
     await page.getByRole('button', { name: 'Play recording' }).click()
 
-    await expect.element(dock().getByText("Couldn't download")).toBeVisible()
+    await expect.element(dock().getByText(DOWNLOAD_FAILED)).toBeVisible()
     expect(download).toHaveBeenCalledTimes(1)
     await dock().getByRole('button', { name: 'Retry' }).click()
     await expect.poll(() => download.mock.calls.length).toBe(2)
@@ -360,7 +362,7 @@ describe('Dock', () => {
     expect(dockElement()!.textContent).not.toContain('Downloading')
     expect(page.getByRole('button', { name: 'Retry' }).query()).toBeNull()
     // Nothing offline is disabled: the dock's own control keeps its name and its tap.
-    await expect.element(dock().getByRole('button', { name: 'Close player' })).toBeEnabled()
+    await expect.element(dock().getByRole('button', { name: CLOSE_PLAYER })).toBeEnabled()
   })
 
   it('closes itself when the loaded recording is tombstoned', async () => {
@@ -418,7 +420,7 @@ describe('Dock', () => {
     // The video player's 200px plus the dock's own 56px of chrome.
     expect(published()).toBe('calc(256px + var(--tab-bar-cap))')
 
-    await dock().getByRole('button', { name: 'Close player' }).click()
+    await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
     await expect.poll(() => dockElement()).toBeNull()
     expect(published()).toBe('')
   })
@@ -429,7 +431,7 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play link' }).click()
     await expect.element(dock()).toBeVisible()
 
-    await dock().getByRole('button', { name: 'Close player' }).click()
+    await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
     await expect.poll(() => dockElement()).toBeNull()
     await expect.element(page.getByRole('button', { name: 'Play link' })).toHaveFocus()
   })
@@ -468,7 +470,7 @@ describe('Dock', () => {
     const section = dockElement()!.getBoundingClientRect()
     const bar = document.querySelector('ion-tab-bar')!.getBoundingClientRect()
     const dome = document
-      .querySelector('button[aria-label="Start a new recording"]')!
+      .querySelector(`button[aria-label="${RECORD_LABEL}"]`)!
       .getBoundingClientRect()
     const outlet = document.querySelector('ion-router-outlet')!.getBoundingClientRect()
     expect(section.bottom).toBeLessThanOrEqual(bar.top)
@@ -520,7 +522,7 @@ describe('Dock', () => {
     )
     expect(onClose?.closest('ion-button')).toBe(close)
     // The bar and its dome still come out on top of the player below them.
-    const dome = document.querySelector('button[aria-label="Start a new recording"]')!
+    const dome = document.querySelector(`button[aria-label="${RECORD_LABEL}"]`)!
     const domeBox = dome.getBoundingClientRect()
     const onDome = document.elementFromPoint(
       domeBox.left + domeBox.width / 2,
@@ -564,7 +566,7 @@ describe('Dock', () => {
       const section = dockElement()!.getBoundingClientRect()
       const bar = document.querySelector('ion-tab-bar')!.getBoundingClientRect()
       const dome = document
-        .querySelector('button[aria-label="Start a new recording"]')!
+        .querySelector(`button[aria-label="${RECORD_LABEL}"]`)!
         .getBoundingClientRect()
       expect(section.height).toBe(256)
       expect(section.bottom).toBeLessThanOrEqual(bar.top)

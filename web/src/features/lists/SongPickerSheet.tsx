@@ -7,7 +7,11 @@ import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import type { CatalogEntry } from '../catalog/filters'
-import { SongSearch } from '../catalog/SongSearch'
+import { SEARCH_SONGS, SongSearch } from '../catalog/SongSearch'
+
+export const IN_THIS_LIST = 'In this list'
+export const ADD_SONGS = 'Add songs'
+export const PICKER_HINT = 'Search the catalog to add songs.'
 
 /** Search the catalog and add songs to one list, several in one visit. */
 export function SongPickerSheet({
@@ -90,7 +94,7 @@ export function SongPickerSheet({
   return (
     <Sheet
       open={open && !closing}
-      title="Add songs"
+      title={ADD_SONGS}
       onClose={() => {
         const title = creating.current
         creating.current = null
@@ -109,9 +113,9 @@ export function SongPickerSheet({
       {open ? (
         <>
           <SongSearch
-            name="Search songs"
+            name={SEARCH_SONGS}
             taken={taken}
-            takenLabel="In this list"
+            takenLabel={IN_THIS_LIST}
             rowName={(title) => `Add ${title}`}
             onPick={pick}
             onCreate={create}
@@ -121,7 +125,7 @@ export function SongPickerSheet({
           />
           {error ? <InlineError className="px-(--form-inset) pt-2">{error}</InlineError> : null}
           {!query.trim() ? (
-            <p className="type-footnote px-(--form-inset) pt-4">Search the catalog to add songs.</p>
+            <p className="type-footnote px-(--form-inset) pt-4">{PICKER_HINT}</p>
           ) : null}
         </>
       ) : null}

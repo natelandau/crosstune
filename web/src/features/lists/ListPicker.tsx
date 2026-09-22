@@ -7,7 +7,12 @@ import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { countSongs } from '../selection/copy'
+import { LIST_NAME_PLACEHOLDER } from './ListNameSheet'
 import { useLists, useMembershipCounts } from './useLists'
+
+export const ADD_TO_LIST = 'Add to list'
+export const NEW_LIST_NAME_LABEL = 'New list name'
+export const NEW_LIST_ITEM = 'New list…'
 
 /**
  * What one successful add did. The picker reports the facts rather than a sentence, so the
@@ -170,8 +175,8 @@ export function ListPicker({
         {creating ? (
           <IonItem>
             <IonInput
-              aria-label="New list name"
-              placeholder="Tuesday jam, square dance set, …"
+              aria-label={NEW_LIST_NAME_LABEL}
+              placeholder={LIST_NAME_PLACEHOLDER}
               autofocus
               maxlength={LIST_LIMITS.name}
               value={name}
@@ -186,7 +191,7 @@ export function ListPicker({
           </IonItem>
         ) : (
           <IonItem button detail={false} disabled={pending} onClick={() => setCreating(true)}>
-            <IonLabel color="primary">New list…</IonLabel>
+            <IonLabel color="primary">{NEW_LIST_ITEM}</IonLabel>
           </IonItem>
         )}
       </Group>

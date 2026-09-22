@@ -5,6 +5,9 @@ import { createSong } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { MORE_ACTIONS } from '../../ui/Menu'
+import { ADD_SONG } from './CatalogPage'
+import { SEARCH_SONGS } from './SongSearch'
 
 // The settings screen reads the account from Clerk, which only answers under a ClerkProvider.
 vi.mock('@clerk/react', () => ({
@@ -39,7 +42,7 @@ describe('CatalogPage on iOS', () => {
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
     await expect.element(tabBar()).toBeVisible()
 
-    await control('More actions').click()
+    await control(MORE_ACTIONS).click()
     await control('Select').click()
     await expect.element(control('Done')).toBeVisible()
     await expect.element(page.getByText('0 Selected').first()).toBeVisible()
@@ -48,30 +51,30 @@ describe('CatalogPage on iOS', () => {
 
     await control('Done').click()
     await expect.element(tabBar()).toBeVisible()
-    await expect.element(control('Add song')).toBeVisible()
+    await expect.element(control(ADD_SONG)).toBeVisible()
   })
 
   it('hides More actions when nothing matches the search', async () => {
     renderIonic(<Shell initialPath="/catalog" />, { db })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
-    await expect.element(control('More actions')).toBeVisible()
-    await page.getByRole('searchbox', { name: 'Search songs' }).fill('zzz')
-    await expect.element(control('More actions')).not.toBeInTheDocument()
+    await expect.element(control(MORE_ACTIONS)).toBeVisible()
+    await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('zzz')
+    await expect.element(control(MORE_ACTIONS)).not.toBeInTheDocument()
   })
 
   it('keeps every toolbar control at 44px on a 320px screen, gated or not', async () => {
     await page.viewport(320, 640)
     try {
       renderIonic(<Shell initialPath="/catalog" />, { db })
-      await expect.element(control('More actions')).toBeVisible()
-      for (const name of ['Filters', 'Add song', 'More actions']) {
+      await expect.element(control(MORE_ACTIONS)).toBeVisible()
+      for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)
       }
-      await page.getByRole('searchbox', { name: 'Search songs' }).fill('zzz')
-      await expect.element(control('More actions')).not.toBeInTheDocument()
-      for (const name of ['Filters', 'Add song']) {
+      await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('zzz')
+      await expect.element(control(MORE_ACTIONS)).not.toBeInTheDocument()
+      for (const name of ['Filters', ADD_SONG]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)

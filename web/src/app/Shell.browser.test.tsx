@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { createList } from '../commands/lists'
 import { createSong } from '../commands/songs'
+import { NEW_RECORDING } from '../features/recording/RecordModal'
+import { NO_RECORDINGS_TITLE } from '../features/recordings/RecordingsPage'
 import { FIRST_RUN_TITLE } from '../features/settings/FirstRunSheet'
 import { openTestDb } from '../test/db'
 import { FakeRecorder, stubMediaGlobals } from '../test/fakeMedia'
 import { renderIonic } from '../test/ionic'
 import { fakeEngine } from '../test/providers'
 import { Shell } from './Shell'
+import { RECORD_LABEL } from './tabs'
 
 // The settings screen reads the account from Clerk, which only answers under a ClerkProvider.
 vi.mock('@clerk/react', () => ({
@@ -76,7 +79,7 @@ describe('Shell', () => {
       await expect
         .element(page.getByRole('heading', { name: 'Recordings', level: 1 }))
         .toBeVisible()
-      await expect.element(page.getByText('No recordings yet')).toBeVisible()
+      await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
     } finally {
       await page.viewport(390, 844)
     }
@@ -152,7 +155,7 @@ describe('Shell', () => {
     fakeSilentMedia()
     renderIonic(<Shell initialPath="/lists" />, { db: openTestDb() })
     await expect.element(page.getByRole('heading', { name: 'Lists', level: 1 })).toBeVisible()
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
     // The modal covers the page and takes the accessible tree with it, so it closes first.
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect.element(page.getByRole('heading', { name: 'Lists', level: 1 })).toBeVisible()
@@ -170,8 +173,8 @@ describe('Shell', () => {
     fakeSilentMedia()
     renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
-    await page.getByRole('button', { name: 'Start a new recording' }).click()
-    await expect.element(page.getByText('New recording')).toBeVisible()
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
+    await expect.element(page.getByText(NEW_RECORDING)).toBeVisible()
   })
 
   it('opens the record modal from the sidebar on the wide frame', async () => {
@@ -181,8 +184,8 @@ describe('Shell', () => {
       renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
       const sidebar = page.getByRole('navigation', { name: 'Sidebar' })
       await expect.element(sidebar.getByText('Record')).toBeVisible()
-      await sidebar.getByRole('button', { name: 'Start a new recording' }).click()
-      await expect.element(page.getByText('New recording')).toBeVisible()
+      await sidebar.getByRole('button', { name: RECORD_LABEL }).click()
+      await expect.element(page.getByText(NEW_RECORDING)).toBeVisible()
     } finally {
       await page.viewport(390, 844)
     }
@@ -190,7 +193,7 @@ describe('Shell', () => {
 
   it('raises the record button above the tab bar with content visible beside it', async () => {
     renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
-    const record = page.getByRole('button', { name: 'Start a new recording' })
+    const record = page.getByRole('button', { name: RECORD_LABEL })
     await expect.element(record).toBeVisible()
     const dome = record.element().getBoundingClientRect()
     const bar = document.querySelector('ion-tab-bar')!.getBoundingClientRect()

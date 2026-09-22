@@ -3,6 +3,7 @@ import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
+import { SONG_NOT_FOUND } from './messages'
 import {
   addUploadedFile,
   appendChunk,
@@ -207,7 +208,7 @@ describe('uploads and edits', () => {
     await deleteSong(db, songId)
     const id = await captured()
     const before = await db.recordings.get(id)
-    await expect(updateRecording(db, id, { song_id: songId })).rejects.toThrow('Song not found')
+    await expect(updateRecording(db, id, { song_id: songId })).rejects.toThrow(SONG_NOT_FOUND)
     expect(await db.recordings.get(id)).toEqual(before)
   })
 

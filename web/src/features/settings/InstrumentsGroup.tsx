@@ -5,6 +5,7 @@ import { useAuthSession } from '../../auth/AuthContext'
 import { toggleInstrumentSetting } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
+import { NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
@@ -55,7 +56,7 @@ export function InstrumentsGroup() {
               snapshot taken once, so the name is content a screen reader reads as it changes. */}
           <IonLabel className="truncate">
             <span className="sr-only">Instruments</span>
-            {summary || 'Not set'}
+            {summary || NOT_SET}
           </IonLabel>
         </IonItem>
       </Group>

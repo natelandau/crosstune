@@ -6,7 +6,16 @@ import { createSong } from '../../commands/songs'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
-import { SongFormSheet, type SongFormTarget } from './SongFormSheet'
+import { CROOKED_HELP, DETAILS_FOOTER, DETAIL_LABELS } from './detailFields'
+import {
+  EDIT_SONG_TITLE,
+  NEW_SONG_TITLE,
+  SONG_TITLE_LABEL,
+  SongFormSheet,
+  TITLE_REQUIRED,
+  type SongFormTarget,
+} from './SongFormSheet'
+import { OTHER_OPTION } from './SuggestSelect'
 
 vi.mock('../../commands/songs', { spy: true })
 
@@ -55,31 +64,33 @@ const sheetDismissed = () =>
 describe('SongFormSheet', () => {
   it('orders title, status, key, tuning, notes, then details', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     const headers = Array.from(document.querySelectorAll('ion-modal h2')).map((h) => h.textContent)
     expect(headers).toEqual(['Status', 'Key', 'Tuning', 'Notes', 'Details'])
     const labels = Array.from(document.querySelectorAll('ion-modal [data-detail]')).map((e) =>
       e.getAttribute('data-detail'),
     )
     expect(labels).toEqual([
-      'Also known as',
-      'Mode',
-      'Genre',
-      'Time signature',
-      'Feel',
-      'Parts',
-      'Crooked',
-      'Lyrics',
-      'Learned from',
-      'Learned on',
+      DETAIL_LABELS.alternate_titles,
+      DETAIL_LABELS.mode,
+      DETAIL_LABELS.genre,
+      DETAIL_LABELS.time_signature,
+      DETAIL_LABELS.feel,
+      DETAIL_LABELS.part_structure,
+      DETAIL_LABELS.is_crooked,
+      DETAIL_LABELS.lyrics,
+      DETAIL_LABELS.learned_from,
+      DETAIL_LABELS.learned_on,
     ])
-    const crookedHelp = document.querySelector('ion-modal [data-detail="Crooked"]')!.textContent
-    expect(crookedHelp).toContain('An odd number of beats or bars in a part.')
+    const crookedHelp = document.querySelector(
+      `ion-modal [data-detail="${DETAIL_LABELS.is_crooked}"]`,
+    )!.textContent
+    expect(crookedHelp).toContain(CROOKED_HELP)
   })
 
   it('shortens a tuning row under the Tuning header, keeping its accessible name', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     const tuning = Array.from(document.querySelectorAll('ion-modal section')).find(
       (section) => section.querySelector('h2')?.textContent === 'Tuning',
     )!
@@ -94,14 +105,14 @@ describe('SongFormSheet', () => {
 
   it('gives the title a placeholder and no visible label, keeping its name', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     // A dismissed sheet from an earlier test is still in the document, so scope to the open one.
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
     const title = open.querySelector('[data-field="title"]')!
     // Ionic hoists both onto the native input and leaves neither on the host.
     await vi.waitFor(() => {
       const input = title.querySelector('input')
-      expect(input?.placeholder).toBe('Song title')
+      expect(input?.placeholder).toBe(SONG_TITLE_LABEL)
       expect(input?.getAttribute('aria-label')).toBe('Title')
     })
     const headers = Array.from(document.querySelectorAll('ion-modal h2')).map((h) => h.textContent)
@@ -110,7 +121,7 @@ describe('SongFormSheet', () => {
 
   it('puts the status control on the ground rather than in a card', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     const group = document.querySelector('ion-modal [role="group"][aria-label="Status"]')!
     expect(group.closest('ion-item')).toBeNull()
     expect(group.closest('ion-list')).toBeNull()
@@ -127,7 +138,7 @@ describe('SongFormSheet', () => {
       />,
       { db: openTestDb() },
     )
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     const tuning = Array.from(document.querySelectorAll('ion-modal section')).find(
       (section) => section.querySelector('h2')?.textContent === 'Tuning',
     )!
@@ -139,22 +150,23 @@ describe('SongFormSheet', () => {
 
   it('puts the comma rule under the Details card rather than inside it', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     const details = Array.from(document.querySelectorAll('ion-modal section')).find(
       (section) => section.querySelector('h2')?.textContent === 'Details',
     )!
     const footer = details.querySelector('p')!
-    expect(footer.textContent).toBe('Separate alternate names with commas.')
+    expect(footer.textContent).toBe(DETAILS_FOOTER)
     expect(footer.closest('ion-list')).toBeNull()
     expect(
-      document.querySelector('ion-modal [data-detail="Also known as"]')!.textContent,
+      document.querySelector(`ion-modal [data-detail="${DETAIL_LABELS.alternate_titles}"]`)!
+        .textContent,
     ).not.toContain('Separate alternate names')
   })
 
   it('marks the title invalid on a submit with no title, and clears it as one is typed', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent('A title is required')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(TITLE_REQUIRED)
     // Ionic strips aria-* off the host at load and renders it on the native input, so the
     // host is not the element a screen reader reads.
     const input = () =>
@@ -184,9 +196,9 @@ describe('SongFormSheet', () => {
       userSong: (await db.user_songs.get(userSongId))!,
     }
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
-    await expect.element(page.getByText('Edit song')).toBeVisible()
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
     const row = document.querySelector(
-      'ion-modal:not(.overlay-hidden) [data-detail="Also known as"]',
+      `ion-modal:not(.overlay-hidden) [data-detail="${DETAIL_LABELS.alternate_titles}"]`,
     ) as HTMLElement
     const label = row.querySelector('[data-row-label]') as HTMLElement
     // The row holds one tap height and the label keeps its width, whatever the value's length.
@@ -210,15 +222,15 @@ describe('SongFormSheet', () => {
       userSong: (await db.user_songs.get(userSongId))!,
     }
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
-    await expect.element(page.getByText('Edit song')).toBeVisible()
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
     const row = document.querySelector(
-      'ion-modal:not(.overlay-hidden) [data-detail="Lyrics"]',
+      `ion-modal:not(.overlay-hidden) [data-detail="${DETAIL_LABELS.lyrics}"]`,
     ) as HTMLElement
     const label = row.querySelector('[data-row-label]') as HTMLElement
     // A way into the lyrics form, so it names itself and shows none of the song. Nothing about
     // the body reaches this row, however long its first line is.
-    expect(label.textContent).toBe('Lyrics')
-    expect(row.textContent).toBe('Lyrics')
+    expect(label.textContent).toBe(DETAIL_LABELS.lyrics)
+    expect(row.textContent).toBe(DETAIL_LABELS.lyrics)
     expect(label.getBoundingClientRect().width).toBeGreaterThan(0)
     expect(row.getBoundingClientRect().height).toBeLessThan(80)
     expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth + 1)
@@ -236,7 +248,7 @@ describe('SongFormSheet', () => {
   it('fits every status label on one line at phone width', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     // Waits for real layout: a freshly hydrated capsule has zero width and would pass trivially.
-    await expect.element(page.getByText('New song')).toBeVisible()
+    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     const group = document.querySelector('ion-modal [role="group"][aria-label="Status"]')!
     await vi.waitFor(() => expect(group.querySelectorAll('button').length).toBe(3))
     const labels = group.querySelectorAll('button > span')
@@ -250,7 +262,7 @@ describe('SongFormSheet', () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new' }} />, { db })
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent('A title is required')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(TITLE_REQUIRED)
     await vi.waitFor(() =>
       expect(document.activeElement?.closest('ion-input')?.getAttribute('data-field')).toBe(
         'title',
@@ -262,7 +274,7 @@ describe('SongFormSheet', () => {
   it('clears the title error as the title is typed', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent('A title is required')
+    await expect.element(page.getByRole('alert')).toHaveTextContent(TITLE_REQUIRED)
     await page.getByLabelText('Title').fill('Sally Goodin')
     await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
   })
@@ -439,7 +451,7 @@ describe('SongFormSheet', () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
     await openDetail('Genre, Not set')
-    await page.getByRole('radio', { name: 'Other…' }).click()
+    await page.getByRole('radio', { name: OTHER_OPTION }).click()
     await page.getByLabelText('Other genre').fill('Sacred Harp')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect((await db.songs.toArray())[0]?.genre).toBe('Sacred Harp'))
@@ -451,7 +463,7 @@ describe('SongFormSheet', () => {
     await openDetail('Genre, Not set')
     await page.getByRole('radio', { name: 'Irish' }).click()
     await openDetail('Genre, Irish')
-    await page.getByRole('radio', { name: 'Other…' }).click()
+    await page.getByRole('radio', { name: OTHER_OPTION }).click()
     await expect.element(page.getByLabelText('Other genre')).toHaveValue('')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect(await db.songs.count()).toBe(1))
@@ -462,7 +474,7 @@ describe('SongFormSheet', () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
     await openDetail('Genre, Not set')
-    await page.getByRole('radio', { name: 'Other…' }).click()
+    await page.getByRole('radio', { name: OTHER_OPTION }).click()
     await page.getByLabelText('Other genre').fill('Blues')
     await expect.element(page.getByLabelText('Other genre')).toHaveValue('Blues')
   })
@@ -477,7 +489,7 @@ describe('SongFormSheet', () => {
     const song = (await db.songs.get(songId))!
     const userSong = (await db.user_songs.get(userSongId))!
     renderIonic(<Host initial={{ kind: 'edit', entry: { song, userSong } }} />, { db })
-    await expect.element(page.getByText('Edit song')).toBeVisible()
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
     await page.getByLabelText('Title').fill('Cluck Old Hen (A)')
     await expect.element(page.getByLabelText('Title')).toHaveValue('Cluck Old Hen (A)')
     // This sheet is where a song's status is changed, so the edit covers it too.
@@ -498,9 +510,9 @@ describe('SongFormSheet', () => {
       },
       { interval: 5 },
     )
-    expect([...seen].filter((text) => text.includes('New song') || text.includes('Add'))).toEqual(
-      [],
-    )
+    expect(
+      [...seen].filter((text) => text.includes(NEW_SONG_TITLE) || text.includes('Add')),
+    ).toEqual([])
   })
 
   it('discards changes on Cancel and reports the close once', async () => {
@@ -548,10 +560,10 @@ describe('SongFormSheet', () => {
 
   it('opens the lyrics sheet from the details row and carries the words back', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    const row = page.getByRole('button', { name: 'Lyrics', exact: true })
+    const row = page.getByRole('button', { name: DETAIL_LABELS.lyrics, exact: true })
     await expect.element(row).toBeVisible()
     await row.click()
-    const field = page.getByRole('textbox', { name: 'Lyrics' })
+    const field = page.getByRole('textbox', { name: DETAIL_LABELS.lyrics })
     await expect.element(field).toBeVisible()
     await field.fill('Did you ever go to meeting\n\nAnd again')
     await page.getByRole('button', { name: 'Done', exact: true }).click()

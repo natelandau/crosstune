@@ -1,6 +1,8 @@
 import { IonItem } from '@ionic/react'
 import type { ReactNode } from 'react'
 
+export const NOT_SET = 'Not set'
+
 /**
  * One shape for every labeled field inside a card: the label leads, the control or value
  * trails. A select, a text field, and a date row all take it, so a list of them reads as one

@@ -3,11 +3,13 @@ import { useMemo, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { addToList, createList } from '../../commands/lists'
+import { LIST_NOT_FOUND } from '../../commands/messages'
 import { createSong, setArchived } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { SongPickerSheet } from './SongPickerSheet'
+import { SEARCH_SONGS } from '../catalog/SongSearch'
+import { ADD_SONGS, IN_THIS_LIST, PICKER_HINT, SongPickerSheet } from './SongPickerSheet'
 import { useListView } from './useLists'
 
 vi.mock('../../commands/lists', { spy: true })
@@ -46,24 +48,24 @@ function Host({ onCreate = () => {} }: { onCreate?: (title: string) => void }) {
 
 const itemsIn = async () =>
   (await db.list_items.where('list_id').equals(listId).toArray()).filter((i) => !i.deleted_at)
-const search = () => page.getByRole('searchbox', { name: 'Search songs' })
+const search = () => page.getByRole('searchbox', { name: SEARCH_SONGS })
 
 describe('SongPickerSheet', () => {
   it('hints before a search and adds a picked song, staying open with a cleared search', async () => {
     renderIonic(<Host />, { db })
-    await expect.element(page.getByText('Search the catalog to add songs.')).toBeVisible()
+    await expect.element(page.getByText(PICKER_HINT)).toBeVisible()
     await search().fill('cluck')
     await page.getByRole('button', { name: 'Add Cluck Old Hen' }).click()
     await vi.waitFor(async () => expect(await itemsIn()).toHaveLength(1))
     await expect.element(search()).toHaveValue('')
-    await expect.element(page.getByText('Add songs')).toBeVisible()
+    await expect.element(page.getByText(ADD_SONGS)).toBeVisible()
   })
 
   it('shows a song already in the list without offering it', async () => {
     await addToList(db, listId, joy.userSongId)
     renderIonic(<Host />, { db })
     await search().fill('soldier')
-    await expect.element(page.getByText('In this list')).toBeVisible()
+    await expect.element(page.getByText(IN_THIS_LIST)).toBeVisible()
     expect(page.getByRole('button', { name: "Add Soldier's Joy" }).elements()).toHaveLength(0)
   })
 
@@ -72,7 +74,7 @@ describe('SongPickerSheet', () => {
     renderIonic(<Host />, { db })
     // Both titles carry an "o", so one search shows a taken row and an offered one together.
     await search().fill('o')
-    await expect.element(page.getByText('In this list')).toBeVisible()
+    await expect.element(page.getByText(IN_THIS_LIST)).toBeVisible()
     // An offered row keeps its lines out of the accessibility tree, so the titles are read
     // from the DOM rather than by role.
     const titles = Array.from(document.querySelectorAll('ion-modal ion-item h2'))
@@ -98,7 +100,7 @@ describe('SongPickerSheet', () => {
     await vi.waitFor(async () => expect(await itemsIn()).toHaveLength(1))
     await search().fill('cluck')
     // Only the live query's view of the list stops the second Enter, so wait for it to land.
-    await expect.element(page.getByText('In this list')).toBeVisible()
+    await expect.element(page.getByText(IN_THIS_LIST)).toBeVisible()
     await userEvent.keyboard('{Enter}')
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     expect(await itemsIn()).toHaveLength(1)
@@ -165,8 +167,8 @@ describe('SongPickerSheet', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull(),
     )
-    fail(new Error('List not found'))
-    await expect.element(page.getByText('List not found')).toBeVisible()
+    fail(new Error(LIST_NOT_FOUND))
+    await expect.element(page.getByText(LIST_NOT_FOUND)).toBeVisible()
   })
 
   it('keeps a rejection from an earlier visit off the next visit error line', async () => {
@@ -189,8 +191,8 @@ describe('SongPickerSheet', () => {
     await search().fill('soldier')
     await page.getByRole('button', { name: "Add Soldier's Joy" }).click()
     await vi.waitFor(async () => expect(await itemsIn()).toHaveLength(1))
-    fail(new Error('List not found'))
-    await expect.element(page.getByText('List not found')).toBeVisible()
+    fail(new Error(LIST_NOT_FOUND))
+    await expect.element(page.getByText(LIST_NOT_FOUND)).toBeVisible()
     expect(document.querySelectorAll('ion-modal [role="alert"]')).toHaveLength(0)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await vi.waitFor(() =>

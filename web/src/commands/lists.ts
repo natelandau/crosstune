@@ -1,6 +1,7 @@
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem } from '../db/types'
 import { moveBeside } from '../features/lists/order'
+import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from './messages'
 import { activeByPosition, newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
 
 export async function activeItems(db: CrosstuneDb, listId: string): Promise<LocalListItem[]> {
@@ -9,7 +10,7 @@ export async function activeItems(db: CrosstuneDb, listId: string): Promise<Loca
 
 export async function createList(db: CrosstuneDb, name: string): Promise<string> {
   const trimmed = name.trim()
-  if (!trimmed) throw new Error('A list needs a name')
+  if (!trimmed) throw new Error(LIST_NAME_REQUIRED)
   const at = now()
   const id = newId()
   await writeTx(db, async () => {
@@ -30,10 +31,10 @@ export async function createList(db: CrosstuneDb, name: string): Promise<string>
 
 export async function renameList(db: CrosstuneDb, listId: string, name: string): Promise<void> {
   const trimmed = name.trim()
-  if (!trimmed) throw new Error('A list needs a name')
+  if (!trimmed) throw new Error(LIST_NAME_REQUIRED)
   await writeTx(db, async () => {
     const list = await db.lists.get(listId)
-    if (!list || list.deleted_at) throw new Error('List not found')
+    if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
     await putRow(db, 'lists', { ...list, name: trimmed, updated_at: now() })
   })
 }
@@ -58,7 +59,7 @@ export async function addToList(
   const id = newId()
   return writeTx(db, async () => {
     const list = await db.lists.get(listId)
-    if (!list || list.deleted_at) throw new Error('List not found')
+    if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
     const items = await activeItems(db, listId)
     const existing = items.find((item) => item.user_song_id === userSongId)
     if (existing) return existing.id

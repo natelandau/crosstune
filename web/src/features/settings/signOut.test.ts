@@ -6,7 +6,7 @@ import { createSong } from '../../commands/songs'
 import { databaseName, openDatabase } from '../../db/schema'
 import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
 import { fakeEngine } from '../../test/providers'
-import { signOutAndForget } from './signOut'
+import { signOutAndForget, UNSYNCED_RECORDINGS_ERROR } from './signOut'
 
 function freshUser() {
   const userId = `user_${crypto.randomUUID()}`
@@ -61,9 +61,7 @@ describe('signOutAndForget', () => {
     const signOut = vi.fn(async () => {})
     await expect(
       signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut }),
-    ).rejects.toThrow(
-      'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.',
-    )
+    ).rejects.toThrow(UNSYNCED_RECORDINGS_ERROR)
     expect(stop).not.toHaveBeenCalled()
     expect(signOut).not.toHaveBeenCalled()
     expect(await Dexie.exists(databaseName(userId))).toBe(true)

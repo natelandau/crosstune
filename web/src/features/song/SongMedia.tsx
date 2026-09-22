@@ -8,13 +8,18 @@ import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
 import { useMenu } from '../../ui/Menu'
 import { LinkItem } from '../links/LinkItem'
-import { PasteLinkSheet } from '../links/PasteLinkSheet'
+import { PASTE_LINK, PasteLinkSheet } from '../links/PasteLinkSheet'
+import { NEW_RECORDING } from '../recording/RecordModal'
 import { useRecord } from '../recording/useRecord'
 import { retryKind } from '../recordings/recordingRow'
 import { RecordingItem } from '../recordings/RecordingItem'
 import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
+
+export const ADD_RECORDING = 'Add recording'
+export const NO_MEDIA_TITLE = 'Nothing recorded yet'
+export const NO_MEDIA_HINT = 'Record one, or paste a link to one.'
 
 /**
  * How a song sounds: the recordings made of it, the links to it elsewhere, and the two ways to
@@ -49,11 +54,11 @@ export function SongMedia({
     <IonButton
       fill="clear"
       className="section-action"
-      aria-label="Add recording"
+      aria-label={ADD_RECORDING}
       onClick={(event) =>
-        openMenu(event, 'Add recording', [
-          { label: 'New recording', icon: Mic, onPress: () => start(songId) },
-          { label: 'Paste link', icon: Link, onPress: () => setPasting(true) },
+        openMenu(event, ADD_RECORDING, [
+          { label: NEW_RECORDING, icon: Mic, onPress: () => start(songId) },
+          { label: PASTE_LINK, icon: Link, onPress: () => setPasting(true) },
         ])
       }
     >
@@ -68,12 +73,7 @@ export function SongMedia({
           refused row action shows under the rows it refused, where a group puts its own. */}
       <Group header="Recordings" name="Recordings" actions={add} plain={empty} error={error}>
         {empty ? (
-          <EmptyState
-            compact
-            icon={AudioLines}
-            title="Nothing recorded yet"
-            hint="Record one, or paste a link to one."
-          />
+          <EmptyState compact icon={AudioLines} title={NO_MEDIA_TITLE} hint={NO_MEDIA_HINT} />
         ) : (
           <>
             {recordings.map((view) => (

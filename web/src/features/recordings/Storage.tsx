@@ -4,6 +4,8 @@ import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { formatBytes } from '../recording/format'
 
+export const STORAGE_USED = 'Storage used'
+
 /** How much of the account's audio quota is spent, once the server has said what it is. */
 export function Storage() {
   const db = useDb()
@@ -15,7 +17,7 @@ export function Storage() {
       <p className="type-footnote tabular-nums">
         {formatBytes(figures.used_bytes)} of {formatBytes(figures.quota_bytes)} used
       </p>
-      <IonProgressBar aria-label="Storage used" value={used} className="mt-1.5" />
+      <IonProgressBar aria-label={STORAGE_USED} value={used} className="mt-1.5" />
     </div>
   )
 }

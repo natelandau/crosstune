@@ -4,6 +4,7 @@ import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { addLink } from './links'
 import { addToList, createList } from './lists'
+import { SONG_NOT_FOUND } from './messages'
 import { appendChunk, beginCapture, finishCapture } from './recordings'
 import {
   createSong,
@@ -108,7 +109,7 @@ describe('updateSongEntry', () => {
     await db.user_songs.delete(userSongId)
     await expect(
       updateSongEntry(db, { songId, userSongId }, { key: 'A' }, { notes: 'from Bruce' }),
-    ).rejects.toThrow('Song not found')
+    ).rejects.toThrow(SONG_NOT_FOUND)
     expect((await db.songs.get(songId))?.key).toBeNull()
     expect(await pendingBatch(db)).toHaveLength(0)
   })

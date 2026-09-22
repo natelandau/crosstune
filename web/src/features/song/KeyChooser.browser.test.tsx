@@ -4,7 +4,7 @@ import { page } from 'vitest/browser'
 import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { KeyChooser } from './KeyChooser'
+import { KeyChooser, MORE_KEYS, UNKNOWN_KEY } from './KeyChooser'
 
 function Host({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)
@@ -44,22 +44,22 @@ async function menuLabels(): Promise<string[]> {
 describe('KeyChooser', () => {
   it('presses the unknown chip for an empty key', async () => {
     renderIonic(<Host />, { db: openTestDb() })
-    await expect.element(chip('Unknown key')).toHaveAttribute('aria-pressed', 'true')
+    await expect.element(chip(UNKNOWN_KEY)).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows the unknown chip first, then the quick keys, then More keys', async () => {
     renderIonic(<Host />, { db: openTestDb() })
-    await expect.element(chip('Unknown key')).toBeVisible()
+    await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
     const labels = Array.from(
       document.querySelectorAll('[role="group"][aria-label="Key"] button'),
     ).map((button) => button.textContent!.trim())
     // A bare question mark sits in the row of single letters as the musician's own shorthand.
-    expect(labels).toEqual(['?', ...QUICK_KEYS, 'More keys…'])
+    expect(labels).toEqual(['?', ...QUICK_KEYS, MORE_KEYS])
   })
 
   it('names the unknown chip in words, since a glyph reads as nothing aloud', async () => {
     renderIonic(<Host />, { db: openTestDb() })
-    await expect.element(chip('Unknown key')).toBeVisible()
+    await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
     // It must not collide with the status control's own Unknown, a few rows above it.
     expect(page.getByRole('button', { name: 'Unknown', exact: true }).elements()).toHaveLength(0)
   })
@@ -69,7 +69,7 @@ describe('KeyChooser', () => {
     await chip('D').click()
     await expect.poll(state).toBe('D')
     await expect.element(chip('D')).toHaveAttribute('aria-pressed', 'true')
-    await chip('Unknown key').click()
+    await chip(UNKNOWN_KEY).click()
     await expect.poll(state).toBe('empty')
     await chip('D').click()
     await expect.poll(state).toBe('D')
@@ -89,7 +89,7 @@ describe('KeyChooser', () => {
 
   it('lists every key the grid does not already show, in order', async () => {
     renderIonic(<Host />, { db: openTestDb() })
-    await chip('More keys…').click()
+    await chip(MORE_KEYS).click()
     expect(await menuLabels()).toEqual([...rest])
   })
 
@@ -122,7 +122,7 @@ describe('KeyChooser', () => {
 
   it('names the grid and keeps every chip at the 44px tap height', async () => {
     renderIonic(<Host />, { db: openTestDb() })
-    await expect.element(chip('Unknown key')).toBeVisible()
+    await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
     const grid = document.querySelector('[role="group"][aria-label="Key"]')!
     for (const button of grid.querySelectorAll('button')) {
       const box = button.getBoundingClientRect()
@@ -140,7 +140,7 @@ describe('KeyChooser', () => {
         </div>,
         { db: openTestDb() },
       )
-      await expect.element(chip('Unknown key')).toBeVisible()
+      await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
       const grid = document.querySelector('[role="group"][aria-label="Key"]') as HTMLElement
       expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth + 1)
     } finally {

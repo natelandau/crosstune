@@ -15,6 +15,8 @@ import {
   type FacetValues,
 } from './filters'
 
+export const SHOW_ARCHIVED = 'Show archived'
+
 export function CatalogFilterSheet({
   open,
   filters,
@@ -91,7 +93,7 @@ export function CatalogFilterSheet({
             checked={filters.archived}
             onIonChange={(event) => onChange({ archived: event.detail.checked })}
           >
-            Show archived
+            {SHOW_ARCHIVED}
           </IonToggle>
         </IonItem>
       </Group>

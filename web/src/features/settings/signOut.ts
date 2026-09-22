@@ -4,6 +4,9 @@ import { NOT_UPLOADED_STATES } from '../../db/recordings'
 import { deleteDatabase, type CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
 
+export const UNSYNCED_RECORDINGS_ERROR =
+  'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.'
+
 export async function signOutAndForget({
   db,
   userId,
@@ -22,9 +25,7 @@ export async function signOutAndForget({
   }
   // A recording the server has never received exists only in the database deleted below.
   if ((await db.recording_files.where('local_state').anyOf(NOT_UPLOADED_STATES).count()) > 0) {
-    throw new Error(
-      'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.',
-    )
+    throw new Error(UNSYNCED_RECORDINGS_ERROR)
   }
   // A stopped engine ignores the triggers, so no sync can reopen the database being deleted.
   engine.stop()

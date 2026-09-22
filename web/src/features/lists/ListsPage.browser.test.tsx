@@ -7,7 +7,9 @@ import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
-import { ListsPage } from './ListsPage'
+import { DELETE_LIST_MESSAGE } from './deleteListMessage'
+import { LIST_NAME_LABEL } from './ListNameSheet'
+import { ADD_LIST, ListsPage, NO_LISTS_HINT, NO_LISTS_TITLE } from './ListsPage'
 
 let db: CrosstuneDb
 const original = window.matchMedia
@@ -27,12 +29,10 @@ const show = (engine = fakeEngine()) =>
 describe('ListsPage', () => {
   it('names the empty state and creates the first list from it', async () => {
     show()
-    await expect.element(page.getByText('No lists yet')).toBeVisible()
-    await expect
-      .element(page.getByText('A list is an ordered set of songs, like a setlist.'))
-      .toBeVisible()
-    await page.getByRole('button', { name: 'Add list' }).last().click()
-    await page.getByLabelText('List name').fill('Tuesday jam')
+    await expect.element(page.getByText(NO_LISTS_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NO_LISTS_HINT)).toBeVisible()
+    await page.getByRole('button', { name: ADD_LIST }).last().click()
+    await page.getByLabelText(LIST_NAME_LABEL).fill('Tuesday jam')
     await page.getByRole('button', { name: 'Create', exact: true }).click()
     await expect.element(page.getByRole('heading', { name: 'Tuesday jam' })).toBeVisible()
   })
@@ -52,8 +52,8 @@ describe('ListsPage', () => {
     const jam = await createList(db, 'Tuesday jam')
     show()
     await page.getByRole('button', { name: 'Edit Tuesday jam' }).click()
-    await expect.element(page.getByLabelText('List name')).toHaveValue('Tuesday jam')
-    await page.getByLabelText('List name').fill('Wednesday jam')
+    await expect.element(page.getByLabelText(LIST_NAME_LABEL)).toHaveValue('Tuesday jam')
+    await page.getByLabelText(LIST_NAME_LABEL).fill('Wednesday jam')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await vi.waitFor(async () => expect((await db.lists.get(jam))?.name).toBe('Wednesday jam'))
   })
@@ -62,7 +62,7 @@ describe('ListsPage', () => {
     const jam = await createList(db, 'Tuesday jam')
     show()
     await page.getByRole('button', { name: 'Delete Tuesday jam' }).click()
-    await expect.element(page.getByText('Its songs stay in the catalog.')).toBeVisible()
+    await expect.element(page.getByText(DELETE_LIST_MESSAGE)).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
     expect((await db.lists.get(jam))?.deleted_at).toBeNull()
     await page.getByRole('button', { name: 'Delete Tuesday jam' }).click()
@@ -83,7 +83,7 @@ describe('ListsPage', () => {
     const engine = fakeEngine()
     const sync = vi.spyOn(engine, 'sync')
     show(engine)
-    await expect.element(page.getByText('No lists yet')).toBeVisible()
+    await expect.element(page.getByText(NO_LISTS_TITLE)).toBeVisible()
     const refresher = document.querySelector('ion-refresher')!
     expect(refresher.parentElement?.tagName).toBe('ION-CONTENT')
     const complete = vi.fn()
@@ -95,7 +95,7 @@ describe('ListsPage', () => {
   it('has one level 1 heading while loading and when loaded', async () => {
     show()
     await vi.waitFor(() => expect(document.querySelectorAll('h1')).toHaveLength(1))
-    await expect.element(page.getByText('No lists yet')).toBeVisible()
+    await expect.element(page.getByText(NO_LISTS_TITLE)).toBeVisible()
     expect(document.querySelectorAll('h1')).toHaveLength(1)
   })
 

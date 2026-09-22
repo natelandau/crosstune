@@ -79,9 +79,9 @@ const MIC_FAILED = 'The microphone could not be started.'
 const START_FAILED = 'The recording could not be started.'
 const SAVE_FAILED =
   'The recording could not be saved. It will be recovered the next time the app syncs.'
-const PARTIAL_SAVE = 'Part of this recording could not be saved.'
+export const PARTIAL_SAVE = 'Part of this recording could not be saved.'
 const DISCARD_FAILED = 'The recording could not be discarded.'
-const SIZE_LIMIT = 'This recording reached the size limit and was saved.'
+export const SIZE_LIMIT = 'This recording reached the size limit and was saved.'
 
 // Stopping short of the server's per-file cap leaves room for the chunk the recorder
 // flushes on stop, so the finished recording can still upload.

@@ -8,27 +8,32 @@ import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { type LocalRecordingLink } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETING, useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { KeyPill } from '../../ui/KeyPill'
-import { useMenu } from '../../ui/Menu'
+import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import { Row } from '../../ui/Row'
 import { Screen } from '../../ui/Screen'
 import type { CatalogEntry } from '../catalog/filters'
 import { StatusDot } from '../catalog/SongItem'
-import { ListPicker } from '../lists/ListPicker'
+import { ADD_TO_LIST, ListPicker } from '../lists/ListPicker'
 import { useLists, useMembership } from '../lists/useLists'
 import { lyricOpening } from '../lyrics/lyricLines'
 import { LyricsModal } from '../lyrics/LyricsModal'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
 import { visibleTunings } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
-import { deleteSongMessage } from './deleteSongMessage'
+import { DELETE_SONG_TITLE, deleteSongMessage } from './deleteSongMessage'
 import { SongFormSheet, type SongFormTarget } from './SongFormSheet'
 import { SongMedia } from './SongMedia'
 import { useSong } from './useSong'
+
+export const ADD_TO_LIST_TITLE = 'Add to a list'
+export const NOT_IN_LIST = 'Not in any list yet.'
+export const OPEN_LYRICS = 'Open lyrics'
+export const SONG_GONE = 'This song is gone'
 
 type Params = Readonly<Record<string, string | undefined>>
 
@@ -70,7 +75,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
     if (deleting.current) return
     deleting.current = true
     const ok = await confirm({
-      title: 'Delete song?',
+      title: DELETE_SONG_TITLE,
       message: deleteSongMessage(entry.song.title, recordings ?? []),
       action: 'Delete',
     })
@@ -107,8 +112,8 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
 
   const openActions = (event: MouseEvent, entry: CatalogEntry) => {
     const archived = entry.userSong.archived_at !== null
-    openMenu(event, 'More actions', [
-      { label: 'Add to list', onPress: () => setPicking(true) },
+    openMenu(event, MORE_ACTIONS, [
+      { label: ADD_TO_LIST, onPress: () => setPicking(true) },
       {
         label: archived ? 'Unarchive' : 'Archive',
         tone: 'warning',
@@ -139,7 +144,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
             >
               Edit
             </IonButton>
-            <IonButton aria-label="More actions" onClick={(event) => openActions(event, song)}>
+            <IonButton aria-label={MORE_ACTIONS} onClick={(event) => openActions(event, song)}>
               <Ellipsis aria-hidden="true" className="size-6" />
             </IonButton>
           </>
@@ -149,7 +154,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
       {notFound ? (
         <>
           <h1 className="sr-only">Song</h1>
-          <EmptyState icon={Music} title="This song is gone" />
+          <EmptyState icon={Music} title={SONG_GONE} />
         </>
       ) : null}
       {!ready && !deleted ? <h1 className="sr-only">Song</h1> : null}
@@ -157,7 +162,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
         <header className="space-y-1 px-(--form-inset) pt-4">
           <h1 className="type-title m-0">{deletingTitle}</h1>
           <p role="status" className="type-footnote m-0">
-            Deleting…
+            {DELETING}
           </p>
           {error ? <InlineError className="pt-2">{error}</InlineError> : null}
         </header>
@@ -190,7 +195,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
           <ListPicker
             open={picking && !deleted}
             userSongIds={pickerSongIds}
-            title="Add to a list"
+            title={ADD_TO_LIST_TITLE}
             onClose={() => setPicking(false)}
           />
           <LyricsModal
@@ -293,7 +298,7 @@ function SongBody({
       {hasLyrics ? (
         <div className="px-(--form-gutter) pt-(--form-section-gap)">
           <IonButton expand="block" className="min-h-11" onClick={onReadLyrics}>
-            Open lyrics
+            {OPEN_LYRICS}
           </IonButton>
         </div>
       ) : null}
@@ -305,14 +310,14 @@ function SongBody({
           <IonButton
             fill="clear"
             className="section-action"
-            aria-label="Add to list"
+            aria-label={ADD_TO_LIST}
             onClick={onAddToList}
           >
             <Plus aria-hidden="true" className="size-5" />
           </IonButton>
         }
         plain={inLists.length === 0}
-        footer={inLists.length === 0 ? 'Not in any list yet.' : undefined}
+        footer={inLists.length === 0 ? NOT_IN_LIST : undefined}
       >
         {inLists.map((list) => (
           <Row

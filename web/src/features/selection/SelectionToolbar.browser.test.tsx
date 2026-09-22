@@ -7,11 +7,18 @@ import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
-import type { MenuItem } from '../../ui/Menu'
+import { MORE_ACTIONS, type MenuItem } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
+import { ADD_TO_LIST } from '../lists/ListPicker'
 import { SelectionFooter } from './SelectionFooter'
 import { SelectionProvider, useSelectionChrome } from './SelectionProvider'
-import { useSelectionToolbar, type BulkAction } from './SelectionToolbar'
+import {
+  CANCEL_SELECTION,
+  DESELECT_ALL,
+  SELECT_ALL,
+  useSelectionToolbar,
+  type BulkAction,
+} from './SelectionToolbar'
 import type { SongSelection } from './useSongSelection'
 
 let db: CrosstuneDb
@@ -24,10 +31,10 @@ const onArchive = vi.fn()
 const ACTIONS: readonly BulkAction[] = [
   { label: 'Status', icon: Tag, onPress: onStatus },
   { label: 'Edit', icon: SquarePen, onPress: () => {} },
-  { label: 'Add to list', icon: ListPlus, onPress: () => {} },
+  { label: ADD_TO_LIST, icon: ListPlus, onPress: () => {} },
 ]
 const MORE: readonly MenuItem[] = [{ label: 'Archive 2 songs', onPress: onArchive }]
-const NAMES = ['Status', 'Edit', 'Add to list', 'More actions']
+const NAMES = ['Status', 'Edit', ADD_TO_LIST, MORE_ACTIONS]
 
 /** Reports the flag the footer publishes, which on md nothing may raise. */
 function ChromeProbe() {
@@ -103,8 +110,8 @@ describe('useSelectionToolbar on md', () => {
 
   it('cancels from the leading control', async () => {
     show(2)
-    await expect.element(control('Cancel selection')).toBeVisible()
-    await control('Cancel selection').click()
+    await expect.element(control(CANCEL_SELECTION)).toBeVisible()
+    await control(CANCEL_SELECTION).click()
     expect(onExit).toHaveBeenCalledOnce()
   })
 
@@ -121,28 +128,28 @@ describe('useSelectionToolbar on md', () => {
 
   it('dims every action at zero selected and keeps the overflow live', async () => {
     show(0)
-    for (const name of ['Status', 'Edit', 'Add to list']) {
+    for (const name of ['Status', 'Edit', ADD_TO_LIST]) {
       await expect.element(control(name)).toBeVisible()
       await expect.element(control(name)).toBeDisabled()
     }
-    await expect.element(control('More actions')).toBeVisible()
-    await expect.element(control('More actions')).not.toBeDisabled()
+    await expect.element(control(MORE_ACTIONS)).toBeVisible()
+    await expect.element(control(MORE_ACTIONS)).not.toBeDisabled()
   })
 
   it('reaches Select all at zero selected, where the mode opens', async () => {
     show(0)
-    await expect.element(control('More actions')).toBeVisible()
-    await control('More actions').click()
-    await expect.element(await screen.findByText('Select all')).toBeVisible()
-    await screen.getByText('Select all').click()
+    await expect.element(control(MORE_ACTIONS)).toBeVisible()
+    await control(MORE_ACTIONS).click()
+    await expect.element(await screen.findByText(SELECT_ALL)).toBeVisible()
+    await screen.getByText(SELECT_ALL).click()
     expect(toggleAll).toHaveBeenCalledOnce()
     await expect.element(page.getByText('3 selected').first()).toBeVisible()
   })
 
   it('gives every control a 44px tap target', async () => {
     show(2)
-    await expect.element(control('Cancel selection')).toBeVisible()
-    for (const name of ['Cancel selection', ...NAMES]) {
+    await expect.element(control(CANCEL_SELECTION)).toBeVisible()
+    for (const name of [CANCEL_SELECTION, ...NAMES]) {
       const box = host(name).getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
       expect(box.width).toBeGreaterThanOrEqual(44)
@@ -151,18 +158,18 @@ describe('useSelectionToolbar on md', () => {
 
   it('puts Select all in the More menu', async () => {
     show(2)
-    await expect.element(control('More actions')).toBeVisible()
-    await control('More actions').click()
-    await expect.element(await screen.findByText('Select all')).toBeVisible()
+    await expect.element(control(MORE_ACTIONS)).toBeVisible()
+    await control(MORE_ACTIONS).click()
+    await expect.element(await screen.findByText(SELECT_ALL)).toBeVisible()
     await expect.element(await screen.findByText('Archive 2 songs')).toBeVisible()
-    await screen.getByText('Select all').click()
+    await screen.getByText(SELECT_ALL).click()
     expect(toggleAll).toHaveBeenCalledOnce()
-    await vi.waitFor(() => expect(screen.queryByText('Select all')).not.toBeInTheDocument(), {
+    await vi.waitFor(() => expect(screen.queryByText(SELECT_ALL)).not.toBeInTheDocument(), {
       timeout: 3000,
     })
-    await control('More actions').click()
-    await expect.element(await screen.findByText('Deselect all')).toBeVisible()
-    expect(screen.queryByText('Select all')).not.toBeInTheDocument()
+    await control(MORE_ACTIONS).click()
+    await expect.element(await screen.findByText(DESELECT_ALL)).toBeVisible()
+    expect(screen.queryByText(SELECT_ALL)).not.toBeInTheDocument()
   })
 
   it('announces the count in a live region of its own', async () => {
@@ -199,7 +206,7 @@ describe('useSelectionToolbar on md', () => {
       await page.viewport(320, 640)
       try {
         show(count, level)
-        await expect.element(control('More actions')).toBeVisible()
+        await expect.element(control(MORE_ACTIONS)).toBeVisible()
         // The bar cannot hold the whole label at this width in either text size, and the word is
         // what it is allowed to give up: a count elided to its first digits reads as a smaller
         // number rather than as a truncation.

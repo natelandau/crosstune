@@ -1,7 +1,9 @@
 import { IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useState } from 'react'
 import { usePointer } from '../../platform/pointer'
-import { FieldRow } from '../../ui/FieldRow'
+import { FieldRow, NOT_SET } from '../../ui/FieldRow'
+
+export const OTHER_OPTION = 'Other…'
 
 // A sentinel no suggestion list can contain, so choosing Other never collides with a real value.
 const OTHER = '\u0000other'
@@ -20,7 +22,7 @@ export function SuggestSelect({
   options,
   other,
   maxLength,
-  placeholder = 'Not set',
+  placeholder = NOT_SET,
   emptyLabel = placeholder,
   clearOnOther = true,
   detail,
@@ -90,7 +92,7 @@ export function SuggestSelect({
           {choice}
         </IonSelectOption>
       ))}
-      {other ? <IonSelectOption value={OTHER}>Other…</IonSelectOption> : null}
+      {other ? <IonSelectOption value={OTHER}>{OTHER_OPTION}</IonSelectOption> : null}
     </IonSelect>
   )
   return (

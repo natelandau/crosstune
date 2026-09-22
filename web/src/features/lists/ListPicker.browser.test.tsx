@@ -6,7 +6,7 @@ import { addToList, createList } from '../../commands/lists'
 import { createSong } from '../../commands/songs'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { ListPicker, type ListAddition } from './ListPicker'
+import { ListPicker, NEW_LIST_ITEM, NEW_LIST_NAME_LABEL, type ListAddition } from './ListPicker'
 import type * as UseListsModule from './useLists'
 
 vi.mock('../../commands/bulk', { spy: true })
@@ -165,8 +165,8 @@ describe('ListPicker', () => {
     const { userSongId: a } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
     const { userSongId: b } = await createSong(db, { title: 'Bill Cheatham' }, { status: 'known' })
     renderIonic(<Host userSongIds={[a, b]} />, { db })
-    await page.getByRole('button', { name: 'New list…' }).click()
-    await page.getByLabelText('New list name').fill('Violin club')
+    await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
+    await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Violin club')
     await page.getByRole('button', { name: 'Create' }).click()
     await vi.waitFor(async () => {
       const [list] = await db.lists.toArray()
@@ -211,8 +211,8 @@ describe('ListPicker', () => {
     const db = openTestDb()
     const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
     renderIonic(<Host userSongIds={[userSongId]} />, { db })
-    await page.getByRole('button', { name: 'New list…' }).click()
-    const field = page.getByLabelText('New list name')
+    await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
+    const field = page.getByLabelText(NEW_LIST_NAME_LABEL)
     await field.fill('   ')
     await expect.element(page.getByRole('button', { name: 'Create' })).toBeDisabled()
     await userEvent.keyboard('{Enter}')
@@ -264,8 +264,8 @@ describe('ListPicker', () => {
       },
     )
     renderIonic(<Host userSongIds={[userSongId]} />, { db })
-    await page.getByRole('button', { name: 'New list…' }).click()
-    await page.getByLabelText('New list name').fill('Fiddlers convention')
+    await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
+    await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Fiddlers convention')
     const create = document.querySelector('ion-button[slot="end"]')!
     create.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     create.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
@@ -338,12 +338,12 @@ describe('ListPicker', () => {
       )
     }
     renderIonic(<ReopenHost />, { db })
-    await page.getByRole('button', { name: 'New list…' }).click()
-    await page.getByLabelText('New list name').fill('Half typed name')
+    await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
+    await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Half typed name')
     await page.getByRole('button', { name: 'Cancel' }).click()
     await sheetDismissed()
     await page.getByRole('button', { name: 'Reopen' }).click()
-    await expect.element(page.getByRole('button', { name: 'New list…' })).toBeVisible()
-    expect(page.getByLabelText('New list name').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { name: NEW_LIST_ITEM })).toBeVisible()
+    expect(page.getByLabelText(NEW_LIST_NAME_LABEL).elements()).toHaveLength(0)
   })
 })

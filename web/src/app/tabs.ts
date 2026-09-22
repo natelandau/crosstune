@@ -1,5 +1,7 @@
 import { AudioLines, ListMusic, Music, Settings, type LucideIcon } from 'lucide-react'
 
+export const RECORD_LABEL = 'Start a new recording'
+
 export interface TabSpec {
   tab: string
   href: string

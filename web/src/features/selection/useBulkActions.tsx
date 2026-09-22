@@ -17,8 +17,8 @@ import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useToast } from '../../ui/Toast'
 import { useAction, type Action } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
-import { ListPicker, type ListAddition } from '../lists/ListPicker'
-import { deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
+import { ADD_TO_LIST, ListPicker, type ListAddition } from '../lists/ListPicker'
+import { DELETE_SONG_TITLE, deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
 import { BulkEditSheet } from './BulkEditSheet'
 import { countSongs } from './copy'
 import type { BulkAction } from './SelectionToolbar'
@@ -127,7 +127,7 @@ export function useBulkActions({
         setSheet('edit')
       },
     },
-    { label: 'Add to list', icon: ListPlus, onPress: () => setSheet('list') },
+    { label: ADD_TO_LIST, icon: ListPlus, onPress: () => setSheet('list') },
   ]
 
   // Only the songs in the opposite state, so the count names what the item will actually change.
@@ -166,7 +166,7 @@ export function useBulkActions({
     const views = files.map((file) => ({ file }))
     const only = entries.length === 1 ? entries[0] : undefined
     const ok = await confirm({
-      title: only ? 'Delete song?' : `Delete ${countSongs(entries.length)}?`,
+      title: only ? DELETE_SONG_TITLE : `Delete ${countSongs(entries.length)}?`,
       message: only
         ? deleteSongMessage(only.song.title, views)
         : deleteSongsMessage(countSongs(entries.length), views),

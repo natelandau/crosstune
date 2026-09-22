@@ -7,6 +7,7 @@ import { pendingBatch } from '../../db/outbox'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { NOT_SET } from '../../ui/FieldRow'
 import { INSTRUMENTS_HELP } from './instruments'
 import { InstrumentsGroup } from './InstrumentsGroup'
 
@@ -61,7 +62,7 @@ describe('InstrumentsGroup', () => {
   it('reads Not set when no instrument is chosen', async () => {
     await setInstruments(db, 'user_1', [])
     show()
-    await expect.element(rowNamed('Not set')).toBeVisible()
+    await expect.element(rowNamed(NOT_SET)).toBeVisible()
   })
 
   it('keeps the checkboxes in the sheet until the row is opened', async () => {

@@ -20,6 +20,22 @@ export type DetailField =
   | { kind: 'lyrics'; key: 'lyrics'; label: string }
   | { kind: 'date'; key: 'learned_on'; label: string }
 
+/** What each detail field is called, on the song form and in the bulk edit sheet alike. */
+export const DETAIL_LABELS = {
+  alternate_titles: 'Also known as',
+  mode: 'Mode',
+  genre: 'Genre',
+  time_signature: 'Time signature',
+  feel: 'Feel',
+  part_structure: 'Parts',
+  is_crooked: 'Crooked',
+  lyrics: 'Lyrics',
+  learned_from: 'Learned from',
+  learned_on: 'Learned on',
+} as const
+
+export const CROOKED_HELP = 'An odd number of beats or bars in a part.'
+
 /** The Details card's own footer. The rule governs one field but belongs to the card, because
  *  help text inside a card reads as another row. */
 export const DETAILS_FOOTER = 'Separate alternate names with commas.'
@@ -29,13 +45,13 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
   {
     kind: 'text',
     key: 'alternate_titles',
-    label: 'Also known as',
+    label: DETAIL_LABELS.alternate_titles,
   },
-  { kind: 'pick', key: 'mode', label: 'Mode', options: MODES, other: false },
+  { kind: 'pick', key: 'mode', label: DETAIL_LABELS.mode, options: MODES, other: false },
   {
     kind: 'pick',
     key: 'genre',
-    label: 'Genre',
+    label: DETAIL_LABELS.genre,
     options: GENRES,
     other: true,
     maxLength: SONG_LIMITS.genre,
@@ -43,14 +59,14 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
   {
     kind: 'pick',
     key: 'time_signature',
-    label: 'Time signature',
+    label: DETAIL_LABELS.time_signature,
     options: TIME_SIGNATURES,
     other: false,
   },
   {
     kind: 'pick',
     key: 'feel',
-    label: 'Feel',
+    label: DETAIL_LABELS.feel,
     options: FEELS,
     other: true,
     maxLength: SONG_LIMITS.feel,
@@ -58,7 +74,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
   {
     kind: 'pick',
     key: 'part_structure',
-    label: 'Parts',
+    label: DETAIL_LABELS.part_structure,
     options: PART_STRUCTURES,
     other: true,
     maxLength: SONG_LIMITS.part_structure,
@@ -66,10 +82,15 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
   {
     kind: 'switch',
     key: 'is_crooked',
-    label: 'Crooked',
-    help: 'An odd number of beats or bars in a part.',
+    label: DETAIL_LABELS.is_crooked,
+    help: CROOKED_HELP,
   },
-  { kind: 'lyrics', key: 'lyrics', label: 'Lyrics' },
-  { kind: 'text', key: 'learned_from', label: 'Learned from', maxLength: SONG_LIMITS.learned_from },
-  { kind: 'date', key: 'learned_on', label: 'Learned on' },
+  { kind: 'lyrics', key: 'lyrics', label: DETAIL_LABELS.lyrics },
+  {
+    kind: 'text',
+    key: 'learned_from',
+    label: DETAIL_LABELS.learned_from,
+    maxLength: SONG_LIMITS.learned_from,
+  },
+  { kind: 'date', key: 'learned_on', label: DETAIL_LABELS.learned_on },
 ]
