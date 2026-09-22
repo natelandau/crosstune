@@ -1,4 +1,4 @@
-"""SQL text for CHECK constraints, built from the models' shared value tuples."""
+"""SQL text for CHECK constraints, built from the vocabulary enums."""
 
 from __future__ import annotations
 

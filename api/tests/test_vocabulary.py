@@ -7,7 +7,7 @@ from sqlalchemy import ARRAY, CheckConstraint, String
 from crosstune import vocabulary
 from crosstune.models import Recording, RecordingLink, Song, UserSettings, UserSong
 from crosstune.models._checks import in_list
-from crosstune.schemas.rows import DATA_SCHEMAS, SongData, UserSettingsData
+from crosstune.schemas.rows import DATA_SCHEMAS, RecordingRow, SongData, UserSettingsData
 from crosstune.sync.tables import TABLES
 
 NOW = datetime(2026, 9, 22, tzinfo=UTC)
@@ -86,3 +86,23 @@ def test_validated_values_are_stored_as_plain_strings() -> None:
     settings = UserSettingsData(instruments=["violin"], created_at=NOW)
     assert type(settings.model_dump()["audio_quality"]) is str
     assert type(settings.model_dump()["instruments"][0]) is str
+
+
+def test_pulled_rows_store_validated_values_as_plain_strings() -> None:
+    row = RecordingRow(
+        id="018f0000-0000-7000-8000-000000000003",
+        user_id="018f0000-0000-7000-8000-000000000001",
+        created_at=NOW,
+        updated_at=NOW,
+        deleted_at=None,
+        server_seq=1,
+        source="microphone",
+        recorded_at=NOW,
+        state="ready",
+        duration_ms=None,
+        playback_mime=None,
+        playback_bytes=None,
+        error=None,
+    )
+    assert type(row.model_dump()["state"]) is str
+    assert type(row.model_dump()["source"]) is str

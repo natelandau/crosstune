@@ -34,7 +34,13 @@ const ROWS = {
   UserSongRow: {
     properties: { learned_from: { anyOf: [{ type: 'string', maxLength: 200 }, { type: 'null' }] } },
   },
-  ListRow: { properties: { name: { type: 'string', maxLength: 200 } } },
+  ListRow: {
+    properties: {
+      id: { type: 'string', format: 'uuid' },
+      name: { type: 'string', maxLength: 200 },
+      updated_at: { type: 'string', format: 'date-time' },
+    },
+  },
   RecordingLinkRow: { properties: { url: { type: 'string', maxLength: 2048 } } },
   RecordingRow: {
     properties: { label: { anyOf: [{ type: 'string', maxLength: 200 }, { type: 'null' }] } },
