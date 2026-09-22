@@ -2,9 +2,10 @@ import { useEffect } from 'react'
 
 /**
  * Holds the screen on until the returned function is called. The browser drops the lock
- * whenever the tab is hidden, so it is taken again each time the tab becomes visible. A refused
- * or missing lock is silent: a musician can do nothing about it, and an error line on a reading
- * screen would only take room from the words.
+ * whenever the tab is hidden, so it is taken again each time the tab becomes visible, and again
+ * when the browser lets it go on its own (low-power mode, say) while the tab is still shown. A
+ * refused or missing lock is silent: a musician can do nothing about it, and an error line on a
+ * reading screen would only take room from the words.
  */
 export function holdScreenAwake(): () => void {
   const api = navigator.wakeLock
@@ -47,7 +48,10 @@ export function holdScreenAwake(): () => void {
         // Identity-checked: an earlier, already-superseded sentinel releasing on its own must
         // not null out the one currently held.
         granted.addEventListener('release', () => {
-          if (sentinel === granted) sentinel = null
+          if (sentinel !== granted) return
+          sentinel = null
+          // A hidden tab gets its lock back from the visibility listener instead.
+          if (document.visibilityState === 'visible') take()
         })
       })
       .catch(() => {})

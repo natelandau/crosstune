@@ -33,6 +33,15 @@ export function overlayOpen(): boolean {
   return document.querySelector(`:is(${BLOCKING_OVERLAYS}):not(.overlay-hidden)`) !== null
 }
 
+/**
+ * The shown screen's own landmark. Every screen has one and Ionic keeps them all mounted, so
+ * the shown page is the one still laid out.
+ */
+export function visibleMain(): HTMLElement | null {
+  const landmarks = Array.from(document.querySelectorAll<HTMLElement>('main'))
+  return landmarks.find((landmark) => landmark.offsetParent !== null) ?? null
+}
+
 export function useSearchShortcut(focus: () => void): void {
   const pointer = usePointer()
   const active = useViewActive()

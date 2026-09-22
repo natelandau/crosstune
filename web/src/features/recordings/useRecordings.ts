@@ -37,9 +37,11 @@ export function useRecordingsWithFiles({ songId }: { songId?: string } = {}):
       }
     })
     if (songId) return views
+    // Parsed, not compared as text: a row written here and one pulled from the server spell
+    // the same instant with different fractional-second precision.
     return views.sort((a, b) => {
       const unfiled = Number(!!a.songId) - Number(!!b.songId)
-      return unfiled || b.recording.recorded_at.localeCompare(a.recording.recorded_at)
+      return unfiled || Date.parse(b.recording.recorded_at) - Date.parse(a.recording.recorded_at)
     })
   }, [db, songId])
 }

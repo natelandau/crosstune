@@ -1,7 +1,7 @@
 import { useIonViewWillLeave } from '@ionic/react'
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { usePointer } from '../../platform/pointer'
-import { isTextEntry, overlayOpen } from '../../ui/useShortcut'
+import { isTextEntry, overlayOpen, visibleMain } from '../../ui/useShortcut'
 import { selectionCheckboxId } from './ids'
 import { useSongSelection, type SongSelection } from './useSongSelection'
 
@@ -45,15 +45,6 @@ interface BackButtonDetail {
  */
 function focusTargetIn(node: HTMLElement): HTMLElement {
   return node.shadowRoot?.querySelector<HTMLElement>('button, a, input') ?? node
-}
-
-/**
- * The screen's own landmark. Every screen has one and Ionic keeps them all mounted, so the
- * shown page is the one still laid out.
- */
-function visibleMain(): HTMLElement | null {
-  const landmarks = Array.from(document.querySelectorAll<HTMLElement>('main'))
-  return landmarks.find((landmark) => landmark.offsetParent !== null) ?? null
 }
 
 /**

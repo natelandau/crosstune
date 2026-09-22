@@ -53,11 +53,11 @@ describe('KeyChooser', () => {
     const labels = Array.from(
       document.querySelectorAll('[role="group"][aria-label="Key"] button'),
     ).map((button) => button.textContent!.trim())
-    // A bare question mark sits in the row of single letters as the musician's own shorthand.
-    expect(labels).toEqual(['?', ...QUICK_KEYS, 'More keys…'])
+    // The unknown chip carries an icon, so its text is empty.
+    expect(labels).toEqual(['', ...QUICK_KEYS, 'More keys…'])
   })
 
-  it('names the unknown chip in words, since a glyph reads as nothing aloud', async () => {
+  it('names the unknown chip in words, since an icon reads as nothing aloud', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(chip('Unknown key')).toBeVisible()
     // It must not collide with the status control's own Unknown, a few rows above it.

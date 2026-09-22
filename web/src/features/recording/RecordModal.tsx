@@ -75,9 +75,12 @@ export function RecordModal({
       setClosing(true)
       if (!saved) return
       const path = songId ? `/catalog/${songId}` : '/recordings'
+      const here = router.routeInfo?.pathname ?? ''
       // A recording started from the page it would land on must not stack a second copy of
-      // that page behind the one already open.
-      if (router.routeInfo?.pathname !== path) router.push(path, 'forward', 'push')
+      // that page behind the one already open. A song page lives in every tab's stack, so any
+      // path ending in the song's id is that page.
+      const alreadyThere = songId ? here.endsWith(`/${songId}`) : here === path
+      if (!alreadyThere) router.push(path, 'forward', 'push')
     },
     [router, songId],
   )
