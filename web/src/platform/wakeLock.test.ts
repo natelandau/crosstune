@@ -235,6 +235,22 @@ describe('holdScreenAwake', () => {
     }
   })
 
+  it('re-takes the lock when the browser releases it while the tab is still shown', async () => {
+    const sentinels = fakeWakeLock()
+    const release = holdScreenAwake()
+    try {
+      await vi.waitFor(() => expect(sentinels).toHaveLength(1))
+      await flush()
+
+      sentinels[0]!.released = true
+      sentinels[0]!.fireRelease()
+
+      await vi.waitFor(() => expect(sentinels).toHaveLength(2))
+    } finally {
+      release()
+    }
+  })
+
   it('does not overwrite a currently held lock when an earlier one auto-releases late', async () => {
     const sentinels = fakeWakeLock()
     const release = holdScreenAwake()

@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
@@ -21,7 +22,7 @@ export const SyncContext = createContext<SyncEngine | null>(null)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const db = useDb()
-  const { getToken } = useAuthSession()
+  const { getToken, offline } = useAuthSession()
   const engine = useMemo(
     () =>
       createSyncEngine({
@@ -42,6 +43,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       engine.stop()
     }
   }, [engine, db])
+  // A session admitted without Clerk has no token, so every run until Clerk loads fails as
+  // offline and the engine sits in its backoff, which can hold the first real sync for a minute.
+  const wasOffline = useRef(offline)
+  useEffect(() => {
+    if (wasOffline.current && !offline) void engine.sync()
+    wasOffline.current = offline
+  }, [engine, offline])
   return <SyncContext.Provider value={engine}>{children}</SyncContext.Provider>
 }
 

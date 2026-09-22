@@ -8,6 +8,7 @@ import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { getKeepOffline, setKeepOffline } from '../../db/meta'
 import { AUDIO_QUALITIES, storedAudioQuality, type AudioQuality } from '../../db/recordings'
+import { persistStorage } from '../../platform/storage'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { ChoiceRow } from '../../ui/ChoiceRow'
 import { Group } from '../../ui/Group'
@@ -44,7 +45,7 @@ export function RecordingGroup() {
       if (on) {
         void engine.transfer()
         // Asked only once there is something worth protecting from storage eviction.
-        void navigator.storage?.persist?.().catch(() => {})
+        persistStorage()
       }
     },
   )

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
 import { newId } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
+import { persistStorage } from '../../platform/storage'
+import { holdScreenAwake } from '../../platform/wakeLock'
 import { acquireCaptureLock } from '../../sync/captureLock'
 import { suspendAudioContext, unlockAudioContext } from './audioContext'
 import {
@@ -11,7 +13,6 @@ import {
   type RecordingSession,
   type RecordingSnapshot,
 } from './recordingSession'
-import { holdWakeLock } from './wakeLock'
 
 export type CapturePhase = RecordingPhase
 
@@ -53,10 +54,10 @@ export function useCapture({ songId }: { songId: string | null }): CaptureHandle
       getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
       MediaRecorder,
       acquireCaptureLock,
-      holdWakeLock: () => holdWakeLock(),
+      holdWakeLock: holdScreenAwake,
       unlockAudioContext,
       suspendAudioContext,
-      persistStorage: () => void navigator.storage?.persist?.().catch(() => {}),
+      persistStorage,
       clock,
       songId,
     })

@@ -68,7 +68,7 @@ export function PasteLinkSheet({
     runThen(
       async () => {
         // Metadata is a nicety; a link the resolver cannot reach still gets added.
-        const resolved: ResolveResponse | null = await engine.resolveLink(trimmed).catch(() => null)
+        const resolved: ResolveResponse | null = await engine.resolveLink(trimmed)
         const detected = detectProvider(trimmed)
         // A provider the resolver returned that this client doesn't recognize can't carry
         // that provider's ref either, since the ref format is provider-specific.

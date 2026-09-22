@@ -1,5 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DbContext } from '../../db/DbProvider'
+import { visibleMain } from '../../ui/useShortcut'
 import { PlayerContext, type Player, type PlayerItem } from './usePlayer'
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
@@ -23,7 +24,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [])
   const close = useCallback(() => setItem(null), [])
   const returnFocus = useCallback(() => {
-    const target = opener.current?.isConnected ? opener.current : document.querySelector('main')
+    const target = opener.current?.isConnected ? opener.current : visibleMain()
     target?.focus()
   }, [])
 

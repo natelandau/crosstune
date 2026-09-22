@@ -90,9 +90,9 @@ Pull:
 - A pulled row that is also in the outbox with a newer local timestamp keeps
   the local row. The next push settles it.
 
-Triggers: app start, back online, tab visible, and 3 seconds after the last
-local write. Failure backs off from 1 second to 60 seconds. The engine
-exposes one status value.
+Triggers: app start, back online, tab visible, Clerk loading after an
+offline sign-in, and 3 seconds after the last local write. Failure backs
+off from 1 second to 60 seconds. The engine exposes one status value.
 
 ## Sign-in
 
@@ -108,7 +108,8 @@ exposes one status value.
   an hourly sweep deletes any user prefix whose row is gone.
 - Offline: the client remembers the last user ID in local storage. With no
   connection, or when Clerk fails to load within 5 seconds, the app opens on
-  that user's local database. Sync reports offline until Clerk loads.
+  that user's local database. Sync reports offline until Clerk loads, then
+  runs at once.
 - Production uses Clerk's production instance. Development, local work, and
   the end-to-end suite share one development instance.
 
