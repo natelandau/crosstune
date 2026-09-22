@@ -1,21 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import type { Instrument } from '../../api/vocabulary'
+import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
+import { INSTRUMENT_LABELS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { InstrumentRows } from './InstrumentRows'
 
-const LABELS = [
-  'Violin',
-  'Banjo',
-  'Guitar',
-  'Mandolin',
-  'Ukulele',
-  'Bass',
-  'Dulcimer',
-  'Accordion',
-  'Other',
-]
+const LABELS = INSTRUMENTS.map((instrument) => INSTRUMENT_LABELS[instrument])
+const LAST_LABEL = LABELS[LABELS.length - 1]!
 
 function show(
   value: Instrument[],
@@ -41,9 +33,8 @@ describe('InstrumentRows', () => {
   })
 
   it('checks only the instruments in the value', async () => {
-    show(['banjo', 'guitar'])
+    show(['banjo'])
     await expect.element(box('Banjo')).toBeChecked()
-    await expect.element(box('Guitar')).toBeChecked()
     await expect.element(box('Violin')).not.toBeChecked()
   })
 
@@ -65,7 +56,7 @@ describe('InstrumentRows', () => {
 
   it('gives every row a tap target a finger can hit', async () => {
     show([])
-    await expect.element(box('Other')).toBeVisible()
+    await expect.element(box(LAST_LABEL)).toBeVisible()
     const items = document.querySelectorAll('ion-item')
     expect(items).toHaveLength(LABELS.length)
     for (const item of items) {

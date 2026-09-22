@@ -28,10 +28,10 @@ describe('useInstruments', () => {
   })
 
   it("reflects the signed-in user's row and follows changes", async () => {
-    await setInstruments(db, 'user_1', ['banjo', 'guitar'])
-    await setInstruments(db, 'user_2', ['accordion'])
+    await setInstruments(db, 'user_1', ['banjo', 'violin'])
+    await setInstruments(db, 'user_2', ['banjo'])
     const { result } = renderHook(() => useInstruments(), { wrapper: dataProviders({ db }) })
-    await waitFor(() => expect(played(result.current)).toEqual(['banjo', 'guitar']))
+    await waitFor(() => expect(played(result.current)).toEqual(['banjo', 'violin']))
     await setInstruments(db, 'user_1', [])
     await waitFor(() => expect(played(result.current)).toEqual([]))
   })

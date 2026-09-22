@@ -111,12 +111,12 @@ describe('toggleInstrumentSetting', () => {
     expect(row?.instruments).toEqual([])
   })
 
-  it('keeps both instruments when two toggles are issued without awaiting the first', async () => {
+  it('applies both toggles when two are issued without awaiting the first', async () => {
     const first = toggleInstrumentSetting(db, 'user_1', 'banjo', true)
-    const second = toggleInstrumentSetting(db, 'user_1', 'mandolin', true)
+    const second = toggleInstrumentSetting(db, 'user_1', 'violin', false)
     await Promise.all([first, second])
     const row = await db.user_settings.get(settingsId('user_1'))
-    expect(row?.instruments).toEqual(['violin', 'banjo', 'mandolin'])
+    expect(row?.instruments).toEqual(['banjo'])
   })
 
   it('keeps the audio quality when instruments change and sets it on its own', async () => {

@@ -17,13 +17,6 @@ class Instrument(StrEnum):
 
     VIOLIN = "violin"
     BANJO = "banjo"
-    GUITAR = "guitar"
-    MANDOLIN = "mandolin"
-    UKULELE = "ukulele"
-    BASS = "bass"
-    DULCIMER = "dulcimer"
-    ACCORDION = "accordion"
-    OTHER = "other"
 
 
 class SongStatus(StrEnum):

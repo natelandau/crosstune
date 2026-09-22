@@ -4,17 +4,7 @@
 export const AUDIO_QUALITIES = ['low', 'standard', 'high'] as const
 export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
 
-export const INSTRUMENTS = [
-  'violin',
-  'banjo',
-  'guitar',
-  'mandolin',
-  'ukulele',
-  'bass',
-  'dulcimer',
-  'accordion',
-  'other',
-] as const
+export const INSTRUMENTS = ['violin', 'banjo'] as const
 export type Instrument = (typeof INSTRUMENTS)[number]
 
 export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'other'] as const

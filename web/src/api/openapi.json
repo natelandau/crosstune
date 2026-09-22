@@ -71,14 +71,7 @@
         "description": "An instrument a player can say they play.",
         "enum": [
           "violin",
-          "banjo",
-          "guitar",
-          "mandolin",
-          "ukulele",
-          "bass",
-          "dulcimer",
-          "accordion",
-          "other"
+          "banjo"
         ],
         "title": "Instrument",
         "type": "string"

@@ -215,7 +215,7 @@ export interface components {
          * @description An instrument a player can say they play.
          * @enum {string}
          */
-        Instrument: "violin" | "banjo" | "guitar" | "mandolin" | "ukulele" | "bass" | "dulcimer" | "accordion" | "other";
+        Instrument: "violin" | "banjo";
         /**
          * ListChangeResult
          * @description The outcome of one change to a list.

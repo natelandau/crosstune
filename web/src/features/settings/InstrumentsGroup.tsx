@@ -9,6 +9,7 @@ import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { InstrumentRows } from './InstrumentRows'
+import { INSTRUMENTS_HELP } from './instruments'
 import { useInstruments } from './useInstruments'
 
 /**
@@ -37,7 +38,7 @@ export function InstrumentsGroup() {
     <>
       <Group
         header="Instruments"
-        footer="Tuning fields appear only for the instruments you play."
+        footer={INSTRUMENTS_HELP}
         // While the sheet is up it holds the checkboxes, so a refusal reports there instead.
         error={showing ? null : error}
       >

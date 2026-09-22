@@ -18,13 +18,6 @@ export const DEFAULT_INSTRUMENTS: ReadonlySet<Instrument> = new Set<Instrument>(
 export const INSTRUMENT_LABELS: Record<Instrument, string> = {
   violin: 'Violin',
   banjo: 'Banjo',
-  guitar: 'Guitar',
-  mandolin: 'Mandolin',
-  ukulele: 'Ukulele',
-  bass: 'Bass',
-  dulcimer: 'Dulcimer',
-  accordion: 'Accordion',
-  other: 'Other',
 }
 
 export const VIOLIN_TUNINGS = [

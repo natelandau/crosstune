@@ -21,6 +21,9 @@ export type TuningField = keyof typeof TUNING_FIELDS
 
 export const TUNING_FIELD_NAMES = Object.keys(TUNING_FIELDS) as TuningField[]
 
+/** The footer under the instruments setting, wherever it is asked. */
+export const INSTRUMENTS_HELP = 'Songs show a tuning field for each instrument chosen here.'
+
 export function instrumentsFrom(
   row: LocalUserSettings | null | undefined,
 ): ReadonlySet<Instrument> {
