@@ -1,6 +1,6 @@
 import { IonButton, IonInput, IonItem } from '@ionic/react'
 import { useRef, useState } from 'react'
-import { SONG_LIMITS } from '../../api/vocabulary'
+import { RECORDING_LIMITS } from '../../api/vocabulary'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
@@ -95,7 +95,7 @@ export function RenameRecordingSheet({
             <IonInput
               aria-label={RECORDING_NAME_LABEL}
               placeholder={RECORDING_NAME_PLACEHOLDER}
-              maxlength={SONG_LIMITS.title}
+              maxlength={RECORDING_LIMITS.label}
               value={name}
               enterkeyhint="done"
               onIonInput={(event) => {

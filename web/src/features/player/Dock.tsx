@@ -6,9 +6,10 @@ import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import { liveSong } from '../../db/songs'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
+import { OFFLINE } from '../../sync/labels'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { displayTitle } from '../links/display'
-import { DOWNLOAD_FAILED, fileStateLabel } from '../recording/format'
+import { DOWNLOAD_FAILED, DOWNLOADING, fileStateLabel } from '../recording/format'
 import { recordingTitle } from '../recordings/recordingRow'
 import { embedFor, type Embed } from './embed'
 import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
@@ -84,11 +85,11 @@ function RecordingBody({
   if (src)
     return <audio src={src} controls autoPlay aria-label={title} className="block h-14 w-full" />
   const label = !online
-    ? 'Offline'
+    ? OFFLINE
     : failed
       ? DOWNLOAD_FAILED
       : recording.state === 'ready'
-        ? 'Downloading'
+        ? DOWNLOADING
         : fileStateLabel(recording, file ?? undefined)
   return (
     <div className="flex h-14 items-center gap-2">

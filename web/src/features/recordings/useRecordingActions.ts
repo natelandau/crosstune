@@ -4,7 +4,7 @@ import { deleteRecording, retryUpload, updateRecording } from '../../commands/re
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETE, useConfirm } from '../../ui/Confirm'
 import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { deleteRecordingMessage } from './recordingRow'
@@ -56,7 +56,7 @@ export function useRecordingActions({
     const ok = await confirm({
       title: DELETE_RECORDING_TITLE,
       message: deleteRecordingMessage(view),
-      action: 'Delete',
+      action: DELETE,
     })
     if (!ok) return
     const id = view.recording.id

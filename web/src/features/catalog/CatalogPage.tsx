@@ -33,6 +33,7 @@ import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useBulkActions, type SelectionContext } from '../selection/useBulkActions'
 import { useSelection } from '../selection/useSelection'
 import { useInstruments } from '../settings/useInstruments'
+import { ARCHIVE, UNARCHIVE } from '../song/archiveLabels'
 import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
 import { CatalogFilters } from './CatalogFilters'
 import { CatalogFilterSheet } from './CatalogFilterSheet'
@@ -318,7 +319,7 @@ export function CatalogPage() {
                                 onPress: () => setForm({ kind: 'edit', entry }),
                               },
                               {
-                                label: archived ? 'Unarchive' : 'Archive',
+                                label: archived ? UNARCHIVE : ARCHIVE,
                                 icon: archived ? ArchiveRestore : Archive,
                                 tone: 'warning',
                                 onPress: () => run(() => setArchived(db, userSong.id, !archived)),

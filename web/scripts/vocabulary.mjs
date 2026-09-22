@@ -20,7 +20,8 @@ const ARRAY_NAMES = {
 }
 
 // Exported limits object -> the row schemas whose string limits it gathers. A song and
-// its user row are one form to the client, so their limits are one object.
+// its user row are one form to the client, so their limits are one object. A row missing
+// from the document fails the run, so a renamed schema cannot empty a limits object.
 const LIMIT_OBJECTS = {
   SONG_LIMITS: ['SongRow', 'UserSongRow'],
   LIST_LIMITS: ['ListRow'],
@@ -60,7 +61,9 @@ export function render(doc) {
   for (const [objectName, rows] of Object.entries(LIMIT_OBJECTS)) {
     lines.push(`export const ${objectName} = {`)
     for (const row of rows) {
-      const properties = schemas[row]?.properties ?? {}
+      const properties = schemas[row]?.properties
+      if (!properties)
+        throw new Error(`No row schema ${row} for ${objectName}; update LIMIT_OBJECTS`)
       for (const [field, property] of Object.entries(properties)) {
         const limit = maxLength(property)
         if (limit !== undefined) lines.push(`  ${field}: ${limit},`)

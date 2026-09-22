@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useConfirm } from '../../ui/Confirm'
 import { InlineError } from '../../ui/InlineError'
 import { useToast } from '../../ui/Toast'
-import { formatDuration } from './format'
+import { formatDuration, RECORDING } from './format'
 import { LiveWaveform } from './LiveWaveform'
 import { type CapturePhase, useCapture } from './useCapture'
 import type { RecordTarget } from './useRecord'
@@ -23,7 +23,7 @@ export const STARTING_MICROPHONE = 'Starting the microphone'
 
 const STATUS: Record<CapturePhase, string> = {
   starting: STARTING_MICROPHONE,
-  recording: 'Recording',
+  recording: RECORDING,
   interrupted: 'Interrupted',
   saving: 'Saving',
   saved: 'Saved',

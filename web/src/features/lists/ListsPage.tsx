@@ -13,7 +13,7 @@ import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { usePointer } from '../../platform/pointer'
 import { useSyncEngine } from '../../sync/SyncProvider'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETE, useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
 import { Screen } from '../../ui/Screen'
@@ -43,7 +43,7 @@ export function ListsPage() {
     const ok = await confirm({
       title: `Delete "${list.name}"?`,
       message: DELETE_LIST_MESSAGE,
-      action: 'Delete',
+      action: DELETE,
     })
     if (ok) run(() => deleteList(db, list.id))
   }

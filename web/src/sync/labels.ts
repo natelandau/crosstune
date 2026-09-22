@@ -1,10 +1,12 @@
 import type { SyncStatus, TransferStatus } from './types'
 
+export const OFFLINE = 'Offline'
+
 /** What each sync state is called wherever it is shown. */
 export const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
   idle: 'Synced',
   syncing: 'Syncing',
-  offline: 'Offline',
+  offline: OFFLINE,
   unauthorized: 'Sign in again',
   error: 'Sync failed',
 }
@@ -13,6 +15,6 @@ export const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
 export const TRANSFER_STATUS_LABELS: Record<TransferStatus, string> = {
   idle: 'Up to date',
   transferring: 'Transferring',
-  offline: 'Offline',
+  offline: OFFLINE,
   error: 'Transfer failed',
 }

@@ -1,7 +1,9 @@
 import type { LocalFileState } from '../../db/recordings'
 
 export const DOWNLOAD_FAILED = "Couldn't download"
+export const DOWNLOADING = 'Downloading'
 export const PROCESS_FAILED = "Couldn't process"
+export const RECORDING = 'Recording'
 export const STORAGE_FULL = 'Storage full'
 export const UPLOAD_FAILED = 'Upload failed'
 export const WAITING_TO_UPLOAD = 'Waiting to upload'
@@ -29,12 +31,12 @@ export function failedTriesLabel(count: number): string {
 }
 
 const LOCAL_LABELS: Partial<Record<LocalFileState, string>> = {
-  capturing: 'Recording',
+  capturing: RECORDING,
   captured: WAITING_TO_UPLOAD,
   uploading: 'Uploading',
   blocked_quota: STORAGE_FULL,
   failed_upload: UPLOAD_FAILED,
-  downloading: 'Downloading',
+  downloading: DOWNLOADING,
 }
 
 const SERVER_LABELS: Record<string, string> = {

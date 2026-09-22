@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom'
 import { addToList, deleteList, removeFromList } from '../../commands/lists'
 import { messageFor } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { DELETING, useConfirm } from '../../ui/Confirm'
+import { DELETE, DELETING, useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
@@ -125,7 +125,7 @@ export function ListPage() {
     const ok = await confirm({
       title: `Delete "${list.name}"?`,
       message: DELETE_LIST_MESSAGE,
-      action: 'Delete',
+      action: DELETE,
     })
     if (!ok) {
       deleting.current = false

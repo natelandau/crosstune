@@ -4,6 +4,7 @@ import { CloudDownload } from 'lucide-react'
 import { useState } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
+import { OFFLINE } from '../../sync/labels'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { InlineError } from '../../ui/InlineError'
 import { Row, type RowAction } from '../../ui/Row'
@@ -61,7 +62,7 @@ export function RecordingItem({
   // meta parts (tries, storage) never apply here; Offline takes the status word's place, the
   // way every other state does, rather than riding along as a suffix on the control's name.
   const metaParts = offlineDownload
-    ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), 'Offline'].filter(
+    ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), OFFLINE].filter(
         (part): part is string => Boolean(part),
       )
     : recordingMeta(view, storage ?? null)

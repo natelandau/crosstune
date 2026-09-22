@@ -8,7 +8,7 @@ import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { type LocalRecordingLink } from '../../db/types'
 import { Capsule } from '../../ui/Capsule'
-import { DELETING, useConfirm } from '../../ui/Confirm'
+import { DELETE, DELETING, useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
@@ -25,6 +25,7 @@ import { LyricsModal } from '../lyrics/LyricsModal'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
 import { visibleTunings } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
+import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { DELETE_SONG_TITLE, deleteSongMessage } from './deleteSongMessage'
 import { SongFormSheet, type SongFormTarget } from './SongFormSheet'
 import { SongMedia } from './SongMedia'
@@ -77,7 +78,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
     const ok = await confirm({
       title: DELETE_SONG_TITLE,
       message: deleteSongMessage(entry.song.title, recordings ?? []),
-      action: 'Delete',
+      action: DELETE,
     })
     if (!ok) {
       deleting.current = false
@@ -115,7 +116,7 @@ export function SongScreen({ parent }: { parent: (params: Params) => string }) {
     openMenu(event, MORE_ACTIONS, [
       { label: ADD_TO_LIST, onPress: () => setPicking(true) },
       {
-        label: archived ? 'Unarchive' : 'Archive',
+        label: archived ? UNARCHIVE : ARCHIVE,
         tone: 'warning',
         onPress: () => run(() => setArchived(db, entry.userSong.id, !archived)),
       },

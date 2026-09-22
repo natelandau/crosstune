@@ -12,12 +12,13 @@ import {
 import { activeRecordingsForSong } from '../../commands/recordings'
 import { STATUS_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
-import { useConfirm } from '../../ui/Confirm'
+import { DELETE, useConfirm } from '../../ui/Confirm'
 import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useToast } from '../../ui/Toast'
 import { useAction, type Action } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { ADD_TO_LIST, ListPicker, type ListAddition } from '../lists/ListPicker'
+import { ARCHIVE, UNARCHIVE } from '../song/archiveLabels'
 import { DELETE_SONG_TITLE, deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
 import { BulkEditSheet } from './BulkEditSheet'
 import { countSongs } from './copy'
@@ -134,7 +135,7 @@ export function useBulkActions({
   const archiveItem = (archive: boolean): MenuItem | null => {
     const targets = entries.filter((entry) => (entry.userSong.archived_at === null) === archive)
     if (targets.length === 0) return null
-    const verb = archive ? 'Archive' : 'Unarchive'
+    const verb = archive ? ARCHIVE : UNARCHIVE
     const count = countSongs(targets.length)
     return {
       label: `${verb} ${count}`,
@@ -170,7 +171,7 @@ export function useBulkActions({
       message: only
         ? deleteSongMessage(only.song.title, views)
         : deleteSongsMessage(countSongs(entries.length), views),
-      action: 'Delete',
+      action: DELETE,
     })
     if (!ok) return
     // No toast: this is the one bulk action with nothing to undo.
