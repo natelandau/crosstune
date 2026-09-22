@@ -142,7 +142,7 @@ describe('useSelectionToolbar on md', () => {
     await control(MORE_ACTIONS).click()
     await expect.element(await screen.findByText(SELECT_ALL)).toBeVisible()
     await screen.getByText(SELECT_ALL).click()
-    expect(toggleAll).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(toggleAll).toHaveBeenCalledOnce())
     await expect.element(page.getByText('3 selected').first()).toBeVisible()
   })
 
@@ -163,7 +163,7 @@ describe('useSelectionToolbar on md', () => {
     await expect.element(await screen.findByText(SELECT_ALL)).toBeVisible()
     await expect.element(await screen.findByText('Archive 2 songs')).toBeVisible()
     await screen.getByText(SELECT_ALL).click()
-    expect(toggleAll).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(toggleAll).toHaveBeenCalledOnce())
     await vi.waitFor(() => expect(screen.queryByText(SELECT_ALL)).not.toBeInTheDocument(), {
       timeout: 3000,
     })

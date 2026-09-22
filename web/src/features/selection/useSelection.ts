@@ -88,17 +88,22 @@ export function useSelection(visibleIds: readonly string[], onEnter?: () => void
     // since on a screen whose rows own the mode the action that ends it can take them with it.
     let frames = 0
     const land = () => {
+      if (frames++ > MENU_FRAMES) return
       // A menu the action was chosen from holds the keyboard in its trap and leaves the rest of
       // the screen inert until it has finished dismissing, so a move made before then does not
       // land; Ionic then hands focus back to the control it saved as the menu opened, which an
       // action that ends the mode has usually taken away, leaving focus on the body.
       if (overlayOpen()) {
-        if (frames++ > MENU_FRAMES) return
         requestAnimationFrame(land)
         return
       }
       if (control?.isConnected) focusTargetIn(control).focus({ preventScroll: true })
       else visibleMain()?.focus({ preventScroll: true })
+      // An Ionic control just put back on the screen has no shadow root yet, so its inner
+      // button is not there to take focus until a frame later.
+      if (document.activeElement === null || document.activeElement === document.body) {
+        requestAnimationFrame(land)
+      }
     }
     land()
   }, [active, visibleIds])
