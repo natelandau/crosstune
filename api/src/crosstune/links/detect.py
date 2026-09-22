@@ -125,7 +125,12 @@ def normalize_url(url: str, provider: str, provider_ref: str | None) -> str:
         return f"https://tidal.com/{kind}/{item_id}"
     if provider == "internet_archive" and provider_ref:
         return f"https://archive.org/details/{provider_ref}"
-    parts = urlparse(url)
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        # The parser rejects some strings outright, an unclosed IPv6 bracket among them.
+        # Such a link is stored as pasted rather than refused.
+        return url
     kept = [
         (k, v)
         for k, v in parse_qs(parts.query, keep_blank_values=True).items()

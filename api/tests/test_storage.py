@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from botocore.stub import Stubber
 
-from crosstune.storage.r2 import R2Store
+from crosstune.storage.r2 import ObjectDeleteError, R2Store
 from crosstune.storage.store import (
     ObjectStore,
     original_key,
@@ -124,3 +124,19 @@ async def test_r2_copy_never_names_a_storage_class() -> None:
     )
     with stub:
         await r2.copy("u/r/upload", "u/r/original.wav")
+
+
+async def test_r2_delete_raises_when_the_bucket_reports_a_key_it_kept() -> None:
+    r2 = store()
+    stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
+    # A batch delete answers 200 even when some keys stay; only the body says so.
+    stub.add_response(
+        "delete_objects",
+        {"Errors": [{"Key": "u/r/upload", "Code": "AccessDenied", "Message": "nope"}]},
+        {
+            "Bucket": "crosstune-test",
+            "Delete": {"Objects": [{"Key": "u/r/upload"}, {"Key": "u/r/x"}], "Quiet": True},
+        },
+    )
+    with stub, pytest.raises(ObjectDeleteError, match="1 of 2 objects were not deleted"):
+        await r2.delete("u/r/upload", "u/r/x")

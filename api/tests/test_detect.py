@@ -110,3 +110,10 @@ def test_normalize_collapses_tidal_and_archive_urls(
     url: str, provider: str, ref: str, expected: str
 ) -> None:
     assert normalize_url(url, provider, ref) == expected
+
+
+@pytest.mark.parametrize("url", ["http://[abc", "https://a]b.com/x"])
+def test_a_url_the_parser_rejects_is_other_and_kept_as_pasted(url: str) -> None:
+    # urlparse raises on an unbalanced IPv6 bracket; neither function may let that escape.
+    assert detect_provider(url) == ("other", None)
+    assert normalize_url(url, "other", None) == url

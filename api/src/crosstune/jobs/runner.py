@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import delete, exists, or_, select
 
+from crosstune.db.locks import lock_user
 from crosstune.jobs.media import MediaError
 from crosstune.jobs.transcode import transcode
 from crosstune.models import Job, Recording, UploadSlot, User
@@ -232,6 +233,10 @@ class JobRunner:
                 # The purge sweep owns a deleted recording's files; nothing to transcode.
                 await session.delete(stored_job)
                 return None
+            # Every server_seq the runner draws is taken under the user's lock, like a
+            # push: a seq drawn outside it can commit after a higher one, and a pull
+            # cursor that has passed it never returns.
+            await lock_user(session, recording.user_id)
             recording.state = "processing"
             bump_server_seq(recording)
         return recording, stored_job
@@ -244,6 +249,7 @@ class JobRunner:
             "transcode failed",
             extra={"recording": str(recording.id), "attempt": job.attempts, "error": raw},
         )
+        await lock_user(session, recording.user_id)
         if job.attempts >= MAX_ATTEMPTS:
             recording.state = "failed"
             # Clients read this column, so it carries a mapped phrase, never ffmpeg output.
@@ -263,24 +269,24 @@ class JobRunner:
         Returns:
             int: How many recordings were swept.
         """
-        async with self._sessionmaker() as session, session.begin():
-            has_slot = exists().where(UploadSlot.recording_id == Recording.id)
-            stmt = (
-                select(Recording)
-                .where(
-                    Recording.deleted_at.is_not(None),
-                    or_(
-                        Recording.playback_key.is_not(None),
-                        Recording.original_key.is_not(None),
-                        Recording.state != "pending_upload",
-                        # A slot means a PUT may have landed that no /uploaded call will ever claim.
-                        has_slot,
-                    ),
-                )
-                .limit(PURGE_BATCH)
-                .with_for_update(skip_locked=True, of=Recording)
+        has_slot = exists().where(UploadSlot.recording_id == Recording.id)
+        stmt = (
+            select(Recording)
+            .where(
+                Recording.deleted_at.is_not(None),
+                or_(
+                    Recording.playback_key.is_not(None),
+                    Recording.original_key.is_not(None),
+                    Recording.state != "pending_upload",
+                    # A slot means a PUT may have landed that no /uploaded call will ever claim.
+                    has_slot,
+                ),
             )
-            rows = list(await session.scalars(stmt))
+            .limit(PURGE_BATCH)
+        )
+        async with self._sessionmaker() as session:
+            async with session.begin():
+                rows = list(await session.scalars(stmt))
             if not rows:
                 return 0
             # Delete every object before touching any row, so a commit that fails
@@ -294,16 +300,22 @@ class JobRunner:
                     for recording in rows
                 )
             )
-            await session.execute(
-                delete(UploadSlot).where(UploadSlot.recording_id.in_([r.id for r in rows]))
-            )
-            for recording in rows:
-                recording.playback_key = None
-                recording.original_key = None
-                recording.playback_bytes = None
-                recording.original_bytes = None
-                recording.error = None
-                # A row that a client un-deletes must upload again; it has no file any more.
-                recording.state = "pending_upload"
-                bump_server_seq(recording)
+            async with session.begin():
+                # The row updates draw a server_seq each, so they run under every
+                # affected user's lock, taken in one fixed order so two sweeps cannot
+                # wait on each other. Taken only now, so no push waits on the bucket.
+                for user_id in sorted({recording.user_id for recording in rows}):
+                    await lock_user(session, user_id)
+                await session.execute(
+                    delete(UploadSlot).where(UploadSlot.recording_id.in_([r.id for r in rows]))
+                )
+                for recording in rows:
+                    recording.playback_key = None
+                    recording.original_key = None
+                    recording.playback_bytes = None
+                    recording.original_bytes = None
+                    recording.error = None
+                    # A row that a client un-deletes must upload again; it has no file any more.
+                    recording.state = "pending_upload"
+                    bump_server_seq(recording)
             return len(rows)

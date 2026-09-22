@@ -115,6 +115,36 @@ async def _parents_owned(
     return None
 
 
+async def _enrich_recording_link(
+    data: dict[str, Any], enrich_link: Callable[[str], Awaitable[Resolved]] | None
+) -> None:
+    """Bring a pushed link to the shape the online paste path stores, in place.
+
+    Args:
+        data: The validated link fields; url, provider, provider_ref, title, and
+            artwork_url may be rewritten.
+        enrich_link: The resolver for an untitled link, or None when nothing was fetched.
+    """
+    if enrich_link is not None and data.get("title") is None:
+        resolved = await enrich_link(data["url"])
+        # Store what the online paste path would have stored: the canonical url and the
+        # provider the resolver identified, not the raw string the client happened to hold.
+        data["url"] = resolved.url
+        data["provider"] = resolved.provider
+        data["provider_ref"] = resolved.provider_ref or data.get("provider_ref")
+        data["title"] = resolved.title
+        data["artwork_url"] = data.get("artwork_url") or resolved.artwork_url
+
+    if data["provider"] == "other":
+        # A client that predates a provider saves its links as other, and a titled link is
+        # never resolved, so detect it here, without a fetch.
+        provider, ref = detect_provider(data["url"])
+        if provider != "other":
+            data["url"] = normalize_url(data["url"], provider, ref)
+            data["provider"] = provider
+            data["provider_ref"] = ref
+
+
 async def _upsert(
     session: AsyncSession,
     spec: TableSpec,
@@ -133,24 +163,8 @@ async def _upsert(
     if reason:
         return _invalid(change, reason)
 
-    if spec.name == "recording_links" and enrich_link is not None and data.get("title") is None:
-        resolved = await enrich_link(data["url"])
-        # Store what the online paste path would have stored: the canonical url and the
-        # provider the resolver identified, not the raw string the client happened to hold.
-        data["url"] = resolved.url
-        data["provider"] = resolved.provider
-        data["provider_ref"] = resolved.provider_ref or data.get("provider_ref")
-        data["title"] = resolved.title
-        data["artwork_url"] = data.get("artwork_url") or resolved.artwork_url
-
-    if spec.name == "recording_links" and data["provider"] == "other":
-        # A client that predates a provider saves its links as other, and a titled link is
-        # never resolved, so detect it here, without a fetch.
-        provider, ref = detect_provider(data["url"])
-        if provider != "other":
-            data["url"] = normalize_url(data["url"], provider, ref)
-            data["provider"] = provider
-            data["provider_ref"] = ref
+    if spec.name == "recording_links":
+        await _enrich_recording_link(data, enrich_link)
 
     values = {**data, "id": change.id, "updated_at": change.updated_at, "deleted_at": None}
     if spec.owner_column:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import TYPE_CHECKING
 
@@ -11,7 +12,32 @@ import jwt
 if TYPE_CHECKING:
     import httpx2
 
+log = logging.getLogger(__name__)
+
 REFRESH_COOLDOWN_SECONDS = 60
+
+
+def _usable_keys(entries: list[object]) -> dict[str, jwt.PyJWK]:
+    """Build the keys of a JWKS by kid, skipping any entry the library cannot read.
+
+    One unreadable entry must not empty the cache: every token would then be refused
+    until the issuer changed its document.
+
+    Args:
+        entries: The `keys` array of a JWKS document.
+
+    Returns:
+        dict[str, jwt.PyJWK]: The readable keys, by kid.
+    """
+    keys: dict[str, jwt.PyJWK] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or not entry.get("kid"):
+            continue
+        try:
+            keys[entry["kid"]] = jwt.PyJWK(entry)
+        except jwt.PyJWTError:
+            log.warning("skipping an unreadable JWKS entry", extra={"kid": entry["kid"]})
+    return keys
 
 
 class JwksCache:
@@ -43,8 +69,7 @@ class JwksCache:
             try:
                 response = await self._client.get(self._url, timeout=5.0)
                 response.raise_for_status()
-                keys = response.json().get("keys", [])
-                self._keys = {k["kid"]: jwt.PyJWK(k) for k in keys if "kid" in k}
+                self._keys = _usable_keys(response.json().get("keys", []))
             finally:
                 # Recorded even for a failed attempt, so a broken endpoint is not hammered.
                 self._last_fetch = time.monotonic()

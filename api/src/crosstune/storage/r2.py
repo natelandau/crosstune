@@ -17,6 +17,10 @@ if TYPE_CHECKING:
     from types_boto3_s3 import S3Client
 
 
+class ObjectDeleteError(Exception):
+    """The bucket accepted a batch delete but reported some of its keys as not removed."""
+
+
 class R2Store:
     """An ObjectStore backed by one R2 bucket."""
 
@@ -97,11 +101,7 @@ class R2Store:
         """Remove objects. Missing keys are not an error."""
         if not keys:
             return
-        await asyncio.to_thread(
-            self._client.delete_objects,
-            Bucket=self._bucket,
-            Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},
-        )
+        await asyncio.to_thread(self._delete_keys, list(keys))
 
     async def delete_prefix(self, prefix: str) -> None:
         """Remove every object under a prefix."""
@@ -111,12 +111,25 @@ class R2Store:
             for page in paginator.paginate(Bucket=self._bucket, Prefix=prefix):
                 keys = [obj["Key"] for obj in page.get("Contents", [])]
                 if keys:
-                    self._client.delete_objects(
-                        Bucket=self._bucket,
-                        Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},
-                    )
+                    self._delete_keys(keys)
 
         await asyncio.to_thread(run)
+
+    def _delete_keys(self, keys: list[str]) -> None:
+        # A batch delete answers 200 and lists the keys it could not remove; only an
+        # error makes the caller retry, so those keys must not pass silently.
+        response = self._client.delete_objects(
+            Bucket=self._bucket,
+            Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},
+        )
+        errors = response.get("Errors", [])
+        if errors:
+            first = errors[0]
+            msg = (
+                f"{len(errors)} of {len(keys)} objects were not deleted; "
+                f"{first.get('Key')}: {first.get('Code')} {first.get('Message')}"
+            )
+            raise ObjectDeleteError(msg)
 
     async def list_prefixes(self) -> list[str]:
         """The top-level prefixes of the bucket, each ending in a slash."""
