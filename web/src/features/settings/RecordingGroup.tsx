@@ -1,10 +1,10 @@
 import { IonItem, IonLabel, IonToggle } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
+import { AUDIO_QUALITIES, type AudioQuality } from '../../api/vocabulary'
 import { useAuthSession } from '../../auth/AuthContext'
 import { clearDownloadedBlobs, localAudioBytes } from '../../commands/recordings'
 import { setAudioQuality, settingsId } from '../../commands/settings'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { getKeepOffline, setKeepOffline } from '../../db/meta'
 import { storedAudioQuality } from '../../db/recordings'
@@ -12,10 +12,10 @@ import { persistStorage } from '../../platform/storage'
 import { useSyncEngine } from '../../sync/SyncProvider'
 import { ChoiceRow } from '../../ui/ChoiceRow'
 import { Group } from '../../ui/Group'
+import { useAction } from '../../ui/useAction'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
 import { QUALITY_LABELS } from './audioQuality'
-import { AUDIO_QUALITIES, type AudioQuality } from '../../api/vocabulary'
 
 /**
  * Capture quality and what audio this device keeps. One control per group, each with its own

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import type { Instrument } from '../../api/vocabulary'
 import { addToList, createList } from '../../commands/lists'
 import type * as ListsModule from '../../commands/lists'
 import { createSong, setArchived } from '../../commands/songs'
@@ -10,7 +11,6 @@ import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
 import { ListSongs } from './ListSongs'
 import { useListView } from './useLists'
-import type { Instrument } from '../../api/vocabulary'
 
 vi.mock('../../commands/lists', { spy: true })
 

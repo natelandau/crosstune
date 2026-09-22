@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { instrumentsFrom, visibleTunings } from './instruments'
-import { DEFAULT_INSTRUMENTS } from '../../constants'
 import type { Instrument } from '../../api/vocabulary'
+import { DEFAULT_INSTRUMENTS } from '../../constants'
+import { instrumentsFrom, visibleTunings } from './instruments'
 
 const played = (...instruments: Instrument[]) => new Set<Instrument>(instruments)
 

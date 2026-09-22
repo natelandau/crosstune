@@ -1,12 +1,28 @@
 import { IonButton, IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  MODES,
+  SONG_LIMITS,
+  STATUSES,
+  TIME_SIGNATURES,
+  type Instrument,
+} from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
+import {
+  FEELS,
+  GENRES,
+  PART_STRUCTURES,
+  QUICK_KEYS,
+  STATUS_LABELS,
+  TUNING_SUGGESTIONS,
+} from '../../constants'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
+import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
 import { SuggestSelect } from '../song/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
@@ -21,22 +37,6 @@ import {
   type TouchedValue,
 } from './batchEdit'
 import { countSongs } from './copy'
-import {
-  FEELS,
-  GENRES,
-  PART_STRUCTURES,
-  QUICK_KEYS,
-  STATUS_LABELS,
-  TUNING_SUGGESTIONS,
-} from '../../constants'
-import {
-  MODES,
-  SONG_LIMITS,
-  STATUSES,
-  TIME_SIGNATURES,
-  type Instrument,
-} from '../../api/vocabulary'
-import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
   key: { options: QUICK_KEYS, other: true },

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { KeyChooser } from './KeyChooser'
-import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 
 function Host({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)

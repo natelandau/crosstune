@@ -1,11 +1,11 @@
 import { IonButton, IonInput, IonItem } from '@ionic/react'
 import { useRef, useState } from 'react'
+import { LIST_LIMITS } from '../../api/vocabulary'
 import { createList, renameList } from '../../commands/lists'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { LIST_LIMITS } from '../../api/vocabulary'
+import { useAction } from '../../ui/useAction'
 
 export type ListNameTarget = { kind: 'new' } | { kind: 'rename'; listId: string; name: string }
 

@@ -1,18 +1,19 @@
 import { IonButton, IonInput, IonItem, IonTextarea, IonToggle } from '@ionic/react'
 import { useEffect, useRef, useState } from 'react'
+import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createSong, updateSongEntry } from '../../commands/songs'
-import { useAction } from '../../ui/useAction'
+import { TUNING_SUGGESTIONS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
+import { FieldRow } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
+import { useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { LyricsSheet } from '../lyrics/LyricsSheet'
 import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
-import { FieldRow } from '../../ui/FieldRow'
-import { KeyChooser } from './KeyChooser'
-import { StatusChooser } from './StatusChooser'
 import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
+import { KeyChooser } from './KeyChooser'
 import {
   asMode,
   asTimeSignature,
@@ -21,9 +22,8 @@ import {
   valuesFromRows,
   type SongFormValues,
 } from './songFormValues'
+import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
-import { TUNING_SUGGESTIONS } from '../../constants'
-import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 
 export type SongFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
 

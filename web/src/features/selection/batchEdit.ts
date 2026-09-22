@@ -1,8 +1,8 @@
+import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
+import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
 import { isSongStatus } from '../catalog/status'
-import { STATUS_LABELS } from '../../constants'
-import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import { TUNING_FIELDS } from '../settings/instruments'
 
 export const EDIT_FIELDS = [

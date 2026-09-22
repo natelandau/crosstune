@@ -9,6 +9,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type Ref,
 } from 'react'
+import type { Instrument } from '../../api/vocabulary'
 import { activeItems, moveItem } from '../../commands/lists'
 import { useDb } from '../../db/DbProvider'
 import { useMenu, type MenuItem } from '../../ui/Menu'
@@ -19,7 +20,6 @@ import { useSelection } from '../selection/useSelection'
 import type { SongSelection } from '../selection/useSongSelection'
 import { placeBeside } from './order'
 import type { ListItemView } from './useLists'
-import type { Instrument } from '../../api/vocabulary'
 
 interface Move {
   itemId: string

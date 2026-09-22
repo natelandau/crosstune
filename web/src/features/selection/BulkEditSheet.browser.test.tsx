@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import type { Instrument, SongStatus } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { createSong, type SongInput, type UserSongInput } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
@@ -8,7 +9,6 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
 import { BulkEditSheet } from './BulkEditSheet'
-import type { Instrument, SongStatus } from '../../api/vocabulary'
 
 const violin = new Set<Instrument>(['violin'])
 

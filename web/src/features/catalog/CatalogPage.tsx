@@ -16,8 +16,8 @@ import {
   SquarePen,
 } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type { Instrument } from '../../api/vocabulary'
 import { setArchived } from '../../commands/songs'
-import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { usePointer } from '../../platform/pointer'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -26,6 +26,7 @@ import { InlineError } from '../../ui/InlineError'
 import { useMenu } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
+import { useAction } from '../../ui/useAction'
 import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
 import { SelectionFooter } from '../selection/SelectionFooter'
 import { useSelectionToolbar } from '../selection/SelectionToolbar'
@@ -33,8 +34,8 @@ import { useBulkActions, type SelectionContext } from '../selection/useBulkActio
 import { useSelection } from '../selection/useSelection'
 import { useInstruments } from '../settings/useInstruments'
 import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
-import { CatalogFilterSheet } from './CatalogFilterSheet'
 import { CatalogFilters } from './CatalogFilters'
+import { CatalogFilterSheet } from './CatalogFilterSheet'
 import {
   facetValues,
   filterCatalog,
@@ -47,13 +48,12 @@ import {
   type CatalogEntry,
   type CatalogFilters as Filters,
 } from './filters'
-import { HiddenMatchNote, SearchOfferRow } from './SearchOffer'
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
+import { HiddenMatchNote, SearchOfferRow } from './SearchOffer'
 import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSession'
 import { SongItem } from './SongItem'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
-import type { Instrument } from '../../api/vocabulary'
 
 const NO_ENTRIES: CatalogEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()

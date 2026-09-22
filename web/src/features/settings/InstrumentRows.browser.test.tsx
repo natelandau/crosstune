@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import type { Instrument } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { InstrumentRows } from './InstrumentRows'
-import type { Instrument } from '../../api/vocabulary'
 
 const LABELS = [
   'Violin',

@@ -2,6 +2,7 @@ import { IonButton, IonInput, IonList, IonModal } from '@ionic/react'
 import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import type { Instrument } from '../../api/vocabulary'
 import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
@@ -11,7 +12,6 @@ import { Screen } from '../../ui/Screen'
 import { SongItem } from '../catalog/SongItem'
 import { selectionCheckboxId } from './ids'
 import { useSelection } from './useSelection'
-import type { Instrument } from '../../api/vocabulary'
 
 const ENTRIES = [
   { song: songRow('s1', 'Angeline the Baker'), userSong: userSongRow('u1', 's1') },

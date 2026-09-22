@@ -1,15 +1,15 @@
 import { IonButton, IonItem, IonLabel } from '@ionic/react'
 import { useState } from 'react'
+import { INSTRUMENTS } from '../../api/vocabulary'
 import { useAuthSession } from '../../auth/AuthContext'
 import { toggleInstrumentSetting } from '../../commands/settings'
+import { INSTRUMENT_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { InstrumentRows } from './InstrumentRows'
 import { useInstruments } from './useInstruments'
-import { INSTRUMENT_LABELS } from '../../constants'
-import { INSTRUMENTS } from '../../api/vocabulary'
 
 /**
  * The instruments a musician plays, which decide the tuning fields a song shows. The set is

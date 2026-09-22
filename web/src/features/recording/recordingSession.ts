@@ -1,10 +1,10 @@
 import { appendChunk, beginCapture, cancelCapture, finishCapture } from '../../commands/recordings'
 import { settingsId } from '../../commands/settings'
+import { AUDIO_BITRATES } from '../../constants'
 import { getStorage } from '../../db/meta'
 import { CHUNK_MS, pickMimeType, storedAudioQuality } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { createCapture, type Capture, type RecorderLike, type TrackLike } from './capture'
-import { AUDIO_BITRATES } from '../../constants'
 
 export type RecordingPhase =
   'starting' | 'recording' | 'interrupted' | 'saving' | 'saved' | 'denied' | 'failed'

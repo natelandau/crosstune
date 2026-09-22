@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createSong } from '../../commands/songs'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
 import { SongFormSheet, type SongFormTarget } from './SongFormSheet'
-import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 
 vi.mock('../../commands/songs', { spy: true })
 

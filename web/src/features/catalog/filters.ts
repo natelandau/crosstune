@@ -1,6 +1,6 @@
-import { countSongs } from '../selection/copy'
-import type { LocalSong, LocalUserSong } from '../../db/types'
 import { STATUSES, type Instrument, type SongStatus } from '../../api/vocabulary'
+import type { LocalSong, LocalUserSong } from '../../db/types'
+import { countSongs } from '../selection/copy'
 import { TUNING_FIELDS } from '../settings/instruments'
 
 export const FACETS = ['key', 'mode', 'violin_tuning', 'banjo_tuning', 'genre'] as const
