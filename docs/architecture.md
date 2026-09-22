@@ -53,7 +53,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | Question                 | Answer                                                                                                                                                     |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                       |
-| What to pull next        | `server_seq`, one Postgres sequence. A per-user advisory lock serializes pushes so numbers commit in order and a cursor never skips a row.                 |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row. |
 | Who owns a row           | The token.                                                                                                                                                 |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                        |
 | Which tables sync        | User settings, songs, user-song, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.           |
