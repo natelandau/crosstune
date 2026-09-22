@@ -98,7 +98,7 @@ tune, and violin, never fiddle. Tuning values keep their traditional names.
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | Song           | The catalog entity, with or without words. Players call an instrumental piece a tune.                          |
 | Key            | The tonal center, such as D or A. Different players use different keys for one tune.                           |
-| Mode           | The scale flavor: major, mixolydian, dorian, minor. Players say "modal" for any non-major mode.                |
+| Mode           | The scale flavor: major, minor, mixolydian, dorian, or modal, a tune between minor and mixolydian.             |
 | Tuning         | The string tuning: standard, cross-tuning (AEAE) on violin, double C on banjo. The product name comes from it. |
 | Crooked        | A tune with an irregular number of beats or measures in a part.                                                |
 | Part structure | The order and repeats of a tune's sections: AABB, AABBCC.                                                      |
