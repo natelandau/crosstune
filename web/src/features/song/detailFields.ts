@@ -1,11 +1,5 @@
-import {
-  FEELS,
-  GENRES,
-  MODES,
-  PART_STRUCTURES,
-  SONG_LIMITS,
-  TIME_SIGNATURES,
-} from '../../constants'
+import { FEELS, GENRES, PART_STRUCTURES } from '../../constants'
+import { MODES, SONG_LIMITS, TIME_SIGNATURES } from '../../api/vocabulary'
 
 export type DetailField =
   | {

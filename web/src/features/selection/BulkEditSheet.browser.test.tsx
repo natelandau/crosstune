@@ -8,7 +8,7 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
 import { BulkEditSheet } from './BulkEditSheet'
-import type { Instrument, SongStatus } from '../../constants'
+import type { Instrument, SongStatus } from '../../api/vocabulary'
 
 const violin = new Set<Instrument>(['violin'])
 

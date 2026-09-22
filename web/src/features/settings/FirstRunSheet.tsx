@@ -11,7 +11,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useRecord } from '../recording/useRecord'
 import { InstrumentRows } from './InstrumentRows'
 import { useSettingsRow } from './useSettingsRow'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 // The sync status can announce a clean run a beat before the live query delivers the row that
 // run pulled, so the question waits this long to be sure the row is really absent.

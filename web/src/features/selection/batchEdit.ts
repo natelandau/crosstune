@@ -1,13 +1,9 @@
 import type { BulkPatch } from '../../commands/bulk'
 import type { CatalogEntry } from '../catalog/filters'
 import { isSongStatus } from '../catalog/status'
-import {
-  MODES,
-  STATUS_LABELS,
-  TIME_SIGNATURES,
-  TUNING_FIELDS,
-  type Instrument,
-} from '../../constants'
+import { STATUS_LABELS } from '../../constants'
+import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
+import { TUNING_FIELDS } from '../settings/instruments'
 
 export const EDIT_FIELDS = [
   'status',

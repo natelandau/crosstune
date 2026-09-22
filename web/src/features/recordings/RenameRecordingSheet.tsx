@@ -6,7 +6,7 @@ import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import type { RecordingView } from './useRecordings'
-import { SONG_LIMITS } from '../../constants'
+import { SONG_LIMITS } from '../../api/vocabulary'
 
 /** One box for a recording's name. Saving a blank name clears it. */
 export function RenameRecordingSheet({

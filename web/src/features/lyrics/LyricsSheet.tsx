@@ -2,7 +2,7 @@ import { IonButton, IonItem, IonTextarea } from '@ionic/react'
 import { useState } from 'react'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { SONG_LIMITS } from '../../constants'
+import { SONG_LIMITS } from '../../api/vocabulary'
 
 /**
  * The whole lyrics body, at the height a body needs. Done hands the text to whoever opened the

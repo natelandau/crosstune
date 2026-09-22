@@ -8,7 +8,7 @@ import { DEFAULT_FILTERS, filterCatalog, type CatalogEntry } from './filters'
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
 import { SongItem, SongLines } from './SongItem'
 import { useCatalog } from './useCatalog'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 // Archived songs are searchable in every picker, so each filter is open and only the query narrows.
 const PICKER_FILTERS = { ...DEFAULT_FILTERS, archived: true }

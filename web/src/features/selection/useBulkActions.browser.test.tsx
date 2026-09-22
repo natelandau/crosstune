@@ -13,7 +13,7 @@ import { InlineError } from '../../ui/InlineError'
 import { useMenu } from '../../ui/Menu'
 import type { CatalogEntry } from '../catalog/filters'
 import { useBulkActions, type SelectionContext } from './useBulkActions'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 vi.mock('../../commands/bulk', { spy: true })
 

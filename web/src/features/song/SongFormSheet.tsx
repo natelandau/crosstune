@@ -8,7 +8,7 @@ import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
 import { LyricsSheet } from '../lyrics/LyricsSheet'
-import { visibleTunings } from '../settings/instruments'
+import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
 import { FieldRow } from '../../ui/FieldRow'
 import { KeyChooser } from './KeyChooser'
 import { StatusChooser } from './StatusChooser'
@@ -22,13 +22,8 @@ import {
   type SongFormValues,
 } from './songFormValues'
 import { SuggestSelect } from './SuggestSelect'
-import {
-  SONG_LIMITS,
-  TUNING_FIELDS,
-  TUNING_SUGGESTIONS,
-  type Instrument,
-  type TuningField,
-} from '../../constants'
+import { TUNING_SUGGESTIONS } from '../../constants'
+import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 
 export type SongFormTarget = { kind: 'new'; title?: string } | { kind: 'edit'; entry: CatalogEntry }
 

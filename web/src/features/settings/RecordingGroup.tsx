@@ -15,7 +15,7 @@ import { Group } from '../../ui/Group'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
 import { QUALITY_LABELS } from './audioQuality'
-import { AUDIO_QUALITIES, type AudioQuality } from '../../constants'
+import { AUDIO_QUALITIES, type AudioQuality } from '../../api/vocabulary'
 
 /**
  * Capture quality and what audio this device keeps. One control per group, each with its own

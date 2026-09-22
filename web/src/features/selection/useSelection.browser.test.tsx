@@ -11,7 +11,7 @@ import { Screen } from '../../ui/Screen'
 import { SongItem } from '../catalog/SongItem'
 import { selectionCheckboxId } from './ids'
 import { useSelection } from './useSelection'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 const ENTRIES = [
   { song: songRow('s1', 'Angeline the Baker'), userSong: userSongRow('u1', 's1') },

@@ -5,7 +5,7 @@ import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
-import { LIST_NAME_MAX_LENGTH } from '../../constants'
+import { LIST_LIMITS } from '../../api/vocabulary'
 
 export type ListNameTarget = { kind: 'new' } | { kind: 'rename'; listId: string; name: string }
 
@@ -112,7 +112,7 @@ export function ListNameSheet({
               ref={inputRef}
               aria-label="List name"
               placeholder="Tuesday jam, square dance set, …"
-              maxlength={LIST_NAME_MAX_LENGTH}
+              maxlength={LIST_LIMITS.name}
               value={name}
               enterkeyhint="done"
               onIonInput={(event) => {

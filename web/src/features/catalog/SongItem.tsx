@@ -6,7 +6,9 @@ import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
 import type { CatalogEntry } from './filters'
 import { isSongStatus } from './status'
-import { STATUS_LABELS, TUNING_FIELD_NAMES, TUNING_FIELDS, type Instrument } from '../../constants'
+import { STATUS_LABELS } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
+import { TUNING_FIELD_NAMES, TUNING_FIELDS } from '../settings/instruments'
 
 const DOT = {
   known: 'bg-(--ion-color-success)',

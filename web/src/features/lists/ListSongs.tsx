@@ -19,7 +19,7 @@ import { useSelection } from '../selection/useSelection'
 import type { SongSelection } from '../selection/useSongSelection'
 import { placeBeside } from './order'
 import type { ListItemView } from './useLists'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 interface Move {
   itemId: string

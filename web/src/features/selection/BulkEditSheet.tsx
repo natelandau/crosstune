@@ -24,19 +24,19 @@ import { countSongs } from './copy'
 import {
   FEELS,
   GENRES,
-  MODES,
   PART_STRUCTURES,
   QUICK_KEYS,
-  SONG_LIMITS,
   STATUS_LABELS,
+  TUNING_SUGGESTIONS,
+} from '../../constants'
+import {
+  MODES,
+  SONG_LIMITS,
   STATUSES,
   TIME_SIGNATURES,
-  TUNING_FIELD_NAMES,
-  TUNING_FIELDS,
-  TUNING_SUGGESTIONS,
   type Instrument,
-  type TuningField,
-} from '../../constants'
+} from '../../api/vocabulary'
+import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
   key: { options: QUICK_KEYS, other: true },

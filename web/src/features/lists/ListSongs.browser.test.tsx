@@ -10,7 +10,7 @@ import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
 import { ListSongs } from './ListSongs'
 import { useListView } from './useLists'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 vi.mock('../../commands/lists', { spy: true })
 

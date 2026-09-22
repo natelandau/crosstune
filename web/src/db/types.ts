@@ -8,7 +8,7 @@ import type {
   UserSettingsRow,
   UserSongRow,
 } from '../api/types'
-import { INSTRUMENTS, type Instrument } from '../constants'
+import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 
 export type { TableName }
 

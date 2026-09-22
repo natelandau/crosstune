@@ -8,7 +8,8 @@ import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { InstrumentRows } from './InstrumentRows'
 import { useInstruments } from './useInstruments'
-import { INSTRUMENT_LABELS, INSTRUMENTS } from '../../constants'
+import { INSTRUMENT_LABELS } from '../../constants'
+import { INSTRUMENTS } from '../../api/vocabulary'
 
 /**
  * The instruments a musician plays, which decide the tuning fields a song shows. The set is

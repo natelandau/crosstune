@@ -7,7 +7,7 @@ import {
   type Mode,
   type SongStatus,
   type TimeSignature,
-} from '../../constants'
+} from '../../api/vocabulary'
 
 export interface SongFormValues {
   title: string

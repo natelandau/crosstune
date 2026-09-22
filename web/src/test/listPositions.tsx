@@ -6,7 +6,7 @@ import { ListSongs } from '../features/lists/ListSongs'
 import { useListView } from '../features/lists/useLists'
 import { openTestDb } from './db'
 import { renderIonic } from './ionic'
-import type { Instrument } from '../constants'
+import type { Instrument } from '../api/vocabulary'
 
 const VIOLIN: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
 const SONGS = 105

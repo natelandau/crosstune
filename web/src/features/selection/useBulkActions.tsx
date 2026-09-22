@@ -20,7 +20,8 @@ import { deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage
 import { BulkEditSheet } from './BulkEditSheet'
 import { countSongs } from './copy'
 import type { BulkAction } from './SelectionToolbar'
-import { STATUS_LABELS, STATUSES, type Instrument } from '../../constants'
+import { STATUS_LABELS } from '../../constants'
+import { STATUSES, type Instrument } from '../../api/vocabulary'
 
 /** Where the selection is being made, since a list offers one action the catalog cannot. */
 export type SelectionContext =

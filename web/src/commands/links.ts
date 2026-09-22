@@ -1,6 +1,6 @@
 import type { CrosstuneDb } from '../db/schema'
 import { newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
-import type { Provider } from '../constants'
+import type { Provider } from '../api/vocabulary'
 
 export interface LinkInput {
   url: string

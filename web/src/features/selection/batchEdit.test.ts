@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { songRow, userSongRow } from '../../test/rows'
 import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 const a = {
   song: songRow('s1', 'Say Old Man', {

@@ -6,7 +6,7 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
 import { SongFormSheet, type SongFormTarget } from './SongFormSheet'
-import { SONG_LIMITS, type Instrument } from '../../constants'
+import { SONG_LIMITS, type Instrument } from '../../api/vocabulary'
 
 vi.mock('../../commands/songs', { spy: true })
 

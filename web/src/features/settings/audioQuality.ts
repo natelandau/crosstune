@@ -1,4 +1,5 @@
-import { AUDIO_BITRATES, AUDIO_QUALITY_NAMES, type AudioQuality } from '../../constants'
+import { AUDIO_BITRATES, AUDIO_QUALITY_NAMES } from '../../constants'
+import type { AudioQuality } from '../../api/vocabulary'
 
 /** The rate is read from the preset itself, so changing one changes what the picker says. */
 function label(quality: AudioQuality): string {

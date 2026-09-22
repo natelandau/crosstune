@@ -12,7 +12,7 @@ import {
   songCountLabel,
   visibleFacets,
 } from './filters'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 const songs = [
   song('s1', "soldier's joy", {

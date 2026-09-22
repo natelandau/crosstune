@@ -1,6 +1,7 @@
 import { countSongs } from '../selection/copy'
 import type { LocalSong, LocalUserSong } from '../../db/types'
-import { STATUSES, TUNING_FIELDS, type Instrument, type SongStatus } from '../../constants'
+import { STATUSES, type Instrument, type SongStatus } from '../../api/vocabulary'
+import { TUNING_FIELDS } from '../settings/instruments'
 
 export const FACETS = ['key', 'mode', 'violin_tuning', 'banjo_tuning', 'genre'] as const
 export type Facet = (typeof FACETS)[number]

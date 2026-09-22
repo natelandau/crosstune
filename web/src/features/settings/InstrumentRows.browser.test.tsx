@@ -3,7 +3,7 @@ import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { InstrumentRows } from './InstrumentRows'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 const LABELS = [
   'Violin',

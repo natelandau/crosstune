@@ -4,7 +4,7 @@ import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { StatusChooser } from './StatusChooser'
-import type { SongStatus } from '../../constants'
+import type { SongStatus } from '../../api/vocabulary'
 
 function Host({ initial = 'want_to_learn' }: { initial?: SongStatus }) {
   const [value, setValue] = useState<SongStatus>(initial)

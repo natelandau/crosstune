@@ -7,7 +7,7 @@ import { countSongs } from '../selection/copy'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useLists, useMembershipCounts } from './useLists'
-import { LIST_NAME_MAX_LENGTH } from '../../constants'
+import { LIST_LIMITS } from '../../api/vocabulary'
 
 /**
  * What one successful add did. The picker reports the facts rather than a sentence, so the
@@ -173,7 +173,7 @@ export function ListPicker({
               aria-label="New list name"
               placeholder="Tuesday jam, square dance set, …"
               autofocus
-              maxlength={LIST_NAME_MAX_LENGTH}
+              maxlength={LIST_LIMITS.name}
               value={name}
               onIonInput={(event) => setName(String(event.detail.value ?? ''))}
               onKeyDown={(event) => {

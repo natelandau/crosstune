@@ -1,70 +1,14 @@
 /**
- * Every vocabulary the app offers a player and every limit it enforces, in one place.
+ * Everything the client owns outright: the vocabularies it suggests, the keys it offers, the
+ * bitrates it records at, and the labels it shows. Anything here can be edited with no other
+ * change to code, the API, or the database.
  *
- * The lists and limits under "Mirrored by the server" are checked again by the API's row
- * schemas and database constraints, so a change there needs the same change in `api/`.
- * Everything below that line belongs to the client alone.
+ * The values the server validates are not here. They come from `api/src/crosstune/vocabulary.py`
+ * through the contract, as `src/api/vocabulary.ts`; the label tables below are typed against
+ * them, so a new server value fails the build until it has a label.
  */
-
-// ---- Mirrored by the server ----------------------------------------------------------------
-
-export const INSTRUMENTS = [
-  'violin',
-  'banjo',
-  'guitar',
-  'mandolin',
-  'ukulele',
-  'bass',
-  'dulcimer',
-  'accordion',
-  'other',
-] as const
-export type Instrument = (typeof INSTRUMENTS)[number]
-
-export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
-export type SongStatus = (typeof STATUSES)[number]
-
-export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'other'] as const
-export type Mode = (typeof MODES)[number]
-
-export const TIME_SIGNATURES = ['4/4', '2/4', '2/2', '3/4', '6/8', '9/8', '12/8', 'other'] as const
-export type TimeSignature = (typeof TIME_SIGNATURES)[number]
-
-export const PROVIDERS = [
-  'youtube',
-  'spotify',
-  'apple_music',
-  'bandcamp',
-  'soundcloud',
-  'tidal',
-  'internet_archive',
-  'other',
-] as const
-export type Provider = (typeof PROVIDERS)[number]
-
-export const AUDIO_QUALITIES = ['low', 'standard', 'high'] as const
-export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
-
-// The server's row schema limits, so a long entry is stopped here instead of rejected on push.
-export const SONG_LIMITS = {
-  title: 200,
-  key: 10,
-  violin_tuning: 100,
-  banjo_tuning: 100,
-  genre: 100,
-  feel: 100,
-  part_structure: 100,
-  learned_from: 200,
-  lyrics: 20_000,
-  notes: 20_000,
-} as const
-
-export const LIST_NAME_MAX_LENGTH = 200
-
-export const LINK_LIMITS = {
-  url: 2048,
-  label: 200,
-} as const
+import type { AudioQuality, Instrument, Provider, SongStatus } from './api/vocabulary'
+import type { TuningField } from './features/settings/instruments'
 
 // ---- Instruments and tunings ---------------------------------------------------------------
 
@@ -82,20 +26,6 @@ export const INSTRUMENT_LABELS: Record<Instrument, string> = {
   accordion: 'Accordion',
   other: 'Other',
 }
-
-/**
- * Each song tuning field, the instrument it belongs to, its label, and the shorter label a row
- * shows when a header above it already says Tuning. `label` stays the accessible name in both
- * places, so a row reading "Violin" is still announced as "Violin tuning".
- */
-export const TUNING_FIELDS = {
-  violin_tuning: { instrument: 'violin', label: 'Violin tuning', short: 'Violin' },
-  banjo_tuning: { instrument: 'banjo', label: 'Banjo tuning', short: 'Banjo' },
-} as const satisfies Record<string, { instrument: Instrument; label: string; short: string }>
-
-export type TuningField = keyof typeof TUNING_FIELDS
-
-export const TUNING_FIELD_NAMES = Object.keys(TUNING_FIELDS) as TuningField[]
 
 export const VIOLIN_TUNINGS = [
   'Standard (GDAE)',

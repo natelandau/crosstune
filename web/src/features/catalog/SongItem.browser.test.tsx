@@ -8,7 +8,7 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { songRow, userSongRow } from '../../test/rows'
 import { SongItem } from './SongItem'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 const originalMatchMedia = window.matchMedia
 afterEach(() => {

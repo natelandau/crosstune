@@ -53,7 +53,7 @@ import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSes
 import { SongItem } from './SongItem'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
-import type { Instrument } from '../../constants'
+import type { Instrument } from '../../api/vocabulary'
 
 const NO_ENTRIES: CatalogEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
