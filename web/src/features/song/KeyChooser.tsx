@@ -1,5 +1,3 @@
-import { CircleHelp } from 'lucide-react'
-
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { useMenu } from '../../ui/Menu'
@@ -36,8 +34,10 @@ export function KeyChooser({
 
   return (
     <div role="group" aria-label="Key" className="flex flex-wrap gap-1.5 px-(--form-gutter)">
+      {/* A question mark sits in a row of single letters as the shorthand a musician already
+          writes on a tune list. It reads as nothing aloud, so the chip is named in words. */}
       <Capsule pressed={chosen === ''} onPress={() => onChange('')} label={emptyLabel}>
-        <CircleHelp aria-hidden="true" className="size-4" />
+        ?
       </Capsule>
       {shown.map((key) => (
         <PressTarget
