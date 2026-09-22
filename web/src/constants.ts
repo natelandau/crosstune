@@ -24,6 +24,7 @@ export const VIOLIN_TUNINGS = [
   'Standard (GDAE)',
   'Cross A (AEAE)',
   'Cross G (GDGD)',
+  'High Bass (ADAE)',
   'Calico (AEAC#)',
   'Dead Man (DDAD)',
 ]
