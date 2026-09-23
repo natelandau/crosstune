@@ -455,3 +455,53 @@ async def test_a_link_that_redirects_to_a_private_address_resolves_untitled(guar
         link = await resolve_link("https://public.example/", client, timeout=5.0)
     assert link.title is None
     assert [str(call.url) for call in guarded_http.calls] == ["https://93.184.216.34/"]
+
+
+def _pool_watching_client(engine, mock_http, seen: list[int]) -> httpx2.AsyncClient:
+    """An outbound client that notes how many pooled connections are out at each provider call."""
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if "oembed" in str(request.url):
+            seen.append(engine.pool.checkedout())
+        return mock_http.handler(request)
+
+    return httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
+
+
+async def test_resolve_endpoint_holds_no_connection_while_it_fetches(
+    app, client, auth_headers, mock_http, engine
+) -> None:
+    mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
+    seen: list[int] = []
+    app.state.http_client = _pool_watching_client(engine, mock_http, seen)
+    response = await client.post(
+        "/v1/links/resolve",
+        json={"url": "https://youtu.be/dQw4w9WgXcQ"},
+        headers=auth_headers("user_a"),
+    )
+    assert response.status_code == 200
+    assert seen == [0]
+
+
+async def test_push_holds_no_connection_while_it_resolves_links(
+    app, client, auth_headers, mock_http, engine
+) -> None:
+    mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
+    seen: list[int] = []
+    app.state.http_client = _pool_watching_client(engine, mock_http, seen)
+    song = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="X"),
+        change(
+            "recording_links",
+            uid(),
+            T0,
+            song_id=song,
+            url="https://youtu.be/dQw4w9WgXcQ",
+            provider="youtube",
+        ),
+    )
+    assert [r["status"] for r in results] == ["applied", "applied"]
+    assert seen == [0]

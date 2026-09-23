@@ -7,10 +7,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,  # noqa: TC002 -- FastAPI resolves this annotation at route registration
+)
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
+from crosstune.db.session import get_session
 from crosstune.errors import TooManyRequestsError, problem_responses
 from crosstune.links.resolve import resolve_link
 
@@ -45,9 +49,13 @@ async def resolve(
     body: ResolveRequest,
     request: Request,
     _: Annotated[None, Depends(within_resolve_limit)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResolveResponse:
     """Provider, canonical URL, title, and artwork for a pasted link."""
     settings = request.app.state.settings
+    # Resolving the caller opened a transaction on a pooled connection. Commit it so the
+    # fetch, which can wait out its whole timeout, holds nothing from the pool.
+    await session.commit()
     link = await resolve_link(
         body.url, request.app.state.http_client, settings.resolver_timeout_seconds
     )
