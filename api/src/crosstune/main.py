@@ -95,8 +95,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             traces_sample_rate=0.0,
         )
 
+    # The committed contract is generated from app.openapi(), which needs none of these routes.
+    docs = settings.environment == "development"
     app = FastAPI(
-        title="Crosstune API", version=__version__, debug=settings.debug, lifespan=_lifespan
+        title="Crosstune API",
+        version=__version__,
+        debug=settings.debug,
+        lifespan=_lifespan,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
     )
     app.state.settings = settings
     app.state.engine = None
