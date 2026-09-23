@@ -23,9 +23,9 @@ class PrefixedStore:
     def _key(self, key: str) -> str:
         return self._prefix + key
 
-    def presign_put(self, key: str, content_type: str, expires_in: int) -> str:
-        """A URL a client can PUT one object to, with the content type in the signature."""
-        return self._inner.presign_put(self._key(key), content_type, expires_in)
+    def presign_put(self, key: str, content_type: str, content_length: int, expires_in: int) -> str:
+        """A URL a client can PUT one object to, with the type and length in the signature."""
+        return self._inner.presign_put(self._key(key), content_type, content_length, expires_in)
 
     def presign_get(self, key: str, expires_in: int) -> str:
         """A URL a client can GET one object from."""

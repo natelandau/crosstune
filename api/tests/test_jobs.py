@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
 
 from crosstune.db.engine import make_sessionmaker
-from crosstune.jobs.runner import MAX_ATTEMPTS, JobRunner
+from crosstune.jobs.runner import ABANDONED_SLOT_GRACE, MAX_ATTEMPTS, JobRunner
 from crosstune.jobs.transcode import transcode
 from crosstune.models import Job, Recording, UploadSlot, User
 from crosstune.models.user import new_uuid7, utc_now
@@ -267,6 +267,88 @@ async def test_run_once_purges_an_upload_deleted_before_it_was_confirmed(
     assert store.keys() == []
     assert await verify_session.get(UploadSlot, rec.id) is None
     assert await job_runner.run_once() == 0
+
+
+async def _pending_with_slot(
+    verify_session, *, expired_for: timedelta, playback_bytes: int | None = None
+) -> Recording:
+    user = await make_user(verify_session)
+    rec = Recording(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        source="upload",
+        recorded_at=utc_now(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+        state="pending_upload",
+        playback_bytes=playback_bytes,
+    )
+    verify_session.add(rec)
+    await verify_session.flush()
+    verify_session.add(
+        UploadSlot(
+            recording_id=rec.id,
+            user_id=user.id,
+            declared_bytes=3,
+            content_type="audio/mp4",
+            expires_at=utc_now() - expired_for,
+        )
+    )
+    await verify_session.commit()
+    return rec
+
+
+async def test_run_once_releases_a_slot_abandoned_past_the_grace(runner, verify_session) -> None:
+    """An expired slot stops counting, so what its PUT left must not stay in the bucket."""
+    job_runner, store = runner
+    rec = await _pending_with_slot(
+        verify_session, expired_for=ABANDONED_SLOT_GRACE + timedelta(minutes=1), playback_bytes=3
+    )
+    seq_before = rec.server_seq
+    store.put_bytes(upload_key(rec.user_id, rec.id), b"abc", "audio/mp4")
+    assert await job_runner.run_once() == 1
+    assert store.keys() == []
+    assert await verify_session.get(UploadSlot, rec.id) is None
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.playback_bytes, rec.deleted_at) == ("pending_upload", None, None)
+    assert rec.server_seq > seq_before
+    assert await job_runner.run_once() == 0
+
+
+async def test_release_leaves_a_recording_confirmed_under_a_reissued_slot(
+    runner, verify_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A slot reissued and confirmed while the bucket delete runs keeps its counted bytes."""
+    job_runner, store = runner
+    rec = await _pending_with_slot(
+        verify_session, expired_for=ABANDONED_SLOT_GRACE + timedelta(minutes=1), playback_bytes=3
+    )
+    delete_objects = store.delete
+
+    async def reissue_and_confirm(*keys: str) -> None:
+        await delete_objects(*keys)
+        slot = await verify_session.get(UploadSlot, rec.id)
+        assert slot is not None
+        slot.expires_at = utc_now() + timedelta(hours=1)
+        rec.state = "uploaded"
+        rec.playback_bytes = 7
+        await verify_session.commit()
+
+    monkeypatch.setattr(store, "delete", reissue_and_confirm)
+    await job_runner.run_once()
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.playback_bytes) == ("uploaded", 7)
+    assert await verify_session.get(UploadSlot, rec.id) is not None
+
+
+async def test_run_once_keeps_a_slot_inside_the_grace(runner, verify_session) -> None:
+    """A PUT signed just before expiry may still be on its way."""
+    job_runner, store = runner
+    rec = await _pending_with_slot(verify_session, expired_for=timedelta(minutes=5))
+    store.put_bytes(upload_key(rec.user_id, rec.id), b"abc", "audio/mp4")
+    assert await job_runner.run_once() == 0
+    assert store.keys() == [upload_key(rec.user_id, rec.id)]
+    assert await verify_session.get(UploadSlot, rec.id) is not None
 
 
 async def test_run_once_purges_objects_the_row_never_named(runner, verify_session) -> None:

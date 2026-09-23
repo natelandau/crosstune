@@ -142,6 +142,9 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   signed), PUTs the file to R2, then confirms. The API queues a transcode,
   and an in-process job runner produces the playback file. Retry reruns a
   failed transcode.
+- The PUT signature covers the declared size, so the bucket refuses a file
+  of any other length. A slot expired for more than an hour without a
+  confirmation is released, and the runner deletes whatever its PUT left.
 - Download: the API signs a GET for a ready recording. Other devices fetch on
   play, or ahead of time when the setting to download all recordings is on.
 - Each database owns one storage space and holds credentials for no other,

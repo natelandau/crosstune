@@ -87,6 +87,13 @@ async def test_open_slots_count_toward_quota_until_they_expire(
     assert (await slot(client, auth_headers("user_a"), second, bytes_=300)).status_code == 200
 
 
+async def test_slot_signs_the_declared_size(client, auth_headers) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    response = await slot(client, auth_headers("user_a"), rec, bytes_=321)
+    assert "content_length=321" in response.json()["url"]
+
+
 async def test_slot_can_be_reissued_and_replaces_the_declared_size(
     client, auth_headers, verify_session
 ) -> None:

@@ -51,11 +51,16 @@ class R2Store:
         self._client: S3Client = s3_client(endpoint_url, access_key_id, secret_access_key)
         self._browser_endpoint_url = browser_endpoint_url.rstrip("/")
 
-    def presign_put(self, key: str, content_type: str, expires_in: int) -> str:
-        """A URL a client can PUT one object to, with the content type in the signature."""
+    def presign_put(self, key: str, content_type: str, content_length: int, expires_in: int) -> str:
+        """A URL a client can PUT one object to, with the type and length in the signature."""
         url = self._client.generate_presigned_url(
             "put_object",
-            Params={"Bucket": self._bucket, "Key": key, "ContentType": content_type},
+            Params={
+                "Bucket": self._bucket,
+                "Key": key,
+                "ContentType": content_type,
+                "ContentLength": content_length,
+            },
             ExpiresIn=expires_in,
         )
         return self._rewrite_for_browser(url)

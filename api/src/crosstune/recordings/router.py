@@ -43,7 +43,7 @@ router = APIRouter(prefix="/v1/recordings", tags=["recordings"])
 
 UPLOAD_URL_TTL_SECONDS = 3600
 DOWNLOAD_URL_TTL_SECONDS = 3600
-# An upload may differ slightly from the size the client declared; past this it is refused.
+# The signed PUT fixes the length, so this only catches a store that does not enforce it.
 UPLOAD_SIZE_TOLERANCE = 0.05
 # A recording may ask for a slot before its first upload and after one that failed.
 SLOT_STATES = ("pending_upload", "failed")
@@ -137,7 +137,7 @@ async def upload_slot(
         bump_server_seq(recording)
     await session.flush()
     url = store.presign_put(
-        upload_key(user.id, recording.id), body.content_type, UPLOAD_URL_TTL_SECONDS
+        upload_key(user.id, recording.id), body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS
     )
     return SignedUrl(url=url, expires_at=expires_at)
 

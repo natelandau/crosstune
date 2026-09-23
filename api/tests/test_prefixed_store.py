@@ -40,7 +40,7 @@ def test_rejects_an_empty_prefix() -> None:
 
 def test_presigned_urls_name_the_physical_key() -> None:
     bucket, scoped = pair()
-    scoped.presign_put("u/r/upload", "audio/mp4", 60)
+    scoped.presign_put("u/r/upload", "audio/mp4", 5, 60)
     scoped.presign_get("u/r/playback.m4a", 60)
     assert bucket.presigned == [("put", "pr-6/u/r/upload"), ("get", "pr-6/u/r/playback.m4a")]
 

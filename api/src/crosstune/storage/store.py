@@ -64,8 +64,11 @@ def original_key(user_id: object, recording_id: object, content_type: str) -> st
 class ObjectStore(Protocol):
     """The operations the API and runner perform on the bucket."""
 
-    def presign_put(self, key: str, content_type: str, expires_in: int) -> str:
-        """A URL a client can PUT one object to, with the content type in the signature."""
+    def presign_put(self, key: str, content_type: str, content_length: int, expires_in: int) -> str:
+        """A URL a client can PUT one object to, with the type and length in the signature.
+
+        The store refuses a PUT of any other length, so the declared size bounds the object.
+        """
         ...
 
     def presign_get(self, key: str, expires_in: int) -> str:
