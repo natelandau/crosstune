@@ -63,6 +63,8 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
         working-directory: api
+      # The API transcodes recordings with ffprobe and ffmpeg from PATH.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: start RustFS and create the buckets
         run: |
           docker compose up -d --wait rustfs
@@ -92,4 +94,11 @@ jobs:
           path: |
             web/playwright-report
             web/test-results
+          if-no-files-found: ignore
+      # Server-side failures such as a transcode error show only in the API's own log.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: api-log
+          path: ${{ runner.temp }}/api.log
           if-no-files-found: ignore
