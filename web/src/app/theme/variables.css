@@ -35,6 +35,10 @@
   /* The T of the brand mark, on every surface. */
   --color-mark: #ef8354;
 
+  /* The record control's dot: the red of a camera's record light, which does not move with
+     `danger`. */
+  --color-record: #ff3b30;
+
   /* The fill of a neutral capsule, as translucent gray so it reads on any surface. Ionic
      defines no fill tokens of its own. */
   --fill-tertiary: rgba(118, 118, 128, 0.12);
@@ -494,6 +498,7 @@ ion-item.menu-danger {
 }
 
 .ion-palette-dark {
+  --color-record: #ff453a;
   --ion-color-primary: #bfc0c0;
   --ion-color-primary-rgb: 191, 192, 192;
   --ion-color-primary-contrast: #2d3142;
@@ -564,13 +569,13 @@ ion-item.menu-danger {
    which is also the room a screen leaves under its last row so nothing ends up behind it. */
 :root {
   --tab-bar-cap: 0px;
-  --record-dome-size: 4rem;
+  --record-dome-size: 4.5rem;
   --record-dome-ring: 3px;
 }
 
 @media (max-width: 767px) {
   :root {
-    --tab-bar-cap: 1rem;
+    --tab-bar-cap: 1.5rem;
   }
 }
 
@@ -673,10 +678,10 @@ ion-button > svg[slot='start'] {
   outline-offset: calc(var(--record-dome-ring) + 2px);
 }
 .record-dome-dot {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3.1875rem;
+  height: 3.1875rem;
   border-radius: 9999px;
-  background: var(--ion-color-danger);
+  background: var(--color-record);
 }
 
 @media (prefers-reduced-motion: reduce) {
