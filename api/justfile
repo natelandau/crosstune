@@ -13,7 +13,7 @@ e2e_database_url := "postgresql+asyncpg://crosstune:crosstune@localhost:5432/" +
 
 # Every process bound to the e2e database needs the e2e bucket too; the settings guard
 # refuses the pair from api/.env, whose bucket belongs to the development database.
-e2e_env := "CROSSTUNE_DATABASE_URL='" + e2e_database_url + "' CROSSTUNE_R2_BUCKET=crosstune-e2e"
+e2e_env := "CROSSTUNE_DATABASE_URL='" + e2e_database_url + "' CROSSTUNE_STORAGE_BUCKET=crosstune-e2e"
 
 # Not the :8000 `just dev` serves, so the suite runs without stopping a dev session. The root
 # justfile starts this port and web/justfile points the preview proxy at it.

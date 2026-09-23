@@ -1,10 +1,13 @@
 """Application settings, read from the environment with the CROSSTUNE_ prefix."""
 
+import os
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from dotenv import dotenv_values
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +17,19 @@ PREVIEW_BUCKET = "crosstune-recordings-preview"
 LOCAL_BUCKET = "crosstune-local"
 E2E_BUCKET = "crosstune-e2e"
 _HOSTED_WITHOUT_PREFIX = {"development", "production"}
+
+# Settings the API no longer reads, each mapped to the name it now reads instead. Settings
+# ignores unknown names, so without this a host still on an old storage name would start
+# with storage unconfigured and fail every upload.
+RETIRED_NAMES = {
+    "CROSSTUNE_R2_BUCKET": "CROSSTUNE_STORAGE_BUCKET",
+    "CROSSTUNE_R2_ACCESS_KEY_ID": "CROSSTUNE_STORAGE_ACCESS_KEY_ID",
+    "CROSSTUNE_R2_SECRET_ACCESS_KEY": "CROSSTUNE_STORAGE_SECRET_ACCESS_KEY",
+    "CROSSTUNE_R2_PREFIX": "CROSSTUNE_STORAGE_PREFIX",
+    "CROSSTUNE_R2_ENDPOINT_URL": "CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL",
+    "CROSSTUNE_R2_BROWSER_ENDPOINT_URL": "CROSSTUNE_LOCAL_STORAGE_BROWSER_ENDPOINT_URL",
+    "CROSSTUNE_RESOLVER_TIMEOUT_SECONDS": "CROSSTUNE_LINK_RESOLVE_TIMEOUT_SECONDS",
+}
 
 
 def normalize_database_url(url: str) -> str:
@@ -47,16 +63,16 @@ class Settings(BaseSettings):
     clerk_authorized_party_regex: str = ""
     clerk_webhook_secret: str = ""
     sentry_dsn: str = ""
-    resolver_timeout_seconds: float = 5.0
+    link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
     pull_page_size: int = 500
     r2_account_id: str = ""
-    r2_endpoint_url: str = ""
-    r2_bucket: str = ""
-    r2_access_key_id: str = ""
-    r2_secret_access_key: str = ""
-    r2_prefix: str = ""
-    r2_browser_endpoint_url: str = ""
+    storage_bucket: str = ""
+    storage_access_key_id: str = ""
+    storage_secret_access_key: str = ""
+    storage_prefix: str = ""
+    local_storage_endpoint_url: str = ""
+    local_storage_browser_endpoint_url: str = ""
     recording_quota_bytes: int = 1_073_741_824
     recording_max_file_bytes: int = 52_428_800
     job_poll_seconds: float = 3.0
@@ -77,18 +93,21 @@ class Settings(BaseSettings):
         return self.database_name.endswith("_e2e")
 
     @property
-    def r2_endpoint(self) -> str:
+    def storage_endpoint(self) -> str:
         """The S3 endpoint: the configured one, or the R2 endpoint of the account."""
-        return self.r2_endpoint_url or f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
+        return (
+            self.local_storage_endpoint_url
+            or f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
+        )
 
     @property
-    def r2_configured(self) -> bool:
+    def storage_configured(self) -> bool:
         """Whether every storage setting is present. Without them the store stays unbuilt."""
         return bool(
-            (self.r2_account_id or self.r2_endpoint_url)
-            and self.r2_bucket
-            and self.r2_access_key_id
-            and self.r2_secret_access_key
+            (self.r2_account_id or self.local_storage_endpoint_url)
+            and self.storage_bucket
+            and self.storage_access_key_id
+            and self.storage_secret_access_key
         )
 
     @field_validator("database_url")
@@ -115,6 +134,32 @@ class Settings(BaseSettings):
         return f"{self.clerk_issuer.rstrip('/')}/.well-known/jwks.json"
 
     @model_validator(mode="after")
+    def _refuse_retired_names(self) -> Self:
+        """Refuse a retired name set without its replacement, since nothing would read it.
+
+        A retired name beside its replacement is accepted, so a host can hold both while it
+        moves from one release to the next.
+        """
+        present = self._names_present()
+        stale = [
+            f"{old} is now {new}"
+            for old, new in RETIRED_NAMES.items()
+            if old in present and new not in present
+        ]
+        if stale:
+            msg = f"retired settings: {'; '.join(stale)}"
+            raise ValueError(msg)
+        return self
+
+    def _names_present(self) -> set[str]:
+        """Names set to a non-empty value in the process environment or the env file."""
+        names = {name.upper() for name, value in os.environ.items() if value}
+        env_file = self.model_config.get("env_file")
+        if isinstance(env_file, str | Path) and Path(env_file).is_file():
+            names |= {name.upper() for name, value in dotenv_values(env_file).items() if value}
+        return names
+
+    @model_validator(mode="after")
     def _confine_storage(self) -> Self:
         """Refuse to start with storage another environment's database also deletes from.
 
@@ -131,20 +176,20 @@ class Settings(BaseSettings):
         return self._prefix_problem() or self._browser_endpoint_problem() or self._scope_problem()
 
     def _browser_endpoint_problem(self) -> str | None:
-        if self.r2_browser_endpoint_url and not self.r2_endpoint_url:
-            return "CROSSTUNE_R2_BROWSER_ENDPOINT_URL needs CROSSTUNE_R2_ENDPOINT_URL; it is meaningless for R2"
+        if self.local_storage_browser_endpoint_url and not self.local_storage_endpoint_url:
+            return "CROSSTUNE_LOCAL_STORAGE_BROWSER_ENDPOINT_URL needs CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL"
         return None
 
     def _prefix_problem(self) -> str | None:
         env = self.environment
-        if self.r2_prefix and not self.r2_prefix.endswith("/"):
-            return f"CROSSTUNE_R2_PREFIX {self.r2_prefix!r} must end in /"
-        if env in _HOSTED_WITHOUT_PREFIX and self.r2_prefix:
-            return f"{env} owns its whole bucket and takes no CROSSTUNE_R2_PREFIX"
+        if self.storage_prefix and not self.storage_prefix.endswith("/"):
+            return f"CROSSTUNE_STORAGE_PREFIX {self.storage_prefix!r} must end in /"
+        if env in _HOSTED_WITHOUT_PREFIX and self.storage_prefix:
+            return f"{env} owns its whole bucket and takes no CROSSTUNE_STORAGE_PREFIX"
         return None
 
     def _scope_problem(self) -> str | None:
-        if not self.r2_configured:
+        if not self.storage_configured:
             return None
         return (
             self._pr_prefix_problem()
@@ -155,13 +200,13 @@ class Settings(BaseSettings):
 
     def _pr_prefix_problem(self) -> str | None:
         env = self.environment
-        if env.startswith("pr-") and self.r2_prefix != f"{env}/":
-            return f"{env} must set CROSSTUNE_R2_PREFIX to {env}/"
+        if env.startswith("pr-") and self.storage_prefix != f"{env}/":
+            return f"{env} must set CROSSTUNE_STORAGE_PREFIX to {env}/"
         return None
 
     def _bucket_problem(self) -> str | None:
         env = self.environment
-        bucket = self.r2_bucket
+        bucket = self.storage_bucket
         if bucket == PRODUCTION_BUCKET and env != "production":
             return f"only production may use {PRODUCTION_BUCKET}"
         if env == "production" and bucket != PRODUCTION_BUCKET:
@@ -173,18 +218,20 @@ class Settings(BaseSettings):
         return None
 
     def _e2e_problem(self) -> str | None:
-        if self.e2e_database and not self.r2_endpoint_url:
-            return "an e2e database may only use local storage (CROSSTUNE_R2_ENDPOINT_URL)"
-        if self.e2e_database and self.r2_bucket != E2E_BUCKET:
+        if self.e2e_database and not self.local_storage_endpoint_url:
+            return (
+                "an e2e database may only use local storage (CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL)"
+            )
+        if self.e2e_database and self.storage_bucket != E2E_BUCKET:
             return f"an e2e database must use {E2E_BUCKET}"
-        if self.r2_bucket == E2E_BUCKET and not self.e2e_database:
+        if self.storage_bucket == E2E_BUCKET and not self.e2e_database:
             return f"only an e2e database may use {E2E_BUCKET}"
         return None
 
     def _endpoint_problem(self) -> str | None:
         env = self.environment
-        if self.r2_endpoint_url and env != "development" and not self.e2e_database:
-            return f"CROSSTUNE_R2_ENDPOINT_URL is for local work, not {env}"
+        if self.local_storage_endpoint_url and env != "development" and not self.e2e_database:
+            return f"CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL is for local work, not {env}"
         return None
 
 

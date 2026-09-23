@@ -97,7 +97,7 @@ async def push(
     # no connection out of the pool while it does.
     await session.commit()
     resolved = await _resolve_untitled_links(
-        body.changes, request.app.state.http_client, settings.resolver_timeout_seconds
+        body.changes, request.app.state.http_client, settings.link_resolve_timeout_seconds
     )
 
     async def enrich(url: str) -> ResolvedLink:

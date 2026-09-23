@@ -86,9 +86,9 @@ async def test_lifespan_builds_an_r2_store_when_configured(database_url: str) ->
         Settings(
             database_url=database_url,
             r2_account_id="acct",
-            r2_bucket="crosstune-test",
-            r2_access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
-            r2_secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
+            storage_bucket="crosstune-test",
+            storage_access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
+            storage_secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
         )
     )
 
@@ -122,10 +122,10 @@ async def test_lifespan_builds_an_r2_store_on_a_configured_endpoint(database_url
     app = create_app(
         Settings(
             database_url=database_url,
-            r2_endpoint_url="http://localhost:9000",
-            r2_bucket="crosstune-test",
-            r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
-            r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+            local_storage_endpoint_url="http://localhost:9000",
+            storage_bucket="crosstune-test",
+            storage_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+            storage_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
         )
     )
 
@@ -140,11 +140,11 @@ async def test_lifespan_builds_a_store_that_presigns_relative_urls(database_url:
     app = create_app(
         Settings(
             database_url=database_url,
-            r2_endpoint_url="http://localhost:9000",
-            r2_bucket="crosstune-test",
-            r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
-            r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
-            r2_browser_endpoint_url="/storage",
+            local_storage_endpoint_url="http://localhost:9000",
+            storage_bucket="crosstune-test",
+            storage_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+            storage_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+            local_storage_browser_endpoint_url="/storage",
         )
     )
 
@@ -161,10 +161,10 @@ async def test_lifespan_wraps_the_store_when_a_prefix_is_set(database_url: str) 
             database_url=database_url,
             environment="pr-6",
             r2_account_id="acct",
-            r2_bucket="crosstune-recordings-preview",
-            r2_access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
-            r2_secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
-            r2_prefix="pr-6/",
+            storage_bucket="crosstune-recordings-preview",
+            storage_access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
+            storage_secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
+            storage_prefix="pr-6/",
         )
     )
 

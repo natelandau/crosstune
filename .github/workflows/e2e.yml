@@ -36,16 +36,16 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      CROSSTUNE_CLERK_ISSUER: ${{ vars.CLERK_ISSUER }}
+      CROSSTUNE_CLERK_ISSUER: ${{ vars.CROSSTUNE_CLERK_ISSUER }}
       CROSSTUNE_CLERK_AUTHORIZED_PARTIES: '["http://localhost:4173"]'
       VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
       E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
-      CROSSTUNE_R2_ENDPOINT_URL: http://localhost:9000
-      CROSSTUNE_R2_BUCKET: crosstune-e2e
-      CROSSTUNE_R2_ACCESS_KEY_ID: crosstune
-      CROSSTUNE_R2_SECRET_ACCESS_KEY: crosstune-local-secret
-      CROSSTUNE_R2_BROWSER_ENDPOINT_URL: /storage
+      CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL: http://localhost:9000
+      CROSSTUNE_STORAGE_BUCKET: crosstune-e2e
+      CROSSTUNE_STORAGE_ACCESS_KEY_ID: crosstune
+      CROSSTUNE_STORAGE_SECRET_ACCESS_KEY: crosstune-local-secret
+      CROSSTUNE_LOCAL_STORAGE_BROWSER_ENDPOINT_URL: /storage
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7

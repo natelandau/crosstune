@@ -69,7 +69,7 @@ e2e *args:
         || { echo "the API on {{ e2e_api }} is not bound to the e2e database: $fix" >&2; exit 1; }
     # The preview server Playwright starts proxies /v1, so this is what sends the suite's
     # writes to the e2e database rather than to whatever :8000 is serving.
-    API_PROXY_TARGET='{{ e2e_api }}' pnpm playwright test {{ args }}
+    LOCAL_API_PROXY_TARGET='{{ e2e_api }}' pnpm playwright test {{ args }}
 
 # Run the dev server with the /v1 proxy
 [group('run')]

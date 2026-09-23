@@ -186,7 +186,7 @@ just smoke https://api.<domain> https://<domain>
 ```
 
 The `Smoke` workflow runs the same script. Blank inputs use the
-`PRODUCTION_API_ORIGIN` and `PRODUCTION_WEB_ORIGIN` Actions variables. It
+`API_ORIGIN_PRODUCTION` and `WEB_ORIGIN_PRODUCTION` Actions variables. It
 checks that `/healthz` answers ok, that an anonymous `/v1/me` is a 401
 problem document from the API and through the web origin, and that the web
 origin serves the app shell, the manifest, the service worker, and the
@@ -219,8 +219,8 @@ them with these steps.
 3. Set the two new values where the old token lives. For a Railway token
    (production or development read-write), open project `crosstune`, the
    matching environment, service `api`, **Variables**, and set
-   `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY`, then
-   deploy. For a GitHub token (development read-only or preview
+   `CROSSTUNE_STORAGE_ACCESS_KEY_ID` and
+   `CROSSTUNE_STORAGE_SECRET_ACCESS_KEY`, then deploy. For a GitHub token (development read-only or preview
    read-write), open the repository's **Settings**, **Secrets and
    variables**, **Actions**, and update the matching secret pair from
    `hosting.md`.

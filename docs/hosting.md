@@ -16,6 +16,19 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 | Worker         | `vars` and the KV binding                                  | `web/wrangler.jsonc`, in the repository                                                          |
 | GitHub Actions | `vars.*` and `secrets.*`                                   | Repository settings                                                                              |
 
+## Naming a variable
+
+- Every name the code reads is in `api/.env.example` or
+  `web/.env.example` with its explanation, names only a host sets included.
+- `LOCAL_`, in the API `CROSSTUNE_LOCAL_`, marks a name that only local work
+  and the end-to-end suite set. `E2E_` marks an end-to-end credential.
+- `STORAGE_` names a setting of any S3-compatible store. `R2_` names only a
+  value that exists on R2 alone.
+- An environment qualifier comes last and is spelled out: `_PRODUCTION`,
+  `_DEVELOPMENT`, `_PREVIEW`.
+- A GitHub variable or secret that feeds one app variable has that
+  variable's name.
+
 ## Values that cross hosts
 
 | Value                                                      | Produced by    | Consumed by                          |
@@ -107,11 +120,11 @@ environments `production` and `development`.
   the `Preview` workflow creates with the Railway CLI, with seven overrides:
   `CROSSTUNE_DATABASE_URL` is the Neon branch's direct string,
   `CROSSTUNE_ENVIRONMENT` is `pr-<number>`, the service branch is the PR
-  branch, `CROSSTUNE_R2_BUCKET` is `crosstune-recordings-preview`,
-  `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY` are the
-  preview token's values, and `CROSSTUNE_R2_PREFIX` is `pr-<number>/`. The
-  workflow sets them on every run and deletes the environment when the PR
-  closes.
+  branch, `CROSSTUNE_STORAGE_BUCKET` is `crosstune-recordings-preview`,
+  `CROSSTUNE_STORAGE_ACCESS_KEY_ID` and
+  `CROSSTUNE_STORAGE_SECRET_ACCESS_KEY` are the preview token's values, and
+  `CROSSTUNE_STORAGE_PREFIX` is `pr-<number>/`. The workflow sets them on
+  every run and deletes the environment when the PR closes.
 - The account token the workflow uses must belong to an account without
   two-factor authentication. The CLI cannot answer the prompt and the
   delete hangs.
@@ -129,17 +142,20 @@ Variables, both environments unless noted:
 | `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Production endpoint secret         | Development endpoint secret                                             |
 | `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                | `crosstune-api` DSN                                                     |
 | `CROSSTUNE_R2_ACCOUNT_ID`                | Cloudflare account ID              | Cloudflare account ID                                                   |
-| `CROSSTUNE_R2_BUCKET`                    | `crosstune-recordings`             | `crosstune-recordings-dev`                                              |
-| `CROSSTUNE_R2_ACCESS_KEY_ID`             | Production bucket token key ID     | Development bucket token key ID                                         |
-| `CROSSTUNE_R2_SECRET_ACCESS_KEY`         | Production bucket token secret     | Development bucket token secret                                         |
-| `CROSSTUNE_R2_PREFIX`                    | Unset                              | Unset                                                                   |
+| `CROSSTUNE_STORAGE_BUCKET`               | `crosstune-recordings`             | `crosstune-recordings-dev`                                              |
+| `CROSSTUNE_STORAGE_ACCESS_KEY_ID`        | Production bucket token key ID     | Development bucket token key ID                                         |
+| `CROSSTUNE_STORAGE_SECRET_ACCESS_KEY`    | Production bucket token secret     | Development bucket token secret                                         |
+| `CROSSTUNE_STORAGE_PREFIX`               | Unset                              | Unset                                                                   |
 
-Quota, file size, job polling, sweep, resolver timeout, link resolve rate
-limit, and pull page size keep the defaults in `api/src/crosstune/config.py`
-and are not set on the host. The regex
+Quota, file size, job polling, sweep, link resolve timeout, link resolve
+rate limit, and pull page size keep the defaults in
+`api/src/crosstune/config.py` and are not set on the host. The
+`CROSSTUNE_LOCAL_*` names are for local work and the end-to-end suite, and
+the API refuses to start with them on a hosted environment. Railway injects
+`PORT`. `api/.env.example` explains every name. The regex
 writes the `workers.dev` subdomain literally and admits every preview alias.
-The API refuses to start when `CROSSTUNE_R2_PREFIX`, `CROSSTUNE_R2_BUCKET`,
-and `CROSSTUNE_ENVIRONMENT` disagree. The guard is in
+The API refuses to start when `CROSSTUNE_STORAGE_PREFIX`,
+`CROSSTUNE_STORAGE_BUCKET`, and `CROSSTUNE_ENVIRONMENT` disagree. The guard is in
 `api/src/crosstune/config.py` and holds these rules:
 
 - Production and development take no prefix.
@@ -230,9 +246,10 @@ stay in the RustFS container `docker compose` starts.
 - Four tokens: production read-write, held in Railway's `production`
   environment; development read-write, held in Railway's `development`
   environment; development read-only, held in the GitHub secret pair
-  `R2_DEV_READ_ACCESS_KEY_ID` and `R2_DEV_READ_SECRET_ACCESS_KEY`, used to
-  seed a preview from development; preview read-write, held in the GitHub
-  secret pair `R2_PREVIEW_ACCESS_KEY_ID` and `R2_PREVIEW_SECRET_ACCESS_KEY`,
+  `STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT` and
+  `STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT`, used to seed a preview from
+  development; preview read-write, held in the GitHub secret pair
+  `STORAGE_ACCESS_KEY_ID_PREVIEW` and `STORAGE_SECRET_ACCESS_KEY_PREVIEW`,
   and set on each `pr-<n>` Railway environment by the `Preview` workflow.
 - The account has a billing notification for R2 usage.
 
@@ -252,33 +269,33 @@ stay in the RustFS container `docker compose` starts.
 
 Actions variables:
 
-| Variable                     | Value                                         |
-| ---------------------------- | --------------------------------------------- |
-| `PRODUCTION_API_ORIGIN`      | `https://api.<domain>`                        |
-| `PRODUCTION_WEB_ORIGIN`      | `https://<domain>`                            |
-| `CLERK_ISSUER`               | The development issuer                        |
-| `NEON_PROJECT_ID`            | The `crosstune-development` project ID        |
-| `NEON_DATABASE_ROLE`         | The role in the development connection string |
-| `RAILWAY_PROJECT_ID`         | The `crosstune` project ID                    |
-| `RAILWAY_DEV_ENVIRONMENT_ID` | The `development` environment ID              |
-| `RAILWAY_API_SERVICE_ID`     | The `api` service ID                          |
-| `CLOUDFLARE_ACCOUNT_ID`      | The account ID                                |
-| `CLOUDFLARE_KV_NAMESPACE_ID` | The `crosstune-preview-api` namespace ID      |
+| Variable                             | Value                                         |
+| ------------------------------------ | --------------------------------------------- |
+| `API_ORIGIN_PRODUCTION`              | `https://api.<domain>`                        |
+| `WEB_ORIGIN_PRODUCTION`              | `https://<domain>`                            |
+| `CROSSTUNE_CLERK_ISSUER`             | The development issuer                        |
+| `NEON_PROJECT_ID`                    | The `crosstune-development` project ID        |
+| `NEON_DATABASE_ROLE`                 | The role in the development connection string |
+| `RAILWAY_PROJECT_ID`                 | The `crosstune` project ID                    |
+| `RAILWAY_ENVIRONMENT_ID_DEVELOPMENT` | The `development` environment ID              |
+| `RAILWAY_API_SERVICE_ID`             | The `api` service ID                          |
+| `CLOUDFLARE_ACCOUNT_ID`              | The account ID                                |
+| `CLOUDFLARE_KV_NAMESPACE_ID`         | The `crosstune-preview-api` namespace ID      |
 
 Actions secrets:
 
-| Secret                          | Used by   | Value                                                        |
-| ------------------------------- | --------- | ------------------------------------------------------------ |
-| `CLERK_SECRET_KEY`              | `E2E`     | The development instance's `sk_test_...` key                 |
-| `VITE_CLERK_PUBLISHABLE_KEY`    | `E2E`     | The development instance's `pk_test_...` key                 |
-| `E2E_CLERK_USER_EMAIL`          | `E2E`     | The email of a user in the development instance              |
-| `NEON_API_KEY`                  | `Preview` | A Neon API key                                               |
-| `RAILWAY_API_TOKEN`             | `Preview` | A Railway account token, not a project token                 |
-| `CLOUDFLARE_API_TOKEN`          | `Preview` | The KV-only token described under Cloudflare Workers         |
-| `R2_PREVIEW_ACCESS_KEY_ID`      | `Preview` | The preview bucket token's access key ID                     |
-| `R2_PREVIEW_SECRET_ACCESS_KEY`  | `Preview` | The preview bucket token's secret access key                 |
-| `R2_DEV_READ_ACCESS_KEY_ID`     | `Preview` | The development bucket's read-only token's access key ID     |
-| `R2_DEV_READ_SECRET_ACCESS_KEY` | `Preview` | The development bucket's read-only token's secret access key |
+| Secret                                       | Used by   | Value                                                        |
+| -------------------------------------------- | --------- | ------------------------------------------------------------ |
+| `CLERK_SECRET_KEY`                           | `E2E`     | The development instance's `sk_test_...` key                 |
+| `VITE_CLERK_PUBLISHABLE_KEY`                 | `E2E`     | The development instance's `pk_test_...` key                 |
+| `E2E_CLERK_USER_EMAIL`                       | `E2E`     | The email of a user in the development instance              |
+| `NEON_API_KEY`                               | `Preview` | A Neon API key                                               |
+| `RAILWAY_API_TOKEN`                          | `Preview` | A Railway account token, not a project token                 |
+| `CLOUDFLARE_API_TOKEN`                       | `Preview` | The KV-only token described under Cloudflare Workers         |
+| `STORAGE_ACCESS_KEY_ID_PREVIEW`              | `Preview` | The preview bucket token's access key ID                     |
+| `STORAGE_SECRET_ACCESS_KEY_PREVIEW`          | `Preview` | The preview bucket token's secret access key                 |
+| `STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT`     | `Preview` | The development bucket's read-only token's access key ID     |
+| `STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT` | `Preview` | The development bucket's read-only token's secret access key |
 
 - Squash merges only, with the PR title and body as the commit message.
   Head branches are deleted after merge.

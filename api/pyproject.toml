@@ -9,6 +9,7 @@
         "pydantic-settings>=2.15.0",
         "pydantic>=2.13.5",
         "pyjwt[crypto]>=2.14.0",
+        "python-dotenv>=1.2.1",
         "python-json-logger>=4.2.0",
         "sentry-sdk[fastapi]>=2.69.1",
         "sqlalchemy[asyncio]>=2.0.52",
@@ -71,20 +72,20 @@
     xfail_strict   = true
 
 [tool.pytest_env]
-    CROSSTUNE_CLERK_AUTHORIZED_PARTIES = '["http://testclient"]'
-    CROSSTUNE_CLERK_ISSUER             = "https://test.clerk.accounts.dev"
-    CROSSTUNE_CLERK_WEBHOOK_SECRET     = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="
-    CROSSTUNE_DEBUG                    = "true"
+    CROSSTUNE_CLERK_AUTHORIZED_PARTIES           = '["http://testclient"]'
+    CROSSTUNE_CLERK_ISSUER                       = "https://test.clerk.accounts.dev"
+    CROSSTUNE_CLERK_WEBHOOK_SECRET               = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not a credential
+    CROSSTUNE_DEBUG                              = "true"
     # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
-    CROSSTUNE_SENTRY_DSN               = ""
+    CROSSTUNE_SENTRY_DSN                         = ""
     # Pinned empty so a developer's api/.env storage settings cannot leak into the suite.
-    CROSSTUNE_R2_ACCOUNT_ID            = ""
-    CROSSTUNE_R2_ENDPOINT_URL          = ""
-    CROSSTUNE_R2_BUCKET                = ""
-    CROSSTUNE_R2_ACCESS_KEY_ID         = ""
-    CROSSTUNE_R2_SECRET_ACCESS_KEY     = ""
-    CROSSTUNE_R2_PREFIX                = ""
-    CROSSTUNE_R2_BROWSER_ENDPOINT_URL  = ""
+    CROSSTUNE_R2_ACCOUNT_ID                      = ""
+    CROSSTUNE_STORAGE_BUCKET                     = ""
+    CROSSTUNE_STORAGE_ACCESS_KEY_ID              = ""
+    CROSSTUNE_STORAGE_SECRET_ACCESS_KEY          = ""
+    CROSSTUNE_STORAGE_PREFIX                     = ""
+    CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL         = ""
+    CROSSTUNE_LOCAL_STORAGE_BROWSER_ENDPOINT_URL = ""
 
 [tool.ruff]
     cache-dir = ".cache/ruff"

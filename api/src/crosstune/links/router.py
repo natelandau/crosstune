@@ -57,6 +57,6 @@ async def resolve(
     # fetch, which can wait out its whole timeout, holds nothing from the pool.
     await session.commit()
     link = await resolve_link(
-        body.url, request.app.state.http_client, settings.resolver_timeout_seconds
+        body.url, request.app.state.http_client, settings.link_resolve_timeout_seconds
     )
     return ResolveResponse(**dataclasses.asdict(link))
