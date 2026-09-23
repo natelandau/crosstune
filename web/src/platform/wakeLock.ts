@@ -1,9 +1,13 @@
 import { useEffect } from 'react'
 
+/** How many times one hold re-takes a lock the browser let go while the tab stayed shown. */
+export const MAX_WAKE_LOCK_RETAKES = 3
+
 /**
  * Holds the screen on until the returned function is called. The browser drops the lock
  * whenever the tab is hidden, so it is taken again each time the tab becomes visible, and again
- * when the browser lets it go on its own (low-power mode, say) while the tab is still shown. A
+ * when the browser lets it go on its own (low-power mode, say) while the tab is still shown, up to
+ * MAX_WAKE_LOCK_RETAKES times, so a browser that keeps letting go cannot keep it spinning. A
  * refused or missing lock is silent: a musician can do nothing about it, and an error line on a
  * reading screen would only take room from the words.
  */
@@ -17,6 +21,7 @@ export function holdScreenAwake(): () => void {
   // dropped for good: nothing else re-checks visibility once that request settles.
   let missed = false
   let live = true
+  let retakes = 0
 
   const take = (): void => {
     if (!live || !api || sentinel) return
@@ -51,7 +56,10 @@ export function holdScreenAwake(): () => void {
           if (sentinel !== granted) return
           sentinel = null
           // A hidden tab gets its lock back from the visibility listener instead.
-          if (document.visibilityState === 'visible') take()
+          if (document.visibilityState === 'visible' && retakes < MAX_WAKE_LOCK_RETAKES) {
+            retakes++
+            take()
+          }
         })
       })
       .catch(() => {})

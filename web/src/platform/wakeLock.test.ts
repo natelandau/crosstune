@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { holdScreenAwake, useWakeLock } from './wakeLock'
+import { holdScreenAwake, MAX_WAKE_LOCK_RETAKES, useWakeLock } from './wakeLock'
 
 interface FakeSentinel {
   released: boolean
@@ -246,6 +246,32 @@ describe('holdScreenAwake', () => {
       sentinels[0]!.fireRelease()
 
       await vi.waitFor(() => expect(sentinels).toHaveLength(2))
+    } finally {
+      release()
+    }
+  })
+
+  it('stops re-taking a lock the browser keeps releasing while the tab is shown', async () => {
+    const sentinels = fakeWakeLock()
+    const release = holdScreenAwake()
+    try {
+      await vi.waitFor(() => expect(sentinels).toHaveLength(1))
+      await flush()
+
+      for (let held = 1; held <= MAX_WAKE_LOCK_RETAKES; held++) {
+        sentinels[held - 1]!.fireRelease()
+        await vi.waitFor(() => expect(sentinels).toHaveLength(held + 1))
+        await flush()
+      }
+
+      sentinels.at(-1)!.fireRelease()
+      await flush()
+      expect(sentinels).toHaveLength(MAX_WAKE_LOCK_RETAKES + 1)
+
+      // Showing the tab again is the musician's own act, so it still earns a lock.
+      setVisibility('hidden')
+      setVisibility('visible')
+      await vi.waitFor(() => expect(sentinels).toHaveLength(MAX_WAKE_LOCK_RETAKES + 2))
     } finally {
       release()
     }
