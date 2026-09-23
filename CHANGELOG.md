@@ -1,3 +1,17 @@
+## v0.5.0 (2026-09-22)
+
+### Feat
+
+- **web**: enlarge the phone record button and color it red (#44)
+- **web**: remove the first-run instruments prompt (#43)
+- **song**: accept modal, suggest High Bass, keep violin and banjo (#42)
+- **lyrics**: store a song's words and read them full screen (#39)
+
+### Fix
+
+- **web**: keep place after a recording and sync as soon as Clerk loads (#41)
+- **api**: survive bad links, bad keys, and partial deletes in sync (#40)
+
 ## v0.4.1 (2026-09-20)
 
 ### Fix
