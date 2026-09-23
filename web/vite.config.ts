@@ -12,8 +12,8 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // Same-origin in dev and preview so the API needs no CORS locally, and so a browser
 // reaching the dev server through a proxy (Tailscale Serve) can also reach local storage:
 // changeOrigin restores the Host a presigned URL was signed for. The end-to-end suite
-// overrides both targets, because it serves its own API and storage on data it is free
-// to reset.
+// overrides the API target, because it serves its own API on a database it is free to
+// reset; its storage is a separate bucket on the same RustFS.
 const devProxy = (env: Record<string, string>) => ({
   '/v1': { target: env.API_PROXY_TARGET || 'http://localhost:8000', changeOrigin: true },
   '/storage': {

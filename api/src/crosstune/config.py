@@ -11,6 +11,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
+LOCAL_BUCKET = "crosstune-local"
+E2E_BUCKET = "crosstune-e2e"
 _HOSTED_WITHOUT_PREFIX = {"development", "production"}
 
 
@@ -173,6 +175,10 @@ class Settings(BaseSettings):
     def _e2e_problem(self) -> str | None:
         if self.e2e_database and not self.r2_endpoint_url:
             return "an e2e database may only use local storage (CROSSTUNE_R2_ENDPOINT_URL)"
+        if self.e2e_database and self.r2_bucket != E2E_BUCKET:
+            return f"an e2e database must use {E2E_BUCKET}"
+        if self.r2_bucket == E2E_BUCKET and not self.e2e_database:
+            return f"only an e2e database may use {E2E_BUCKET}"
         return None
 
     def _endpoint_problem(self) -> str | None:

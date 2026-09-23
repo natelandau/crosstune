@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from crosstune.config import E2E_BUCKET, LOCAL_BUCKET
 from crosstune.storage.r2 import s3_client
 
 if TYPE_CHECKING:
@@ -18,8 +19,6 @@ if TYPE_CHECKING:
 ENDPOINT = "http://localhost:9000"
 ACCESS_KEY = "crosstune"
 SECRET_KEY = "crosstune-local-secret"  # noqa: S105 -- the fixed local credential compose.yml sets
-LOCAL_BUCKET = "crosstune-local"
-E2E_BUCKET = "crosstune-e2e"
 BUCKETS = (LOCAL_BUCKET, E2E_BUCKET)
 CORS_ORIGINS = ["http://localhost:5173", "http://localhost:4173"]
 

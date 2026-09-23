@@ -204,6 +204,14 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
             {"environment": "development", **R2, "r2_browser_endpoint_url": "/storage"},
             id="browser-endpoint-without-a-local-endpoint",
         ),
+        pytest.param(
+            {"environment": "development", **LOCAL_STORE, "database_url": E2E_DB},
+            id="e2e-on-the-local-bucket",
+        ),
+        pytest.param(
+            {"environment": "development", **LOCAL_STORE, "r2_bucket": "crosstune-e2e"},
+            id="e2e-bucket-without-an-e2e-database",
+        ),
     ],
 )
 def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
