@@ -351,6 +351,29 @@ describe('RecordModal capture', () => {
     expect(await db.recording_files.count()).toBe(0)
   })
 
+  it('paints Stop in the record red with a label large enough to read on it', async () => {
+    fakeMedia()
+    renderIonic(
+      <RecordProvider>
+        <Host />
+      </RecordProvider>,
+      { db: openTestDb() },
+    )
+    await page.getByRole('button', { name: RECORD_LABEL }).click()
+    await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
+    const stop = page.getByRole('button', { name: 'Stop' }).element()
+    const probe = document.createElement('span')
+    probe.style.backgroundColor = 'var(--color-record)'
+    document.querySelector('ion-modal')!.append(probe)
+    try {
+      expect(getComputedStyle(stop).backgroundColor).toBe(getComputedStyle(probe).backgroundColor)
+      // White on the record red passes contrast only as large text, 24px and up.
+      expect(parseFloat(getComputedStyle(stop).fontSize)).toBeGreaterThanOrEqual(24)
+    } finally {
+      probe.remove()
+    }
+  })
+
   it('keeps Cancel big enough to tap while the recording runs', async () => {
     fakeMedia()
     renderIonic(

@@ -202,8 +202,7 @@ function Capture({
       <div className="flex w-full flex-col items-center gap-4">
         {live ? (
           <IonButton
-            color="danger"
-            className="size-24 [--border-radius:50%]"
+            className="size-24 text-2xl [--background:var(--color-record)] [--border-radius:50%] [--color:#ffffff]"
             disabled={phase === 'starting'}
             onClick={() => void stop()}
           >
