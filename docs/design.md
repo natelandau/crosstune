@@ -75,6 +75,8 @@ Three axes decide the chrome. No screen asks which device it is on;
 - Four Ionic roles carry meaning and no screen invents a fifth. `primary`
   tints anything chosen. `success` and `warning` mark status dots. `warning`
   also marks a cautionary action. `danger` marks every destructive one.
+- The tab bar's record dot is recording red, through the `record` token,
+  which does not move with `danger`.
 - A control painted in a value's own color keeps that color when chosen.
 - Dark mode is Ionic's system palette, switched by a class the appearance
   setting writes. The class and `data-theme` are stamped before first paint.
