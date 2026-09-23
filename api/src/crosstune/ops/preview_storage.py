@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import os
 import re
 import sys
@@ -18,6 +19,8 @@ from crosstune.config import PREVIEW_BUCKET
 from crosstune.storage.r2 import R2Store, s3_client
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from types_boto3_s3 import S3Client
 
     from crosstune.storage.store import ObjectStore
@@ -25,58 +28,73 @@ if TYPE_CHECKING:
 __all__ = ["DEV_BUCKET", "PREVIEW_BUCKET", "main", "pr_prefix", "seed", "teardown"]
 
 DEV_BUCKET = "crosstune-recordings-dev"
-_PR_NAME = re.compile(r"pr-[0-9]+")
+_PR_PREFIX = re.compile(r"pr-[0-9]+/")
+
+
+def _checked(prefix: str) -> str:
+    """Refuse any prefix but one pull request's, since anything else reaches other audio.
+
+    Raises:
+        ValueError: When the prefix is not `pr-<number>/`.
+    """
+    if not _PR_PREFIX.fullmatch(prefix):
+        msg = f"{prefix!r} is not a pull request prefix like pr-12/"
+        raise ValueError(msg)
+    return prefix
 
 
 def pr_prefix(pr_name: str) -> str:
     """The key prefix of one pull request.
 
-    An empty or malformed name would reach every other pull request's audio.
-
     Raises:
         ValueError: When the name is not `pr-<number>`.
     """
-    if not _PR_NAME.fullmatch(pr_name):
-        msg = f"{pr_name!r} is not a pull request environment name like pr-12"
-        raise ValueError(msg)
-    return f"{pr_name}/"
+    return _checked(f"{pr_name}/")
 
 
-def _sizes(client: S3Client, bucket: str, prefix: str = "") -> dict[str, int]:
+def _listing(client: S3Client, bucket: str, prefix: str = "") -> dict[str, tuple[int, datetime]]:
     scope = {"Prefix": prefix} if prefix else {}
     pages = client.get_paginator("list_objects_v2").paginate(Bucket=bucket, **scope)
     return {
-        obj["Key"][len(prefix) :]: obj["Size"] for page in pages for obj in page.get("Contents", [])
+        obj["Key"][len(prefix) :]: (obj["Size"], obj["LastModified"])
+        for page in pages
+        for obj in page.get("Contents", [])
     }
 
 
 def seed(
     source: S3Client, source_bucket: str, target: S3Client, target_bucket: str, prefix: str
 ) -> int:
-    """Copy every source object missing under the prefix in the target, keeping its content type.
+    """Copy every source object missing, resized, or rewritten since its copy, keeping its type.
+
+    A key can be rewritten in place, as when a failed recording gets a fresh upload
+    URL on the same key, so a matching size alone does not prove a copy is current.
 
     Returns:
         int: How many objects were copied.
     """
-    present = _sizes(target, target_bucket, prefix)
+    _checked(prefix)
+    present = _listing(target, target_bucket, prefix)
     copied = 0
-    for key, size in _sizes(source, source_bucket).items():
-        if present.get(key) == size:
+    for key, (size, modified) in _listing(source, source_bucket).items():
+        copy = present.get(key)
+        if copy is not None and copy[0] == size and copy[1] >= modified:
             continue
         obj = source.get_object(Bucket=source_bucket, Key=key)
-        target.upload_fileobj(
-            obj["Body"],
-            target_bucket,
-            prefix + key,
-            ExtraArgs={"ContentType": obj.get("ContentType", "application/octet-stream")},
-        )
+        with contextlib.closing(obj["Body"]) as body:
+            target.upload_fileobj(
+                body,
+                target_bucket,
+                prefix + key,
+                ExtraArgs={"ContentType": obj.get("ContentType", "application/octet-stream")},
+            )
         copied += 1
     return copied
 
 
 async def teardown(store: ObjectStore, prefix: str) -> None:
     """Remove every object of one pull request."""
-    await store.delete_prefix(prefix)
+    await store.delete_prefix(_checked(prefix))
 
 
 def _env(name: str) -> str:
