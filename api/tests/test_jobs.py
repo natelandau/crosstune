@@ -339,6 +339,58 @@ async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> No
     assert store.keys() == []
 
 
+async def add_recording(session, user: User, state: str) -> Recording:
+    rec = Recording(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        source="upload",
+        recorded_at=utc_now(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+        state=state,
+    )
+    session.add(rec)
+    await session.flush()
+    return rec
+
+
+async def test_sweep_removes_recording_prefixes_with_no_row(runner, verify_session) -> None:
+    """A recording prefix with no row under a live user is garbage, like a user prefix with no user."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    kept = await add_recording(verify_session, user, "ready")
+    await verify_session.commit()
+    stray = uuid.uuid4()
+    store.put_bytes(playback_key(user.id, kept.id), b"a", "audio/mp4")
+    store.put_bytes(playback_key(user.id, stray), b"b", "audio/mp4")
+    store.put_bytes(upload_key(user.id, stray), b"c", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 1
+    assert store.keys() == [playback_key(user.id, kept.id)]
+
+
+async def test_sweep_keeps_recordings_with_a_row_in_any_state(runner, verify_session) -> None:
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    states = ["pending_upload", "uploaded", "processing", "ready", "failed"]
+    recs = [await add_recording(verify_session, user, state) for state in states]
+    await verify_session.commit()
+    for rec in recs:
+        store.put_bytes(playback_key(user.id, rec.id), b"a", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 0
+    assert len(store.keys()) == len(states)
+
+
+async def test_sweep_removes_a_recording_filed_under_the_wrong_user(runner, verify_session) -> None:
+    job_runner, store = runner
+    owner = await make_user(verify_session)
+    other = await make_user(verify_session)
+    rec = await add_recording(verify_session, owner, "ready")
+    await verify_session.commit()
+    store.put_bytes(playback_key(other.id, rec.id), b"a", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 1
+    assert store.keys() == []
+
+
 async def test_start_and_stop(runner) -> None:
     job_runner, _ = runner
     task = job_runner.start()

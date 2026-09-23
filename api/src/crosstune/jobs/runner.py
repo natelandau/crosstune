@@ -37,6 +37,17 @@ STOP_TIMEOUT_SECONDS = 10.0
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
 
 
+def _uuid_prefixes(prefixes: list[str], parent: str) -> dict[uuid.UUID, str]:
+    """Map each listed prefix whose last segment is a UUID to the prefix itself."""
+    found: dict[uuid.UUID, str] = {}
+    for prefix in prefixes:
+        try:
+            found[uuid.UUID(prefix[len(parent) :].rstrip("/"))] = prefix
+        except ValueError:
+            continue
+    return found
+
+
 def _client_message(exc: Exception) -> str:
     """A short, safe description of a failure for the recording row.
 
@@ -129,27 +140,42 @@ class JobRunner:
         return done
 
     async def sweep_orphans(self) -> int:
-        """Delete every user prefix in the bucket whose user row no longer exists.
+        """Delete every user prefix with no user row, then every recording prefix with no row.
 
         Account deletion removes the row first and wipes the bucket best-effort
         afterwards; this sweep is what makes the wipe certain. A user row exists
-        before any key is issued under its id and ids are never reused, so a UUID
-        prefix with no row is always garbage. Other prefixes are not ours to touch.
+        before any key is issued under its id, a recording row before any upload
+        URL under its id, and ids are never reused, so a UUID prefix with no row
+        is always garbage. Other prefixes are not ours to touch.
 
         Returns:
             int: How many prefixes were removed.
         """
-        candidates: dict[uuid.UUID, str] = {}
-        for prefix in await self._store.list_prefixes():
-            try:
-                candidates[uuid.UUID(prefix.rstrip("/"))] = prefix
-            except ValueError:
-                continue
-        if not candidates:
+        users = _uuid_prefixes(await self._store.list_prefixes(), "")
+        if not users:
             return 0
         async with self._sessionmaker() as session:
-            live = set(await session.scalars(select(User.id).where(User.id.in_(candidates))))
-        orphans = [prefix for user_id, prefix in candidates.items() if user_id not in live]
+            live = set(await session.scalars(select(User.id).where(User.id.in_(users))))
+        orphans = [prefix for user_id, prefix in users.items() if user_id not in live]
+        await asyncio.gather(*(self._store.delete_prefix(prefix) for prefix in orphans))
+        removed = len(orphans)
+        for user_id in live:
+            removed += await self._sweep_recordings(user_id, users[user_id])
+        return removed
+
+    async def _sweep_recordings(self, user_id: uuid.UUID, user_prefix: str) -> int:
+        recordings = _uuid_prefixes(await self._store.list_prefixes(user_prefix), user_prefix)
+        if not recordings:
+            return 0
+        async with self._sessionmaker() as session:
+            known = set(
+                await session.scalars(
+                    select(Recording.id).where(
+                        Recording.id.in_(recordings), Recording.user_id == user_id
+                    )
+                )
+            )
+        orphans = [prefix for rec_id, prefix in recordings.items() if rec_id not in known]
         await asyncio.gather(*(self._store.delete_prefix(prefix) for prefix in orphans))
         return len(orphans)
 
