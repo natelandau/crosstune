@@ -156,6 +156,8 @@ class Settings(BaseSettings):
         bucket = self.r2_bucket
         if bucket == PRODUCTION_BUCKET and env != "production":
             return f"only production may use {PRODUCTION_BUCKET}"
+        if env == "production" and bucket != PRODUCTION_BUCKET:
+            return f"production must use {PRODUCTION_BUCKET}"
         if bucket == PREVIEW_BUCKET and not env.startswith("pr-"):
             return f"only pr-<number> environments may use {PREVIEW_BUCKET}"
         if env.startswith("pr-") and bucket != PREVIEW_BUCKET:
@@ -169,7 +171,7 @@ class Settings(BaseSettings):
 
     def _endpoint_problem(self) -> str | None:
         env = self.environment
-        if self.r2_endpoint_url and env != "development":
+        if self.r2_endpoint_url and env != "development" and not self.e2e_database:
             return f"CROSSTUNE_R2_ENDPOINT_URL is for local work, not {env}"
         return None
 

@@ -120,6 +120,15 @@ E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
             },
             id="local-e2e",
         ),
+        pytest.param(
+            {
+                "environment": "test",
+                **LOCAL_STORE,
+                "r2_bucket": "crosstune-e2e",
+                "database_url": E2E_DB,
+            },
+            id="local-e2e-outside-development",
+        ),
         pytest.param({"environment": "pr-44"}, id="pr-without-storage"),
         pytest.param(
             {"environment": "development", "database_url": E2E_DB}, id="e2e-without-storage"
@@ -176,6 +185,7 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
             id="preview-bucket-on-production",
         ),
         pytest.param({"environment": "pr-44", **R2, "r2_prefix": "pr-44/"}, id="pr-on-dev-bucket"),
+        pytest.param({"environment": "production", **R2}, id="production-on-dev-bucket"),
     ],
 )
 def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
