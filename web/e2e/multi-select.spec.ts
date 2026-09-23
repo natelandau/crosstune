@@ -78,6 +78,7 @@ test('select songs in a search, set their violin tuning, and undo', async ({ pag
   const tag = unique('Bulk tuning')
   const first = `${tag} Say Old Man`
   const second = `${tag} Lost Indian`
+  await openTab(page, 'Catalog')
   await addSong(page, first, 'A')
   await openTab(page, 'Catalog')
   await addSong(page, second, 'A')

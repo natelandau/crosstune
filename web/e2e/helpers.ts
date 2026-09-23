@@ -22,7 +22,8 @@ export async function signIn(page: Page): Promise<void> {
 
 /**
  * Mark an instrument as played through Settings, so the tuning field and filter for it appear.
- * A fresh database has no settings row, so nothing is played until a test says so.
+ * A fresh database has no settings row, so nothing is played until a test says so. The page is
+ * left on the Settings tab.
  */
 export async function playInstrument(page: Page, name: string): Promise<void> {
   await openTab(page, 'Settings')
