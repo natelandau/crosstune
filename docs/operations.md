@@ -6,14 +6,14 @@ back, smoke check, and rebuild. The settings each host holds are in
 
 ## Prerequisites
 
-| Tool                                          | Version        | Notes                                                                |
-| --------------------------------------------- | -------------- | -------------------------------------------------------------------- |
-| [uv](https://docs.astral.sh/uv/)              | any            | Installs Python 3.13, the API's dependencies, and the git hooks.     |
-| [Node.js](https://nodejs.org/)                | 22.12 or newer | Runs the web toolchain.                                              |
-| [pnpm](https://pnpm.io/)                      | 12.4.1         | Pinned in `web/package.json`. `corepack enable` installs it.         |
-| [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                   |
+| Tool                                          | Version        | Notes                                                                           |
+| --------------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
+| [uv](https://docs.astral.sh/uv/)              | any            | Installs Python 3.13, the API's dependencies, and the git hooks.                |
+| [Node.js](https://nodejs.org/)                | 22.12 or newer | Runs the web toolchain.                                                         |
+| [pnpm](https://pnpm.io/)                      | 12.4.1         | Pinned in `web/package.json`. `corepack enable` installs it.                    |
+| [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                              |
 | [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
-| [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip. |
+| [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
 
 You also need a free [Clerk](https://clerk.com) development instance with
 email magic link sign-in enabled. From its dashboard, copy the Frontend API
@@ -34,13 +34,13 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 
 ## Run
 
-| Command             | Does                                                                                                     |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| Command             | Does                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. |
 | `just dev-down`     | Stops Postgres and RustFS.                                                                                          |
-| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                     |
-| `just web::run`     | The web client alone.                                                                                    |
-| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                    |
+| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                |
+| `just web::run`     | The web client alone.                                                                                               |
+| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                               |
 
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
@@ -52,9 +52,9 @@ sign in with `crosstune` and `crosstune-local-secret`. List objects with
 `just api::storage get <key> [dest]`. Both take `--bucket crosstune-e2e` to
 read the end-to-end bucket instead of `crosstune-local`.
 `just api::storage-reset [bucket]` deletes every object in a bucket,
-`crosstune-local` by default. To remove an orphaned file, reset the local
-database and restart the API. The sweep then deletes it, because it deletes
-whatever the database does not know. `docker compose down -v` removes the
+`crosstune-local` by default. A restart of the API runs the orphan sweep,
+which deletes every file that has no user row or no recording row in the
+local database. `docker compose down -v` removes the
 Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
@@ -114,8 +114,9 @@ and fails instead in CI, where the `API` workflow always starts it.
   `Preview` workflow creates a Neon branch `pr-<n>` from development and a
   Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
   of the preview bucket. A KV entry maps the PR's preview alias to that
-  API. Every push resets the Neon branch and seeds the prefix with the
-  recordings the reset rows reference, so preview data is lost. Closing the
+  API. Every push resets the Neon branch, so preview data is lost. Every
+  push also copies into the prefix each object of the development bucket
+  whose copy is missing, has a different size, or is older. Closing the
   PR deletes the Railway environment, the Neon branch, the KV entry, and
   the `pr-<n>/` prefix. The 90-day lifecycle rule on the preview bucket is
   the backstop for a failed prefix deletion. If cleanup fails, run the
@@ -225,7 +226,11 @@ them with these steps.
    healthy, record audio on that environment and play it back. For a
    GitHub token, open or push to a pull request and confirm the `Preview`
    workflow seeds and later removes its recordings.
-5. In Cloudflare, delete the token you noted in step 1.
+5. If you rotate the preview token, run the `Preview` workflow again for
+   each open pull request. Each run sets the token on its environment.
+   Open previews that did not get the new token cannot reach their
+   recordings until their next push.
+6. In Cloudflare, delete the token you noted in step 1.
 
 ## Rebuilding from nothing
 

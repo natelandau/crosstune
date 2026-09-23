@@ -50,16 +50,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                     |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                       |
+| Question                 | Answer                                                                                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                      |
 | What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row. |
-| Who owns a row           | The token.                                                                                                                                                 |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                        |
-| Which tables sync        | User settings, songs, user-song, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.           |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data. Sign-out deletes it, and refuses while the outbox holds unsent changes. |
-| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.    |
-| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                             |
+| Who owns a row           | The token.                                                                                                                                                                                |
+| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                       |
+| Which tables sync        | User settings, songs, user-song, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                          |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data. Sign-out deletes it, and refuses while the outbox holds unsent changes.                                |
+| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                   |
+| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                            |
 
 ## Sync
 
@@ -173,12 +173,12 @@ off from 1 second to 60 seconds. The engine exposes one status value.
 
 ## Environments
 
-| Environment  | API                         | Database              | Clerk instance | Web client                                | Recordings                                                                                         |
-| ------------ | ---------------------------- | ---------------------- | --------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Local        | uvicorn on port 8000         | Postgres in Docker     | Development     | Vite dev server, proxies `/v1`             | RustFS bucket `crosstune-local`                                                                       |
-| Development  | Railway, generated hostname  | Neon development       | Development     | Worker preview at `main-crosstune-web`     | R2 bucket `crosstune-recordings-dev`                                                                  |
-| Pull request | Railway `pr-<n>`, generated  | Neon branch `pr-<n>`   | Development     | Worker preview at `<alias>-crosstune-web`  | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push     |
-| Production   | Railway, `api.<domain>`      | Neon production        | Production      | Worker on `<domain>`                       | R2 bucket `crosstune-recordings`                                                                      |
+| Environment  | API                         | Database             | Clerk instance | Web client                                | Recordings                                                                                        |
+| ------------ | --------------------------- | -------------------- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`                                                                   |
+| Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
+| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
+| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                      | R2 bucket `crosstune-recordings`                                                                  |
 
 Development runs the head of `main`. Production runs the commit the last
 version tag promoted. A pull request environment runs the PR branch with the
