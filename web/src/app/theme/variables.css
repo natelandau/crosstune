@@ -35,7 +35,7 @@
   /* The T of the brand mark, on every surface. */
   --color-mark: #ef8354;
 
-  /* The record control's dot: the red of a camera's record light, which does not move with
+  /* The record dot and the Stop button: the red of a camera's record light, which does not move with
      `danger`. */
   --color-record: #ff3b30;
 
