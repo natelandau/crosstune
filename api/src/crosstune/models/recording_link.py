@@ -31,7 +31,7 @@ class RecordingLink(SyncColumns, Base):
         UUID(as_uuid=True), ForeignKey("songs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     added_by_user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     url: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str] = mapped_column(String(20), nullable=False)

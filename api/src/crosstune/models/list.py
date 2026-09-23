@@ -20,7 +20,7 @@ class List(SyncColumns, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(LIMITS["lists"]["name"]), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -34,7 +34,7 @@ class ListItem(SyncColumns, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     list_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("lists.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("lists.id", ondelete="CASCADE"), nullable=False
     )
     user_song_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
