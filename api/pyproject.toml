@@ -84,6 +84,7 @@
     CROSSTUNE_R2_ACCESS_KEY_ID         = ""
     CROSSTUNE_R2_SECRET_ACCESS_KEY     = ""
     CROSSTUNE_R2_PREFIX                = ""
+    CROSSTUNE_R2_BROWSER_ENDPOINT_URL  = ""
 
 [tool.ruff]
     cache-dir = ".cache/ruff"
