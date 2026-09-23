@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     link_resolves_per_minute: int = 30
     pull_page_size: int = 500
     r2_account_id: str = ""
+    r2_endpoint_url: str = ""
     r2_bucket: str = ""
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
@@ -68,10 +69,15 @@ class Settings(BaseSettings):
         return self.database_name.endswith("_e2e")
 
     @property
+    def r2_endpoint(self) -> str:
+        """The S3 endpoint: the configured one, or the R2 endpoint of the account."""
+        return self.r2_endpoint_url or f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
+
+    @property
     def r2_configured(self) -> bool:
-        """Whether every R2 setting is present. Without them the store stays unbuilt."""
+        """Whether every storage setting is present. Without them the store stays unbuilt."""
         return bool(
-            self.r2_account_id
+            (self.r2_account_id or self.r2_endpoint_url)
             and self.r2_bucket
             and self.r2_access_key_id
             and self.r2_secret_access_key

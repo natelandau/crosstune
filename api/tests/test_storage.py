@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from botocore.stub import Stubber
 
-from crosstune.storage.r2 import ObjectDeleteError, R2Store
+from crosstune.storage.r2 import ObjectDeleteError, R2Store, s3_client
 from crosstune.storage.store import (
     ObjectStore,
     original_key,
@@ -22,7 +22,7 @@ pytestmark = pytest.mark.anyio
 
 def store() -> R2Store:
     return R2Store(
-        account_id="acct",
+        endpoint_url="https://acct.r2.cloudflarestorage.com",
         bucket="crosstune-test",
         access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
         secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
@@ -58,6 +58,13 @@ def test_fake_store_satisfies_the_protocol() -> None:
     # drifted from ObjectStore, which the API tests would otherwise not notice.
     store: ObjectStore = FakeObjectStore()
     assert store is not None
+
+
+def test_s3_client_signs_for_auto_on_r2_and_us_east_1_elsewhere() -> None:
+    r2 = s3_client("https://acct.r2.cloudflarestorage.com", "k", "s")
+    local = s3_client("http://localhost:9000", "k", "s")
+    assert r2.meta.region_name == "auto"
+    assert local.meta.region_name == "us-east-1"
 
 
 async def test_fake_store_round_trips(tmp_path) -> None:

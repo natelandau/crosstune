@@ -66,3 +66,18 @@ def test_r2_configured_requires_all_four_values() -> None:
     assert Settings(**complete).r2_configured is True
     for missing in complete:
         assert Settings(**{**complete, missing: ""}).r2_configured is False
+
+
+def test_r2_configured_accepts_an_endpoint_in_place_of_the_account() -> None:
+    settings = Settings(
+        r2_endpoint_url="http://localhost:9000",
+        r2_bucket="crosstune-local",
+        r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+        r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+    )
+    assert settings.r2_configured is True
+    assert settings.r2_endpoint == "http://localhost:9000"
+
+
+def test_r2_endpoint_defaults_to_the_account_endpoint() -> None:
+    assert Settings(r2_account_id="acct").r2_endpoint == "https://acct.r2.cloudflarestorage.com"

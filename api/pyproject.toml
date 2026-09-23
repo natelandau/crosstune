@@ -77,6 +77,13 @@
     CROSSTUNE_DEBUG                    = "true"
     # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
     CROSSTUNE_SENTRY_DSN               = ""
+    # Pinned empty so a developer's api/.env storage settings cannot leak into the suite.
+    CROSSTUNE_R2_ACCOUNT_ID            = ""
+    CROSSTUNE_R2_ENDPOINT_URL          = ""
+    CROSSTUNE_R2_BUCKET                = ""
+    CROSSTUNE_R2_ACCESS_KEY_ID         = ""
+    CROSSTUNE_R2_SECRET_ACCESS_KEY     = ""
+    CROSSTUNE_R2_PREFIX                = ""
 
 [tool.ruff]
     cache-dir = ".cache/ruff"

@@ -1,4 +1,4 @@
-"""Cloudflare R2 through its S3-compatible endpoint. boto3 is blocking, so I/O runs in threads."""
+"""Cloudflare R2, or RustFS locally, through the S3 API. boto3 is blocking, so I/O runs in threads."""
 
 from __future__ import annotations
 
@@ -21,21 +21,27 @@ class ObjectDeleteError(Exception):
     """The bucket accepted a batch delete but reported some of its keys as not removed."""
 
 
+def s3_client(endpoint_url: str, access_key_id: str, secret_access_key: str) -> S3Client:
+    """A client for an S3-compatible endpoint."""
+    return boto3.client(
+        service_name="s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        # R2 signs for "auto"; other S3 servers reject any region but their own default.
+        region_name="auto" if endpoint_url.endswith(".r2.cloudflarestorage.com") else "us-east-1",
+        config=Config(signature_version="s3v4"),
+    )
+
+
 class R2Store:
-    """An ObjectStore backed by one R2 bucket."""
+    """An ObjectStore backed by one bucket."""
 
     def __init__(
-        self, *, account_id: str, bucket: str, access_key_id: str, secret_access_key: str
+        self, *, endpoint_url: str, bucket: str, access_key_id: str, secret_access_key: str
     ) -> None:
         self._bucket = bucket
-        self._client: S3Client = boto3.client(
-            service_name="s3",
-            endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key,
-            region_name="auto",
-            config=Config(signature_version="s3v4"),
-        )
+        self._client: S3Client = s3_client(endpoint_url, access_key_id, secret_access_key)
 
     def presign_put(self, key: str, content_type: str, expires_in: int) -> str:
         """A URL a client can PUT one object to, with the content type in the signature."""

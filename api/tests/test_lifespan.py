@@ -115,3 +115,20 @@ async def test_lifespan_runs_and_stops_the_runner_with_an_injected_store(databas
         assert app.state.job_runner is not None
         assert not app.state.job_runner.task.done()
     assert app.state.job_runner.task.done()
+
+
+async def test_lifespan_builds_an_r2_store_on_a_configured_endpoint(database_url: str) -> None:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            r2_endpoint_url="http://localhost:9000",
+            r2_bucket="crosstune-local",
+            r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+            r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        store = app.state.object_store
+        assert isinstance(store, R2Store)
+        assert store._client.meta.endpoint_url == "http://localhost:9000"

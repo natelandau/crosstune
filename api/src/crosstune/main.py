@@ -43,7 +43,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     if app.state.object_store is None and settings.r2_configured:
         app.state.object_store = R2Store(
-            account_id=settings.r2_account_id,
+            endpoint_url=settings.r2_endpoint,
             bucket=settings.r2_bucket,
             access_key_id=settings.r2_access_key_id,
             secret_access_key=settings.r2_secret_access_key,
