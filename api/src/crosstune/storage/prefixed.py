@@ -55,7 +55,7 @@ class PrefixedStore:
         """Remove every object under a prefix."""
         await self._inner.delete_prefix(self._key(prefix))
 
-    async def list_prefixes(self, prefix: str = "") -> list[str]:
-        """The prefixes one level below `prefix`, each in full and ending in a slash."""
-        listed = await self._inner.list_prefixes(self._key(prefix))
-        return [entry[len(self._prefix) :] for entry in listed]
+    async def list_keys(self, prefix: str = "") -> list[str]:
+        """Every key under `prefix`, each in full, or every key within this store's prefix."""
+        listed = await self._inner.list_keys(self._key(prefix))
+        return [key[len(self._prefix) :] for key in listed]

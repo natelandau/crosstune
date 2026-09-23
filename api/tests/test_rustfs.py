@@ -69,7 +69,7 @@ async def test_listing_and_batch_deletes(rustfs_bucket: str, rustfs: S3Client) -
     r2 = store(rustfs_bucket)
     for key in ("u1/r1/a", "u1/r2/a", "u2/r1/a"):
         rustfs.put_object(Bucket=rustfs_bucket, Key=key, Body=b"x")
-    assert await r2.list_prefixes() == ["u1/", "u2/"]
+    assert await r2.list_keys() == ["u1/r1/a", "u1/r2/a", "u2/r1/a"]
     await r2.delete("u2/r1/a", "u2/r1/never-there")
     await r2.delete_prefix("u1/r1/")
     remaining = rustfs.list_objects_v2(Bucket=rustfs_bucket).get("Contents", [])
@@ -110,7 +110,11 @@ def test_every_command_refuses_a_bucket_it_does_not_own() -> None:
         local_storage.main(["reset", "crosstune-recordings-dev"])
 
 
-async def test_listing_below_a_prefix(rustfs_bucket: str, rustfs: S3Client) -> None:
-    for key in ("u1/r1/a", "u1/r2/a", "u2/r1/a"):
+async def test_list_keys_lists_every_key_or_those_below_a_prefix(
+    rustfs_bucket: str, rustfs: S3Client
+) -> None:
+    for key in ("u1/r1/a", "u1/r2/a", "u10/r1/a", "u2/r1/a", "loose"):
         rustfs.put_object(Bucket=rustfs_bucket, Key=key, Body=b"x")
-    assert await store(rustfs_bucket).list_prefixes("u1/") == ["u1/r1/", "u1/r2/"]
+    r2 = store(rustfs_bucket)
+    assert await r2.list_keys() == ["loose", "u1/r1/a", "u1/r2/a", "u10/r1/a", "u2/r1/a"]
+    assert await r2.list_keys("u1/") == ["u1/r1/a", "u1/r2/a"]

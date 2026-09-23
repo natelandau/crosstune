@@ -15,6 +15,7 @@ from crosstune.jobs.runner import MAX_ATTEMPTS, JobRunner
 from crosstune.jobs.transcode import transcode
 from crosstune.models import Job, Recording, UploadSlot, User
 from crosstune.models.user import new_uuid7, utc_now
+from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.store import original_key, playback_key, upload_key
 from tests.fakes import FakeObjectStore
 
@@ -341,7 +342,7 @@ async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> No
 
 async def add_recording(session, user: User, state: str) -> Recording:
     rec = Recording(
-        id=uuid.uuid4(),
+        id=new_uuid7(),
         user_id=user.id,
         source="upload",
         recorded_at=utc_now(),
@@ -369,15 +370,55 @@ async def test_sweep_removes_recording_prefixes_with_no_row(runner, verify_sessi
 
 
 async def test_sweep_keeps_recordings_with_a_row_in_any_state(runner, verify_session) -> None:
+    """Only a UUID recording prefix with no row goes; a purged row still claims its prefix."""
     job_runner, store = runner
     user = await make_user(verify_session)
     states = ["pending_upload", "uploaded", "processing", "ready", "failed"]
     recs = [await add_recording(verify_session, user, state) for state in states]
+    # What _purge leaves behind: soft-deleted, keys cleared, ready to upload again.
+    purged = await add_recording(verify_session, user, "pending_upload")
+    purged.deleted_at = utc_now()
     await verify_session.commit()
     for rec in recs:
         store.put_bytes(playback_key(user.id, rec.id), b"a", "audio/mp4")
+    store.put_bytes(upload_key(user.id, purged.id), b"a", "audio/mp4")
+    store.put_bytes(f"{user.id}/not-a-uuid/x", b"a", "audio/mp4")
+    stray = new_uuid7()
+    store.put_bytes(upload_key(user.id, stray), b"a", "audio/mp4")
+    kept = sorted(
+        [playback_key(user.id, rec.id) for rec in recs]
+        + [upload_key(user.id, purged.id), f"{user.id}/not-a-uuid/x"]
+    )
+    assert await job_runner.sweep_orphans() == 1
+    assert store.keys() == kept
     assert await job_runner.sweep_orphans() == 0
-    assert len(store.keys()) == len(states)
+
+
+async def test_sweep_through_a_prefix_leaves_other_environments_alone(
+    engine, verify_session
+) -> None:
+    """A pr-N sweep sees only pr-N/, never a sibling preview or the unprefixed keys beside it."""
+    user_a = await make_user(verify_session)
+    rec_a = await add_recording(verify_session, user_a, "ready")
+    await verify_session.commit()
+    user_b, rec_b = new_uuid7(), new_uuid7()
+    bucket = FakeObjectStore()
+    a_keys = [
+        f"pr-6/{playback_key(user_a.id, rec_a.id)}",
+        f"pr-6/{upload_key(user_a.id, rec_a.id)}",
+    ]
+    others = [f"pr-7/{playback_key(user_b, rec_b)}", playback_key(new_uuid7(), new_uuid7())]
+    for key in a_keys + others:
+        bucket.put_bytes(key, b"a", "audio/mp4")
+    job_runner = JobRunner(
+        make_sessionmaker(engine), PrefixedStore(bucket, "pr-6/"), poll_seconds=0.01
+    )
+    assert await job_runner.sweep_orphans() == 0
+    assert bucket.keys() == sorted(a_keys + others)
+    stray = f"pr-6/{playback_key(new_uuid7(), new_uuid7())}"
+    bucket.put_bytes(stray, b"a", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 1
+    assert bucket.keys() == sorted(a_keys + others)
 
 
 async def test_sweep_removes_a_recording_filed_under_the_wrong_user(runner, verify_session) -> None:

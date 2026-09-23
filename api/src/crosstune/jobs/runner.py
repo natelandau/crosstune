@@ -37,15 +37,38 @@ STOP_TIMEOUT_SECONDS = 10.0
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
 
 
-def _uuid_prefixes(prefixes: list[str], parent: str) -> dict[uuid.UUID, str]:
-    """Map each listed prefix whose last segment is a UUID to the prefix itself."""
-    found: dict[uuid.UUID, str] = {}
-    for prefix in prefixes:
-        try:
-            found[uuid.UUID(prefix[len(parent) :].rstrip("/"))] = prefix
-        except ValueError:
+def _as_uuid(segment: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(segment)
+    except ValueError:
+        return None
+
+
+def _owned_prefixes(
+    keys: list[str],
+) -> tuple[dict[uuid.UUID, str], dict[tuple[uuid.UUID, uuid.UUID], str]]:
+    """Group keys by the user and recording ids their first two segments name.
+
+    A segment that is not a UUID is not ours, so no prefix is built from it, and a
+    key with a single segment belongs to no user.
+
+    Returns:
+        tuple: The user prefixes by user id, and the recording prefixes by
+        (user id, recording id).
+    """
+    users: dict[uuid.UUID, str] = {}
+    recordings: dict[tuple[uuid.UUID, uuid.UUID], str] = {}
+    for key in keys:
+        user_segment, has_user, rest = key.partition("/")
+        user_id = _as_uuid(user_segment) if has_user else None
+        if user_id is None:
             continue
-    return found
+        users.setdefault(user_id, f"{user_segment}/")
+        recording_segment, has_recording, _ = rest.partition("/")
+        recording_id = _as_uuid(recording_segment) if has_recording else None
+        if recording_id is not None:
+            recordings.setdefault((user_id, recording_id), f"{user_segment}/{recording_segment}/")
+    return users, recordings
 
 
 def _client_message(exc: Exception) -> str:
@@ -148,34 +171,27 @@ class JobRunner:
         URL under its id, and ids are never reused, so a UUID prefix with no row
         is always garbage. Other prefixes are not ours to touch.
 
+        One listing and two queries per sweep, however many users the bucket holds.
+
         Returns:
             int: How many prefixes were removed.
         """
-        users = _uuid_prefixes(await self._store.list_prefixes(), "")
+        users, recordings = _owned_prefixes(await self._store.list_keys())
         if not users:
             return 0
         async with self._sessionmaker() as session:
             live = set(await session.scalars(select(User.id).where(User.id.in_(users))))
-        orphans = [prefix for user_id, prefix in users.items() if user_id not in live]
-        await asyncio.gather(*(self._store.delete_prefix(prefix) for prefix in orphans))
-        removed = len(orphans)
-        for user_id in live:
-            removed += await self._sweep_recordings(user_id, users[user_id])
-        return removed
-
-    async def _sweep_recordings(self, user_id: uuid.UUID, user_prefix: str) -> int:
-        recordings = _uuid_prefixes(await self._store.list_prefixes(user_prefix), user_prefix)
-        if not recordings:
-            return 0
-        async with self._sessionmaker() as session:
-            known = set(
-                await session.scalars(
-                    select(Recording.id).where(
-                        Recording.id.in_(recordings), Recording.user_id == user_id
+            candidates = {pair: prefix for pair, prefix in recordings.items() if pair[0] in live}
+            known: set[tuple[uuid.UUID, uuid.UUID]] = set()
+            if candidates:
+                rows = await session.execute(
+                    select(Recording.user_id, Recording.id).where(
+                        Recording.id.in_({recording_id for _, recording_id in candidates})
                     )
                 )
-            )
-        orphans = [prefix for rec_id, prefix in recordings.items() if rec_id not in known]
+                known = {(user_id, recording_id) for user_id, recording_id in rows.tuples()}
+        orphans = [prefix for user_id, prefix in users.items() if user_id not in live]
+        orphans += [prefix for pair, prefix in candidates.items() if pair not in known]
         await asyncio.gather(*(self._store.delete_prefix(prefix) for prefix in orphans))
         return len(orphans)
 

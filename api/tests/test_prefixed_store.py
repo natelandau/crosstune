@@ -64,12 +64,12 @@ async def test_object_operations_stay_under_the_prefix(tmp_path: Path) -> None:
     assert bucket.keys() == []
 
 
-async def test_list_prefixes_returns_logical_prefixes() -> None:
+async def test_list_keys_returns_logical_keys() -> None:
     bucket, scoped = pair()
     bucket.put_bytes("pr-6/u1/r1/a", b"x", "audio/mp4")
     bucket.put_bytes("pr-6/u2/r1/a", b"x", "audio/mp4")
-    assert await scoped.list_prefixes() == ["u1/", "u2/"]
-    assert await scoped.list_prefixes("u1/") == ["u1/r1/"]
+    assert await scoped.list_keys() == ["u1/r1/a", "u2/r1/a"]
+    assert await scoped.list_keys("u1/") == ["u1/r1/a"]
 
 
 async def test_sibling_prefixes_are_never_listed_or_deleted() -> None:
@@ -78,6 +78,6 @@ async def test_sibling_prefixes_are_never_listed_or_deleted() -> None:
     bucket.put_bytes("pr-60/u1/r1/a", b"x", "audio/mp4")
     bucket.put_bytes("u1/r1/a", b"x", "audio/mp4")
     scoped = PrefixedStore(bucket, "pr-6/")
-    assert await scoped.list_prefixes() == ["u1/"]
+    assert await scoped.list_keys() == ["u1/r1/a"]
     await scoped.delete_prefix("u1/")
     assert bucket.keys() == ["pr-60/u1/r1/a", "u1/r1/a"]

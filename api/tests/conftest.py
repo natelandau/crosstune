@@ -393,7 +393,7 @@ async def client(app: FastAPI, truncate_all: None) -> AsyncIterator[httpx2.Async
 def rustfs() -> S3Client:
     """A client for the RustFS that compose.yml starts, or a skip when none answers.
 
-    CI starts RustFS for every run, so there a missing server fails instead of skipping.
+    CI starts RustFS for every run, so in CI a missing server fails instead of skipping.
     """
     client = local_storage.client()
     try:
