@@ -31,13 +31,13 @@ env:
   RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:5.60.0
   RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
-  RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_DEV_ENVIRONMENT_ID }}
+  RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID_DEVELOPMENT }}
   RAILWAY_API_SERVICE_ID: ${{ vars.RAILWAY_API_SERVICE_ID }}
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_KV_NAMESPACE_ID: ${{ vars.CLOUDFLARE_KV_NAMESPACE_ID }}
-  R2_PREVIEW_ACCESS_KEY_ID: ${{ secrets.R2_PREVIEW_ACCESS_KEY_ID }}
-  R2_PREVIEW_SECRET_ACCESS_KEY: ${{ secrets.R2_PREVIEW_SECRET_ACCESS_KEY }}
+  STORAGE_ACCESS_KEY_ID_PREVIEW: ${{ secrets.STORAGE_ACCESS_KEY_ID_PREVIEW }}
+  STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
 
 jobs:
   up:
@@ -91,8 +91,8 @@ jobs:
       - name: seed the preview's recordings from development
         working-directory: api
         env:
-          R2_DEV_READ_ACCESS_KEY_ID: ${{ secrets.R2_DEV_READ_ACCESS_KEY_ID }}
-          R2_DEV_READ_SECRET_ACCESS_KEY: ${{ secrets.R2_DEV_READ_SECRET_ACCESS_KEY }}
+          STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT: ${{ secrets.STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT }}
+          STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT: ${{ secrets.STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT }}
         run: uv run --no-dev python -m crosstune.ops.preview_storage seed "$PR_NAME"
 
       # Railway's built-in PR environments copy the base environment's variables
@@ -120,10 +120,10 @@ jobs:
           api_vars=(
             "CROSSTUNE_DATABASE_URL=$NEON_DB_URL"
             "CROSSTUNE_ENVIRONMENT=$PR_NAME"
-            "CROSSTUNE_R2_BUCKET=crosstune-recordings-preview"
-            "CROSSTUNE_R2_ACCESS_KEY_ID=$R2_PREVIEW_ACCESS_KEY_ID"
-            "CROSSTUNE_R2_SECRET_ACCESS_KEY=$R2_PREVIEW_SECRET_ACCESS_KEY"
-            "CROSSTUNE_R2_PREFIX=$PR_NAME/"
+            "CROSSTUNE_STORAGE_BUCKET=crosstune-recordings-preview"
+            "CROSSTUNE_STORAGE_ACCESS_KEY_ID=$STORAGE_ACCESS_KEY_ID_PREVIEW"
+            "CROSSTUNE_STORAGE_SECRET_ACCESS_KEY=$STORAGE_SECRET_ACCESS_KEY_PREVIEW"
+            "CROSSTUNE_STORAGE_PREFIX=$PR_NAME/"
           )
           exists="$(railway environment list --json \
             | jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' || true)"

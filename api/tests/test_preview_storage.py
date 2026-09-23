@@ -63,11 +63,11 @@ def test_main_names_a_missing_variable(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_main_seed_names_a_missing_dev_read_variable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
-    monkeypatch.setenv("R2_PREVIEW_ACCESS_KEY_ID", "preview-key")
-    monkeypatch.setenv("R2_PREVIEW_SECRET_ACCESS_KEY", "preview-secret")
-    monkeypatch.delenv("R2_DEV_READ_ACCESS_KEY_ID", raising=False)
-    monkeypatch.delenv("R2_DEV_READ_SECRET_ACCESS_KEY", raising=False)
-    with pytest.raises(SystemExit, match="R2_DEV_READ_ACCESS_KEY_ID"):
+    monkeypatch.setenv("STORAGE_ACCESS_KEY_ID_PREVIEW", "preview-key")
+    monkeypatch.setenv("STORAGE_SECRET_ACCESS_KEY_PREVIEW", "preview-secret")
+    monkeypatch.delenv("STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT", raising=False)
+    monkeypatch.delenv("STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT", raising=False)
+    with pytest.raises(SystemExit, match="STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT"):
         preview_storage.main(["seed", "pr-1"])
 
 

@@ -56,50 +56,59 @@ def test_valid_party_regex_is_kept_verbatim() -> None:
     assert settings.clerk_authorized_party_regex == pattern
 
 
-def test_r2_configured_requires_all_four_values() -> None:
+def test_storage_configured_requires_all_four_values() -> None:
     complete = {
         "r2_account_id": "acct",
-        "r2_bucket": "crosstune-test",
-        "r2_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
-        "r2_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
+        "storage_bucket": "crosstune-test",
+        "storage_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
+        "storage_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
     }
-    assert Settings(**complete).r2_configured is True
+    assert Settings(**complete).storage_configured is True
     for missing in complete:
-        assert Settings(**{**complete, missing: ""}).r2_configured is False
+        assert Settings(**{**complete, missing: ""}).storage_configured is False
 
 
-def test_r2_configured_accepts_an_endpoint_in_place_of_the_account() -> None:
+def test_storage_configured_accepts_an_endpoint_in_place_of_the_account() -> None:
     settings = Settings(
-        r2_endpoint_url="http://localhost:9000",
-        r2_bucket="crosstune-local",
-        r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
-        r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+        local_storage_endpoint_url="http://localhost:9000",
+        storage_bucket="crosstune-local",
+        storage_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+        storage_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
     )
-    assert settings.r2_configured is True
-    assert settings.r2_endpoint == "http://localhost:9000"
+    assert settings.storage_configured is True
+    assert settings.storage_endpoint == "http://localhost:9000"
 
 
-def test_r2_endpoint_defaults_to_the_account_endpoint() -> None:
-    assert Settings(r2_account_id="acct").r2_endpoint == "https://acct.r2.cloudflarestorage.com"
+def test_storage_endpoint_defaults_to_the_account_endpoint() -> None:
+    assert (
+        Settings(r2_account_id="acct").storage_endpoint == "https://acct.r2.cloudflarestorage.com"
+    )
 
 
 def test_browser_endpoint_is_accepted_with_a_local_endpoint() -> None:
-    settings = Settings(r2_endpoint_url="http://localhost:9000", r2_browser_endpoint_url="/storage")
-    assert settings.r2_browser_endpoint_url == "/storage"
+    settings = Settings(
+        local_storage_endpoint_url="http://localhost:9000",
+        local_storage_browser_endpoint_url="/storage",
+    )
+    assert settings.local_storage_browser_endpoint_url == "/storage"
 
 
 def test_browser_endpoint_is_refused_without_a_local_endpoint() -> None:
     with pytest.raises(ValidationError, match="storage"):
-        Settings(r2_browser_endpoint_url="/storage")
+        Settings(local_storage_browser_endpoint_url="/storage")
 
 
 STORE = {
-    "r2_bucket": "crosstune-recordings-dev",
-    "r2_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
-    "r2_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
+    "storage_bucket": "crosstune-recordings-dev",
+    "storage_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
+    "storage_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
 }
 R2 = {**STORE, "r2_account_id": "acct"}
-LOCAL_STORE = {**STORE, "r2_bucket": "crosstune-local", "r2_endpoint_url": "http://localhost:9000"}
+LOCAL_STORE = {
+    **STORE,
+    "storage_bucket": "crosstune-local",
+    "local_storage_endpoint_url": "http://localhost:9000",
+}
 E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
 
 
@@ -107,7 +116,7 @@ E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
     "overrides",
     [
         pytest.param(
-            {"environment": "production", **R2, "r2_bucket": "crosstune-recordings"},
+            {"environment": "production", **R2, "storage_bucket": "crosstune-recordings"},
             id="production",
         ),
         pytest.param({"environment": "development", **R2}, id="hosted-dev"),
@@ -115,21 +124,25 @@ E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
             {
                 "environment": "pr-44",
                 **R2,
-                "r2_bucket": "crosstune-recordings-preview",
-                "r2_prefix": "pr-44/",
+                "storage_bucket": "crosstune-recordings-preview",
+                "storage_prefix": "pr-44/",
             },
             id="pr",
         ),
         pytest.param({"environment": "development", **LOCAL_STORE}, id="local"),
         pytest.param(
-            {"environment": "development", **LOCAL_STORE, "r2_browser_endpoint_url": "/storage"},
+            {
+                "environment": "development",
+                **LOCAL_STORE,
+                "local_storage_browser_endpoint_url": "/storage",
+            },
             id="local-with-browser-endpoint",
         ),
         pytest.param(
             {
                 "environment": "development",
                 **LOCAL_STORE,
-                "r2_bucket": "crosstune-e2e",
+                "storage_bucket": "crosstune-e2e",
                 "database_url": E2E_DB,
             },
             id="local-e2e",
@@ -138,7 +151,7 @@ E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
             {
                 "environment": "test",
                 **LOCAL_STORE,
-                "r2_bucket": "crosstune-e2e",
+                "storage_bucket": "crosstune-e2e",
                 "database_url": E2E_DB,
             },
             id="local-e2e-outside-development",
@@ -158,50 +171,53 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
     [
         pytest.param({"environment": "pr-44", **R2}, id="pr-without-prefix"),
         pytest.param(
-            {"environment": "pr-44", **R2, "r2_prefix": "pr-45/"}, id="pr-with-another-prefix"
+            {"environment": "pr-44", **R2, "storage_prefix": "pr-45/"}, id="pr-with-another-prefix"
         ),
         pytest.param(
-            {"environment": "development", **R2, "r2_prefix": "pr-44/"},
+            {"environment": "development", **R2, "storage_prefix": "pr-44/"},
             id="development-with-prefix",
         ),
         pytest.param(
             {
                 "environment": "production",
                 **R2,
-                "r2_bucket": "crosstune-recordings",
-                "r2_prefix": "x/",
+                "storage_bucket": "crosstune-recordings",
+                "storage_prefix": "x/",
             },
             id="production-with-prefix",
         ),
         pytest.param(
-            {"environment": "pr-44", **R2, "r2_prefix": "pr-44"}, id="prefix-without-slash"
+            {"environment": "pr-44", **R2, "storage_prefix": "pr-44"}, id="prefix-without-slash"
         ),
         pytest.param(
-            {"environment": "development", **R2, "r2_bucket": "crosstune-recordings"},
+            {"environment": "development", **R2, "storage_bucket": "crosstune-recordings"},
             id="production-bucket-elsewhere",
         ),
         pytest.param(
-            {"environment": "pr-44", **LOCAL_STORE, "r2_prefix": "pr-44/"}, id="endpoint-on-a-pr"
+            {"environment": "pr-44", **LOCAL_STORE, "storage_prefix": "pr-44/"},
+            id="endpoint-on-a-pr",
         ),
         pytest.param(
-            {"environment": "production", **LOCAL_STORE, "r2_bucket": "crosstune-recordings"},
+            {"environment": "production", **LOCAL_STORE, "storage_bucket": "crosstune-recordings"},
             id="endpoint-on-production",
         ),
         pytest.param(
             {"environment": "development", **R2, "database_url": E2E_DB}, id="e2e-on-hosted-r2"
         ),
         pytest.param(
-            {"environment": "development", **R2, "r2_bucket": "crosstune-recordings-preview"},
+            {"environment": "development", **R2, "storage_bucket": "crosstune-recordings-preview"},
             id="preview-bucket-on-development",
         ),
         pytest.param(
-            {"environment": "production", **R2, "r2_bucket": "crosstune-recordings-preview"},
+            {"environment": "production", **R2, "storage_bucket": "crosstune-recordings-preview"},
             id="preview-bucket-on-production",
         ),
-        pytest.param({"environment": "pr-44", **R2, "r2_prefix": "pr-44/"}, id="pr-on-dev-bucket"),
+        pytest.param(
+            {"environment": "pr-44", **R2, "storage_prefix": "pr-44/"}, id="pr-on-dev-bucket"
+        ),
         pytest.param({"environment": "production", **R2}, id="production-on-dev-bucket"),
         pytest.param(
-            {"environment": "development", **R2, "r2_browser_endpoint_url": "/storage"},
+            {"environment": "development", **R2, "local_storage_browser_endpoint_url": "/storage"},
             id="browser-endpoint-without-a-local-endpoint",
         ),
         pytest.param(
@@ -209,7 +225,7 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
             id="e2e-on-the-local-bucket",
         ),
         pytest.param(
-            {"environment": "development", **LOCAL_STORE, "r2_bucket": "crosstune-e2e"},
+            {"environment": "development", **LOCAL_STORE, "storage_bucket": "crosstune-e2e"},
             id="e2e-bucket-without-an-e2e-database",
         ),
     ],
@@ -217,3 +233,25 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
 def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
     with pytest.raises(ValidationError, match="storage"):
         Settings(**overrides)
+
+
+def test_a_retired_name_alone_is_refused_with_its_replacement(monkeypatch) -> None:
+    monkeypatch.setenv("CROSSTUNE_R2_BUCKET", "crosstune-local")
+    with pytest.raises(
+        ValidationError, match="CROSSTUNE_R2_BUCKET is now CROSSTUNE_STORAGE_BUCKET"
+    ):
+        Settings()
+
+
+def test_a_retired_name_beside_its_replacement_is_accepted(monkeypatch) -> None:
+    monkeypatch.setenv("CROSSTUNE_R2_BUCKET", "crosstune-local")
+    monkeypatch.setenv("CROSSTUNE_STORAGE_BUCKET", "crosstune-local")
+    assert Settings().storage_bucket == "crosstune-local"
+
+
+def test_a_retired_name_in_the_env_file_is_refused(monkeypatch, tmp_path) -> None:
+    env_file = tmp_path / "settings.env"
+    env_file.write_text("CROSSTUNE_RESOLVER_TIMEOUT_SECONDS=5\n")
+    monkeypatch.setitem(Settings.model_config, "env_file", str(env_file))
+    with pytest.raises(ValidationError, match="CROSSTUNE_LINK_RESOLVE_TIMEOUT_SECONDS"):
+        Settings()

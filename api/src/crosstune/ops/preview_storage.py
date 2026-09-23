@@ -113,12 +113,14 @@ def main(argv: list[str] | None = None) -> int:
     prefix = pr_prefix(args.pr_name)
     endpoint = f"https://{_env('CLOUDFLARE_ACCOUNT_ID')}.r2.cloudflarestorage.com"
     preview_key, preview_secret = (
-        _env("R2_PREVIEW_ACCESS_KEY_ID"),
-        _env("R2_PREVIEW_SECRET_ACCESS_KEY"),
+        _env("STORAGE_ACCESS_KEY_ID_PREVIEW"),
+        _env("STORAGE_SECRET_ACCESS_KEY_PREVIEW"),
     )
     if args.command == "seed":
         dev = s3_client(
-            endpoint, _env("R2_DEV_READ_ACCESS_KEY_ID"), _env("R2_DEV_READ_SECRET_ACCESS_KEY")
+            endpoint,
+            _env("STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT"),
+            _env("STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT"),
         )
         preview = s3_client(endpoint, preview_key, preview_secret)
         copied = seed(dev, DEV_BUCKET, preview, PREVIEW_BUCKET, prefix)

@@ -41,19 +41,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.sessionmaker = make_sessionmaker(app.state.engine)
     built_http_client = app.state.http_client is None
     if built_http_client:
-        app.state.http_client = public_only_client(settings.resolver_timeout_seconds)
+        app.state.http_client = public_only_client(settings.link_resolve_timeout_seconds)
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
-    if app.state.object_store is None and settings.r2_configured:
+    if app.state.object_store is None and settings.storage_configured:
         store: ObjectStore = R2Store(
-            endpoint_url=settings.r2_endpoint,
-            bucket=settings.r2_bucket,
-            access_key_id=settings.r2_access_key_id,
-            secret_access_key=settings.r2_secret_access_key,
-            browser_endpoint_url=settings.r2_browser_endpoint_url,
+            endpoint_url=settings.storage_endpoint,
+            bucket=settings.storage_bucket,
+            access_key_id=settings.storage_access_key_id,
+            secret_access_key=settings.storage_secret_access_key,
+            browser_endpoint_url=settings.local_storage_browser_endpoint_url,
         )
-        if settings.r2_prefix:
-            store = PrefixedStore(store, settings.r2_prefix)
+        if settings.storage_prefix:
+            store = PrefixedStore(store, settings.storage_prefix)
         app.state.object_store = store
     built_runner = app.state.job_runner is None and app.state.object_store is not None
     if built_runner:

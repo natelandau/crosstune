@@ -13,11 +13,11 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 // reaching the dev server through a proxy (Tailscale Serve) can also reach local storage:
 // changeOrigin restores the Host a presigned URL was signed for. The end-to-end suite
 // overrides the API target, because it serves its own API on a database it is free to
-// reset; its storage is a separate bucket on the same RustFS.
+// reset; its storage is a separate bucket on the same RustFS, so that target never moves.
 const devProxy = (env: Record<string, string>) => ({
-  '/v1': { target: env.API_PROXY_TARGET || 'http://localhost:8000', changeOrigin: true },
+  '/v1': { target: env.LOCAL_API_PROXY_TARGET || 'http://localhost:8000', changeOrigin: true },
   '/storage': {
-    target: env.STORAGE_PROXY_TARGET || 'http://localhost:9000',
+    target: 'http://localhost:9000',
     changeOrigin: true,
     rewrite: (path: string) => path.replace(/^\/storage/, ''),
   },
@@ -30,7 +30,7 @@ const host = '127.0.0.1'
 // Vite answers only to localhost and IP addresses unless a hostname is listed
 // here, so a proxy such as Tailscale Serve needs its hostname allowed.
 const allowedHosts = (env: Record<string, string>) =>
-  (env.DEV_SERVER_ALLOWED_HOSTS ?? '')
+  (env.LOCAL_ALLOWED_HOSTS ?? '')
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
