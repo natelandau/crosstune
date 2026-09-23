@@ -45,6 +45,7 @@ jobs:
       CROSSTUNE_R2_BUCKET: crosstune-e2e
       CROSSTUNE_R2_ACCESS_KEY_ID: crosstune
       CROSSTUNE_R2_SECRET_ACCESS_KEY: crosstune-local-secret
+      CROSSTUNE_R2_BROWSER_ENDPOINT_URL: /storage
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7

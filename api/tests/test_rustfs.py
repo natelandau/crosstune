@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING
 
 import httpx2
@@ -11,6 +14,7 @@ from crosstune.ops import local_storage
 from crosstune.storage.r2 import R2Store
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from types_boto3_s3 import S3Client
@@ -18,6 +22,75 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 ORIGIN = "http://localhost:5173"
+
+# Headers that are per-hop, not part of the request or response a proxy passes through.
+_HOP_BY_HOP = {"connection", "keep-alive", "transfer-encoding", "content-length", "host"}
+
+
+class _StorageProxyHandler(BaseHTTPRequestHandler):
+    """Strips /storage and forwards to RustFS with the Host the presigned URL was signed for."""
+
+    def _proxy(self) -> None:
+        target_path = self.path.replace("/storage", "", 1)
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length) if length else None
+        headers = {k: v for k, v in self.headers.items() if k.lower() not in _HOP_BY_HOP}
+        headers["Host"] = "localhost:9000"
+        with httpx2.Client() as http:
+            response = http.request(
+                self.command, f"http://localhost:9000{target_path}", headers=headers, content=body
+            )
+        self.send_response(response.status_code)
+        for key, value in response.headers.items():
+            if key.lower() not in _HOP_BY_HOP:
+                self.send_header(key, value)
+        self.send_header("Content-Length", str(len(response.content)))
+        self.end_headers()
+        self.wfile.write(response.content)
+
+    def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        """Keep test output quiet."""
+
+    def do_GET(self) -> None:
+        self._proxy()
+
+    def do_PUT(self) -> None:
+        self._proxy()
+
+
+@contextmanager
+def storage_proxy() -> Iterator[int]:
+    """Stand in for the Vite dev server's /storage proxy: yields the port it listens on."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _StorageProxyHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server.server_address[1]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+async def test_presigned_urls_survive_the_storage_proxy(rustfs_bucket: str) -> None:
+    """Proves the design: changeOrigin's Host header keeps a proxied presigned URL valid."""
+    with storage_proxy() as port:
+        r2 = R2Store(
+            endpoint_url=local_storage.ENDPOINT,
+            bucket=rustfs_bucket,
+            access_key_id=local_storage.ACCESS_KEY,
+            secret_access_key=local_storage.SECRET_KEY,
+            browser_endpoint_url=f"http://127.0.0.1:{port}/storage",
+        )
+        put_url = r2.presign_put("u/r/upload", "audio/mp4", expires_in=600)
+        get_url = r2.presign_get("u/r/upload", expires_in=600)
+        assert put_url.startswith(f"http://127.0.0.1:{port}/storage/{rustfs_bucket}/u/r/upload?")
+
+        async with httpx2.AsyncClient() as http:
+            put = await http.put(put_url, content=b"audio", headers={"Content-Type": "audio/mp4"})
+            assert put.status_code == 200
+            get = await http.get(get_url)
+            assert get.content == b"audio"
 
 
 def store(bucket: str) -> R2Store:

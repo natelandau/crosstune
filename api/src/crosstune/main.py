@@ -50,6 +50,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             bucket=settings.r2_bucket,
             access_key_id=settings.r2_access_key_id,
             secret_access_key=settings.r2_secret_access_key,
+            browser_endpoint_url=settings.r2_browser_endpoint_url,
         )
         if settings.r2_prefix:
             store = PrefixedStore(store, settings.r2_prefix)

@@ -9,10 +9,18 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
   version: string
 }
 
-// Same-origin in dev and preview so the API needs no CORS locally. The end-to-end suite
-// overrides the target, because it serves its own API on a database it is free to reset.
-const apiProxy = (env: Record<string, string>) => ({
+// Same-origin in dev and preview so the API needs no CORS locally, and so a browser
+// reaching the dev server through a proxy (Tailscale Serve) can also reach local storage:
+// changeOrigin restores the Host a presigned URL was signed for. The end-to-end suite
+// overrides both targets, because it serves its own API and storage on data it is free
+// to reset.
+const devProxy = (env: Record<string, string>) => ({
   '/v1': { target: env.API_PROXY_TARGET || 'http://localhost:8000', changeOrigin: true },
+  '/storage': {
+    target: env.STORAGE_PROXY_TARGET || 'http://localhost:9000',
+    changeOrigin: true,
+    rewrite: (path: string) => path.replace(/^\/storage/, ''),
+  },
 })
 
 // Node resolves localhost to ::1 first on macOS, which would leave nothing on
@@ -31,7 +39,7 @@ export default defineConfig(({ mode }) => {
   // An empty prefix takes the process environment too, which is how a recipe hands the
   // end-to-end suite's API origin down to the preview server Playwright starts.
   const env = loadEnv(mode, process.cwd(), '')
-  const proxy = apiProxy(env)
+  const proxy = devProxy(env)
   const hosts = allowedHosts(env)
   return {
     plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],

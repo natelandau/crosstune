@@ -44,7 +44,9 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
-and worktree shares one Postgres container and one database.
+and worktree shares one Postgres container and one database. Browsers reach
+RustFS through the dev server's `/storage` proxy, so a phone on the dev
+server's Tailscale Serve URL can record and play back too.
 
 RustFS holds local recordings. Its console is at http://localhost:9001,
 sign in with `crosstune` and `crosstune-local-secret`. List objects with

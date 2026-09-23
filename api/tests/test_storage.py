@@ -45,6 +45,63 @@ def test_presigned_get_is_a_plain_get() -> None:
     assert query["X-Amz-SignedHeaders"] == ["host"]
 
 
+def local_store(browser_endpoint_url: str = "") -> R2Store:
+    return R2Store(
+        endpoint_url="http://localhost:9000",
+        bucket="crosstune-local",
+        access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+        secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+        browser_endpoint_url=browser_endpoint_url,
+    )
+
+
+def test_presign_put_rewritten_for_a_relative_browser_endpoint() -> None:
+    url = local_store("/storage").presign_put("u/r/upload", "audio/mp4", expires_in=600)
+    parts = urlparse(url)
+    assert (parts.scheme, parts.netloc) == ("", "")
+    assert parts.path == "/storage/crosstune-local/u/r/upload"
+    assert parse_qs(parts.query)["X-Amz-Expires"] == ["600"]
+
+
+def test_presign_get_rewritten_for_a_relative_browser_endpoint() -> None:
+    url = local_store("/storage").presign_get("u/r/playback.m4a", expires_in=60)
+    parts = urlparse(url)
+    assert parts.path == "/storage/crosstune-local/u/r/playback.m4a"
+    assert parse_qs(parts.query)["X-Amz-SignedHeaders"] == ["host"]
+
+
+def test_presign_rewritten_for_an_absolute_browser_endpoint() -> None:
+    url = local_store("https://example.test/storage").presign_put(
+        "u/r/upload", "audio/mp4", expires_in=600
+    )
+    parts = urlparse(url)
+    assert (parts.scheme, parts.netloc) == ("https", "example.test")
+    assert parts.path == "/storage/crosstune-local/u/r/upload"
+
+
+def test_browser_endpoint_trailing_slash_is_stripped() -> None:
+    url = local_store("/storage/").presign_get("u/r/playback.m4a", expires_in=60)
+    assert urlparse(url).path == "/storage/crosstune-local/u/r/playback.m4a"
+
+
+def test_presign_without_a_browser_endpoint_is_unchanged() -> None:
+    url = local_store().presign_get("u/r/playback.m4a", expires_in=60)
+    parts = urlparse(url)
+    assert parts.hostname == "localhost"
+    assert parts.path == "/crosstune-local/u/r/playback.m4a"
+
+
+def test_rewrite_for_browser_preserves_the_query_exactly() -> None:
+    # A crafted already-signed URL, not a live presign, so nothing about the
+    # signature's timing can make the comparison flaky.
+    r2 = local_store("/storage")
+    signed = (
+        "http://localhost:9000/crosstune-local/u/r/upload?X-Amz-Signature=abc&X-Amz-Expires=600"
+    )
+    rewritten = "/storage/crosstune-local/u/r/upload?X-Amz-Signature=abc&X-Amz-Expires=600"
+    assert r2._rewrite_for_browser(signed) == rewritten
+
+
 def test_keys_share_the_user_prefix() -> None:
     assert upload_key("u1", "r1") == "u1/r1/upload"
     assert playback_key("u1", "r1") == "u1/r1/playback.m4a"

@@ -83,6 +83,16 @@ def test_r2_endpoint_defaults_to_the_account_endpoint() -> None:
     assert Settings(r2_account_id="acct").r2_endpoint == "https://acct.r2.cloudflarestorage.com"
 
 
+def test_browser_endpoint_is_accepted_with_a_local_endpoint() -> None:
+    settings = Settings(r2_endpoint_url="http://localhost:9000", r2_browser_endpoint_url="/storage")
+    assert settings.r2_browser_endpoint_url == "/storage"
+
+
+def test_browser_endpoint_is_refused_without_a_local_endpoint() -> None:
+    with pytest.raises(ValidationError, match="storage"):
+        Settings(r2_browser_endpoint_url="/storage")
+
+
 STORE = {
     "r2_bucket": "crosstune-recordings-dev",
     "r2_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
@@ -111,6 +121,10 @@ E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
             id="pr",
         ),
         pytest.param({"environment": "development", **LOCAL_STORE}, id="local"),
+        pytest.param(
+            {"environment": "development", **LOCAL_STORE, "r2_browser_endpoint_url": "/storage"},
+            id="local-with-browser-endpoint",
+        ),
         pytest.param(
             {
                 "environment": "development",
@@ -186,6 +200,10 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
         ),
         pytest.param({"environment": "pr-44", **R2, "r2_prefix": "pr-44/"}, id="pr-on-dev-bucket"),
         pytest.param({"environment": "production", **R2}, id="production-on-dev-bucket"),
+        pytest.param(
+            {"environment": "development", **R2, "r2_browser_endpoint_url": "/storage"},
+            id="browser-endpoint-without-a-local-endpoint",
+        ),
     ],
 )
 def test_storage_scope_refuses(overrides: dict[str, str]) -> None:

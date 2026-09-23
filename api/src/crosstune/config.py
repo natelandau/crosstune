@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
     r2_prefix: str = ""
+    r2_browser_endpoint_url: str = ""
     recording_quota_bytes: int = 1_073_741_824
     recording_max_file_bytes: int = 52_428_800
     job_poll_seconds: float = 3.0
@@ -125,7 +126,12 @@ class Settings(BaseSettings):
         return self
 
     def _storage_problem(self) -> str | None:
-        return self._prefix_problem() or self._scope_problem()
+        return self._prefix_problem() or self._browser_endpoint_problem() or self._scope_problem()
+
+    def _browser_endpoint_problem(self) -> str | None:
+        if self.r2_browser_endpoint_url and not self.r2_endpoint_url:
+            return "CROSSTUNE_R2_BROWSER_ENDPOINT_URL needs CROSSTUNE_R2_ENDPOINT_URL; it is meaningless for R2"
+        return None
 
     def _prefix_problem(self) -> str | None:
         env = self.environment
