@@ -149,6 +149,9 @@ off from 1 second to 60 seconds. The engine exposes one status value.
 - The PUT signature covers the declared size, so the bucket refuses a file
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.
+- ffprobe and ffmpeg read an upload only as a local file, only through the
+  demuxers of the audio types an upload may declare, and run with no
+  environment but `PATH`.
 - Download: the API signs a GET for a ready recording. Other devices fetch on
   play, or ahead of time when the setting to download all recordings is on.
 - Each database owns one storage space and holds credentials for no other,
