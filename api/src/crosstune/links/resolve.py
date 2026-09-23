@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.links.opengraph import PageMeta, parse_open_graph
@@ -23,6 +24,7 @@ ITUNES_LOOKUP = "https://itunes.apple.com/lookup"
 ARCHIVE_METADATA = "https://archive.org/metadata/{identifier}/metadata"
 ARCHIVE_ARTWORK = "https://archive.org/services/img/{identifier}"
 MAX_PAGE_BYTES = 512_000
+MAX_JSON_BYTES = 256_000
 
 
 @dataclass(frozen=True)
@@ -77,15 +79,35 @@ async def resolve_link(
     return replace(link, title=title, artwork_url=artwork, provider_ref=ref)
 
 
+async def _get_json(
+    client: httpx2.AsyncClient,
+    url: str,
+    *,
+    params: dict[str, str] | None = None,
+    timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
+) -> Any:
+    # Streamed and capped like a page, but a JSON body cut short cannot parse, so one over
+    # the cap is refused outright.
+    chunks: list[bytes] = []
+    read = 0
+    async with client.stream("GET", url, params=params, timeout=timeout) as response:
+        response.raise_for_status()
+        async for chunk in response.aiter_bytes():
+            read += len(chunk)
+            if read > MAX_JSON_BYTES:
+                msg = f"response over {MAX_JSON_BYTES} bytes"
+                raise ValueError(msg)
+            chunks.append(chunk)
+    return json.loads(b"".join(chunks))
+
+
 async def _oembed(
     client: httpx2.AsyncClient,
     endpoint: str,
     url: str,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> tuple[str | None, str | None]:
-    response = await client.get(endpoint, params={"url": url, "format": "json"}, timeout=timeout)
-    response.raise_for_status()
-    body = response.json()
+    body = await _get_json(client, endpoint, params={"url": url, "format": "json"}, timeout=timeout)
     return body.get("title"), body.get("thumbnail_url")
 
 
@@ -94,9 +116,8 @@ async def _itunes(
     ref: str,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> tuple[str | None, str | None]:
-    response = await client.get(ITUNES_LOOKUP, params={"id": ref}, timeout=timeout)
-    response.raise_for_status()
-    results = response.json().get("results") or []
+    body = await _get_json(client, ITUNES_LOOKUP, params={"id": ref}, timeout=timeout)
+    results = body.get("results") or []
     if not results:
         return None, None
     item = results[0]
@@ -118,9 +139,8 @@ async def _internet_archive(
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> tuple[str | None, str | None]:
     # The item page's og:title carries a site suffix; the metadata API has clean fields.
-    response = await client.get(ARCHIVE_METADATA.format(identifier=identifier), timeout=timeout)
-    response.raise_for_status()
-    meta = response.json().get("result")
+    body = await _get_json(client, ARCHIVE_METADATA.format(identifier=identifier), timeout=timeout)
+    meta = body.get("result")
     # An unknown identifier still answers 200, with an error message and no result.
     if not isinstance(meta, dict) or not meta:
         return None, None

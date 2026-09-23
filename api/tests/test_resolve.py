@@ -7,7 +7,7 @@ import pytest
 
 from crosstune.links import resolve as resolve_module
 from crosstune.links.opengraph import PageMeta, parse_open_graph
-from crosstune.links.resolve import MAX_PAGE_BYTES, resolve_link
+from crosstune.links.resolve import MAX_JSON_BYTES, MAX_PAGE_BYTES, resolve_link
 from tests.test_push import T0, change, push, uid
 
 pytestmark = pytest.mark.anyio
@@ -116,6 +116,37 @@ async def test_open_graph_reads_no_more_than_the_byte_cap(mock_http, monkeypatch
         link = await resolve_link("https://fiddler.bandcamp.com/track/huge", client, timeout=5.0)
     assert link.title == "Sally Ann | Fiddler"
     assert parsed == [MAX_PAGE_BYTES]
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "body", "url"),
+    [
+        (
+            "https://www.youtube.com/oembed",
+            OEMBED,
+            "https://youtu.be/dQw4w9WgXcQ",
+        ),
+        (
+            "https://itunes.apple.com/lookup",
+            ITUNES,
+            "https://music.apple.com/us/album/x/1440935467?i=1440935474",
+        ),
+        (
+            "https://archive.org/metadata/sleepy-marlin-soldiers-joy/metadata",
+            {"result": {"title": "Soldier's Joy"}},
+            "https://archive.org/details/sleepy-marlin-soldiers-joy",
+        ),
+    ],
+    ids=["oembed", "itunes", "internet archive"],
+)
+async def test_json_resolver_refuses_a_body_over_the_byte_cap(
+    mock_http, endpoint: str, body: dict, url: str
+) -> None:
+    mock_http.add(endpoint, httpx2.Response(200, json={**body, "padding": "x" * MAX_JSON_BYTES}))
+    async with mock_http.client() as client:
+        link = await resolve_link(url, client, timeout=5.0)
+    assert link.title is None
+    assert link.artwork_url is None
 
 
 async def test_failure_returns_untitled_link(mock_http) -> None:
