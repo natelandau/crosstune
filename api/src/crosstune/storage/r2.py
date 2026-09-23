@@ -1,9 +1,10 @@
-"""Cloudflare R2 through its S3-compatible endpoint. boto3 is blocking, so I/O runs in threads."""
+"""Cloudflare R2, or RustFS locally, through the S3 API. boto3 is blocking, so I/O runs in threads."""
 
 from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse, urlunparse
 
 import boto3
 from botocore.config import Config
@@ -21,34 +22,63 @@ class ObjectDeleteError(Exception):
     """The bucket accepted a batch delete but reported some of its keys as not removed."""
 
 
+def s3_client(endpoint_url: str, access_key_id: str, secret_access_key: str) -> S3Client:
+    """A client for an S3-compatible endpoint."""
+    return boto3.client(
+        service_name="s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        # R2 signs for "auto"; other S3 servers reject any region but their own default.
+        region_name="auto" if endpoint_url.endswith(".r2.cloudflarestorage.com") else "us-east-1",
+        config=Config(signature_version="s3v4"),
+    )
+
+
 class R2Store:
-    """An ObjectStore backed by one R2 bucket."""
+    """An ObjectStore backed by one bucket."""
 
     def __init__(
-        self, *, account_id: str, bucket: str, access_key_id: str, secret_access_key: str
+        self,
+        *,
+        endpoint_url: str,
+        bucket: str,
+        access_key_id: str,
+        secret_access_key: str,
+        browser_endpoint_url: str = "",
     ) -> None:
         self._bucket = bucket
-        self._client: S3Client = boto3.client(
-            service_name="s3",
-            endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key,
-            region_name="auto",
-            config=Config(signature_version="s3v4"),
-        )
+        self._client: S3Client = s3_client(endpoint_url, access_key_id, secret_access_key)
+        self._browser_endpoint_url = browser_endpoint_url.rstrip("/")
 
     def presign_put(self, key: str, content_type: str, expires_in: int) -> str:
         """A URL a client can PUT one object to, with the content type in the signature."""
-        return self._client.generate_presigned_url(
+        url = self._client.generate_presigned_url(
             "put_object",
             Params={"Bucket": self._bucket, "Key": key, "ContentType": content_type},
             ExpiresIn=expires_in,
         )
+        return self._rewrite_for_browser(url)
 
     def presign_get(self, key: str, expires_in: int) -> str:
         """A URL a client can GET one object from."""
-        return self._client.generate_presigned_url(
+        url = self._client.generate_presigned_url(
             "get_object", Params={"Bucket": self._bucket, "Key": key}, ExpiresIn=expires_in
+        )
+        return self._rewrite_for_browser(url)
+
+    def _rewrite_for_browser(self, url: str) -> str:
+        """Swap a signed URL's scheme and host for the browser-reachable endpoint.
+
+        The path and query, which carry the signature, are untouched: only the part
+        of the URL a browser resolves differently from the API changes.
+        """
+        if not self._browser_endpoint_url:
+            return url
+        signed = urlparse(url)
+        browser = urlparse(self._browser_endpoint_url)
+        return urlunparse(
+            (browser.scheme, browser.netloc, browser.path + signed.path, "", signed.query, "")
         )
 
     async def head(self, key: str) -> ObjectInfo | None:
@@ -131,16 +161,17 @@ class R2Store:
             )
             raise ObjectDeleteError(msg)
 
-    async def list_prefixes(self) -> list[str]:
-        """The top-level prefixes of the bucket, each ending in a slash."""
+    async def list_keys(self, prefix: str = "") -> list[str]:
+        """Every key under `prefix`, each in full, or every key in the bucket."""
+        scope = {"Prefix": prefix} if prefix else {}
 
         def run() -> list[str]:
             paginator = self._client.get_paginator("list_objects_v2")
             return [
-                common["Prefix"]
-                for page in paginator.paginate(Bucket=self._bucket, Delimiter="/")
-                for common in page.get("CommonPrefixes", [])
-                if "Prefix" in common
+                obj["Key"]
+                for page in paginator.paginate(Bucket=self._bucket, **scope)
+                for obj in page.get("Contents", [])
+                if "Key" in obj
             ]
 
         return await asyncio.to_thread(run)

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import subprocess
 import time
+import uuid
 from typing import TYPE_CHECKING
 
 import asyncpg
@@ -15,6 +17,7 @@ import jwt
 import pytest
 from alembic import command
 from alembic.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +27,7 @@ from crosstune.config import Settings
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
+from crosstune.ops import local_storage
 from tests.fakes import FakeObjectStore
 
 if TYPE_CHECKING:
@@ -32,6 +36,7 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
     from pytest_databases.docker.postgres import PostgresService
+    from types_boto3_s3 import S3Client
 
 pytest_plugins = ("pytest_databases.docker.postgres",)
 
@@ -382,3 +387,54 @@ async def client(app: FastAPI, truncate_all: None) -> AsyncIterator[httpx2.Async
         transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
     ) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def rustfs() -> S3Client:
+    """A client for the RustFS that compose.yml starts, or a skip when none answers.
+
+    CI starts RustFS for every run, so in CI a missing server fails instead of skipping.
+    """
+    client = local_storage.client()
+    try:
+        local_storage.wait_until_ready(client, timeout=2)
+    except (BotoCoreError, ClientError):
+        if os.environ.get("CI"):
+            pytest.fail("RustFS is not answering on localhost:9000")
+        pytest.skip("RustFS is not running; start it with `docker compose up -d`")
+    return client
+
+
+@pytest.fixture
+def rustfs_bucket(rustfs: S3Client) -> Iterator[str]:
+    """A fresh bucket with the local CORS rules, removed after the test."""
+    bucket = f"crosstune-test-{uuid.uuid4().hex[:12]}"
+    local_storage.ensure_bucket(rustfs, bucket)
+    yield bucket
+    local_storage.empty_bucket(rustfs, bucket)
+    rustfs.delete_bucket(Bucket=bucket)
+
+
+@pytest.fixture
+def local_storage_buckets(
+    rustfs: S3Client, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[str, str]]:
+    """Point the local_storage CLI at two disposable buckets instead of the developer's real ones.
+
+    Without this, the CLI tests act on crosstune-local and crosstune-e2e directly, so an API
+    test run can empty the e2e bucket a concurrent `just e2e` run is still using.
+    """
+    local, e2e = (
+        f"crosstune-test-local-{uuid.uuid4().hex[:12]}",
+        f"crosstune-test-e2e-{uuid.uuid4().hex[:12]}",
+    )
+    monkeypatch.setattr(local_storage, "LOCAL_BUCKET", local)
+    monkeypatch.setattr(local_storage, "E2E_BUCKET", e2e)
+    monkeypatch.setattr(local_storage, "BUCKETS", (local, e2e))
+    yield local, e2e
+    for bucket in (local, e2e):
+        try:
+            local_storage.empty_bucket(rustfs, bucket)
+        except ClientError:
+            continue
+        rustfs.delete_bucket(Bucket=bucket)

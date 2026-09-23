@@ -28,7 +28,7 @@ concurrency:
 
 env:
   PR_NAME: pr-${{ inputs.pr_number || github.event.pull_request.number }}
-  RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:latest
+  RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:5.60.0
   RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
   RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_DEV_ENVIRONMENT_ID }}
@@ -36,6 +36,8 @@ env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_KV_NAMESPACE_ID: ${{ vars.CLOUDFLARE_KV_NAMESPACE_ID }}
+  R2_PREVIEW_ACCESS_KEY_ID: ${{ secrets.R2_PREVIEW_ACCESS_KEY_ID }}
+  R2_PREVIEW_SECRET_ACCESS_KEY: ${{ secrets.R2_PREVIEW_SECRET_ACCESS_KEY }}
 
 jobs:
   up:
@@ -79,11 +81,26 @@ jobs:
           parent: true
           api_key: ${{ secrets.NEON_API_KEY }}
 
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      # After the reset, so the audio matches the rows the branch now holds. Only objects
+      # missing from the preview are copied, so later pushes copy little.
+      - name: seed the preview's recordings from development
+        working-directory: api
+        env:
+          R2_DEV_READ_ACCESS_KEY_ID: ${{ secrets.R2_DEV_READ_ACCESS_KEY_ID }}
+          R2_DEV_READ_SECRET_ACCESS_KEY: ${{ secrets.R2_DEV_READ_SECRET_ACCESS_KEY }}
+        run: uv run --no-dev python -m crosstune.ops.preview_storage seed "$PR_NAME"
+
       # Railway's built-in PR environments copy the base environment's variables
       # and would reuse the development database; the CLI accepts the branch's
       # connection string at creation. The existence check, rather than the
       # event type, decides whether to create: a cancelled or failed first run
       # must be healed by the next push.
+      # Every run also points an existing environment at the preview bucket.
       - name: create the Railway environment
         env:
           NEON_DB_URL: ${{ steps.neon.outputs.db_url }}
@@ -96,14 +113,41 @@ jobs:
               -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
               "$RAILWAY_CLI_IMAGE" railway "$@"
           }
+          # The copy of development brings development's database, bucket, and token, so
+          # these always replace them. The API refuses to start on the copied storage values
+          # if one is missed. One list feeds both paths, so an existing environment whose
+          # first patch failed heals on the next push.
+          api_vars=(
+            "CROSSTUNE_DATABASE_URL=$NEON_DB_URL"
+            "CROSSTUNE_ENVIRONMENT=$PR_NAME"
+            "CROSSTUNE_R2_BUCKET=crosstune-recordings-preview"
+            "CROSSTUNE_R2_ACCESS_KEY_ID=$R2_PREVIEW_ACCESS_KEY_ID"
+            "CROSSTUNE_R2_SECRET_ACCESS_KEY=$R2_PREVIEW_SECRET_ACCESS_KEY"
+            "CROSSTUNE_R2_PREFIX=$PR_NAME/"
+          )
           exists="$(railway environment list --json \
             | jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' || true)"
           if [ "$exists" = "true" ]; then
             echo "Railway environment $PR_NAME already exists"
+            # Set only what differs, because every set redeploys the service.
+            current="$(railway variable list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json)"
+            changes=()
+            for pair in "${api_vars[@]}"; do
+              name="${pair%%=*}"
+              if [ "$(jq -r --arg k "$name" '.[$k] // ""' <<<"$current")" != "${pair#*=}" ]; then
+                changes+=("$pair")
+              fi
+            done
+            if [ "${#changes[@]}" -gt 0 ]; then
+              railway variable set "${changes[@]}" --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME"
+            fi
           else
+            var_flags=()
+            for pair in "${api_vars[@]}"; do
+              var_flags+=(--service-config "$RAILWAY_API_SERVICE_ID" "variables.${pair%%=*}.value" "${pair#*=}")
+            done
             railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
-              --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_DATABASE_URL=$NEON_DB_URL" \
-              --service-variable "$RAILWAY_API_SERVICE_ID" "CROSSTUNE_ENVIRONMENT=$PR_NAME" \
+              "${var_flags[@]}" \
               --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF"
           fi
 
@@ -195,6 +239,20 @@ jobs:
             echo "no Railway environment named $PR_NAME"
           fi
 
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      # After the environment is gone, so no runner writes behind the delete. A failure
+      # fails the job once the other cleanups have run, because a leak here is silent
+      # until the lifecycle rule expires it.
+      - name: delete the preview's recordings
+        id: storage-delete
+        continue-on-error: true
+        working-directory: api
+        run: uv run --no-dev python -m crosstune.ops.preview_storage teardown "$PR_NAME"
+
       - name: delete the Neon branch
         id: neon-delete
         continue-on-error: true
@@ -215,3 +273,9 @@ jobs:
           npx --yes wrangler@4 kv key delete "$SLUG" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
             || echo "::warning::could not delete KV entry $SLUG; it may still exist"
+
+      - name: fail if the recordings were not deleted
+        if: steps.storage-delete.outcome == 'failure'
+        run: |
+          echo "::error::could not delete the recordings of $PR_NAME; rerun this workflow"
+          exit 1

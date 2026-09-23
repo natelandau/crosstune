@@ -41,6 +41,11 @@ jobs:
       VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
       E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+      CROSSTUNE_R2_ENDPOINT_URL: http://localhost:9000
+      CROSSTUNE_R2_BUCKET: crosstune-e2e
+      CROSSTUNE_R2_ACCESS_KEY_ID: crosstune
+      CROSSTUNE_R2_SECRET_ACCESS_KEY: crosstune-local-secret
+      CROSSTUNE_R2_BROWSER_ENDPOINT_URL: /storage
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -58,6 +63,12 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
         working-directory: api
+      # The API transcodes recordings with ffprobe and ffmpeg from PATH.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: start RustFS and create the buckets
+        run: |
+          docker compose up -d --wait rustfs
+          just api::storage-setup
       - name: start the api on the database the suite owns
         working-directory: api
         run: |
@@ -83,4 +94,11 @@ jobs:
           path: |
             web/playwright-report
             web/test-results
+          if-no-files-found: ignore
+      # Server-side failures such as a transcode error show only in the API's own log.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: api-log
+          path: ${{ runner.temp }}/api.log
           if-no-files-found: ignore

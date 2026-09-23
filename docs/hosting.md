@@ -18,21 +18,21 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 
 ## Values that cross hosts
 
-| Value                                                       | Produced by    | Consumed by                          |
-| ----------------------------------------------------------- | -------------- | ------------------------------------ |
-| Neon production and development connection strings          | Neon           | Railway                              |
-| Neon development project ID and database role               | Neon           | GitHub                               |
-| `crosstune-api` and `crosstune-web` DSNs                    | Sentry         | Railway, Workers Builds              |
-| Clerk development issuer, publishable key, and secret key   | Clerk          | Railway, Workers Builds, GitHub      |
-| Clerk production issuer and publishable key                 | Clerk          | Railway, Workers Builds              |
-| Clerk webhook signing secrets, one per instance             | Clerk          | Railway                              |
-| Railway development hostname                                | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
-| Railway project, development environment, and service IDs   | Railway        | GitHub                               |
-| `workers.dev` subdomain                                     | Cloudflare     | Railway development regex            |
-| KV namespace ID                                             | Cloudflare     | `web/wrangler.jsonc`, GitHub         |
-| Cloudflare account ID                                       | Cloudflare     | GitHub, Railway                      |
-| R2 access key ID and secret access key, one pair per bucket | Cloudflare     | Railway                              |
-| CNAME targets for `api.<domain>` and the Clerk hostnames    | Railway, Clerk | Cloudflare DNS                       |
+| Value                                                      | Produced by    | Consumed by                          |
+| ---------------------------------------------------------- | -------------- | ------------------------------------ |
+| Neon production and development connection strings         | Neon           | Railway                              |
+| Neon development project ID and database role              | Neon           | GitHub                               |
+| `crosstune-api` and `crosstune-web` DSNs                   | Sentry         | Railway, Workers Builds              |
+| Clerk development issuer, publishable key, and secret key  | Clerk          | Railway, Workers Builds, GitHub      |
+| Clerk production issuer and publishable key                | Clerk          | Railway, Workers Builds              |
+| Clerk webhook signing secrets, one per instance            | Clerk          | Railway                              |
+| Railway development hostname                               | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
+| Railway project, development environment, and service IDs  | Railway        | GitHub                               |
+| `workers.dev` subdomain                                    | Cloudflare     | Railway development regex            |
+| KV namespace ID                                            | Cloudflare     | `web/wrangler.jsonc`, GitHub         |
+| Cloudflare account ID                                      | Cloudflare     | GitHub, Railway                      |
+| R2 access key ID and secret access key, one pair per token | Cloudflare     | Railway, GitHub                      |
+| CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk | Cloudflare DNS                       |
 
 ## Neon
 
@@ -104,10 +104,14 @@ environments `production` and `development`.
 - The pre-deploy command runs from the image's working directory with the
   service variables, so it reaches the database the way the API does.
 - A pull request environment `pr-<number>` is a copy of `development` that
-  the `Preview` workflow creates with the Railway CLI, with three overrides:
+  the `Preview` workflow creates with the Railway CLI, with seven overrides:
   `CROSSTUNE_DATABASE_URL` is the Neon branch's direct string,
-  `CROSSTUNE_ENVIRONMENT` is `pr-<number>`, and the service branch is the PR
-  branch. The workflow deletes it when the PR closes.
+  `CROSSTUNE_ENVIRONMENT` is `pr-<number>`, the service branch is the PR
+  branch, `CROSSTUNE_R2_BUCKET` is `crosstune-recordings-preview`,
+  `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY` are the
+  preview token's values, and `CROSSTUNE_R2_PREFIX` is `pr-<number>/`. The
+  workflow sets them on every run and deletes the environment when the PR
+  closes.
 - The account token the workflow uses must belong to an account without
   two-factor authentication. The CLI cannot answer the prompt and the
   delete hangs.
@@ -128,11 +132,22 @@ Variables, both environments unless noted:
 | `CROSSTUNE_R2_BUCKET`                    | `crosstune-recordings`             | `crosstune-recordings-dev`                                              |
 | `CROSSTUNE_R2_ACCESS_KEY_ID`             | Production bucket token key ID     | Development bucket token key ID                                         |
 | `CROSSTUNE_R2_SECRET_ACCESS_KEY`         | Production bucket token secret     | Development bucket token secret                                         |
+| `CROSSTUNE_R2_PREFIX`                    | Unset                              | Unset                                                                   |
 
 Quota, file size, job polling, sweep, resolver timeout, link resolve rate
 limit, and pull page size keep the defaults in `api/src/crosstune/config.py`
 and are not set on the host. The regex
 writes the `workers.dev` subdomain literally and admits every preview alias.
+The API refuses to start when `CROSSTUNE_R2_PREFIX`, `CROSSTUNE_R2_BUCKET`,
+and `CROSSTUNE_ENVIRONMENT` disagree. The guard is in
+`api/src/crosstune/config.py` and holds these rules:
+
+- Production and development take no prefix.
+- Production must use `crosstune-recordings`, and no other environment can
+  use it.
+- A `pr-<number>` environment must set the prefix to `pr-<number>/` and the
+  bucket to `crosstune-recordings-preview`. No other environment can use
+  that bucket.
 
 ## Cloudflare Workers
 
@@ -190,26 +205,35 @@ Build variables, shared by every branch:
 
 ## Cloudflare R2
 
-Two buckets: `crosstune-recordings` for production and
-`crosstune-recordings-dev` for development, pull requests, and local work.
+Three buckets: `crosstune-recordings` for production,
+`crosstune-recordings-dev` for development, and
+`crosstune-recordings-preview` for pull requests, each `pr-<n>/` prefix
+owned by one pull request. No bucket serves local work. Local recordings
+stay in the RustFS container `docker compose` starts.
 
-| Bucket setting        | Value                                                                                                                                                    |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Location hint         | Eastern North America (ENAM), the metro the others use                                                                                                   |
-| Default storage class | Standard                                                                                                                                                 |
-| Lifecycle rules       | None                                                                                                                                                     |
-| API token scope       | Object Read & Write, on that bucket alone                                                                                                                |
-| CORS methods          | `GET`, `PUT`, `HEAD`                                                                                                                                     |
-| CORS headers          | Allowed `Content-Type`. Exposed `ETag`.                                                                                                                  |
-| CORS max age          | 3600 seconds                                                                                                                                             |
-| CORS origins          | Production: `https://<domain>`. Development: `http://localhost:5173`, `http://localhost:4173`, `https://*-crosstune-web.<workers-subdomain>.workers.dev` |
+| Bucket setting        | Value                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Location hint         | Eastern North America (ENAM), the metro the others use                                                             |
+| Default storage class | Standard                                                                                                           |
+| Lifecycle rules       | None on production and development. Preview: delete objects 90 days after upload.                                  |
+| API token scope       | Object Read & Write, on that bucket alone, except the development read-only token below                            |
+| CORS methods          | `GET`, `PUT`, `HEAD`                                                                                               |
+| CORS headers          | Allowed `Content-Type`. Exposed `ETag`.                                                                            |
+| CORS max age          | 3600 seconds                                                                                                       |
+| CORS origins          | Production: `https://<domain>`. Development and preview: `https://*-crosstune-web.<workers-subdomain>.workers.dev` |
 
 - Every object stays in Standard storage. Never set Infrequent Access as a
   default, add a lifecycle rule that transitions to it, or pass a storage
   class from the API. `decisions.md` has the cost reason. An object found
   outside Standard moves back with an S3 `CopyObject` onto its own key with
   the `STANDARD` class; a lifecycle rule cannot.
-- Each bucket has its own token, held in the Railway variables above.
+- Four tokens: production read-write, held in Railway's `production`
+  environment; development read-write, held in Railway's `development`
+  environment; development read-only, held in the GitHub secret pair
+  `R2_DEV_READ_ACCESS_KEY_ID` and `R2_DEV_READ_SECRET_ACCESS_KEY`, used to
+  seed a preview from development; preview read-write, held in the GitHub
+  secret pair `R2_PREVIEW_ACCESS_KEY_ID` and `R2_PREVIEW_SECRET_ACCESS_KEY`,
+  and set on each `pr-<n>` Railway environment by the `Preview` workflow.
 - The account has a billing notification for R2 usage.
 
 ## Cloudflare zone
@@ -243,14 +267,18 @@ Actions variables:
 
 Actions secrets:
 
-| Secret                       | Used by   | Value                                                |
-| ---------------------------- | --------- | ---------------------------------------------------- |
-| `CLERK_SECRET_KEY`           | `E2E`     | The development instance's `sk_test_...` key         |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `E2E`     | The development instance's `pk_test_...` key         |
-| `E2E_CLERK_USER_EMAIL`       | `E2E`     | The email of a user in the development instance      |
-| `NEON_API_KEY`               | `Preview` | A Neon API key                                       |
-| `RAILWAY_API_TOKEN`          | `Preview` | A Railway account token, not a project token         |
-| `CLOUDFLARE_API_TOKEN`       | `Preview` | The KV-only token described under Cloudflare Workers |
+| Secret                          | Used by   | Value                                                        |
+| ------------------------------- | --------- | ------------------------------------------------------------ |
+| `CLERK_SECRET_KEY`              | `E2E`     | The development instance's `sk_test_...` key                 |
+| `VITE_CLERK_PUBLISHABLE_KEY`    | `E2E`     | The development instance's `pk_test_...` key                 |
+| `E2E_CLERK_USER_EMAIL`          | `E2E`     | The email of a user in the development instance              |
+| `NEON_API_KEY`                  | `Preview` | A Neon API key                                               |
+| `RAILWAY_API_TOKEN`             | `Preview` | A Railway account token, not a project token                 |
+| `CLOUDFLARE_API_TOKEN`          | `Preview` | The KV-only token described under Cloudflare Workers         |
+| `R2_PREVIEW_ACCESS_KEY_ID`      | `Preview` | The preview bucket token's access key ID                     |
+| `R2_PREVIEW_SECRET_ACCESS_KEY`  | `Preview` | The preview bucket token's secret access key                 |
+| `R2_DEV_READ_ACCESS_KEY_ID`     | `Preview` | The development bucket's read-only token's access key ID     |
+| `R2_DEV_READ_SECRET_ACCESS_KEY` | `Preview` | The development bucket's read-only token's secret access key |
 
 - Squash merges only, with the PR title and body as the commit message.
   Head branches are deleted after merge.

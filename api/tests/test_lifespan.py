@@ -9,6 +9,7 @@ from sqlalchemy import text
 from crosstune.config import Settings
 from crosstune.db.engine import make_sessionmaker
 from crosstune.main import create_app
+from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from tests.fakes import FakeObjectStore
 
@@ -115,3 +116,57 @@ async def test_lifespan_runs_and_stops_the_runner_with_an_injected_store(databas
         assert app.state.job_runner is not None
         assert not app.state.job_runner.task.done()
     assert app.state.job_runner.task.done()
+
+
+async def test_lifespan_builds_an_r2_store_on_a_configured_endpoint(database_url: str) -> None:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            r2_endpoint_url="http://localhost:9000",
+            r2_bucket="crosstune-test",
+            r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+            r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        store = app.state.object_store
+        assert isinstance(store, R2Store)
+        assert store._client.meta.endpoint_url == "http://localhost:9000"
+
+
+async def test_lifespan_builds_a_store_that_presigns_relative_urls(database_url: str) -> None:
+    """A local endpoint plus a browser endpoint produces same-origin presigned URLs."""
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            r2_endpoint_url="http://localhost:9000",
+            r2_bucket="crosstune-test",
+            r2_access_key_id="crosstune",  # gitleaks:allow -- fixture, not a credential
+            r2_secret_access_key="crosstune-local-secret",  # gitleaks:allow -- fixture, not a credential
+            r2_browser_endpoint_url="/storage",
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        store = app.state.object_store
+        assert isinstance(store, R2Store)
+        url = store.presign_get("u/r/playback.m4a", expires_in=60)
+        assert url.startswith("/storage/crosstune-test/u/r/playback.m4a?")
+
+
+async def test_lifespan_wraps_the_store_when_a_prefix_is_set(database_url: str) -> None:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            environment="pr-6",
+            r2_account_id="acct",
+            r2_bucket="crosstune-recordings-preview",
+            r2_access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
+            r2_secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
+            r2_prefix="pr-6/",
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        assert isinstance(app.state.object_store, PrefixedStore)

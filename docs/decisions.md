@@ -83,6 +83,16 @@ reopens one without new information. Add a new entry at the end.
   tier and bills operations rounded up to the next million, so one object
   copied into it costs more per month than Standard storage of everything.
   It cannot pay off until the originals pass roughly two terabytes.
+- Local recordings live on RustFS in Docker. Local work must never reach a
+  hosted bucket, because the sweep would delete hosted audio it does not
+  know about. MinIO was rejected: its community edition is archived.
+  SeaweedFS was rejected: it runs more than a local stand-in needs.
+- One preview bucket holds a prefix per pull request, seeded by copying
+  from development. A bucket per pull request was rejected: it needs an
+  admin token and its own CORS policy per bucket. A read-through fallback
+  to the development bucket was rejected: it adds a second storage path in
+  the app, and puts a development credential in every pull request
+  environment.
 
 ## Clerk for sign-in
 

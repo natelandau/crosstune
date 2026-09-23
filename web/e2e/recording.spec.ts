@@ -66,7 +66,6 @@ test('uploads a recording, transcodes it, and plays it back from a second device
   page,
   browser,
 }) => {
-  test.skip(process.env.E2E_R2 !== '1', 'set E2E_R2=1 to run against an API with R2 configured')
   test.setTimeout(180_000)
 
   const consoleErrors: string[] = []
