@@ -129,9 +129,9 @@ Variables, both environments unless noted:
 | `CROSSTUNE_R2_ACCESS_KEY_ID`             | Production bucket token key ID     | Development bucket token key ID                                         |
 | `CROSSTUNE_R2_SECRET_ACCESS_KEY`         | Production bucket token secret     | Development bucket token secret                                         |
 
-Quota, file size, job polling, sweep, resolver timeout, and pull page size
-keep the defaults in `api/src/crosstune/config.py` and are not set on the
-host. The regex
+Quota, file size, job polling, sweep, resolver timeout, link resolve rate
+limit, and pull page size keep the defaults in `api/src/crosstune/config.py`
+and are not set on the host. The regex
 writes the `workers.dev` subdomain literally and admits every preview alias.
 
 ## Cloudflare Workers

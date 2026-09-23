@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
@@ -54,12 +55,21 @@ def problem_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
 class AppError(Exception):
     """An error with an HTTP status and a human-readable detail."""
 
-    def __init__(self, status: int, title: str, detail: str, *, type_: str = "about:blank") -> None:
+    def __init__(
+        self,
+        status: int,
+        title: str,
+        detail: str,
+        *,
+        type_: str = "about:blank",
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         super().__init__(detail)
         self.status = status
         self.title = title
         self.detail = detail
         self.type = type_
+        self.headers = headers
 
 
 class UnauthorizedError(AppError):
@@ -102,6 +112,18 @@ class FileTooLargeError(AppError):
 
     def __init__(self, detail: str = "File is too large") -> None:
         super().__init__(413, "Content Too Large", detail, type_="urn:crosstune:file-too-large")
+
+
+class TooManyRequestsError(AppError):
+    """The caller has used up a rate limit and must wait before trying again."""
+
+    def __init__(self, retry_after_seconds: float, detail: str = "Too many requests") -> None:
+        super().__init__(
+            429,
+            "Too Many Requests",
+            detail,
+            headers={"Retry-After": str(max(1, math.ceil(retry_after_seconds)))},
+        )
 
 
 def _problem(
@@ -158,7 +180,7 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return _problem(exc.status, exc.title, exc.detail, type_=exc.type)
+        return _problem(exc.status, exc.title, exc.detail, type_=exc.type, headers=exc.headers)
 
     @app.exception_handler(HTTPException)
     async def _http_exception(_: Request, exc: HTTPException) -> JSONResponse:

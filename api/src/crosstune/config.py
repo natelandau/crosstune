@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     clerk_webhook_secret: str = ""
     sentry_dsn: str = ""
     resolver_timeout_seconds: float = 5.0
+    link_resolves_per_minute: int = 30
     pull_page_size: int = 500
     r2_account_id: str = ""
     r2_bucket: str = ""
