@@ -12,7 +12,7 @@ back, smoke check, and rebuild. The settings each host holds are in
 | [Node.js](https://nodejs.org/)                | 22.12 or newer | Runs the web toolchain.                                              |
 | [pnpm](https://pnpm.io/)                      | 12.4.1         | Pinned in `web/package.json`. `corepack enable` installs it.         |
 | [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                   |
-| [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 for development and the API tests. Must be running. |
+| [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip. |
 
 You also need a free [Clerk](https://clerk.com) development instance with
@@ -25,7 +25,8 @@ URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
 1. Start Docker.
 2. Run `just dev-setup`. It installs the Python and JavaScript dependencies
    and Chromium, installs the git hooks, creates `api/.env` and `web/.env`
-   from their examples, and starts Postgres.
+   from their examples, starts Postgres and RustFS, and creates the
+   `crosstune-local` and `crosstune-e2e` buckets.
 3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL.
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key.
 
@@ -35,8 +36,8 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 
 | Command             | Does                                                                                                     |
 | ------------------- | -------------------------------------------------------------------------------------------------------- |
-| `just dev`          | Starts Postgres, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. |
-| `just dev-down`     | Stops Postgres.                                                                                          |
+| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. |
+| `just dev-down`     | Stops Postgres and RustFS.                                                                                          |
 | `just api::run`     | The API alone, reloading on changes under `api/src`.                                                     |
 | `just web::run`     | The web client alone.                                                                                    |
 | `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                    |
@@ -44,6 +45,17 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
 and worktree shares one Postgres container and one database.
+
+RustFS holds local recordings. Its console is at http://localhost:9001,
+sign in with `crosstune` and `crosstune-local-secret`. List objects with
+`just api::storage ls [prefix]` and download one with
+`just api::storage get <key> [dest]`. Both take `--bucket crosstune-e2e` to
+read the end-to-end bucket instead of `crosstune-local`.
+`just api::storage-reset [bucket]` deletes every object in a bucket,
+`crosstune-local` by default. To remove an orphaned file, reset the local
+database and restart the API. The sweep then deletes it, because it deletes
+whatever the database does not know. `docker compose down -v` removes the
+Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
@@ -67,6 +79,10 @@ The end-to-end suite:
   `just web::e2e` in a second terminal. `just api::e2e-db-reset` empties it.
 - Queries by accessible name. A renamed label, heading, or group needs
   `web/e2e/` checked, and only this suite catches it.
+- Runs the recording specs in `web/e2e/`, the only place they run.
+
+An API test that reads or writes RustFS skips locally when RustFS is down
+and fails instead in CI, where the `API` workflow always starts it.
 
 ## Commit
 
@@ -94,12 +110,16 @@ The end-to-end suite:
 - A version tag deploys production. The `Release` workflow moves the
   `production` branch to the tag, and both hosts deploy from that branch.
   Nothing else writes to `production`.
-- Every pull request gets its own API and database. The `Preview` workflow
-  creates a Neon branch `pr-<n>` from development, a Railway environment
-  `pr-<n>` on the PR branch, and a KV entry that maps the PR's preview alias
-  to that API. Every push resets the Neon branch, so preview data is lost.
-  Closing the PR deletes all three. If cleanup fails, run the workflow from
-  the Actions tab with the PR number and branch name.
+- Every pull request gets its own API, database, and recording prefix. The
+  `Preview` workflow creates a Neon branch `pr-<n>` from development and a
+  Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
+  of the preview bucket. A KV entry maps the PR's preview alias to that
+  API. Every push resets the Neon branch and seeds the prefix with the
+  recordings the reset rows reference, so preview data is lost. Closing the
+  PR deletes the Railway environment, the Neon branch, the KV entry, and
+  the `pr-<n>/` prefix. The 90-day lifecycle rule on the preview bucket is
+  the backstop for a failed prefix deletion. If cleanup fails, run the
+  workflow from the Actions tab with the PR number and branch name.
 - CI runs on every pull request and push to `main`. `API` lints, type
   checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
   lints, type checks, tests, builds, and checks the generated types. `E2E`
@@ -179,6 +199,33 @@ The manual phone test covers what the script cannot:
 4. Turn on airplane mode and edit the song.
 5. Turn off airplane mode.
 6. Confirm the edit synced. Settings shows the last sync time.
+
+## Rotate an R2 token
+
+`hosting.md` lists the four R2 tokens: production read-write, development
+read-write, development read-only, and preview read-write. Rotate any of
+them with these steps.
+
+1. In Cloudflare, open **R2 object storage** and select **Manage** next to
+   **API Tokens**. Find the token that holds the bucket and the permission
+   you are replacing, and note its name.
+2. Select **Create Account API token**. Give the new token the same
+   permission and the same single bucket scope as the token you are
+   replacing. Copy the **Access Key ID** and the **Secret Access Key**.
+   Cloudflare shows the secret once.
+3. Set the two new values where the old token lives. For a Railway token
+   (production or development read-write), open project `crosstune`, the
+   matching environment, service `api`, **Variables**, and set
+   `CROSSTUNE_R2_ACCESS_KEY_ID` and `CROSSTUNE_R2_SECRET_ACCESS_KEY`, then
+   deploy. For a GitHub token (development read-only or preview
+   read-write), open the repository's **Settings**, **Secrets and
+   variables**, **Actions**, and update the matching secret pair from
+   `hosting.md`.
+4. Confirm the new token works. For a Railway token, once the deploy is
+   healthy, record audio on that environment and play it back. For a
+   GitHub token, open or push to a pull request and confirm the `Preview`
+   workflow seeds and later removes its recordings.
+5. In Cloudflare, delete the token you noted in step 1.
 
 ## Rebuilding from nothing
 

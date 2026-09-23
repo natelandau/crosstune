@@ -144,6 +144,12 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   failed transcode.
 - Download: the API signs a GET for a ready recording. Other devices fetch on
   play, or ahead of time when the setting to download all recordings is on.
+- Each database owns one storage space and holds credentials for no other,
+  because the sweep and the purge delete whatever their own database does
+  not know.
+- A row stores a logical key. A `pr-<n>` API adds its own prefix when it
+  reads or writes the bucket, so the same key never collides across pull
+  requests.
 
 ## Delivery paths
 
@@ -167,12 +173,12 @@ off from 1 second to 60 seconds. The engine exposes one status value.
 
 ## Environments
 
-| Environment  | API                         | Database             | Clerk instance | Web client                                |
-| ------------ | --------------------------- | -------------------- | -------------- | ----------------------------------------- |
-| Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`            |
-| Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `main-crosstune-web`    |
-| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` |
-| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                      |
+| Environment  | API                         | Database              | Clerk instance | Web client                                | Recordings                                                                                         |
+| ------------ | ---------------------------- | ---------------------- | --------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Local        | uvicorn on port 8000         | Postgres in Docker     | Development     | Vite dev server, proxies `/v1`             | RustFS bucket `crosstune-local`                                                                       |
+| Development  | Railway, generated hostname  | Neon development       | Development     | Worker preview at `main-crosstune-web`     | R2 bucket `crosstune-recordings-dev`                                                                  |
+| Pull request | Railway `pr-<n>`, generated  | Neon branch `pr-<n>`   | Development     | Worker preview at `<alias>-crosstune-web`  | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push     |
+| Production   | Railway, `api.<domain>`      | Neon production        | Production      | Worker on `<domain>`                       | R2 bucket `crosstune-recordings`                                                                      |
 
 Development runs the head of `main`. Production runs the commit the last
 version tag promoted. A pull request environment runs the PR branch with the
