@@ -22,6 +22,8 @@ from crosstune.sync.pull import pull_since
 from crosstune.sync.push import apply_push
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import httpx2
 
     from crosstune.schemas.common import Change
@@ -55,13 +57,26 @@ async def _resolve_untitled_links(
     changes: list[Change],
     client: httpx2.AsyncClient,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
+    allow_fetch: Callable[[], bool],
 ) -> dict[str, ResolvedLink]:
-    """Resolve every untitled link in a batch, so the push transaction waits on no network call."""
+    """Resolve the untitled links in a batch, so the push transaction waits on no network call.
+
+    Args:
+        changes: The pushed changes.
+        client: The outbound HTTP client.
+        timeout: Seconds each fetch may take.
+        allow_fetch: Called once per link; False leaves that link untitled unfetched.
+
+    Returns:
+        dict[str, ResolvedLink]: What each untitled URL resolved to, or its offline form.
+    """
     urls = _untitled_link_urls(changes)
     if not urls:
         return {}
-    # Each URL starts at its offline form, so a link the budget cuts off is stored untitled.
+    # Each URL starts at its offline form, so a link the budget or the limit cuts off is
+    # stored untitled.
     resolved = {url: unresolved_link(url) for url in urls}
+    urls = {url for url in urls if allow_fetch()}
     semaphore = asyncio.Semaphore(LINK_RESOLVE_CONCURRENCY)
 
     async def one(url: str) -> None:
@@ -96,8 +111,14 @@ async def push(
     # so the resolution pass, which can wait on the network for its whole budget, holds
     # no connection out of the pool while it does.
     await session.commit()
+    # Each fetch counts against the same limit as the resolve route, so a push is no way
+    # around it.
+    limiter = request.app.state.link_resolve_limiter
     resolved = await _resolve_untitled_links(
-        body.changes, request.app.state.http_client, settings.link_resolve_timeout_seconds
+        body.changes,
+        request.app.state.http_client,
+        settings.link_resolve_timeout_seconds,
+        allow_fetch=lambda: limiter.hit(user.id) is None,
     )
 
     async def enrich(url: str) -> ResolvedLink:
