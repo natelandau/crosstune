@@ -24,18 +24,26 @@ export function Rail({ label, children }: { label: string; children: ReactNode }
     setFade(overflow && !atEnd)
   }, [])
 
-  // No dependencies: the rail remeasures after every render, because its children change width
-  // with the text size setting and with the values on offer, neither of which it is told about.
-  useLayoutEffect(updateFade)
-
   useLayoutEffect(() => {
     const rail = railRef.current
     if (!rail) return
+    // The chips change width with the text size setting and with web fonts as they load, neither
+    // of which renders the rail, so it watches their boxes rather than its own renders.
+    const sizes = new ResizeObserver(updateFade)
+    const observe = () => {
+      sizes.disconnect()
+      sizes.observe(rail)
+      for (const chip of rail.children) sizes.observe(chip)
+    }
+    observe()
+    updateFade()
+    const chips = new MutationObserver(observe)
+    chips.observe(rail, { childList: true })
     rail.addEventListener('scroll', updateFade, { passive: true })
-    window.addEventListener('resize', updateFade)
     return () => {
+      sizes.disconnect()
+      chips.disconnect()
       rail.removeEventListener('scroll', updateFade)
-      window.removeEventListener('resize', updateFade)
     }
   }, [updateFade])
 
@@ -48,11 +56,17 @@ export function Rail({ label, children }: { label: string; children: ReactNode }
     shown.current = pressed
     if (!(pressed instanceof HTMLElement)) return
     const railBox = rail.getBoundingClientRect()
+    const style = getComputedStyle(rail)
+    // Inside the gutters, so a chosen last chip scrolls the rail to its end and sheds the fade.
+    const right = railBox.right - parseFloat(style.paddingRight)
+    const left = railBox.left + parseFloat(style.paddingLeft)
     const box = pressed.getBoundingClientRect()
     // Scrolling by the overhang rather than to an offset reads the same in either direction,
     // where scrollLeft runs positive one way and negative the other.
-    if (box.right > railBox.right) rail.scrollLeft += box.right - railBox.right
-    else if (box.left < railBox.left) rail.scrollLeft -= railBox.left - box.left
+    if (box.right > right) rail.scrollLeft += box.right - right
+    else if (box.left < left) rail.scrollLeft -= left - box.left
+    // The scroll event lands a frame later, and the fade would be wrong for that frame.
+    updateFade()
   })
 
   return (

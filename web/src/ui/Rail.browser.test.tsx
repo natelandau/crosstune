@@ -55,6 +55,45 @@ describe('Rail', () => {
     expect(last.left).toBeGreaterThanOrEqual(box.left - 1)
   })
 
+  it('fades once the chips grow past the rail with no render behind it', async () => {
+    const { container } = render(
+      <div style={{ width: 400 }}>
+        <Rail label="Chips">
+          <Capsule onPress={() => {}}>One</Capsule>
+          <Capsule onPress={() => {}}>Two</Capsule>
+        </Rail>
+      </div>,
+    )
+    const rail = container.querySelector('[role="group"]') as HTMLElement
+    expect(rail.dataset.fade).toBeUndefined()
+    // A text size change or a late web font widens the chips without React rendering the rail.
+    for (const chip of rail.querySelectorAll('button')) chip.style.minWidth = '300px'
+    await expect.poll(() => rail.dataset.fade).toBe('true')
+  })
+
+  it('fades once the rail narrows with no window resize behind it', async () => {
+    const { container } = render(
+      <div style={{ width: 1000 }}>
+        <Rail label="Chips">
+          {CHIPS.map((chip) => (
+            <Capsule key={chip} onPress={() => {}}>
+              {chip}
+            </Capsule>
+          ))}
+        </Rail>
+      </div>,
+    )
+    const rail = container.querySelector('[role="group"]') as HTMLElement
+    expect(rail.dataset.fade).toBeUndefined()
+    ;(container.firstElementChild as HTMLElement).style.width = '200px'
+    await expect.poll(() => rail.dataset.fade).toBe('true')
+  })
+
+  it('drops the fade as soon as the chosen last chip is scrolled into view', () => {
+    const { rail } = narrowRail('Sixth')
+    expect(rail.dataset.fade).toBeUndefined()
+  })
+
   it('leaves the rail at its start when the chosen chip is already in view', () => {
     const { rail } = narrowRail('First')
     expect(rail.scrollLeft).toBe(0)
