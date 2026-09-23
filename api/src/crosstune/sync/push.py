@@ -185,18 +185,24 @@ async def _upsert(
         condition = condition & model.list_id.in_(select(List.id).where(List.user_id == user_id))
     stmt = stmt.on_conflict_do_update(
         index_elements=[model.id], set_=set_, where=condition
-    ).returning(model.id)
+    ).returning(model)
 
     try:
         async with session.begin_nested():
-            written = (await session.execute(stmt)).scalar_one_or_none()
+            # populate_existing, so a copy of the row already in the session takes the write.
+            written = (
+                await session.execute(stmt, execution_options={"populate_existing": True})
+            ).scalar_one_or_none()
     except IntegrityError as exc:
         return _invalid(change, f"constraint violation: {exc.orig.__class__.__name__}")
 
-    current = await _fetch_owned(session, spec, change.id, user_id)
+    # A row the write skipped is either newer or someone else's, and only a read tells which.
+    current = written
     if current is None:
-        return _invalid(change, "id is not yours")
-    await session.refresh(current)
+        current = await _fetch_owned(session, spec, change.id, user_id)
+        if current is None:
+            return _invalid(change, "id is not yours")
+        await session.refresh(current)
     row_schema: Any = spec.row_schema
     result: Any = CHANGE_RESULTS[change.table]
     status = (
