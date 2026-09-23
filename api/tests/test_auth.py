@@ -30,6 +30,15 @@ async def test_expired_token_is_401(client: httpx2.AsyncClient, make_token) -> N
     assert response.status_code == 401
 
 
+async def test_a_token_that_is_not_a_session_token_is_401(
+    client: httpx2.AsyncClient, make_token
+) -> None:
+    """A JWT template token shares the keys, issuer, and azp, but names no session."""
+    token = make_token("user_a", sid=None)
+    response = await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+
+
 async def test_wrong_issuer_is_401(client: httpx2.AsyncClient, make_token) -> None:
     token = make_token("user_a", iss="https://someone-else.clerk.accounts.dev")
     response = await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})

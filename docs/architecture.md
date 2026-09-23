@@ -103,8 +103,9 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   for a session token and sends it as a bearer token.
 - The API verifies without calling Clerk: it caches the issuer's JWKS and
   refetches on an unknown key at most once a minute. A valid token is RS256,
-  names the issuer, carries `exp`, `iat`, and `sub`, and has an allowed
-  `azp`.
+  names the issuer, carries `exp`, `iat`, `sub`, and `sid`, and has an
+  allowed `azp`. The `sid` claim limits it to session tokens: a JWT template
+  token from the same instance has none.
 - The first valid token from a Clerk user inserts a user row.
 - Account deletion: Clerk's webhook (Svix-signed) hard-deletes the user row
   and foreign keys cascade. Bucket files are removed after the response, and

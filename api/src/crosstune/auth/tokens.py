@@ -50,6 +50,8 @@ async def verify_clerk_token(
         msg = "Unknown signing key"
         raise UnauthorizedError(msg)
 
+    # sid is what sets a session token apart from a JWT template token, which Clerk signs
+    # with the same keys for the same issuer and can give a far longer lifetime.
     try:
         claims = jwt.decode(
             token,
@@ -57,7 +59,7 @@ async def verify_clerk_token(
             algorithms=["RS256"],
             issuer=issuer,
             leeway=CLOCK_LEEWAY_SECONDS,
-            options={"require": ["exp", "iat", "sub"]},
+            options={"require": ["exp", "iat", "sub", "sid"]},
         )
     except jwt.PyJWTError as exc:
         msg = "Invalid token"
