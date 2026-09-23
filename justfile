@@ -35,6 +35,7 @@ e2e *args:
     # Postgres, the API on the database the suite owns, then Playwright against a production
     # build. Every port here is clear of a dev session, so this runs while `just dev` does.
     docker compose up -d --wait
+    just api::storage-setup
     health="http://localhost:{{ e2e_api_port }}/healthz"
     # The run owns the port and the database outright, so it never adopts a server whose
     # database holds rows it did not write.
@@ -47,8 +48,9 @@ e2e *args:
     # The database lives only as long as the run. CI meets one that never held a fixture, and
     # a local database that outlived a run would feed the next one rows that change what a
     # search returns. uvicorn outlives the `just` that spawned it, so its port finds it again.
-    trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true; just api::_e2e-db drop > /dev/null' EXIT
+    trap 'pkill -f "crosstune.main:app --port {{ e2e_api_port }}" > /dev/null 2>&1 || true; just api::_e2e-db drop > /dev/null; just api::storage-reset crosstune-e2e > /dev/null' EXIT
     just api::e2e-db-reset
+    just api::storage-reset crosstune-e2e
     echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
     just api::run-e2e > "$log" 2>&1 &
     # The recipe creates and migrates the database before it serves, so this waits for
@@ -78,6 +80,7 @@ dev-setup: api::setup web::setup
 # Start Postgres, apply migrations, then run the API and web client together
 dev:
     docker compose up -d --wait
+    just api::storage-setup
     just api::migrate
     # Ctrl-C ends the session with 130, which is the normal way out, not a failure
     uv run --project api honcho start -f Procfile.dev || [ $? -eq 130 ]
