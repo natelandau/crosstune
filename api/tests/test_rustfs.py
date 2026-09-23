@@ -102,6 +102,11 @@ def test_ls_and_get(rustfs: S3Client, tmp_path: Path, capsys: pytest.CaptureFixt
     dest = tmp_path / "got.m4a"
     assert local_storage.main(["get", "ls-test/r/playback.m4a", str(dest)]) == 0
     assert dest.read_bytes() == b"abc"
+    cwd = ["--cwd", str(tmp_path)]
+    assert local_storage.main([*cwd, "get", "ls-test/r/playback.m4a", "rel.m4a"]) == 0
+    assert (tmp_path / "rel.m4a").read_bytes() == b"abc"
+    assert local_storage.main([*cwd, "get", "ls-test/r/playback.m4a"]) == 0
+    assert (tmp_path / "playback.m4a").read_bytes() == b"abc"
     rustfs.delete_object(Bucket=local_storage.LOCAL_BUCKET, Key="ls-test/r/playback.m4a")
 
 

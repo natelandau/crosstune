@@ -99,7 +99,7 @@ def _ls(client: S3Client, args: argparse.Namespace) -> None:
 
 
 def _get(client: S3Client, args: argparse.Namespace) -> None:
-    dest = Path(args.dest) if args.dest else Path(Path(args.key).name)
+    dest = args.cwd / (args.dest or Path(args.key).name)
     client.download_file(args.bucket, args.key, str(dest))
     print(f"saved {args.key} to {dest}")
 
@@ -110,6 +110,10 @@ def _reset(client: S3Client, args: argparse.Namespace) -> None:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="just api::storage", description=__doc__)
+    # just runs recipes from the module's directory, not the one the user typed in.
+    parser.add_argument(
+        "--cwd", type=Path, default=Path(), help="directory a relative destination is under"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("setup", help="create both buckets and their CORS rules").set_defaults(
         run=_setup

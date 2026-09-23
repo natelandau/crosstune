@@ -77,7 +77,7 @@ storage-setup:
 # Inspect local recordings: `ls [prefix]` or `get <key> [dest]`, with --bucket crosstune-e2e for the e2e bucket
 [group('storage')]
 storage *args:
-    uv run python -m crosstune.ops.local_storage {{ args }}
+    uv run python -m crosstune.ops.local_storage --cwd '{{ invocation_directory() }}' {{ args }}
 
 # Delete every object in a local bucket, crosstune-local by default
 [group('storage')]
