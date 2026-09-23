@@ -68,6 +68,21 @@ run-e2e: e2e-db
     @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
     CROSSTUNE_DATABASE_URL='{{ e2e_database_url }}' uv run uvicorn crosstune.main:app --port {{ e2e_port }}
 
+# Create the local RustFS buckets and their CORS rules; safe to repeat
+[group('storage')]
+storage-setup:
+    uv run python -m crosstune.ops.local_storage setup
+
+# Inspect local recordings: `ls [prefix]` or `get <key> [dest]`, with --bucket crosstune-e2e for the e2e bucket
+[group('storage')]
+storage *args:
+    uv run python -m crosstune.ops.local_storage {{ args }}
+
+# Delete every object in a local bucket, crosstune-local by default
+[group('storage')]
+storage-reset bucket='crosstune-local':
+    uv run python -m crosstune.ops.local_storage reset {{ bucket }}
+
 # Apply pending migrations
 [group('db')]
 migrate:

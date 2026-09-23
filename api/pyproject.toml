@@ -132,6 +132,8 @@
             "SLF001",
         ], "src/crosstune/db/migrations/env.py" = [
             "INP001",
+        ], "src/crosstune/ops/*.py" = [
+            "T201",
         ] }
         select = ["ALL"]
         unfixable = ["ERA001", "F401", "F841"]

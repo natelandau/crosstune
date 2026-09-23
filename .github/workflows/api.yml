@@ -60,6 +60,10 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: docker info
+      # The RustFS compatibility tests fail rather than skip when CI is set.
+      - name: start RustFS
+        working-directory: .
+        run: docker compose up -d --wait rustfs
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: just test
 

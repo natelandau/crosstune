@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import subprocess
 import time
+import uuid
 from typing import TYPE_CHECKING
 
 import asyncpg
@@ -15,6 +17,7 @@ import jwt
 import pytest
 from alembic import command
 from alembic.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +27,7 @@ from crosstune.config import Settings
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
+from crosstune.ops import local_storage
 from tests.fakes import FakeObjectStore
 
 if TYPE_CHECKING:
@@ -32,6 +36,7 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
     from pytest_databases.docker.postgres import PostgresService
+    from types_boto3_s3 import S3Client
 
 pytest_plugins = ("pytest_databases.docker.postgres",)
 
@@ -382,3 +387,29 @@ async def client(app: FastAPI, truncate_all: None) -> AsyncIterator[httpx2.Async
         transport=httpx2.ASGITransport(app=app), base_url="http://testclient"
     ) as c:
         yield c
+
+
+@pytest.fixture(scope="session")
+def rustfs() -> S3Client:
+    """A client for the RustFS that compose.yml starts, or a skip when none answers.
+
+    CI starts RustFS for every run, so there a missing server fails instead of skipping.
+    """
+    client = local_storage.client()
+    try:
+        local_storage.wait_until_ready(client, timeout=2)
+    except (BotoCoreError, ClientError):
+        if os.environ.get("CI"):
+            pytest.fail("RustFS is not answering on localhost:9000")
+        pytest.skip("RustFS is not running; start it with `docker compose up -d`")
+    return client
+
+
+@pytest.fixture
+def rustfs_bucket(rustfs: S3Client) -> Iterator[str]:
+    """A fresh bucket with the local CORS rules, removed after the test."""
+    bucket = f"crosstune-test-{uuid.uuid4().hex[:12]}"
+    local_storage.ensure_bucket(rustfs, bucket)
+    yield bucket
+    local_storage.empty_bucket(rustfs, bucket)
+    rustfs.delete_bucket(Bucket=bucket)
