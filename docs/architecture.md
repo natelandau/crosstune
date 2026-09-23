@@ -36,6 +36,9 @@ Cloudflare also hosts the DNS zone for the product domain.
 - Every `/v1` route except the Clerk webhook requires a Clerk bearer token.
   No user ID appears in a URL or a body. The server sets ownership from the
   token and scopes every query to the caller.
+- A request body is read only after its token verifies, and never past a
+  size limit: 32 MiB for `/v1` routes, 64 KiB for the webhook. Anything
+  else is a 401 or a 413 before the body is buffered.
 - The API has no CORS. Browsers reach it same-origin, through the Vite proxy
   locally and the Worker when hosted. The token's `azp` claim must match an
   allowed client origin.
@@ -100,8 +103,9 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   for a session token and sends it as a bearer token.
 - The API verifies without calling Clerk: it caches the issuer's JWKS and
   refetches on an unknown key at most once a minute. A valid token is RS256,
-  names the issuer, carries `exp`, `iat`, and `sub`, and has an allowed
-  `azp`.
+  names the issuer, carries `exp`, `iat`, `sub`, and `sid`, and has an
+  allowed `azp`. The `sid` claim limits it to session tokens: a JWT template
+  token from the same instance has none.
 - The first valid token from a Clerk user inserts a user row.
 - Account deletion: Clerk's webhook (Svix-signed) hard-deletes the user row
   and foreign keys cascade. Bucket files are removed after the response, and
@@ -124,9 +128,10 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   Bandcamp and TIDAL included, is fetched and read for Open Graph tags,
   capped at 512 KB. A JSON answer over 256 KB is refused. Each request times
   out after 5 seconds. A failure yields an untitled link, never an error.
-- The resolve route allows each user 30 calls a minute, counted in the API
-  process, and answers past that with a 429 and `Retry-After`. The client
-  treats the 429 as any failed resolve and saves the link untitled.
+- Each user may make 30 link fetches a minute, counted in the API process.
+  The resolve route and the push resolution share the count. Past it the
+  resolve route answers with a 429 and `Retry-After`, which the client
+  treats as any failed resolve, and a push stores the link untitled.
 - Every outbound fetch passes an address policy: the host must resolve only
   to public addresses, only http and https are fetched, every redirect hop
   is checked, and the connection goes to the checked address while the Host
@@ -142,6 +147,12 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   signed), PUTs the file to R2, then confirms. The API queues a transcode,
   and an in-process job runner produces the playback file. Retry reruns a
   failed transcode.
+- The PUT signature covers the declared size, so the bucket refuses a file
+  of any other length. A slot expired for more than an hour without a
+  confirmation is released, and the runner deletes whatever its PUT left.
+- ffprobe and ffmpeg read an upload only as a local file, only through the
+  demuxers of the audio types an upload may declare, and run with no
+  environment but `PATH`.
 - Download: the API signs a GET for a ready recording. Other devices fetch on
   play, or ahead of time when the setting to download all recordings is on.
 - Each database owns one storage space and holds credentials for no other,

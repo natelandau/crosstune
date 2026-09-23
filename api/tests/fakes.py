@@ -29,10 +29,13 @@ class FakeObjectStore:
         """Every stored key, sorted."""
         return sorted(self._objects)
 
-    def presign_put(self, key: str, content_type: str, expires_in: int) -> str:
-        """A URL a client can PUT one object to, with the content type in the signature."""
+    def presign_put(self, key: str, content_type: str, content_length: int, expires_in: int) -> str:
+        """A URL a client can PUT one object to, with the type and length in the signature."""
         self.presigned.append(("put", key))
-        return f"https://fake.r2/{key}?put&content_type={content_type}&expires={expires_in}"
+        return (
+            f"https://fake.r2/{key}?put&content_type={content_type}"
+            f"&content_length={content_length}&expires={expires_in}"
+        )
 
     def presign_get(self, key: str, expires_in: int) -> str:
         """A URL a client can GET one object from."""

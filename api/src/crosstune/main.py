@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from crosstune import __version__
 from crosstune.auth.jwks import JwksCache
+from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.errors import install_error_handlers
@@ -94,8 +95,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             traces_sample_rate=0.0,
         )
 
+    # The committed contract is generated from app.openapi(), which needs none of these routes.
+    docs = settings.environment == "development"
     app = FastAPI(
-        title="Crosstune API", version=__version__, debug=settings.debug, lifespan=_lifespan
+        title="Crosstune API",
+        version=__version__,
+        debug=settings.debug,
+        lifespan=_lifespan,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
     )
     app.state.settings = settings
     app.state.engine = None
@@ -109,6 +118,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     install_error_handlers(app)
+    app.add_middleware(BodyAdmission)
     app.include_router(users_router)
     app.include_router(sync_router)
     app.include_router(links_router)

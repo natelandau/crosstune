@@ -29,14 +29,14 @@ def store() -> R2Store:
     )
 
 
-def test_presigned_put_pins_bucket_key_and_content_type() -> None:
-    url = store().presign_put("u/r/upload", "audio/mp4", expires_in=3600)
+def test_presigned_put_pins_bucket_key_content_type_and_length() -> None:
+    url = store().presign_put("u/r/upload", "audio/mp4", content_length=5, expires_in=3600)
     parts = urlparse(url)
     assert parts.hostname == "acct.r2.cloudflarestorage.com"
     assert parts.path == "/crosstune-test/u/r/upload"
     query = parse_qs(parts.query)
     assert query["X-Amz-Expires"] == ["3600"]
-    assert "content-type" in query["X-Amz-SignedHeaders"][0]
+    assert query["X-Amz-SignedHeaders"] == ["content-length;content-type;host"]
 
 
 def test_presigned_get_is_a_plain_get() -> None:
@@ -56,7 +56,9 @@ def local_store(browser_endpoint_url: str = "") -> R2Store:
 
 
 def test_presign_put_rewritten_for_a_relative_browser_endpoint() -> None:
-    url = local_store("/storage").presign_put("u/r/upload", "audio/mp4", expires_in=600)
+    url = local_store("/storage").presign_put(
+        "u/r/upload", "audio/mp4", content_length=5, expires_in=600
+    )
     parts = urlparse(url)
     assert (parts.scheme, parts.netloc) == ("", "")
     assert parts.path == "/storage/crosstune-local/u/r/upload"
@@ -72,7 +74,7 @@ def test_presign_get_rewritten_for_a_relative_browser_endpoint() -> None:
 
 def test_presign_rewritten_for_an_absolute_browser_endpoint() -> None:
     url = local_store("https://example.test/storage").presign_put(
-        "u/r/upload", "audio/mp4", expires_in=600
+        "u/r/upload", "audio/mp4", content_length=5, expires_in=600
     )
     parts = urlparse(url)
     assert (parts.scheme, parts.netloc) == ("https", "example.test")

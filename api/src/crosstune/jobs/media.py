@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,15 @@ PLAYBACK_BITRATE = 96_000
 # AAC in MP4 at or below this rate is served as uploaded; re-encoding it would only lose quality.
 PASSTHROUGH_MAX_BITRATE = 192_000
 SUBPROCESS_TIMEOUT_SECONDS = 300.0
+# Every file these tools open is an upload someone else chose. Reading only local files,
+# and only through the demuxers of the audio types an upload may declare, keeps a
+# playlist or concat list from pulling in any other file or URL.
+INPUT_GUARD = (
+    "-protocol_whitelist",
+    "file",
+    "-format_whitelist",
+    "mov,mp4,m4a,matroska,webm,ogg,wav,mp3,flac,aiff,aac",
+)
 
 
 class MediaError(Exception):
@@ -39,8 +49,12 @@ async def _run(*argv: str) -> bytes:
     Returns:
         bytes: The process's stdout.
     """
+    # Only PATH is passed on: the API's environment holds every credential it has.
     process = await asyncio.create_subprocess_exec(
-        *argv, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        *argv,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env={"PATH": os.environ.get("PATH", "")},
     )
     try:
         async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
@@ -76,6 +90,7 @@ async def probe(path: Path) -> Probe:
         "json",
         "-show_format",
         "-show_streams",
+        *INPUT_GUARD,
         str(path),
     )
     try:
@@ -125,6 +140,7 @@ async def _to_mp4(source: Path, target: Path, *codec_args: str) -> None:
         "-v",
         "error",
         "-y",
+        *INPUT_GUARD,
         "-i",
         str(source),
         "-vn",

@@ -10,6 +10,7 @@ import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import {
   ADD_LINK,
+  LINK_NOT_WEB,
   LINK_PLACEHOLDER,
   LINK_REQUIRED,
   PASTE_LINK,
@@ -116,6 +117,18 @@ describe('PasteLinkSheet', () => {
     show(songId, { db })
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await expect.element(page.getByRole('alert')).toHaveTextContent(LINK_REQUIRED)
+    expect(await db.recording_links.count()).toBe(0)
+  })
+
+  it('refuses a url that is not a web address, before asking the resolver', async () => {
+    const db = openTestDb()
+    const songId = await song(db)
+    const resolveLink = vi.fn(async () => null)
+    show(songId, { db, engine: fakeEngine({ resolveLink }) })
+    await page.getByLabelText('Link').fill('javascript:alert(1)')
+    await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
+    await expect.element(page.getByRole('alert')).toHaveTextContent(LINK_NOT_WEB)
+    expect(resolveLink).not.toHaveBeenCalled()
     expect(await db.recording_links.count()).toBe(0)
   })
 

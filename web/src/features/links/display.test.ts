@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayTitle, providerLabel } from './display'
+import { displayTitle, outboundUrl, providerLabel } from './display'
 
 describe('link display', () => {
   it('labels every provider, and an unknown one as a plain link', () => {
@@ -23,5 +23,18 @@ describe('link display', () => {
       'tidal.com',
     )
     expect(displayTitle({ title: null, label: null, url: 'not a url' })).toBe('not a url')
+  })
+
+  it('opens only web addresses, reading a bare host as https', () => {
+    expect(outboundUrl({ url: 'https://tidal.com/track/1' })).toBe('https://tidal.com/track/1')
+    expect(outboundUrl({ url: 'http://example.com/x' })).toBe('http://example.com/x')
+    expect(outboundUrl({ url: 'www.youtube.com/watch?v=1' })).toBe(
+      'https://www.youtube.com/watch?v=1',
+    )
+    expect(outboundUrl({ url: 'javascript:alert(1)' })).toBeNull()
+    expect(outboundUrl({ url: ' JavaScript:alert(1)' })).toBeNull()
+    expect(outboundUrl({ url: 'java\tscript:alert(1)' })).toBeNull()
+    expect(outboundUrl({ url: 'data:text/html,<script>alert(1)</script>' })).toBeNull()
+    expect(outboundUrl({ url: 'not a url' })).toBeNull()
   })
 })

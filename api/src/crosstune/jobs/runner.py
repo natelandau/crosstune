@@ -1,4 +1,4 @@
-"""Claims transcode jobs one at a time and sweeps the files of deleted recordings."""
+"""Claims transcode jobs one at a time and sweeps deleted recordings and abandoned uploads."""
 
 from __future__ import annotations
 
@@ -35,6 +35,8 @@ log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
 LOCK_SECONDS = 600
 PURGE_BATCH = 20
+# A PUT signed just before its slot expired can still be arriving; past this it is abandoned.
+ABANDONED_SLOT_GRACE = timedelta(hours=1)
 STOP_TIMEOUT_SECONDS = 10.0
 
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
@@ -164,6 +166,7 @@ class JobRunner:
             await self._transcode(job)
             done += 1
         done += await self._purge()
+        done += await self._release_abandoned_slots()
         # Last, so a bucket listing that fails cannot starve the transcodes and purges.
         if utc_now() >= self._next_orphan_sweep:
             self._next_orphan_sweep = utc_now() + timedelta(seconds=self._orphan_sweep_seconds)
@@ -312,6 +315,56 @@ class JobRunner:
         job.last_error = raw[:500]
         # Back off a little between attempts instead of hammering a bad file.
         job.locked_until = utc_now() + timedelta(seconds=30 * job.attempts)
+
+    async def _release_abandoned_slots(self) -> int:
+        """Delete what an upload slot that was never confirmed may have left in the bucket.
+
+        An expired slot stops counting against the quota, so an object PUT under it and
+        never confirmed would otherwise stay in the bucket uncounted.
+
+        Returns:
+            int: How many slots were released.
+        """
+        cutoff = utc_now() - ABANDONED_SLOT_GRACE
+        stmt = (
+            select(Recording)
+            .join(UploadSlot, UploadSlot.recording_id == Recording.id)
+            .where(
+                UploadSlot.expires_at < cutoff,
+                Recording.deleted_at.is_(None),
+                Recording.state == "pending_upload",
+            )
+            .limit(PURGE_BATCH)
+        )
+        async with self._sessionmaker() as session:
+            async with session.begin():
+                rows = list(await session.scalars(stmt))
+            if not rows:
+                return 0
+            await self._store.delete(*(upload_key(r.user_id, r.id) for r in rows))
+            async with session.begin():
+                for user_id in sorted({recording.user_id for recording in rows}):
+                    await lock_user(session, user_id)
+                # Re-checked under the locks, so a slot reissued meanwhile stays open and its
+                # recording, which a confirmation may already have moved on, is left alone.
+                released = set(
+                    await session.scalars(
+                        delete(UploadSlot)
+                        .where(
+                            UploadSlot.recording_id.in_([r.id for r in rows]),
+                            UploadSlot.expires_at < cutoff,
+                        )
+                        .returning(UploadSlot.recording_id)
+                    )
+                )
+                for recording in rows:
+                    if recording.id not in released:
+                        continue
+                    # A failed upload's object was counted through playback_bytes, and is gone.
+                    if recording.playback_bytes is not None:
+                        recording.playback_bytes = None
+                        bump_server_seq(recording)
+            return len(rows)
 
     async def _purge(self) -> int:
         """Remove the files of soft-deleted recordings and leave their rows ready to upload again.

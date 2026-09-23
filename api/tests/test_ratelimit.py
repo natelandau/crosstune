@@ -6,7 +6,8 @@ import httpx2
 import pytest
 
 from crosstune.ratelimit import RateLimiter
-from tests.test_resolve import OEMBED
+from tests.test_push import T0, change, push, uid
+from tests.test_resolve import OEMBED, og_html
 
 
 class Clock:
@@ -73,3 +74,45 @@ async def test_resolve_endpoint_refuses_past_the_limit(app, client, auth_headers
     assert other.status_code == 200
     # The refused call fetched nothing.
     assert sum("oembed" in str(call.url) for call in mock_http.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_push_resolves_links_only_within_the_callers_limit(
+    app, client, auth_headers, mock_http
+):
+    app.state.link_resolve_limiter = RateLimiter(limit=2, window_seconds=60.0)
+    urls = [f"https://band{n}.bandcamp.com/track/a" for n in range(5)]
+    for url in urls:
+        mock_http.add(url, httpx2.Response(200, text=og_html("Title")))
+    song = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="X"),
+        *[
+            change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp")
+            for url in urls
+        ],
+    )
+    assert [r["status"] for r in results] == ["applied"] * 6
+    # Past the limit a link is stored untitled, exactly as when its fetch fails.
+    assert sorted(r["row"]["title"] is not None for r in results[1:]) == [False] * 3 + [True] * 2
+    assert sum("bandcamp" in str(call.url) for call in mock_http.calls) == 2
+
+
+@pytest.mark.anyio
+async def test_push_and_the_resolve_route_share_one_limit(app, client, auth_headers, mock_http):
+    app.state.link_resolve_limiter = RateLimiter(limit=1, window_seconds=60.0)
+    url = "https://one.bandcamp.com/track/a"
+    mock_http.add(url, httpx2.Response(200, text=og_html("One")))
+    song = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="X"),
+        change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp"),
+    )
+    response = await client.post(
+        "/v1/links/resolve", json={"url": url}, headers=auth_headers("user_a")
+    )
+    assert response.status_code == 429

@@ -82,7 +82,7 @@ async def test_presigned_urls_survive_the_storage_proxy(rustfs_bucket: str) -> N
             secret_access_key=local_storage.SECRET_KEY,
             browser_endpoint_url=f"http://127.0.0.1:{port}/storage",
         )
-        put_url = r2.presign_put("u/r/upload", "audio/mp4", expires_in=600)
+        put_url = r2.presign_put("u/r/upload", "audio/mp4", content_length=5, expires_in=600)
         get_url = r2.presign_get("u/r/upload", expires_in=600)
         assert put_url.startswith(f"http://127.0.0.1:{port}/storage/{rustfs_bucket}/u/r/upload?")
 
@@ -104,7 +104,7 @@ def store(bucket: str) -> R2Store:
 
 async def test_browser_upload_and_download_through_presigned_urls(rustfs_bucket: str) -> None:
     r2 = store(rustfs_bucket)
-    put_url = r2.presign_put("u/r/upload", "audio/mp4", expires_in=600)
+    put_url = r2.presign_put("u/r/upload", "audio/mp4", content_length=5, expires_in=600)
     async with httpx2.AsyncClient() as http:
         preflight = await http.options(
             put_url,
@@ -121,6 +121,15 @@ async def test_browser_upload_and_download_through_presigned_urls(rustfs_bucket:
         assert put.status_code == 200
         get = await http.get(r2.presign_get("u/r/upload", expires_in=600))
         assert get.content == b"audio"
+
+
+async def test_presigned_put_refuses_a_body_of_another_length(rustfs_bucket: str) -> None:
+    r2 = store(rustfs_bucket)
+    put_url = r2.presign_put("u/r/upload", "audio/mp4", content_length=5, expires_in=600)
+    async with httpx2.AsyncClient() as http:
+        put = await http.put(put_url, content=b"audio" * 100, headers={"Content-Type": "audio/mp4"})
+        assert put.status_code == 403
+    assert await r2.head("u/r/upload") is None
 
 
 async def test_head_copy_download_and_upload(rustfs_bucket: str, tmp_path: Path) -> None:

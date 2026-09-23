@@ -17,23 +17,42 @@ from crosstune.models import (
 )
 from crosstune.users.service import get_or_create_user
 
+# Where the body admission middleware leaves the claims it verified, so they are not
+# verified twice.
+CLAIMS_STATE_KEY = "clerk_claims"
 
-async def current_user(
-    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
-) -> User:
-    """Verify the bearer token and return the local user, creating it on first sight."""
+
+async def verify_bearer(request: Request) -> dict:
+    """Verify the request's bearer token against the app's Clerk settings.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        dict: The token's claims.
+
+    Raises:
+        UnauthorizedError: The header is missing, or the token is not valid for this API.
+    """
     header = request.headers.get("Authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token:
         raise UnauthorizedError
     settings = request.app.state.settings
-    claims = await verify_clerk_token(
+    return await verify_clerk_token(
         token,
         request.app.state.jwks,
         settings.clerk_issuer,
         settings.clerk_authorized_parties,
         settings.clerk_authorized_party_regex,
     )
+
+
+async def current_user(
+    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
+) -> User:
+    """Verify the bearer token and return the local user, creating it on first sight."""
+    claims = getattr(request.state, CLAIMS_STATE_KEY, None) or await verify_bearer(request)
     email = claims.get("email")
     return await get_or_create_user(
         session, claims["sub"], email=email if isinstance(email, str) else None

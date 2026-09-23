@@ -120,3 +120,40 @@ async def test_probe_rejects_a_report_with_no_duration(
 def test_needs_encode_treats_an_unknown_bit_rate_as_needing_encode() -> None:
     info = Probe(codec="aac", format_names=frozenset({"mp4"}), bit_rate=None, duration_ms=1_000)
     assert needs_encode(info) is True
+
+
+async def test_probe_refuses_a_playlist_that_reads_another_local_file(
+    media_fixtures, tmp_path
+) -> None:
+    playlist = tmp_path / "upload"
+    playlist.write_text(
+        f"#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\n{media_fixtures['wav']}\n#EXT-X-ENDLIST\n"
+    )
+    with pytest.raises(MediaError):
+        await probe(playlist)
+
+
+async def test_encode_refuses_a_concat_list_that_reads_another_local_file(
+    media_fixtures, tmp_path
+) -> None:
+    listing = tmp_path / "upload"
+    listing.write_text(f"ffconcat version 1.0\nfile '{media_fixtures['wav']}'\n")
+    with pytest.raises(MediaError):
+        await encode(listing, tmp_path / "playback.m4a")
+
+
+async def test_run_hands_the_tools_none_of_the_apis_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CROSSTUNE_STORAGE_SECRET_ACCESS_KEY", "do-not-leak")
+    output = await _run("env")
+    assert b"do-not-leak" not in output
+
+
+async def test_probe_refuses_audio_in_a_container_outside_the_allowlist(tmp_path) -> None:
+    upload = tmp_path / "upload"
+    await _run(
+        "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=duration=1", "-f", "au", str(upload)
+    )
+    with pytest.raises(MediaError):
+        await probe(upload)

@@ -142,6 +142,20 @@ def _problem(
     )
 
 
+def problem_response(error: AppError) -> JSONResponse:
+    """Render an AppError as its problem document, for code that runs outside a route.
+
+    Args:
+        error: The error to render.
+
+    Returns:
+        JSONResponse: The response an exception handler would have sent.
+    """
+    return _problem(
+        error.status, error.title, error.detail, type_=error.type, headers=error.headers
+    )
+
+
 def _reason_phrase(status: int) -> str:
     try:
         return HTTPStatus(status).phrase
@@ -180,7 +194,7 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return _problem(exc.status, exc.title, exc.detail, type_=exc.type, headers=exc.headers)
+        return problem_response(exc)
 
     @app.exception_handler(HTTPException)
     async def _http_exception(_: Request, exc: HTTPException) -> JSONResponse:

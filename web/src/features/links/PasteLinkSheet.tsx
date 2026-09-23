@@ -9,11 +9,13 @@ import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { detectProvider, isProvider } from './detect'
+import { outboundUrl } from './display'
 
 export const PASTE_LINK = 'Paste link'
 export const ADD_LINK = 'Add link'
 export const LINK_PLACEHOLDER = 'Paste a YouTube, Spotify, or other link'
 export const LINK_REQUIRED = 'Paste a link to add it'
+export const LINK_NOT_WEB = 'Paste a web address, one that starts with http or https'
 
 /** Pastes a link to a recording elsewhere onto a song, over whatever screen asked. */
 export function PasteLinkSheet({
@@ -61,6 +63,12 @@ export function PasteLinkSheet({
     if (!trimmed) {
       clear()
       setValidation(LINK_REQUIRED)
+      void urlRef.current?.setFocus()
+      return
+    }
+    if (outboundUrl({ url: trimmed }) === null) {
+      clear()
+      setValidation(LINK_NOT_WEB)
       void urlRef.current?.setFocus()
       return
     }
