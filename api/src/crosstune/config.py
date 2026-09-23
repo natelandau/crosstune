@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
+PREVIEW_BUCKET = "crosstune-recordings-preview"
 _HOSTED_WITHOUT_PREFIX = {"development", "production"}
 
 
@@ -135,15 +136,39 @@ class Settings(BaseSettings):
         return None
 
     def _scope_problem(self) -> str | None:
-        env = self.environment
         if not self.r2_configured:
             return None
+        return (
+            self._pr_prefix_problem()
+            or self._bucket_problem()
+            or self._e2e_problem()
+            or self._endpoint_problem()
+        )
+
+    def _pr_prefix_problem(self) -> str | None:
+        env = self.environment
         if env.startswith("pr-") and self.r2_prefix != f"{env}/":
             return f"{env} must set CROSSTUNE_R2_PREFIX to {env}/"
-        if self.r2_bucket == PRODUCTION_BUCKET and env != "production":
+        return None
+
+    def _bucket_problem(self) -> str | None:
+        env = self.environment
+        bucket = self.r2_bucket
+        if bucket == PRODUCTION_BUCKET and env != "production":
             return f"only production may use {PRODUCTION_BUCKET}"
+        if bucket == PREVIEW_BUCKET and not env.startswith("pr-"):
+            return f"only pr-<number> environments may use {PREVIEW_BUCKET}"
+        if env.startswith("pr-") and bucket != PREVIEW_BUCKET:
+            return f"{env} must use {PREVIEW_BUCKET}"
+        return None
+
+    def _e2e_problem(self) -> str | None:
         if self.e2e_database and not self.r2_endpoint_url:
             return "an e2e database may only use local storage (CROSSTUNE_R2_ENDPOINT_URL)"
+        return None
+
+    def _endpoint_problem(self) -> str | None:
+        env = self.environment
         if self.r2_endpoint_url and env != "development":
             return f"CROSSTUNE_R2_ENDPOINT_URL is for local work, not {env}"
         return None

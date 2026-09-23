@@ -167,6 +167,15 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
         pytest.param(
             {"environment": "development", **R2, "database_url": E2E_DB}, id="e2e-on-hosted-r2"
         ),
+        pytest.param(
+            {"environment": "development", **R2, "r2_bucket": "crosstune-recordings-preview"},
+            id="preview-bucket-on-development",
+        ),
+        pytest.param(
+            {"environment": "production", **R2, "r2_bucket": "crosstune-recordings-preview"},
+            id="preview-bucket-on-production",
+        ),
+        pytest.param({"environment": "pr-44", **R2, "r2_prefix": "pr-44/"}, id="pr-on-dev-bucket"),
     ],
 )
 def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
