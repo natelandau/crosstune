@@ -81,3 +81,94 @@ def test_r2_configured_accepts_an_endpoint_in_place_of_the_account() -> None:
 
 def test_r2_endpoint_defaults_to_the_account_endpoint() -> None:
     assert Settings(r2_account_id="acct").r2_endpoint == "https://acct.r2.cloudflarestorage.com"
+
+
+STORE = {
+    "r2_bucket": "crosstune-recordings-dev",
+    "r2_access_key_id": "test-access-key",  # gitleaks:allow -- fixture, not a credential
+    "r2_secret_access_key": "test-secret",  # gitleaks:allow -- fixture, not a credential
+}
+R2 = {**STORE, "r2_account_id": "acct"}
+LOCAL_STORE = {**STORE, "r2_bucket": "crosstune-local", "r2_endpoint_url": "http://localhost:9000"}
+E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param(
+            {"environment": "production", **R2, "r2_bucket": "crosstune-recordings"},
+            id="production",
+        ),
+        pytest.param({"environment": "development", **R2}, id="hosted-dev"),
+        pytest.param(
+            {
+                "environment": "pr-44",
+                **R2,
+                "r2_bucket": "crosstune-recordings-preview",
+                "r2_prefix": "pr-44/",
+            },
+            id="pr",
+        ),
+        pytest.param({"environment": "development", **LOCAL_STORE}, id="local"),
+        pytest.param(
+            {
+                "environment": "development",
+                **LOCAL_STORE,
+                "r2_bucket": "crosstune-e2e",
+                "database_url": E2E_DB,
+            },
+            id="local-e2e",
+        ),
+        pytest.param({"environment": "pr-44"}, id="pr-without-storage"),
+        pytest.param(
+            {"environment": "development", "database_url": E2E_DB}, id="e2e-without-storage"
+        ),
+    ],
+)
+def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
+    Settings(**overrides)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param({"environment": "pr-44", **R2}, id="pr-without-prefix"),
+        pytest.param(
+            {"environment": "pr-44", **R2, "r2_prefix": "pr-45/"}, id="pr-with-another-prefix"
+        ),
+        pytest.param(
+            {"environment": "development", **R2, "r2_prefix": "pr-44/"},
+            id="development-with-prefix",
+        ),
+        pytest.param(
+            {
+                "environment": "production",
+                **R2,
+                "r2_bucket": "crosstune-recordings",
+                "r2_prefix": "x/",
+            },
+            id="production-with-prefix",
+        ),
+        pytest.param(
+            {"environment": "pr-44", **R2, "r2_prefix": "pr-44"}, id="prefix-without-slash"
+        ),
+        pytest.param(
+            {"environment": "development", **R2, "r2_bucket": "crosstune-recordings"},
+            id="production-bucket-elsewhere",
+        ),
+        pytest.param(
+            {"environment": "pr-44", **LOCAL_STORE, "r2_prefix": "pr-44/"}, id="endpoint-on-a-pr"
+        ),
+        pytest.param(
+            {"environment": "production", **LOCAL_STORE, "r2_bucket": "crosstune-recordings"},
+            id="endpoint-on-production",
+        ),
+        pytest.param(
+            {"environment": "development", **R2, "database_url": E2E_DB}, id="e2e-on-hosted-r2"
+        ),
+    ],
+)
+def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
+    with pytest.raises(ValidationError, match="storage"):
+        Settings(**overrides)

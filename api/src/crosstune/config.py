@@ -2,12 +2,15 @@
 
 import re
 from functools import lru_cache
+from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import ValidationInfo, field_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
+PRODUCTION_BUCKET = "crosstune-recordings"
+_HOSTED_WITHOUT_PREFIX = {"development", "production"}
 
 
 def normalize_database_url(url: str) -> str:
@@ -106,6 +109,44 @@ class Settings(BaseSettings):
     def clerk_jwks_url(self) -> str:
         """JWKS endpoint derived from the issuer."""
         return f"{self.clerk_issuer.rstrip('/')}/.well-known/jwks.json"
+
+    @model_validator(mode="after")
+    def _confine_storage(self) -> Self:
+        """Refuse to start with storage another environment's database also deletes from.
+
+        Every sweep and purge acts on what this database says, so an API that can
+        reach another environment's keys deletes that environment's audio.
+        """
+        problem = self._storage_problem()
+        if problem:
+            msg = f"unsafe storage settings: {problem}"
+            raise ValueError(msg)
+        return self
+
+    def _storage_problem(self) -> str | None:
+        return self._prefix_problem() or self._scope_problem()
+
+    def _prefix_problem(self) -> str | None:
+        env = self.environment
+        if self.r2_prefix and not self.r2_prefix.endswith("/"):
+            return f"CROSSTUNE_R2_PREFIX {self.r2_prefix!r} must end in /"
+        if env in _HOSTED_WITHOUT_PREFIX and self.r2_prefix:
+            return f"{env} owns its whole bucket and takes no CROSSTUNE_R2_PREFIX"
+        return None
+
+    def _scope_problem(self) -> str | None:
+        env = self.environment
+        if not self.r2_configured:
+            return None
+        if env.startswith("pr-") and self.r2_prefix != f"{env}/":
+            return f"{env} must set CROSSTUNE_R2_PREFIX to {env}/"
+        if self.r2_bucket == PRODUCTION_BUCKET and env != "production":
+            return f"only production may use {PRODUCTION_BUCKET}"
+        if self.e2e_database and not self.r2_endpoint_url:
+            return "an e2e database may only use local storage (CROSSTUNE_R2_ENDPOINT_URL)"
+        if self.r2_endpoint_url and env != "development":
+            return f"CROSSTUNE_R2_ENDPOINT_URL is for local work, not {env}"
+        return None
 
 
 @lru_cache
