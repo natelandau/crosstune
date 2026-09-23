@@ -36,6 +36,9 @@ Cloudflare also hosts the DNS zone for the product domain.
 - Every `/v1` route except the Clerk webhook requires a Clerk bearer token.
   No user ID appears in a URL or a body. The server sets ownership from the
   token and scopes every query to the caller.
+- A request body is read only after its token verifies, and never past a
+  size limit: 32 MiB for `/v1` routes, 64 KiB for the webhook. Anything
+  else is a 401 or a 413 before the body is buffered.
 - The API has no CORS. Browsers reach it same-origin, through the Vite proxy
   locally and the Worker when hosted. The token's `azp` claim must match an
   allowed client origin.

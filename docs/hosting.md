@@ -147,8 +147,8 @@ Variables, both environments unless noted:
 | `CROSSTUNE_STORAGE_SECRET_ACCESS_KEY`    | Production bucket token secret     | Development bucket token secret                                         |
 | `CROSSTUNE_STORAGE_PREFIX`               | Unset                              | Unset                                                                   |
 
-Quota, file size, job polling, sweep, link resolve timeout, link resolve
-rate limit, and pull page size keep the defaults in
+Quota, file size, request body size, job polling, sweep, link resolve
+timeout, link resolve rate limit, and pull page size keep the defaults in
 `api/src/crosstune/config.py` and are not set on the host. The
 `CROSSTUNE_LOCAL_*` names are for local work and the end-to-end suite, and
 the API refuses to start with them on a hosted environment. Railway injects

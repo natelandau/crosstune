@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
     pull_page_size: int = 500
+    max_request_body_bytes: int = 33_554_432
     r2_account_id: str = ""
     storage_bucket: str = ""
     storage_access_key_id: str = ""
