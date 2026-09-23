@@ -151,7 +151,9 @@ Quota, file size, request body size, job polling, sweep, link resolve
 timeout, link resolve rate limit, and pull page size keep the defaults in
 `api/src/crosstune/config.py` and are not set on the host. The
 `CROSSTUNE_LOCAL_*` names are for local work and the end-to-end suite, and
-the API refuses to start with them on a hosted environment. Railway injects
+the API refuses to start with them on a hosted environment. Production and
+every `pr-<n>` environment refuse to start without the Clerk issuer and an
+authorized party or pattern. Railway injects
 `PORT`. `api/.env.example` explains every name. The regex
 writes the `workers.dev` subdomain literally and admits every preview alias.
 The API refuses to start when `CROSSTUNE_STORAGE_PREFIX`,

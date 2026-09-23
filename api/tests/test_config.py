@@ -255,3 +255,42 @@ def test_a_retired_name_in_the_env_file_is_refused(monkeypatch, tmp_path) -> Non
     monkeypatch.setitem(Settings.model_config, "env_file", str(env_file))
     with pytest.raises(ValidationError, match="CROSSTUNE_LINK_RESOLVE_TIMEOUT_SECONDS"):
         Settings()
+
+
+CLERK = {
+    "clerk_issuer": "https://clerk.example.test",
+    "clerk_authorized_parties": ["https://example.test"],
+}
+
+
+@pytest.mark.parametrize("environment", ["production", "pr-44"])
+@pytest.mark.parametrize(
+    ("missing", "named"),
+    [
+        ({"clerk_issuer": ""}, "CROSSTUNE_CLERK_ISSUER"),
+        ({"clerk_authorized_parties": []}, "CROSSTUNE_CLERK_AUTHORIZED_PARTIES"),
+    ],
+)
+def test_a_hosted_environment_refuses_to_start_without_clerk_checks(
+    environment: str, missing: dict[str, object], named: str
+) -> None:
+    with pytest.raises(ValidationError, match=named):
+        Settings(environment=environment, **{**CLERK, **missing})
+
+
+@pytest.mark.parametrize(
+    "clerk",
+    [
+        CLERK,
+        {"clerk_issuer": CLERK["clerk_issuer"], "clerk_authorized_party_regex": "^https://x$"},
+    ],
+    ids=["parties", "regex"],
+)
+def test_a_hosted_environment_starts_with_an_issuer_and_a_party_rule(
+    clerk: dict[str, object],
+) -> None:
+    Settings(environment="production", **clerk)
+
+
+def test_development_starts_without_clerk_checks() -> None:
+    Settings(environment="development", clerk_issuer="", clerk_authorized_parties=[])

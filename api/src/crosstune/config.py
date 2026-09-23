@@ -161,6 +161,26 @@ class Settings(BaseSettings):
         return names
 
     @model_validator(mode="after")
+    def _require_clerk_checks(self) -> Self:
+        """Refuse a hosted environment that would accept tokens without checking them fully.
+
+        With no issuer every token is refused, and with no authorized party a token
+        issued to any site on the Clerk instance is accepted. Local work is exempt.
+        """
+        if self.environment != "production" and not self.environment.startswith("pr-"):
+            return self
+        if not self.clerk_issuer:
+            msg = f"{self.environment} needs CROSSTUNE_CLERK_ISSUER"
+            raise ValueError(msg)
+        if not (self.clerk_authorized_parties or self.clerk_authorized_party_regex):
+            msg = (
+                f"{self.environment} needs CROSSTUNE_CLERK_AUTHORIZED_PARTIES "
+                "or CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
     def _confine_storage(self) -> Self:
         """Refuse to start with storage another environment's database also deletes from.
 
