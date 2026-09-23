@@ -124,6 +124,9 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   Bandcamp and TIDAL included, is fetched and read for Open Graph tags,
   capped at 512 KB. A JSON answer over 256 KB is refused. Each request times
   out after 5 seconds. A failure yields an untitled link, never an error.
+- The resolve route allows each user 30 calls a minute, counted in the API
+  process, and answers past that with a 429 and `Retry-After`. The client
+  treats the 429 as any failed resolve and saves the link untitled.
 - Every outbound fetch passes an address policy: the host must resolve only
   to public addresses, only http and https are fetched, every redirect hop
   is checked, and the connection goes to the checked address while the Host

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import dataclasses
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import VALIDATION_RESPONSE
+from crosstune.errors import TooManyRequestsError, problem_responses
 from crosstune.links.resolve import resolve_link
 
 router = APIRouter(prefix="/v1/links", tags=["links"])
@@ -32,8 +33,19 @@ class ResolveResponse(BaseModel):
     artwork_url: str | None
 
 
-@router.post("/resolve", responses=VALIDATION_RESPONSE)
-async def resolve(body: ResolveRequest, request: Request, _: CurrentUser) -> ResolveResponse:
+async def within_resolve_limit(request: Request, user: CurrentUser) -> None:
+    """Refuse a caller past their resolve limit, since each resolve is an outbound fetch."""
+    wait = request.app.state.link_resolve_limiter.hit(user.id)
+    if wait is not None:
+        raise TooManyRequestsError(wait)
+
+
+@router.post("/resolve", responses=problem_responses(429))
+async def resolve(
+    body: ResolveRequest,
+    request: Request,
+    _: Annotated[None, Depends(within_resolve_limit)],
+) -> ResolveResponse:
     """Provider, canonical URL, title, and artwork for a pasted link."""
     settings = request.app.state.settings
     link = await resolve_link(

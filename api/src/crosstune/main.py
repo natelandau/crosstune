@@ -17,6 +17,7 @@ from crosstune.http import public_only_client
 from crosstune.jobs.runner import JobRunner
 from crosstune.links.router import router as links_router
 from crosstune.logging import configure_logging
+from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
 from crosstune.storage.r2 import R2Store
 from crosstune.sync.router import router as sync_router
@@ -96,6 +97,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.jwks = None
     app.state.object_store = None
     app.state.job_runner = None
+    app.state.link_resolve_limiter = RateLimiter(
+        limit=settings.link_resolves_per_minute, window_seconds=60.0
+    )
 
     install_error_handlers(app)
     app.include_router(users_router)
