@@ -5,7 +5,7 @@ import { Row, type RowAction } from '../../ui/Row'
 import { embedFor } from '../player/embed'
 import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
-import { displayTitle, providerLabel } from './display'
+import { displayTitle, outboundUrl, providerLabel } from './display'
 
 /**
  * A linked recording as a row shaped like an audio recording's: the row plays it when the
@@ -24,17 +24,17 @@ export function LinkItem({
   const title = displayTitle(link)
   const provider = providerLabel(link)
   const embed = embedFor(link)
+  const href = outboundUrl(link)
   const item = { kind: 'link' as const, id: link.id }
   const loaded = isPlaying(player, item)
 
-  let open: { onOpen: () => void; openName: string }
+  let open: { onOpen: () => void; openName: string } | undefined
   let glyph
   if (!embed) {
     // Nothing to load in the dock, so the row is the outbound link, like the one under the title.
-    open = {
-      onOpen: () => window.open(link.url, '_blank', 'noopener,noreferrer'),
-      openName: 'Open',
-    }
+    open = href
+      ? { onOpen: () => window.open(href, '_blank', 'noopener,noreferrer'), openName: 'Open' }
+      : undefined
   } else if (loaded) {
     open = { onOpen: () => player.close(), openName: 'Close' }
     glyph = <StopGlyph />
@@ -49,18 +49,24 @@ export function LinkItem({
       actions={actions}
       start={<Slot>{glyph}</Slot>}
       note={
-        <a
-          // The row's second line, so it carries the label's own bottom space and adds none of
-          // its own: a link out and a line of metadata sit the same distance under their title.
-          className="type-subheadline mb-2.5 flex min-h-6 w-fit items-center gap-1 text-(--ion-color-primary)"
-          href={link.url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Open ${title} on ${provider}`}
-        >
-          {provider === 'Link' ? 'Open' : provider}
-          <ArrowUpRight aria-hidden="true" className="size-4" />
-        </a>
+        href ? (
+          <a
+            // The row's second line, so it carries the label's own bottom space and adds none of
+            // its own: a link out and a line of metadata sit the same distance under their title.
+            className="type-subheadline mb-2.5 flex min-h-6 w-fit items-center gap-1 text-(--ion-color-primary)"
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${title} on ${provider}`}
+          >
+            {provider === 'Link' ? 'Open' : provider}
+            <ArrowUpRight aria-hidden="true" className="size-4" />
+          </a>
+        ) : (
+          <span className="type-subheadline mb-2.5 flex min-h-6 w-fit items-center">
+            {provider}
+          </span>
+        )
       }
       {...open}
     >

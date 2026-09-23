@@ -23,3 +23,25 @@ export function displayTitle(link: {
     return link.url
   }
 }
+
+const WEB_PROTOCOLS = new Set(['http:', 'https:'])
+
+/**
+ * Where a link may send the browser, or null when it must not be opened. A stored URL is
+ * whatever was pasted, and any scheme but http and https can run in this page. A bare host,
+ * pasted without a scheme, is read as https.
+ */
+export function outboundUrl(link: { url: string }): string | null {
+  try {
+    const parsed = new URL(link.url)
+    return WEB_PROTOCOLS.has(parsed.protocol) ? parsed.href : null
+  } catch {
+    // No scheme at all, so not a script either.
+  }
+  try {
+    const parsed = new URL(`https://${link.url.trim()}`)
+    return parsed.href
+  } catch {
+    return null
+  }
+}

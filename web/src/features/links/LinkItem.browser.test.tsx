@@ -176,6 +176,23 @@ describe('LinkItem', () => {
     opened.mockRestore()
   })
 
+  it('offers no way to open a link that is not a web address', async () => {
+    const opened = vi.spyOn(window, 'open').mockReturnValue(null)
+    const link = linkRow('l1', 's1', {
+      url: 'javascript:alert(1)',
+      provider: 'other',
+      title: 'Jam session',
+    })
+    show(link)
+    await expect.element(page.getByText('Jam session')).toBeVisible()
+    expect(page.getByRole('button', { name: 'Open Jam session', exact: true }).elements()).toEqual(
+      [],
+    )
+    expect(page.getByRole('link').elements()).toEqual([])
+    expect(opened).not.toHaveBeenCalled()
+    opened.mockRestore()
+  })
+
   it('reads the link out as Open when the provider has no name of its own', async () => {
     const link = linkRow('l1', 's1', {
       url: 'https://example.com/x',
