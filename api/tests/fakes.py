@@ -70,6 +70,7 @@ class FakeObjectStore:
         for key in [k for k in self._objects if k.startswith(prefix)]:
             del self._objects[key]
 
-    async def list_prefixes(self) -> list[str]:
-        """The top-level prefixes of the bucket, each ending in a slash."""
-        return sorted({key.split("/", 1)[0] + "/" for key in self._objects if "/" in key})
+    async def list_prefixes(self, prefix: str = "") -> list[str]:
+        """The prefixes one level below `prefix`, each in full and ending in a slash."""
+        below = [key[len(prefix) :] for key in self._objects if key.startswith(prefix)]
+        return sorted({prefix + rest.split("/", 1)[0] + "/" for rest in below if "/" in rest})

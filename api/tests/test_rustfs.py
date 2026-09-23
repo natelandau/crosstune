@@ -108,3 +108,9 @@ def test_ls_and_get(rustfs: S3Client, tmp_path: Path, capsys: pytest.CaptureFixt
 def test_every_command_refuses_a_bucket_it_does_not_own() -> None:
     with pytest.raises(SystemExit):
         local_storage.main(["reset", "crosstune-recordings-dev"])
+
+
+async def test_listing_below_a_prefix(rustfs_bucket: str, rustfs: S3Client) -> None:
+    for key in ("u1/r1/a", "u1/r2/a", "u2/r1/a"):
+        rustfs.put_object(Bucket=rustfs_bucket, Key=key, Body=b"x")
+    assert await store(rustfs_bucket).list_prefixes("u1/") == ["u1/r1/", "u1/r2/"]

@@ -137,14 +137,15 @@ class R2Store:
             )
             raise ObjectDeleteError(msg)
 
-    async def list_prefixes(self) -> list[str]:
-        """The top-level prefixes of the bucket, each ending in a slash."""
+    async def list_prefixes(self, prefix: str = "") -> list[str]:
+        """The prefixes one level below `prefix`, each in full and ending in a slash."""
+        scope = {"Prefix": prefix} if prefix else {}
 
         def run() -> list[str]:
             paginator = self._client.get_paginator("list_objects_v2")
             return [
                 common["Prefix"]
-                for page in paginator.paginate(Bucket=self._bucket, Delimiter="/")
+                for page in paginator.paginate(Bucket=self._bucket, Delimiter="/", **scope)
                 for common in page.get("CommonPrefixes", [])
                 if "Prefix" in common
             ]

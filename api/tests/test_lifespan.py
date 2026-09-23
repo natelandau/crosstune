@@ -9,6 +9,7 @@ from sqlalchemy import text
 from crosstune.config import Settings
 from crosstune.db.engine import make_sessionmaker
 from crosstune.main import create_app
+from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from tests.fakes import FakeObjectStore
 
@@ -132,3 +133,20 @@ async def test_lifespan_builds_an_r2_store_on_a_configured_endpoint(database_url
         store = app.state.object_store
         assert isinstance(store, R2Store)
         assert store._client.meta.endpoint_url == "http://localhost:9000"
+
+
+async def test_lifespan_wraps_the_store_when_a_prefix_is_set(database_url: str) -> None:
+    app = create_app(
+        Settings(
+            database_url=database_url,
+            environment="pr-6",
+            r2_account_id="acct",
+            r2_bucket="crosstune-recordings-preview",
+            r2_access_key_id="test-access-key",  # gitleaks:allow -- fixture, not a credential
+            r2_secret_access_key="test-secret",  # gitleaks:allow -- fixture, not a credential
+            r2_prefix="pr-6/",
+        )
+    )
+
+    async with app.router.lifespan_context(app):
+        assert isinstance(app.state.object_store, PrefixedStore)

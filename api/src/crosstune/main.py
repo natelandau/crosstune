@@ -19,12 +19,15 @@ from crosstune.links.router import router as links_router
 from crosstune.logging import configure_logging
 from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
+from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from crosstune.sync.router import router as sync_router
 from crosstune.users.router import router as users_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from crosstune.storage.store import ObjectStore
 
 
 @asynccontextmanager
@@ -42,12 +45,15 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     if app.state.object_store is None and settings.r2_configured:
-        app.state.object_store = R2Store(
+        store: ObjectStore = R2Store(
             endpoint_url=settings.r2_endpoint,
             bucket=settings.r2_bucket,
             access_key_id=settings.r2_access_key_id,
             secret_access_key=settings.r2_secret_access_key,
         )
+        if settings.r2_prefix:
+            store = PrefixedStore(store, settings.r2_prefix)
+        app.state.object_store = store
     built_runner = app.state.job_runner is None and app.state.object_store is not None
     if built_runner:
         app.state.job_runner = JobRunner(

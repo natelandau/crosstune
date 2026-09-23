@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     r2_bucket: str = ""
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
+    r2_prefix: str = ""
     recording_quota_bytes: int = 1_073_741_824
     recording_max_file_bytes: int = 52_428_800
     job_poll_seconds: float = 3.0

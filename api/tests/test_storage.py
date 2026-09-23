@@ -133,6 +133,26 @@ async def test_r2_copy_never_names_a_storage_class() -> None:
         await r2.copy("u/r/upload", "u/r/original.wav")
 
 
+async def test_fake_lists_one_level_below_a_prefix() -> None:
+    fake = FakeObjectStore()
+    for key in ("u1/r1/a", "u1/r1/b", "u1/r2/a", "u2/r1/a", "u1/loose"):
+        fake.put_bytes(key, b"x", "audio/mp4")
+    assert await fake.list_prefixes("u1/") == ["u1/r1/", "u1/r2/"]
+    assert await fake.list_prefixes("u3/") == []
+
+
+async def test_r2_lists_below_a_prefix() -> None:
+    r2 = store()
+    stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
+    stub.add_response(
+        "list_objects_v2",
+        {"IsTruncated": False, "CommonPrefixes": [{"Prefix": "u1/r1/"}]},
+        {"Bucket": "crosstune-test", "Delimiter": "/", "Prefix": "u1/"},
+    )
+    with stub:
+        assert await r2.list_prefixes("u1/") == ["u1/r1/"]
+
+
 async def test_r2_delete_raises_when_the_bucket_reports_a_key_it_kept() -> None:
     r2 = store()
     stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
