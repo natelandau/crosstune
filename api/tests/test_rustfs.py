@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx2
@@ -15,7 +16,6 @@ from crosstune.storage.r2 import R2Store
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
     from types_boto3_s3 import S3Client
 
@@ -149,14 +149,18 @@ async def test_listing_and_batch_deletes(rustfs_bucket: str, rustfs: S3Client) -
     assert [obj["Key"] for obj in remaining] == ["u1/r2/a"]
 
 
-def test_setup_creates_both_buckets_and_is_repeatable(rustfs: S3Client) -> None:
+def test_setup_creates_both_buckets_and_is_repeatable(
+    rustfs: S3Client, local_storage_buckets: tuple[str, str]
+) -> None:
     assert local_storage.main(["setup"]) == 0
     assert local_storage.main(["setup"]) == 0
     names = {bucket["Name"] for bucket in rustfs.list_buckets()["Buckets"]}
     assert set(local_storage.BUCKETS) <= names
 
 
-def test_reset_empties_only_the_named_bucket(rustfs: S3Client) -> None:
+def test_reset_empties_only_the_named_bucket(
+    rustfs: S3Client, local_storage_buckets: tuple[str, str]
+) -> None:
     local_storage.main(["setup"])
     rustfs.put_object(Bucket=local_storage.E2E_BUCKET, Key="u/r/a", Body=b"x")
     rustfs.put_object(Bucket=local_storage.LOCAL_BUCKET, Key="keep/me", Body=b"x")
@@ -164,10 +168,14 @@ def test_reset_empties_only_the_named_bucket(rustfs: S3Client) -> None:
     assert "Contents" not in rustfs.list_objects_v2(Bucket=local_storage.E2E_BUCKET)
     kept = rustfs.list_objects_v2(Bucket=local_storage.LOCAL_BUCKET)["Contents"]
     assert "keep/me" in [obj["Key"] for obj in kept]
-    rustfs.delete_object(Bucket=local_storage.LOCAL_BUCKET, Key="keep/me")
 
 
-def test_ls_and_get(rustfs: S3Client, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_ls_and_get(
+    rustfs: S3Client,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    local_storage_buckets: tuple[str, str],
+) -> None:
     local_storage.main(["setup"])
     rustfs.put_object(Bucket=local_storage.LOCAL_BUCKET, Key="ls-test/r/playback.m4a", Body=b"abc")
     assert local_storage.main(["ls", "ls-test/"]) == 0
@@ -180,12 +188,20 @@ def test_ls_and_get(rustfs: S3Client, tmp_path: Path, capsys: pytest.CaptureFixt
     assert (tmp_path / "rel.m4a").read_bytes() == b"abc"
     assert local_storage.main([*cwd, "get", "ls-test/r/playback.m4a"]) == 0
     assert (tmp_path / "playback.m4a").read_bytes() == b"abc"
-    rustfs.delete_object(Bucket=local_storage.LOCAL_BUCKET, Key="ls-test/r/playback.m4a")
 
 
 def test_every_command_refuses_a_bucket_it_does_not_own() -> None:
     with pytest.raises(SystemExit):
         local_storage.main(["reset", "crosstune-recordings-dev"])
+
+
+def test_no_cli_test_names_the_real_local_or_e2e_bucket() -> None:
+    """Guards the fixture above: a literal bucket name here would act on the developer's real bucket."""
+    this_test = "def test_no_cli_test_names_the_real_local_or_e2e_bucket"
+    blocks = Path(__file__).read_text().split("\n\n\n")
+    scanned = "\n\n\n".join(block for block in blocks if this_test not in block)
+    for literal in ("crosstune-local", "crosstune-e2e"):
+        assert literal not in scanned
 
 
 async def test_list_keys_lists_every_key_or_those_below_a_prefix(

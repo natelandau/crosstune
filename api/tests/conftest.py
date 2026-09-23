@@ -413,3 +413,28 @@ def rustfs_bucket(rustfs: S3Client) -> Iterator[str]:
     yield bucket
     local_storage.empty_bucket(rustfs, bucket)
     rustfs.delete_bucket(Bucket=bucket)
+
+
+@pytest.fixture
+def local_storage_buckets(
+    rustfs: S3Client, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[tuple[str, str]]:
+    """Point the local_storage CLI at two disposable buckets instead of the developer's real ones.
+
+    Without this, the CLI tests act on crosstune-local and crosstune-e2e directly, so an API
+    test run can empty the e2e bucket a concurrent `just e2e` run is still using.
+    """
+    local, e2e = (
+        f"crosstune-test-local-{uuid.uuid4().hex[:12]}",
+        f"crosstune-test-e2e-{uuid.uuid4().hex[:12]}",
+    )
+    monkeypatch.setattr(local_storage, "LOCAL_BUCKET", local)
+    monkeypatch.setattr(local_storage, "E2E_BUCKET", e2e)
+    monkeypatch.setattr(local_storage, "BUCKETS", (local, e2e))
+    yield local, e2e
+    for bucket in (local, e2e):
+        try:
+            local_storage.empty_bucket(rustfs, bucket)
+        except ClientError:
+            continue
+        rustfs.delete_bucket(Bucket=bucket)
