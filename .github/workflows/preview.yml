@@ -28,7 +28,7 @@ concurrency:
 
 env:
   PR_NAME: pr-${{ inputs.pr_number || github.event.pull_request.number }}
-  RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:latest
+  RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:5.60.0
   RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
   RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_DEV_ENVIRONMENT_ID }}
@@ -113,9 +113,13 @@ jobs:
               -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
               "$RAILWAY_CLI_IMAGE" railway "$@"
           }
-          # The copy of development brings development's bucket and token, so these always
-          # replace them. The API refuses to start on the copied values if one is missed.
-          r2_vars=(
+          # The copy of development brings development's database, bucket, and token, so
+          # these always replace them. The API refuses to start on the copied storage values
+          # if one is missed. One list feeds both paths, so an existing environment whose
+          # first patch failed heals on the next push.
+          api_vars=(
+            "CROSSTUNE_DATABASE_URL=$NEON_DB_URL"
+            "CROSSTUNE_ENVIRONMENT=$PR_NAME"
             "CROSSTUNE_R2_BUCKET=crosstune-recordings-preview"
             "CROSSTUNE_R2_ACCESS_KEY_ID=$R2_PREVIEW_ACCESS_KEY_ID"
             "CROSSTUNE_R2_SECRET_ACCESS_KEY=$R2_PREVIEW_SECRET_ACCESS_KEY"
@@ -128,7 +132,7 @@ jobs:
             # Set only what differs, because every set redeploys the service.
             current="$(railway variable list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json)"
             changes=()
-            for pair in "${r2_vars[@]}"; do
+            for pair in "${api_vars[@]}"; do
               name="${pair%%=*}"
               if [ "$(jq -r --arg k "$name" '.[$k] // ""' <<<"$current")" != "${pair#*=}" ]; then
                 changes+=("$pair")
@@ -138,14 +142,12 @@ jobs:
               railway variable set "${changes[@]}" --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME"
             fi
           else
-            r2_flags=()
-            for pair in "${r2_vars[@]}"; do
-              r2_flags+=(--service-config "$RAILWAY_API_SERVICE_ID" "variables.${pair%%=*}.value" "${pair#*=}")
+            var_flags=()
+            for pair in "${api_vars[@]}"; do
+              var_flags+=(--service-config "$RAILWAY_API_SERVICE_ID" "variables.${pair%%=*}.value" "${pair#*=}")
             done
             railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
-              --service-config "$RAILWAY_API_SERVICE_ID" variables.CROSSTUNE_DATABASE_URL.value "$NEON_DB_URL" \
-              --service-config "$RAILWAY_API_SERVICE_ID" variables.CROSSTUNE_ENVIRONMENT.value "$PR_NAME" \
-              "${r2_flags[@]}" \
+              "${var_flags[@]}" \
               --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF"
           fi
 
@@ -243,14 +245,13 @@ jobs:
           python-version: "3.13"
 
       # After the environment is gone, so no runner writes behind the delete. A failure
-      # fails the job, because a leak here is silent until the lifecycle rule expires it.
+      # fails the job once the other cleanups have run, because a leak here is silent
+      # until the lifecycle rule expires it.
       - name: delete the preview's recordings
+        id: storage-delete
+        continue-on-error: true
         working-directory: api
-        run: |
-          uv run --no-dev python -m crosstune.ops.preview_storage teardown "$PR_NAME" || {
-            echo "::error::could not delete the recordings of $PR_NAME; rerun this workflow"
-            exit 1
-          }
+        run: uv run --no-dev python -m crosstune.ops.preview_storage teardown "$PR_NAME"
 
       - name: delete the Neon branch
         id: neon-delete
@@ -272,3 +273,9 @@ jobs:
           npx --yes wrangler@4 kv key delete "$SLUG" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
             || echo "::warning::could not delete KV entry $SLUG; it may still exist"
+
+      - name: fail if the recordings were not deleted
+        if: steps.storage-delete.outcome == 'failure'
+        run: |
+          echo "::error::could not delete the recordings of $PR_NAME; rerun this workflow"
+          exit 1
