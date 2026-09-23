@@ -122,8 +122,8 @@ off from 1 second to 60 seconds. The engine exposes one status value.
 - Resolvers: oEmbed for YouTube, Spotify, and SoundCloud. The iTunes lookup
   for Apple Music. The metadata API for the Internet Archive. Any other URL,
   Bandcamp and TIDAL included, is fetched and read for Open Graph tags,
-  capped at 512 KB. Each request times out after 5 seconds. A failure yields
-  an untitled link, never an error.
+  capped at 512 KB. A JSON answer over 256 KB is refused. Each request times
+  out after 5 seconds. A failure yields an untitled link, never an error.
 - Every outbound fetch passes an address policy: the host must resolve only
   to public addresses, only http and https are fetched, every redirect hop
   is checked, and the connection goes to the checked address while the Host
