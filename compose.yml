@@ -35,6 +35,11 @@ services:
       RUSTFS_CONSOLE_ENABLE: "true"
     volumes:
       - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 volumes:
   postgres-data:
