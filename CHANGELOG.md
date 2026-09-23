@@ -1,3 +1,27 @@
+## v0.6.0 (2026-09-23)
+
+### Feat
+
+- **storage**: give each environment its own storage (#46)
+- **api**: rate limit the link resolve route per user
+
+### Fix
+
+- **api**: free the database connection before resolving a link
+- **api**: cap the JSON a link resolver reads from a provider
+- **web**: keep the chip rail's end fade in step with its chips
+- **web**: paint the recording Stop button in the record red
+- **web**: stop re-taking a wake lock the browser keeps releasing
+
+### Refactor
+
+- **config**: rename environment variables (#47)
+
+### Perf
+
+- **api**: read an upserted row back from the push write itself
+- **api**: drop indexes that the sync indexes already cover
+
 ## v0.5.0 (2026-09-22)
 
 ### Feat
