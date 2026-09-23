@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
+from sqlalchemy import event
 
 from crosstune.models import ListItem, RecordingLink, Song, UserSong
 
@@ -369,3 +370,26 @@ async def test_lyrics_round_trip_through_push_and_pull(client, auth_headers) -> 
     assert response.status_code == 200, response.text
     rows = [r for r in response.json()["rows"] if r["table"] == "songs"]
     assert rows[0]["row"]["lyrics"] == words
+
+
+async def test_an_applied_upsert_reads_its_row_back_from_the_write(
+    client, auth_headers, engine
+) -> None:
+    song_id = uid()
+    await push(client, auth_headers("user_a"), change("songs", song_id, T0, title="Old"))
+    statements: list[str] = []
+
+    def record(_conn, _cursor, statement: str, *_args) -> None:
+        statements.append(" ".join(statement.split()).lower())
+
+    event.listen(engine.sync_engine, "before_cursor_execute", record)
+    try:
+        results = await push(
+            client, auth_headers("user_a"), change("songs", song_id, T1, title="New")
+        )
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", record)
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["title"] == "New"
+    write = next(i for i, sql in enumerate(statements) if sql.startswith("insert into songs"))
+    assert not [sql for sql in statements[write + 1 :] if "from songs" in sql]
