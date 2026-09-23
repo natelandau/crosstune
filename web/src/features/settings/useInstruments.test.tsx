@@ -22,9 +22,9 @@ function played(instruments: ReadonlySet<string> | undefined): string[] | null {
 }
 
 describe('useInstruments', () => {
-  it('reports violin when the user has no settings row', async () => {
+  it('reports no instruments when the user has no settings row', async () => {
     const { result } = renderHook(() => useInstruments(), { wrapper: dataProviders({ db }) })
-    await waitFor(() => expect(played(result.current)).toEqual(['violin']))
+    await waitFor(() => expect(played(result.current)).toEqual([]))
   })
 
   it("reflects the signed-in user's row and follows changes", async () => {

@@ -1,6 +1,5 @@
 import { v5 as uuidv5 } from 'uuid'
 import { INSTRUMENTS, type AudioQuality, type Instrument } from '../api/vocabulary'
-import { DEFAULT_INSTRUMENTS } from '../constants'
 import { storedAudioQuality } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import { isInstrument, storedInstruments, type LocalUserSettings } from '../db/types'
@@ -36,9 +35,7 @@ async function writeSettings(
     updated_at: at,
     deleted_at: null,
     server_seq: existing?.server_seq ?? 0,
-    instruments: normalizeInstruments(
-      patch.instruments ?? storedInstruments(existing) ?? [...DEFAULT_INSTRUMENTS],
-    ),
+    instruments: normalizeInstruments(patch.instruments ?? storedInstruments(existing) ?? []),
     audio_quality: patch.audio_quality ?? storedAudioQuality(existing),
   })
 }
@@ -68,7 +65,7 @@ export async function toggleInstrumentSetting(
   const id = settingsId(clerkUserId)
   await writeTx(db, async () => {
     const existing = await db.user_settings.get(id)
-    const next = new Set(storedInstruments(existing) ?? DEFAULT_INSTRUMENTS)
+    const next = new Set(storedInstruments(existing) ?? [])
     if (on) next.add(instrument)
     else next.delete(instrument)
     await writeSettings(db, id, existing, { instruments: [...next] })

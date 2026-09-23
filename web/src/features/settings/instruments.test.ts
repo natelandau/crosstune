@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
-import { DEFAULT_INSTRUMENTS } from '../../constants'
 import { instrumentsFrom, visibleTunings } from './instruments'
 
 const played = (...instruments: Instrument[]) => new Set<Instrument>(instruments)
@@ -16,18 +15,18 @@ const row = {
 }
 
 describe('instrumentsFrom', () => {
-  it('defaults to violin when there is no row or the row is tombstoned', () => {
-    expect(instrumentsFrom(undefined)).toEqual(DEFAULT_INSTRUMENTS)
-    expect(instrumentsFrom(null)).toEqual(DEFAULT_INSTRUMENTS)
-    expect(instrumentsFrom({ ...row, deleted_at: 't' })).toEqual(DEFAULT_INSTRUMENTS)
+  it('is empty when there is no row or the row is tombstoned', () => {
+    expect(instrumentsFrom(undefined)).toEqual(played())
+    expect(instrumentsFrom(null)).toEqual(played())
+    expect(instrumentsFrom({ ...row, deleted_at: 't' })).toEqual(played())
   })
 
   it('keeps only instruments this client knows', () => {
     expect([...instrumentsFrom(row)]).toEqual(['banjo'])
   })
 
-  it('defaults when instruments is not an array', () => {
-    expect(instrumentsFrom({ ...row, instruments: 'violin' } as never)).toEqual(DEFAULT_INSTRUMENTS)
+  it('is empty when instruments is not an array', () => {
+    expect(instrumentsFrom({ ...row, instruments: 'violin' } as never)).toEqual(played())
   })
 })
 

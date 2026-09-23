@@ -12,9 +12,6 @@ import type { TuningField } from './features/settings/instruments'
 
 // ---- Instruments and tunings ---------------------------------------------------------------
 
-// Stands in until the first-run prompt writes a row, and for a session that never syncs.
-export const DEFAULT_INSTRUMENTS: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
-
 export const INSTRUMENT_LABELS: Record<Instrument, string> = {
   violin: 'Violin',
   banjo: 'Banjo',

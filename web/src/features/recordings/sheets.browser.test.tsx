@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { RECORDING_NOT_FOUND } from '../../commands/messages'
 import { addUploadedFile, updateRecording } from '../../commands/recordings'
+import { setInstruments, settingsId } from '../../commands/settings'
 import { createSong } from '../../commands/songs'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
@@ -232,6 +233,8 @@ describe('AddToSongSheet', () => {
   it('holds the song form back until the instruments it shows tunings for are read', async () => {
     // The form fixes its tuning fields as it opens, so opening it against an unread settings row
     // would leave the whole edit with none.
+    await setInstruments(db, 'user_1', ['violin'])
+    const row = await db.user_settings.get(settingsId('user_1'))
     let read: (row: unknown) => void = () => {}
     vi.spyOn(db.user_settings, 'get').mockReturnValue(
       new Promise((resolve) => {
@@ -243,7 +246,7 @@ describe('AddToSongSheet', () => {
     await page.getByRole('button', { name: 'Add "Sally Goodin"' }).click()
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(page.getByText(NEW_SONG_TITLE).elements()).toHaveLength(0)
-    read(undefined)
+    read(row)
     await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
     // The Tuning group renders only once there is a tuning to show, so it is the proof.
     await expect.element(page.getByRole('heading', { name: 'Tuning' })).toBeVisible()
