@@ -9,10 +9,10 @@ import tempfile
 import uuid
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import delete, exists, or_, select
+from sqlalchemy import ARRAY, Uuid, any_, delete, exists, literal, or_, select
 
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import MediaError
@@ -23,6 +23,9 @@ from crosstune.recordings.service import bump_server_seq
 from crosstune.storage.store import recording_prefix, upload_key
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from crosstune.storage.store import ObjectStore
@@ -35,6 +38,11 @@ PURGE_BATCH = 20
 STOP_TIMEOUT_SECONDS = 10.0
 
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
+
+
+def _any_uuid(ids: Iterable[uuid.UUID]) -> ColumnElement[Any]:
+    """Match against a whole id set bound as one array, since asyncpg caps bind parameters."""
+    return any_(literal(list(ids), ARRAY(Uuid())))
 
 
 def _as_uuid(segment: str) -> uuid.UUID | None:
@@ -180,13 +188,13 @@ class JobRunner:
         if not users:
             return 0
         async with self._sessionmaker() as session:
-            live = set(await session.scalars(select(User.id).where(User.id.in_(users))))
+            live = set(await session.scalars(select(User.id).where(User.id == _any_uuid(users))))
             candidates = {pair: prefix for pair, prefix in recordings.items() if pair[0] in live}
             known: set[tuple[uuid.UUID, uuid.UUID]] = set()
             if candidates:
                 rows = await session.execute(
                     select(Recording.user_id, Recording.id).where(
-                        Recording.id.in_({recording_id for _, recording_id in candidates})
+                        Recording.id == _any_uuid(recording_id for _, recording_id in candidates)
                     )
                 )
                 known = {(user_id, recording_id) for user_id, recording_id in rows.tuples()}

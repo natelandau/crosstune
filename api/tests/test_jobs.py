@@ -421,6 +421,35 @@ async def test_sweep_through_a_prefix_leaves_other_environments_alone(
     assert bucket.keys() == sorted(a_keys + others)
 
 
+class _RecordingDeletesStore(FakeObjectStore):
+    """Records each prefix delete instead of scanning, so a huge sweep stays fast."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.deleted: list[str] = []
+
+    async def delete_prefix(self, prefix: str) -> None:
+        self.deleted.append(prefix)
+
+
+async def test_sweep_handles_more_ids_than_postgres_bind_parameters(engine, verify_session) -> None:
+    """Postgres drivers cap bind parameters at 32767, so each id set must bind as one."""
+    user = await make_user(verify_session)
+    kept = await add_recording(verify_session, user, "ready")
+    await verify_session.commit()
+    store = _RecordingDeletesStore()
+    store.put_bytes(playback_key(user.id, kept.id), b"a", "audio/mp4")
+    expected = []
+    for _ in range(33_000):
+        stray, gone = new_uuid7(), new_uuid7()
+        store.put_bytes(playback_key(user.id, stray), b"b", "audio/mp4")
+        store.put_bytes(playback_key(gone, new_uuid7()), b"c", "audio/mp4")
+        expected += [f"{user.id}/{stray}/", f"{gone}/"]
+    job_runner = JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01)
+    assert await job_runner.sweep_orphans() == len(expected)
+    assert sorted(store.deleted) == sorted(expected)
+
+
 async def test_sweep_removes_a_recording_filed_under_the_wrong_user(runner, verify_session) -> None:
     job_runner, store = runner
     owner = await make_user(verify_session)
