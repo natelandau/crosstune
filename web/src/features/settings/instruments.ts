@@ -1,5 +1,4 @@
 import type { Instrument } from '../../api/vocabulary'
-import { DEFAULT_INSTRUMENTS } from '../../constants'
 import {
   isInstrument,
   storedInstruments,
@@ -28,7 +27,7 @@ export function instrumentsFrom(
   row: LocalUserSettings | null | undefined,
 ): ReadonlySet<Instrument> {
   const stored = storedInstruments(row)
-  return stored === null ? new Set(DEFAULT_INSTRUMENTS) : new Set(stored.filter(isInstrument))
+  return new Set((stored ?? []).filter(isInstrument))
 }
 
 /** Tuning fields to show: one per played instrument, plus any the song already fills. */

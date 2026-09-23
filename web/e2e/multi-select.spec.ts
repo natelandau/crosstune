@@ -6,6 +6,7 @@ import {
   expectSynced,
   longPress,
   openTab,
+  playInstrument,
   signIn,
   swipeLeft,
   unique,
@@ -73,9 +74,11 @@ const listLink = (page: Page, listName: string): Locator =>
 
 test('select songs in a search, set their violin tuning, and undo', async ({ page }) => {
   await signIn(page)
+  await playInstrument(page, 'Violin')
   const tag = unique('Bulk tuning')
   const first = `${tag} Say Old Man`
   const second = `${tag} Lost Indian`
+  await openTab(page, 'Catalog')
   await addSong(page, first, 'A')
   await openTab(page, 'Catalog')
   await addSong(page, second, 'A')

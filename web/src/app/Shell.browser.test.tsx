@@ -4,11 +4,9 @@ import { createList } from '../commands/lists'
 import { createSong } from '../commands/songs'
 import { NEW_RECORDING } from '../features/recording/RecordModal'
 import { NO_RECORDINGS_TITLE } from '../features/recordings/RecordingsPage'
-import { FIRST_RUN_TITLE } from '../features/settings/FirstRunSheet'
 import { openTestDb } from '../test/db'
 import { FakeRecorder, stubMediaGlobals } from '../test/fakeMedia'
 import { renderIonic } from '../test/ionic'
-import { fakeEngine } from '../test/providers'
 import { Shell } from './Shell'
 import { RECORD_LABEL } from './tabs'
 
@@ -240,16 +238,5 @@ describe('Shell', () => {
       await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe(parent)
       view.unmount()
     }
-  })
-
-  it('asks a new account which instruments it plays', async () => {
-    renderIonic(<Shell initialPath="/catalog" />, {
-      db: openTestDb(),
-      engine: fakeEngine({ lastSyncedAt: () => '2026-09-16T12:00:00.000Z' }),
-    })
-    // The question waits out its own grace before it opens, so this outlasts the usual poll.
-    await expect
-      .element(page.getByRole('dialog', { name: FIRST_RUN_TITLE }), { timeout: 5000 })
-      .toBeVisible()
   })
 })

@@ -11,7 +11,6 @@ import { Dock } from '../features/player/Dock'
 import { PlayerProvider } from '../features/player/PlayerProvider'
 import { RecordProvider, useRecord } from '../features/recording/useRecord'
 import { SelectionProvider, useSelectionChrome } from '../features/selection/SelectionProvider'
-import { FirstRunSheet } from '../features/settings/FirstRunSheet'
 import { useFrame } from '../platform/frame'
 import { ToastProvider } from '../ui/Toast'
 import { PhoneTabBar } from './PhoneTabBar'
@@ -61,7 +60,6 @@ function Frames() {
           <TabsHandle intoRef={tabsRef} />
           {/* Before the tab bar in the same slot, so the player stacks above it on either frame. */}
           <Dock />
-          <FirstRunSheet />
           <PhoneTabBar hidden={frame === 'wide' || selecting} onRecord={() => start()} />
         </IonTabs>
       </div>

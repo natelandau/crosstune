@@ -10,10 +10,6 @@ export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-// A fresh database has no settings row for the test user, so the first sign-in of a run
-// meets the first-run prompt; once it is answered the row persists for every later test.
-let instrumentsAnswered = false
-
 export async function signIn(page: Page): Promise<void> {
   const emailAddress = process.env.E2E_CLERK_USER_EMAIL
   if (!emailAddress) throw new Error('E2E_CLERK_USER_EMAIL is not set')
@@ -22,31 +18,30 @@ export async function signIn(page: Page): Promise<void> {
   await clerk.signIn({ page, emailAddress })
   await page.goto('/')
   await expectSynced(page)
-  if (!instrumentsAnswered) {
-    await answerInstrumentsPrompt(page)
-    instrumentsAnswered = true
-  }
 }
 
-/** Answer the first-run instruments prompt if it opens, and carry on if it does not. */
-async function answerInstrumentsPrompt(page: Page): Promise<void> {
-  const prompt = page.getByRole('dialog', { name: 'Which instruments do you play?' })
-  const opened = await prompt
-    .waitFor({ state: 'visible', timeout: 3000 })
-    .then(() => true)
-    .catch(() => false)
-  if (!opened) return
-  // The sheet's own controls are never scoped to its dialog: the dialog resolves to a wrapper
-  // inside ion-modal's shadow root, and the sheet's content is slotted light DOM rather than a
-  // descendant of it. The page behind leaves the accessibility tree while the sheet is up, so
-  // each name is unique without the scope.
-  const violin = page.getByRole('checkbox', { name: 'Violin' })
-  // `check()` reads the state back the instant its click returns, and ion-checkbox mirrors the
-  // new state to aria-checked a render later, so the click and the assertion are separate steps.
-  await violin.click()
-  await expect(violin).toBeChecked()
+/**
+ * Mark an instrument as played through Settings, so the tuning field and filter for it appear.
+ * A fresh database has no settings row, so nothing is played until a test says so. The page is
+ * left on the Settings tab.
+ */
+export async function playInstrument(page: Page, name: string): Promise<void> {
+  await openTab(page, 'Settings')
+  await page.getByRole('button', { name: /^Instruments/ }).click()
+  // The sheet's controls are never scoped to its dialog: the dialog resolves to a wrapper inside
+  // ion-modal's shadow root, and the sheet's content is slotted light DOM beside it. The page
+  // behind leaves the accessibility tree while the sheet is up, so the name is unique without
+  // the scope.
+  const box = page.getByRole('checkbox', { name })
+  await expect(box).toBeVisible()
+  if (!(await box.isChecked())) {
+    // `check()` reads the state back the instant its click returns, and ion-checkbox mirrors
+    // the new state to aria-checked a render later, so the click and the assertion are separate.
+    await box.click()
+    await expect(box).toBeChecked()
+  }
   await page.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(prompt).toBeHidden()
+  await expectNoOverlay(page)
 }
 
 /**

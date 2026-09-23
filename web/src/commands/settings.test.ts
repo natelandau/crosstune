@@ -99,10 +99,10 @@ describe('toggleInstrumentSetting', () => {
     expect(row?.instruments).toEqual(['violin', 'banjo', 'harmonica'])
   })
 
-  it('toggles on from no row against the default', async () => {
+  it('toggles on from no row', async () => {
     await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
-    expect(row?.instruments).toEqual(['violin', 'banjo'])
+    expect(row?.instruments).toEqual(['banjo'])
   })
 
   it('toggles the only instrument off', async () => {
