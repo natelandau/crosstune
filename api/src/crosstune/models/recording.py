@@ -42,7 +42,7 @@ class Recording(SyncColumns, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     # Null while the recording is unfiled; the save sheet attaches it later, and a
     # hard delete of the song unfiles the recording rather than destroying the audio.

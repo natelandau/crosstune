@@ -572,3 +572,44 @@ async def test_0008_strips_retired_instruments_and_resequences_only_those_rows(
     emptied = rows[settings["018f0000-0000-7000-8000-000000000003"]]
     assert emptied.instruments == []
     assert emptied.server_seq > before[emptied.id]
+
+
+REDUNDANT_INDEXES = {
+    "ix_songs_owner_user_id",
+    "ix_user_songs_user_id",
+    "ix_recording_links_added_by_user_id",
+    "ix_lists_user_id",
+    "ix_list_items_list_id",
+    "ix_recordings_user_id",
+}
+
+
+async def _index_names(engine) -> set[str]:
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("select indexname from pg_indexes where schemaname = 'public'")
+        )
+        return {row[0] for row in result}
+
+
+async def test_0010_drops_indexes_a_composite_index_covers_and_downgrade_restores_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    head = await _index_names(engine)
+    assert not REDUNDANT_INDEXES & head
+    assert {
+        "ix_songs_owner_user_id_server_seq",
+        "ix_user_songs_user_id_server_seq",
+        "ix_recording_links_added_by_user_id_server_seq",
+        "ix_lists_user_id_server_seq",
+        "ix_list_items_list_id_server_seq",
+        "ix_recordings_user_id_server_seq",
+    } <= head
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0009")
+        assert await _index_names(engine) >= REDUNDANT_INDEXES
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert await _index_names(engine) == head
