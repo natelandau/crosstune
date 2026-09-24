@@ -13,7 +13,7 @@ import {
  */
 export const TUNING_FIELDS = {
   violin_tuning: { instrument: 'violin', label: 'Violin tuning', short: 'Violin' },
-  banjo_tuning: { instrument: 'banjo', label: 'Banjo tuning', short: 'Banjo' },
+  banjo_tuning: { instrument: 'five_string_banjo', label: 'Banjo tuning', short: 'Banjo' },
 } as const satisfies Record<string, { instrument: Instrument; label: string; short: string }>
 
 export type TuningField = keyof typeof TUNING_FIELDS

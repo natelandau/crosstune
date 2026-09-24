@@ -14,7 +14,12 @@ import type { TuningField } from './features/settings/instruments'
 
 export const INSTRUMENT_LABELS: Record<Instrument, string> = {
   violin: 'Violin',
-  banjo: 'Banjo',
+  five_string_banjo: '5-string banjo',
+  tenor_banjo: 'Tenor banjo',
+  guitar: 'Guitar',
+  mandolin: 'Mandolin',
+  bouzouki: 'Bouzouki',
+  mountain_dulcimer: 'Mountain dulcimer',
 }
 
 export const VIOLIN_TUNINGS = [

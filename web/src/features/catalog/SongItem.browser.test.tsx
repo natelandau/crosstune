@@ -27,7 +27,7 @@ function forceTouch() {
       : originalMatchMedia.call(window, query)
 }
 
-const played = new Set<Instrument>(['violin', 'banjo'])
+const played = new Set<Instrument>(['violin', 'five_string_banjo'])
 
 function show(
   song = songRow('s1', "Soldier's Joy", {

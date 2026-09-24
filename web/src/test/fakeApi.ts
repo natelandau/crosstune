@@ -205,6 +205,7 @@ export function serverSong(overrides: Partial<SongRow> & { id: string }): SongRo
     part_structure: null,
     time_signature: null,
     is_crooked: false,
+    tunings: {},
     ...overrides,
   }
 }

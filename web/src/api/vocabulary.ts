@@ -4,7 +4,15 @@
 export const AUDIO_QUALITIES = ['low', 'standard', 'high'] as const
 export type AudioQuality = (typeof AUDIO_QUALITIES)[number]
 
-export const INSTRUMENTS = ['violin', 'banjo'] as const
+export const INSTRUMENTS = [
+  'violin',
+  'five_string_banjo',
+  'tenor_banjo',
+  'guitar',
+  'mandolin',
+  'bouzouki',
+  'mountain_dulcimer',
+] as const
 export type Instrument = (typeof INSTRUMENTS)[number]
 
 export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'modal', 'other'] as const
@@ -52,6 +60,7 @@ export const SONG_LIMITS = {
   violin_tuning: 100,
   learned_from: 200,
   notes: 20000,
+  tuning: 100,
 } as const
 
 export const LIST_LIMITS = {
