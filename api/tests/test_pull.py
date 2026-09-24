@@ -165,7 +165,7 @@ async def test_pull_includes_user_settings(client, auth_headers) -> None:
     ]
 
 
-async def test_pull_returns_tunings_and_the_derived_legacy_fields(client, auth_headers) -> None:
+async def test_pull_returns_tunings_without_unset_fields(client, auth_headers) -> None:
     tune_id = uid()
     await push(
         client,
@@ -175,15 +175,22 @@ async def test_pull_returns_tunings_and_the_derived_legacy_fields(client, auth_h
             tune_id,
             T0,
             title="Sally Ann",
-            tunings={"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}},
+            tunings={
+                "violin": {"tuning": "Cross A (AEAE)"},
+                "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": None},
+                "guitar": {"tuning": None, "capo": 3},
+                "mandolin": {"tuning": None, "capo": None},
+            },
         ),
     )
     body = await pull(client, auth_headers("user_a"))
-    rows = [r for r in body["rows"] if r["table"] == "tunes"]
-    row = rows[0]["row"]
-    assert row["tunings"] == {"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}}
-    assert row["banjo_tuning"] == "Open G (gDGBD)"
-    assert row["violin_tuning"] is None
+    row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
+    assert row["tunings"] == {
+        "violin": {"tuning": "Cross A (AEAE)"},
+        "five_string_banjo": {"tuning": "Open G (gDGBD)"},
+        "guitar": {"capo": 3},
+    }
+    assert not {"violin_tuning", "banjo_tuning"} & set(row)
 
 
 async def test_pull_answers_in_tune_names_without_being_asked(client, auth_headers) -> None:

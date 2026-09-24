@@ -424,16 +424,6 @@ async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
     assert results[0]["row"]["instruments"] == ["violin"]
 
 
-async def test_user_settings_push_with_both_banjo_spellings_applies(client, auth_headers) -> None:
-    results = await push(
-        client,
-        auth_headers("user_a"),
-        change("user_settings", uid(), T0, instruments=["banjo", "five_string_banjo"]),
-    )
-    assert results[0]["status"] == "applied"
-    assert results[0]["row"]["instruments"] == ["five_string_banjo"]
-
-
 async def test_user_settings_rejects_an_unknown_instrument(client, auth_headers) -> None:
     results = await push(
         client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["kazoo"])
@@ -480,101 +470,27 @@ async def test_an_applied_upsert_reads_its_row_back_from_the_write(
     assert not [sql for sql in statements[write + 1 :] if "from tunes" in sql]
 
 
-async def test_a_legacy_push_keeps_other_instruments_and_the_capo(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    headers = auth_headers("user_a")
-    await push(
-        client,
-        headers,
-        change(
-            "tunes",
-            tune_id,
-            T0,
-            title="Sally Ann",
-            tunings={
-                "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2},
-                "guitar": {"tuning": "DADGAD"},
-            },
-        ),
-    )
-    results = await push(
-        client,
-        headers,
-        change(
-            "tunes",
-            tune_id,
-            T1,
-            title="Sally Ann",
-            violin_tuning="Cross A (AEAE)",
-            banjo_tuning="Double C (gCGCD)",
-        ),
-    )
-    assert results[0]["status"] == "applied"
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {
-        "violin": {"tuning": "Cross A (AEAE)"},
-        "five_string_banjo": {"tuning": "Double C (gCGCD)", "capo": 2},
-        "guitar": {"tuning": "DADGAD"},
-    }
-
-
-async def test_a_legacy_field_overrides_the_same_instrument_in_a_sent_map(
-    client, auth_headers, verify_session: AsyncSession
+@pytest.mark.parametrize("field", ["violin_tuning", "banjo_tuning"])
+async def test_a_legacy_tuning_push_is_invalid(
+    client, auth_headers, verify_session: AsyncSession, field: str
 ) -> None:
     tune_id = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change(
-            "tunes",
-            tune_id,
-            T0,
-            title="Sally Ann",
-            tunings={"violin": {"tuning": "Standard (GDAE)"}, "guitar": {"tuning": "DADGAD"}},
-            violin_tuning=None,
-        ),
-    )
-    assert results[0]["status"] == "applied"
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}
-
-
-async def test_a_legacy_create_builds_the_map(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    await push(
-        client,
-        auth_headers("user_a"),
-        change("tunes", tune_id, T0, title="Sally Ann", violin_tuning="AEAE", banjo_tuning=None),
-    )
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {"violin": {"tuning": "AEAE"}}
-
-
-async def test_a_legacy_push_never_reads_another_users_tune(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    await push(
-        client,
-        auth_headers("user_a"),
-        change("tunes", tune_id, T0, title="A", tunings={"guitar": {"tuning": "DADGAD"}}),
-    )
-    results = await push(
-        client,
-        auth_headers("user_b"),
-        change("tunes", tune_id, T1, title="B", violin_tuning="AEAE"),
+        change("tunes", tune_id, T0, title="Sally Ann", **{field: "AEAE"}),
     )
     assert results[0]["status"] == "invalid"
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}
+    assert field in results[0]["reason"]
+    assert await verify_session.get(Tune, uuid.UUID(tune_id)) is None
+
+
+async def test_a_settings_push_holding_banjo_is_invalid(client, auth_headers) -> None:
+    results = await push(
+        client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["banjo"])
+    )
+    assert results[0]["status"] == "invalid"
+    assert "instruments" in results[0]["reason"]
 
 
 async def test_a_push_in_song_names_is_refused_whole(

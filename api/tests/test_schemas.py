@@ -171,37 +171,19 @@ def test_tune_defaults_to_no_tunings() -> None:
     assert TuneData(title="Sally Ann", created_at=NOW).model_dump()["tunings"] == {}
 
 
-def test_tune_row_derives_the_legacy_tuning_fields() -> None:
-    row = TuneRow.model_validate(
-        {
-            "id": "018f0000-0000-7000-8000-000000000021",
-            "owner_user_id": None,
-            "title": "Sally Ann",
-            "tunings": {"violin": {"tuning": "AEAE"}, "five_string_banjo": {"tuning": "gDGBD"}},
-            "created_at": NOW,
-            "updated_at": NOW,
-            "deleted_at": None,
-            "server_seq": 1,
-        }
-    )
-    assert (row.violin_tuning, row.banjo_tuning) == ("AEAE", "gDGBD")
-
-
-def test_user_settings_reads_banjo_as_the_five_string_banjo() -> None:
-    settings = UserSettingsData(instruments=["banjo", "violin"], created_at=NOW)
-    assert settings.instruments == ["five_string_banjo", "violin"]
-
-
-def test_user_settings_merges_both_banjo_spellings_into_one() -> None:
-    settings = UserSettingsData(
-        instruments=["banjo", "violin", "five_string_banjo"], created_at=NOW
-    )
-    assert settings.instruments == ["five_string_banjo", "violin"]
-
-
-def test_user_settings_rejects_a_repeated_legacy_banjo() -> None:
+@pytest.mark.parametrize("field", ["violin_tuning", "banjo_tuning"])
+def test_tune_rejects_a_legacy_tuning_field(field: str) -> None:
     with pytest.raises(ValidationError):
-        UserSettingsData(instruments=["banjo", "banjo"], created_at=NOW)
+        TuneData.model_validate({"title": "Sally Ann", field: "AEAE", "created_at": NOW})
+
+
+def test_tune_row_carries_no_legacy_tuning_fields() -> None:
+    assert not {"violin_tuning", "banjo_tuning"} & set(TuneRow.model_fields)
+
+
+def test_user_settings_rejects_banjo() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(instruments=["banjo"], created_at=NOW)
 
 
 def test_user_settings_rejects_unknown_instrument() -> None:

@@ -13,9 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
-from crosstune.models import List, ListItem, Recording, RecordingLink, Tune, UserTune
+from crosstune.models import List, ListItem, Recording, RecordingLink, UserTune
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
-from crosstune.schemas.rows import TuneData, Tunings
 from crosstune.sync.legacy_tune_shape import reconcile_tune
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
@@ -147,39 +146,6 @@ async def _enrich_recording_link(
             data["provider_ref"] = ref
 
 
-# Legacy tune fields and the instrument each one names. Removed once every client sends tunings.
-LEGACY_TUNINGS = {"violin_tuning": "violin", "banjo_tuning": "five_string_banjo"}
-
-
-async def _fold_legacy_tunings(
-    session: AsyncSession,
-    user_id: uuid.UUID,
-    tune_id: uuid.UUID,
-    validated: TuneData,
-    data: dict[str, Any],
-) -> dict[str, Any]:
-    """Write legacy tuning fields into the tunings map, keeping every other entry and capo."""
-    sent = [field for field in LEGACY_TUNINGS if field in validated.model_fields_set]
-    for field in LEGACY_TUNINGS:
-        data.pop(field, None)
-    if not sent:
-        return data
-    if "tunings" in validated.model_fields_set:
-        base: dict[str, Any] = data["tunings"]
-    else:
-        # A client with no tunings of its own edits only its two instruments.
-        stored = await session.scalar(
-            select(Tune.tunings).where(Tune.id == tune_id, Tune.owner_user_id == user_id)
-        )
-        base = stored or {}
-    merged = {name: dict(entry) for name, entry in base.items()}
-    for field in sent:
-        instrument = LEGACY_TUNINGS[field]
-        merged.setdefault(instrument, {})["tuning"] = getattr(validated, field)
-    data["tunings"] = Tunings.model_validate(merged).model_dump()
-    return data
-
-
 async def _upsert(
     session: AsyncSession,
     spec: TableSpec,
@@ -189,13 +155,11 @@ async def _upsert(
 ) -> ChangeResult:
     data_schema: Any = spec.data_schema
     try:
-        validated = data_schema.model_validate(change.data or {})
+        data = data_schema.model_validate(change.data or {}).model_dump()
     except ValidationError as exc:
         fields = ", ".join(".".join(str(p) for p in e["loc"]) or "body" for e in exc.errors())
         return _invalid(change, f"invalid fields: {fields}")
-    data = validated.model_dump()
     if spec.name == "tunes":
-        data = await _fold_legacy_tunings(session, user_id, change.id, validated, data)
         data = reconcile_tune(data, sent=(change.data or {}).keys())
 
     reason = await _parents_owned(session, spec, data, user_id)

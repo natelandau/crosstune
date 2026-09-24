@@ -252,6 +252,69 @@ async def test_downgrade_to_0011_restores_the_columns_and_strips_new_instruments
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
 
+async def test_0014_renames_a_leftover_banjo_and_merges_a_repeat(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    renamed = "018f0000-0000-7000-8000-000000000011"
+    untouched = "018f0000-0000-7000-8000-000000000012"
+    seeded = {
+        renamed: (
+            "018f0000-0000-7000-8000-000000000001",
+            "user_a",
+            ["banjo", "violin", "five_string_banjo"],
+        ),
+        untouched: ("018f0000-0000-7000-8000-000000000002", "user_b", ["violin"]),
+    }
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0013")
+        async with engine.begin() as conn:
+            for settings_id, (user_id, clerk, instruments) in seeded.items():
+                await conn.execute(
+                    text(
+                        "insert into users (id, clerk_user_id, created_at, updated_at) "
+                        "values (:id, :clerk, now(), now())"
+                    ),
+                    {"id": user_id, "clerk": clerk},
+                )
+                await conn.execute(
+                    text(
+                        "insert into user_settings "
+                        "(id, user_id, instruments, audio_quality, created_at, updated_at) "
+                        "values (:id, :user, :instruments, 'standard', now(), :stamped)"
+                    ),
+                    {
+                        "id": settings_id,
+                        "user": user_id,
+                        "instruments": instruments,
+                        "stamped": STAMPED,
+                    },
+                )
+            before = dict(
+                (await conn.execute(text("select id::text, server_seq from user_settings")))
+                .tuples()
+                .all()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text(
+                    "select id::text as id, instruments, server_seq, updated_at from user_settings"
+                )
+            )
+        }
+    assert rows[renamed].instruments == ["five_string_banjo", "violin"]
+    assert rows[renamed].server_seq > before[renamed]
+    assert rows[renamed].updated_at == STAMPED
+    assert rows[untouched].instruments == ["violin"]
+    assert rows[untouched].server_seq == before[untouched]
+
+
 async def _seed_user(session: AsyncSession) -> None:
     await session.execute(
         text(
