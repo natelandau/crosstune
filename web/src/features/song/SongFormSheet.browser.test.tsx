@@ -6,6 +6,7 @@ import { createSong } from '../../commands/songs'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
+import { songRow, userSongRow } from '../../test/rows'
 import { CROOKED_HELP, DETAILS_FOOTER, DETAIL_LABELS } from './detailFields'
 import {
   EDIT_SONG_TITLE,
@@ -556,6 +557,47 @@ describe('SongFormSheet', () => {
     await expect
       .element(page.getByRole('button', { name: 'Banjo tuning, Open G (gDGBD)', exact: true }))
       .toBeInTheDocument()
+  })
+
+  it('does not offer 3/2 as a time signature choice', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await openDetail('Time signature, 4/4')
+    await expect.element(page.getByRole('radio', { name: '6/8', exact: true })).toBeVisible()
+    await expect
+      .element(page.getByRole('radio', { name: '3/2', exact: true }))
+      .not.toBeInTheDocument()
+  })
+
+  it('still shows a tune stored with 3/2 on the form', async () => {
+    const db = openTestDb()
+    const { songId, userSongId } = await createSong(
+      db,
+      { title: 'Midnight on the Water', time_signature: '3/2' },
+      { status: 'known' },
+    )
+    const entry = {
+      song: (await db.songs.get(songId))!,
+      userSong: (await db.user_songs.get(userSongId))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await expect
+      .element(page.getByRole('button', { name: 'Time signature, 3/2', exact: true }))
+      .toBeInTheDocument()
+  })
+
+  it('keeps a time signature this client does not recognize when Save is pressed untouched', async () => {
+    const db = openTestDb()
+    await db.songs.put(songRow('s1', 'Odd', { time_signature: '7/8' }))
+    await db.user_songs.put(userSongRow('u1', 's1'))
+    const entry = {
+      song: (await db.songs.get('s1'))!,
+      userSong: (await db.user_songs.get('u1'))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await sheetDismissed()
+    expect((await db.songs.get('s1'))?.time_signature).toBe('7/8')
   })
 
   it('opens the lyrics sheet from the details row and carries the words back', async () => {

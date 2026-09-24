@@ -20,6 +20,9 @@ export interface SongFormValues {
   feel: string
   part_structure: string
   time_signature: TimeSignature | ''
+  /** The row's raw stored time signature, kept only until the player picks or clears one, so a
+   *  value this client predates survives a save that never touches the field. */
+  time_signature_raw: string | null
   is_crooked: boolean
   lyrics: string
   status: TuneStatus
@@ -40,6 +43,7 @@ export function emptyValues(): SongFormValues {
     feel: '',
     part_structure: '',
     time_signature: '4/4',
+    time_signature_raw: null,
     is_crooked: false,
     lyrics: '',
     status: 'want_to_learn',
@@ -69,6 +73,7 @@ export function valuesFromRows(song: LocalSong, userSong: LocalUserSong): SongFo
     feel: song.feel ?? '',
     part_structure: song.part_structure ?? '',
     time_signature: asTimeSignature(song.time_signature),
+    time_signature_raw: song.time_signature ?? null,
     is_crooked: song.is_crooked,
     lyrics: song.lyrics ?? '',
     status: isSongStatus(userSong.status) ? userSong.status : 'want_to_learn',
@@ -98,7 +103,9 @@ export function inputsFromValues(values: SongFormValues): {
       genre: blankToNull(values.genre),
       feel: blankToNull(values.feel),
       part_structure: blankToNull(values.part_structure),
-      time_signature: values.time_signature || null,
+      // A raw fallback may hold a value from a schema version this client predates; write it
+      // through untyped, the same as a pulled row carries it locally.
+      time_signature: (values.time_signature || values.time_signature_raw) as TimeSignature | null,
       is_crooked: values.is_crooked,
       lyrics: blankToNull(values.lyrics),
     },
