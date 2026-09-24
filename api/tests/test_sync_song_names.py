@@ -226,3 +226,15 @@ async def test_a_request_in_song_names_is_logged_with_its_client_version(
     logged = [r for r in caplog.records if r.getMessage() == "sync: song names"]
     assert len(logged) == 1
     assert logged[0].client_version == "0.6.0"
+
+
+async def test_a_change_carrying_both_names_for_one_field_is_invalid(client, auth_headers) -> None:
+    song, other, user_song = uid(), uid(), uid()
+    results = await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="Sally Goodin"),
+        change("songs", other, T0, title="Cluck Old Hen"),
+        change("user_songs", user_song, T0, song_id=song, tune_id=other, status="known"),
+    )
+    assert results[2]["status"] == "invalid"

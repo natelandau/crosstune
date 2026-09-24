@@ -17,7 +17,12 @@ FIELDS_TO_SONG_NAMES = {new: old for old, new in FIELDS_FROM_SONG_NAMES.items()}
 
 
 def _renamed(values: dict[str, Any], names: dict[str, str]) -> dict[str, Any]:
-    return {names.get(key, key): value for key, value in values.items()}
+    # A key whose new name is already present keeps its old name, so the row schema rejects
+    # it as unknown instead of one value silently overwriting the other.
+    return {
+        (key if names.get(key, key) in values else names.get(key, key)): value
+        for key, value in values.items()
+    }
 
 
 def current_change(value: Any) -> Any:
