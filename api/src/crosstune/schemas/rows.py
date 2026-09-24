@@ -13,9 +13,7 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
-    SerializerFunctionWrapHandler,
     field_validator,
-    model_serializer,
     model_validator,
 )
 
@@ -63,18 +61,28 @@ class _Data(BaseModel):
     created_at: datetime
 
 
+def _unset(value: object) -> bool:
+    return value is None
+
+
+def _empty(entry: InstrumentTuning | None) -> bool:
+    return entry is None or not entry.model_dump()
+
+
+# Unset fields and empty entries are left out of every dump, so a stored map, a pushed map,
+# and the wire share one compact shape: {} when empty, {"guitar": {"capo": 3}} with no nulls.
 class InstrumentTuning(BaseModel):
     """One instrument's tuning on a tune."""
 
     model_config = ConfigDict(extra="forbid")
 
-    tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)
+    tuning: str | None = Field(default=None, max_length=TUNING_LENGTH, exclude_if=_unset)
 
 
 class FrettedTuning(InstrumentTuning):
     """A fretted instrument's tuning, with the fret its capo sits at."""
 
-    capo: int | None = Field(default=None, ge=1, le=12)
+    capo: int | None = Field(default=None, ge=1, le=12, exclude_if=_unset)
 
 
 class Tunings(BaseModel):
@@ -82,24 +90,13 @@ class Tunings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    violin: InstrumentTuning | None = None
-    five_string_banjo: FrettedTuning | None = None
-    tenor_banjo: FrettedTuning | None = None
-    guitar: FrettedTuning | None = None
-    mandolin: FrettedTuning | None = None
-    bouzouki: FrettedTuning | None = None
-    mountain_dulcimer: FrettedTuning | None = None
-
-    # Stored and sent compactly, so an empty map is {} and an entry exists only when it says
-    # something.
-    @model_serializer(mode="wrap")
-    def _compact(self, handler: SerializerFunctionWrapHandler) -> dict[str, dict]:
-        dumped: dict[str, dict | None] = handler(self)
-        return {
-            name: entry
-            for name, entry in dumped.items()
-            if entry is not None and any(v is not None for v in entry.values())
-        }
+    violin: InstrumentTuning | None = Field(default=None, exclude_if=_empty)
+    five_string_banjo: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    tenor_banjo: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    guitar: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    mandolin: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    bouzouki: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    mountain_dulcimer: FrettedTuning | None = Field(default=None, exclude_if=_empty)
 
 
 class TuneData(_Data):

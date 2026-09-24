@@ -460,8 +460,7 @@ async def test_a_legacy_push_keeps_other_instruments_and_the_capo(
     assert tune.tunings == {
         "violin": {"tuning": "Cross A (AEAE)"},
         "five_string_banjo": {"tuning": "Double C (gCGCD)", "capo": 2},
-        # FrettedTuning always carries its capo field; unset stays explicit null.
-        "guitar": {"tuning": "DADGAD", "capo": None},
+        "guitar": {"tuning": "DADGAD"},
     }
 
 
@@ -484,7 +483,7 @@ async def test_a_legacy_field_overrides_the_same_instrument_in_a_sent_map(
     assert results[0]["status"] == "applied"
     tune = await verify_session.get(Tune, uuid.UUID(tune_id))
     assert tune is not None
-    assert tune.tunings == {"guitar": {"tuning": "DADGAD", "capo": None}}
+    assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}
 
 
 async def test_a_legacy_create_builds_the_map(
@@ -518,4 +517,4 @@ async def test_a_legacy_push_never_reads_another_users_tune(
     assert results[0]["status"] == "invalid"
     tune = await verify_session.get(Tune, uuid.UUID(tune_id))
     assert tune is not None
-    assert tune.tunings == {"guitar": {"tuning": "DADGAD", "capo": None}}
+    assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}

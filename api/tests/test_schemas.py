@@ -260,4 +260,4 @@ def test_tunings_dump_drops_empty_entries() -> None:
 
 def test_tunings_keep_a_capo_without_a_tuning() -> None:
     dumped = Tunings.model_validate({"guitar": {"capo": 3}}).model_dump()
-    assert dumped == {"guitar": {"tuning": None, "capo": 3}}
+    assert dumped == {"guitar": {"capo": 3}}
