@@ -36,4 +36,11 @@ export const routes = [
   />,
   <Route key="/settings" path="/settings" element={<SettingsPage />} />,
   <Route key="/tunes/:tuneId" path="/tunes/:tuneId" element={<TuneRedirect />} />,
+  // Links saved, bookmarked, or restored under the old name for a tune.
+  <Route key="/songs/:tuneId" path="/songs/:tuneId" element={<TuneRedirect />} />,
+  <Route
+    key="/lists/:listId/songs/:tuneId"
+    path="/lists/:listId/songs/:tuneId"
+    element={<TuneScreen parent={({ listId }) => `/lists/${listId}`} />}
+  />,
 ]

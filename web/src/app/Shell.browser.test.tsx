@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { addTunesToList } from '../commands/bulk'
 import { createList } from '../commands/lists'
 import { createTune } from '../commands/tunes'
 import { NEW_RECORDING } from '../features/recording/RecordModal'
@@ -107,6 +108,34 @@ describe('Shell', () => {
       .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
       .toBeVisible()
     await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
+  })
+
+  it('opens a tune from a link saved under songs', async () => {
+    const db = openTestDb()
+    const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+    renderIonic(<Shell initialPath={`/songs/${tuneId}`} />, { db })
+    await expect
+      .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
+      .toBeVisible()
+    await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
+  })
+
+  it('opens a tune in its list from a list link saved under songs', async () => {
+    const db = openTestDb()
+    const { tuneId, userTuneId } = await createTune(
+      db,
+      { title: "Soldier's Joy" },
+      { status: 'known' },
+    )
+    const listId = await createList(db, 'Friday')
+    await addTunesToList(db, listId, [userTuneId])
+    renderIonic(<Shell initialPath={`/lists/${listId}/songs/${tuneId}`} />, { db })
+    await expect
+      .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
+      .toBeVisible()
+    await expect
+      .poll(() => document.querySelector('ion-back-button')?.defaultHref)
+      .toBe(`/lists/${listId}`)
   })
 
   it('returns to the tune a tab was showing after switching tabs in the sidebar', async () => {
