@@ -411,3 +411,101 @@ async def test_an_applied_upsert_reads_its_row_back_from_the_write(
     assert results[0]["row"]["title"] == "New"
     write = next(i for i, sql in enumerate(statements) if sql.startswith("insert into tunes"))
     assert not [sql for sql in statements[write + 1 :] if "from tunes" in sql]
+
+
+async def test_a_legacy_push_keeps_other_instruments_and_the_capo(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    headers = auth_headers("user_a")
+    await push(
+        client,
+        headers,
+        change(
+            "tunes",
+            tune_id,
+            T0,
+            title="Sally Ann",
+            tunings={
+                "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2},
+                "guitar": {"tuning": "DADGAD"},
+            },
+        ),
+    )
+    results = await push(
+        client,
+        headers,
+        change(
+            "tunes",
+            tune_id,
+            T1,
+            title="Sally Ann",
+            violin_tuning="Cross A (AEAE)",
+            banjo_tuning="Double C (gCGCD)",
+        ),
+    )
+    assert results[0]["status"] == "applied"
+    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert tune is not None
+    assert tune.tunings == {
+        "violin": {"tuning": "Cross A (AEAE)"},
+        "five_string_banjo": {"tuning": "Double C (gCGCD)", "capo": 2},
+        # FrettedTuning always carries its capo field; unset stays explicit null.
+        "guitar": {"tuning": "DADGAD", "capo": None},
+    }
+
+
+async def test_a_legacy_field_overrides_the_same_instrument_in_a_sent_map(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change(
+            "tunes",
+            tune_id,
+            T0,
+            title="Sally Ann",
+            tunings={"violin": {"tuning": "Standard (GDAE)"}, "guitar": {"tuning": "DADGAD"}},
+            violin_tuning=None,
+        ),
+    )
+    assert results[0]["status"] == "applied"
+    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert tune is not None
+    assert tune.tunings == {"guitar": {"tuning": "DADGAD", "capo": None}}
+
+
+async def test_a_legacy_create_builds_the_map(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, T0, title="Sally Ann", violin_tuning="AEAE", banjo_tuning=None),
+    )
+    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert tune is not None
+    assert tune.tunings == {"violin": {"tuning": "AEAE"}}
+
+
+async def test_a_legacy_push_never_reads_another_users_tune(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, T0, title="A", tunings={"guitar": {"tuning": "DADGAD"}}),
+    )
+    results = await push(
+        client,
+        auth_headers("user_b"),
+        change("tunes", tune_id, T1, title="B", violin_tuning="AEAE"),
+    )
+    assert results[0]["status"] == "invalid"
+    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert tune is not None
+    assert tune.tunings == {"guitar": {"tuning": "DADGAD", "capo": None}}
