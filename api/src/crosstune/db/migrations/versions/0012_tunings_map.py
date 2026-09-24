@@ -34,11 +34,12 @@ def upgrade() -> None:
     )
     op.drop_column("tunes", "violin_tuning")
     op.drop_column("tunes", "banjo_tuning")
-    # A fresh server_seq is what makes clients pull the renamed value.
+    # A fresh server_seq makes clients pull the renamed value. updated_at stays, so an
+    # offline settings edit stamped before the migration still wins last-write-wins.
     op.execute(
         "update user_settings set "
         "instruments = array_replace(instruments, 'banjo', 'five_string_banjo'), "
-        "updated_at = now(), server_seq = nextval('sync_seq') "
+        "server_seq = nextval('sync_seq') "
         "where 'banjo' = any(instruments)"
     )
 
@@ -58,6 +59,6 @@ def downgrade() -> None:
         "update user_settings set instruments = array_replace("
         f"array(select v from unnest(instruments) as v where v not in ({quoted})), "
         "'five_string_banjo', 'banjo'), "
-        "updated_at = now(), server_seq = nextval('sync_seq') "
+        "server_seq = nextval('sync_seq') "
         f"where instruments && array[{quoted}, 'five_string_banjo']::varchar[]"
     )

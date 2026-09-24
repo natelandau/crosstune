@@ -1,6 +1,7 @@
 """Migrations produce the expected schema."""
 
 import importlib.util
+from datetime import UTC, datetime
 from pathlib import Path
 
 import anyio
@@ -12,6 +13,8 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
+
+STAMPED = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
 
 
 async def test_users_table_exists(session: AsyncSession) -> None:
@@ -142,9 +145,14 @@ async def test_0012_moves_tunings_into_the_map_and_renames_banjo(
                     text(
                         "insert into user_settings "
                         "(id, user_id, instruments, audio_quality, created_at, updated_at) "
-                        "values (:id, :user, :instruments, 'standard', now(), now())"
+                        "values (:id, :user, :instruments, 'standard', now(), :stamped)"
                     ),
-                    {"id": settings_id, "user": user_id, "instruments": instruments},
+                    {
+                        "id": settings_id,
+                        "user": user_id,
+                        "instruments": instruments,
+                        "stamped": STAMPED,
+                    },
                 )
             for tune_id, violin, banjo in (
                 (both, "Cross A (AEAE)", "Double C (gCGCD)"),
@@ -173,7 +181,9 @@ async def test_0012_moves_tunings_into_the_map_and_renames_banjo(
         rows = {
             row.id: row
             for row in await conn.execute(
-                text("select id::text as id, instruments, server_seq from user_settings")
+                text(
+                    "select id::text as id, instruments, server_seq, updated_at from user_settings"
+                )
             )
         }
     assert tunings[both] == {
@@ -183,6 +193,8 @@ async def test_0012_moves_tunings_into_the_map_and_renames_banjo(
     assert tunings[none] == {}
     assert rows[settings].instruments == ["violin", "five_string_banjo"]
     assert rows[settings].server_seq > before[settings]
+    # A queued offline edit stamped before the migration must still win last-write-wins.
+    assert rows[settings].updated_at == STAMPED
     assert rows[other_settings].server_seq == before[other_settings]
 
 
@@ -206,9 +218,9 @@ async def test_downgrade_to_0011_restores_the_columns_and_strips_new_instruments
                 "insert into user_settings "
                 "(id, user_id, instruments, audio_quality, created_at, updated_at) "
                 "values (gen_random_uuid(), :user, "
-                "array['guitar', 'five_string_banjo']::varchar[], 'standard', now(), now())"
+                "array['guitar', 'five_string_banjo']::varchar[], 'standard', now(), :stamped)"
             ),
-            {"user": user},
+            {"user": user, "stamped": STAMPED},
         )
         await conn.execute(
             text(
@@ -230,11 +242,12 @@ async def test_downgrade_to_0011_restores_the_columns_and_strips_new_instruments
         await anyio.to_thread.run_sync(command.downgrade, config, "0011")
         async with engine.connect() as conn:
             row = (await conn.execute(text("select violin_tuning, banjo_tuning from tunes"))).one()
-            instruments = (
-                await conn.execute(text("select instruments from user_settings"))
-            ).scalar_one()
+            instruments, updated_at = (
+                await conn.execute(text("select instruments, updated_at from user_settings"))
+            ).one()
         assert tuple(row) == ("AEAE", "gDGBD")
         assert instruments == ["banjo"]
+        assert updated_at == STAMPED
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
