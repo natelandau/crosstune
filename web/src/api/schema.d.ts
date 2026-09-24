@@ -808,10 +808,18 @@ export interface components {
          * @enum {string}
          */
         TuneStatus: "known" | "learning" | "want_to_learn";
+        /**
+         * Tunings
+         * @description A tune's tunings, one optional entry per instrument.
+         */
         Tunings: {
-            [key: string]: {
-                [key: string]: unknown;
-            };
+            bouzouki?: components["schemas"]["FrettedTuning"] | null;
+            five_string_banjo?: components["schemas"]["FrettedTuning"] | null;
+            guitar?: components["schemas"]["FrettedTuning"] | null;
+            mandolin?: components["schemas"]["FrettedTuning"] | null;
+            mountain_dulcimer?: components["schemas"]["FrettedTuning"] | null;
+            tenor_banjo?: components["schemas"]["FrettedTuning"] | null;
+            violin?: components["schemas"]["InstrumentTuning"] | null;
         };
         /**
          * UploadSlotRequest

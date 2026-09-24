@@ -1470,10 +1470,81 @@
         "type": "string"
       },
       "Tunings": {
-        "additionalProperties": {
-          "additionalProperties": true,
-          "type": "object"
+        "additionalProperties": false,
+        "description": "A tune's tunings, one optional entry per instrument.",
+        "properties": {
+          "bouzouki": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "five_string_banjo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guitar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mandolin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mountain_dulcimer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tenor_banjo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "violin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InstrumentTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
         },
+        "title": "Tunings",
         "type": "object"
       },
       "UploadSlotRequest": {
