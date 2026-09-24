@@ -101,7 +101,7 @@ understands it. Tuning values keep their traditional names.
 
 | Term           | Meaning                                                                                                        |
 | -------------- | -------------------------------------------------------------------------------------------------------------- |
-| Tune           | The catalog entity: a piece a musician plays, with or without words. A sung piece is a tune of type Song.     |
+| Tune           | The catalog entity: a piece a musician plays, with or without words. A sung piece is a tune of type Song.      |
 | Key            | The tonal center, such as D or A. Different players use different keys for one tune.                           |
 | Mode           | The scale flavor: major, minor, mixolydian, dorian, or modal, a tune between minor and mixolydian.             |
 | Tuning         | The string tuning: standard, cross-tuning (AEAE) on violin, double C on banjo. The product name comes from it. |
