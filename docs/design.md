@@ -10,6 +10,9 @@ folder. A new screen composes it and never rebuilds it.
 
 - Song, never tune. Violin, never fiddle. The glossary in `product.md` holds
   the terms.
+- Clarity over colloquialism. A label uses the word a player of any folk
+  tradition, and a non-native English speaker, understands first, never a
+  genre's slang.
 - Sentence case everywhere. Proper nouns keep their capitals. `ios` edit
   mode copies Apple's capitals.
 - A button is a bare imperative verb: Edit, Save, Delete. Add an object only
