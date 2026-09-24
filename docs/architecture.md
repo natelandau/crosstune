@@ -75,6 +75,8 @@ Push:
   transaction, parents before children, and returns one result per change.
 - `applied`: the row is new or the incoming timestamp is newer. An equal
   timestamp is a no-op that still reports `applied`, so a replay is safe.
+  The client stamps each write to a row at least one millisecond past the
+  last, so two different writes never share a timestamp.
 - `stale`: the stored row is newer. The response carries it and the client
   overwrites its copy.
 - `invalid`: validation failed, or a parent is missing or belongs to someone
