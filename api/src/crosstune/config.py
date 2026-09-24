@@ -1,13 +1,10 @@
 """Application settings, read from the environment with the CROSSTUNE_ prefix."""
 
-import os
 import re
 from functools import lru_cache
-from pathlib import Path
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from dotenv import dotenv_values
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,19 +14,6 @@ PREVIEW_BUCKET = "crosstune-recordings-preview"
 LOCAL_BUCKET = "crosstune-local"
 E2E_BUCKET = "crosstune-e2e"
 _HOSTED_WITHOUT_PREFIX = {"development", "production"}
-
-# Settings the API no longer reads, each mapped to the name it now reads instead. Settings
-# ignores unknown names, so without this a host still on an old storage name would start
-# with storage unconfigured and fail every upload.
-RETIRED_NAMES = {
-    "CROSSTUNE_R2_BUCKET": "CROSSTUNE_STORAGE_BUCKET",
-    "CROSSTUNE_R2_ACCESS_KEY_ID": "CROSSTUNE_STORAGE_ACCESS_KEY_ID",
-    "CROSSTUNE_R2_SECRET_ACCESS_KEY": "CROSSTUNE_STORAGE_SECRET_ACCESS_KEY",
-    "CROSSTUNE_R2_PREFIX": "CROSSTUNE_STORAGE_PREFIX",
-    "CROSSTUNE_R2_ENDPOINT_URL": "CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL",
-    "CROSSTUNE_R2_BROWSER_ENDPOINT_URL": "CROSSTUNE_LOCAL_STORAGE_BROWSER_ENDPOINT_URL",
-    "CROSSTUNE_RESOLVER_TIMEOUT_SECONDS": "CROSSTUNE_LINK_RESOLVE_TIMEOUT_SECONDS",
-}
 
 
 def normalize_database_url(url: str) -> str:
@@ -133,32 +117,6 @@ class Settings(BaseSettings):
     def clerk_jwks_url(self) -> str:
         """JWKS endpoint derived from the issuer."""
         return f"{self.clerk_issuer.rstrip('/')}/.well-known/jwks.json"
-
-    @model_validator(mode="after")
-    def _refuse_retired_names(self) -> Self:
-        """Refuse a retired name set without its replacement, since nothing would read it.
-
-        A retired name beside its replacement is accepted, so a host can hold both while it
-        moves from one release to the next.
-        """
-        present = self._names_present()
-        stale = [
-            f"{old} is now {new}"
-            for old, new in RETIRED_NAMES.items()
-            if old in present and new not in present
-        ]
-        if stale:
-            msg = f"retired settings: {'; '.join(stale)}"
-            raise ValueError(msg)
-        return self
-
-    def _names_present(self) -> set[str]:
-        """Names set to a non-empty value in the process environment or the env file."""
-        names = {name.upper() for name, value in os.environ.items() if value}
-        env_file = self.model_config.get("env_file")
-        if isinstance(env_file, str | Path) and Path(env_file).is_file():
-            names |= {name.upper() for name, value in dotenv_values(env_file).items() if value}
-        return names
 
     @model_validator(mode="after")
     def _require_clerk_checks(self) -> Self:

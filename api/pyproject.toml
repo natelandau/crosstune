@@ -9,7 +9,6 @@
         "pydantic-settings>=2.15.0",
         "pydantic>=2.13.5",
         "pyjwt[crypto]>=2.14.0",
-        "python-dotenv>=1.2.1",
         "python-json-logger>=4.2.0",
         "sentry-sdk[fastapi]>=2.69.1",
         "sqlalchemy[asyncio]>=2.0.52",

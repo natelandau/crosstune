@@ -235,28 +235,6 @@ def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
         Settings(**overrides)
 
 
-def test_a_retired_name_alone_is_refused_with_its_replacement(monkeypatch) -> None:
-    monkeypatch.setenv("CROSSTUNE_R2_BUCKET", "crosstune-local")
-    with pytest.raises(
-        ValidationError, match="CROSSTUNE_R2_BUCKET is now CROSSTUNE_STORAGE_BUCKET"
-    ):
-        Settings()
-
-
-def test_a_retired_name_beside_its_replacement_is_accepted(monkeypatch) -> None:
-    monkeypatch.setenv("CROSSTUNE_R2_BUCKET", "crosstune-local")
-    monkeypatch.setenv("CROSSTUNE_STORAGE_BUCKET", "crosstune-local")
-    assert Settings().storage_bucket == "crosstune-local"
-
-
-def test_a_retired_name_in_the_env_file_is_refused(monkeypatch, tmp_path) -> None:
-    env_file = tmp_path / "settings.env"
-    env_file.write_text("CROSSTUNE_RESOLVER_TIMEOUT_SECONDS=5\n")
-    monkeypatch.setitem(Settings.model_config, "env_file", str(env_file))
-    with pytest.raises(ValidationError, match="CROSSTUNE_LINK_RESOLVE_TIMEOUT_SECONDS"):
-        Settings()
-
-
 CLERK = {
     "clerk_issuer": "https://clerk.example.test",
     "clerk_authorized_parties": ["https://example.test"],
