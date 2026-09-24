@@ -45,9 +45,9 @@ class Recording(SyncColumns, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     # Null while the recording is unfiled; the save sheet attaches it later, and a
-    # hard delete of the song unfiles the recording rather than destroying the audio.
-    song_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("songs.id", ondelete="SET NULL"), nullable=True, index=True
+    # hard delete of the tune unfiles the recording rather than destroying the audio.
+    tune_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tunes.id", ondelete="SET NULL"), nullable=True, index=True
     )
     label: Mapped[str | None] = mapped_column(String(LIMITS["recordings"]["label"]), nullable=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)

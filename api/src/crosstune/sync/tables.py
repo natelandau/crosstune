@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import inspect
 
-from crosstune.models import List, ListItem, Recording, RecordingLink, Song, UserSettings, UserSong
+from crosstune.models import List, ListItem, Recording, RecordingLink, Tune, UserSettings, UserTune
 from crosstune.schemas.rows import (
     DATA_SCHEMAS,
     ROW_SCHEMAS,
@@ -19,12 +19,12 @@ from crosstune.schemas.rows import (
     RecordingLinkData,
     RecordingLinkRow,
     RecordingRow,
-    SongData,
-    SongRow,
+    TuneData,
+    TuneRow,
     UserSettingsData,
     UserSettingsRow,
-    UserSongData,
-    UserSongRow,
+    UserTuneData,
+    UserTuneRow,
 )
 
 if TYPE_CHECKING:
@@ -50,10 +50,10 @@ class TableSpec:
     parents: tuple[tuple[str, TableName], ...]
 
 
-# Parents before children, so a batch that creates a song and its links applies in one pass.
+# Parents before children, so a batch that creates a tune and its links applies in one pass.
 TABLE_ORDER: tuple[TableName, ...] = (
-    "songs",
-    "user_songs",
+    "tunes",
+    "user_tunes",
     "lists",
     "list_items",
     "recording_links",
@@ -62,9 +62,9 @@ TABLE_ORDER: tuple[TableName, ...] = (
 )
 
 TABLES: dict[TableName, TableSpec] = {
-    "songs": TableSpec("songs", Song, SongData, SongRow, "owner_user_id", ()),
-    "user_songs": TableSpec(
-        "user_songs", UserSong, UserSongData, UserSongRow, "user_id", (("song_id", "songs"),)
+    "tunes": TableSpec("tunes", Tune, TuneData, TuneRow, "owner_user_id", ()),
+    "user_tunes": TableSpec(
+        "user_tunes", UserTune, UserTuneData, UserTuneRow, "user_id", (("tune_id", "tunes"),)
     ),
     "lists": TableSpec("lists", List, ListData, ListRow, "user_id", ()),
     "list_items": TableSpec(
@@ -73,7 +73,7 @@ TABLES: dict[TableName, TableSpec] = {
         ListItemData,
         ListItemRow,
         "",  # no owner column; ownership is proven through both parents
-        (("list_id", "lists"), ("user_song_id", "user_songs")),
+        (("list_id", "lists"), ("user_tune_id", "user_tunes")),
     ),
     "recording_links": TableSpec(
         "recording_links",
@@ -81,10 +81,10 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingLinkData,
         RecordingLinkRow,
         "added_by_user_id",
-        (("song_id", "songs"),),
+        (("tune_id", "tunes"),),
     ),
     "recordings": TableSpec(
-        "recordings", Recording, RecordingData, RecordingRow, "user_id", (("song_id", "songs"),)
+        "recordings", Recording, RecordingData, RecordingRow, "user_id", (("tune_id", "tunes"),)
     ),
     "user_settings": TableSpec(
         "user_settings", UserSettings, UserSettingsData, UserSettingsRow, "user_id", ()

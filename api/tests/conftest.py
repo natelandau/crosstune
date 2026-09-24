@@ -359,7 +359,7 @@ async def truncate_all(engine) -> AsyncIterator[None]:
         await conn.execute(
             text(
                 "truncate upload_slots, jobs, recordings, list_items, lists, recording_links, "
-                "user_songs, songs, user_settings, users cascade"
+                "user_tunes, tunes, user_settings, users cascade"
             )
         )
 

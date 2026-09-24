@@ -24,25 +24,25 @@ async def test_push_creates_a_pending_recording(client, auth_headers) -> None:
     assert result["status"] == "applied"
     row = result["row"]
     assert row["state"] == "pending_upload"
-    assert row["song_id"] is None
+    assert row["tune_id"] is None
     assert row["duration_ms"] is None
     assert "playback_key" not in row
 
 
-async def test_push_attaches_to_an_owned_song(client, auth_headers) -> None:
-    song, rec = uid(), uid()
-    await push(client, auth_headers("user_a"), change("songs", song, T0, title="Angeline"))
-    [result] = await push(client, auth_headers("user_a"), recording(rec, song_id=song))
+async def test_push_attaches_to_an_owned_tune(client, auth_headers) -> None:
+    tune, rec = uid(), uid()
+    await push(client, auth_headers("user_a"), change("tunes", tune, T0, title="Angeline"))
+    [result] = await push(client, auth_headers("user_a"), recording(rec, tune_id=tune))
     assert result["status"] == "applied"
-    assert result["row"]["song_id"] == song
+    assert result["row"]["tune_id"] == tune
 
 
-async def test_push_rejects_another_users_song(client, auth_headers) -> None:
-    song, rec = uid(), uid()
-    await push(client, auth_headers("user_b"), change("songs", song, T0, title="B's"))
-    [result] = await push(client, auth_headers("user_a"), recording(rec, song_id=song))
+async def test_push_rejects_another_users_tune(client, auth_headers) -> None:
+    tune, rec = uid(), uid()
+    await push(client, auth_headers("user_b"), change("tunes", tune, T0, title="B's"))
+    [result] = await push(client, auth_headers("user_a"), recording(rec, tune_id=tune))
     assert result["status"] == "invalid"
-    assert "song_id" in result["reason"]
+    assert "tune_id" in result["reason"]
 
 
 async def test_push_cannot_write_server_owned_columns(client, auth_headers) -> None:
@@ -80,13 +80,13 @@ async def test_pull_returns_recordings(client, auth_headers) -> None:
     assert [r["table"] for r in body["rows"]] == ["recordings"]
 
 
-async def test_deleting_a_song_soft_deletes_its_recordings(
+async def test_deleting_a_tune_soft_deletes_its_recordings(
     client, auth_headers, verify_session
 ) -> None:
-    song, rec = uid(), uid()
-    await push(client, auth_headers("user_a"), change("songs", song, T0, title="X"))
-    await push(client, auth_headers("user_a"), recording(rec, song_id=song))
-    await push(client, auth_headers("user_a"), change("songs", song, T1, op="delete"))
+    tune, rec = uid(), uid()
+    await push(client, auth_headers("user_a"), change("tunes", tune, T0, title="X"))
+    await push(client, auth_headers("user_a"), recording(rec, tune_id=tune))
+    await push(client, auth_headers("user_a"), change("tunes", tune, T1, op="delete"))
     stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
     assert stored.deleted_at is not None
 

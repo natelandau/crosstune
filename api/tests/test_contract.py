@@ -27,8 +27,8 @@ def test_openapi_is_deterministic() -> None:
 def test_openapi_types_every_table_row() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     assert {
-        "SongRow",
-        "UserSongRow",
+        "TuneRow",
+        "UserTuneRow",
         "RecordingLinkRow",
         "RecordingRow",
         "ListRow",
@@ -57,15 +57,15 @@ def test_openapi_documents_the_recording_states_a_client_branches_on() -> None:
 
 def test_openapi_rows_carry_a_required_discriminator() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
-    assert "table" in schemas["SongPullRow"]["required"]
-    assert "table" in schemas["SongChangeResult"]["required"]
+    assert "table" in schemas["TunePullRow"]["required"]
+    assert "table" in schemas["TuneChangeResult"]["required"]
 
 
 def test_openapi_publishes_every_vocabulary_as_a_named_enum() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     for enum in (
         vocabulary.Instrument,
-        vocabulary.SongStatus,
+        vocabulary.TuneStatus,
         vocabulary.Mode,
         vocabulary.TimeSignature,
         vocabulary.Provider,
@@ -80,8 +80,8 @@ def test_openapi_publishes_every_vocabulary_as_a_named_enum() -> None:
 def test_openapi_publishes_every_limit_on_its_row() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     rows = {
-        "songs": "SongRow",
-        "user_songs": "UserSongRow",
+        "tunes": "TuneRow",
+        "user_tunes": "UserTuneRow",
         "lists": "ListRow",
         "recording_links": "RecordingLinkRow",
         "recordings": "RecordingRow",

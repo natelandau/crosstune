@@ -17,16 +17,16 @@ from crosstune.vocabulary import (
     Provider,
     RecordingSource,
     RecordingState,
-    SongStatus,
     TimeSignature,
+    TuneStatus,
 )
 
 if TYPE_CHECKING:
     from crosstune.schemas.common import TableName
 
 
-SONG = LIMITS["songs"]
-USER_SONG = LIMITS["user_songs"]
+TUNE = LIMITS["tunes"]
+USER_TUNE = LIMITS["user_tunes"]
 LINK = LIMITS["recording_links"]
 # An RFC 3986 scheme, which is also what a browser's URL parser reads as one.
 URL_SCHEME = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*):")
@@ -52,38 +52,38 @@ class _Data(BaseModel):
     created_at: datetime
 
 
-class SongData(_Data):
-    """Client-editable fields of a song."""
+class TuneData(_Data):
+    """Client-editable fields of a tune."""
 
-    title: str = Field(min_length=1, max_length=SONG["title"])
-    alternate_titles: list[Annotated[str, Field(max_length=SONG["alternate_titles"])]] = []
-    genre: str | None = Field(default=None, max_length=SONG["genre"])
-    feel: str | None = Field(default=None, max_length=SONG["feel"])
-    lyrics: str | None = Field(default=None, max_length=SONG["lyrics"])
-    key: str | None = Field(default=None, max_length=SONG["key"])
+    title: str = Field(min_length=1, max_length=TUNE["title"])
+    alternate_titles: list[Annotated[str, Field(max_length=TUNE["alternate_titles"])]] = []
+    genre: str | None = Field(default=None, max_length=TUNE["genre"])
+    feel: str | None = Field(default=None, max_length=TUNE["feel"])
+    lyrics: str | None = Field(default=None, max_length=TUNE["lyrics"])
+    key: str | None = Field(default=None, max_length=TUNE["key"])
     mode: Mode | None = None
-    violin_tuning: str | None = Field(default=None, max_length=SONG["violin_tuning"])
-    banjo_tuning: str | None = Field(default=None, max_length=SONG["banjo_tuning"])
-    part_structure: str | None = Field(default=None, max_length=SONG["part_structure"])
+    violin_tuning: str | None = Field(default=None, max_length=TUNE["violin_tuning"])
+    banjo_tuning: str | None = Field(default=None, max_length=TUNE["banjo_tuning"])
+    part_structure: str | None = Field(default=None, max_length=TUNE["part_structure"])
     time_signature: TimeSignature | None = None
     is_crooked: bool = False
 
 
-class UserSongData(_Data):
-    """Client-editable fields of a user's relationship to a song."""
+class UserTuneData(_Data):
+    """Client-editable fields of a user's relationship to a tune."""
 
-    song_id: uuid.UUID
-    status: SongStatus
-    learned_from: str | None = Field(default=None, max_length=USER_SONG["learned_from"])
+    tune_id: uuid.UUID
+    status: TuneStatus
+    learned_from: str | None = Field(default=None, max_length=USER_TUNE["learned_from"])
     learned_on: date | None = None
-    notes: str | None = Field(default=None, max_length=USER_SONG["notes"])
+    notes: str | None = Field(default=None, max_length=USER_TUNE["notes"])
     archived_at: datetime | None = None
 
 
 class _RecordingLinkFields(_Data):
     """Recording link fields. Only a push checks the url scheme, never a stored row."""
 
-    song_id: uuid.UUID
+    tune_id: uuid.UUID
     url: str = Field(min_length=1, max_length=LINK["url"])
     provider: Provider
     provider_ref: str | None = Field(default=None, max_length=LINK["provider_ref"])
@@ -119,14 +119,14 @@ class ListItemData(_Data):
     """Client-editable fields of a list item."""
 
     list_id: uuid.UUID
-    user_song_id: uuid.UUID
+    user_tune_id: uuid.UUID
     position: int = 0
 
 
 class RecordingData(_Data):
     """Client-editable fields of a recording. The file columns are server-owned."""
 
-    song_id: uuid.UUID | None = None
+    tune_id: uuid.UUID | None = None
     label: str | None = Field(default=None, max_length=LIMITS["recordings"]["label"])
     source: RecordingSource
     recorded_at: datetime
@@ -156,16 +156,16 @@ class _Row(BaseModel):
     server_seq: int
 
 
-class SongRow(SongData, _Row):
-    """A stored song, as push and pull return it."""
+class TuneRow(TuneData, _Row):
+    """A stored tune, as push and pull return it."""
 
     model_config = ConfigDict(extra="ignore")
 
     owner_user_id: uuid.UUID | None
 
 
-class UserSongRow(UserSongData, _Row):
-    """A stored user song, as push and pull return it."""
+class UserTuneRow(UserTuneData, _Row):
+    """A stored user tune, as push and pull return it."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -216,8 +216,8 @@ class UserSettingsRow(UserSettingsData, _Row):
 
 
 DATA_SCHEMAS: dict[TableName, type[_Data]] = {
-    "songs": SongData,
-    "user_songs": UserSongData,
+    "tunes": TuneData,
+    "user_tunes": UserTuneData,
     "lists": ListData,
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
@@ -226,8 +226,8 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
 }
 
 ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
-    "songs": SongRow,
-    "user_songs": UserSongRow,
+    "tunes": TuneRow,
+    "user_tunes": UserTuneRow,
     "lists": ListRow,
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,

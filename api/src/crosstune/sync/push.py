@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
-from crosstune.models import List, ListItem, Recording, RecordingLink, UserSong
+from crosstune.models import List, ListItem, Recording, RecordingLink, UserTune
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
@@ -107,7 +107,7 @@ async def _parents_owned(
     """Return a reason string when a referenced parent is missing or not the caller's."""
     for column, parent_table in spec.parents:
         if data.get(column) is None:
-            # An unfiled recording has no song yet; nothing to own.
+            # An unfiled recording has no tune yet; nothing to own.
             continue
         parent = await _fetch_owned(session, TABLES[parent_table], data[column], user_id)
         if parent is None or parent.deleted_at is not None:
@@ -181,7 +181,7 @@ async def _upsert(
         condition = condition & (getattr(model, spec.owner_column) == user_id)
     else:
         # list_items has no owner column; require the *stored* row's list to be the
-        # caller's, since _parents_owned only checked the incoming list_id/user_song_id.
+        # caller's, since _parents_owned only checked the incoming list_id/user_tune_id.
         condition = condition & model.list_id.in_(select(List.id).where(List.user_id == user_id))
     stmt = stmt.on_conflict_do_update(
         index_elements=[model.id], set_=set_, where=condition
@@ -272,18 +272,18 @@ async def _cascade(
     # Every statement carries the caller's ownership, so no cascade can reach another
     # account's rows even if a parent row ever slipped past the ownership checks above.
     owned_items = ListItem.list_id.in_(select(List.id).where(List.user_id == user_id))
-    if table == "songs":
-        user_song_ids = select(UserSong.id).where(
-            UserSong.song_id == row_id, UserSong.user_id == user_id
+    if table == "tunes":
+        user_tune_ids = select(UserTune.id).where(
+            UserTune.tune_id == row_id, UserTune.user_id == user_id
         )
-        await mark(ListItem, ListItem.user_song_id.in_(user_song_ids) & owned_items)
-        await mark(UserSong, (UserSong.song_id == row_id) & (UserSong.user_id == user_id))
+        await mark(ListItem, ListItem.user_tune_id.in_(user_tune_ids) & owned_items)
+        await mark(UserTune, (UserTune.tune_id == row_id) & (UserTune.user_id == user_id))
         await mark(
             RecordingLink,
-            (RecordingLink.song_id == row_id) & (RecordingLink.added_by_user_id == user_id),
+            (RecordingLink.tune_id == row_id) & (RecordingLink.added_by_user_id == user_id),
         )
-        await mark(Recording, (Recording.song_id == row_id) & (Recording.user_id == user_id))
-    elif table == "user_songs":
-        await mark(ListItem, (ListItem.user_song_id == row_id) & owned_items)
+        await mark(Recording, (Recording.tune_id == row_id) & (Recording.user_id == user_id))
+    elif table == "user_tunes":
+        await mark(ListItem, (ListItem.user_tune_id == row_id) & owned_items)
     elif table == "lists":
         await mark(ListItem, (ListItem.list_id == row_id) & owned_items)

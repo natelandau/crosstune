@@ -5,18 +5,18 @@ from datetime import UTC, datetime
 from sqlalchemy import ARRAY, CheckConstraint, String
 
 from crosstune import vocabulary
-from crosstune.models import Recording, RecordingLink, Song, UserSettings, UserSong
+from crosstune.models import Recording, RecordingLink, Tune, UserSettings, UserTune
 from crosstune.models._checks import in_list
-from crosstune.schemas.rows import DATA_SCHEMAS, RecordingRow, SongData, UserSettingsData
+from crosstune.schemas.rows import DATA_SCHEMAS, RecordingRow, TuneData, UserSettingsData
 from crosstune.sync.tables import TABLES
 
 NOW = datetime(2026, 9, 22, tzinfo=UTC)
 
 # Every check constraint that lists values, and the enum it must list.
 CHECKS = {
-    (Song, "ck_songs_mode"): ("mode", vocabulary.Mode, True),
-    (Song, "ck_songs_time_signature"): ("time_signature", vocabulary.TimeSignature, True),
-    (UserSong, "ck_user_songs_status"): ("status", vocabulary.SongStatus, False),
+    (Tune, "ck_tunes_mode"): ("mode", vocabulary.Mode, True),
+    (Tune, "ck_tunes_time_signature"): ("time_signature", vocabulary.TimeSignature, True),
+    (UserTune, "ck_user_tunes_status"): ("status", vocabulary.TuneStatus, False),
     (RecordingLink, "ck_recording_links_provider"): ("provider", vocabulary.Provider, False),
     (Recording, "ck_recordings_source"): ("source", vocabulary.RecordingSource, False),
     (Recording, "ck_recordings_state"): ("state", vocabulary.RecordingState, False),
@@ -81,8 +81,8 @@ def test_every_schema_max_length_matches_the_table() -> None:
 
 
 def test_validated_values_are_stored_as_plain_strings() -> None:
-    song = SongData(title="Sally Ann", mode="major", created_at=NOW)
-    assert type(song.model_dump()["mode"]) is str
+    tune = TuneData(title="Sally Ann", mode="major", created_at=NOW)
+    assert type(tune.model_dump()["mode"]) is str
     settings = UserSettingsData(instruments=["violin"], created_at=NOW)
     assert type(settings.model_dump()["audio_quality"]) is str
     assert type(settings.model_dump()["instruments"][0]) is str
