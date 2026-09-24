@@ -12,8 +12,8 @@ export type UploadSlotRequest = Schemas['UploadSlotRequest']
 // This client syncs in the API's first wire names, which call a tune a song: the rows the
 // contract documents, with songs, user_songs, song_id, and user_song_id in place of the
 // tune names.
-type Renamed<Row, From extends keyof Row, To extends string> = Omit<Row, From> & {
-  [Key in To]: Row[From]
+type Renamed<Row, From extends keyof Row, To extends string> = {
+  [Key in keyof Row as Key extends From ? To : Key]: Row[Key]
 }
 
 export type SongRow = Schemas['TuneRow']
