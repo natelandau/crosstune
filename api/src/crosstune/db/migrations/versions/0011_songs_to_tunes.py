@@ -52,7 +52,8 @@ INDEXES = (
     ("ix_list_items_user_song_id", "ix_list_items_user_tune_id"),
 )
 
-# Tables a NOT NULL constraint could be discovered on below, as a single regclass[] literal.
+# Tables a NOT NULL constraint could be discovered on below, as scalar regclass casts
+# comma-joined for an IN list.
 RENAMED_TABLES = (
     "'tunes'::regclass, 'user_tunes'::regclass, 'recording_links'::regclass, "
     "'recordings'::regclass, 'list_items'::regclass"
@@ -60,6 +61,8 @@ RENAMED_TABLES = (
 
 
 def upgrade() -> None:
+    # Fail fast instead of queuing every query behind these renames' ACCESS EXCLUSIVE locks.
+    op.execute("set local lock_timeout = '10s'")
     for old, new in TABLES:
         op.rename_table(old, new)
     for table, old, new in COLUMNS:
@@ -87,15 +90,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Fail fast instead of queuing every query behind these renames' ACCESS EXCLUSIVE locks.
+    op.execute("set local lock_timeout = '10s'")
     for old, new in INDEXES:
         op.execute(f'alter index "{new}" rename to "{old}"')
     for table, old, new in CONSTRAINTS:
         op.execute(f'alter table {table} rename constraint "{new}" to "{old}"')
 
-    # Mirror of the discovery in upgrade(): find the NOT NULL constraints renamed above
-    # (matched by pattern rather than by the already-reverted CONSTRAINTS names, which
-    # would no longer contain "tune") and rename them back before the columns and tables
-    # that back them disappear.
+    # Found by pattern, since the listed names are already reverted.
     bind = op.get_bind()
     not_null = bind.execute(
         text(
