@@ -139,9 +139,9 @@ Three axes decide the chrome. No screen asks which device it is on;
 Everywhere the app lists tunes it uses one row.
 
 - Line one is the title, truncated when long.
-- Line two holds the key, the status dot with its label, the tunings for
-  played instruments, and "Archived", each omitted when unset. A screen
-  reader hears a comma between parts.
+- Line two holds the key, the status dot with its label, the non-standard
+  tunings and capos for played instruments, and "Archived", each omitted
+  when unset. A screen reader hears a comma between parts.
 - An archived row is dimmed as a whole.
 - A tap opens the tune. While selecting, a tap toggles the row.
 - In a list, the row gains a position number, a Reorder button, and a drag
@@ -163,6 +163,11 @@ Everywhere the app lists tunes it uses one row.
   own pill.
 - A tuning suggestion reads name then strings, lowercase for a drone:
   "Cross A (AEAE)", "Sawmill (gDGCD)".
+- A row leaves an instrument's standard tuning unsaid unless a capo is set.
+  A capo reads after the tuning, "Open G (gDGBD), capo 2", or alone,
+  "Capo 2". A tune's own screen shows every tuning, standard included.
+- A capo is offered only for a fretted instrument, as a closed list from
+  None to 12.
 - A field's label reads the same on every screen. A row under a header that
   carries half the name may show less, but a screen reader hears the full
   name.

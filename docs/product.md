@@ -57,8 +57,9 @@ An installable web app (PWA). The parts that matter:
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.
-- Instruments. The musician records which instruments they play. Tuning
-  fields and filters appear only for those.
+- Instruments. The musician records which instruments they play, from
+  those with a per-tune tuning. Tuning fields and filters appear only for
+  those.
 - Appearance. Light, dark, or system, and three text sizes. Per device.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
@@ -99,13 +100,13 @@ with or without words. Irish, old-time, and bluegrass players say fiddle;
 klezmer, Romani, and classical players say violin, and every player
 understands it. Tuning values keep their traditional names.
 
-| Term           | Meaning                                                                                                        |
-| -------------- | -------------------------------------------------------------------------------------------------------------- |
-| Tune           | The catalog entity: a piece a musician plays, with or without words. A sung piece is a tune of type Song.      |
-| Key            | The tonal center, such as D or A. Different players use different keys for one tune.                           |
-| Mode           | The scale flavor: major, minor, mixolydian, dorian, or modal, a tune between minor and mixolydian.             |
-| Tuning         | The string tuning: standard, cross-tuning (AEAE) on violin, double C on banjo. The product name comes from it. |
-| Crooked        | A tune with an irregular number of beats or measures in a part.                                                |
-| Part structure | The order and repeats of a tune's sections: AABB, AABBCC.                                                      |
-| Status         | Known, learning, or want to learn. Want to learn is labeled "Unknown".                                         |
-| Jam            | An informal session where musicians play together and learn tunes from each other.                             |
+| Term           | Meaning                                                                                                                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tune           | The catalog entity: a piece a musician plays, with or without words. A sung piece is a tune of type Song.                                                                    |
+| Key            | The tonal center, such as D or A. Different players use different keys for one tune.                                                                                         |
+| Mode           | The scale flavor: major, minor, mixolydian, dorian, or modal, a tune between minor and mixolydian.                                                                           |
+| Tuning         | The string tuning and capo for one instrument on a tune: cross-tuning (AEAE) on violin, double C on 5-string banjo, DADGAD capo 2 on guitar. The product name comes from it. |
+| Crooked        | A tune with an irregular number of beats or measures in a part.                                                                                                              |
+| Part structure | The order and repeats of a tune's sections: AABB, AABBCC.                                                                                                                    |
+| Status         | Known, learning, or want to learn. Want to learn is labeled "Unknown".                                                                                                       |
+| Jam            | An informal session where musicians play together and learn tunes from each other.                                                                                           |
