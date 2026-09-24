@@ -51,6 +51,52 @@ export const TUNING_SUGGESTIONS: Record<TuningField, string[]> = {
   banjo_tuning: BANJO_TUNINGS,
 }
 
+/** Suggestions per instrument, name then strings, lowercase for a drone. The first is standard
+ * when the instrument has one. */
+export const TUNINGS: Record<Instrument, readonly string[]> = {
+  violin: [
+    'Standard (GDAE)',
+    'Cross A (AEAE)',
+    'Cross G (GDGD)',
+    'High Bass (ADAE)',
+    'Calico (AEAC#)',
+    'Dead Man (DDAD)',
+  ],
+  five_string_banjo: [
+    'Open G (gDGBD)',
+    'Standard C (gCGBD)',
+    'Double C (gCGCD)',
+    'Sawmill (gDGCD)',
+    'Double D (aDADE)',
+  ],
+  tenor_banjo: ['Irish (GDAE)', 'Standard (CGDA)'],
+  guitar: ['Standard (EADGBE)', 'DADGAD', 'Drop D (DADGBE)', 'Open D (DADF#AD)', 'Open G (DGDGBD)'],
+  mandolin: ['Standard (GDAE)', 'Cross A (AEAE)', 'Cross G (GDGD)'],
+  bouzouki: ['GDAD', 'GDAE', 'ADAD', 'ADAE'],
+  mountain_dulcimer: ['DAd', 'DAA', 'DAG', 'DAC'],
+}
+
+/** The tuning a row leaves unsaid. Only instruments whose standard every tradition shares. */
+export const STANDARD_TUNINGS: Partial<Record<Instrument, string>> = {
+  violin: 'Standard (GDAE)',
+  five_string_banjo: 'Open G (gDGBD)',
+  guitar: 'Standard (EADGBE)',
+  mandolin: 'Standard (GDAE)',
+}
+
+/** Instruments that take a capo. constants.test.ts holds this to the API's FrettedTuning. */
+export const CAPO_INSTRUMENTS: Record<Instrument, boolean> = {
+  violin: false,
+  five_string_banjo: true,
+  tenor_banjo: true,
+  guitar: true,
+  mandolin: true,
+  bouzouki: true,
+  mountain_dulcimer: true,
+}
+
+export const CAPO_FRETS: readonly string[] = Array.from({ length: 12 }, (_, i) => String(i + 1))
+
 // ---- Keys ----------------------------------------------------------------------------------
 
 /**

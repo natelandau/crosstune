@@ -9,3 +9,5 @@
 # The Web Audio API spells it AnalyserNode and createAnalyser; the en-us locale would flag both.
 [default.extend-words]
     analyser = "analyser"
+    # A mountain dulcimer tuning name (D-A-A), not a typo for "data".
+    DAA = "DAA"
