@@ -103,6 +103,26 @@ describe('applyPushResults', () => {
     expect((await db.songs.get(songId))?.title).toBe('v2')
     expect((await pendingFor(db, 'songs', songId))?.data?.title).toBe('v2')
   })
+
+  it('leaves an entry written in the same millisecond as the batch it follows', async () => {
+    const { songId } = await createSong(db, { title: 'v1' }, { status: 'known' })
+    const sent = await pendingBatch(db)
+    await updateSong(db, songId, { title: 'v2' })
+    await applyPushResults(db, sent, [
+      {
+        table: 'songs',
+        id: songId,
+        status: 'applied',
+        row: serverSong({ id: songId, title: 'v1' }),
+      },
+      { table: 'user_songs', id: sent[1]!.row_id, status: 'applied' },
+    ])
+    const pending = await pendingFor(db, 'songs', songId)
+    expect((await db.songs.get(songId))?.title).toBe('v2')
+    expect(pending?.data?.title).toBe('v2')
+    // The server takes only a strictly newer write, so the retry must not tie the first.
+    expect(compareTimestamps(pending!.updated_at, sent[0]!.updated_at)).toBeGreaterThan(0)
+  })
 })
 
 describe('applyPullPage', () => {

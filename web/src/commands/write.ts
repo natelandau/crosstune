@@ -43,19 +43,33 @@ export function nextPosition(rows: { position: number }[]): number {
   return rows.reduce((max, row) => Math.max(max, row.position + 1), 0)
 }
 
+/**
+ * The timestamp for a write to a row last stamped `stored`: `requested`, or one millisecond
+ * past `stored` when that is not earlier. Both the push guard and the server's strictly-newer
+ * rule tell two writes to one row apart only by updated_at, so a tie would drop the second.
+ */
+export function nextUpdatedAt(stored: string | undefined, requested: string): string {
+  if (stored === undefined) return requested
+  const floor = Date.parse(stored) + 1
+  return Date.parse(requested) >= floor ? requested : new Date(floor).toISOString()
+}
+
 /** Store a row and queue its upsert. Call inside writeTx. */
 export async function putRow<T extends TableName>(
   db: CrosstuneDb,
   table: T,
   row: LocalRows[T],
 ): Promise<void> {
-  await rowsTable(db, table).put(row)
+  const rows = rowsTable(db, table)
+  const stored = await rows.get(row.id)
+  const stamped = { ...row, updated_at: nextUpdatedAt(stored?.updated_at, row.updated_at) }
+  await rows.put(stamped)
   await enqueue(db, {
     table,
     row_id: row.id,
     op: 'upsert',
-    updated_at: row.updated_at,
-    data: toChangeData(row),
+    updated_at: stamped.updated_at,
+    data: toChangeData(stamped),
   })
 }
 
@@ -70,9 +84,10 @@ export async function tombstone<T extends TableName>(
   const rows = rowsTable(db, table)
   const row = await rows.get(id)
   if (!row || row.deleted_at) return
-  await rows.put({ ...row, deleted_at: at, updated_at: at } as LocalRows[T])
+  const stamp = nextUpdatedAt(row.updated_at, at)
+  await rows.put({ ...row, deleted_at: stamp, updated_at: stamp } as LocalRows[T])
   if (enqueueDelete) {
-    await enqueue(db, { table, row_id: id, op: 'delete', updated_at: at, data: null })
+    await enqueue(db, { table, row_id: id, op: 'delete', updated_at: stamp, data: null })
   } else {
     await dropPending(db, table, id)
   }

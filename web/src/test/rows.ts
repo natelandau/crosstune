@@ -4,8 +4,8 @@ import type { LocalRecording, LocalRecordingLink, LocalSong, LocalUserSong } fro
 export function songRow(id: string, title: string, extra: Partial<LocalSong> = {}): LocalSong {
   return {
     id,
-    created_at: 't',
-    updated_at: 't',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
     title,
@@ -31,8 +31,8 @@ export function userSongRow(
 ): LocalUserSong {
   return {
     id,
-    created_at: 't',
-    updated_at: 't',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
     song_id: songId,
@@ -52,8 +52,8 @@ export function linkRow(
 ): LocalRecordingLink {
   return {
     id,
-    created_at: 't',
-    updated_at: 't',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
     song_id: songId,
@@ -71,8 +71,8 @@ export function linkRow(
 export function recordingRow(id: string, extra: Partial<LocalRecording> = {}): LocalRecording {
   return {
     id,
-    created_at: 't',
-    updated_at: 't',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
     song_id: null,
