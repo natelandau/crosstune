@@ -1,4 +1,5 @@
-import Dexie, { type EntityTable, type Table } from 'dexie'
+import Dexie, { type EntityTable, type Table, type Transaction } from 'dexie'
+import { META_PULL_CURSOR } from './meta'
 import type { RecordingChunk, RecordingFile } from './recordings'
 import {
   TABLE_NAMES,
@@ -14,6 +15,19 @@ import {
   type OutboxEntry,
   type TableName,
 } from './types'
+
+// Every store the server refills, plus what could only be pushed or uploaded in an older shape.
+const STARTED_OVER = [...TABLE_NAMES, 'recording_files', 'recording_chunks', 'outbox'] as const
+
+/**
+ * Empty a database from before version 5 and reset its pull cursor, so the next sync pulls
+ * every row again in this version's shape. Unsynced edits and unuploaded recordings are
+ * dropped. Every other meta entry is a local preference and stays.
+ */
+async function startOver(tx: Transaction): Promise<void> {
+  await Promise.all(STARTED_OVER.map((store) => tx.table(store).clear()))
+  await tx.table('meta').delete(META_PULL_CURSOR)
+}
 
 export class CrosstuneDb extends Dexie {
   // EntityTable<T, K> makes the key property K optional on insert, Dexie's convention for
@@ -35,21 +49,23 @@ export class CrosstuneDb extends Dexie {
     super(name)
     // Only keys used in where() clauses are indexed. Null is not indexable, so
     // deleted_at and archived_at are filtered in memory.
-    this.version(5).stores({
-      tunes: 'id, title',
-      user_tunes: 'id, tune_id',
-      recording_links: 'id, tune_id',
-      lists: 'id',
-      list_items: 'id, list_id, user_tune_id',
-      user_settings: 'id',
-      recordings: 'id, tune_id',
-      recording_files: 'id, local_state',
-      recording_chunks: '[recording_id+idx], recording_id',
-      outbox: '++seq, &[table+row_id]',
-      meta: 'key',
-      songs: null,
-      user_songs: null,
-    })
+    this.version(5)
+      .stores({
+        tunes: 'id, title',
+        user_tunes: 'id, tune_id',
+        recording_links: 'id, tune_id',
+        lists: 'id',
+        list_items: 'id, list_id, user_tune_id',
+        user_settings: 'id',
+        recordings: 'id, tune_id',
+        recording_files: 'id, local_state',
+        recording_chunks: '[recording_id+idx], recording_id',
+        outbox: '++seq, &[table+row_id]',
+        meta: 'key',
+        songs: null,
+        user_songs: null,
+      })
+      .upgrade(startOver)
   }
 }
 
