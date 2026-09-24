@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from crosstune.models import RecordingLink, UserTune
+from crosstune.models import ListItem, Recording, RecordingLink, UserTune
 from tests.test_push import T0, T1, change, push, uid
 
 if TYPE_CHECKING:
@@ -122,6 +122,98 @@ async def test_pull_answers_in_song_names_unless_asked_for_tune_names(client, au
     ).json()
     assert {r["table"] for r in tunes["rows"]} == {"tunes", "user_tunes"}
     assert tunes["next_since"] == songs["next_since"]
+
+
+async def test_a_recording_pushed_in_song_names_is_stored_and_answered_with_song_id(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    song, rec = uid(), uid()
+    await push_in_song_names(
+        client, auth_headers("user_a"), change("songs", song, T0, title="Angeline")
+    )
+    [result] = await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change(
+            "recordings",
+            rec,
+            T0,
+            song_id=song,
+            source="microphone",
+            recorded_at=T0.isoformat(),
+            position=0,
+        ),
+    )
+    assert result["table"] == "recordings"
+    assert result["row"]["song_id"] == song
+    assert "tune_id" not in result["row"]
+    stored = await verify_session.get(Recording, uuid.UUID(rec))
+    assert stored is not None
+    assert stored.tune_id == uuid.UUID(song)
+
+    pulled = (await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))).json()
+    [recording_row] = [r["row"] for r in pulled["rows"] if r["table"] == "recordings"]
+    assert recording_row["song_id"] == song
+    assert "tune_id" not in recording_row
+
+
+async def test_a_list_item_pushed_in_song_names_is_stored_and_answered_with_user_song_id(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    song, user_song, list_id, item = uid(), uid(), uid(), uid()
+    await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="Angeline"),
+        change("user_songs", user_song, T0, song_id=song, status="known"),
+        change("lists", list_id, T0, name="Friday"),
+    )
+    [result] = await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change("list_items", item, T0, list_id=list_id, user_song_id=user_song),
+    )
+    assert result["table"] == "list_items"
+    assert result["row"]["user_song_id"] == user_song
+    assert "user_tune_id" not in result["row"]
+    stored = await verify_session.get(ListItem, uuid.UUID(item))
+    assert stored is not None
+    assert stored.user_tune_id == uuid.UUID(user_song)
+
+    pulled = (await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))).json()
+    [item_row] = [r["row"] for r in pulled["rows"] if r["table"] == "list_items"]
+    assert item_row["user_song_id"] == user_song
+    assert "user_tune_id" not in item_row
+
+
+async def test_a_stale_push_in_song_names_is_answered_in_song_names(client, auth_headers) -> None:
+    song = uid()
+    await push_in_song_names(
+        client, auth_headers("user_a"), change("songs", song, T1, title="Newer")
+    )
+    [result] = await push_in_song_names(
+        client, auth_headers("user_a"), change("songs", song, T0, title="Older")
+    )
+    assert result["status"] == "stale"
+    assert result["table"] == "songs"
+
+
+async def test_a_stale_user_songs_push_in_song_names_returns_song_id(client, auth_headers) -> None:
+    song, user_song = uid(), uid()
+    await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T0, title="X"),
+        change("user_songs", user_song, T1, song_id=song, status="known"),
+    )
+    [result] = await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change("user_songs", user_song, T0, song_id=song, status="learning"),
+    )
+    assert result["status"] == "stale"
+    assert result["row"]["song_id"] == song
+    assert "tune_id" not in result["row"]
 
 
 async def test_a_request_in_song_names_is_logged_with_its_client_version(

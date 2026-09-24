@@ -695,6 +695,22 @@ async def test_0011_downgrade_and_back_keeps_every_tune_and_its_references(
                     )
                 )
             ).one()
+            # Matches the prefixes/infixes the migration itself renames by, so a stray
+            # "tuning" column (violin_tuning, banjo_tuning) cannot false-positive.
+            leftover = (
+                await conn.execute(
+                    text(
+                        "select conname from pg_constraint "
+                        "where conname ~ '^tunes_' or conname ~ '^user_tunes_' "
+                        "or conname ~ '_tune_id' or conname ~ '_user_tune_id' "
+                        "union all "
+                        "select indexname from pg_indexes where schemaname = 'public' "
+                        "and (indexname ~ '^tunes_' or indexname ~ '^user_tunes_' "
+                        "or indexname ~ '_tune_id' or indexname ~ '_user_tune_id')"
+                    )
+                )
+            ).all()
+            assert leftover == []
         assert tuple(row) == (tune, user_tune)
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
