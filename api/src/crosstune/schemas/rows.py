@@ -187,9 +187,14 @@ class RecordingData(_Data):
 
 def _renamed_instruments(values: Any) -> Any:
     # A client that predates five_string_banjo still sends banjo.
-    if isinstance(values, list):
-        return ["five_string_banjo" if v == "banjo" else v for v in values]
-    return values
+    if not isinstance(values, list):
+        return values
+    renamed = ["five_string_banjo" if v == "banjo" else v for v in values]
+    if "banjo" in values and "five_string_banjo" in values:
+        # Both spellings name one instrument, so they merge rather than read as a repeat.
+        first = renamed.index("five_string_banjo")
+        return [v for i, v in enumerate(renamed) if v != "five_string_banjo" or i == first]
+    return renamed
 
 
 class UserSettingsData(_Data):

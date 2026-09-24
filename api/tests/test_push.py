@@ -367,6 +367,16 @@ async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
     assert results[0]["row"]["instruments"] == ["violin"]
 
 
+async def test_user_settings_push_with_both_banjo_spellings_applies(client, auth_headers) -> None:
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("user_settings", uid(), T0, instruments=["banjo", "five_string_banjo"]),
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["instruments"] == ["five_string_banjo"]
+
+
 async def test_user_settings_rejects_an_unknown_instrument(client, auth_headers) -> None:
     results = await push(
         client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["kazoo"])

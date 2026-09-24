@@ -160,6 +160,18 @@ def test_user_settings_reads_banjo_as_the_five_string_banjo() -> None:
     assert settings.instruments == ["five_string_banjo", "violin"]
 
 
+def test_user_settings_merges_both_banjo_spellings_into_one() -> None:
+    settings = UserSettingsData(
+        instruments=["banjo", "violin", "five_string_banjo"], created_at=NOW
+    )
+    assert settings.instruments == ["five_string_banjo", "violin"]
+
+
+def test_user_settings_rejects_a_repeated_legacy_banjo() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(instruments=["banjo", "banjo"], created_at=NOW)
+
+
 def test_user_settings_rejects_unknown_instrument() -> None:
     with pytest.raises(ValidationError):
         UserSettingsData(instruments=["kazoo"], created_at=NOW)
