@@ -1,7 +1,6 @@
 import { IonCheckbox, IonItem } from '@ionic/react'
-import type { Instrument } from '../../api/vocabulary'
+import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import { INSTRUMENT_LABELS } from '../../constants'
-import { LISTED_INSTRUMENTS } from './instruments'
 
 /** One checkbox row per instrument. */
 export function InstrumentRows({
@@ -13,7 +12,7 @@ export function InstrumentRows({
 }) {
   return (
     <>
-      {LISTED_INSTRUMENTS.map((instrument) => (
+      {INSTRUMENTS.map((instrument) => (
         <IonItem key={instrument}>
           <IonCheckbox
             checked={value.has(instrument)}

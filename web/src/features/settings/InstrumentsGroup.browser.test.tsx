@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { INSTRUMENTS } from '../../api/vocabulary'
 import { setInstruments, settingsId, toggleInstrumentSetting } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { pendingBatch } from '../../db/outbox'
@@ -7,7 +8,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { NOT_SET } from '../../ui/FieldRow'
-import { INSTRUMENTS_HELP, LISTED_INSTRUMENTS } from './instruments'
+import { INSTRUMENTS_HELP } from './instruments'
 import { InstrumentsGroup } from './InstrumentsGroup'
 
 vi.mock('../../commands/settings', { spy: true })
@@ -82,7 +83,7 @@ describe('InstrumentsGroup', () => {
     show()
     await openSheet()
     await box('5-string banjo').click()
-    await expect.poll(stored).toEqual(['violin', 'banjo'])
+    await expect.poll(stored).toEqual(['violin', 'five_string_banjo'])
     await expect.element(box('5-string banjo')).toBeChecked()
     expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
 
@@ -126,9 +127,7 @@ describe('InstrumentsGroup', () => {
   it('gives the row and every checkbox a tap target a finger can hit', async () => {
     show()
     await openSheet()
-    await expect
-      .element(box(INSTRUMENT_LABELS[LISTED_INSTRUMENTS[LISTED_INSTRUMENTS.length - 1]!]))
-      .toBeVisible()
+    await expect.element(box(INSTRUMENT_LABELS[INSTRUMENTS[INSTRUMENTS.length - 1]!])).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }

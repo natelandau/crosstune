@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
 import {
   capoLabel,
+  INSTRUMENTS_HELP,
   instrumentsFrom,
   setTuning,
   tuningDisplay,
@@ -35,11 +36,8 @@ describe('instrumentsFrom', () => {
     expect([...instrumentsFrom(row)]).toEqual(['five_string_banjo'])
   })
 
-  it('reads a stored banjo as the five-string banjo', () => {
-    expect([...instrumentsFrom({ ...row, instruments: ['banjo'] })]).toEqual(['five_string_banjo'])
-    expect([...instrumentsFrom({ ...row, instruments: ['banjo', 'five_string_banjo'] })]).toEqual([
-      'five_string_banjo',
-    ])
+  it('treats a retired banjo value as unknown', () => {
+    expect([...instrumentsFrom({ ...row, instruments: ['banjo'] })]).toEqual([])
   })
 
   it('is empty when instruments is not an array', () => {
@@ -186,4 +184,8 @@ describe('tuningDisplay', () => {
 it('names each tuning and capo after its instrument', () => {
   expect(tuningLabel('five_string_banjo')).toBe('5-string banjo tuning')
   expect(capoLabel('guitar')).toBe('Guitar capo')
+})
+
+it('names the tunings the instruments setting controls', () => {
+  expect(INSTRUMENTS_HELP).toBe('Tunes show a tuning for each instrument chosen here.')
 })

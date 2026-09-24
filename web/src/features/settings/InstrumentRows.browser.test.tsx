@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import type { Instrument } from '../../api/vocabulary'
+import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { LISTED_INSTRUMENTS } from './instruments'
 import { InstrumentRows } from './InstrumentRows'
 
-const LABELS = LISTED_INSTRUMENTS.map((instrument) => INSTRUMENT_LABELS[instrument])
+const LABELS = INSTRUMENTS.map((instrument) => INSTRUMENT_LABELS[instrument])
 const LAST_LABEL = LABELS[LABELS.length - 1]!
 
 function show(
@@ -22,11 +21,20 @@ function show(
 const box = (name: string) => page.getByRole('checkbox', { name })
 
 describe('InstrumentRows', () => {
-  it('lists only instruments a tune can show a tuning for', async () => {
+  it('lists every instrument a tune can show a tuning for', async () => {
     show([])
-    await expect.element(page.getByRole('checkbox', { name: 'Violin' })).toBeInTheDocument()
-    await expect.element(page.getByRole('checkbox', { name: '5-string banjo' })).toBeInTheDocument()
-    await expect.element(page.getByRole('checkbox', { name: 'Guitar' })).not.toBeInTheDocument()
+    for (const label of LABELS) {
+      await expect.element(box(label)).toBeInTheDocument()
+    }
+    expect(LABELS).toEqual([
+      'Violin',
+      '5-string banjo',
+      'Tenor banjo',
+      'Guitar',
+      'Mandolin',
+      'Bouzouki',
+      'Mountain dulcimer',
+    ])
   })
 
   it('lists the listed instruments in their fixed order', async () => {

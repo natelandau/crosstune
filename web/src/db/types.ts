@@ -49,27 +49,12 @@ export type LocalListItem = Local<ListItemRow>
 export type LocalUserSettings = Local<UserSettingsRow>
 export type LocalRecording = Local<RecordingRow>
 
-// Removed in tag B. An API before tag A knows the five-string banjo only as "banjo" and the
-// tag A API reads both spellings, so this client reads either and writes "banjo", which is
-// safe whichever API it meets.
-const LEGACY_BANJO = 'banjo'
-
-/** An instrument value as stored or pulled, with the legacy banjo read as five_string_banjo. */
-export function readInstrument(value: string): string {
-  return value === LEGACY_BANJO ? 'five_string_banjo' : value
-}
-
-/** An instrument value as written and pushed, with five_string_banjo spelled "banjo". */
-export function writeInstrument(value: string): string {
-  return value === 'five_string_banjo' ? LEGACY_BANJO : value
-}
-
 /** The instruments a settings row holds, or null when there is no usable row. */
 export function storedInstruments(
   row: LocalUserSettings | null | undefined,
 ): readonly string[] | null {
   if (!row || row.deleted_at || !Array.isArray(row.instruments)) return null
-  return [...new Set(row.instruments.map(readInstrument))]
+  return [...new Set(row.instruments)]
 }
 
 export interface LocalRows {
