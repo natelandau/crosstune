@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from crosstune.vocabulary import (
     LIMITS,
@@ -27,6 +28,13 @@ if TYPE_CHECKING:
 SONG = LIMITS["songs"]
 USER_SONG = LIMITS["user_songs"]
 LINK = LIMITS["recording_links"]
+# An RFC 3986 scheme, which is also what a browser's URL parser reads as one.
+URL_SCHEME = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*):")
+# What a browser's URL parser drops before it reads a scheme: C0 controls and spaces at
+# either end, and tabs and newlines anywhere.
+URL_EDGE = "".join(chr(code) for code in range(0x21))
+URL_IGNORED = str.maketrans("", "", "\t\n\r")
+WEB_SCHEMES = frozenset({"http", "https"})
 
 
 def _distinct(values: list[str]) -> list[str]:
@@ -72,8 +80,8 @@ class UserSongData(_Data):
     archived_at: datetime | None = None
 
 
-class RecordingLinkData(_Data):
-    """Client-editable fields of a recording link."""
+class _RecordingLinkFields(_Data):
+    """Recording link fields. Only a push checks the url scheme, never a stored row."""
 
     song_id: uuid.UUID
     url: str = Field(min_length=1, max_length=LINK["url"])
@@ -83,6 +91,21 @@ class RecordingLinkData(_Data):
     artwork_url: str | None = Field(default=None, max_length=LINK["artwork_url"])
     label: str | None = Field(default=None, max_length=LINK["label"])
     position: int = 0
+
+
+class RecordingLinkData(_RecordingLinkFields):
+    """Client-editable fields of a recording link."""
+
+    @field_validator("url")
+    @classmethod
+    def _web_scheme(cls, url: str) -> str:
+        # Mirrors the client's outboundUrl, never stricter: a pasted link it accepted offline
+        # that failed here would be dropped as invalid. A scheme-less paste is read as https.
+        match = URL_SCHEME.match(url.strip(URL_EDGE).translate(URL_IGNORED))
+        if match and match.group(1).lower() not in WEB_SCHEMES:
+            msg = "must be an http or https URL"
+            raise ValueError(msg)
+        return url
 
 
 class ListData(_Data):
@@ -149,7 +172,7 @@ class UserSongRow(UserSongData, _Row):
     user_id: uuid.UUID
 
 
-class RecordingLinkRow(RecordingLinkData, _Row):
+class RecordingLinkRow(_RecordingLinkFields, _Row):
     """A stored recording link, as push and pull return it."""
 
     model_config = ConfigDict(extra="ignore")

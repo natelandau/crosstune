@@ -81,7 +81,8 @@ Push:
   overwrites its copy.
 - `invalid`: validation failed, or a parent is missing or belongs to someone
   else. Only that change is refused. The client drops it and reports to
-  Sentry.
+  Sentry. A recording link whose URL names a scheme other than http or https
+  is invalid. A URL with no scheme is accepted, as the paste sheet accepts it.
 - A song delete cascades to its user record, links, and list items. A list
   delete cascades to its items.
 - A row carrying an unknown field, or missing an expected one, is `invalid`.

@@ -36,5 +36,8 @@ describe('link display', () => {
     expect(outboundUrl({ url: 'java\tscript:alert(1)' })).toBeNull()
     expect(outboundUrl({ url: 'data:text/html,<script>alert(1)</script>' })).toBeNull()
     expect(outboundUrl({ url: 'not a url' })).toBeNull()
+    expect(outboundUrl({ url: 'ftp://exa mple.com' })).toBeNull()
+    expect(outboundUrl({ url: 'f\ttp://[bad' })).toBeNull()
+    expect(outboundUrl({ url: 'http://[abc' })).toBe('https://http//[abc')
   })
 })
