@@ -1,16 +1,14 @@
 import { IonButton, IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MODES, TUNE_LIMITS, STATUSES, type Instrument } from '../../api/vocabulary'
-import type { BulkPatch } from '../../commands/bulk'
 import {
-  FEELS,
-  GENRES,
-  OFFERED_TIME_SIGNATURES,
-  PART_STRUCTURES,
-  QUICK_KEYS,
-  STATUS_LABELS,
-  TUNINGS,
-} from '../../constants'
+  MODES,
+  TIME_SIGNATURES,
+  TUNE_LIMITS,
+  STATUSES,
+  type Instrument,
+} from '../../api/vocabulary'
+import type { BulkPatch } from '../../commands/bulk'
+import { FEELS, GENRES, PART_STRUCTURES, QUICK_KEYS, STATUS_LABELS, TUNINGS } from '../../constants'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow, NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
@@ -40,7 +38,7 @@ const PICKS: Partial<Record<EditField, { options: readonly string[]; other: bool
   ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
   genre: { options: GENRES, other: true },
   feel: { options: FEELS, other: true },
-  time_signature: { options: OFFERED_TIME_SIGNATURES, other: false },
+  time_signature: { options: TIME_SIGNATURES, other: false },
   part_structure: { options: PART_STRUCTURES, other: true },
 }
 

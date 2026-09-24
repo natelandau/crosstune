@@ -1,5 +1,5 @@
-import { MODES, TUNE_LIMITS } from '../../api/vocabulary'
-import { FEELS, GENRES, OFFERED_TIME_SIGNATURES, PART_STRUCTURES } from '../../constants'
+import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
+import { FEELS, GENRES, PART_STRUCTURES } from '../../constants'
 
 export type DetailField =
   | {
@@ -60,7 +60,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     kind: 'pick',
     key: 'time_signature',
     label: DETAIL_LABELS.time_signature,
-    options: OFFERED_TIME_SIGNATURES,
+    options: TIME_SIGNATURES,
     other: false,
   },
   {

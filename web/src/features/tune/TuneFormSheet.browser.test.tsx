@@ -647,13 +647,10 @@ describe('TuneFormSheet', () => {
       .toBeInTheDocument()
   })
 
-  it('does not offer 3/2 as a time signature choice', async () => {
+  it('offers 3/2 as a time signature choice', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await openDetail('Time signature, 4/4')
-    await expect.element(page.getByRole('radio', { name: '6/8', exact: true })).toBeVisible()
-    await expect
-      .element(page.getByRole('radio', { name: '3/2', exact: true }))
-      .not.toBeInTheDocument()
+    await expect.element(page.getByRole('radio', { name: '3/2', exact: true })).toBeVisible()
   })
 
   it('still shows a tune stored with 3/2 on the form', async () => {
@@ -671,21 +668,6 @@ describe('TuneFormSheet', () => {
     await expect
       .element(page.getByRole('button', { name: 'Time signature, 3/2', exact: true }))
       .toBeInTheDocument()
-  })
-
-  it('keeps a time signature this client does not recognize when Save is pressed untouched', async () => {
-    const db = openTestDb()
-    await db.tunes.put(tuneRow('s1', 'Odd', { time_signature: '7/8' }))
-    await db.user_tunes.put(userTuneRow('u1', 's1'))
-    const entry = {
-      tune: (await db.tunes.get('s1'))!,
-      userTune: (await db.user_tunes.get('u1'))!,
-    }
-    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
-    await expect.element(page.getByText(EDIT_TUNE_TITLE)).toBeVisible()
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await sheetDismissed()
-    expect((await db.tunes.get('s1'))?.time_signature).toBe('7/8')
   })
 
   it('opens the lyrics sheet from the details row and carries the words back', async () => {

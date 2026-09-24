@@ -174,14 +174,11 @@ describe('BulkEditSheet', () => {
     expect(onApply).toHaveBeenCalledWith({ tune: { genre: null }, userTune: {} })
   })
 
-  it('does not offer 3/2 as a bulk time signature choice', async () => {
+  it('offers 3/2 as a bulk time signature choice', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
     await openRow('Time signature, Not set')
-    await expect.element(page.getByRole('radio', { name: '6/8', exact: true })).toBeVisible()
-    await expect
-      .element(page.getByRole('radio', { name: '3/2', exact: true }))
-      .not.toBeInTheDocument()
+    await expect.element(page.getByRole('radio', { name: '3/2', exact: true })).toBeVisible()
   })
 
   it('still shows tunes shared at 3/2 on the bulk time signature row', async () => {

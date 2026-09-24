@@ -23,17 +23,11 @@ export interface TuneFormValues {
   alternate_titles: string
   key: string
   mode: Mode | ''
-  /** The row's raw stored mode, kept only until the player picks or clears one, so a value
-   *  this client predates survives a save that never touches the field. */
-  mode_raw: string | null
   tunings: Partial<Record<Instrument, TuningValues>>
   genre: string
   feel: string
   part_structure: string
   time_signature: TimeSignature | ''
-  /** The row's raw stored time signature, kept only until the player picks or clears one, so a
-   *  value this client predates survives a save that never touches the field. */
-  time_signature_raw: string | null
   is_crooked: boolean
   lyrics: string
   status: TuneStatus
@@ -48,13 +42,11 @@ export function emptyValues(): TuneFormValues {
     alternate_titles: '',
     key: '',
     mode: '',
-    mode_raw: null,
     tunings: {},
     genre: '',
     feel: '',
     part_structure: '',
     time_signature: '4/4',
-    time_signature_raw: null,
     is_crooked: false,
     lyrics: '',
     status: 'want_to_learn',
@@ -78,7 +70,6 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
     alternate_titles: tune.alternate_titles.join(', '),
     key: tune.key ?? '',
     mode: asMode(tune.mode),
-    mode_raw: tune.mode ?? null,
     tunings: Object.fromEntries(
       INSTRUMENTS.map((instrument) => {
         const { tuning, capo } = tuningEntry(tune.tunings, instrument)
@@ -89,7 +80,6 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
     feel: tune.feel ?? '',
     part_structure: tune.part_structure ?? '',
     time_signature: asTimeSignature(tune.time_signature),
-    time_signature_raw: tune.time_signature ?? null,
     is_crooked: tune.is_crooked,
     lyrics: tune.lyrics ?? '',
     status: isTuneStatus(userTune.status) ? userTune.status : 'want_to_learn',
@@ -131,14 +121,12 @@ export function inputsFromValues(
         .map((t) => t.trim())
         .filter(Boolean),
       key: blankToNull(values.key),
-      // A raw fallback may hold a value from a schema version this client predates; write it
-      // through untyped, the same as a pulled row carries it locally.
-      mode: (values.mode || values.mode_raw) as Mode | null,
+      mode: values.mode || null,
       tunings: tuningsFromValues(values, stored),
       genre: blankToNull(values.genre),
       feel: blankToNull(values.feel),
       part_structure: blankToNull(values.part_structure),
-      time_signature: (values.time_signature || values.time_signature_raw) as TimeSignature | null,
+      time_signature: values.time_signature || null,
       is_crooked: values.is_crooked,
       lyrics: blankToNull(values.lyrics),
     },

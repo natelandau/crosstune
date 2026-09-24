@@ -339,14 +339,10 @@ export function TuneFormSheet({
                 other={field.other}
                 maxLength={field.maxLength}
                 onChange={(value) => {
-                  // A player's own pick or clear always wins over the row's raw value.
-                  if (field.key === 'mode') {
-                    set('mode', asMode(value))
-                    set('mode_raw', null)
-                  } else if (field.key === 'time_signature') {
+                  if (field.key === 'mode') set('mode', asMode(value))
+                  else if (field.key === 'time_signature')
                     set('time_signature', asTimeSignature(value))
-                    set('time_signature_raw', null)
-                  } else set(field.key, value)
+                  else set(field.key, value)
                 }}
               />
             )

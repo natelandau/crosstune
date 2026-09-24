@@ -7,14 +7,7 @@
  * through the contract, as `src/api/vocabulary.ts`; the label tables below are typed against
  * them, so a new server value fails the build until it has a label.
  */
-import { TIME_SIGNATURES } from './api/vocabulary'
-import type {
-  AudioQuality,
-  Instrument,
-  Provider,
-  TimeSignature,
-  TuneStatus,
-} from './api/vocabulary'
+import type { AudioQuality, Instrument, Provider, TuneStatus } from './api/vocabulary'
 
 // ---- Instruments and tunings ---------------------------------------------------------------
 
@@ -126,16 +119,6 @@ export const FEELS = [
 ]
 
 export const PART_STRUCTURES = ['AABB', 'AABBCC', 'AB', 'ABC', 'AAB', 'ABB']
-
-/**
- * Time signatures offered on the picker. TIME_SIGNATURES already carries 3/2 so a stored 3/2
- * value displays correctly, but it stays off this list until the API that accepts it is live
- * on both hosts: one tag deploys both sides in either order, and a client-first deploy or an
- * API rollback would otherwise refuse the edit and lose it.
- */
-export const OFFERED_TIME_SIGNATURES: readonly TimeSignature[] = TIME_SIGNATURES.filter(
-  (value) => value !== '3/2',
-)
 
 // ---- Labels --------------------------------------------------------------------------------
 
