@@ -1,4 +1,4 @@
-"""Named, ordered lists of a user's songs."""
+"""Named, ordered lists of a user's tunes."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class List(SyncColumns, Base):
 
 
 class ListItem(SyncColumns, Base):
-    """References the user's record of a song, so a setlist carries that player's status and notes."""
+    """References the user's record of a tune, so a setlist carries that player's status and notes."""
 
     __tablename__ = "list_items"
     __table_args__ = (Index("ix_list_items_list_id_server_seq", "list_id", "server_seq"),)
@@ -36,9 +36,9 @@ class ListItem(SyncColumns, Base):
     list_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("lists.id", ondelete="CASCADE"), nullable=False
     )
-    user_song_id: Mapped[uuid.UUID] = mapped_column(
+    user_tune_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("user_songs.id", ondelete="CASCADE"),
+        ForeignKey("user_tunes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )

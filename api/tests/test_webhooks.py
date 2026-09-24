@@ -16,7 +16,7 @@ import pytest
 from sqlalchemy import select
 
 from crosstune.auth.webhooks import verify_svix_signature
-from crosstune.models import Song, User
+from crosstune.models import Tune, User
 from tests.fakes import FakeObjectStore
 from tests.test_push import T0, change, push, uid
 
@@ -82,8 +82,8 @@ def test_non_ascii_signature_fails() -> None:
 async def test_user_deleted_purges_account_and_data(
     client, auth_headers, verify_session: AsyncSession
 ) -> None:
-    song = uid()
-    await push(client, auth_headers("user_gone"), change("songs", song, T0, title="X"))
+    tune = uid()
+    await push(client, auth_headers("user_gone"), change("tunes", tune, T0, title="X"))
     body = json.dumps(
         {"type": "user.deleted", "data": {"id": "user_gone", "deleted": True}}
     ).encode()
@@ -96,7 +96,7 @@ async def test_user_deleted_purges_account_and_data(
     assert (
         await verify_session.scalar(select(User).where(User.clerk_user_id == "user_gone")) is None
     )
-    assert await verify_session.get(Song, uuid.UUID(song)) is None
+    assert await verify_session.get(Tune, uuid.UUID(tune)) is None
 
 
 async def test_bad_signature_is_401(client) -> None:

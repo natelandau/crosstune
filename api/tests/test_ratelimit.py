@@ -84,13 +84,13 @@ async def test_push_resolves_links_only_within_the_callers_limit(
     urls = [f"https://band{n}.bandcamp.com/track/a" for n in range(5)]
     for url in urls:
         mock_http.add(url, httpx2.Response(200, text=og_html("Title")))
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         *[
-            change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp")
+            change("recording_links", uid(), T0, tune_id=tune, url=url, provider="bandcamp")
             for url in urls
         ],
     )
@@ -105,12 +105,12 @@ async def test_push_and_the_resolve_route_share_one_limit(app, client, auth_head
     app.state.link_resolve_limiter = RateLimiter(limit=1, window_seconds=60.0)
     url = "https://one.bandcamp.com/track/a"
     mock_http.add(url, httpx2.Response(200, text=og_html("One")))
-    song = uid()
+    tune = uid()
     await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
-        change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp"),
+        change("tunes", tune, T0, title="X"),
+        change("recording_links", uid(), T0, tune_id=tune, url=url, provider="bandcamp"),
     )
     response = await client.post(
         "/v1/links/resolve", json={"url": url}, headers=auth_headers("user_a")

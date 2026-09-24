@@ -32,7 +32,7 @@ async def test_catalog_tables_exist(session: AsyncSession) -> None:
         text("select table_name from information_schema.tables where table_schema = 'public'")
     )
     tables = {row[0] for row in result}
-    assert {"songs", "user_songs", "recording_links", "lists", "list_items"} <= tables
+    assert {"tunes", "user_tunes", "recording_links", "lists", "list_items"} <= tables
 
 
 async def test_mode_check_constraint_accepts_modal(session: AsyncSession) -> None:
@@ -44,12 +44,12 @@ async def test_mode_check_constraint_accepts_modal(session: AsyncSession) -> Non
     )
     await session.execute(
         text(
-            "insert into songs (id, owner_user_id, title, mode, is_crooked, created_at, updated_at) "
+            "insert into tunes (id, owner_user_id, title, mode, is_crooked, created_at, updated_at) "
             "values ('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
             "'Cluck Old Hen', 'modal', false, now(), now())"
         )
     )
-    stored = await session.execute(text("select mode from songs"))
+    stored = await session.execute(text("select mode from tunes"))
     assert stored.scalar_one() == "modal"
 
 
@@ -63,7 +63,7 @@ async def test_time_signature_check_constraint_rejects_unknown_value(session: As
     with pytest.raises(DBAPIError):
         await session.execute(
             text(
-                "insert into songs (id, owner_user_id, title, time_signature, is_crooked, created_at, updated_at) "
+                "insert into tunes (id, owner_user_id, title, time_signature, is_crooked, created_at, updated_at) "
                 "values ('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
                 "'Angeline the Baker', '7/8', false, now(), now())"
             )
@@ -79,18 +79,18 @@ async def test_server_seq_is_assigned_on_insert(session: AsyncSession) -> None:
     )
     await session.execute(
         text(
-            "insert into songs (id, owner_user_id, title, is_crooked, created_at, updated_at) "
+            "insert into tunes (id, owner_user_id, title, is_crooked, created_at, updated_at) "
             "values ('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
             "'Angeline the Baker', false, now(), now())"
         )
     )
-    result = await session.execute(text("select server_seq from songs"))
+    result = await session.execute(text("select server_seq from tunes"))
     assert result.scalar_one() >= 1
 
 
-async def test_songs_carry_one_tuning_column_per_instrument(session: AsyncSession) -> None:
+async def test_tunes_carry_one_tuning_column_per_instrument(session: AsyncSession) -> None:
     result = await session.execute(
-        text("select column_name from information_schema.columns where table_name = 'songs'")
+        text("select column_name from information_schema.columns where table_name = 'tunes'")
     )
     columns = {row[0] for row in result}
     assert {"violin_tuning", "banjo_tuning"} <= columns
@@ -161,7 +161,7 @@ async def test_downgrade_to_0002_and_back_restores_head_shape(
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
     result = await session.execute(
-        text("select column_name from information_schema.columns where table_name = 'songs'")
+        text("select column_name from information_schema.columns where table_name = 'tunes'")
     )
     columns = {row[0] for row in result}
     assert {"violin_tuning", "banjo_tuning"} <= columns
@@ -222,7 +222,7 @@ async def test_recording_links_accept_the_new_providers(session: AsyncSession) -
     )
     await session.execute(
         text(
-            "insert into songs (id, owner_user_id, title, is_crooked, created_at, updated_at) "
+            "insert into tunes (id, owner_user_id, title, is_crooked, created_at, updated_at) "
             "values ('018f0000-0000-7000-8000-000000000002', "
             "'018f0000-0000-7000-8000-000000000001', 'Ground Hog', false, now(), now())"
         )
@@ -235,7 +235,7 @@ async def test_recording_links_accept_the_new_providers(session: AsyncSession) -
         await session.execute(
             text(
                 "insert into recording_links "
-                "(id, song_id, added_by_user_id, url, provider, created_at, updated_at) "
+                "(id, tune_id, added_by_user_id, url, provider, created_at, updated_at) "
                 "values (:id, '018f0000-0000-7000-8000-000000000002', "
                 "'018f0000-0000-7000-8000-000000000001', 'https://x', :provider, now(), now())"
             ),
@@ -340,7 +340,7 @@ async def test_0006_creates_recordings_jobs_and_upload_slots(session: AsyncSessi
         )
     )
     by_name = {name: (nullable, default) for name, nullable, default in columns}
-    assert by_name["song_id"][0] == "YES"
+    assert by_name["tune_id"][0] == "YES"
     assert by_name["state"][0] == "NO"
     assert "pending_upload" in (by_name["state"][1] or "")
     assert "nextval('sync_seq'" in by_name["server_seq"][1]
@@ -376,7 +376,7 @@ async def test_0006_adds_audio_quality_with_a_standard_default(session: AsyncSes
         )
 
 
-async def test_0006_unfiles_a_recording_when_its_song_is_deleted(session: AsyncSession) -> None:
+async def test_0006_unfiles_a_recording_when_its_tune_is_deleted(session: AsyncSession) -> None:
     await session.execute(
         text(
             "insert into users (id, clerk_user_id, created_at, updated_at) "
@@ -385,24 +385,24 @@ async def test_0006_unfiles_a_recording_when_its_song_is_deleted(session: AsyncS
     )
     await session.execute(
         text(
-            "insert into songs (id, owner_user_id, title, is_crooked, created_at, updated_at) "
+            "insert into tunes (id, owner_user_id, title, is_crooked, created_at, updated_at) "
             "values ('018f0000-0000-7000-8000-00000000001b', "
             "'018f0000-0000-7000-8000-00000000001a', 'Ducks on the Millpond', false, now(), now())"
         )
     )
     await session.execute(
         text(
-            "insert into recordings (id, user_id, song_id, source, recorded_at, position, "
+            "insert into recordings (id, user_id, tune_id, source, recorded_at, position, "
             "created_at, updated_at) values ('018f0000-0000-7000-8000-00000000001c', "
             "'018f0000-0000-7000-8000-00000000001a', '018f0000-0000-7000-8000-00000000001b', "
             "'microphone', now(), 0, now(), now())"
         )
     )
     await session.execute(
-        text("delete from songs where id = '018f0000-0000-7000-8000-00000000001b'")
+        text("delete from tunes where id = '018f0000-0000-7000-8000-00000000001b'")
     )
     row = await session.execute(
-        text("select song_id from recordings where id = '018f0000-0000-7000-8000-00000000001c'")
+        text("select tune_id from recordings where id = '018f0000-0000-7000-8000-00000000001c'")
     )
     assert row.scalar_one() is None
 
@@ -450,9 +450,9 @@ async def test_downgrade_to_0005_and_back_restores_head_shape(
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
 
-async def test_songs_carries_lyrics_and_not_has_lyrics(session: AsyncSession) -> None:
+async def test_tunes_carry_lyrics_and_not_has_lyrics(session: AsyncSession) -> None:
     result = await session.execute(
-        text("select column_name from information_schema.columns where table_name = 'songs'")
+        text("select column_name from information_schema.columns where table_name = 'tunes'")
     )
     columns = {row[0] for row in result}
     assert "lyrics" in columns
@@ -479,7 +479,7 @@ async def test_downgrade_to_0006_and_back_restores_head_shape(
         )
         await conn.execute(
             text(
-                "insert into songs (id, owner_user_id, title, lyrics, is_crooked, "
+                "insert into tunes (id, owner_user_id, title, lyrics, is_crooked, "
                 "created_at, updated_at) values "
                 "(:id, :owner, 'Old Joe Clark', 'true love never was a burden', "
                 "false, now(), now())"
@@ -488,7 +488,7 @@ async def test_downgrade_to_0006_and_back_restores_head_shape(
         )
         await conn.execute(
             text(
-                "insert into songs (id, owner_user_id, title, lyrics, is_crooked, "
+                "insert into tunes (id, owner_user_id, title, lyrics, is_crooked, "
                 "created_at, updated_at) values "
                 "(:id, :owner, 'Cripple Creek', '', false, now(), now())"
             ),
@@ -509,7 +509,7 @@ async def test_downgrade_to_0006_and_back_restores_head_shape(
 
     async with engine.connect() as conn:
         result = await conn.execute(
-            text("select column_name from information_schema.columns where table_name = 'songs'")
+            text("select column_name from information_schema.columns where table_name = 'tunes'")
         )
         columns = {row[0] for row in result}
     assert "lyrics" in columns
@@ -600,8 +600,8 @@ async def test_0010_drops_indexes_a_composite_index_covers_and_downgrade_restore
     head = await _index_names(engine)
     assert not REDUNDANT_INDEXES & head
     assert {
-        "ix_songs_owner_user_id_server_seq",
-        "ix_user_songs_user_id_server_seq",
+        "ix_tunes_owner_user_id_server_seq",
+        "ix_user_tunes_user_id_server_seq",
         "ix_recording_links_added_by_user_id_server_seq",
         "ix_lists_user_id_server_seq",
         "ix_list_items_list_id_server_seq",
@@ -613,3 +613,115 @@ async def test_0010_drops_indexes_a_composite_index_covers_and_downgrade_restore
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
     assert await _index_names(engine) == head
+
+
+async def test_0011_names_every_table_column_constraint_and_index_for_tunes(
+    session: AsyncSession,
+) -> None:
+    result = await session.execute(
+        text("select table_name from information_schema.tables where table_schema = 'public'")
+    )
+    tables = {row[0] for row in result}
+    assert {"tunes", "user_tunes"} <= tables
+    assert not {"songs", "user_songs"} & tables
+
+    for query in (
+        (
+            "select table_name || '.' || column_name from information_schema.columns "
+            "where table_schema = 'public' and column_name like '%song%'"
+        ),
+        "select conname from pg_constraint where conname like '%song%'",
+        "select indexname from pg_indexes where schemaname = 'public' and indexname like '%song%'",
+    ):
+        assert (await session.execute(text(query))).all() == [], query
+
+
+async def test_0011_downgrade_and_back_keeps_every_tune_and_its_references(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000031"
+    tune = "018f0000-0000-7000-8000-000000000032"
+    user_tune = "018f0000-0000-7000-8000-000000000033"
+    list_id = "018f0000-0000-7000-8000-000000000034"
+    item = "018f0000-0000-7000-8000-000000000035"
+    # command.downgrade drives migrations on its own connection, so these rows must be
+    # committed here rather than left on the session fixture's rolled-back transaction.
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_rename', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, is_crooked, created_at, updated_at) "
+                "values (:id, :owner, 'Sail Away Ladies', false, now(), now())"
+            ),
+            {"id": tune, "owner": user},
+        )
+        await conn.execute(
+            text(
+                "insert into user_tunes (id, user_id, tune_id, status, created_at, updated_at) "
+                "values (:id, :user, :tune, 'known', now(), now())"
+            ),
+            {"id": user_tune, "user": user, "tune": tune},
+        )
+        await conn.execute(
+            text(
+                "insert into lists (id, user_id, name, position, created_at, updated_at) "
+                "values (:id, :user, 'Friday', 0, now(), now())"
+            ),
+            {"id": list_id, "user": user},
+        )
+        await conn.execute(
+            text(
+                "insert into list_items (id, list_id, user_tune_id, position, created_at, "
+                "updated_at) values (:id, :list, :user_tune, 0, now(), now())"
+            ),
+            {"id": item, "list": list_id, "user_tune": user_tune},
+        )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0010")
+        async with engine.connect() as conn:
+            row = (
+                await conn.execute(
+                    text(
+                        "select us.song_id::text, li.user_song_id::text from user_songs us "
+                        "join list_items li on li.user_song_id = us.id"
+                    )
+                )
+            ).one()
+            # Matches the prefixes/infixes the migration itself renames by, so a stray
+            # "tuning" column (violin_tuning, banjo_tuning) cannot false-positive.
+            leftover = (
+                await conn.execute(
+                    text(
+                        "select conname from pg_constraint "
+                        "where conname ~ '^tunes_' or conname ~ '^user_tunes_' "
+                        "or conname ~ '_tune_id' or conname ~ '_user_tune_id' "
+                        "union all "
+                        "select indexname from pg_indexes where schemaname = 'public' "
+                        "and (indexname ~ '^tunes_' or indexname ~ '^user_tunes_' "
+                        "or indexname ~ '_tune_id' or indexname ~ '_user_tune_id')"
+                    )
+                )
+            ).all()
+            assert leftover == []
+        assert tuple(row) == (tune, user_tune)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        row = (
+            await conn.execute(
+                text(
+                    "select ut.tune_id::text, li.user_tune_id::text from user_tunes ut "
+                    "join list_items li on li.user_tune_id = ut.id"
+                )
+            )
+        ).one()
+    assert tuple(row) == (tune, user_tune)

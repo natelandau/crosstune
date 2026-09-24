@@ -6,21 +6,22 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from crosstune.schemas.legacy import current_change
 from crosstune.schemas.rows import (
     ListItemRow,
     ListRow,
     RecordingLinkRow,
     RecordingRow,
-    SongRow,
+    TuneRow,
     UserSettingsRow,
-    UserSongRow,
+    UserTuneRow,
 )
 
 TableName = Literal[
-    "songs",
-    "user_songs",
+    "tunes",
+    "user_tunes",
     "lists",
     "list_items",
     "recording_links",
@@ -42,6 +43,11 @@ class Change(BaseModel):
     updated_at: datetime
     data: dict[str, Any] | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _read_song_names(cls, value: Any) -> Any:
+        return current_change(value)
+
 
 class _ChangeResult(BaseModel):
     """What happened to one change. row carries the current server row for stale and applied."""
@@ -51,18 +57,18 @@ class _ChangeResult(BaseModel):
     reason: str | None = None
 
 
-class SongChangeResult(_ChangeResult):
-    """The outcome of one change to a song."""
+class TuneChangeResult(_ChangeResult):
+    """The outcome of one change to a tune."""
 
-    table: Literal["songs"]
-    row: SongRow | None = None
+    table: Literal["tunes"]
+    row: TuneRow | None = None
 
 
-class UserSongChangeResult(_ChangeResult):
-    """The outcome of one change to a user song."""
+class UserTuneChangeResult(_ChangeResult):
+    """The outcome of one change to a user tune."""
 
-    table: Literal["user_songs"]
-    row: UserSongRow | None = None
+    table: Literal["user_tunes"]
+    row: UserTuneRow | None = None
 
 
 class ListChangeResult(_ChangeResult):
@@ -101,8 +107,8 @@ class UserSettingsChangeResult(_ChangeResult):
 
 
 ChangeResult = Annotated[
-    SongChangeResult
-    | UserSongChangeResult
+    TuneChangeResult
+    | UserTuneChangeResult
     | ListChangeResult
     | ListItemChangeResult
     | RecordingLinkChangeResult
@@ -112,8 +118,8 @@ ChangeResult = Annotated[
 ]
 
 CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
-    "songs": SongChangeResult,
-    "user_songs": UserSongChangeResult,
+    "tunes": TuneChangeResult,
+    "user_tunes": UserTuneChangeResult,
     "lists": ListChangeResult,
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
@@ -122,18 +128,18 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
 }
 
 
-class SongPullRow(BaseModel):
-    """A song row in a pull page."""
+class TunePullRow(BaseModel):
+    """A tune row in a pull page."""
 
-    table: Literal["songs"]
-    row: SongRow
+    table: Literal["tunes"]
+    row: TuneRow
 
 
-class UserSongPullRow(BaseModel):
-    """A user song row in a pull page."""
+class UserTunePullRow(BaseModel):
+    """A user tune row in a pull page."""
 
-    table: Literal["user_songs"]
-    row: UserSongRow
+    table: Literal["user_tunes"]
+    row: UserTuneRow
 
 
 class ListPullRow(BaseModel):
@@ -172,8 +178,8 @@ class UserSettingsPullRow(BaseModel):
 
 
 PullRow = Annotated[
-    SongPullRow
-    | UserSongPullRow
+    TunePullRow
+    | UserTunePullRow
     | ListPullRow
     | ListItemPullRow
     | RecordingLinkPullRow
@@ -183,8 +189,8 @@ PullRow = Annotated[
 ]
 
 PULL_ROWS: dict[TableName, type[BaseModel]] = {
-    "songs": SongPullRow,
-    "user_songs": UserSongPullRow,
+    "tunes": TunePullRow,
+    "user_tunes": UserTunePullRow,
     "lists": ListPullRow,
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,

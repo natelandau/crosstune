@@ -1,4 +1,4 @@
-import type { Mode, SongStatus, TimeSignature } from '../api/vocabulary'
+import type { Mode, TuneStatus, TimeSignature } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
 import { SONG_NOT_FOUND } from './messages'
 import { tombstoneSongRecordings } from './recordings'
@@ -20,7 +20,7 @@ export interface SongInput {
 }
 
 export interface UserSongInput {
-  status: SongStatus
+  status: TuneStatus
   learned_from?: string | null
   learned_on?: string | null
   notes?: string | null

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
-import type { SongStatus } from '../../api/vocabulary'
+import type { TuneStatus } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { StatusChooser } from './StatusChooser'
 
-function Host({ initial = 'want_to_learn' }: { initial?: SongStatus }) {
-  const [value, setValue] = useState<SongStatus>(initial)
+function Host({ initial = 'want_to_learn' }: { initial?: TuneStatus }) {
+  const [value, setValue] = useState<TuneStatus>(initial)
   return (
     <>
       <StatusChooser value={value} onChange={setValue} />
@@ -68,7 +68,7 @@ describe('StatusChooser', () => {
 
   it('leads with All where it filters rather than edits', async () => {
     function Filter() {
-      const [value, setValue] = useState<SongStatus | 'all'>('all')
+      const [value, setValue] = useState<TuneStatus | 'all'>('all')
       return (
         <>
           <StatusChooser value={value} onChange={setValue} includeAll />

@@ -16,7 +16,7 @@ LINK = LIMITS["recording_links"]
 
 
 class RecordingLink(SyncColumns, Base):
-    """Attached to the song, with the user who added it, so links become shared value later."""
+    """Attached to the tune, with the user who added it, so links become shared value later."""
 
     __tablename__ = "recording_links"
     __table_args__ = (
@@ -27,8 +27,8 @@ class RecordingLink(SyncColumns, Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    song_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("songs.id", ondelete="CASCADE"), nullable=False, index=True
+    tune_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tunes.id", ondelete="CASCADE"), nullable=False, index=True
     )
     added_by_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False

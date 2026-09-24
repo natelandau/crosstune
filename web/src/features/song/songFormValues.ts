@@ -2,7 +2,7 @@ import {
   MODES,
   TIME_SIGNATURES,
   type Mode,
-  type SongStatus,
+  type TuneStatus,
   type TimeSignature,
 } from '../../api/vocabulary'
 import type { SongInput, UserSongInput } from '../../commands/songs'
@@ -22,7 +22,7 @@ export interface SongFormValues {
   time_signature: TimeSignature | ''
   is_crooked: boolean
   lyrics: string
-  status: SongStatus
+  status: TuneStatus
   learned_from: string
   learned_on: string
   notes: string

@@ -19,8 +19,8 @@ class Instrument(StrEnum):
     BANJO = "banjo"
 
 
-class SongStatus(StrEnum):
-    """Where a player stands with a song."""
+class TuneStatus(StrEnum):
+    """Where a player stands with a tune."""
 
     KNOWN = "known"
     LEARNING = "learning"
@@ -28,7 +28,7 @@ class SongStatus(StrEnum):
 
 
 class Mode(StrEnum):
-    """A song's mode."""
+    """A tune's mode."""
 
     MAJOR = "major"
     MINOR = "minor"
@@ -39,7 +39,7 @@ class Mode(StrEnum):
 
 
 class TimeSignature(StrEnum):
-    """A song's time signature."""
+    """A tune's time signature."""
 
     FOUR_FOUR = "4/4"
     TWO_FOUR = "2/4"
@@ -92,7 +92,7 @@ class RecordingState(StrEnum):
 # Maximum lengths, by table then field. A column with a width takes it from here, the
 # row schema publishes it, and the client stops input at it.
 LIMITS: Final[dict[str, dict[str, int]]] = {
-    "songs": {
+    "tunes": {
         "title": 200,
         "alternate_titles": 200,
         "key": 10,
@@ -103,7 +103,7 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
         "part_structure": 100,
         "lyrics": 20_000,
     },
-    "user_songs": {
+    "user_tunes": {
         "learned_from": 200,
         "notes": 20_000,
     },

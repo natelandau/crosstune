@@ -186,16 +186,16 @@ async def test_resolve_endpoint_requires_auth(client) -> None:
 
 async def test_push_enriches_untitled_link(client, auth_headers, mock_http) -> None:
     mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         change(
             "recording_links",
             uid(),
             T0,
-            song_id=song,
+            tune_id=tune,
             url="https://youtu.be/dQw4w9WgXcQ",
             provider="youtube",
         ),
@@ -205,16 +205,16 @@ async def test_push_enriches_untitled_link(client, auth_headers, mock_http) -> N
 
 
 async def test_push_keeps_client_title(client, auth_headers, mock_http) -> None:
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         change(
             "recording_links",
             uid(),
             T0,
-            song_id=song,
+            tune_id=tune,
             url="https://youtu.be/dQw4w9WgXcQ",
             provider="youtube",
             title="Mine",
@@ -236,13 +236,13 @@ async def test_push_enriches_every_untitled_link_in_a_batch(client, auth_headers
     }
     for url, title in titles.items():
         mock_http.add(url, httpx2.Response(200, text=og_html(title)))
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         *[
-            change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp")
+            change("recording_links", uid(), T0, tune_id=tune, url=url, provider="bandcamp")
             for url in titles
         ],
     )
@@ -254,13 +254,13 @@ async def test_push_stores_an_unresolvable_link_untitled(client, auth_headers, m
     good = "https://good.bandcamp.com/track/a"
     bad = "https://bad.bandcamp.com/track/b"
     mock_http.add(good, httpx2.Response(200, text=og_html("Good")))
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
-        change("recording_links", uid(), T0, song_id=song, url=good, provider="bandcamp"),
-        change("recording_links", uid(), T0, song_id=song, url=bad, provider="bandcamp"),
+        change("tunes", tune, T0, title="X"),
+        change("recording_links", uid(), T0, tune_id=tune, url=good, provider="bandcamp"),
+        change("recording_links", uid(), T0, tune_id=tune, url=bad, provider="bandcamp"),
     )
     assert [r["status"] for r in results] == ["applied"] * 3
     assert {r["row"]["url"]: r["row"]["title"] for r in results[1:]} == {good: "Good", bad: None}
@@ -268,16 +268,16 @@ async def test_push_stores_an_unresolvable_link_untitled(client, auth_headers, m
 
 async def test_push_stores_the_canonical_url_of_an_enriched_link(client, auth_headers, mock_http):
     mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         change(
             "recording_links",
             uid(),
             T0,
-            song_id=song,
+            tune_id=tune,
             url="https://youtu.be/dQw4w9WgXcQ?t=42",
             provider="youtube",
         ),
@@ -390,16 +390,16 @@ async def test_bandcamp_page_failure_yields_no_title_or_ref(mock_http) -> None:
 async def test_push_detects_the_provider_of_a_titled_link_sent_as_other(
     client, auth_headers, mock_http
 ):
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         change(
             "recording_links",
             uid(),
             T0,
-            song_id=song,
+            tune_id=tune,
             url="https://tidal.com/browse/track/45670321/u",
             provider="other",
             title="Ground Hog",
@@ -416,12 +416,12 @@ async def test_push_detects_the_provider_of_a_titled_link_sent_as_other(
 async def test_push_stores_the_bandcamp_embed_id(client, auth_headers, mock_http):
     url = "https://tylerchilders.bandcamp.com/album/live"
     mock_http.add(url, httpx2.Response(200, text=BANDCAMP_HTML))
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
-        change("recording_links", uid(), T0, song_id=song, url=url, provider="bandcamp"),
+        change("tunes", tune, T0, title="X"),
+        change("recording_links", uid(), T0, tune_id=tune, url=url, provider="bandcamp"),
     )
     assert results[1]["row"]["provider_ref"] == "album:84352595"
 
@@ -439,9 +439,9 @@ async def test_open_graph_follows_a_public_redirect(mock_http) -> None:
 
 async def test_a_link_on_a_private_address_resolves_untitled(guarded_http) -> None:
     async with guarded_http.client({"internal.example": ["10.0.0.5"]}) as client:
-        link = await resolve_link("https://internal.example/song", client, timeout=5.0)
+        link = await resolve_link("https://internal.example/tune", client, timeout=5.0)
     assert link.provider == "other"
-    assert link.url == "https://internal.example/song"
+    assert link.url == "https://internal.example/tune"
     assert link.title is None
     assert guarded_http.calls == []
 
@@ -489,16 +489,16 @@ async def test_push_holds_no_connection_while_it_resolves_links(
     mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
     seen: list[int] = []
     app.state.http_client = _pool_watching_client(engine, mock_http, seen)
-    song = uid()
+    tune = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change("songs", song, T0, title="X"),
+        change("tunes", tune, T0, title="X"),
         change(
             "recording_links",
             uid(),
             T0,
-            song_id=song,
+            tune_id=tune,
             url="https://youtu.be/dQw4w9WgXcQ",
             provider="youtube",
         ),

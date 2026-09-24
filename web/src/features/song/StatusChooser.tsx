@@ -1,4 +1,4 @@
-import { STATUSES, type SongStatus } from '../../api/vocabulary'
+import { STATUSES, type TuneStatus } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import { Capsule } from '../../ui/Capsule'
 import { Rail } from '../../ui/Rail'
@@ -9,7 +9,7 @@ import { isSongStatus } from '../catalog/status'
  * slate, so the chosen dot takes the contrast color instead of vanishing into the fill it sits
  * on. The label carries the meaning either way: status is never color alone.
  */
-const DOT: Record<SongStatus, { rest: string; chosen: string }> = {
+const DOT: Record<TuneStatus, { rest: string; chosen: string }> = {
   known: {
     rest: 'bg-(--ion-color-success)',
     chosen: 'bg-(--ion-color-primary-contrast)',
@@ -35,13 +35,13 @@ type ChooserProps =
   | {
       /** The stored status, which may be a value this client cannot read. */
       value: string
-      onChange: (value: SongStatus) => void
+      onChange: (value: TuneStatus) => void
       includeAll?: false
     }
   | {
       /** The filter's status, or `all` while it narrows nothing. */
       value: string
-      onChange: (value: SongStatus | 'all') => void
+      onChange: (value: TuneStatus | 'all') => void
       /** Leads the row with All, for the catalog, where this narrows a list rather than
        * setting a song's own status. */
       includeAll: true
@@ -58,7 +58,7 @@ export function StatusChooser({ value, onChange, includeAll = false }: ChooserPr
           pressed={current === null}
           label="All"
           // Only the includeAll arm can be reached here, and only it accepts `all`.
-          onPress={() => (onChange as (value: SongStatus | 'all') => void)('all')}
+          onPress={() => (onChange as (value: TuneStatus | 'all') => void)('all')}
         >
           All
         </Capsule>

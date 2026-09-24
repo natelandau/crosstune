@@ -7,7 +7,7 @@
  * through the contract, as `src/api/vocabulary.ts`; the label tables below are typed against
  * them, so a new server value fails the build until it has a label.
  */
-import type { AudioQuality, Instrument, Provider, SongStatus } from './api/vocabulary'
+import type { AudioQuality, Instrument, Provider, TuneStatus } from './api/vocabulary'
 import type { TuningField } from './features/settings/instruments'
 
 // ---- Instruments and tunings ---------------------------------------------------------------
@@ -93,7 +93,7 @@ export const PART_STRUCTURES = ['AABB', 'AABBCC', 'AB', 'ABC', 'AAB', 'ABB']
 
 // ---- Labels --------------------------------------------------------------------------------
 
-export const STATUS_LABELS: Record<SongStatus, string> = {
+export const STATUS_LABELS: Record<TuneStatus, string> = {
   known: 'Known',
   learning: 'Learning',
   want_to_learn: 'Unknown',
