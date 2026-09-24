@@ -18,7 +18,7 @@
     description = "Crosstune API"
     name = "crosstune"
     requires-python = ">=3.13,<3.14"
-    version = "0.6.0"
+    version = "0.6.1"
 
 [build-system]
     build-backend = "uv_build"

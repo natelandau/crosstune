@@ -1,3 +1,16 @@
+## v0.6.1 (2026-09-24)
+
+### Fix
+
+- **api**: refuse recording links with a non-web URL scheme
+- **sync**: keep a write made in the same millisecond as the last
+- **api**: harden uploads, request bodies, and link handling (#48)
+
+### Refactor
+
+- **api**: rename songs to tunes in the schema and sync API (#50)
+- **config**: drop the guard against retired environment names
+
 ## v0.6.0 (2026-09-23)
 
 ### Feat
