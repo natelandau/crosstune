@@ -171,7 +171,9 @@ A change to the shape of a synced row:
   between the pre-deploy migration and the new API passing its healthcheck.
   Sync requests that touch the changed table fail with a retryable 5xx and
   no edit is lost, but a transcode claimed in that gap uses one retry. A
-  push that touches only unchanged tables still succeeds in that window.
+  pull reads every table, so every pull fails in that window. A push
+  succeeds only when neither its rows nor their parent rows are in the
+  changed table.
 
 Rollback:
 
