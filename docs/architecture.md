@@ -90,8 +90,9 @@ Push:
   alike. `operations.md` says how to release a schema change.
 - Push reads a change in tune names or in the wire's first names (`songs`,
   `user_songs`, `song_id`, `user_song_id`). Push and pull answer in the first
-  names unless the request asks with `names=tunes`. Each request answered in
-  the first names logs `sync: song names` with its `X-Client-Version`.
+  names unless the request asks with `names=tunes`; an invalid result's
+  reason stays in tune names. Each request answered in the first names logs
+  `sync: song names` with its `X-Client-Version`.
 
 Pull:
 

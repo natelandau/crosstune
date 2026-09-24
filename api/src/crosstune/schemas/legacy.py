@@ -44,6 +44,8 @@ def current_change(value: Any) -> Any:
 def song_names(entry: dict[str, Any]) -> dict[str, Any]:
     """A serialized change result or pull row in song names.
 
+    A result's reason is diagnostic text and stays in tune names.
+
     Args:
         entry: One result or pull row, as JSON-ready data.
 
