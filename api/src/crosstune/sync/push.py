@@ -16,6 +16,7 @@ from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.models import List, ListItem, Recording, RecordingLink, Tune, UserTune
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
 from crosstune.schemas.rows import TuneData, Tunings
+from crosstune.sync.legacy_tune_shape import reconcile_tune
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
 if TYPE_CHECKING:
@@ -195,6 +196,7 @@ async def _upsert(
     data = validated.model_dump()
     if spec.name == "tunes":
         data = await _fold_legacy_tunings(session, user_id, change.id, validated, data)
+        data = reconcile_tune(data, sent=(change.data or {}).keys())
 
     reason = await _parents_owned(session, spec, data, user_id)
     if reason:

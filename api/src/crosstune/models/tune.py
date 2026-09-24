@@ -10,8 +10,8 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
-from crosstune.models._checks import in_list
-from crosstune.vocabulary import LIMITS, Mode, TimeSignature
+from crosstune.models._checks import in_list, within_list
+from crosstune.vocabulary import LIMITS, MAX_MODES, Mode, TimeSignature
 
 TUNE = LIMITS["tunes"]
 
@@ -22,6 +22,7 @@ class Tune(SyncColumns, Base):
     __tablename__ = "tunes"
     __table_args__ = (
         CheckConstraint(in_list("mode", tuple(Mode)), name="ck_tunes_mode"),
+        CheckConstraint(within_list("modes", tuple(Mode), MAX_MODES), name="ck_tunes_modes"),
         CheckConstraint(
             in_list("time_signature", tuple(TimeSignature)), name="ck_tunes_time_signature"
         ),
@@ -42,9 +43,14 @@ class Tune(SyncColumns, Base):
     )
     genre: Mapped[str | None] = mapped_column(String(TUNE["genre"]), nullable=True)
     feel: Mapped[str | None] = mapped_column(String(TUNE["feel"]), nullable=True)
+    tune_type: Mapped[str | None] = mapped_column(String(TUNE["tune_type"]), nullable=True)
     lyrics: Mapped[str | None] = mapped_column(Text, nullable=True)
     key: Mapped[str | None] = mapped_column(String(TUNE["key"]), nullable=True)
     mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    modes: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), nullable=False, default=list, server_default="{}"
+    )
+    composer: Mapped[str | None] = mapped_column(String(TUNE["composer"]), nullable=True)
     tunings: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )

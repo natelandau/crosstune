@@ -42,6 +42,48 @@ describe('songFormValues', () => {
     expect(values).toMatchObject({ mode: '', time_signature: '', status: 'want_to_learn' })
   })
 
+  it('keeps an unrecognized time signature on save when the field is left alone', () => {
+    const song = songRow('s1', 'Odd', { time_signature: '7/8' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    const { song: out } = inputsFromValues(values)
+    expect(out.time_signature).toBe('7/8')
+  })
+
+  it('clears an unrecognized time signature once the player picks a value', () => {
+    const song = songRow('s1', 'Odd', { time_signature: '7/8' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    const { song: out } = inputsFromValues({
+      ...values,
+      time_signature: '3/4',
+      time_signature_raw: null,
+    })
+    expect(out.time_signature).toBe('3/4')
+  })
+
+  it('has no raw time signature to fall back to for a new song', () => {
+    const { song: out } = inputsFromValues(emptyValues())
+    expect(out.time_signature).toBe('4/4')
+  })
+
+  it('keeps an unrecognized mode on save when the field is left alone', () => {
+    const song = songRow('s1', 'Odd', { mode: 'lydian' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    const { song: out } = inputsFromValues(values)
+    expect(out.mode).toBe('lydian')
+  })
+
+  it('clears an unrecognized mode once the player picks a value', () => {
+    const song = songRow('s1', 'Odd', { mode: 'lydian' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    const { song: out } = inputsFromValues({ ...values, mode: 'dorian', mode_raw: null })
+    expect(out.mode).toBe('dorian')
+  })
+
+  it('has no raw mode to fall back to for a new song', () => {
+    const { song: out } = inputsFromValues(emptyValues())
+    expect(out.mode).toBeNull()
+  })
+
   it('carries lyrics through and nulls a whitespace-only body', () => {
     const song = songRow('s1', 'Uncle Joe', { lyrics: 'Did you ever go to meeting' })
     const values = valuesFromRows(song, userSongRow('u1', 's1'))

@@ -57,10 +57,15 @@ class TimeSignature(StrEnum):
     TWO_FOUR = "2/4"
     TWO_TWO = "2/2"
     THREE_FOUR = "3/4"
+    THREE_TWO = "3/2"
     SIX_EIGHT = "6/8"
     NINE_EIGHT = "9/8"
     TWELVE_EIGHT = "12/8"
     OTHER = "other"
+
+
+# One mode per part, for a tune whose parts change mode. Four covers an ABCD tune.
+MAX_MODES: Final[int] = 4
 
 
 class Provider(StrEnum):
@@ -110,7 +115,9 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
         "key": 10,
         "genre": 100,
         "feel": 100,
+        "tune_type": 100,
         "part_structure": 100,
+        "composer": 200,
         "lyrics": 20_000,
     },
     "user_tunes": {

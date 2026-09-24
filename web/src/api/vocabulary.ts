@@ -42,7 +42,17 @@ export const RECORDING_STATES = [
 ] as const
 export type RecordingState = (typeof RECORDING_STATES)[number]
 
-export const TIME_SIGNATURES = ['4/4', '2/4', '2/2', '3/4', '6/8', '9/8', '12/8', 'other'] as const
+export const TIME_SIGNATURES = [
+  '4/4',
+  '2/4',
+  '2/2',
+  '3/4',
+  '3/2',
+  '6/8',
+  '9/8',
+  '12/8',
+  'other',
+] as const
 export type TimeSignature = (typeof TIME_SIGNATURES)[number]
 
 export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
@@ -51,12 +61,15 @@ export type TuneStatus = (typeof STATUSES)[number]
 export const SONG_LIMITS = {
   alternate_titles: 200,
   banjo_tuning: 100,
+  composer: 200,
   feel: 100,
   genre: 100,
   key: 10,
   lyrics: 20000,
+  modes: 4,
   part_structure: 100,
   title: 200,
+  tune_type: 100,
   violin_tuning: 100,
   learned_from: 200,
   notes: 20000,

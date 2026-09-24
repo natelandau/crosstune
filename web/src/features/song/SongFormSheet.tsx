@@ -313,10 +313,14 @@ export function SongFormSheet({
                 other={field.other}
                 maxLength={field.maxLength}
                 onChange={(value) => {
-                  if (field.key === 'mode') set('mode', asMode(value))
-                  else if (field.key === 'time_signature')
+                  // A player's own pick or clear always wins over the row's raw value.
+                  if (field.key === 'mode') {
+                    set('mode', asMode(value))
+                    set('mode_raw', null)
+                  } else if (field.key === 'time_signature') {
                     set('time_signature', asTimeSignature(value))
-                  else set(field.key, value)
+                    set('time_signature_raw', null)
+                  } else set(field.key, value)
                 }}
               />
             )

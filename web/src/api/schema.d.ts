@@ -708,7 +708,7 @@ export interface components {
          * @description A tune's time signature.
          * @enum {string}
          */
-        TimeSignature: "4/4" | "2/4" | "2/2" | "3/4" | "6/8" | "9/8" | "12/8" | "other";
+        TimeSignature: "4/4" | "2/4" | "2/2" | "3/4" | "3/2" | "6/8" | "9/8" | "12/8" | "other";
         /**
          * TuneChangeResult
          * @description The outcome of one change to a tune.
@@ -757,6 +757,8 @@ export interface components {
             alternate_titles: string[];
             /** Banjo Tuning */
             banjo_tuning?: string | null;
+            /** Composer */
+            composer?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -783,6 +785,8 @@ export interface components {
             /** Lyrics */
             lyrics?: string | null;
             mode?: components["schemas"]["Mode"] | null;
+            /** Modes */
+            modes?: components["schemas"]["Mode"][] | null;
             /** Owner User Id */
             owner_user_id: string | null;
             /** Part Structure */
@@ -792,6 +796,8 @@ export interface components {
             time_signature?: components["schemas"]["TimeSignature"] | null;
             /** Title */
             title: string;
+            /** Tune Type */
+            tune_type?: string | null;
             /** @default {} */
             tunings: components["schemas"]["Tunings"];
             /**

@@ -174,6 +174,9 @@ A change to the shape of a synced row:
   pull reads every table, so every pull fails in that window. A push
   succeeds only when neither its rows nor their parent rows are in the
   changed table.
+- A value added to a validated vocabulary is recognized by the client in
+  one release and offered in the next, once the API that accepts it is
+  live on both hosts, because one tag deploys both sides in either order.
 
 Rollback:
 

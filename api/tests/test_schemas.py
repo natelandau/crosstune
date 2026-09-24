@@ -42,6 +42,38 @@ def test_tune_rejects_unknown_time_signature() -> None:
         TuneData(title="Sally Ann", time_signature="7/8", created_at=NOW)
 
 
+def test_tune_accepts_type_modes_and_composer() -> None:
+    tune = TuneData(
+        title="The Mason's Apron",
+        tune_type="Reel",
+        modes=["major", "minor"],
+        composer="Trad.",
+        created_at=NOW,
+    )
+    assert (tune.tune_type, tune.modes, tune.composer) == ("Reel", ["major", "minor"], "Trad.")
+
+
+def test_tune_rejects_a_fifth_mode() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", modes=["major"] * 5, created_at=NOW)
+
+
+def test_tune_rejects_an_unknown_part_mode() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", modes=["major", "lydian"], created_at=NOW)
+
+
+def test_tune_accepts_three_two_time() -> None:
+    assert (
+        TuneData(title="Dusty Miller", time_signature="3/2", created_at=NOW).time_signature == "3/2"
+    )
+
+
+def test_tune_rejects_a_composer_past_the_cap() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", composer="x" * 201, created_at=NOW)
+
+
 def test_tune_rejects_owner_field() -> None:
     with pytest.raises(ValidationError):
         TuneData(title="Sally Ann", owner_user_id="abc", created_at=NOW)
