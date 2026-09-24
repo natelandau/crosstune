@@ -108,8 +108,6 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
         "title": 200,
         "alternate_titles": 200,
         "key": 10,
-        "violin_tuning": 100,
-        "banjo_tuning": 100,
         "genre": 100,
         "feel": 100,
         "part_structure": 100,

@@ -13,6 +13,7 @@ from crosstune.schemas.rows import (
     RecordingLinkData,
     RecordingLinkRow,
     TuneData,
+    TuneRow,
     Tunings,
     UserSettingsData,
     UserTuneData,
@@ -125,9 +126,38 @@ def test_tune_rejects_the_retired_tuning_field() -> None:
         TuneData(title="Sally Ann", tuning="AEAE", created_at=NOW)
 
 
-def test_tune_accepts_a_tuning_per_instrument() -> None:
-    tune = TuneData(title="Sally Ann", violin_tuning="AEAE", banjo_tuning="gDGBD", created_at=NOW)
-    assert (tune.violin_tuning, tune.banjo_tuning) == ("AEAE", "gDGBD")
+def test_tune_accepts_a_tunings_map() -> None:
+    tune = TuneData(
+        title="Sally Ann",
+        tunings={"violin": {"tuning": "Cross A (AEAE)"}},
+        created_at=NOW,
+    )
+    assert tune.model_dump()["tunings"] == {"violin": {"tuning": "Cross A (AEAE)"}}
+
+
+def test_tune_defaults_to_no_tunings() -> None:
+    assert TuneData(title="Sally Ann", created_at=NOW).model_dump()["tunings"] == {}
+
+
+def test_tune_row_derives_the_legacy_tuning_fields() -> None:
+    row = TuneRow.model_validate(
+        {
+            "id": "018f0000-0000-7000-8000-000000000021",
+            "owner_user_id": None,
+            "title": "Sally Ann",
+            "tunings": {"violin": {"tuning": "AEAE"}, "five_string_banjo": {"tuning": "gDGBD"}},
+            "created_at": NOW,
+            "updated_at": NOW,
+            "deleted_at": None,
+            "server_seq": 1,
+        }
+    )
+    assert (row.violin_tuning, row.banjo_tuning) == ("AEAE", "gDGBD")
+
+
+def test_user_settings_reads_banjo_as_the_five_string_banjo() -> None:
+    settings = UserSettingsData(instruments=["banjo", "violin"], created_at=NOW)
+    assert settings.instruments == ["five_string_banjo", "violin"]
 
 
 def test_user_settings_rejects_unknown_instrument() -> None:
