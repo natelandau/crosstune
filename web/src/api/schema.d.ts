@@ -1315,8 +1315,6 @@ export interface operations {
         parameters: {
             query?: {
                 since?: number;
-                /** @description The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes. */
-                names?: "songs" | "tunes";
             };
             header?: never;
             path?: never;
@@ -1346,10 +1344,7 @@ export interface operations {
     };
     push_v1_sync_push_post: {
         parameters: {
-            query?: {
-                /** @description The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes. */
-                names?: "songs" | "tunes";
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

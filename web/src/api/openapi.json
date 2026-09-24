@@ -2333,22 +2333,6 @@
               "title": "Since",
               "type": "integer"
             }
-          },
-          {
-            "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-            "in": "query",
-            "name": "names",
-            "required": false,
-            "schema": {
-              "default": "songs",
-              "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-              "enum": [
-                "songs",
-                "tunes"
-              ],
-              "title": "Names",
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -2383,24 +2367,6 @@
       "post": {
         "description": "Apply a batch of client changes. One result per change, in order.",
         "operationId": "push_v1_sync_push_post",
-        "parameters": [
-          {
-            "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-            "in": "query",
-            "name": "names",
-            "required": false,
-            "schema": {
-              "default": "songs",
-              "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-              "enum": [
-                "songs",
-                "tunes"
-              ],
-              "title": "Names",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {

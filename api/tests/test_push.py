@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, func, select
 
 from crosstune.models import ListItem, RecordingLink, Tune, UserTune
 
@@ -34,9 +34,7 @@ def change(table: str, id_: str, updated_at: datetime, op: str = "upsert", **dat
 
 
 async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> list[dict]:
-    response = await client.post(
-        "/v1/sync/push?names=tunes", json={"changes": list(changes)}, headers=headers
-    )
+    response = await client.post("/v1/sync/push", json={"changes": list(changes)}, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()["results"]
 
@@ -453,7 +451,7 @@ async def test_lyrics_round_trip_through_push_and_pull(client, auth_headers) -> 
         change("tunes", tune_id, T0, title="Uncle Joe", lyrics=words),
     )
     assert results[0]["status"] == "applied"
-    response = await client.get("/v1/sync/pull?since=0&names=tunes", headers=auth_headers("user_a"))
+    response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
     assert response.status_code == 200, response.text
     rows = [r for r in response.json()["rows"] if r["table"] == "tunes"]
     assert rows[0]["row"]["lyrics"] == words
@@ -577,3 +575,28 @@ async def test_a_legacy_push_never_reads_another_users_tune(
     tune = await verify_session.get(Tune, uuid.UUID(tune_id))
     assert tune is not None
     assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}
+
+
+async def test_a_push_in_song_names_is_refused_whole(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    response = await client.post(
+        "/v1/sync/push",
+        json={"changes": [change("songs", uid(), T0, title="Sally Ann")]},
+        headers=auth_headers("user_a"),
+    )
+    assert response.status_code == 422
+    stored = await verify_session.execute(select(func.count()).select_from(Tune))
+    assert stored.scalar_one() == 0
+
+
+async def test_a_song_id_field_is_an_unknown_field(client, auth_headers) -> None:
+    tune_id, user_tune_id = uid(), uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, T0, title="Sally Ann"),
+        change("user_tunes", user_tune_id, T0, song_id=tune_id, status="known"),
+    )
+    assert [r["status"] for r in results] == ["applied", "invalid"]
+    assert "song_id" in results[1]["reason"]

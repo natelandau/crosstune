@@ -10,7 +10,7 @@ pytestmark = pytest.mark.anyio
 
 
 async def pull(client, headers, since: int = 0) -> dict:
-    response = await client.get(f"/v1/sync/pull?since={since}&names=tunes", headers=headers)
+    response = await client.get(f"/v1/sync/pull?since={since}", headers=headers)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -184,3 +184,10 @@ async def test_pull_returns_tunings_and_the_derived_legacy_fields(client, auth_h
     assert row["tunings"] == {"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}}
     assert row["banjo_tuning"] == "Open G (gDGBD)"
     assert row["violin_tuning"] is None
+
+
+async def test_pull_answers_in_tune_names_without_being_asked(client, auth_headers) -> None:
+    await push(client, auth_headers("user_a"), change("tunes", uid(), T0, title="Sally Ann"))
+    response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
+    assert response.status_code == 200, response.text
+    assert {r["table"] for r in response.json()["rows"]} == {"tunes"}
