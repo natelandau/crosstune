@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from crosstune.schemas.rows import (
     DATA_SCHEMAS,
     RecordingLinkData,
+    RecordingLinkRow,
     SongData,
     UserSettingsData,
     UserSongData,
@@ -56,6 +57,59 @@ def test_recording_link_rejects_unknown_provider() -> None:
             provider="napster",
             created_at=NOW,
         )
+
+
+def _link(url: str) -> RecordingLinkData:
+    return RecordingLinkData(
+        song_id="018f0000-0000-7000-8000-000000000002", url=url, provider="other", created_at=NOW
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/x",
+        "HTTP://example.com/x",
+        "example.com/x",
+        "  https://example.com/x",
+        "http://[abc",
+    ],
+)
+def test_recording_link_accepts_web_and_scheme_less_urls(url: str) -> None:
+    assert _link(url).url == url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        " JavaScript:alert(1)",
+        "java\tscript:alert(1)",
+        "\x01javascript:alert(1)",
+        "javascript\n:alert(1)",
+        "data:text/html,<p>x</p>",
+        "ftp://example.com/x",
+        "example.com:8080/x",
+    ],
+)
+def test_recording_link_rejects_a_non_web_scheme(url: str) -> None:
+    with pytest.raises(ValidationError, match="http or https"):
+        _link(url)
+
+
+def test_a_stored_link_row_is_never_rechecked() -> None:
+    row = RecordingLinkRow(
+        id="018f0000-0000-7000-8000-000000000003",
+        song_id="018f0000-0000-7000-8000-000000000002",
+        url="javascript:alert(1)",
+        provider="other",
+        created_at=NOW,
+        updated_at=NOW,
+        deleted_at=None,
+        server_seq=1,
+        added_by_user_id="018f0000-0000-7000-8000-000000000004",
+    )
+    assert row.url == "javascript:alert(1)"
 
 
 def test_every_table_has_a_schema_and_a_spec() -> None:

@@ -120,6 +120,20 @@ async def test_invalid_change_does_not_reject_the_batch(client, auth_headers) ->
     assert "mode" in results[1]["reason"]
 
 
+async def test_link_with_a_non_web_scheme_is_invalid(client, auth_headers) -> None:
+    song_id = uid()
+    link = {"song_id": song_id, "provider": "other", "title": "x"}
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("songs", song_id, T0, title="Soldier's Joy"),
+        change("recording_links", uid(), T0, url="javascript:alert(1)", **link),
+        change("recording_links", uid(), T0, url="example.com/x", **link),
+    )
+    assert [r["status"] for r in results] == ["applied", "invalid", "applied"]
+    assert "url" in results[1]["reason"]
+
+
 async def test_cannot_reference_another_users_song(client, auth_headers) -> None:
     song_id = uid()
     await push(client, auth_headers("user_a"), change("songs", song_id, T0, title="Mine"))
