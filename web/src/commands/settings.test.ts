@@ -27,7 +27,7 @@ describe('settingsId', () => {
 
 describe('setInstruments', () => {
   it('writes one row and queues it', async () => {
-    await setInstruments(db, 'user_1', ['violin', 'banjo'])
+    await setInstruments(db, 'user_1', ['violin', 'five_string_banjo'])
     const rows = await db.user_settings.toArray()
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
@@ -44,14 +44,17 @@ describe('setInstruments', () => {
       table: 'user_settings',
       row_id: settingsId('user_1'),
       op: 'upsert',
-      data: { instruments: ['violin', 'banjo'], created_at: '2026-09-11T10:00:00.000Z' },
+      data: {
+        instruments: ['violin', 'banjo'],
+        created_at: '2026-09-11T10:00:00.000Z',
+      },
     })
   })
 
   it('updates the same row on a second call and keeps created_at', async () => {
     await setInstruments(db, 'user_1', ['violin'])
     vi.setSystemTime(new Date('2026-09-11T10:05:00.000Z'))
-    await setInstruments(db, 'user_1', ['banjo'])
+    await setInstruments(db, 'user_1', ['five_string_banjo'])
     const rows = await db.user_settings.toArray()
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
@@ -79,7 +82,7 @@ describe('toggleInstrumentSetting', () => {
       instruments: ['violin', 'harmonica'],
       audio_quality: 'standard',
     })
-    await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
     expect(row?.instruments).toEqual(['violin', 'banjo', 'harmonica'])
   })
@@ -94,13 +97,13 @@ describe('toggleInstrumentSetting', () => {
       instruments: ['violin', 'harmonica', 'harmonica'],
       audio_quality: 'standard',
     })
-    await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
     expect(row?.instruments).toEqual(['violin', 'banjo', 'harmonica'])
   })
 
   it('toggles on from no row', async () => {
-    await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
     expect(row?.instruments).toEqual(['banjo'])
   })
@@ -112,7 +115,7 @@ describe('toggleInstrumentSetting', () => {
   })
 
   it('applies both toggles when two are issued without awaiting the first', async () => {
-    const first = toggleInstrumentSetting(db, 'user_1', 'banjo', true)
+    const first = toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const second = toggleInstrumentSetting(db, 'user_1', 'violin', false)
     await Promise.all([first, second])
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -121,12 +124,75 @@ describe('toggleInstrumentSetting', () => {
 
   it('keeps the audio quality when instruments change and sets it on its own', async () => {
     await setAudioQuality(db, 'user_1', 'high')
-    await toggleInstrumentSetting(db, 'user_1', 'banjo', true)
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
     expect(row?.audio_quality).toBe('high')
     expect(row?.instruments).toContain('banjo')
     expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
       audio_quality: 'high',
     })
+  })
+})
+
+// The API before tag A knows the five-string banjo only as "banjo", so writes keep that
+// spelling until tag B while reads accept either.
+describe('the legacy banjo spelling', () => {
+  async function store(instruments: string[]): Promise<void> {
+    await db.user_settings.put({
+      id: settingsId('user_1'),
+      created_at: '2026-09-11T09:00:00.000Z',
+      updated_at: '2026-09-11T09:00:00.000Z',
+      deleted_at: null,
+      server_seq: 1,
+      instruments,
+      audio_quality: 'standard',
+    })
+  }
+
+  async function pushed(): Promise<unknown> {
+    return (await pendingFor(db, 'user_settings', settingsId('user_1')))?.data?.instruments
+  }
+
+  it('toggles the five-string banjo off a stored banjo', async () => {
+    await store(['violin', 'banjo'])
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', false)
+    expect(await pushed()).toEqual(['violin'])
+  })
+
+  it('keeps one banjo when the five-string banjo is toggled on over a stored banjo', async () => {
+    await store(['banjo'])
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
+    expect(await pushed()).toEqual(['banjo'])
+  })
+
+  it('keeps a stored banjo when another instrument is toggled on', async () => {
+    await store(['banjo'])
+    await toggleInstrumentSetting(db, 'user_1', 'violin', true)
+    expect(await pushed()).toEqual(['violin', 'banjo'])
+  })
+
+  it('writes a pulled five-string banjo back as banjo', async () => {
+    await store(['five_string_banjo'])
+    await toggleInstrumentSetting(db, 'user_1', 'violin', true)
+    expect(await pushed()).toEqual(['violin', 'banjo'])
+  })
+
+  it('toggles the five-string banjo off a pulled five-string banjo', async () => {
+    await store(['five_string_banjo', 'violin'])
+    await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', false)
+    expect(await pushed()).toEqual(['violin'])
+  })
+
+  it('merges a row holding both spellings into one banjo', async () => {
+    await store(['five_string_banjo', 'banjo'])
+    await toggleInstrumentSetting(db, 'user_1', 'violin', true)
+    expect(await pushed()).toEqual(['violin', 'banjo'])
+  })
+
+  it('stores what it pushes', async () => {
+    await setInstruments(db, 'user_1', ['five_string_banjo'])
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row?.instruments).toEqual(['banjo'])
+    expect(await pushed()).toEqual(['banjo'])
   })
 })

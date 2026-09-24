@@ -5,12 +5,21 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from crosstune.vocabulary import (
     LIMITS,
+    TUNING_LENGTH,
     AudioQuality,
     Instrument,
     Mode,
@@ -52,6 +61,44 @@ class _Data(BaseModel):
     created_at: datetime
 
 
+def _unset(value: object) -> bool:
+    return value is None
+
+
+def _empty(entry: InstrumentTuning | None) -> bool:
+    return entry is None or not entry.model_dump()
+
+
+# Unset fields and empty entries are left out of every dump, so a stored map, a pushed map,
+# and the wire share one compact shape: {} when empty, {"guitar": {"capo": 3}} with no nulls.
+class InstrumentTuning(BaseModel):
+    """One instrument's tuning on a tune."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tuning: str | None = Field(default=None, max_length=TUNING_LENGTH, exclude_if=_unset)
+
+
+class FrettedTuning(InstrumentTuning):
+    """A fretted instrument's tuning, with the fret its capo sits at."""
+
+    capo: int | None = Field(default=None, ge=1, le=12, exclude_if=_unset)
+
+
+class Tunings(BaseModel):
+    """A tune's tunings, one optional entry per instrument."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    violin: InstrumentTuning | None = Field(default=None, exclude_if=_empty)
+    five_string_banjo: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    tenor_banjo: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    guitar: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    mandolin: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    bouzouki: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+    mountain_dulcimer: FrettedTuning | None = Field(default=None, exclude_if=_empty)
+
+
 class TuneData(_Data):
     """Client-editable fields of a tune."""
 
@@ -62,8 +109,10 @@ class TuneData(_Data):
     lyrics: str | None = Field(default=None, max_length=TUNE["lyrics"])
     key: str | None = Field(default=None, max_length=TUNE["key"])
     mode: Mode | None = None
-    violin_tuning: str | None = Field(default=None, max_length=TUNE["violin_tuning"])
-    banjo_tuning: str | None = Field(default=None, max_length=TUNE["banjo_tuning"])
+    tunings: Tunings = Tunings()
+    # Legacy shape, accepted until every client sends tunings. Push folds them into tunings.
+    violin_tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)
+    banjo_tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)
     part_structure: str | None = Field(default=None, max_length=TUNE["part_structure"])
     time_signature: TimeSignature | None = None
     is_crooked: bool = False
@@ -133,10 +182,24 @@ class RecordingData(_Data):
     position: int = 0
 
 
+def _renamed_instruments(values: Any) -> Any:
+    # A client that predates five_string_banjo still sends banjo.
+    if not isinstance(values, list):
+        return values
+    renamed = ["five_string_banjo" if v == "banjo" else v for v in values]
+    if "banjo" in values and "five_string_banjo" in values:
+        # Both spellings name one instrument, so they merge rather than read as a repeat.
+        first = renamed.index("five_string_banjo")
+        return [v for i, v in enumerate(renamed) if v != "five_string_banjo" or i == first]
+    return renamed
+
+
 class UserSettingsData(_Data):
     """Client-editable fields of a user's settings."""
 
-    instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
+    instruments: Annotated[
+        list[Instrument], BeforeValidator(_renamed_instruments), AfterValidator(_distinct)
+    ] = []
     # The default is validated too, so it is stored as a plain string like a sent value.
     audio_quality: AudioQuality = Field(default=AudioQuality.STANDARD, validate_default=True)
 
@@ -162,6 +225,19 @@ class TuneRow(TuneData, _Row):
     model_config = ConfigDict(extra="ignore")
 
     owner_user_id: uuid.UUID | None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_tunings(cls, row: Any) -> Any:
+        # A client that predates the map still reads its two instruments from these fields.
+        if isinstance(row, dict) and isinstance(row.get("tunings"), dict):
+            tunings = row["tunings"]
+            row = {
+                **row,
+                "violin_tuning": (tunings.get("violin") or {}).get("tuning"),
+                "banjo_tuning": (tunings.get("five_string_banjo") or {}).get("tuning"),
+            }
+        return row
 
 
 class UserTuneRow(UserTuneData, _Row):

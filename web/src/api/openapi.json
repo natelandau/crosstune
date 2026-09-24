@@ -67,14 +67,72 @@
         "title": "Change",
         "type": "object"
       },
+      "FrettedTuning": {
+        "additionalProperties": false,
+        "description": "A fretted instrument's tuning, with the fret its capo sits at.",
+        "properties": {
+          "capo": {
+            "anyOf": [
+              {
+                "maximum": 12.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capo"
+          },
+          "tuning": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tuning"
+          }
+        },
+        "title": "FrettedTuning",
+        "type": "object"
+      },
       "Instrument": {
-        "description": "An instrument a player can say they play.",
+        "description": "An instrument with a per-tune tuning. The order is the order the client lists them in.",
         "enum": [
           "violin",
-          "banjo"
+          "five_string_banjo",
+          "tenor_banjo",
+          "guitar",
+          "mandolin",
+          "bouzouki",
+          "mountain_dulcimer"
         ],
         "title": "Instrument",
         "type": "string"
+      },
+      "InstrumentTuning": {
+        "additionalProperties": false,
+        "description": "One instrument's tuning on a tune.",
+        "properties": {
+          "tuning": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tuning"
+          }
+        },
+        "title": "InstrumentTuning",
+        "type": "object"
       },
       "ListChangeResult": {
         "description": "The outcome of one change to a list.",
@@ -1367,6 +1425,10 @@
             "title": "Title",
             "type": "string"
           },
+          "tunings": {
+            "$ref": "#/components/schemas/Tunings",
+            "default": {}
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -1406,6 +1468,84 @@
         ],
         "title": "TuneStatus",
         "type": "string"
+      },
+      "Tunings": {
+        "additionalProperties": false,
+        "description": "A tune's tunings, one optional entry per instrument.",
+        "properties": {
+          "bouzouki": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "five_string_banjo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guitar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mandolin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mountain_dulcimer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tenor_banjo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrettedTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "violin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InstrumentTuning"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "Tunings",
+        "type": "object"
       },
       "UploadSlotRequest": {
         "description": "What the client is about to upload.",

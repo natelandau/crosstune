@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { INSTRUMENTS } from '../../api/vocabulary'
 import { setInstruments, settingsId, toggleInstrumentSetting } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { pendingBatch } from '../../db/outbox'
@@ -8,7 +7,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { NOT_SET } from '../../ui/FieldRow'
-import { INSTRUMENTS_HELP } from './instruments'
+import { INSTRUMENTS_HELP, LISTED_INSTRUMENTS } from './instruments'
 import { InstrumentsGroup } from './InstrumentsGroup'
 
 vi.mock('../../commands/settings', { spy: true })
@@ -46,17 +45,17 @@ const closeSheet = async () => {
 
 describe('InstrumentsGroup', () => {
   it('names the group, its instruments, and what the choice changes', async () => {
-    await setInstruments(db, 'user_1', ['violin', 'banjo'])
+    await setInstruments(db, 'user_1', ['violin', 'five_string_banjo'])
     show()
     await expect.element(page.getByRole('heading', { name: 'Instruments', level: 2 })).toBeVisible()
-    await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
+    await expect.element(rowNamed('Violin, 5-string banjo')).toBeVisible()
     await expect.element(page.getByText(INSTRUMENTS_HELP)).toBeVisible()
   })
 
   it('lists the instruments in one order however they were stored', async () => {
-    await setInstruments(db, 'user_1', ['banjo', 'violin'])
+    await setInstruments(db, 'user_1', ['five_string_banjo', 'violin'])
     show()
-    await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
+    await expect.element(rowNamed('Violin, 5-string banjo')).toBeVisible()
   })
 
   it('reads Not set when no instrument is chosen', async () => {
@@ -73,7 +72,7 @@ describe('InstrumentsGroup', () => {
 
     await openSheet()
     await expect.element(box('Violin')).toBeChecked()
-    await expect.element(box('Banjo')).not.toBeChecked()
+    await expect.element(box('5-string banjo')).not.toBeChecked()
   })
 
   it('adds an instrument from the sheet and queues one settings change', async () => {
@@ -82,14 +81,14 @@ describe('InstrumentsGroup', () => {
     await db.outbox.clear()
     show()
     await openSheet()
-    await box('Banjo').click()
+    await box('5-string banjo').click()
     await expect.poll(stored).toEqual(['violin', 'banjo'])
-    await expect.element(box('Banjo')).toBeChecked()
+    await expect.element(box('5-string banjo')).toBeChecked()
     expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
 
     // The row it was opened from follows the set it holds now.
     await closeSheet()
-    await expect.element(rowNamed('Violin, Banjo')).toBeVisible()
+    await expect.element(rowNamed('Violin, 5-string banjo')).toBeVisible()
   })
 
   it('stays away entirely while the settings row is still being read', () => {
@@ -102,7 +101,7 @@ describe('InstrumentsGroup', () => {
     vi.mocked(toggleInstrumentSetting).mockRejectedValue(new Error('Settings are read-only'))
     show()
     await openSheet()
-    await box('Banjo').click()
+    await box('5-string banjo').click()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
 
     await closeSheet()
@@ -114,7 +113,7 @@ describe('InstrumentsGroup', () => {
     vi.mocked(toggleInstrumentSetting).mockRejectedValue(new Error('Settings are read-only'))
     show()
     await openSheet()
-    await box('Banjo').click()
+    await box('5-string banjo').click()
     await expect.element(page.getByRole('alert')).toBeVisible()
     await closeSheet()
 
@@ -127,7 +126,9 @@ describe('InstrumentsGroup', () => {
   it('gives the row and every checkbox a tap target a finger can hit', async () => {
     show()
     await openSheet()
-    await expect.element(box(INSTRUMENT_LABELS[INSTRUMENTS[INSTRUMENTS.length - 1]!])).toBeVisible()
+    await expect
+      .element(box(INSTRUMENT_LABELS[LISTED_INSTRUMENTS[LISTED_INSTRUMENTS.length - 1]!]))
+      .toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from crosstune.models import ListItem, Recording, RecordingLink, UserTune
+from crosstune.models import ListItem, Recording, RecordingLink, Tune, UserTune
 from tests.test_push import T0, T1, change, push, uid
 
 if TYPE_CHECKING:
@@ -238,3 +238,34 @@ async def test_a_change_carrying_both_names_for_one_field_is_invalid(client, aut
         change("user_songs", user_song, T0, song_id=song, tune_id=other, status="known"),
     )
     assert results[2]["status"] == "invalid"
+
+
+async def test_an_old_client_violin_tuning_joins_a_stored_map_in_song_names(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    song = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change(
+            "tunes",
+            song,
+            T0,
+            title="Sally Goodin",
+            tunings={"guitar": {"tuning": "DADGAD", "capo": 2}},
+        ),
+    )
+    [result] = await push_in_song_names(
+        client,
+        auth_headers("user_a"),
+        change("songs", song, T1, title="Sally Goodin", violin_tuning="Cross A (AEAE)"),
+    )
+    assert result["table"] == "songs"
+    assert result["status"] == "applied"
+    assert result["row"]["violin_tuning"] == "Cross A (AEAE)"
+    stored = await verify_session.get(Tune, uuid.UUID(song))
+    assert stored is not None
+    assert stored.tunings == {
+        "guitar": {"tuning": "DADGAD", "capo": 2},
+        "violin": {"tuning": "Cross A (AEAE)"},
+    }

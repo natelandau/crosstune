@@ -92,3 +92,19 @@ def test_openapi_publishes_every_limit_on_its_row() -> None:
             prop = properties[field]
             candidates = [prop, *prop.get("anyOf", []), prop.get("items", {})]
             assert limit in {c.get("maxLength") for c in candidates}, f"{table}.{field}"
+
+
+def test_openapi_types_each_instrument_in_the_tunings_map() -> None:
+    doc = create_app().openapi()
+
+    def resolve(schema: dict) -> dict:
+        if "anyOf" in schema:
+            schema = next(s for s in schema["anyOf"] if s.get("type") != "null")
+        while "$ref" in schema:
+            schema = doc["components"]["schemas"][schema["$ref"].rsplit("/", 1)[-1]]
+        return schema
+
+    tunings = resolve(doc["components"]["schemas"]["TuneRow"]["properties"]["tunings"])
+    assert set(tunings["properties"]) == {i.value for i in vocabulary.Instrument}
+    assert "capo" not in resolve(tunings["properties"]["violin"])["properties"]
+    assert "capo" in resolve(tunings["properties"]["five_string_banjo"])["properties"]

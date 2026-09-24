@@ -34,6 +34,9 @@ const ROWS = {
   UserTuneRow: {
     properties: { learned_from: { anyOf: [{ type: 'string', maxLength: 200 }, { type: 'null' }] } },
   },
+  InstrumentTuning: {
+    properties: { tuning: { anyOf: [{ type: 'string', maxLength: 100 }, { type: 'null' }] } },
+  },
   ListRow: {
     properties: {
       id: { type: 'string', format: 'uuid' },
@@ -67,6 +70,7 @@ describe('vocabulary generator', () => {
         '  alternate_titles: 200,',
         '  genre: 100,',
         '  learned_from: 200,',
+        '  tuning: 100,',
         '} as const',
       ].join('\n'),
     )

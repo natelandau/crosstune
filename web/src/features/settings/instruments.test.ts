@@ -10,7 +10,7 @@ const row = {
   updated_at: 't',
   deleted_at: null,
   server_seq: 0,
-  instruments: ['banjo', 'kazoo'],
+  instruments: ['five_string_banjo', 'kazoo'],
   audio_quality: 'standard',
 }
 
@@ -22,7 +22,14 @@ describe('instrumentsFrom', () => {
   })
 
   it('keeps only instruments this client knows', () => {
-    expect([...instrumentsFrom(row)]).toEqual(['banjo'])
+    expect([...instrumentsFrom(row)]).toEqual(['five_string_banjo'])
+  })
+
+  it('reads a stored banjo as the five-string banjo', () => {
+    expect([...instrumentsFrom({ ...row, instruments: ['banjo'] })]).toEqual(['five_string_banjo'])
+    expect([...instrumentsFrom({ ...row, instruments: ['banjo', 'five_string_banjo'] })]).toEqual([
+      'five_string_banjo',
+    ])
   })
 
   it('is empty when instruments is not an array', () => {
@@ -33,7 +40,7 @@ describe('instrumentsFrom', () => {
 describe('visibleTunings', () => {
   it('shows a tuning for each played instrument', () => {
     expect(visibleTunings(played('violin'), null)).toEqual(['violin_tuning'])
-    expect(visibleTunings(played('banjo', 'violin'), null)).toEqual([
+    expect(visibleTunings(played('five_string_banjo', 'violin'), null)).toEqual([
       'violin_tuning',
       'banjo_tuning',
     ])

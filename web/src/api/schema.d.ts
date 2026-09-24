@@ -211,11 +211,29 @@ export interface components {
             updated_at: string;
         };
         /**
+         * FrettedTuning
+         * @description A fretted instrument's tuning, with the fret its capo sits at.
+         */
+        FrettedTuning: {
+            /** Capo */
+            capo?: number | null;
+            /** Tuning */
+            tuning?: string | null;
+        };
+        /**
          * Instrument
-         * @description An instrument a player can say they play.
+         * @description An instrument with a per-tune tuning. The order is the order the client lists them in.
          * @enum {string}
          */
-        Instrument: "violin" | "banjo";
+        Instrument: "violin" | "five_string_banjo" | "tenor_banjo" | "guitar" | "mandolin" | "bouzouki" | "mountain_dulcimer";
+        /**
+         * InstrumentTuning
+         * @description One instrument's tuning on a tune.
+         */
+        InstrumentTuning: {
+            /** Tuning */
+            tuning?: string | null;
+        };
         /**
          * ListChangeResult
          * @description The outcome of one change to a list.
@@ -774,6 +792,8 @@ export interface components {
             time_signature?: components["schemas"]["TimeSignature"] | null;
             /** Title */
             title: string;
+            /** @default {} */
+            tunings: components["schemas"]["Tunings"];
             /**
              * Updated At
              * Format: date-time
@@ -788,6 +808,19 @@ export interface components {
          * @enum {string}
          */
         TuneStatus: "known" | "learning" | "want_to_learn";
+        /**
+         * Tunings
+         * @description A tune's tunings, one optional entry per instrument.
+         */
+        Tunings: {
+            bouzouki?: components["schemas"]["FrettedTuning"] | null;
+            five_string_banjo?: components["schemas"]["FrettedTuning"] | null;
+            guitar?: components["schemas"]["FrettedTuning"] | null;
+            mandolin?: components["schemas"]["FrettedTuning"] | null;
+            mountain_dulcimer?: components["schemas"]["FrettedTuning"] | null;
+            tenor_banjo?: components["schemas"]["FrettedTuning"] | null;
+            violin?: components["schemas"]["InstrumentTuning"] | null;
+        };
         /**
          * UploadSlotRequest
          * @description What the client is about to upload.

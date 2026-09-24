@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
@@ -24,6 +25,7 @@ class Tune(SyncColumns, Base):
         CheckConstraint(
             in_list("time_signature", tuple(TimeSignature)), name="ck_tunes_time_signature"
         ),
+        CheckConstraint("jsonb_typeof(tunings) = 'object'", name="ck_tunes_tunings"),
         Index("ix_tunes_owner_user_id_server_seq", "owner_user_id", "server_seq"),
     )
 
@@ -43,8 +45,9 @@ class Tune(SyncColumns, Base):
     lyrics: Mapped[str | None] = mapped_column(Text, nullable=True)
     key: Mapped[str | None] = mapped_column(String(TUNE["key"]), nullable=True)
     mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    violin_tuning: Mapped[str | None] = mapped_column(String(TUNE["violin_tuning"]), nullable=True)
-    banjo_tuning: Mapped[str | None] = mapped_column(String(TUNE["banjo_tuning"]), nullable=True)
+    tunings: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
     part_structure: Mapped[str | None] = mapped_column(
         String(TUNE["part_structure"]), nullable=True
     )

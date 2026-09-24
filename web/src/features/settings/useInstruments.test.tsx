@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { setInstruments } from '../../commands/settings'
+import { setInstruments, settingsId } from '../../commands/settings'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { dataProviders } from '../../test/providers'
@@ -28,11 +28,25 @@ describe('useInstruments', () => {
   })
 
   it("reflects the signed-in user's row and follows changes", async () => {
-    await setInstruments(db, 'user_1', ['banjo', 'violin'])
-    await setInstruments(db, 'user_2', ['banjo'])
+    await setInstruments(db, 'user_1', ['five_string_banjo', 'violin'])
+    await setInstruments(db, 'user_2', ['five_string_banjo'])
     const { result } = renderHook(() => useInstruments(), { wrapper: dataProviders({ db }) })
-    await waitFor(() => expect(played(result.current)).toEqual(['banjo', 'violin']))
+    await waitFor(() => expect(played(result.current)).toEqual(['five_string_banjo', 'violin']))
     await setInstruments(db, 'user_1', [])
     await waitFor(() => expect(played(result.current)).toEqual([]))
+  })
+
+  it('reads a stored banjo as the five-string banjo', async () => {
+    await db.user_settings.put({
+      id: settingsId('user_1'),
+      created_at: 't',
+      updated_at: 't',
+      deleted_at: null,
+      server_seq: 1,
+      instruments: ['banjo', 'violin'],
+      audio_quality: 'standard',
+    })
+    const { result } = renderHook(() => useInstruments(), { wrapper: dataProviders({ db }) })
+    await waitFor(() => expect(played(result.current)).toEqual(['five_string_banjo', 'violin']))
   })
 })

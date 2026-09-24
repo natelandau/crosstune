@@ -1,4 +1,4 @@
-import type { Instrument } from '../../api/vocabulary'
+import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import {
   isInstrument,
   storedInstruments,
@@ -13,12 +13,17 @@ import {
  */
 export const TUNING_FIELDS = {
   violin_tuning: { instrument: 'violin', label: 'Violin tuning', short: 'Violin' },
-  banjo_tuning: { instrument: 'banjo', label: 'Banjo tuning', short: 'Banjo' },
+  banjo_tuning: { instrument: 'five_string_banjo', label: 'Banjo tuning', short: 'Banjo' },
 } as const satisfies Record<string, { instrument: Instrument; label: string; short: string }>
 
 export type TuningField = keyof typeof TUNING_FIELDS
 
 export const TUNING_FIELD_NAMES = Object.keys(TUNING_FIELDS) as TuningField[]
+
+/** Instruments the settings list offers: only those a song can show a tuning for, for now. */
+export const LISTED_INSTRUMENTS: readonly Instrument[] = INSTRUMENTS.filter((instrument) =>
+  Object.values(TUNING_FIELDS).some((field) => field.instrument === instrument),
+)
 
 /** The footer under the instruments setting, wherever it is asked. */
 export const INSTRUMENTS_HELP = 'Songs show a tuning field for each instrument chosen here.'

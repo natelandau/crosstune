@@ -128,7 +128,7 @@ describe('SongFormSheet', () => {
   })
 
   it('holds both tuning rows in one card when both instruments are played', async () => {
-    const both = new Set<Instrument>(['violin', 'banjo'])
+    const both = new Set<Instrument>(['violin', 'five_string_banjo'])
     renderIonic(
       <SongFormSheet
         target={{ kind: 'new' }}

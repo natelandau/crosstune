@@ -23,7 +23,7 @@ const ARRAY_NAMES = {
 // its user row are one form to the client, so their limits are one object. A row missing
 // from the document fails the run, so a renamed schema cannot empty a limits object.
 const LIMIT_OBJECTS = {
-  SONG_LIMITS: ['TuneRow', 'UserTuneRow'],
+  SONG_LIMITS: ['TuneRow', 'UserTuneRow', 'InstrumentTuning'],
   LIST_LIMITS: ['ListRow'],
   LINK_LIMITS: ['RecordingLinkRow'],
   RECORDING_LIMITS: ['RecordingRow'],

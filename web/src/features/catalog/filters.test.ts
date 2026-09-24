@@ -155,14 +155,14 @@ describe('visibleFacets', () => {
       'violin_tuning',
       'genre',
     ])
-    expect(visibleFacets(facets, new Set<Instrument>(['banjo']))).toEqual([
+    expect(visibleFacets(facets, new Set<Instrument>(['five_string_banjo']))).toEqual([
       'key',
       'mode',
       'banjo_tuning',
       'genre',
     ])
     expect(
-      visibleFacets({ ...facets, genre: [] }, new Set<Instrument>(['violin', 'banjo'])),
+      visibleFacets({ ...facets, genre: [] }, new Set<Instrument>(['violin', 'five_string_banjo'])),
     ).toEqual(FACETS.filter((f) => f !== 'genre'))
   })
 

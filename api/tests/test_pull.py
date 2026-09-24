@@ -136,9 +136,30 @@ async def test_pull_includes_user_settings(client, auth_headers) -> None:
     await push(
         client,
         auth_headers("user_a"),
-        change("user_settings", settings_id, T0, instruments=["banjo"]),
+        change("user_settings", settings_id, T0, instruments=["five_string_banjo"]),
     )
     body = await pull(client, auth_headers("user_a"))
     assert [(r["table"], r["row"]["instruments"]) for r in body["rows"]] == [
-        ("user_settings", ["banjo"])
+        ("user_settings", ["five_string_banjo"])
     ]
+
+
+async def test_pull_returns_tunings_and_the_derived_legacy_fields(client, auth_headers) -> None:
+    tune_id = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        change(
+            "tunes",
+            tune_id,
+            T0,
+            title="Sally Ann",
+            tunings={"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}},
+        ),
+    )
+    body = await pull(client, auth_headers("user_a"))
+    rows = [r for r in body["rows"] if r["table"] == "tunes"]
+    row = rows[0]["row"]
+    assert row["tunings"] == {"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}}
+    assert row["banjo_tuning"] == "Open G (gDGBD)"
+    assert row["violin_tuning"] is None

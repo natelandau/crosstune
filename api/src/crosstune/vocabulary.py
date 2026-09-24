@@ -13,10 +13,22 @@ from typing import Final
 
 
 class Instrument(StrEnum):
-    """An instrument a player can say they play."""
+    """An instrument with a per-tune tuning. The order is the order the client lists them in."""
 
     VIOLIN = "violin"
-    BANJO = "banjo"
+    FIVE_STRING_BANJO = "five_string_banjo"
+    TENOR_BANJO = "tenor_banjo"
+    GUITAR = "guitar"
+    MANDOLIN = "mandolin"
+    BOUZOUKI = "bouzouki"
+    MOUNTAIN_DULCIMER = "mountain_dulcimer"
+
+
+FRETTED: Final[frozenset[Instrument]] = frozenset(Instrument) - {Instrument.VIOLIN}
+"""Instruments that take a capo."""
+
+TUNING_LENGTH: Final = 100
+"""Maximum length of one instrument's tuning inside a tune's tunings."""
 
 
 class TuneStatus(StrEnum):
@@ -96,8 +108,6 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
         "title": 200,
         "alternate_titles": 200,
         "key": 10,
-        "violin_tuning": 100,
-        "banjo_tuning": 100,
         "genre": 100,
         "feel": 100,
         "part_structure": 100,

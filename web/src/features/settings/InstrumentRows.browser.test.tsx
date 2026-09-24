@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
+import type { Instrument } from '../../api/vocabulary'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { LISTED_INSTRUMENTS } from './instruments'
 import { InstrumentRows } from './InstrumentRows'
 
-const LABELS = INSTRUMENTS.map((instrument) => INSTRUMENT_LABELS[instrument])
+const LABELS = LISTED_INSTRUMENTS.map((instrument) => INSTRUMENT_LABELS[instrument])
 const LAST_LABEL = LABELS[LABELS.length - 1]!
 
 function show(
@@ -21,7 +22,14 @@ function show(
 const box = (name: string) => page.getByRole('checkbox', { name })
 
 describe('InstrumentRows', () => {
-  it('lists every instrument in its fixed order', async () => {
+  it('lists only instruments a song can show a tuning for', async () => {
+    show([])
+    await expect.element(page.getByRole('checkbox', { name: 'Violin' })).toBeInTheDocument()
+    await expect.element(page.getByRole('checkbox', { name: '5-string banjo' })).toBeInTheDocument()
+    await expect.element(page.getByRole('checkbox', { name: 'Guitar' })).not.toBeInTheDocument()
+  })
+
+  it('lists the listed instruments in their fixed order', async () => {
     show([])
     await expect.element(box('Violin')).toBeVisible()
     expect(
@@ -33,17 +41,17 @@ describe('InstrumentRows', () => {
   })
 
   it('checks only the instruments in the value', async () => {
-    show(['banjo'])
-    await expect.element(box('Banjo')).toBeChecked()
+    show(['five_string_banjo'])
+    await expect.element(box('5-string banjo')).toBeChecked()
     await expect.element(box('Violin')).not.toBeChecked()
   })
 
   it('reports an instrument turned on', async () => {
     const onToggle = vi.fn()
     show([], onToggle)
-    await box('Banjo').click()
+    await box('5-string banjo').click()
     expect(onToggle).toHaveBeenCalledOnce()
-    expect(onToggle).toHaveBeenCalledWith('banjo', true)
+    expect(onToggle).toHaveBeenCalledWith('five_string_banjo', true)
   })
 
   it('reports an instrument turned off', async () => {
