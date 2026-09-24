@@ -34,11 +34,11 @@ export const RECORDING_STATES = [
 ] as const
 export type RecordingState = (typeof RECORDING_STATES)[number]
 
-export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
-export type SongStatus = (typeof STATUSES)[number]
-
 export const TIME_SIGNATURES = ['4/4', '2/4', '2/2', '3/4', '6/8', '9/8', '12/8', 'other'] as const
 export type TimeSignature = (typeof TIME_SIGNATURES)[number]
+
+export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
+export type TuneStatus = (typeof STATUSES)[number]
 
 export const SONG_LIMITS = {
   alternate_titles: 200,

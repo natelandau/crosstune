@@ -7,6 +7,7 @@ import type {
   PullResponse,
   PushResponse,
   ResolveResponse,
+  Schemas,
   SignedUrl,
   SyncApi,
   UploadSlotRequest,
@@ -124,10 +125,14 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
 
   return {
     async push(changes: Change[]): Promise<PushResponse> {
-      return unwrap(await client.POST('/v1/sync/push', { body: { changes } }))
+      // Without names=tunes the API reads and answers song names, which this client stores.
+      const body = { changes } as unknown as Schemas['PushRequest']
+      return unwrap(await client.POST('/v1/sync/push', { body })) as unknown as PushResponse
     },
     async pull(since: number): Promise<PullResponse> {
-      return unwrap(await client.GET('/v1/sync/pull', { params: { query: { since } } }))
+      return unwrap(
+        await client.GET('/v1/sync/pull', { params: { query: { since } } }),
+      ) as unknown as PullResponse
     },
     async resolveLink(url: string): Promise<ResolveResponse> {
       return unwrap(await client.POST('/v1/links/resolve', { body: { url } }))

@@ -22,7 +22,7 @@ function generate(schemas: Record<string, unknown>) {
 }
 
 const ROWS = {
-  SongRow: {
+  TuneRow: {
     properties: {
       title: { type: 'string', maxLength: 200 },
       alternate_titles: { type: 'array', items: { type: 'string', maxLength: 200 } },
@@ -31,7 +31,7 @@ const ROWS = {
       mode: { anyOf: [{ $ref: '#/components/schemas/Mode' }, { type: 'null' }] },
     },
   },
-  UserSongRow: {
+  UserTuneRow: {
     properties: { learned_from: { anyOf: [{ type: 'string', maxLength: 200 }, { type: 'null' }] } },
   },
   ListRow: {

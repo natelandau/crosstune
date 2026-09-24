@@ -41,8 +41,8 @@
           },
           "table": {
             "enum": [
-              "songs",
-              "user_songs",
+              "tunes",
+              "user_tunes",
               "lists",
               "list_items",
               "recording_links",
@@ -243,9 +243,9 @@
             "title": "Updated At",
             "type": "string"
           },
-          "user_song_id": {
+          "user_tune_id": {
             "format": "uuid",
-            "title": "User Song Id",
+            "title": "User Tune Id",
             "type": "string"
           }
         },
@@ -256,7 +256,7 @@
           "server_seq",
           "created_at",
           "list_id",
-          "user_song_id"
+          "user_tune_id"
         ],
         "title": "ListItemRow",
         "type": "object"
@@ -386,7 +386,7 @@
         "type": "object"
       },
       "Mode": {
-        "description": "A song's mode.",
+        "description": "A tune's mode.",
         "enum": [
           "major",
           "minor",
@@ -476,18 +476,18 @@
                   "lists": "#/components/schemas/ListPullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
                   "recordings": "#/components/schemas/RecordingPullRow",
-                  "songs": "#/components/schemas/SongPullRow",
+                  "tunes": "#/components/schemas/TunePullRow",
                   "user_settings": "#/components/schemas/UserSettingsPullRow",
-                  "user_songs": "#/components/schemas/UserSongPullRow"
+                  "user_tunes": "#/components/schemas/UserTunePullRow"
                 },
                 "propertyName": "table"
               },
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/SongPullRow"
+                  "$ref": "#/components/schemas/TunePullRow"
                 },
                 {
-                  "$ref": "#/components/schemas/UserSongPullRow"
+                  "$ref": "#/components/schemas/UserTunePullRow"
                 },
                 {
                   "$ref": "#/components/schemas/ListPullRow"
@@ -547,18 +547,18 @@
                   "lists": "#/components/schemas/ListChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
                   "recordings": "#/components/schemas/RecordingChangeResult",
-                  "songs": "#/components/schemas/SongChangeResult",
+                  "tunes": "#/components/schemas/TuneChangeResult",
                   "user_settings": "#/components/schemas/UserSettingsChangeResult",
-                  "user_songs": "#/components/schemas/UserSongChangeResult"
+                  "user_tunes": "#/components/schemas/UserTuneChangeResult"
                 },
                 "propertyName": "table"
               },
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/SongChangeResult"
+                  "$ref": "#/components/schemas/TuneChangeResult"
                 },
                 {
-                  "$ref": "#/components/schemas/UserSongChangeResult"
+                  "$ref": "#/components/schemas/UserTuneChangeResult"
                 },
                 {
                   "$ref": "#/components/schemas/ListChangeResult"
@@ -788,11 +788,6 @@
             "title": "Server Seq",
             "type": "integer"
           },
-          "song_id": {
-            "format": "uuid",
-            "title": "Song Id",
-            "type": "string"
-          },
           "title": {
             "anyOf": [
               {
@@ -804,6 +799,11 @@
               }
             ],
             "title": "Title"
+          },
+          "tune_id": {
+            "format": "uuid",
+            "title": "Tune Id",
+            "type": "string"
           },
           "updated_at": {
             "format": "date-time",
@@ -823,7 +823,7 @@
           "deleted_at",
           "server_seq",
           "created_at",
-          "song_id",
+          "tune_id",
           "url",
           "provider",
           "added_by_user_id"
@@ -945,7 +945,13 @@
             "title": "Server Seq",
             "type": "integer"
           },
-          "song_id": {
+          "source": {
+            "$ref": "#/components/schemas/RecordingSource"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RecordingState"
+          },
+          "tune_id": {
             "anyOf": [
               {
                 "format": "uuid",
@@ -955,13 +961,7 @@
                 "type": "null"
               }
             ],
-            "title": "Song Id"
-          },
-          "source": {
-            "$ref": "#/components/schemas/RecordingSource"
-          },
-          "state": {
-            "$ref": "#/components/schemas/RecordingState"
+            "title": "Tune Id"
           },
           "updated_at": {
             "format": "date-time",
@@ -1104,8 +1104,47 @@
         "title": "SignedUrl",
         "type": "object"
       },
-      "SongChangeResult": {
-        "description": "The outcome of one change to a song.",
+      "StorageResponse": {
+        "description": "How much of the recording quota is in use.",
+        "properties": {
+          "max_file_bytes": {
+            "title": "Max File Bytes",
+            "type": "integer"
+          },
+          "quota_bytes": {
+            "title": "Quota Bytes",
+            "type": "integer"
+          },
+          "used_bytes": {
+            "title": "Used Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "used_bytes",
+          "quota_bytes",
+          "max_file_bytes"
+        ],
+        "title": "StorageResponse",
+        "type": "object"
+      },
+      "TimeSignature": {
+        "description": "A tune's time signature.",
+        "enum": [
+          "4/4",
+          "2/4",
+          "2/2",
+          "3/4",
+          "6/8",
+          "9/8",
+          "12/8",
+          "other"
+        ],
+        "title": "TimeSignature",
+        "type": "string"
+      },
+      "TuneChangeResult": {
+        "description": "The outcome of one change to a tune.",
         "properties": {
           "id": {
             "format": "uuid",
@@ -1126,7 +1165,7 @@
           "row": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SongRow"
+                "$ref": "#/components/schemas/TuneRow"
               },
               {
                 "type": "null"
@@ -1143,7 +1182,7 @@
             "type": "string"
           },
           "table": {
-            "const": "songs",
+            "const": "tunes",
             "title": "Table",
             "type": "string"
           }
@@ -1153,17 +1192,17 @@
           "status",
           "table"
         ],
-        "title": "SongChangeResult",
+        "title": "TuneChangeResult",
         "type": "object"
       },
-      "SongPullRow": {
-        "description": "A song row in a pull page.",
+      "TunePullRow": {
+        "description": "A tune row in a pull page.",
         "properties": {
           "row": {
-            "$ref": "#/components/schemas/SongRow"
+            "$ref": "#/components/schemas/TuneRow"
           },
           "table": {
-            "const": "songs",
+            "const": "tunes",
             "title": "Table",
             "type": "string"
           }
@@ -1172,11 +1211,11 @@
           "table",
           "row"
         ],
-        "title": "SongPullRow",
+        "title": "TunePullRow",
         "type": "object"
       },
-      "SongRow": {
-        "description": "A stored song, as push and pull return it.",
+      "TuneRow": {
+        "description": "A stored tune, as push and pull return it.",
         "properties": {
           "alternate_titles": {
             "default": [],
@@ -1355,56 +1394,17 @@
           "title",
           "owner_user_id"
         ],
-        "title": "SongRow",
+        "title": "TuneRow",
         "type": "object"
       },
-      "SongStatus": {
-        "description": "Where a player stands with a song.",
+      "TuneStatus": {
+        "description": "Where a player stands with a tune.",
         "enum": [
           "known",
           "learning",
           "want_to_learn"
         ],
-        "title": "SongStatus",
-        "type": "string"
-      },
-      "StorageResponse": {
-        "description": "How much of the recording quota is in use.",
-        "properties": {
-          "max_file_bytes": {
-            "title": "Max File Bytes",
-            "type": "integer"
-          },
-          "quota_bytes": {
-            "title": "Quota Bytes",
-            "type": "integer"
-          },
-          "used_bytes": {
-            "title": "Used Bytes",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "used_bytes",
-          "quota_bytes",
-          "max_file_bytes"
-        ],
-        "title": "StorageResponse",
-        "type": "object"
-      },
-      "TimeSignature": {
-        "description": "A song's time signature.",
-        "enum": [
-          "4/4",
-          "2/4",
-          "2/2",
-          "3/4",
-          "6/8",
-          "9/8",
-          "12/8",
-          "other"
-        ],
-        "title": "TimeSignature",
+        "title": "TuneStatus",
         "type": "string"
       },
       "UploadSlotRequest": {
@@ -1563,8 +1563,8 @@
         "title": "UserSettingsRow",
         "type": "object"
       },
-      "UserSongChangeResult": {
-        "description": "The outcome of one change to a user song.",
+      "UserTuneChangeResult": {
+        "description": "The outcome of one change to a user tune.",
         "properties": {
           "id": {
             "format": "uuid",
@@ -1585,7 +1585,7 @@
           "row": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/UserSongRow"
+                "$ref": "#/components/schemas/UserTuneRow"
               },
               {
                 "type": "null"
@@ -1602,7 +1602,7 @@
             "type": "string"
           },
           "table": {
-            "const": "user_songs",
+            "const": "user_tunes",
             "title": "Table",
             "type": "string"
           }
@@ -1612,17 +1612,17 @@
           "status",
           "table"
         ],
-        "title": "UserSongChangeResult",
+        "title": "UserTuneChangeResult",
         "type": "object"
       },
-      "UserSongPullRow": {
-        "description": "A user song row in a pull page.",
+      "UserTunePullRow": {
+        "description": "A user tune row in a pull page.",
         "properties": {
           "row": {
-            "$ref": "#/components/schemas/UserSongRow"
+            "$ref": "#/components/schemas/UserTuneRow"
           },
           "table": {
-            "const": "user_songs",
+            "const": "user_tunes",
             "title": "Table",
             "type": "string"
           }
@@ -1631,11 +1631,11 @@
           "table",
           "row"
         ],
-        "title": "UserSongPullRow",
+        "title": "UserTunePullRow",
         "type": "object"
       },
-      "UserSongRow": {
-        "description": "A stored user song, as push and pull return it.",
+      "UserTuneRow": {
+        "description": "A stored user tune, as push and pull return it.",
         "properties": {
           "archived_at": {
             "anyOf": [
@@ -1711,13 +1711,13 @@
             "title": "Server Seq",
             "type": "integer"
           },
-          "song_id": {
-            "format": "uuid",
-            "title": "Song Id",
-            "type": "string"
-          },
           "status": {
-            "$ref": "#/components/schemas/SongStatus"
+            "$ref": "#/components/schemas/TuneStatus"
+          },
+          "tune_id": {
+            "format": "uuid",
+            "title": "Tune Id",
+            "type": "string"
           },
           "updated_at": {
             "format": "date-time",
@@ -1736,11 +1736,11 @@
           "deleted_at",
           "server_seq",
           "created_at",
-          "song_id",
+          "tune_id",
           "status",
           "user_id"
         ],
-        "title": "UserSongRow",
+        "title": "UserTuneRow",
         "type": "object"
       }
     }
@@ -2153,6 +2153,22 @@
               "title": "Since",
               "type": "integer"
             }
+          },
+          {
+            "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
+            "in": "query",
+            "name": "names",
+            "required": false,
+            "schema": {
+              "default": "songs",
+              "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
+              "enum": [
+                "songs",
+                "tunes"
+              ],
+              "title": "Names",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2187,6 +2203,24 @@
       "post": {
         "description": "Apply a batch of client changes. One result per change, in order.",
         "operationId": "push_v1_sync_push_post",
+        "parameters": [
+          {
+            "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
+            "in": "query",
+            "name": "names",
+            "required": false,
+            "schema": {
+              "default": "songs",
+              "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
+              "enum": [
+                "songs",
+                "tunes"
+              ],
+              "title": "Names",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

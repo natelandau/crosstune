@@ -2,26 +2,49 @@ import type { components } from './schema'
 
 export type Schemas = components['schemas']
 
-export type Change = Schemas['Change']
-export type TableName = Change['table']
-export type PushResponse = Schemas['PushResponse']
-export type PullResponse = Schemas['PullResponse']
-export type ChangeResult = PushResponse['results'][number]
-export type PullRow = PullResponse['rows'][number]
 export type ResolveResponse = Schemas['ResolveResponse']
 export type Problem = Schemas['Problem']
-
-export type SongRow = Schemas['SongRow']
-export type UserSongRow = Schemas['UserSongRow']
-export type RecordingLinkRow = Schemas['RecordingLinkRow']
-export type ListRow = Schemas['ListRow']
-export type ListItemRow = Schemas['ListItemRow']
-export type UserSettingsRow = Schemas['UserSettingsRow']
-export type RecordingRow = Schemas['RecordingRow']
 export type MeResponse = Schemas['MeResponse']
 export type StorageResponse = Schemas['StorageResponse']
 export type SignedUrl = Schemas['SignedUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
+
+// This client syncs in the API's first wire names, which call a tune a song: the rows the
+// contract documents, with songs, user_songs, song_id, and user_song_id in place of the
+// tune names.
+type Renamed<Row, From extends keyof Row, To extends string> = Omit<Row, From> & {
+  [Key in To]: Row[From]
+}
+
+export type SongRow = Schemas['TuneRow']
+export type UserSongRow = Renamed<Schemas['UserTuneRow'], 'tune_id', 'song_id'>
+export type RecordingLinkRow = Renamed<Schemas['RecordingLinkRow'], 'tune_id', 'song_id'>
+export type ListRow = Schemas['ListRow']
+export type ListItemRow = Renamed<Schemas['ListItemRow'], 'user_tune_id', 'user_song_id'>
+export type UserSettingsRow = Schemas['UserSettingsRow']
+export type RecordingRow = Renamed<Schemas['RecordingRow'], 'tune_id', 'song_id'>
+
+interface RowsByTable {
+  songs: SongRow
+  user_songs: UserSongRow
+  lists: ListRow
+  list_items: ListItemRow
+  recording_links: RecordingLinkRow
+  recordings: RecordingRow
+  user_settings: UserSettingsRow
+}
+
+export type TableName = keyof RowsByTable
+export type Change = Omit<Schemas['Change'], 'table'> & { table: TableName }
+type ResultFields = Omit<Schemas['ListChangeResult'], 'table' | 'row'>
+export type ChangeResult = {
+  [Table in TableName]: ResultFields & { table: Table; row?: RowsByTable[Table] | null }
+}[TableName]
+export type PullRow = { [Table in TableName]: { table: Table; row: RowsByTable[Table] } }[TableName]
+export interface PushResponse {
+  results: ChangeResult[]
+}
+export type PullResponse = Omit<Schemas['PullResponse'], 'rows'> & { rows: PullRow[] }
 
 export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>

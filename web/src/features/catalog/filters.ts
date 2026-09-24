@@ -1,4 +1,4 @@
-import { STATUSES, type Instrument, type SongStatus } from '../../api/vocabulary'
+import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
 import type { LocalSong, LocalUserSong } from '../../db/types'
 import { countSongs } from '../selection/copy'
 import { TUNING_FIELDS } from '../settings/instruments'
@@ -19,7 +19,7 @@ const FACET_INSTRUMENT: Partial<Record<Facet, Instrument>> = Object.fromEntries(
 )
 
 export type CatalogFilters = Record<Facet, string> & {
-  status: SongStatus | 'all'
+  status: TuneStatus | 'all'
   archived: boolean
 }
 
@@ -40,7 +40,7 @@ export interface CatalogEntry {
   userSong: LocalUserSong
 }
 
-function isStatus(value: unknown): value is SongStatus {
+function isStatus(value: unknown): value is TuneStatus {
   return typeof value === 'string' && (STATUSES as readonly string[]).includes(value)
 }
 

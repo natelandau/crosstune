@@ -203,7 +203,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "songs" | "user_songs" | "lists" | "list_items" | "recording_links" | "recordings" | "user_settings";
+            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "user_settings";
             /**
              * Updated At
              * Format: date-time
@@ -311,10 +311,10 @@ export interface components {
              */
             updated_at: string;
             /**
-             * User Song Id
+             * User Tune Id
              * Format: uuid
              */
-            user_song_id: string;
+            user_tune_id: string;
         };
         /**
          * ListPullRow
@@ -388,7 +388,7 @@ export interface components {
         };
         /**
          * Mode
-         * @description A song's mode.
+         * @description A tune's mode.
          * @enum {string}
          */
         Mode: "major" | "minor" | "mixolydian" | "dorian" | "modal" | "other";
@@ -429,7 +429,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["SongPullRow"] | components["schemas"]["UserSongPullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
+            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
         };
         /**
          * PushRequest
@@ -445,7 +445,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["SongChangeResult"] | components["schemas"]["UserSongChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
+            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
         };
         /**
          * RecordingChangeResult
@@ -543,13 +543,13 @@ export interface components {
             provider_ref?: string | null;
             /** Server Seq */
             server_seq: number;
-            /**
-             * Song Id
-             * Format: uuid
-             */
-            song_id: string;
             /** Title */
             title?: string | null;
+            /**
+             * Tune Id
+             * Format: uuid
+             */
+            tune_id: string;
             /**
              * Updated At
              * Format: date-time
@@ -609,10 +609,10 @@ export interface components {
             recorded_at: string;
             /** Server Seq */
             server_seq: number;
-            /** Song Id */
-            song_id?: string | null;
             source: components["schemas"]["RecordingSource"];
             state: components["schemas"]["RecordingState"];
+            /** Tune Id */
+            tune_id?: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -674,10 +674,28 @@ export interface components {
             url: string;
         };
         /**
-         * SongChangeResult
-         * @description The outcome of one change to a song.
+         * StorageResponse
+         * @description How much of the recording quota is in use.
          */
-        SongChangeResult: {
+        StorageResponse: {
+            /** Max File Bytes */
+            max_file_bytes: number;
+            /** Quota Bytes */
+            quota_bytes: number;
+            /** Used Bytes */
+            used_bytes: number;
+        };
+        /**
+         * TimeSignature
+         * @description A tune's time signature.
+         * @enum {string}
+         */
+        TimeSignature: "4/4" | "2/4" | "2/2" | "3/4" | "6/8" | "9/8" | "12/8" | "other";
+        /**
+         * TuneChangeResult
+         * @description The outcome of one change to a tune.
+         */
+        TuneChangeResult: {
             /**
              * Id
              * Format: uuid
@@ -685,7 +703,7 @@ export interface components {
             id: string;
             /** Reason */
             reason?: string | null;
-            row?: components["schemas"]["SongRow"] | null;
+            row?: components["schemas"]["TuneRow"] | null;
             /**
              * Status
              * @enum {string}
@@ -695,25 +713,25 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            table: "songs";
+            table: "tunes";
         };
         /**
-         * SongPullRow
-         * @description A song row in a pull page.
+         * TunePullRow
+         * @description A tune row in a pull page.
          */
-        SongPullRow: {
-            row: components["schemas"]["SongRow"];
+        TunePullRow: {
+            row: components["schemas"]["TuneRow"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            table: "songs";
+            table: "tunes";
         };
         /**
-         * SongRow
-         * @description A stored song, as push and pull return it.
+         * TuneRow
+         * @description A stored tune, as push and pull return it.
          */
-        SongRow: {
+        TuneRow: {
             /**
              * Alternate Titles
              * @default []
@@ -765,29 +783,11 @@ export interface components {
             violin_tuning?: string | null;
         };
         /**
-         * SongStatus
-         * @description Where a player stands with a song.
+         * TuneStatus
+         * @description Where a player stands with a tune.
          * @enum {string}
          */
-        SongStatus: "known" | "learning" | "want_to_learn";
-        /**
-         * StorageResponse
-         * @description How much of the recording quota is in use.
-         */
-        StorageResponse: {
-            /** Max File Bytes */
-            max_file_bytes: number;
-            /** Quota Bytes */
-            quota_bytes: number;
-            /** Used Bytes */
-            used_bytes: number;
-        };
-        /**
-         * TimeSignature
-         * @description A song's time signature.
-         * @enum {string}
-         */
-        TimeSignature: "4/4" | "2/4" | "2/2" | "3/4" | "6/8" | "9/8" | "12/8" | "other";
+        TuneStatus: "known" | "learning" | "want_to_learn";
         /**
          * UploadSlotRequest
          * @description What the client is about to upload.
@@ -872,10 +872,10 @@ export interface components {
             user_id: string;
         };
         /**
-         * UserSongChangeResult
-         * @description The outcome of one change to a user song.
+         * UserTuneChangeResult
+         * @description The outcome of one change to a user tune.
          */
-        UserSongChangeResult: {
+        UserTuneChangeResult: {
             /**
              * Id
              * Format: uuid
@@ -883,7 +883,7 @@ export interface components {
             id: string;
             /** Reason */
             reason?: string | null;
-            row?: components["schemas"]["UserSongRow"] | null;
+            row?: components["schemas"]["UserTuneRow"] | null;
             /**
              * Status
              * @enum {string}
@@ -893,25 +893,25 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            table: "user_songs";
+            table: "user_tunes";
         };
         /**
-         * UserSongPullRow
-         * @description A user song row in a pull page.
+         * UserTunePullRow
+         * @description A user tune row in a pull page.
          */
-        UserSongPullRow: {
-            row: components["schemas"]["UserSongRow"];
+        UserTunePullRow: {
+            row: components["schemas"]["UserTuneRow"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            table: "user_songs";
+            table: "user_tunes";
         };
         /**
-         * UserSongRow
-         * @description A stored user song, as push and pull return it.
+         * UserTuneRow
+         * @description A stored user tune, as push and pull return it.
          */
-        UserSongRow: {
+        UserTuneRow: {
             /** Archived At */
             archived_at?: string | null;
             /**
@@ -934,12 +934,12 @@ export interface components {
             notes?: string | null;
             /** Server Seq */
             server_seq: number;
+            status: components["schemas"]["TuneStatus"];
             /**
-             * Song Id
+             * Tune Id
              * Format: uuid
              */
-            song_id: string;
-            status: components["schemas"]["SongStatus"];
+            tune_id: string;
             /**
              * Updated At
              * Format: date-time
@@ -1276,6 +1276,8 @@ export interface operations {
         parameters: {
             query?: {
                 since?: number;
+                /** @description The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes. */
+                names?: "songs" | "tunes";
             };
             header?: never;
             path?: never;
@@ -1305,7 +1307,10 @@ export interface operations {
     };
     push_v1_sync_push_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes. */
+                names?: "songs" | "tunes";
+            };
             header?: never;
             path?: never;
             cookie?: never;

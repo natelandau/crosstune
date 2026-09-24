@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 // purpose, so a new list gets a deliberate client name rather than an invented one.
 const ARRAY_NAMES = {
   Instrument: 'INSTRUMENTS',
-  SongStatus: 'STATUSES',
+  TuneStatus: 'STATUSES',
   Mode: 'MODES',
   TimeSignature: 'TIME_SIGNATURES',
   Provider: 'PROVIDERS',
@@ -23,7 +23,7 @@ const ARRAY_NAMES = {
 // its user row are one form to the client, so their limits are one object. A row missing
 // from the document fails the run, so a renamed schema cannot empty a limits object.
 const LIMIT_OBJECTS = {
-  SONG_LIMITS: ['SongRow', 'UserSongRow'],
+  SONG_LIMITS: ['TuneRow', 'UserTuneRow'],
   LIST_LIMITS: ['ListRow'],
   LINK_LIMITS: ['RecordingLinkRow'],
   RECORDING_LIMITS: ['RecordingRow'],

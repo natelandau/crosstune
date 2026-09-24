@@ -1,6 +1,6 @@
-import type { SongStatus } from '../../api/vocabulary'
+import type { TuneStatus } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 
-export function isSongStatus(value: string): value is SongStatus {
+export function isSongStatus(value: string): value is TuneStatus {
   return Object.hasOwn(STATUS_LABELS, value)
 }

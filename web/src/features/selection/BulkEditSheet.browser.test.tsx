@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import type { Instrument, SongStatus } from '../../api/vocabulary'
+import type { Instrument, TuneStatus } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { createSong, type SongInput, type UserSongInput } from '../../commands/songs'
 import type { CrosstuneDb } from '../../db/schema'
@@ -22,7 +22,7 @@ beforeEach(() => {
 
 async function seed(
   song: SongInput,
-  userSong: Omit<UserSongInput, 'status'> & { status?: SongStatus } = {},
+  userSong: Omit<UserSongInput, 'status'> & { status?: TuneStatus } = {},
 ): Promise<CatalogEntry> {
   const { songId, userSongId } = await createSong(db, song, {
     status: 'want_to_learn',
