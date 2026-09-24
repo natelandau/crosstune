@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { Shell } from '../../app/Shell'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { MORE_ACTIONS } from '../../ui/Menu'
-import { ADD_SONG } from './CatalogPage'
-import { SEARCH_SONGS } from './SongSearch'
+import { ADD_TUNE } from './CatalogPage'
+import { SEARCH_TUNES } from './TuneSearch'
 
 // The settings screen reads the account from Clerk, which only answers under a ClerkProvider.
 vi.mock('@clerk/react', () => ({
@@ -19,8 +19,8 @@ let db: CrosstuneDb
 
 beforeEach(async () => {
   db = openTestDb()
-  await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
-  await createSong(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
+  await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+  await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
 })
 
 afterEach(async () => {
@@ -51,14 +51,14 @@ describe('CatalogPage on iOS', () => {
 
     await control('Done').click()
     await expect.element(tabBar()).toBeVisible()
-    await expect.element(control(ADD_SONG)).toBeVisible()
+    await expect.element(control(ADD_TUNE)).toBeVisible()
   })
 
   it('hides More actions when nothing matches the search', async () => {
     renderIonic(<Shell initialPath="/catalog" />, { db })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
     await expect.element(control(MORE_ACTIONS)).toBeVisible()
-    await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('zzz')
+    await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('zzz')
     await expect.element(control(MORE_ACTIONS)).not.toBeInTheDocument()
   })
 
@@ -67,14 +67,14 @@ describe('CatalogPage on iOS', () => {
     try {
       renderIonic(<Shell initialPath="/catalog" />, { db })
       await expect.element(control(MORE_ACTIONS)).toBeVisible()
-      for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
+      for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)
       }
-      await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('zzz')
+      await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('zzz')
       await expect.element(control(MORE_ACTIONS)).not.toBeInTheDocument()
-      for (const name of ['Filters', ADD_SONG]) {
+      for (const name of ['Filters', ADD_TUNE]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)

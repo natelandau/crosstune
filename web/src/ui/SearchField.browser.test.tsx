@@ -12,7 +12,7 @@ function Host({ onEnter = () => {} }: { onEnter?: () => void }) {
     <>
       <SearchField
         ref={field}
-        name="Search songs"
+        name="Search tunes"
         value={value}
         onInput={setValue}
         onEnter={onEnter}
@@ -25,7 +25,7 @@ function Host({ onEnter = () => {} }: { onEnter?: () => void }) {
   )
 }
 
-const input = () => page.getByRole('searchbox', { name: 'Search songs' })
+const input = () => page.getByRole('searchbox', { name: 'Search tunes' })
 const value = () => document.querySelector('[data-testid=value]')!.textContent
 
 describe('SearchField', () => {
@@ -33,7 +33,7 @@ describe('SearchField', () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(input()).toBeVisible()
     await expect.element(page.getByRole('search')).not.toHaveAttribute('aria-label')
-    await expect.element(input()).toHaveAttribute('placeholder', 'Search songs')
+    await expect.element(input()).toHaveAttribute('placeholder', 'Search tunes')
   })
 
   it('reports typing and clears from its clear button', async () => {

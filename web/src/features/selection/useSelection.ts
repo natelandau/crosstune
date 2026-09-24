@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouse
 import { usePointer } from '../../platform/pointer'
 import { isTextEntry, overlayOpen, visibleMain } from '../../ui/useShortcut'
 import { selectionCheckboxId } from './ids'
-import { useSongSelection, type SongSelection } from './useSongSelection'
+import { useTuneSelection, type TuneSelection } from './useTuneSelection'
 
 export interface RowSelection {
   selected: boolean
@@ -13,12 +13,12 @@ export interface RowSelection {
 
 export interface Selection {
   active: boolean
-  selection: SongSelection
+  selection: TuneSelection
   /** Names the control that leaves the mode, so focus can return to it. */
   selectRef: (node: HTMLElement | null) => void
   enter: (focusId?: string) => void
   exit: () => void
-  rowSelection: (userSongId: string) => RowSelection
+  rowSelection: (userTuneId: string) => RowSelection
   /**
    * Belongs on the element the rows sit in. A row's open handler takes no event, so a
    * shift-click is caught on the way down to it and extends the range from here instead; every
@@ -48,7 +48,7 @@ function focusTargetIn(node: HTMLElement): HTMLElement {
 }
 
 /**
- * Selection mode for a screen of song rows: whether it is on, which rows are in it, where focus
+ * Selection mode for a screen of tune rows: whether it is on, which rows are in it, where focus
  * goes as it opens and closes, the keyboard, and the hardware back button.
  *
  * `visibleIds` must be memoized by the caller: `selectAll` depends on its identity. `onEnter`
@@ -56,7 +56,7 @@ function focusTargetIn(node: HTMLElement): HTMLElement {
  */
 export function useSelection(visibleIds: readonly string[], onEnter?: () => void): Selection {
   const [active, setActive] = useState(false)
-  const selection = useSongSelection(visibleIds, active)
+  const selection = useTuneSelection(visibleIds, active)
   const focusTarget = useRef<string | null>(null)
   const buttonRef = useRef<HTMLElement | null>(null)
   const mouse = usePointer() === 'mouse'
@@ -158,14 +158,14 @@ export function useSelection(visibleIds: readonly string[], onEnter?: () => void
     setActive(true)
   }
 
-  const rowSelection = (userSongId: string): RowSelection => ({
-    selected: selection.isSelected(userSongId),
-    onToggle: () => selection.toggle(userSongId),
+  const rowSelection = (userTuneId: string): RowSelection => ({
+    selected: selection.isSelected(userTuneId),
+    onToggle: () => selection.toggle(userTuneId),
     onLongPress: () => {
       // The held row joins the selection as the mode opens, which holds because entering
       // never clears the set.
-      selection.toggle(userSongId)
-      enter(userSongId)
+      selection.toggle(userTuneId)
+      enter(userTuneId)
     },
   })
 

@@ -1,12 +1,12 @@
 import { IonButton, IonItem, IonTextarea } from '@ionic/react'
 import { useState } from 'react'
-import { SONG_LIMITS } from '../../api/vocabulary'
+import { TUNE_LIMITS } from '../../api/vocabulary'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 
 /**
  * The whole lyrics body, at the height a body needs. Done hands the text to whoever opened the
- * sheet rather than writing it: from the song form that keeps it until the form is saved, so
+ * sheet rather than writing it: from the tune form that keeps it until the form is saved, so
  * the form stays one transaction and cancelling it discards the words with everything else, and
  * from the reading view that writes it on its own. A caller that writes passes `pending` and
  * `error`, and holds the sheet open until the write lands, so refused words stay in the box.
@@ -64,7 +64,7 @@ export function LyricsSheet({
             placeholder="The words, a verse at a time…"
             autoGrow
             rows={16}
-            maxlength={SONG_LIMITS.lyrics}
+            maxlength={TUNE_LIMITS.lyrics}
             value={draft}
             onIonInput={(event) => setDraft(String(event.detail.value ?? ''))}
           />

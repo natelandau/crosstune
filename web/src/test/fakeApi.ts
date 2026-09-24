@@ -4,18 +4,18 @@ import type {
   ChangeResult,
   PullResponse,
   RecordingRow,
-  SongRow,
+  TuneRow,
   SyncApi,
   TableName,
-  UserSongRow,
+  UserTuneRow,
 } from '../api/types'
 
 type PushResponder = (changes: Change[]) => ChangeResult[] | Promise<ChangeResult[]>
 
 // The column the server fills from the token; list items inherit ownership from their list.
 const OWNER_COLUMN: Record<TableName, string | null> = {
-  songs: 'owner_user_id',
-  user_songs: 'user_id',
+  tunes: 'owner_user_id',
+  user_tunes: 'user_id',
   lists: 'user_id',
   list_items: null,
   recording_links: 'added_by_user_id',
@@ -186,14 +186,14 @@ export function createFakeApi() {
   }
 }
 
-export function serverSong(overrides: Partial<SongRow> & { id: string }): SongRow {
+export function serverTune(overrides: Partial<TuneRow> & { id: string }): TuneRow {
   return {
     created_at: '2026-09-11T00:00:00Z',
     updated_at: '2026-09-11T00:00:00Z',
     deleted_at: null,
     server_seq: 1,
     owner_user_id: 'server-user',
-    title: 'Server Song',
+    title: 'Server Tune',
     alternate_titles: [],
     genre: null,
     feel: null,
@@ -210,9 +210,9 @@ export function serverSong(overrides: Partial<SongRow> & { id: string }): SongRo
   }
 }
 
-export function serverUserSong(
-  overrides: Partial<UserSongRow> & { id: string; song_id: string },
-): UserSongRow {
+export function serverUserTune(
+  overrides: Partial<UserTuneRow> & { id: string; tune_id: string },
+): UserTuneRow {
   return {
     created_at: '2026-09-11T00:00:00Z',
     updated_at: '2026-09-11T00:00:00Z',
@@ -235,7 +235,7 @@ export function serverRecording(overrides: Partial<RecordingRow> & { id: string 
     deleted_at: null,
     server_seq: 3,
     user_id: 'server-user',
-    song_id: null,
+    tune_id: null,
     label: null,
     source: 'microphone',
     recorded_at: '2026-09-11T00:00:00Z',

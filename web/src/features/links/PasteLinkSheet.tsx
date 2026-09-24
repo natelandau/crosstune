@@ -17,13 +17,13 @@ export const LINK_PLACEHOLDER = 'Paste a YouTube, Spotify, or other link'
 export const LINK_REQUIRED = 'Paste a link to add it'
 export const LINK_NOT_WEB = 'Paste a web address, one that starts with http or https'
 
-/** Pastes a link to a recording elsewhere onto a song, over whatever screen asked. */
+/** Pastes a link to a recording elsewhere onto a tune, over whatever screen asked. */
 export function PasteLinkSheet({
-  songId,
+  tuneId,
   onClose,
 }: {
   /** Null means closed; the parent nulls it from onClose. */
-  songId: string | null
+  tuneId: string | null
   onClose: () => void
 }) {
   const db = useDb()
@@ -34,15 +34,15 @@ export function PasteLinkSheet({
   const [validation, setValidation] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
   const [openedFor, setOpenedFor] = useState<string | null>(null)
-  // The song a submit is running for. A ref, because two submits in one tick both read the
+  // The tune a submit is running for. A ref, because two submits in one tick both read the
   // same `pending` state.
   const saving = useRef<string | null>(null)
   const urlRef = useRef<HTMLIonInputElement>(null)
 
   // Reset during render so the sheet's first frame already shows empty fields.
-  if (songId !== openedFor) {
-    setOpenedFor(songId)
-    if (songId) {
+  if (tuneId !== openedFor) {
+    setOpenedFor(tuneId)
+    if (tuneId) {
       setUrl('')
       setLabel('')
       setValidation(null)
@@ -51,14 +51,14 @@ export function PasteLinkSheet({
     }
   }
 
-  // A dismissal that ends after the sheet reopened for another song belongs to the old one.
+  // A dismissal that ends after the sheet reopened for another tune belongs to the old one.
   const dismissed = () => {
     saving.current = null
-    if (songId === null || closing) onClose()
+    if (tuneId === null || closing) onClose()
   }
 
   const submit = () => {
-    if (!songId || closing || saving.current === songId) return
+    if (!tuneId || closing || saving.current === tuneId) return
     const trimmed = url.trim()
     if (!trimmed) {
       clear()
@@ -73,8 +73,8 @@ export function PasteLinkSheet({
       return
     }
     setValidation(null)
-    saving.current = songId
-    const target = songId
+    saving.current = tuneId
+    const target = tuneId
     const trimmedLabel = label.trim()
     runThen(
       async () => {
@@ -107,7 +107,7 @@ export function PasteLinkSheet({
 
   return (
     <Sheet
-      open={songId !== null && !closing}
+      open={tuneId !== null && !closing}
       title={PASTE_LINK}
       dismissible={false}
       onClose={dismissed}

@@ -47,7 +47,7 @@ describe('visibleTunings', () => {
     expect(visibleTunings(played(), null)).toEqual([])
   })
 
-  it('also shows a tuning the song already carries', () => {
+  it('also shows a tuning the tune already carries', () => {
     expect(
       visibleTunings(played('violin'), { violin_tuning: null, banjo_tuning: 'gDGBD' }),
     ).toEqual(['violin_tuning', 'banjo_tuning'])

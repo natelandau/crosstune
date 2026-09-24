@@ -22,7 +22,7 @@ function show(
 const box = (name: string) => page.getByRole('checkbox', { name })
 
 describe('InstrumentRows', () => {
-  it('lists only instruments a song can show a tuning for', async () => {
+  it('lists only instruments a tune can show a tuning for', async () => {
     show([])
     await expect.element(page.getByRole('checkbox', { name: 'Violin' })).toBeInTheDocument()
     await expect.element(page.getByRole('checkbox', { name: '5-string banjo' })).toBeInTheDocument()

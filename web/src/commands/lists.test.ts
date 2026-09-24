@@ -12,7 +12,7 @@ import {
   renameList,
 } from './lists'
 import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from './messages'
-import { createSong } from './songs'
+import { createTune } from './tunes'
 
 let db: CrosstuneDb
 
@@ -24,10 +24,10 @@ afterEach(async () => {
   await db.delete()
 })
 
-async function threeSongs() {
-  const a = (await createSong(db, { title: 'A' }, { status: 'known' })).userSongId
-  const b = (await createSong(db, { title: 'B' }, { status: 'known' })).userSongId
-  const c = (await createSong(db, { title: 'C' }, { status: 'known' })).userSongId
+async function threeTunes() {
+  const a = (await createTune(db, { title: 'A' }, { status: 'known' })).userTuneId
+  const b = (await createTune(db, { title: 'B' }, { status: 'known' })).userTuneId
+  const c = (await createTune(db, { title: 'C' }, { status: 'known' })).userTuneId
   return [a, b, c] as const
 }
 
@@ -43,7 +43,7 @@ describe('lists', () => {
   })
 
   it('adds items once, in order, and removes them', async () => {
-    const [a, b] = await threeSongs()
+    const [a, b] = await threeTunes()
     const listId = await createList(db, 'L')
     const itemA = await addToList(db, listId, a)
     const itemB = await addToList(db, listId, b)
@@ -54,8 +54,8 @@ describe('lists', () => {
     expect((await pendingFor(db, 'list_items', itemA))?.op).toBe('delete')
   })
 
-  it('refuses to add a song to a list that is missing or deleted', async () => {
-    const [a] = await threeSongs()
+  it('refuses to add a tune to a list that is missing or deleted', async () => {
+    const [a] = await threeTunes()
     await expect(addToList(db, 'nope', a)).rejects.toThrow(LIST_NOT_FOUND)
     const listId = await createList(db, 'Gone')
     await deleteList(db, listId)
@@ -64,7 +64,7 @@ describe('lists', () => {
   })
 
   it('moves an item by rewriting only the positions that changed', async () => {
-    const [a, b, c] = await threeSongs()
+    const [a, b, c] = await threeTunes()
     const listId = await createList(db, 'L')
     const ia = await addToList(db, listId, a)
     const ib = await addToList(db, listId, b)
@@ -88,7 +88,7 @@ describe('lists', () => {
     ['to the bottom', 'a', 'c', ['b', 'c', 'a']],
     ['to the top', 'c', 'a', ['c', 'a', 'b']],
   ] as const)('moves an item %s', async (_name, moved, target, expected) => {
-    const [a, b, c] = await threeSongs()
+    const [a, b, c] = await threeTunes()
     const listId = await createList(db, 'L')
     const ids = {
       a: await addToList(db, listId, a),
@@ -100,7 +100,7 @@ describe('lists', () => {
   })
 
   it('moves past an item between it and the target, landing beside the target', async () => {
-    const [a, b, c] = await threeSongs()
+    const [a, b, c] = await threeTunes()
     const listId = await createList(db, 'L')
     const ia = await addToList(db, listId, a)
     const ib = await addToList(db, listId, b)
@@ -112,7 +112,7 @@ describe('lists', () => {
   })
 
   it('moves nothing for a missing target or the item itself', async () => {
-    const [a, b] = await threeSongs()
+    const [a, b] = await threeTunes()
     const listId = await createList(db, 'L')
     const ia = await addToList(db, listId, a)
     const ib = await addToList(db, listId, b)
@@ -123,20 +123,20 @@ describe('lists', () => {
   })
 
   it('deletes a list and tombstones its items without queuing them', async () => {
-    const [a] = await threeSongs()
+    const [a] = await threeTunes()
     const listId = await createList(db, 'L')
     const item = await addToList(db, listId, a)
     await deleteList(db, listId)
     expect((await db.lists.get(listId))?.deleted_at).not.toBeNull()
     expect((await db.list_items.get(item))?.deleted_at).not.toBeNull()
     const ops = (await pendingBatch(db)).filter(
-      (e) => e.table !== 'songs' && e.table !== 'user_songs',
+      (e) => e.table !== 'tunes' && e.table !== 'user_tunes',
     )
     expect(ops.map((e) => [e.table, e.op])).toEqual([['lists', 'delete']])
   })
 
   it('gives a new item a position past a removed item, with no collisions', async () => {
-    const [a, b, c] = await threeSongs()
+    const [a, b, c] = await threeTunes()
     const listId = await createList(db, 'L')
     const itemA = await addToList(db, listId, a)
     await addToList(db, listId, b)

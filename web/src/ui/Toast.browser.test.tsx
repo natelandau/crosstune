@@ -11,7 +11,7 @@ function Host({ undo }: { undo?: () => void }) {
   const toast = useToast()
   return (
     <>
-      <IonButton onClick={() => toast({ message: '3 songs archived', undo })}>Archive</IonButton>
+      <IonButton onClick={() => toast({ message: '3 tunes archived', undo })}>Archive</IonButton>
       <IonButton onClick={() => toast({ message: 'Saved' })}>Save</IonButton>
       <IonButton
         onClick={() => {
@@ -73,7 +73,7 @@ function ReturningChrome({ comesBack = true }: { comesBack?: boolean }) {
     <>
       <IonButton
         onClick={() => {
-          toast({ message: 'Set 2 songs to Known' })
+          toast({ message: 'Set 2 tunes to Known' })
           setBack(comesBack)
         }}
       >
@@ -97,7 +97,7 @@ describe('useToast', () => {
   it('waits for the bottom chrome to come back before it lands', async () => {
     renderIonic(<ReturningChrome />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Act'))
-    await expect.element(page.getByText('Set 2 songs to Known')).toBeVisible()
+    await expect.element(page.getByText('Set 2 tunes to Known')).toBeVisible()
     const wrapper = document
       .querySelector('ion-toast')!
       .shadowRoot!.querySelector('.toast-wrapper')!
@@ -115,7 +115,7 @@ describe('useToast', () => {
       renderIonic(<ReturningChrome comesBack={false} />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('Act'))
       const started = performance.now()
-      await expect.element(page.getByText('Set 2 songs to Known')).toBeVisible()
+      await expect.element(page.getByText('Set 2 tunes to Known')).toBeVisible()
       // Comfortably inside the wait a phone frame allows its tab bar, which this frame has no
       // reason to sit through.
       expect(performance.now() - started).toBeLessThan(1000)
@@ -128,7 +128,7 @@ describe('useToast', () => {
     const undo = vi.fn()
     renderIonic(<Host undo={undo} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Archive'))
-    await expect.element(page.getByText('3 songs archived')).toBeVisible()
+    await expect.element(page.getByText('3 tunes archived')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
     await waitFor(() => expect(undo).toHaveBeenCalledOnce())
   })
@@ -137,7 +137,7 @@ describe('useToast', () => {
     const undo = vi.fn()
     renderIonic(<Host undo={undo} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Archive'))
-    await expect.element(page.getByText('3 songs archived')).toBeVisible()
+    await expect.element(page.getByText('3 tunes archived')).toBeVisible()
     await userEvent.click(screen.getByText('Save'))
     await expect.element(page.getByText('Saved')).toBeVisible()
     await expect.poll(() => page.getByRole('button', { name: 'Undo' }).elements()).toHaveLength(0)
@@ -150,7 +150,7 @@ describe('useToast', () => {
     })
     renderIonic(<Host undo={undo} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Archive'))
-    await expect.element(page.getByText('3 songs archived')).toBeVisible()
+    await expect.element(page.getByText('3 tunes archived')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
     await waitFor(() => expect(undo).toHaveBeenCalledOnce())
     await userEvent.click(screen.getByText('Save'))
@@ -161,7 +161,7 @@ describe('useToast', () => {
     const undo = vi.fn(() => Promise.reject(new Error('boom')))
     renderIonic(<Host undo={undo} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Archive'))
-    await expect.element(page.getByText('3 songs archived')).toBeVisible()
+    await expect.element(page.getByText('3 tunes archived')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
     await waitFor(() => expect(undo).toHaveBeenCalledOnce())
     await userEvent.click(screen.getByText('Save'))

@@ -14,7 +14,7 @@ import { INSTRUMENTS_HELP } from './instruments'
 import { useInstruments } from './useInstruments'
 
 /**
- * The instruments a musician plays, which decide the tuning fields a song shows. The set is
+ * The instruments a musician plays, which decide the tuning fields a tune shows. The set is
  * named on the screen and chosen in a sheet, so nine rows a musician answers once do not take
  * half the settings screen. Each tap writes its own toggle rather than the whole set, so two
  * taps in a row both land.

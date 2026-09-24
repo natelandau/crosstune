@@ -1,17 +1,17 @@
 import { expect, test } from '@playwright/test'
-import { addSong, expectSynced, signIn, unique } from './helpers'
+import { addTune, expectSynced, signIn, unique } from './helpers'
 
-test('a song added offline syncs on reconnect', async ({ browser, page, context }) => {
+test('a tune added offline syncs on reconnect', async ({ browser, page, context }) => {
   await signIn(page)
-  const online = unique('Online Song')
-  const offline = unique('Offline Song')
+  const online = unique('Online Tune')
+  const offline = unique('Offline Tune')
   const addedOnline = new Date().toISOString()
-  await addSong(page, online, 'A')
+  await addTune(page, online, 'A')
   await expectSynced(page, addedOnline)
   await page.getByRole('tab', { name: 'Catalog' }).click()
 
   await context.setOffline(true)
-  await addSong(page, offline, 'G')
+  await addTune(page, offline, 'G')
   await page.getByRole('tab', { name: 'Catalog' }).click()
   await expect(page.getByRole('button', { name: new RegExp(offline) })).toBeVisible()
   await expect(page.getByTestId('sync-status').first()).toHaveAttribute('data-status', 'offline')

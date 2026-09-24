@@ -37,7 +37,7 @@ function ConfirmHost() {
         })
       }
     >
-      Delete song
+      Delete tune
     </IonButton>
   )
 }
@@ -56,7 +56,7 @@ function dangerColor(): string {
 
 async function openConfirm() {
   renderIonic(<ConfirmHost />, { db: openTestDb() })
-  await userEvent.click(await screen.findByText('Delete song'))
+  await userEvent.click(await screen.findByText('Delete tune'))
   await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
   const destructive = document.querySelector<HTMLElement>(
     '.alert-button-role-destructive, .action-sheet-destructive',

@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { RECORD_LABEL } from '../../app/tabs'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import { openTestDb } from '../../test/db'
 import { fakeStream, FakeRecorder, stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic, renderScreen } from '../../test/ionic'
@@ -27,9 +27,9 @@ vi.mock('../../ui/Toast', async (importOriginal) => {
   }
 })
 
-type Start = (songId?: string) => void
+type Start = (tuneId?: string) => void
 
-function Host({ songId, onReady }: { songId?: string; onReady?: (start: Start) => void }) {
+function Host({ tuneId, onReady }: { tuneId?: string; onReady?: (start: Start) => void }) {
   const { start } = useRecord()
   // Hands the seam's start out, so a test can ask for another recording without reaching
   // through the open modal to a control it covers.
@@ -37,7 +37,7 @@ function Host({ songId, onReady }: { songId?: string; onReady?: (start: Start) =
     onReady?.(start)
   }, [onReady, start])
   return (
-    <IonButton aria-label={RECORD_LABEL} onClick={() => start(songId)}>
+    <IonButton aria-label={RECORD_LABEL} onClick={() => start(tuneId)}>
       Record
     </IonButton>
   )
@@ -219,15 +219,15 @@ describe('RecordModal capture', () => {
     }
   })
 
-  it('stops, saves, and closes, landing on the song it was started for', async () => {
+  it('stops, saves, and closes, landing on the tune it was started for', async () => {
     const db = openTestDb()
-    const { songId } = await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
     fakeMedia()
     renderScreen(
       <IonPage>
         <IonContent>
           <RecordProvider>
-            <Host songId={songId} />
+            <Host tuneId={tuneId} />
           </RecordProvider>
         </IonContent>
       </IonPage>,
@@ -235,19 +235,19 @@ describe('RecordModal capture', () => {
         db,
         path: '/recordings',
         route: '/recordings',
-        probes: { '/catalog/:songId': 'Song probe' },
+        probes: { '/catalog/:tuneId': 'Tune probe' },
       },
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await page.getByRole('button', { name: 'Stop' }).click()
     await vi.waitFor(async () => expect(await db.recordings.count()).toBe(1))
-    await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'Tune probe' })).toBeVisible()
     await vi.waitFor(() => expect(shown()).toBe(false))
   })
 
-  it('lands on the song it was started from without opening a second copy of it', async () => {
+  it('lands on the tune it was started from without opening a second copy of it', async () => {
     const db = openTestDb()
-    const { songId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
     fakeMedia()
     let router: Router | null = null
     const holdRouter = (found: Router) => {
@@ -258,11 +258,11 @@ describe('RecordModal capture', () => {
         <IonContent>
           <RouterProbe onReady={holdRouter} />
           <RecordProvider>
-            <Host songId={songId} />
+            <Host tuneId={tuneId} />
           </RecordProvider>
         </IonContent>
       </IonPage>,
-      { db, path: `/catalog/${songId}`, route: '/catalog/:songId' },
+      { db, path: `/catalog/${tuneId}`, route: '/catalog/:tuneId' },
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await page.getByRole('button', { name: 'Stop' }).click()
@@ -273,13 +273,13 @@ describe('RecordModal capture', () => {
 
   it('says once that part of the recording could not be saved', async () => {
     const db = openTestDb()
-    const { songId } = await createSong(db, { title: 'Sandy River Belle' }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: 'Sandy River Belle' }, { status: 'known' })
     fakeMedia()
     renderScreen(
       <IonPage>
         <IonContent>
           <RecordProvider>
-            <Host songId={songId} />
+            <Host tuneId={tuneId} />
           </RecordProvider>
         </IonContent>
       </IonPage>,
@@ -287,7 +287,7 @@ describe('RecordModal capture', () => {
         db,
         path: '/recordings',
         route: '/recordings',
-        probes: { '/catalog/:songId': 'Song probe' },
+        probes: { '/catalog/:tuneId': 'Tune probe' },
       },
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
@@ -296,7 +296,7 @@ describe('RecordModal capture', () => {
     await page.getByRole('button', { name: 'Stop' }).click()
     await vi.waitFor(async () => expect(await db.recordings.count()).toBe(1))
     // The landing pushes a route, which re-memoizes the router the saved handler reads.
-    await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'Tune probe' })).toBeVisible()
     await vi.waitFor(() => expect(shown()).toBe(false))
     expect(toasts).toEqual([PARTIAL_SAVE])
   })
@@ -466,9 +466,9 @@ describe('RecordModal capture', () => {
     expect(await canDismiss(undefined, undefined)).toBe(true)
   })
 
-  it('ignores a second start for another song while a recording is already live', async () => {
+  it('ignores a second start for another tune while a recording is already live', async () => {
     const db = openTestDb()
-    const { songId } = await createSong(db, { title: 'Ragtime Annie' }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: 'Ragtime Annie' }, { status: 'known' })
     const media = fakeMedia()
     let again: Start = () => {}
     renderIonic(
@@ -483,8 +483,8 @@ describe('RecordModal capture', () => {
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
-    // Another song would hand the capture a new song id, tearing the live session down.
-    again(songId)
+    // Another tune would hand the capture a new tune id, tearing the live session down.
+    again(tuneId)
     // A restart asks for the microphone again, a few milliseconds behind the render that
     // would cause it, so this waits long enough for a second request to show up.
     await new Promise((resolve) => setTimeout(resolve, 200))

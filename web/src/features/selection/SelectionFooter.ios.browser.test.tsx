@@ -13,7 +13,7 @@ import { ADD_TO_LIST } from '../lists/ListPicker'
 import { SelectionFooter } from './SelectionFooter'
 import { SelectionProvider, useSelectionChrome } from './SelectionProvider'
 import type { BulkAction } from './SelectionToolbar'
-import type { SongSelection } from './useSongSelection'
+import type { TuneSelection } from './useTuneSelection'
 
 let db: CrosstuneDb
 
@@ -24,7 +24,7 @@ const ACTIONS: readonly BulkAction[] = [
   { label: 'Edit', icon: SquarePen, onPress: () => {} },
   { label: ADD_TO_LIST, icon: ListPlus, onPress: () => {} },
 ]
-const MORE: readonly MenuItem[] = [{ label: 'Archive 2 songs', onPress: () => {} }]
+const MORE: readonly MenuItem[] = [{ label: 'Archive 2 tunes', onPress: () => {} }]
 const NAMES = ['Status', 'Edit', ADD_TO_LIST, 'More']
 
 /** Reports the flag the footer publishes for the tab bar. */
@@ -35,7 +35,7 @@ function ChromeProbe() {
 
 function Harness({ count }: { count: number }) {
   const [selecting, setSelecting] = useState(true)
-  const selection: SongSelection = {
+  const selection: TuneSelection = {
     count,
     allSelected: false,
     isSelected: () => false,
@@ -68,7 +68,7 @@ function Harness({ count }: { count: number }) {
 function OverlapHarness() {
   const [first, setFirst] = useState(true)
   const [second, setSecond] = useState(false)
-  const selection: SongSelection = {
+  const selection: TuneSelection = {
     count: 2,
     allSelected: false,
     isSelected: () => false,
@@ -144,7 +144,7 @@ describe('SelectionFooter on iOS', () => {
     show(2)
     await expect.element(control('More')).toBeVisible()
     await control('More').click()
-    await expect.element(await screen.findByText('Archive 2 songs')).toBeVisible()
+    await expect.element(await screen.findByText('Archive 2 tunes')).toBeVisible()
   })
 
   it('hides the tab bar for as long as it is mounted', async () => {

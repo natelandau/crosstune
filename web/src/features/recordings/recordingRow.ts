@@ -18,16 +18,16 @@ function recordedAtLabel(recordedAt: string): string {
 }
 
 /**
- * A recording's title: its own label, then its song's, then when it was made. A list that
- * already heads the recording's group with the song skips the song and goes straight to the
+ * A recording's title: its own label, then its tune's, then when it was made. A list that
+ * already heads the recording's group with the tune skips the tune and goes straight to the
  * date, so a row never repeats the heading above it.
  */
 export function recordingTitle(
   view: RecordingView,
-  { songNamedAbove = false }: { songNamedAbove?: boolean } = {},
+  { tuneNamedAbove = false }: { tuneNamedAbove?: boolean } = {},
 ): string {
   const recordedAt = `Recording, ${recordedAtLabel(view.recording.recorded_at)}`
-  return view.recording.label ?? (songNamedAbove ? recordedAt : (view.songTitle ?? recordedAt))
+  return view.recording.label ?? (tuneNamedAbove ? recordedAt : (view.tuneTitle ?? recordedAt))
 }
 
 /** The meta parts in order, already worded; the row joins them with " · ". */

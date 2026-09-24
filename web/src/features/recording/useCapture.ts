@@ -34,7 +34,7 @@ const clock: SessionClock = {
  * Start capturing on mount and keep going until stop or cancel. One recording per mount; a recording
  * still running when the component unmounts is finished and kept, never discarded.
  */
-export function useCapture({ songId }: { songId: string | null }): CaptureHandle {
+export function useCapture({ tuneId }: { tuneId: string | null }): CaptureHandle {
   const db = useDb()
   const { userId } = useAuthSession()
   const [recordingId] = useState(newId)
@@ -59,7 +59,7 @@ export function useCapture({ songId }: { songId: string | null }): CaptureHandle
       suspendAudioContext,
       persistStorage,
       clock,
-      songId,
+      tuneId,
     })
     session.current = capture
     const unsubscribe = capture.subscribe(setSnapshot)
@@ -69,7 +69,7 @@ export function useCapture({ songId }: { songId: string | null }): CaptureHandle
       session.current = null
       capture.dispose()
     }
-  }, [db, recordingId, userId, songId])
+  }, [db, recordingId, userId, tuneId])
 
   const stop = useCallback(() => session.current?.finish() ?? Promise.resolve(), [])
   const cancel = useCallback(() => session.current?.cancel() ?? Promise.resolve(), [])

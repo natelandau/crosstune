@@ -74,7 +74,7 @@ async function seedDownload(bytes: string) {
     updated_at: at,
     deleted_at: null,
     server_seq: 1,
-    song_id: null,
+    tune_id: null,
     label: null,
     source: 'microphone',
     recorded_at: at,

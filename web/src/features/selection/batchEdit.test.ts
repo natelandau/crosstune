@@ -1,23 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
-import { songRow, userSongRow } from '../../test/rows'
+import { tuneRow, userTuneRow } from '../../test/rows'
 import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
 
 const a = {
-  song: songRow('s1', 'Say Old Man', {
+  tune: tuneRow('s1', 'Say Old Man', {
     key: 'A',
     violin_tuning: 'Standard (GDAE)',
     is_crooked: false,
   }),
-  userSong: userSongRow('u1', 's1', { status: 'known' }),
+  userTune: userTuneRow('u1', 's1', { status: 'known' }),
 }
 const b = {
-  song: songRow('s2', 'Lost Indian', {
+  tune: tuneRow('s2', 'Lost Indian', {
     key: 'A',
     violin_tuning: 'Cross A (AEAE)',
     is_crooked: false,
   }),
-  userSong: userSongRow('u2', 's2', { status: 'learning' }),
+  userTune: userTuneRow('u2', 's2', { status: 'learning' }),
 }
 
 describe('summarize', () => {
@@ -31,16 +31,16 @@ describe('summarize', () => {
   })
 
   it('treats a mode this client does not know as no value', () => {
-    const lydian1 = { ...a, song: { ...a.song, mode: 'lydian' } }
-    const lydian2 = { ...b, song: { ...b.song, mode: 'lydian' } }
+    const lydian1 = { ...a, tune: { ...a.tune, mode: 'lydian' } }
+    const lydian2 = { ...b, tune: { ...b.tune, mode: 'lydian' } }
     expect(summarize([lydian1, lydian2]).mode).toEqual({ kind: 'empty' })
 
-    const major = { ...b, song: { ...b.song, mode: 'major' } }
+    const major = { ...b, tune: { ...b.tune, mode: 'major' } }
     expect(summarize([lydian1, major]).mode).toEqual({ kind: 'mixed' })
   })
 
   it('treats an unknown status as no value', () => {
-    const unknown = { ...a, userSong: { ...a.userSong, status: 'retired' } }
+    const unknown = { ...a, userTune: { ...a.userTune, status: 'retired' } }
     expect(summarize([unknown]).status).toEqual({ kind: 'empty' })
   })
 })
@@ -53,13 +53,13 @@ describe('visibleEditFields', () => {
     expect(visibleEditFields([a, b], violin)).not.toContain('banjo_tuning')
   })
 
-  it('shows a tuning any selected song already has', () => {
-    const banjo = { ...b, song: { ...b.song, banjo_tuning: 'Double C (gCGCD)' } }
+  it('shows a tuning any selected tune already has', () => {
+    const banjo = { ...b, tune: { ...b.tune, banjo_tuning: 'Double C (gCGCD)' } }
     expect(visibleEditFields([a, banjo], violin)).toContain('banjo_tuning')
   })
 
   it('does not treat an undefined tuning as a value', () => {
-    const undefinedTuning = { ...b, song: { ...b.song, banjo_tuning: undefined } }
+    const undefinedTuning = { ...b, tune: { ...b.tune, banjo_tuning: undefined } }
     expect(visibleEditFields([a, undefinedTuning], violin)).not.toContain('banjo_tuning')
   })
 })
@@ -75,7 +75,7 @@ describe('touched fields', () => {
 })
 
 describe('toPatch', () => {
-  it('splits touched fields between song and user song, trimming and clearing', () => {
+  it('splits touched fields between tune and user tune, trimming and clearing', () => {
     expect(
       toPatch({
         violin_tuning: ' Cross A (AEAE) ',
@@ -86,12 +86,12 @@ describe('toPatch', () => {
         learned_from: 'Bruce Molsky',
       }),
     ).toEqual({
-      song: { violin_tuning: 'Cross A (AEAE)', genre: null, mode: null, is_crooked: true },
-      userSong: { status: 'known', learned_from: 'Bruce Molsky' },
+      tune: { violin_tuning: 'Cross A (AEAE)', genre: null, mode: null, is_crooked: true },
+      userTune: { status: 'known', learned_from: 'Bruce Molsky' },
     })
   })
 
   it('never clears status', () => {
-    expect(toPatch({ status: null })).toEqual({ song: {}, userSong: {} })
+    expect(toPatch({ status: null })).toEqual({ tune: {}, userTune: {} })
   })
 })

@@ -15,17 +15,17 @@ import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
 import { SelectionFooter } from '../selection/SelectionFooter'
 import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useInstruments } from '../settings/useInstruments'
-import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
+import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
 import { DELETE_LIST_MESSAGE } from './deleteListMessage'
 import { ListNameSheet, type ListNameTarget } from './ListNameSheet'
-import { ListSongs, type ListSelectionState } from './ListSongs'
-import { ADD_SONGS, SongPickerSheet } from './SongPickerSheet'
+import { ListTunes, type ListSelectionState } from './ListTunes'
+import { ADD_TUNES, TunePickerSheet } from './TunePickerSheet'
 import { useListShowArchived } from './useListShowArchived'
 import { useListView, type ListItemView } from './useLists'
 
-export const EMPTY_LIST_HINT = 'Add songs to start this list.'
+export const EMPTY_LIST_HINT = 'Add tunes to start this list.'
 export const DELETE_LIST = 'Delete list'
-export const ALL_ARCHIVED_TITLE = 'Every song here is archived'
+export const ALL_ARCHIVED_TITLE = 'Every tune here is archived'
 export const HIDE_ARCHIVED = 'Hide archived'
 export const EMPTY_LIST_TITLE = 'Nothing in this list'
 export const LIST_GONE = 'This list is gone'
@@ -34,7 +34,7 @@ const ARCHIVED_HINT = `Turn on ${SHOW_ARCHIVED} to see them.`
 
 const noop = () => {}
 
-// What the toolbar reads before any song has rendered, since its hook runs on every render
+// What the toolbar reads before any tune has rendered, since its hook runs on every render
 // while the rows that own the selection may not be on screen at all.
 const NOTHING_SELECTABLE: ListSelectionState = {
   active: false,
@@ -56,7 +56,7 @@ const NOTHING_SELECTABLE: ListSelectionState = {
   selectRef: noop,
 }
 
-/** One list: its songs in order, with the sheets that add, rename, and edit them. */
+/** One list: its tunes in order, with the sheets that add, rename, and edit them. */
 export function ListPage() {
   const { listId = '' } = useParams()
   const view = useListView(listId)
@@ -71,7 +71,7 @@ export function ListPage() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [naming, setNaming] = useState<ListNameTarget | null>(null)
-  const [form, setForm] = useState<SongFormTarget | null>(null)
+  const [form, setForm] = useState<TuneFormTarget | null>(null)
   // The name of a list whose confirmed delete is running, so the live query reporting it gone
   // does not flash "This list is gone" while the screen navigates away.
   const [deletingName, setDeletingName] = useState<string | null>(null)
@@ -91,10 +91,10 @@ export function ListPage() {
   const list = view && !deleted ? view.list : null
   const notFound = ready && view === null && !deleted
   const visibleCount = view
-    ? view.items.filter((item) => showArchived || item.userSong.archived_at === null).length
+    ? view.items.filter((item) => showArchived || item.userTune.archived_at === null).length
     : 0
   const items = view?.items
-  const taken = useMemo(() => new Set(items ? items.map((item) => item.userSong.id) : []), [items])
+  const taken = useMemo(() => new Set(items ? items.map((item) => item.userTune.id) : []), [items])
 
   const chrome = selection ?? NOTHING_SELECTABLE
   const selecting = chrome.active
@@ -145,11 +145,11 @@ export function ListPage() {
     else router.push('/lists', 'back', 'replace')
   }
 
-  const add = async (userSongId: string) => {
+  const add = async (userTuneId: string) => {
     if (!list) return
     setPageError(null)
     try {
-      await addToList(db, list.id, userSongId)
+      await addToList(db, list.id, userTuneId)
     } catch (caught) {
       setPageError(messageFor(caught))
     }
@@ -189,7 +189,7 @@ export function ListPage() {
           <>
             <IonButton
               className="toolbar-control"
-              aria-label={ADD_SONGS}
+              aria-label={ADD_TUNES}
               onClick={() => setPicking(true)}
             >
               <Plus aria-hidden="true" className="size-7" />
@@ -235,7 +235,7 @@ export function ListPage() {
               hint={EMPTY_LIST_HINT}
               action={
                 <IonButton shape="round" onClick={() => setPicking(true)}>
-                  {ADD_SONGS}
+                  {ADD_TUNES}
                 </IonButton>
               }
             />
@@ -251,7 +251,7 @@ export function ListPage() {
               }
             />
           ) : (
-            <ListSongs
+            <ListTunes
               ref={listRef}
               listId={list.id}
               items={view.items}
@@ -264,11 +264,11 @@ export function ListPage() {
                 enabled: naming === null,
                 onChange: setSelection,
               }}
-              onOpen={(songId) =>
-                router.push(`/lists/${list.id}/songs/${songId}`, 'forward', 'push')
+              onOpen={(tuneId) =>
+                router.push(`/lists/${list.id}/tunes/${tuneId}`, 'forward', 'push')
               }
               onEdit={(item) =>
-                setForm({ kind: 'edit', entry: { song: item.song, userSong: item.userSong } })
+                setForm({ kind: 'edit', entry: { tune: item.tune, userTune: item.userTune } })
               }
               onRemove={(item) => void remove(item)}
               onMoveStart={() => setPageError(null)}
@@ -279,7 +279,7 @@ export function ListPage() {
       ) : null}
       {list && instruments ? (
         <>
-          <SongPickerSheet
+          <TunePickerSheet
             open={picking}
             listId={list.id}
             taken={taken}
@@ -291,14 +291,14 @@ export function ListPage() {
             onClose={() => setNaming(null)}
             onSaved={() => setNaming(null)}
           />
-          <SongFormSheet
+          <TuneFormSheet
             target={form}
             instruments={instruments}
             onClose={() => setForm(null)}
-            onSaved={({ userSongId }) => {
+            onSaved={({ userTuneId }) => {
               const created = form?.kind === 'new'
               setForm(null)
-              if (created) void add(userSongId)
+              if (created) void add(userTuneId)
             }}
           />
         </>

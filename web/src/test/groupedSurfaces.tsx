@@ -91,7 +91,7 @@ export function groupedSurfaceTests(mode: string) {
     it('sets a grouped screen card apart from the page', async () => {
       applyTheme()
       renderScreen(
-        <Screen title="Song" level="pushed" grouped>
+        <Screen title="Tune" level="pushed" grouped>
           {group}
         </Screen>,
         { db: openTestDb(), path: '/catalog/1' },
@@ -105,7 +105,7 @@ export function groupedSurfaceTests(mode: string) {
       applyTheme()
       forceTouch()
       renderIonic(
-        <Sheet open title="Edit song" onClose={() => {}}>
+        <Sheet open title="Edit tune" onClose={() => {}}>
           {group}
         </Sheet>,
         { db: openTestDb() },
@@ -118,7 +118,7 @@ export function groupedSurfaceTests(mode: string) {
     it('sets a mouse dialog card apart from the dialog', async () => {
       applyTheme()
       renderIonic(
-        <Sheet open title="Edit song" onClose={() => {}}>
+        <Sheet open title="Edit tune" onClose={() => {}}>
           {group}
         </Sheet>,
         { db: openTestDb() },

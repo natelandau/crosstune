@@ -60,8 +60,8 @@ export interface RecordingFile {
   /** Epoch ms of the last chunk appended while capturing; a gap past the stale-capture
    * threshold is what marks the capture abandoned rather than still in progress. */
   last_chunk_at: number | null
-  /** The song a capture was started for, so recovery can file an interrupted recording under it. */
-  song_id: string | null
+  /** The tune a capture was started for, so recovery can file an interrupted recording under it. */
+  tune_id: string | null
   /** When a capture started, so recovery stamps an interrupted recording with its real start. */
   recorded_at: string | null
   /** Epoch ms before which uploadPass skips this row, set by a transient failure's backoff. */

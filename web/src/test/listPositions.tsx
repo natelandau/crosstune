@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Instrument } from '../api/vocabulary'
 import { addToList, createList } from '../commands/lists'
-import { createSong } from '../commands/songs'
+import { createTune } from '../commands/tunes'
 import type { CrosstuneDb } from '../db/schema'
-import { ListSongs } from '../features/lists/ListSongs'
+import { ListTunes } from '../features/lists/ListTunes'
 import { useListView } from '../features/lists/useLists'
 import { openTestDb } from './db'
 import { renderIonic } from './ionic'
 
 const VIOLIN: ReadonlySet<Instrument> = new Set<Instrument>(['violin'])
-const SONGS = 105
+const TUNES = 105
 
 /**
  * A list long enough to run its positions into three digits, in whichever mode the project
@@ -35,7 +35,7 @@ export function listPositionTests(mode: string) {
       const view = useListView(listId)
       if (!view) return null
       return (
-        <ListSongs
+        <ListTunes
           listId={listId}
           items={view.items}
           showArchived={false}
@@ -51,8 +51,8 @@ export function listPositionTests(mode: string) {
 
     it('announces each position number rather than only painting it', async () => {
       for (const title of ['Reel 1', 'Reel 2']) {
-        const { userSongId } = await createSong(db, { title }, { status: 'known' })
-        await addToList(db, listId, userSongId)
+        const { userTuneId } = await createTune(db, { title }, { status: 'known' })
+        await addToList(db, listId, userTuneId)
       }
       renderIonic(<Host />, { db })
       const positions = () => Array.from(document.querySelectorAll('[data-position]'))
@@ -65,18 +65,18 @@ export function listPositionTests(mode: string) {
     })
 
     it('keeps every title on one line once the positions reach three digits', async () => {
-      for (let index = 0; index < SONGS; index += 1) {
-        const { userSongId } = await createSong(
+      for (let index = 0; index < TUNES; index += 1) {
+        const { userTuneId } = await createTune(
           db,
           { title: `Reel ${index + 1}` },
           { status: 'known' },
         )
-        await addToList(db, listId, userSongId)
+        await addToList(db, listId, userTuneId)
       }
       document.documentElement.dataset.textSize = 'roomy'
       renderIonic(<Host />, { db })
       const titles = () => document.querySelectorAll('ion-reorder-group h2')
-      await vi.waitFor(() => expect(titles()).toHaveLength(SONGS))
+      await vi.waitFor(() => expect(titles()).toHaveLength(TUNES))
       const numbers = Array.from(document.querySelectorAll('[data-position]')).map(
         (span) => span.textContent,
       )
@@ -84,7 +84,7 @@ export function listPositionTests(mode: string) {
       const left = (index: number) => titles()[index]!.getBoundingClientRect().left
       expect(left(98)).toBe(left(8))
       expect(left(99)).toBe(left(8))
-      expect(left(SONGS - 1)).toBe(left(8))
+      expect(left(TUNES - 1)).toBe(left(8))
     }, 30000)
   })
 }

@@ -6,14 +6,14 @@ import {
   finishCapture,
   storeDownloadedBlob,
 } from '../commands/recordings'
-import { createSong, deleteSong } from '../commands/songs'
+import { createTune, deleteTune } from '../commands/tunes'
 import { CHUNK_MS } from '../db/recordings'
 import { getStorage, setKeepOffline, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { newId } from '../commands/write'
 import { openTestDb } from '../test/db'
-import { createFakeApi, serverRecording, serverSong } from '../test/fakeApi'
+import { createFakeApi, serverRecording, serverTune } from '../test/fakeApi'
 import { applyPullPage } from './apply'
 import { FakeLockManager } from '../test/fakeLocks'
 import { acquireCaptureLock } from './captureLock'
@@ -45,9 +45,9 @@ const AT = '2026-09-14T20:00:00.000Z'
 
 async function captured(): Promise<string> {
   const id = newId()
-  await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+  await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
   await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, { songId: null, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
+  await finishCapture(db, id, { tuneId: null, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
   return id
 }
 
@@ -85,14 +85,14 @@ async function clearedDownload(id: string): Promise<void> {
   await db.recording_files.update(id, { blob: null, bytes: 0 })
 }
 
-async function readyOnServer(id: string, songId: string | null = null): Promise<void> {
+async function readyOnServer(id: string, tuneId: string | null = null): Promise<void> {
   await db.recordings.put({
     id,
     created_at: AT,
     updated_at: AT,
     deleted_at: null,
     server_seq: 5,
-    song_id: songId,
+    tune_id: tuneId,
     label: null,
     source: 'microphone',
     recorded_at: AT,
@@ -327,27 +327,27 @@ describe('uploadPass', () => {
     expect((await db.recording_files.get(id))?.local_state).toBe('uploaded')
   })
 
-  it('restores a captured recording as unfiled when a pulled tombstone deletes its song elsewhere', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+  it('restores a captured recording as unfiled when a pulled tombstone deletes its tune elsewhere', async () => {
+    const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const id = newId()
-    await beginCapture(db, id, { songId, recordedAt: AT })
+    await beginCapture(db, id, { tuneId, recordedAt: AT })
     await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-    await finishCapture(db, id, { songId, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
-    // As if the recording's row reached the server before the song was deleted on another device.
+    await finishCapture(db, id, { tuneId, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
+    // As if the recording's row reached the server before the tune was deleted on another device.
     await db.outbox.clear()
     const deletedAt = '2026-09-14T21:00:00.000Z'
     await applyPullPage(
       db,
       [
         {
-          table: 'songs',
-          row: serverSong({ id: songId, deleted_at: deletedAt, updated_at: deletedAt }),
+          table: 'tunes',
+          row: serverTune({ id: tuneId, deleted_at: deletedAt, updated_at: deletedAt }),
         },
         {
           table: 'recordings',
           row: serverRecording({
             id,
-            song_id: songId,
+            tune_id: tuneId,
             deleted_at: deletedAt,
             updated_at: deletedAt,
           }),
@@ -359,10 +359,10 @@ describe('uploadPass', () => {
     const file = await db.recording_files.get(id)
     expect(file?.local_state).toBe('captured')
     expect(await file?.blob?.text()).toBe('abc')
-    expect(await db.recordings.get(id)).toMatchObject({ deleted_at: null, song_id: null })
+    expect(await db.recordings.get(id)).toMatchObject({ deleted_at: null, tune_id: null })
     const queued = await pendingFor(db, 'recordings', id)
     expect(queued).toMatchObject({ op: 'upsert' })
-    expect(queued?.data).toMatchObject({ song_id: null })
+    expect(queued?.data).toMatchObject({ tune_id: null })
   })
 
   it('drops the file of an uploaded recording once its recording is tombstoned elsewhere', async () => {
@@ -495,7 +495,7 @@ describe('uploadPass', () => {
 describe('recoverInterruptedCaptures', () => {
   it('assembles leftover chunks into a captured recording once they go stale', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
     await recoverInterruptedCaptures(db)
@@ -505,7 +505,7 @@ describe('recoverInterruptedCaptures', () => {
 
   it('estimates the duration from the chunk count when the recorder never reported one', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await appendChunk(db, id, 1, new Blob(['cd'], { type: 'audio/mp4' }))
     await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
@@ -515,7 +515,7 @@ describe('recoverInterruptedCaptures', () => {
 
   it('leaves a capture with a recent chunk alone', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await recoverInterruptedCaptures(db)
     expect((await db.recording_files.get(id))?.local_state).toBe('capturing')
@@ -523,38 +523,38 @@ describe('recoverInterruptedCaptures', () => {
 
   it('drops a stale capture that produced no chunks', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
     await recoverInterruptedCaptures(db)
     expect(await db.recording_files.get(id)).toBeUndefined()
   })
 
-  it('files a recovered recording under the song it began with, stamped at its start', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+  it('files a recovered recording under the tune it began with, stamped at its start', async () => {
+    const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const id = newId()
-    await beginCapture(db, id, { songId, recordedAt: AT })
+    await beginCapture(db, id, { tuneId, recordedAt: AT })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
     await recoverInterruptedCaptures(db)
-    expect(await db.recordings.get(id)).toMatchObject({ song_id: songId, recorded_at: AT })
+    expect(await db.recordings.get(id)).toMatchObject({ tune_id: tuneId, recorded_at: AT })
   })
 
-  it('files a recovered recording as unfiled when the song it began with was deleted', async () => {
-    const { songId } = await createSong(db, { title: 'Angeline' }, { status: 'known' })
+  it('files a recovered recording as unfiled when the tune it began with was deleted', async () => {
+    const { tuneId } = await createTune(db, { title: 'Angeline' }, { status: 'known' })
     const id = newId()
-    await beginCapture(db, id, { songId, recordedAt: AT })
+    await beginCapture(db, id, { tuneId, recordedAt: AT })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
-    await deleteSong(db, songId)
+    await deleteTune(db, tuneId)
     await db.recording_files.update(id, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })
     await recoverInterruptedCaptures(db)
-    expect(await db.recordings.get(id)).toMatchObject({ song_id: null, recorded_at: AT })
+    expect(await db.recordings.get(id)).toMatchObject({ tune_id: null, recorded_at: AT })
   })
 })
 
 describe('recoverInterruptedCaptures with a lock manager', () => {
   it('never recovers a row whose capture lock is held, however old its last chunk', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await db.recording_files.update(id, { last_chunk_at: Date.now() - 10 * 60_000 })
     const locks = new FakeLockManager()
@@ -566,7 +566,7 @@ describe('recoverInterruptedCaptures with a lock manager', () => {
 
   it('recovers a row with no held lock once its last chunk is older than the grace', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await db.recording_files.update(id, {
       last_chunk_at: Date.now() - CAPTURE_LOCK_GRACE_MS - 1,
@@ -578,7 +578,7 @@ describe('recoverInterruptedCaptures with a lock manager', () => {
 
   it('leaves a row with no held lock alone while its last chunk is inside the grace', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     const locks = new FakeLockManager()
     await recoverInterruptedCaptures(db, Date.now(), locks)
@@ -587,7 +587,7 @@ describe('recoverInterruptedCaptures with a lock manager', () => {
 
   it('falls back to the 30-second rule when there is no lock manager', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     await db.recording_files.update(id, {
       last_chunk_at: Date.now() - CAPTURE_LOCK_GRACE_MS - 1,
@@ -704,7 +704,7 @@ describe('downloads', () => {
 describe('createSyncEngine recovery and downloads', () => {
   it('never recovers a live capture whose last chunk is still fresh, across engines', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     const engine1 = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await engine1.sync()
@@ -718,7 +718,7 @@ describe('createSyncEngine recovery and downloads', () => {
 
   it('recovers a capture on a later sync once it goes stale, not just the first', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await engine.sync()
@@ -732,13 +732,13 @@ describe('createSyncEngine recovery and downloads', () => {
     const id = await captured()
     fake.failSlot(new ApiError(500, null))
     fake.queuePull({
-      rows: [{ table: 'songs', row: serverSong({ id: 'srv-song', server_seq: 1 }) }],
+      rows: [{ table: 'tunes', row: serverTune({ id: 'srv-tune', server_seq: 1 }) }],
       next_since: 1,
       has_more: false,
     })
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await syncAndTransfer(engine)
-    expect(await db.songs.get('srv-song')).toBeTruthy()
+    expect(await db.tunes.get('srv-tune')).toBeTruthy()
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect(engine.status()).toBe('idle')
     expect(engine.transferStatus()).toBe('error')
@@ -749,13 +749,13 @@ describe('createSyncEngine recovery and downloads', () => {
     const id = await captured()
     fake.failPut(new NetworkError(new TypeError('x')), id)
     fake.queuePull({
-      rows: [{ table: 'songs', row: serverSong({ id: 'srv-song', server_seq: 1 }) }],
+      rows: [{ table: 'tunes', row: serverTune({ id: 'srv-tune', server_seq: 1 }) }],
       next_since: 1,
       has_more: false,
     })
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await syncAndTransfer(engine)
-    expect(await db.songs.get('srv-song')).toBeTruthy()
+    expect(await db.tunes.get('srv-tune')).toBeTruthy()
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect(engine.status()).toBe('idle')
     // The browser says it is online, so a failed PUT is the storage host refusing, not a lost signal.
@@ -801,7 +801,7 @@ describe('engine integration', () => {
     await setKeepOffline(db, true)
     fake.setStorage({ used_bytes: 42, quota_bytes: 100, max_file_bytes: 50 })
     const stray = newId()
-    await beginCapture(db, stray, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, stray, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, stray, 0, new Blob(['ab'], { type: 'audio/mp4' }))
     // A stale last chunk is what makes an abandoned capture, not merely having one.
     await db.recording_files.update(stray, { last_chunk_at: Date.now() - STALE_CAPTURE_MS - 1 })

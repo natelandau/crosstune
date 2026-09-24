@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { Rail } from '../../ui/Rail'
-import { StatusChooser } from '../song/StatusChooser'
+import { StatusChooser } from '../tune/StatusChooser'
 import {
   sheetFacets,
   type CatalogFilters as Filters,

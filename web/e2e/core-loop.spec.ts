@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { addSong, expectSynced, signIn, unique } from './helpers'
+import { addTune, expectSynced, signIn, unique } from './helpers'
 
-test('add a song, link a recording, find it by key, and play it in the player', async ({
+test('add a tune, link a recording, find it by key, and play it in the player', async ({
   page,
 }) => {
   await signIn(page)
   const title = unique("Soldier's Joy")
   const since = new Date().toISOString()
-  await addSong(page, title, 'D')
+  await addTune(page, title, 'D')
 
   // Both ways to add one live behind the plus on the Recordings header.
   await page.getByRole('button', { name: 'Add recording' }).click()
@@ -16,7 +16,7 @@ test('add a song, link a recording, find it by key, and play it in the player', 
     .getByRole('textbox', { name: 'Link' })
     .fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
   await page.getByRole('button', { name: 'Add link' }).click()
-  // A song's recordings and its links share one list, which the recordings name.
+  // A tune's recordings and its links share one list, which the recordings name.
   const media = page.getByRole('list', { name: 'Recordings' })
   await expect(media.getByRole('button', { name: /^Play / })).toBeVisible()
   await expectSynced(page, since)

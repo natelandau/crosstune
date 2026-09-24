@@ -1,7 +1,7 @@
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
-import { RECORDING_NOT_FOUND, SONG_NOT_FOUND } from './messages'
+import { RECORDING_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
 import { activeByPosition, newId, nextPosition, now, putRow, recordingTx, tombstone } from './write'
 
 function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): RecordingFile {
@@ -14,7 +14,7 @@ function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): Recordin
     local_state: 'captured',
     error: null,
     last_chunk_at: null,
-    song_id: null,
+    tune_id: null,
     recorded_at: null,
     next_attempt_at: null,
     upload_attempts: 0,
@@ -22,32 +22,32 @@ function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): Recordin
   }
 }
 
-export function activeRecordingsForSong(
+export function activeRecordingsForTune(
   db: CrosstuneDb,
-  songId: string,
+  tuneId: string,
 ): Promise<LocalRecording[]> {
-  return db.recordings.where('song_id').equals(songId).toArray().then(activeByPosition)
+  return db.recordings.where('tune_id').equals(tuneId).toArray().then(activeByPosition)
 }
 
 async function putRecordingRow(
   db: CrosstuneDb,
   id: string,
   fields: {
-    songId: string | null
+    tuneId: string | null
     source: 'microphone' | 'upload'
     label: string | null
     recordedAt: string
   },
 ): Promise<void> {
   const at = now()
-  const siblings = fields.songId ? await activeRecordingsForSong(db, fields.songId) : []
+  const siblings = fields.tuneId ? await activeRecordingsForTune(db, fields.tuneId) : []
   await putRow(db, 'recordings', {
     id,
     created_at: at,
     updated_at: at,
     deleted_at: null,
     server_seq: 0,
-    song_id: fields.songId,
+    tune_id: fields.tuneId,
     label: fields.label,
     source: fields.source,
     recorded_at: fields.recordedAt,
@@ -63,13 +63,13 @@ async function putRecordingRow(
 export async function beginCapture(
   db: CrosstuneDb,
   id: string,
-  fields: { songId: string | null; recordedAt: string },
+  fields: { tuneId: string | null; recordedAt: string },
 ): Promise<void> {
   await db.recording_files.put(
     emptyFile(id, {
       local_state: 'capturing',
       last_chunk_at: Date.now(),
-      song_id: fields.songId,
+      tune_id: fields.tuneId,
       recorded_at: fields.recordedAt,
     }),
   )
@@ -101,7 +101,7 @@ export function defaultRecordingLabel(recordedAt: string | Date): string {
 export async function finishCapture(
   db: CrosstuneDb,
   id: string,
-  fields: { songId: string | null; mime: string; durationMs: number; recordedAt: string },
+  fields: { tuneId: string | null; mime: string; durationMs: number; recordedAt: string },
 ): Promise<void> {
   await recordingTx(db, async () => {
     const file = await db.recording_files.get(id)
@@ -122,7 +122,7 @@ export async function finishCapture(
     )
     await db.recording_chunks.where('recording_id').equals(id).delete()
     await putRecordingRow(db, id, {
-      songId: fields.songId,
+      tuneId: fields.tuneId,
       source: 'microphone',
       // Named for when it started, so a recording is never nameless in a list.
       label: defaultRecordingLabel(fields.recordedAt),
@@ -145,14 +145,14 @@ export async function cancelCapture(db: CrosstuneDb, id: string): Promise<void> 
 export async function addUploadedFile(
   db: CrosstuneDb,
   file: File,
-  fields: { songId: string | null; label: string | null },
+  fields: { tuneId: string | null; label: string | null },
 ): Promise<string> {
   const id = newId()
   const mime = file.type || 'application/octet-stream'
   await recordingTx(db, async () => {
     await db.recording_files.put(emptyFile(id, { blob: file, mime, bytes: file.size }))
     await putRecordingRow(db, id, {
-      songId: fields.songId,
+      tuneId: fields.tuneId,
       source: 'upload',
       label: fields.label,
       recordedAt: new Date(file.lastModified || Date.now()).toISOString(),
@@ -164,21 +164,21 @@ export async function addUploadedFile(
 export async function updateRecording(
   db: CrosstuneDb,
   id: string,
-  patch: { label?: string | null; song_id?: string | null },
+  patch: { label?: string | null; tune_id?: string | null },
 ): Promise<void> {
   await recordingTx(db, async () => {
     const row = await db.recordings.get(id)
     if (!row || row.deleted_at) throw new Error(RECORDING_NOT_FOUND)
     let position = row.position
-    if (patch.song_id !== undefined && patch.song_id !== row.song_id && patch.song_id) {
-      const song = await db.songs.get(patch.song_id)
-      if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
-      position = nextPosition(await activeRecordingsForSong(db, patch.song_id))
+    if (patch.tune_id !== undefined && patch.tune_id !== row.tune_id && patch.tune_id) {
+      const tune = await db.tunes.get(patch.tune_id)
+      if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+      position = nextPosition(await activeRecordingsForTune(db, patch.tune_id))
     }
     await putRow(db, 'recordings', {
       ...row,
       label: patch.label === undefined ? row.label : patch.label,
-      song_id: patch.song_id === undefined ? row.song_id : patch.song_id,
+      tune_id: patch.tune_id === undefined ? row.tune_id : patch.tune_id,
       position,
       updated_at: now(),
     })
@@ -212,13 +212,13 @@ export async function deleteRecording(db: CrosstuneDb, id: string): Promise<void
   })
 }
 
-/** Called inside deleteSong's transaction, which is already widened to the audio tables. */
-export async function tombstoneSongRecordings(
+/** Called inside deleteTune's transaction, which is already widened to the audio tables. */
+export async function tombstoneTuneRecordings(
   db: CrosstuneDb,
-  songId: string,
+  tuneId: string,
   at: string,
 ): Promise<void> {
-  const rows = await db.recordings.where('song_id').equals(songId).toArray()
+  const rows = await db.recordings.where('tune_id').equals(tuneId).toArray()
   for (const row of rows) {
     await tombstone(db, 'recordings', row.id, at, { enqueueDelete: false })
     await db.recording_files.delete(row.id)

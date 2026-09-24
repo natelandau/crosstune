@@ -53,7 +53,7 @@ export async function deleteList(db: CrosstuneDb, listId: string): Promise<void>
 export async function addToList(
   db: CrosstuneDb,
   listId: string,
-  userSongId: string,
+  userTuneId: string,
 ): Promise<string> {
   const at = now()
   const id = newId()
@@ -61,7 +61,7 @@ export async function addToList(
     const list = await db.lists.get(listId)
     if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
     const items = await activeItems(db, listId)
-    const existing = items.find((item) => item.user_song_id === userSongId)
+    const existing = items.find((item) => item.user_tune_id === userTuneId)
     if (existing) return existing.id
     await putRow(db, 'list_items', {
       id,
@@ -70,7 +70,7 @@ export async function addToList(
       deleted_at: null,
       server_seq: 0,
       list_id: listId,
-      user_song_id: userSongId,
+      user_tune_id: userTuneId,
       position: nextPosition(items),
     })
     return id

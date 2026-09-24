@@ -3,7 +3,7 @@ import { Ellipsis, X, type LucideIcon } from 'lucide-react'
 import { Fragment, type ReactNode } from 'react'
 import { getMode } from '../../platform/mode'
 import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
-import type { SongSelection } from './useSongSelection'
+import type { TuneSelection } from './useTuneSelection'
 
 export const CANCEL_SELECTION = 'Cancel selection'
 export const DESELECT_ALL_IOS = 'Deselect All'
@@ -18,7 +18,7 @@ export interface BulkAction {
 }
 
 export interface SelectionToolbarInput {
-  selection: SongSelection
+  selection: TuneSelection
   actions: readonly BulkAction[]
   more: readonly MenuItem[]
   onExit: () => void

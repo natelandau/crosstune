@@ -53,7 +53,7 @@ function setup(overrides: Partial<RecordingSessionDeps<MediaStreamLike>> = {}) {
     suspendAudioContext: vi.fn(),
     persistStorage: vi.fn(),
     clock: { now: () => clock.time, every: () => () => {} },
-    songId: null,
+    tuneId: null,
     ...overrides,
   }
   const session = createRecordingSession(deps)
@@ -144,7 +144,7 @@ describe('createRecordingSession start sequence', () => {
     expect(lockAt).toBeLessThan(rowAt!)
     expect(await db.recording_files.get('rec_1')).toMatchObject({
       local_state: 'capturing',
-      song_id: null,
+      tune_id: null,
       recorded_at: new Date(1_000).toISOString(),
     })
     expect(deps.persistStorage).toHaveBeenCalledTimes(1)
@@ -246,13 +246,13 @@ describe('createRecordingSession finish and cancel', () => {
 })
 
 describe('createRecordingSession filing', () => {
-  it('files the recording under the song it was started for', async () => {
-    const { session, recorders } = setup({ songId: 'song_1' })
+  it('files the recording under the tune it was started for', async () => {
+    const { session, recorders } = setup({ tuneId: 'tune_1' })
     await session.start()
-    expect((await db.recording_files.get('rec_1'))?.song_id).toBe('song_1')
+    expect((await db.recording_files.get('rec_1'))?.tune_id).toBe('tune_1')
     recorders[0]!.emit('early')
     await session.finish()
-    expect((await db.recordings.get('rec_1'))?.song_id).toBe('song_1')
+    expect((await db.recordings.get('rec_1'))?.tune_id).toBe('tune_1')
     expect(session.snapshot().phase).toBe('saved')
   })
 })

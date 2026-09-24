@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
-import { liveSong } from '../../db/songs'
+import { liveTune } from '../../db/tunes'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { OFFLINE } from '../../sync/labels'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
@@ -23,7 +23,7 @@ type Shown =
       kind: 'recording'
       recording: LocalRecording
       file: RecordingFile | null
-      songTitle: string | null
+      tuneTitle: string | null
     }
 
 function shownEquals(a: Shown | null, b: Shown | null): boolean {
@@ -134,17 +134,17 @@ export function Dock() {
         link: (await db.recording_links.get(item.id)) ?? null,
         recording: null,
         file: null,
-        songTitle: null,
+        tuneTitle: null,
       }
     }
     const recording = (await db.recordings.get(item.id)) ?? null
-    const song = recording?.song_id ? await db.songs.get(recording.song_id) : null
+    const tune = recording?.tune_id ? await db.tunes.get(recording.tune_id) : null
     return {
       item,
       link: null,
       recording,
       file: (await db.recording_files.get(item.id)) ?? null,
-      songTitle: liveSong(song)?.title ?? null,
+      tuneTitle: liveTune(tune)?.title ?? null,
     }
   }, [db, item])
   const current = loaded && loaded.item === item ? loaded : undefined
@@ -167,7 +167,7 @@ export function Dock() {
             kind: 'recording',
             recording,
             file: current?.file ?? null,
-            songTitle: current?.songTitle ?? null,
+            tuneTitle: current?.tuneTitle ?? null,
           }
         : null
   const next = resolved ?? (item !== null && current === undefined ? shown : null)
@@ -227,8 +227,8 @@ export function Dock() {
       : recordingTitle({
           recording: next.recording,
           file: next.file ?? undefined,
-          songId: null,
-          songTitle: next.songTitle,
+          tuneId: null,
+          tuneTitle: next.tuneTitle,
         })
 
   return (

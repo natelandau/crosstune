@@ -3,18 +3,18 @@ import type {
   ListRow,
   RecordingLinkRow,
   RecordingRow,
-  SongRow,
+  TuneRow,
   TableName,
   UserSettingsRow,
-  UserSongRow,
+  UserTuneRow,
 } from '../api/types'
 import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 
 export type { TableName }
 
 export const TABLE_NAMES = [
-  'songs',
-  'user_songs',
+  'tunes',
+  'user_tunes',
   'lists',
   'list_items',
   'recording_links',
@@ -40,9 +40,9 @@ export type Local<Row> = {
   [Key in keyof Omit<Row, OwnershipKey>]: Loosen<Omit<Row, OwnershipKey>[Key]>
 }
 
-// A song written by this client has no tunings map until the form edits it directly.
-export type LocalSong = Local<Omit<SongRow, 'tunings'>> & { tunings?: Local<SongRow>['tunings'] }
-export type LocalUserSong = Local<UserSongRow>
+// A tune written by this client has no tunings map until the form edits it directly.
+export type LocalTune = Local<Omit<TuneRow, 'tunings'>> & { tunings?: Local<TuneRow>['tunings'] }
+export type LocalUserTune = Local<UserTuneRow>
 export type LocalRecordingLink = Local<RecordingLinkRow>
 export type LocalList = Local<ListRow>
 export type LocalListItem = Local<ListItemRow>
@@ -73,8 +73,8 @@ export function storedInstruments(
 }
 
 export interface LocalRows {
-  songs: LocalSong
-  user_songs: LocalUserSong
+  tunes: LocalTune
+  user_tunes: LocalUserTune
   lists: LocalList
   list_items: LocalListItem
   recording_links: LocalRecordingLink

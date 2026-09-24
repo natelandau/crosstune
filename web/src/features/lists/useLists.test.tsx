@@ -9,7 +9,7 @@ import {
   removeFromList,
   renameList,
 } from '../../commands/lists'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -24,8 +24,8 @@ beforeEach(async () => {
   db = openTestDb()
   listId = await createList(db, 'Tuesday jam')
   for (const title of ['Angeline', 'Bill Cheatham']) {
-    const { userSongId } = await createSong(db, { title }, { status: 'known' })
-    await addToList(db, listId, userSongId)
+    const { userTuneId } = await createTune(db, { title }, { status: 'known' })
+    await addToList(db, listId, userTuneId)
   }
   await db.lists.update(listId, { updated_at: OLD })
   await db.list_items.where('list_id').equals(listId).modify({ updated_at: OLD })
@@ -54,18 +54,18 @@ describe('useLists', () => {
   it.each([
     ['a rename', () => renameList(db, listId, 'Thursday jam')],
     [
-      'an added song',
+      'an added tune',
       async () => {
-        const { userSongId } = await createSong(
+        const { userTuneId } = await createTune(
           db,
           { title: 'Cumberland Gap' },
           { status: 'known' },
         )
-        await addToList(db, listId, userSongId)
+        await addToList(db, listId, userTuneId)
       },
     ],
     [
-      'a removed song',
+      'a removed tune',
       async () => {
         const [first] = await activeItems(db, listId)
         await removeFromList(db, first!.id)
@@ -105,17 +105,17 @@ async function renderCounts(ids: string[]) {
 }
 
 describe('useMembershipCounts', () => {
-  it('counts how many of the given songs a list holds', async () => {
-    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    const { result } = await renderCounts([userSongId])
+  it('counts how many of the given tunes a list holds', async () => {
+    const { userTuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { result } = await renderCounts([userTuneId])
     expect(result.current?.get(listId)).toBeUndefined()
-    await addToList(db, listId, userSongId)
+    await addToList(db, listId, userTuneId)
     await waitFor(() => expect(result.current?.get(listId)).toBe(1))
   })
 
   it('drops a removed item from the count', async () => {
     const [first] = await activeItems(db, listId)
-    const { result } = await renderCounts([first!.user_song_id])
+    const { result } = await renderCounts([first!.user_tune_id])
     await waitFor(() => expect(result.current?.get(listId)).toBe(1))
     await removeFromList(db, first!.id)
     await waitFor(() => expect(result.current?.get(listId)).toBeUndefined())
@@ -124,11 +124,11 @@ describe('useMembershipCounts', () => {
   it('does not requery when a new array carries the same ids', async () => {
     const [first] = await activeItems(db, listId)
     const spy = vi.spyOn(db.list_items, 'where')
-    const { result, rerender } = await renderCounts([first!.user_song_id])
+    const { result, rerender } = await renderCounts([first!.user_tune_id])
     await waitFor(() => expect(result.current?.get(listId)).toBe(1))
     const callsAfterFirst = spy.mock.calls.length
     // A fresh array holding the same id, as an unmemoized caller would pass on every render.
-    rerender({ ids: [first!.user_song_id] })
+    rerender({ ids: [first!.user_tune_id] })
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(spy.mock.calls.length).toBe(callsAfterFirst)
   })

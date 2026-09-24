@@ -1,20 +1,20 @@
 import { expect, test } from '@playwright/test'
-import { addSong, expectSynced, signIn, unique } from './helpers'
+import { addTune, expectSynced, signIn, unique } from './helpers'
 
-test('type lyrics on a song and read them full screen at a larger size', async ({ page }) => {
+test('type lyrics on a tune and read them full screen at a larger size', async ({ page }) => {
   await signIn(page)
   const title = unique('Uncle Joe')
   const since = new Date().toISOString()
-  await addSong(page, title, 'A')
+  await addTune(page, title, 'A')
 
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
   // A way into the lyrics form rather than a field on this one, so it names itself and nothing
-  // about the song.
+  // about the tune.
   await page.getByRole('button', { name: 'Lyrics', exact: true }).click()
   await page
     .getByRole('textbox', { name: 'Lyrics' })
     .fill('Did you ever go to meeting\nUncle Joe\n\nDon’t mind the weather')
-  // Done hands the words back to the form; the form's own Save writes the song.
+  // Done hands the words back to the form; the form's own Save writes the tune.
   await page.getByRole('button', { name: 'Done', exact: true }).click()
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expectSynced(page, since)

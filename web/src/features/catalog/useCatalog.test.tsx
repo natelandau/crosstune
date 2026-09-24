@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -11,7 +11,7 @@ let db: CrosstuneDb
 
 beforeEach(async () => {
   db = openTestDb()
-  await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
+  await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
 })
 
 afterEach(async () => {
@@ -26,14 +26,14 @@ function wrapper({ children }: { children: ReactNode }) {
 const rest = () => new Promise((resolve) => setTimeout(resolve, 50))
 
 describe('useCatalog', () => {
-  it('reads every song with its user row', async () => {
+  it('reads every tune with its user row', async () => {
     const { result } = renderHook(() => useCatalog(), { wrapper })
     await waitFor(() => expect(result.current).toHaveLength(1))
-    expect(result.current![0]!.song.title).toBe("Soldier's Joy")
+    expect(result.current![0]!.tune.title).toBe("Soldier's Joy")
   })
 
   it('stands the query down while disabled, and runs it once enabled', async () => {
-    const reads = vi.spyOn(db.songs, 'toArray')
+    const reads = vi.spyOn(db.tunes, 'toArray')
     const { result, rerender } = renderHook(({ on }: { on: boolean }) => useCatalog(on), {
       wrapper,
       initialProps: { on: false },

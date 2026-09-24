@@ -1,6 +1,6 @@
 import { IonButton, IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MODES, SONG_LIMITS, STATUSES, type Instrument } from '../../api/vocabulary'
+import { MODES, TUNE_LIMITS, STATUSES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import {
   FEELS,
@@ -18,7 +18,7 @@ import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
 import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
-import { SuggestSelect } from '../song/SuggestSelect'
+import { SuggestSelect } from '../tune/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
@@ -31,7 +31,7 @@ import {
   type Touched,
   type TouchedValue,
 } from './batchEdit'
-import { countSongs } from './copy'
+import { countTunes } from './copy'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
   key: { options: QUICK_KEYS, other: true },
@@ -45,16 +45,16 @@ const PICKS: Partial<Record<EditField, { options: readonly string[]; other: bool
 }
 
 // A toggle cannot show a third state, so a yes or no field is picked from a list. Its empty
-// choice keeps every song as it is rather than clearing them: the column takes no null.
+// choice keeps every tune as it is rather than clearing them: the column takes no null.
 const YES_NO = ['Yes', 'No']
 
-const LIMITS = SONG_LIMITS as Partial<Record<EditField, number>>
+const LIMITS = TUNE_LIMITS as Partial<Record<EditField, number>>
 
 function isTuning(field: EditField): field is TuningField {
   return (TUNING_FIELD_NAMES as readonly string[]).includes(field)
 }
 
-/** The touched value once the row is touched, the shared value when every song agrees, else none. */
+/** The touched value once the row is touched, the shared value when every tune agrees, else none. */
 function rowValue(summary: Summary, touched: TouchedValue | undefined): TouchedValue {
   if (touched !== undefined) return touched
   return summary.kind === 'shared' ? summary.value : null
@@ -145,7 +145,7 @@ function EditRow({
           onIonInput={(event) => {
             const typed = event.detail.event?.target
             // A date reads as empty until every part of it is filled, and taking that for a
-            // clear would wipe the field on every selected song halfway through typing one.
+            // clear would wipe the field on every selected tune halfway through typing one.
             if (typed instanceof HTMLInputElement && typed.validity.badInput) return
             onChange(String(event.detail.value ?? ''))
           }}
@@ -187,8 +187,8 @@ function EditRow({
 }
 
 /**
- * The song form's own Details list over many songs at once. Each row reads the value every
- * selected song shares, Not set when they are all empty, or Mixed when they disagree; only a
+ * The tune form's own Details list over many tunes at once. Each row reads the value every
+ * selected tune shares, Not set when they are all empty, or Mixed when they disagree; only a
  * row the musician touches is written.
  */
 export function BulkEditSheet({
@@ -201,7 +201,7 @@ export function BulkEditSheet({
   onApply,
 }: {
   open: boolean
-  /** The selected songs, in screen order. */
+  /** The selected tunes, in screen order. */
   entries: readonly CatalogEntry[]
   instruments: ReadonlySet<Instrument>
   /** The caller's failed write. The sheet stays open so the edit can be tried again. */
@@ -292,7 +292,7 @@ export function BulkEditSheet({
   return (
     <Sheet
       open={open && !closing}
-      title={`Edit ${countSongs(entries.length)}`}
+      title={`Edit ${countTunes(entries.length)}`}
       height="full"
       dismissible={!pending}
       onClose={dismissed}

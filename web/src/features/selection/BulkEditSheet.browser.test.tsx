@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { Instrument, TuneStatus } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import { createSong, type SongInput, type UserSongInput } from '../../commands/songs'
+import { createTune, type TuneInput, type UserTuneInput } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
 import { TUNING_FIELDS } from '../settings/instruments'
-import { DETAIL_LABELS } from '../song/detailFields'
+import { DETAIL_LABELS } from '../tune/detailFields'
 import { BulkEditSheet } from './BulkEditSheet'
 
 const violin = new Set<Instrument>(['violin'])
@@ -21,16 +21,16 @@ beforeEach(() => {
 })
 
 async function seed(
-  song: SongInput,
-  userSong: Omit<UserSongInput, 'status'> & { status?: TuneStatus } = {},
+  tune: TuneInput,
+  userTune: Omit<UserTuneInput, 'status'> & { status?: TuneStatus } = {},
 ): Promise<CatalogEntry> {
-  const { songId, userSongId } = await createSong(db, song, {
+  const { tuneId, userTuneId } = await createTune(db, tune, {
     status: 'want_to_learn',
-    ...userSong,
+    ...userTune,
   })
   return {
-    song: (await db.songs.get(songId))!,
-    userSong: (await db.user_songs.get(userSongId))!,
+    tune: (await db.tunes.get(tuneId))!,
+    userTune: (await db.user_tunes.get(userTuneId))!,
   }
 }
 
@@ -86,7 +86,7 @@ describe('BulkEditSheet', () => {
   it('gives every Details row the shared field shape', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
-    await expect.element(page.getByText('Edit 2 songs')).toBeVisible()
+    await expect.element(page.getByText('Edit 2 tunes')).toBeVisible()
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
     const details = Array.from(open.querySelectorAll('section')).find(
       (section) => section.querySelector('h2')?.textContent === 'Details',
@@ -105,13 +105,13 @@ describe('BulkEditSheet', () => {
       await seed({ title: 'Lost Indian', key: 'A' }),
     ]
     renderIonic(<Host entries={entries} />, { db })
-    await expect.element(page.getByText('Edit 2 songs')).toBeVisible()
+    await expect.element(page.getByText('Edit 2 tunes')).toBeVisible()
     await expect
       .element(page.getByRole('button', { name: 'Key, A', exact: true }))
       .toBeInTheDocument()
   })
 
-  it('reads Mixed where the songs disagree', async () => {
+  it('reads Mixed where the tunes disagree', async () => {
     const entries = [
       await seed({ title: 'Say Old Man', key: 'A' }),
       await seed({ title: 'Lost Indian', key: 'D' }),
@@ -122,7 +122,7 @@ describe('BulkEditSheet', () => {
       .toBeInTheDocument()
   })
 
-  it('reads Not set where every song is empty', async () => {
+  it('reads Not set where every tune is empty', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
     await expect
@@ -141,7 +141,7 @@ describe('BulkEditSheet', () => {
     await page.getByRole('radio', { name: 'D', exact: true }).click()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
-    expect(onApply).toHaveBeenCalledWith({ song: { key: 'D' }, userSong: {} })
+    expect(onApply).toHaveBeenCalledWith({ tune: { key: 'D' }, userTune: {} })
   })
 
   it('names the row Mixed and the choice that clears it Clear', async () => {
@@ -171,7 +171,7 @@ describe('BulkEditSheet', () => {
     await page.getByRole('radio', { name: 'Clear', exact: true }).click()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
-    expect(onApply).toHaveBeenCalledWith({ song: { genre: null }, userSong: {} })
+    expect(onApply).toHaveBeenCalledWith({ tune: { genre: null }, userTune: {} })
   })
 
   it('does not offer 3/2 as a bulk time signature choice', async () => {
@@ -212,10 +212,10 @@ describe('BulkEditSheet', () => {
     await page.getByRole('radio', { name: 'No', exact: true }).click()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
-    expect(onApply).toHaveBeenCalledWith({ song: { is_crooked: false }, userSong: {} })
+    expect(onApply).toHaveBeenCalledWith({ tune: { is_crooked: false }, userTune: {} })
   })
 
-  it('says Mixed under a date the songs disagree on', async () => {
+  it('says Mixed under a date the tunes disagree on', async () => {
     const entries = [
       await seed({ title: 'Say Old Man' }, { learned_on: '2024-03-01' }),
       await seed({ title: 'Lost Indian' }, { learned_on: '2025-06-02' }),
@@ -239,7 +239,7 @@ describe('BulkEditSheet', () => {
     await page.getByRole('radio', { name: 'D', exact: true }).click()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
-    expect(onApply).toHaveBeenCalledWith({ song: { key: 'D' }, userSong: {} })
+    expect(onApply).toHaveBeenCalledWith({ tune: { key: 'D' }, userTune: {} })
   })
 
   it('keeps a shared value behind an opened Other and writes what is typed there', async () => {
@@ -256,7 +256,7 @@ describe('BulkEditSheet', () => {
     await page.getByLabelText('Other genre').fill('Contra')
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
-    expect(onApply).toHaveBeenCalledWith({ song: { genre: 'Contra' }, userSong: {} })
+    expect(onApply).toHaveBeenCalledWith({ tune: { genre: 'Contra' }, userTune: {} })
   })
 
   it('never offers Not set for status', async () => {
@@ -273,7 +273,7 @@ describe('BulkEditSheet', () => {
     expect(options).toEqual(['Known', 'Learning', 'Unknown'])
   })
 
-  it('hides a tuning nobody plays and shows one some song already has', async () => {
+  it('hides a tuning nobody plays and shows one some tune already has', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
     await expect
@@ -284,7 +284,7 @@ describe('BulkEditSheet', () => {
       .not.toBeInTheDocument()
   })
 
-  it('shows a tuning nobody plays when a selected song already has one', async () => {
+  it('shows a tuning nobody plays when a selected tune already has one', async () => {
     const entries = [
       await seed({ title: 'Say Old Man', banjo_tuning: 'Open G (gDGBD)' }),
       await seed({ title: 'Lost Indian' }),
@@ -350,7 +350,7 @@ describe('BulkEditSheet', () => {
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
-    expect(onApply).toHaveBeenCalledWith({ song: {}, userSong: { learned_from: 'Bruce Molsky' } })
+    expect(onApply).toHaveBeenCalledWith({ tune: {}, userTune: { learned_from: 'Bruce Molsky' } })
   })
 
   it('ignores a half-typed date', async () => {

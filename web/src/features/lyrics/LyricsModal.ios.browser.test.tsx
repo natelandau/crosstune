@@ -7,7 +7,7 @@ import { LyricsModal } from './LyricsModal'
 const LONG_TITLE = "The Girl I Left Behind Me's Return to Camptown Races Waltz"
 
 function show(title: string) {
-  renderIonic(<LyricsModal open songId="s1" title={title} lyrics="One" onClose={() => {}} />, {
+  renderIonic(<LyricsModal open tuneId="s1" title={title} lyrics="One" onClose={() => {}} />, {
     db: openTestDb(),
   })
   return expect.element(page.getByRole('dialog', { name: `${title} lyrics` })).toBeVisible()
@@ -16,7 +16,7 @@ function show(title: string) {
 const openModal = () => document.querySelector('ion-modal:not(.overlay-hidden)')!
 
 describe('LyricsModal on iOS', () => {
-  it('keeps a long song title clear of the size and close controls at phone width', async () => {
+  it('keeps a long tune title clear of the size and close controls at phone width', async () => {
     await page.viewport(320, 640)
     try {
       await show(LONG_TITLE)

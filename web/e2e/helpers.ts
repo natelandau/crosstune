@@ -86,9 +86,9 @@ export async function expectNoOverlay(page: Page): Promise<void> {
   await expect(page.locator('ion-action-sheet, ion-popover')).toHaveCount(0)
 }
 
-export async function addSong(page: Page, title: string, key: string): Promise<void> {
-  // The screen's own Add song control, not the one the empty state offers.
-  await page.getByRole('banner').getByRole('button', { name: 'Add song' }).click()
+export async function addTune(page: Page, title: string, key: string): Promise<void> {
+  // The screen's own Add tune control, not the one the empty state offers.
+  await page.getByRole('banner').getByRole('button', { name: 'Add tune' }).click()
   // The sheet's fields are never scoped to its dialog: the dialog resolves to a wrapper inside
   // ion-modal's shadow root, and the form is slotted light DOM rather than a descendant of it.
   const titleField = page.getByRole('textbox', { name: 'Title', exact: true })
@@ -121,7 +121,7 @@ export async function addSong(page: Page, title: string, key: string): Promise<v
   }
   await expectNoOverlay(page)
   await page.getByRole('button', { name: 'Add', exact: true }).click()
-  // The song page the client opens on a save. Its own heading leads the page; the catalog row
+  // The tune page the client opens on a save. Its own heading leads the page; the catalog row
   // behind it carries the same title as a second-level heading, so the level tells them apart.
   await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible()
 }

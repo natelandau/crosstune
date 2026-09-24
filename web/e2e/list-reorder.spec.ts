@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
-  addSong,
+  addTune,
   escapeRegExp,
   expectSettled,
   expectSynced,
@@ -17,7 +17,7 @@ import {
 const grip = (page: Page, title: string) =>
   page.getByRole('listitem').filter({ hasText: title }).locator('ion-reorder')
 
-async function songOrder(page: Page, tag: string): Promise<string[]> {
+async function tuneOrder(page: Page, tag: string): Promise<string[]> {
   // The listitem's own text, not a control inside it: a list row carries both an open control
   // and a Reorder button, so reading buttons would count each row more than once.
   const rows = await page.getByRole('main').getByRole('listitem').allTextContents()
@@ -28,7 +28,7 @@ async function songOrder(page: Page, tag: string): Promise<string[]> {
   })
 }
 
-test('reorder a list by dragging a handle and from its menu, and swipe a song out', async ({
+test('reorder a list by dragging a handle and from its menu, and swipe a tune out', async ({
   page,
 }) => {
   await signIn(page)
@@ -39,7 +39,7 @@ test('reorder a list by dragging a handle and from its menu, and swipe a song ou
     ['Cripple', 'A'],
   ] as const) {
     await openTab(page, 'Catalog')
-    await addSong(page, `${tag} ${name}`, key)
+    await addTune(page, `${tag} ${name}`, key)
   }
 
   await openTab(page, 'Lists')
@@ -50,15 +50,15 @@ test('reorder a list by dragging a handle and from its menu, and swipe a song ou
   const listRow = page.getByRole('button', { name: new RegExp(`^${escapeRegExp(tag)} `) })
   await expect(listRow).toBeVisible()
   await listRow.click()
-  // The screen's own Add songs control, not the one the empty state offers.
-  await page.getByRole('banner').getByRole('button', { name: 'Add songs' }).click()
+  // The screen's own Add tunes control, not the one the empty state offers.
+  await page.getByRole('banner').getByRole('button', { name: 'Add tunes' }).click()
   for (const name of ['Arkansas', 'Billy', 'Cripple']) {
-    await page.getByRole('searchbox', { name: 'Search songs' }).fill(`${tag} ${name}`)
+    await page.getByRole('searchbox', { name: 'Search tunes' }).fill(`${tag} ${name}`)
     await page.getByRole('button', { name: `Add ${tag} ${name}` }).click()
   }
   const since = new Date().toISOString()
   await page.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect.poll(() => songOrder(page, tag)).toEqual(['Arkansas', 'Billy', 'Cripple'])
+  await expect.poll(() => tuneOrder(page, tag)).toEqual(['Arkansas', 'Billy', 'Cripple'])
   // The pending write syncs on its own, and the pull rebuilds the list it lands in. A row
   // replaced under the pointer takes the gesture with it, so the gesture waits for it.
   await expectSynced(page, since)
@@ -78,22 +78,22 @@ test('reorder a list by dragging a handle and from its menu, and swipe a song ou
   await page.mouse.move(from.x + from.width / 2, to.y + to.height, { steps: 20 })
   await page.mouse.up()
   await expectSettled(handle)
-  await expect.poll(() => songOrder(page, tag)).toEqual(['Billy', 'Cripple', 'Arkansas'])
+  await expect.poll(() => tuneOrder(page, tag)).toEqual(['Billy', 'Cripple', 'Arkansas'])
   // A drag must not leave the handle's menu open behind it.
   await expect(page.getByRole('button', { name: 'Move to top' })).toBeHidden()
 
   // Tap Cripple's handle and move it to the top from the menu.
   await page.getByRole('button', { name: `Reorder ${tag} Cripple`, exact: true }).click()
   await page.getByRole('button', { name: 'Move to top' }).click()
-  await expect.poll(() => songOrder(page, tag)).toEqual(['Cripple', 'Billy', 'Arkansas'])
+  await expect.poll(() => tuneOrder(page, tag)).toEqual(['Cripple', 'Billy', 'Arkansas'])
 
-  // Remove Billy from the list with a swipe; the song itself stays in the catalog.
+  // Remove Billy from the list with a swipe; the tune itself stays in the catalog.
   await swipeLeft(
     page,
     page.getByRole('button', { name: new RegExp(`^\\d+ ${escapeRegExp(tag)} Billy`) }),
   )
   await page.getByRole('button', { name: `Remove ${tag} Billy` }).click()
-  await expect.poll(() => songOrder(page, tag)).toEqual(['Cripple', 'Arkansas'])
+  await expect.poll(() => tuneOrder(page, tag)).toEqual(['Cripple', 'Arkansas'])
   await page.reload()
-  await expect.poll(() => songOrder(page, tag)).toEqual(['Cripple', 'Arkansas'])
+  await expect.poll(() => tuneOrder(page, tag)).toEqual(['Cripple', 'Arkansas'])
 })

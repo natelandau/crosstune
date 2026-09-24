@@ -9,7 +9,7 @@ import {
 } from '@ionic/react'
 import { AArrowDown, AArrowUp, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { updateSong } from '../../commands/songs'
+import { updateTune } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { useWakeLock } from '../../platform/wakeLock'
 import { useDialogName } from '../../ui/dialogName'
@@ -48,18 +48,18 @@ function useAriaDisabled(button: RefObject<HTMLIonButtonElement | null>, disable
 /**
  * The words at reading distance. It covers the tab bar and the dock, because a fifth of a phone
  * screen is three or four lines of large text, and it carries no control but the size and the
- * way out. A line break in a song is meaning, so each line is its own block with a hanging
+ * way out. A line break in a tune is meaning, so each line is its own block with a hanging
  * indent: a wrap sits under its line and a new line starts at the margin.
  */
 export function LyricsModal({
   open,
-  songId,
+  tuneId,
   title,
   lyrics,
   onClose,
 }: {
   open: boolean
-  songId: string
+  tuneId: string
   title: string
   lyrics: string
   onClose: () => void
@@ -105,8 +105,8 @@ export function LyricsModal({
   }
 
   return (
-    // The name says which song, as the toolbar does, so a reader entering the dialog knows it
-    // opened the right one. The prop is only the first name: a song renamed on the screen
+    // The name says which tune, as the toolbar does, so a reader entering the dialog knows it
+    // opened the right one. The prop is only the first name: a tune renamed on the screen
     // behind this one reaches the dialog through useDialogName.
     <IonModal ref={modal} isOpen={open} aria-label={`${title} lyrics`} onDidDismiss={onClose}>
       <IonHeader>
@@ -156,7 +156,7 @@ export function LyricsModal({
             </div>
           ))}
           {/* After the words, not in the toolbar: a musician who has read to the end is already
-              here, and a scroll mid-song never reaches it. */}
+              here, and a scroll mid-tune never reaches it. */}
           <div className="pt-(--form-section-gap)">
             <IonButton fill="clear" expand="block" onClick={() => setEditing(true)}>
               {EDIT_LYRICS}
@@ -167,7 +167,7 @@ export function LyricsModal({
           {announced}
         </p>
       </IonContent>
-      {/* No song form stands behind this one, so Done is the write, the way every other
+      {/* No tune form stands behind this one, so Done is the write, the way every other
           single-field sheet in the client behaves: the sheet holds the words until the write
           lands, so a refusal leaves them there to try again rather than dropping them. */}
       <LyricsSheet
@@ -179,7 +179,7 @@ export function LyricsModal({
         onSave={(next) => {
           const body = next.trim()
           runThen(
-            () => updateSong(db, songId, { lyrics: body || null }),
+            () => updateTune(db, tuneId, { lyrics: body || null }),
             () => setEditing(false),
           )
         }}

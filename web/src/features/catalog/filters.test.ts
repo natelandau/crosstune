@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
-import { songRow as song, userSongRow as userSong } from '../../test/rows'
+import { tuneRow as tune, userTuneRow as userTune } from '../../test/rows'
 import {
   catalogEntries,
   DEFAULT_FILTERS,
@@ -10,42 +10,42 @@ import {
   hiddenResets,
   hideArchived,
   normalizeFilters,
-  songCountLabel,
+  tuneCountLabel,
   visibleFacets,
 } from './filters'
 
-const songs = [
-  song('s1', "soldier's joy", {
+const tunes = [
+  tune('s1', "soldier's joy", {
     key: 'D',
     mode: 'major',
     violin_tuning: 'ADAE',
     banjo_tuning: 'gDGBD',
     genre: 'Old-time',
   }),
-  song('s2', 'Cluck Old Hen', { key: 'A', mode: 'mixolydian', alternate_titles: ['Cluck'] }),
-  song('s3', 'Deleted', { deleted_at: 't' }),
-  song('s4', 'Angeline the Baker', { key: 'D' }),
-  song('s5', 'Orphan', { key: 'G' }),
+  tune('s2', 'Cluck Old Hen', { key: 'A', mode: 'mixolydian', alternate_titles: ['Cluck'] }),
+  tune('s3', 'Deleted', { deleted_at: 't' }),
+  tune('s4', 'Angeline the Baker', { key: 'D' }),
+  tune('s5', 'Orphan', { key: 'G' }),
 ]
-const userSongs = [
-  userSong('u1', 's1'),
-  userSong('u2', 's2', { status: 'learning' }),
-  userSong('u3', 's3'),
-  userSong('u4', 's4', { status: 'want_to_learn', archived_at: 't' }),
+const userTunes = [
+  userTune('u1', 's1'),
+  userTune('u2', 's2', { status: 'learning' }),
+  userTune('u3', 's3'),
+  userTune('u4', 's4', { status: 'want_to_learn', archived_at: 't' }),
 ]
 
 describe('catalogEntries', () => {
   it('joins active pairs and sorts by title ignoring case', () => {
-    const entries = catalogEntries(songs, userSongs)
-    expect(entries.map((e) => e.song.id)).toEqual(['s4', 's2', 's1'])
+    const entries = catalogEntries(tunes, userTunes)
+    expect(entries.map((e) => e.tune.id)).toEqual(['s4', 's2', 's1'])
   })
 })
 
 describe('hideArchived', () => {
-  const entries = catalogEntries(songs, userSongs)
+  const entries = catalogEntries(tunes, userTunes)
 
   it('drops archived entries unless shown', () => {
-    expect(hideArchived(entries, false).map((e) => e.song.id)).toEqual(['s2', 's1'])
+    expect(hideArchived(entries, false).map((e) => e.tune.id)).toEqual(['s2', 's1'])
     expect(hideArchived(entries, true)).toBe(entries)
   })
 
@@ -56,54 +56,54 @@ describe('hideArchived', () => {
 })
 
 describe('filterCatalog', () => {
-  const entries = catalogEntries(songs, userSongs)
+  const entries = catalogEntries(tunes, userTunes)
 
-  it('hides archived songs unless asked', () => {
-    expect(filterCatalog(entries, DEFAULT_FILTERS).map((e) => e.song.id)).toEqual(['s2', 's1'])
+  it('hides archived tunes unless asked', () => {
+    expect(filterCatalog(entries, DEFAULT_FILTERS).map((e) => e.tune.id)).toEqual(['s2', 's1'])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, archived: true }).map((e) => e.song.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, archived: true }).map((e) => e.tune.id),
     ).toEqual(['s4', 's2', 's1'])
   })
 
   it('matches the query against titles and alternate titles', () => {
-    expect(filterCatalog(entries, DEFAULT_FILTERS, 'SOLD').map((e) => e.song.id)).toEqual(['s1'])
-    expect(filterCatalog(entries, DEFAULT_FILTERS, 'cluck').map((e) => e.song.id)).toEqual(['s2'])
+    expect(filterCatalog(entries, DEFAULT_FILTERS, 'SOLD').map((e) => e.tune.id)).toEqual(['s1'])
+    expect(filterCatalog(entries, DEFAULT_FILTERS, 'cluck').map((e) => e.tune.id)).toEqual(['s2'])
   })
 
   it('keeps a title that matches the query exactly apart from accents', () => {
-    const accented = catalogEntries([song('s6', 'Été Waltz')], [userSong('u6', 's6')])
-    expect(filterCatalog(accented, DEFAULT_FILTERS, 'ete waltz').map((e) => e.song.id)).toEqual([
+    const accented = catalogEntries([tune('s6', 'Été Waltz')], [userTune('u6', 's6')])
+    expect(filterCatalog(accented, DEFAULT_FILTERS, 'ete waltz').map((e) => e.tune.id)).toEqual([
       's6',
     ])
   })
 
   it('filters by status and facets', () => {
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, status: 'learning' }).map((e) => e.song.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, status: 'learning' }).map((e) => e.tune.id),
     ).toEqual(['s2'])
-    expect(filterCatalog(entries, { ...DEFAULT_FILTERS, key: 'D' }).map((e) => e.song.id)).toEqual([
+    expect(filterCatalog(entries, { ...DEFAULT_FILTERS, key: 'D' }).map((e) => e.tune.id)).toEqual([
       's1',
     ])
     expect(
       filterCatalog(entries, { ...DEFAULT_FILTERS, mode: 'mixolydian', violin_tuning: 'all' }).map(
-        (e) => e.song.id,
+        (e) => e.tune.id,
       ),
     ).toEqual(['s2'])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, genre: 'Old-time' }).map((e) => e.song.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, genre: 'Old-time' }).map((e) => e.tune.id),
     ).toEqual(['s1'])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, violin_tuning: 'ADAE' }).map((e) => e.song.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, violin_tuning: 'ADAE' }).map((e) => e.tune.id),
     ).toEqual(['s1'])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, banjo_tuning: 'gCGCD' }).map((e) => e.song.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, banjo_tuning: 'gCGCD' }).map((e) => e.tune.id),
     ).toEqual([])
   })
 })
 
 describe('facetValues', () => {
   it('lists distinct sorted values across all entries, archived included', () => {
-    const facets = facetValues(catalogEntries(songs, userSongs))
+    const facets = facetValues(catalogEntries(tunes, userTunes))
     expect(facets.key).toEqual(['A', 'D'])
     expect(facets.mode).toEqual(['major', 'mixolydian'])
     expect(facets.violin_tuning).toEqual(['ADAE'])
@@ -114,10 +114,10 @@ describe('facetValues', () => {
   it('folds spellings that differ only by case into one option', () => {
     const entries = catalogEntries(
       [
-        song('s1', 'A', { key: 'D', genre: 'old-time' }),
-        song('s2', 'B', { key: 'd', genre: 'Old-Time' }),
+        tune('s1', 'A', { key: 'D', genre: 'old-time' }),
+        tune('s2', 'B', { key: 'd', genre: 'Old-Time' }),
       ],
-      [userSong('u1', 's1'), userSong('u2', 's2')],
+      [userTune('u1', 's1'), userTune('u2', 's2')],
     )
     const facets = facetValues(entries)
     expect(facets.key).toEqual(['D'])
@@ -146,7 +146,7 @@ describe('normalizeFilters', () => {
 })
 
 describe('visibleFacets', () => {
-  const facets = facetValues(catalogEntries(songs, userSongs))
+  const facets = facetValues(catalogEntries(tunes, userTunes))
 
   it('offers a facet only when it has values and its instrument is played', () => {
     expect(visibleFacets(facets, new Set<Instrument>(['violin']))).toEqual([
@@ -167,11 +167,11 @@ describe('visibleFacets', () => {
   })
 
   it('names the counts the same way wherever they are shown', () => {
-    expect(songCountLabel(84, 84)).toBe('84 songs')
-    expect(songCountLabel(11, 84)).toBe('11 of 84 songs')
-    expect(songCountLabel(1, 84)).toBe('1 of 84 songs')
-    expect(songCountLabel(1, 1)).toBe('1 song')
-    expect(songCountLabel(0, 0)).toBe('0 songs')
+    expect(tuneCountLabel(84, 84)).toBe('84 tunes')
+    expect(tuneCountLabel(11, 84)).toBe('11 of 84 tunes')
+    expect(tuneCountLabel(1, 84)).toBe('1 of 84 tunes')
+    expect(tuneCountLabel(1, 1)).toBe('1 tune')
+    expect(tuneCountLabel(0, 0)).toBe('0 tunes')
   })
 
   it('builds a reset patch for hidden facets only', () => {

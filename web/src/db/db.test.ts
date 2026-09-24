@@ -4,14 +4,14 @@ import { openTestDb } from '../test/db'
 import { getMeta, getPullCursor, setMeta, setPullCursor } from './meta'
 import { dropPending, enqueue, pendingBatch, pendingFor } from './outbox'
 import {
-  CrosstuneDb,
+  type CrosstuneDb,
   databaseName,
   deleteDatabase,
   openDatabase,
   rowsTable,
   syncTables,
 } from './schema'
-import { stripOwnership, toChangeData, type LocalList, type LocalSong } from './types'
+import { stripOwnership, toChangeData, type LocalList, type LocalTune } from './types'
 
 let db: CrosstuneDb
 
@@ -23,7 +23,7 @@ afterEach(async () => {
   await db.delete()
 })
 
-const song: LocalSong = {
+const tune: LocalTune = {
   id: '018f0000-0000-7000-8000-000000000001',
   created_at: '2026-09-11T00:00:00.000Z',
   updated_at: '2026-09-11T00:00:00.000Z',
@@ -55,9 +55,9 @@ describe('schema', () => {
       'recording_files',
       'recording_links',
       'recordings',
-      'songs',
+      'tunes',
       'user_settings',
-      'user_songs',
+      'user_tunes',
     ])
   })
 
@@ -70,92 +70,6 @@ describe('schema', () => {
     expect(await Dexie.exists('crosstune-user_abc')).toBe(false)
   })
 
-  it('upgrades a version 1 database by giving each instrument its own tuning', async () => {
-    const name = `crosstune-test-${crypto.randomUUID()}`
-    const v1 = new Dexie(name)
-    v1.version(1).stores({
-      songs: 'id, title',
-      user_songs: 'id, song_id',
-      recording_links: 'id, song_id',
-      lists: 'id',
-      list_items: 'id, list_id, user_song_id',
-      outbox: '++seq, &[table+row_id]',
-      meta: 'key',
-    })
-    const legacy: Record<string, unknown> = { ...song, tuning: 'AEAE' }
-    delete legacy.violin_tuning
-    delete legacy.banjo_tuning
-    await v1.table('songs').put(legacy)
-    const legacyChangeData: Record<string, unknown> = { ...toChangeData(song), tuning: 'AEAE' }
-    delete legacyChangeData.violin_tuning
-    delete legacyChangeData.banjo_tuning
-    // Version 1's outbox store is '++seq, &[table+row_id]': seq is autoincrement, so omit it on insert.
-    await v1.table('outbox').add({
-      table: 'songs',
-      row_id: song.id,
-      op: 'upsert',
-      updated_at: song.updated_at,
-      data: legacyChangeData,
-    })
-    v1.close()
-
-    const upgraded = new CrosstuneDb(name)
-    try {
-      const row = await upgraded.songs.get(song.id)
-      expect(row).toMatchObject({ violin_tuning: 'AEAE', banjo_tuning: null })
-      expect(row !== undefined && 'tuning' in row).toBe(false)
-      expect(upgraded.tables.map((t) => t.name)).toContain('user_settings')
-      const entry = await pendingFor(upgraded, 'songs', song.id)
-      expect(entry?.data).toMatchObject({ violin_tuning: 'AEAE', banjo_tuning: null })
-      expect(entry?.data && 'tuning' in entry.data).toBe(false)
-    } finally {
-      await upgraded.delete()
-    }
-  })
-
-  it('upgrades a version 3 database by replacing has_lyrics with a lyrics body', async () => {
-    const name = `crosstune-test-${crypto.randomUUID()}`
-    const v3 = new Dexie(name)
-    v3.version(3).stores({
-      songs: 'id, title',
-      user_songs: 'id, song_id',
-      recording_links: 'id, song_id',
-      lists: 'id',
-      list_items: 'id, list_id, user_song_id',
-      user_settings: 'id',
-      recordings: 'id, song_id',
-      recording_files: 'id, local_state',
-      recording_chunks: '[recording_id+idx], recording_id',
-      outbox: '++seq, &[table+row_id]',
-      meta: 'key',
-    })
-    const legacy: Record<string, unknown> = { ...song, has_lyrics: true }
-    delete legacy.lyrics
-    await v3.table('songs').put(legacy)
-    const legacyChangeData: Record<string, unknown> = { ...toChangeData(song), has_lyrics: true }
-    delete legacyChangeData.lyrics
-    await v3.table('outbox').add({
-      table: 'songs',
-      row_id: song.id,
-      op: 'upsert',
-      updated_at: song.updated_at,
-      data: legacyChangeData,
-    })
-    v3.close()
-
-    const upgraded = new CrosstuneDb(name)
-    try {
-      const row = await upgraded.songs.get(song.id)
-      expect(row).toMatchObject({ lyrics: null })
-      expect(row !== undefined && 'has_lyrics' in row).toBe(false)
-      const entry = await pendingFor(upgraded, 'songs', song.id)
-      expect(entry?.data).toMatchObject({ lyrics: null })
-      expect(entry?.data && 'has_lyrics' in entry.data).toBe(false)
-    } finally {
-      await upgraded.delete()
-    }
-  })
-
   it('opens at the current version with the recording tables', async () => {
     const db = openTestDb()
     try {
@@ -163,7 +77,7 @@ describe('schema', () => {
       expect(db.tables.map((t) => t.name)).toEqual(
         expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
       )
-      expect(db.verno).toBe(4)
+      expect(db.verno).toBe(5)
     } finally {
       await db.delete()
     }
@@ -173,18 +87,18 @@ describe('schema', () => {
 describe('outbox', () => {
   it('keeps one entry per row, replacing data in place', async () => {
     await enqueue(db, {
-      table: 'songs',
-      row_id: song.id,
+      table: 'tunes',
+      row_id: tune.id,
       op: 'upsert',
-      updated_at: song.updated_at,
-      data: toChangeData(song),
+      updated_at: tune.updated_at,
+      data: toChangeData(tune),
     })
     await enqueue(db, {
-      table: 'songs',
-      row_id: song.id,
+      table: 'tunes',
+      row_id: tune.id,
       op: 'upsert',
       updated_at: '2026-09-11T00:00:01.000Z',
-      data: toChangeData({ ...song, title: "Soldier's Joy (D)" }),
+      data: toChangeData({ ...tune, title: "Soldier's Joy (D)" }),
     })
     const entries = await pendingBatch(db)
     expect(entries).toHaveLength(1)
@@ -198,8 +112,8 @@ describe('outbox', () => {
         table: 'lists',
         row_id: `list-${i}`,
         op: 'upsert',
-        updated_at: song.updated_at,
-        data: { name: `L${i}`, position: i, created_at: song.created_at },
+        updated_at: tune.updated_at,
+        data: { name: `L${i}`, position: i, created_at: tune.created_at },
       })
     }
     const two = await pendingBatch(db, 2)
@@ -227,8 +141,8 @@ describe('table helpers', () => {
       id: 'list-1',
       name: 'Session set',
       position: 0,
-      created_at: song.created_at,
-      updated_at: song.updated_at,
+      created_at: tune.created_at,
+      updated_at: tune.updated_at,
       deleted_at: null,
       server_seq: 0,
     }
@@ -238,8 +152,8 @@ describe('table helpers', () => {
 
   it('syncTables lists every synced table', () => {
     expect(syncTables(db).map((t) => t.name)).toEqual([
-      'songs',
-      'user_songs',
+      'tunes',
+      'user_tunes',
       'lists',
       'list_items',
       'recording_links',
@@ -251,7 +165,7 @@ describe('table helpers', () => {
 
 describe('row shaping', () => {
   it('strips bookkeeping from change data and ownership from server rows', () => {
-    const data = toChangeData(song)
+    const data = toChangeData(tune)
     expect(Object.keys(data).sort()).toEqual([
       'alternate_titles',
       'banjo_tuning',
@@ -267,7 +181,7 @@ describe('row shaping', () => {
       'title',
       'violin_tuning',
     ])
-    const local = stripOwnership({ ...song, owner_user_id: 'u', server_seq: 9 })
+    const local = stripOwnership({ ...tune, owner_user_id: 'u', server_seq: 9 })
     expect('owner_user_id' in local).toBe(false)
     expect(local.server_seq).toBe(9)
   })

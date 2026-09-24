@@ -11,45 +11,45 @@ function view(
   overrides: {
     recording?: Partial<LocalRecording>
     file?: RecordingFile | undefined
-    songId?: string | null
-    songTitle?: string | null
+    tuneId?: string | null
+    tuneTitle?: string | null
   } = {},
 ): RecordingView {
   return {
     recording: recordingRow('r1', overrides.recording),
     file: overrides.file,
-    songId: overrides.songId ?? null,
-    songTitle: overrides.songTitle ?? null,
+    tuneId: overrides.tuneId ?? null,
+    tuneTitle: overrides.tuneTitle ?? null,
   }
 }
 
 describe('recordingTitle', () => {
   it('uses the label when the view has one', () => {
     expect(
-      recordingTitle(view({ recording: { label: 'Jam recording' }, songTitle: 'Cluck Old Hen' })),
+      recordingTitle(view({ recording: { label: 'Jam recording' }, tuneTitle: 'Cluck Old Hen' })),
     ).toBe('Jam recording')
   })
 
-  it('uses the song title when there is no label and no heading names the song', () => {
-    expect(recordingTitle(view({ recording: { label: null }, songTitle: 'Cluck Old Hen' }))).toBe(
+  it('uses the tune title when there is no label and no heading names the tune', () => {
+    expect(recordingTitle(view({ recording: { label: null }, tuneTitle: 'Cluck Old Hen' }))).toBe(
       'Cluck Old Hen',
     )
   })
 
-  it('skips the song title under a heading that already names the song', () => {
+  it('skips the tune title under a heading that already names the tune', () => {
     const recordedAt = '2026-03-14T20:05:00.000Z'
     expect(
       recordingTitle(
-        view({ recording: { label: null, recorded_at: recordedAt }, songTitle: 'Cluck Old Hen' }),
-        { songNamedAbove: true },
+        view({ recording: { label: null, recorded_at: recordedAt }, tuneTitle: 'Cluck Old Hen' }),
+        { tuneNamedAbove: true },
       ),
     ).toBe('Recording, Mar 14, 2026, 8:05 PM')
   })
 
-  it('keeps the label under a heading that already names the song', () => {
+  it('keeps the label under a heading that already names the tune', () => {
     expect(
-      recordingTitle(view({ recording: { label: 'Jam recording' }, songTitle: 'Cluck Old Hen' }), {
-        songNamedAbove: true,
+      recordingTitle(view({ recording: { label: 'Jam recording' }, tuneTitle: 'Cluck Old Hen' }), {
+        tuneNamedAbove: true,
       }),
     ).toBe('Jam recording')
   })

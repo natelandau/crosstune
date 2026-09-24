@@ -221,7 +221,7 @@ describe('CatalogFilterSheet', () => {
 
   it('shows the live count, a select per sheet facet, and the archived switch with its count', async () => {
     renderIonic(<Host sheet />, { db: openTestDb() })
-    await expect.element(page.getByText('3 of 5 songs')).toBeVisible()
+    await expect.element(page.getByText('3 of 5 tunes')).toBeVisible()
     // IonSelect's accessible name is "<label>, <value>", and its own button is clipped, so
     // visibility is asserted on the row that contains it.
     for (const label of ['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre']) {
@@ -233,7 +233,7 @@ describe('CatalogFilterSheet', () => {
     }
     // Scoped to the sheet: the catalog's own Key rail is also labeled "Key".
     expect(page.getByRole('dialog').getByLabelText('Key').elements()).toHaveLength(0)
-    await expect.element(page.getByText('2 archived songs')).toBeVisible()
+    await expect.element(page.getByText('2 archived tunes')).toBeVisible()
     // The archived count is tabular, like every other count in the catalog.
     expect(document.querySelector('ion-modal p.type-footnote span')).toHaveClass('tabular-nums')
   })

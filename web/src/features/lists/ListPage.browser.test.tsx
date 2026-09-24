@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import * as bulkModule from '../../commands/bulk'
 import { addToList, createList } from '../../commands/lists'
-import { createSong, setArchived } from '../../commands/songs'
+import { createTune, setArchived } from '../../commands/tunes'
 import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
@@ -11,9 +11,9 @@ import { renderScreen } from '../../test/ionic'
 import { DELETING } from '../../ui/Confirm'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
-import { SEARCH_SONGS } from '../catalog/SongSearch'
+import { SEARCH_TUNES } from '../catalog/TuneSearch'
 import { CANCEL_SELECTION, SELECT_ALL } from '../selection/SelectionToolbar'
-import { EDIT_SONG_TITLE, NEW_SONG_TITLE } from '../song/SongFormSheet'
+import { EDIT_TUNE_TITLE, NEW_TUNE_TITLE } from '../tune/TuneFormSheet'
 import { LIST_NAME_LABEL } from './ListNameSheet'
 import {
   ALL_ARCHIVED_TITLE,
@@ -25,8 +25,8 @@ import {
   ListPage,
 } from './ListPage'
 import { ADD_TO_LIST } from './ListPicker'
-import { MOVE_DOWN } from './ListSongs'
-import { ADD_SONGS } from './SongPickerSheet'
+import { MOVE_DOWN } from './ListTunes'
+import { ADD_TUNES } from './TunePickerSheet'
 import { META_LIST_SHOW_ARCHIVED } from './useListShowArchived'
 
 vi.mock('../../commands/bulk', { spy: true })
@@ -35,14 +35,14 @@ vi.mock('./useListShowArchived', { spy: true })
 
 let db: CrosstuneDb
 let listId: string
-let joy: { songId: string; userSongId: string }
+let joy: { tuneId: string; userTuneId: string }
 
 const originalMatchMedia = window.matchMedia
 
 beforeEach(async () => {
   db = openTestDb()
   listId = await createList(db, 'Tuesday jam')
-  joy = await createSong(db, { title: "Soldier's Joy", key: 'D' }, { status: 'known' })
+  joy = await createTune(db, { title: "Soldier's Joy", key: 'D' }, { status: 'known' })
 })
 
 afterEach(() => {
@@ -70,10 +70,10 @@ const more = async (label: string) => {
   await page.getByText(label, { exact: true }).click()
 }
 
-/** A second song in the list, so the rows offer a reorder handle. */
+/** A second tune in the list, so the rows offer a reorder handle. */
 const addAngeline = async () => {
-  const angeline = await createSong(db, { title: 'Angeline the Baker' }, { status: 'known' })
-  await addToList(db, listId, angeline.userSongId)
+  const angeline = await createTune(db, { title: 'Angeline the Baker' }, { status: 'known' })
+  await addToList(db, listId, angeline.userTuneId)
 }
 
 const moveDown = async (title: string) => {
@@ -82,8 +82,8 @@ const moveDown = async (title: string) => {
 }
 
 const ORDER_FAILED = 'The order could not be saved.'
-const REMOVE_FAILED = 'The song could not be removed.'
-const BULK_REMOVE_FAILED = 'Song not found in list.'
+const REMOVE_FAILED = 'The tune could not be removed.'
+const BULK_REMOVE_FAILED = 'Tune not found in list.'
 
 const leaveSelection = () => page.getByRole('button', { name: CANCEL_SELECTION })
 const rowCheckbox = (name: RegExp) => page.getByRole('checkbox', { name })
@@ -142,8 +142,8 @@ async function longPressRow(index: number) {
 }
 
 describe('ListPage', () => {
-  it('shows the list name as its one level 1 heading and its songs', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('shows the list name as its one level 1 heading and its tunes', async () => {
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: 'Tuesday jam', level: 1 })).toBeVisible()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
@@ -154,25 +154,25 @@ describe('ListPage', () => {
     show()
     await expect.element(page.getByText(EMPTY_LIST_TITLE)).toBeVisible()
     await expect.element(page.getByText(EMPTY_LIST_HINT)).toBeVisible()
-    await page.getByRole('button', { name: ADD_SONGS }).last().click()
-    await expect.element(page.getByRole('searchbox', { name: SEARCH_SONGS })).toBeVisible()
+    await page.getByRole('button', { name: ADD_TUNES }).last().click()
+    await expect.element(page.getByRole('searchbox', { name: SEARCH_TUNES })).toBeVisible()
   })
 
-  it('adds a song through the picker', async () => {
+  it('adds a tune through the picker', async () => {
     show()
-    await page.getByRole('button', { name: ADD_SONGS }).first().click()
-    await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('soldier')
+    await page.getByRole('button', { name: ADD_TUNES }).first().click()
+    await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('soldier')
     await page.getByRole('button', { name: "Add Soldier's Joy" }).click()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
   })
 
-  it('creates a song from the picker, adds it to the list, and stays on the list', async () => {
+  it('creates a tune from the picker, adds it to the list, and stays on the list', async () => {
     show()
-    await page.getByRole('button', { name: ADD_SONGS }).first().click()
-    await page.getByRole('searchbox', { name: SEARCH_SONGS }).fill('Sally Goodin')
+    await page.getByRole('button', { name: ADD_TUNES }).first().click()
+    await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally Goodin')
     await page.getByRole('button', { name: 'Add "Sally Goodin"' }).click()
-    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue('Sally Goodin')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect(await items()).toHaveLength(1))
@@ -180,17 +180,17 @@ describe('ListPage', () => {
     await expect.element(page.getByRole('heading', { name: 'Tuesday jam', level: 1 })).toBeVisible()
   })
 
-  it('removes a song from its row', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('removes a tune from its row', async () => {
+    await addToList(db, listId, joy.userTuneId)
     show()
     await page.getByRole('button', { name: "Remove Soldier's Joy" }).click()
     await vi.waitFor(async () => expect(await items()).toHaveLength(0))
     await expect.element(page.getByText(EMPTY_LIST_TITLE)).toBeVisible()
   })
 
-  it('says every song is archived and shows them from the empty state, saving the setting', async () => {
-    await addToList(db, listId, joy.userSongId)
-    await setArchived(db, joy.userSongId, true)
+  it('says every tune is archived and shows them from the empty state, saving the setting', async () => {
+    await addToList(db, listId, joy.userTuneId)
+    await setArchived(db, joy.userTuneId, true)
     show()
     await expect.element(page.getByText(ALL_ARCHIVED_TITLE)).toBeVisible()
     await page.getByRole('button', { name: SHOW_ARCHIVED }).click()
@@ -263,22 +263,22 @@ describe('ListPage', () => {
         .element(page.getByRole('heading', { name: 'Tuesday jam', level: 1 }))
         .toBeVisible()
       expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
-      expect(page.getByRole('button', { name: ADD_SONGS }).elements()).toHaveLength(0)
+      expect(page.getByRole('button', { name: ADD_TUNES }).elements()).toHaveLength(0)
     } finally {
       unread.mockRestore()
     }
   })
 
-  it('edits a song from its row', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('edits a tune from its row', async () => {
+    await addToList(db, listId, joy.userTuneId)
     show()
     await page.getByRole('button', { name: "Edit Soldier's Joy" }).click()
-    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
+    await expect.element(page.getByText(EDIT_TUNE_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue("Soldier's Joy")
   })
 
   it('shows a failed remove in the page error line', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     const lists = await import('../../commands/lists')
     vi.spyOn(lists, 'removeFromList').mockRejectedValueOnce(new Error(REMOVE_FAILED))
     show()
@@ -287,7 +287,7 @@ describe('ListPage', () => {
   })
 
   it('drops a failed move from the error line once a later move lands', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
     const lists = await import('../../commands/lists')
     vi.spyOn(lists, 'moveItem').mockRejectedValueOnce(new Error(ORDER_FAILED))
@@ -300,7 +300,7 @@ describe('ListPage', () => {
   })
 
   it('shows a move error over an older action error', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
     const lists = await import('../../commands/lists')
     vi.spyOn(lists, 'removeFromList').mockRejectedValueOnce(new Error(REMOVE_FAILED))
@@ -313,7 +313,7 @@ describe('ListPage', () => {
   })
 
   it('walks the rows with the arrow keys on a mouse', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
@@ -329,26 +329,26 @@ describe('ListPage', () => {
     expect(document.activeElement).toBe(opens[0])
   })
 
-  it('opens a song in the Lists stack', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('opens a tune in the Lists stack', async () => {
+    await addToList(db, listId, joy.userTuneId)
     renderScreen(<ListPage />, {
       db,
       path: `/lists/${listId}`,
       route: '/lists/:listId',
-      probes: { '/lists/:listId/songs/:songId': 'Song probe' },
+      probes: { '/lists/:listId/tunes/:tuneId': 'Tune probe' },
     })
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     document.querySelector<HTMLButtonElement>('[data-row-open]')!.click()
-    await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'Tune probe' })).toBeVisible()
   })
 })
 
 describe('ListPage selection', () => {
   it('gives every toolbar control a 44px tap target', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
-    for (const name of [ADD_SONGS, MORE_ACTIONS]) {
+    for (const name of [ADD_TUNES, MORE_ACTIONS]) {
       const box = buttonHost(name).getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
       expect(box.width).toBeGreaterThanOrEqual(44)
@@ -356,7 +356,7 @@ describe('ListPage selection', () => {
   })
 
   it('enters selection from the More menu', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await startSelecting()
@@ -365,11 +365,11 @@ describe('ListPage selection', () => {
     await expect.poll(screenTitle).toBe('1 selected')
     await leaveSelection().click()
     await expect.poll(screenTitle).toBe('Tuesday jam')
-    await expect.element(page.getByRole('button', { name: ADD_SONGS })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: ADD_TUNES })).toBeVisible()
   })
 
   it('stands its exit control in for the back button while selecting', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     expect(document.querySelector('ion-back-button')).not.toBeNull()
@@ -379,8 +379,8 @@ describe('ListPage selection', () => {
     await expect.poll(() => document.querySelector('ion-back-button')).not.toBeNull()
   })
 
-  it('hides the reorder controls and the song picker, drops Rename, and keeps the positions', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('hides the reorder controls and the tune picker, drops Rename, and keeps the positions', async () => {
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
@@ -392,7 +392,7 @@ describe('ListPage selection', () => {
     expect(page.getByRole('button', { name: "Reorder Soldier's Joy" }).elements()).toHaveLength(0)
     expect(document.querySelectorAll('ion-reorder')).toHaveLength(0)
     expect(reorderGroup().disabled).toBe(true)
-    expect(page.getByRole('button', { name: ADD_SONGS }).elements()).toHaveLength(0)
+    expect(page.getByRole('button', { name: ADD_TUNES }).elements()).toHaveLength(0)
     expect(positions()).toEqual(['1', '2'])
     expect(document.querySelectorAll('[data-row-check]')).toHaveLength(2)
 
@@ -403,7 +403,7 @@ describe('ListPage selection', () => {
   })
 
   it('shows the reorder controls again after leaving', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
@@ -419,7 +419,7 @@ describe('ListPage selection', () => {
 
   it('refuses selection while the rename sheet is open, including from a long press', async () => {
     forceTouch()
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await pickFromMore('Rename')
@@ -440,7 +440,7 @@ describe('ListPage selection', () => {
   })
 
   it('asks the list to close its open rows on entering', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     // Whether a row is open cannot be read back afterwards: a selecting row passes no actions, so
@@ -452,7 +452,7 @@ describe('ListPage selection', () => {
   })
 
   it('offers Select under StrictMode, which double-invokes the publish', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     renderScreen(<ListPage />, {
       db,
       path: `/lists/${listId}`,
@@ -465,10 +465,10 @@ describe('ListPage selection', () => {
   })
 
   it('extends a range with shift-click', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
-    const hen = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    await addToList(db, listId, hen.userSongId)
+    const hen = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    await addToList(db, listId, hen.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: 'Cluck Old Hen' })).toBeVisible()
     await startSelecting()
@@ -478,11 +478,11 @@ describe('ListPage selection', () => {
     await expect.poll(screenTitle).toBe('3 selected')
   })
 
-  it('removes the selected songs and undoes them into their original positions', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('removes the selected tunes and undoes them into their original positions', async () => {
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
-    const hen = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    await addToList(db, listId, hen.userSongId)
+    const hen = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    await addToList(db, listId, hen.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: 'Cluck Old Hen' })).toBeVisible()
     await startSelecting()
@@ -492,7 +492,7 @@ describe('ListPage selection', () => {
     await pickFromMore('Remove 2 from list')
     await vi.waitFor(async () => expect(await items()).toHaveLength(1), { timeout: 3000 })
     await expect.poll(screenTitle).toBe('Tuesday jam')
-    await expect.element(page.getByText('Removed 2 songs from Tuesday jam')).toBeVisible()
+    await expect.element(page.getByText('Removed 2 tunes from Tuesday jam')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
     await vi.waitFor(async () => expect(await items()).toHaveLength(3), { timeout: 3000 })
     await vi.waitFor(
@@ -502,14 +502,14 @@ describe('ListPage selection', () => {
   })
 
   it('keeps the mode and shows the error when Remove fails', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
     await startSelecting()
     await rowCheckbox(/^Select Soldier's Joy/).click()
     await expect.poll(screenTitle).toBe('1 selected')
-    vi.mocked(bulkModule.removeSongsFromList).mockRejectedValueOnce(new Error(BULK_REMOVE_FAILED))
+    vi.mocked(bulkModule.removeTunesFromList).mockRejectedValueOnce(new Error(BULK_REMOVE_FAILED))
     await pickFromMore('Remove 1 from list')
     await expect.element(page.getByRole('alert')).toHaveTextContent(BULK_REMOVE_FAILED)
     expect(screenTitle()).toBe('1 selected')
@@ -517,9 +517,9 @@ describe('ListPage selection', () => {
   })
 
   it('prunes the count when Show archived turns off during selection', async () => {
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     await addAngeline()
-    await setArchived(db, joy.userSongId, true)
+    await setArchived(db, joy.userTuneId, true)
     await setMeta(db, META_LIST_SHOW_ARCHIVED, true)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
@@ -531,8 +531,8 @@ describe('ListPage selection', () => {
     await expect.poll(screenTitle).toBe('1 selected')
   })
 
-  it('moves focus to the page after every visible song is removed', async () => {
-    await addToList(db, listId, joy.userSongId)
+  it('moves focus to the page after every visible tune is removed', async () => {
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await startSelecting()
@@ -549,7 +549,7 @@ describe('ListPage selection', () => {
 
   it('does not offer this list in Add to list', async () => {
     await createList(db, 'Square dance set')
-    await addToList(db, listId, joy.userSongId)
+    await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
     await startSelecting()
@@ -558,7 +558,7 @@ describe('ListPage selection', () => {
     await page.getByRole('button', { name: ADD_TO_LIST }).click()
     await expect.element(page.getByRole('button', { name: /Square dance set/ })).toBeVisible()
     // The open list would be offered as a row reading "all in it", since it already holds the
-    // song; it is the only list that could read that way.
+    // tune; it is the only list that could read that way.
     expect(page.getByText('all in it', { exact: true }).elements()).toHaveLength(0)
   })
 })

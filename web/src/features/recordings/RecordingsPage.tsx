@@ -13,7 +13,7 @@ import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Screen } from '../../ui/Screen'
 import { useRowArrowKeys } from '../../ui/useShortcut'
-import { AddToSongSheet } from './AddToSongSheet'
+import { AddToTuneSheet } from './AddToTuneSheet'
 import { RecordingItem } from './RecordingItem'
 import { retryKind } from './recordingRow'
 import { RenameRecordingSheet } from './RenameRecordingSheet'
@@ -26,21 +26,21 @@ export const NO_RECORDINGS_TITLE = 'No recordings yet'
 export const NO_RECORDINGS_HINT = 'Use the record button to make one, or upload an audio file.'
 
 interface RecordingGroup {
-  songId: string | null
+  tuneId: string | null
   title: string
   views: RecordingView[]
 }
 
-/** Unfiled recordings first, then one group per song in order of its newest recording. */
-function groupBySong(views: readonly RecordingView[]): RecordingGroup[] {
+/** Unfiled recordings first, then one group per tune in order of its newest recording. */
+function groupByTune(views: readonly RecordingView[]): RecordingGroup[] {
   const groups = new Map<string | null, RecordingGroup>()
   for (const view of views) {
-    const group = groups.get(view.songId)
+    const group = groups.get(view.tuneId)
     if (group) group.views.push(view)
     else {
-      groups.set(view.songId, {
-        songId: view.songId,
-        title: view.songTitle ?? 'Unfiled',
+      groups.set(view.tuneId, {
+        tuneId: view.tuneId,
+        title: view.tuneTitle ?? 'Unfiled',
         views: [view],
       })
     }
@@ -60,12 +60,12 @@ export function RecordingsPage() {
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const { error, setUploadError, retry, actionsFor } = useRecordingActions({
     onRename: setRenaming,
-    onAddToSong: setFiling,
+    onAddToTune: setFiling,
   })
   const groupsRef = useRef<HTMLDivElement>(null)
   useRowArrowKeys(groupsRef)
 
-  const groups = useMemo(() => (loadedViews ? groupBySong(loadedViews) : []), [loadedViews])
+  const groups = useMemo(() => (loadedViews ? groupByTune(loadedViews) : []), [loadedViews])
 
   const refresh = (event: RefresherCustomEvent) => {
     void engine.sync().finally(() => event.detail.complete())
@@ -76,7 +76,7 @@ export function RecordingsPage() {
       title="Recordings"
       level="top"
       grouped
-      end={<UploadButton songId={null} onError={setUploadError} />}
+      end={<UploadButton tuneId={null} onError={setUploadError} />}
       refresher={
         pointer === 'touch' ? (
           <IonRefresher slot="fixed" onIonRefresh={refresh}>
@@ -96,18 +96,18 @@ export function RecordingsPage() {
               than stopping at the last row of a group. */}
           <div ref={groupsRef}>
             {groups.map((group) => {
-              const songId = group.songId
+              const tuneId = group.tuneId
               return (
                 <Group
-                  key={songId ?? ''}
+                  key={tuneId ?? ''}
                   header={group.title}
                   headerNames
                   onHeaderOpen={
-                    songId
-                      ? () => router.push(`/recordings/${songId}`, 'forward', 'push')
+                    tuneId
+                      ? () => router.push(`/recordings/${tuneId}`, 'forward', 'push')
                       : undefined
                   }
-                  headerOpenName={songId ? 'Open' : undefined}
+                  headerOpenName={tuneId ? 'Open' : undefined}
                   name={group.title}
                 >
                   {group.views.map((view) => (
@@ -116,7 +116,7 @@ export function RecordingsPage() {
                       view={view}
                       actions={actionsFor(view)}
                       error={retryKind(view) === 'upload' ? view.file?.error : null}
-                      songNamedAbove={songId !== null}
+                      tuneNamedAbove={tuneId !== null}
                       onRetry={(kind) => retry(view, kind)}
                     />
                   ))}
@@ -128,7 +128,7 @@ export function RecordingsPage() {
         </>
       ) : null}
       <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
-      <AddToSongSheet view={filing} onClose={() => setFiling(null)} />
+      <AddToTuneSheet view={filing} onClose={() => setFiling(null)} />
     </Screen>
   )
 }

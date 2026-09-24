@@ -85,7 +85,7 @@ export const ALL_KEYS = [
  */
 export const QUICK_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'Bb', 'Eb'] as const
 
-// ---- Song details --------------------------------------------------------------------------
+// ---- Tune details --------------------------------------------------------------------------
 
 export const GENRES = ['Old-time', 'Bluegrass', 'Irish', 'Cajun', 'Gospel', 'Blues', 'Swing']
 
@@ -97,7 +97,7 @@ export const FEELS = [
   'Reel',
   'Hornpipe',
   'March',
-  'Song',
+  'Tune',
   'Slow',
 ]
 

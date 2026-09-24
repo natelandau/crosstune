@@ -23,7 +23,7 @@ interface Surfaces {
 async function surfaces({ theme, inset }: { theme: string; inset: boolean }): Promise<Surfaces> {
   document.documentElement.classList.toggle('ion-palette-dark', theme === 'dark')
   renderScreen(
-    <Screen title="Songs" level="top">
+    <Screen title="Tunes" level="top">
       <IonList inset={inset}>
         <IonItem>
           <IonLabel>Row 0</IonLabel>

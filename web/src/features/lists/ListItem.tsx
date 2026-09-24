@@ -19,7 +19,7 @@ export function ListItem({
         <h2 className="type-headline truncate">{list.name}</h2>
         <p className="type-subheadline">
           <span className="tabular-nums">
-            {list.count} {list.count === 1 ? 'song' : 'songs'}
+            {list.count} {list.count === 1 ? 'tune' : 'tunes'}
           </span>
           {' · '}
           {editedLabel(list.lastEditedAt)}

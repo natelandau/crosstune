@@ -2,9 +2,9 @@ import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
-import { isSongStatus } from '../catalog/status'
+import { isTuneStatus } from '../catalog/status'
 import { TUNING_FIELDS } from '../settings/instruments'
-import { DETAIL_LABELS } from '../song/detailFields'
+import { DETAIL_LABELS } from '../tune/detailFields'
 
 export const EDIT_FIELDS = [
   'status',
@@ -54,7 +54,7 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   learned_on: 'date',
 }
 
-const USER_SONG_FIELDS: ReadonlySet<EditField> = new Set(['status', 'learned_from', 'learned_on'])
+const USER_TUNE_FIELDS: ReadonlySet<EditField> = new Set(['status', 'learned_from', 'learned_on'])
 
 export type Summary =
   { kind: 'shared'; value: string | boolean } | { kind: 'mixed' } | { kind: 'empty' }
@@ -66,7 +66,7 @@ export type Touched = Partial<Record<EditField, TouchedValue>>
 // A server row can carry a value from a schema version this client predates;
 // fall back to empty rather than trust it as one of this client's known options.
 function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | null {
-  const row = (USER_SONG_FIELDS.has(field) ? entry.userSong : entry.song) as unknown as Record<
+  const row = (USER_TUNE_FIELDS.has(field) ? entry.userTune : entry.tune) as unknown as Record<
     string,
     unknown
   >
@@ -75,7 +75,7 @@ function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | n
   if (field === 'mode') return (MODES as readonly string[]).includes(value as string) ? value : null
   if (field === 'time_signature')
     return (TIME_SIGNATURES as readonly string[]).includes(value as string) ? value : null
-  if (field === 'status') return typeof value === 'string' && isSongStatus(value) ? value : null
+  if (field === 'status') return typeof value === 'string' && isTuneStatus(value) ? value : null
   return value
 }
 
@@ -90,7 +90,7 @@ export function summarize(entries: readonly CatalogEntry[]): Record<EditField, S
   return summaries
 }
 
-/** Every field, except a tuning for an instrument the user does not play that no selected song fills. */
+/** Every field, except a tuning for an instrument the user does not play that no selected tune fills. */
 export function visibleEditFields(
   entries: readonly CatalogEntry[],
   instruments: ReadonlySet<Instrument>,
@@ -99,7 +99,7 @@ export function visibleEditFields(
     if (field !== 'violin_tuning' && field !== 'banjo_tuning') return true
     return (
       instruments.has(TUNING_FIELDS[field].instrument) ||
-      entries.some((entry) => (entry.song[field] ?? null) !== null)
+      entries.some((entry) => (entry.tune[field] ?? null) !== null)
     )
   })
 }
@@ -109,7 +109,7 @@ function normalize(value: TouchedValue): string | boolean | null {
 }
 
 /**
- * True when saving the value would leave every selected song as it is. Compares the
+ * True when saving the value would leave every selected tune as it is. Compares the
  * raw value, not the trimmed one that is saved, so a trailing space typed mid-edit does
  * not snap a text field back to untouched.
  */
@@ -119,21 +119,21 @@ export function isUnchanged(summary: Summary, value: TouchedValue): boolean {
 }
 
 export function toPatch(touched: Touched): BulkPatch {
-  const song: Record<string, unknown> = {}
-  const userSong: Record<string, unknown> = {}
+  const tune: Record<string, unknown> = {}
+  const userTune: Record<string, unknown> = {}
   for (const field of EDIT_FIELDS) {
     const raw = touched[field]
     if (raw === undefined) continue
     const value = normalize(raw)
     if (field === 'status' && value === null) continue
-    const target = USER_SONG_FIELDS.has(field) ? userSong : song
+    const target = USER_TUNE_FIELDS.has(field) ? userTune : tune
     target[field] = value
   }
-  return { song: song as BulkPatch['song'], userSong: userSong as BulkPatch['userSong'] }
+  return { tune: tune as BulkPatch['tune'], userTune: userTune as BulkPatch['userTune'] }
 }
 
 export function displayValue(field: EditField, value: string | boolean): string {
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
-  if (field === 'status' && isSongStatus(value)) return STATUS_LABELS[value]
+  if (field === 'status' && isTuneStatus(value)) return STATUS_LABELS[value]
   return value
 }

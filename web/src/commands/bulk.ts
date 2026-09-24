@@ -1,23 +1,23 @@
 import type { CrosstuneDb } from '../db/schema'
-import type { LocalListItem, LocalSong, LocalUserSong } from '../db/types'
+import type { LocalListItem, LocalTune, LocalUserTune } from '../db/types'
 import { activeItems, createList, deleteList, writeOrder } from './lists'
-import { LIST_NOT_FOUND, SONG_NOT_FOUND, SONG_NOT_IN_LIST } from './messages'
-import { tombstoneSong, type SongInput, type UserSongInput } from './songs'
+import { LIST_NOT_FOUND, TUNE_NOT_FOUND, TUNE_NOT_IN_LIST } from './messages'
+import { tombstoneTune, type TuneInput, type UserTuneInput } from './tunes'
 import { newId, nextPosition, now, putRow, recordingTx, tombstone, writeTx } from './write'
 
 export type Undo = () => Promise<void>
 
-/** Fields that describe many songs at once; per-song text such as titles and notes is left out. */
+/** Fields that describe many tunes at once; per-tune text such as titles and notes is left out. */
 export interface BulkPatch {
-  song?: Partial<Omit<SongInput, 'title' | 'alternate_titles'>>
-  userSong?: Partial<Omit<UserSongInput, 'notes'>>
+  tune?: Partial<Omit<TuneInput, 'title' | 'alternate_titles'>>
+  userTune?: Partial<Omit<UserTuneInput, 'notes'>>
 }
 
 type Fields = Record<string, unknown>
 
 /** The previous values of the fields a bulk write changed on one row. */
 export interface Snapshot {
-  table: 'songs' | 'user_songs'
+  table: 'tunes' | 'user_tunes'
   id: string
   before: Fields
 }
@@ -51,16 +51,16 @@ export async function restoreFields(
   await writeTx(db, async () => {
     const at = now()
     for (const { table, id, before } of snapshots) {
-      if (table === 'songs') {
-        const row = await db.songs.get(id)
+      if (table === 'tunes') {
+        const row = await db.tunes.get(id)
         if (!row || row.deleted_at) continue
-        await putRow(db, 'songs', { ...row, ...(before as Partial<LocalSong>), updated_at: at })
+        await putRow(db, 'tunes', { ...row, ...(before as Partial<LocalTune>), updated_at: at })
       } else {
-        const row = await db.user_songs.get(id)
+        const row = await db.user_tunes.get(id)
         if (!row || row.deleted_at) continue
-        await putRow(db, 'user_songs', {
+        await putRow(db, 'user_tunes', {
           ...row,
-          ...(before as Partial<LocalUserSong>),
+          ...(before as Partial<LocalUserTune>),
           updated_at: at,
         })
       }
@@ -68,42 +68,42 @@ export async function restoreFields(
   })
 }
 
-export async function updateSongs(
+export async function updateTunes(
   db: CrosstuneDb,
-  userSongIds: readonly string[],
+  userTuneIds: readonly string[],
   patch: BulkPatch,
 ): Promise<Undo> {
-  const songPatch = (patch.song ?? {}) as Fields
-  const userSongPatch = (patch.userSong ?? {}) as Fields
+  const tunePatch = (patch.tune ?? {}) as Fields
+  const userTunePatch = (patch.userTune ?? {}) as Fields
   const snapshots: Snapshot[] = []
   await writeTx(db, async () => {
     const at = now()
-    for (const userSongId of unique(userSongIds)) {
-      const userSong = await db.user_songs.get(userSongId)
-      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
-      const song = await db.songs.get(userSong.song_id)
-      if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
+    for (const userTuneId of unique(userTuneIds)) {
+      const userTune = await db.user_tunes.get(userTuneId)
+      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+      const tune = await db.tunes.get(userTune.tune_id)
+      if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
 
-      const songChanges = changes(song, songPatch)
-      if (Object.keys(songChanges).length > 0) {
-        snapshots.push({ table: 'songs', id: song.id, before: previous(song, songChanges) })
-        await putRow(db, 'songs', {
-          ...song,
-          ...(songChanges as Partial<LocalSong>),
+      const tuneChanges = changes(tune, tunePatch)
+      if (Object.keys(tuneChanges).length > 0) {
+        snapshots.push({ table: 'tunes', id: tune.id, before: previous(tune, tuneChanges) })
+        await putRow(db, 'tunes', {
+          ...tune,
+          ...(tuneChanges as Partial<LocalTune>),
           updated_at: at,
         })
       }
 
-      const userSongChanges = changes(userSong, userSongPatch)
-      if (Object.keys(userSongChanges).length > 0) {
+      const userTuneChanges = changes(userTune, userTunePatch)
+      if (Object.keys(userTuneChanges).length > 0) {
         snapshots.push({
-          table: 'user_songs',
-          id: userSong.id,
-          before: previous(userSong, userSongChanges),
+          table: 'user_tunes',
+          id: userTune.id,
+          before: previous(userTune, userTuneChanges),
         })
-        await putRow(db, 'user_songs', {
-          ...userSong,
-          ...(userSongChanges as Partial<LocalUserSong>),
+        await putRow(db, 'user_tunes', {
+          ...userTune,
+          ...(userTuneChanges as Partial<LocalUserTune>),
           updated_at: at,
         })
       }
@@ -114,19 +114,19 @@ export async function updateSongs(
 
 export async function setArchivedMany(
   db: CrosstuneDb,
-  userSongIds: readonly string[],
+  userTuneIds: readonly string[],
   archived: boolean,
 ): Promise<Undo> {
   const snapshots: Snapshot[] = []
   await writeTx(db, async () => {
     const at = now()
-    for (const id of unique(userSongIds)) {
-      const userSong = await db.user_songs.get(id)
-      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
-      if ((userSong.archived_at !== null) === archived) continue
-      snapshots.push({ table: 'user_songs', id, before: { archived_at: userSong.archived_at } })
-      await putRow(db, 'user_songs', {
-        ...userSong,
+    for (const id of unique(userTuneIds)) {
+      const userTune = await db.user_tunes.get(id)
+      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+      if ((userTune.archived_at !== null) === archived) continue
+      snapshots.push({ table: 'user_tunes', id, before: { archived_at: userTune.archived_at } })
+      await putRow(db, 'user_tunes', {
+        ...userTune,
         archived_at: archived ? at : null,
         updated_at: at,
       })
@@ -136,43 +136,43 @@ export async function setArchivedMany(
 }
 
 /**
- * Delete the songs behind the given user songs, each with its links, list entries, and
+ * Delete the tunes behind the given user tunes, each with its links, list entries, and
  * recordings. There is no undo: a recording this takes with it is gone from every device.
  */
-export async function deleteSongs(
+export async function deleteTunes(
   db: CrosstuneDb,
-  userSongIds: readonly string[],
+  userTuneIds: readonly string[],
 ): Promise<number> {
   return recordingTx(db, async () => {
     const at = now()
-    const songIds = new Set<string>()
-    for (const id of unique(userSongIds)) {
-      const userSong = await db.user_songs.get(id)
-      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
-      songIds.add(userSong.song_id)
+    const tuneIds = new Set<string>()
+    for (const id of unique(userTuneIds)) {
+      const userTune = await db.user_tunes.get(id)
+      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+      tuneIds.add(userTune.tune_id)
     }
-    for (const songId of songIds) await tombstoneSong(db, songId, at)
-    return songIds.size
+    for (const tuneId of tuneIds) await tombstoneTune(db, tuneId, at)
+    return tuneIds.size
   })
 }
 
-export async function addSongsToList(
+export async function addTunesToList(
   db: CrosstuneDb,
   listId: string,
-  userSongIds: readonly string[],
+  userTuneIds: readonly string[],
 ): Promise<{ undo: Undo; added: number }> {
   const created: string[] = []
   await writeTx(db, async () => {
     const list = await db.lists.get(listId)
     if (!list || list.deleted_at) throw new Error(LIST_NOT_FOUND)
     const items = await activeItems(db, listId)
-    const members = new Set(items.map((item) => item.user_song_id))
+    const members = new Set(items.map((item) => item.user_tune_id))
     let position = nextPosition(items)
     const at = now()
-    for (const userSongId of unique(userSongIds)) {
-      if (members.has(userSongId)) continue
-      const userSong = await db.user_songs.get(userSongId)
-      if (!userSong || userSong.deleted_at) throw new Error(SONG_NOT_FOUND)
+    for (const userTuneId of unique(userTuneIds)) {
+      if (members.has(userTuneId)) continue
+      const userTune = await db.user_tunes.get(userTuneId)
+      if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
       const id = newId()
       await putRow(db, 'list_items', {
         id,
@@ -181,11 +181,11 @@ export async function addSongsToList(
         deleted_at: null,
         server_seq: 0,
         list_id: listId,
-        user_song_id: userSongId,
+        user_tune_id: userTuneId,
         position,
       })
       position += 1
-      members.add(userSongId)
+      members.add(userTuneId)
       created.push(id)
     }
   })
@@ -201,20 +201,20 @@ export async function addSongsToList(
   }
 }
 
-export async function createListWithSongs(
+export async function createListWithTunes(
   db: CrosstuneDb,
   name: string,
-  userSongIds: readonly string[],
+  userTuneIds: readonly string[],
 ): Promise<Undo> {
   const listId = await writeTx(db, async () => {
     const id = await createList(db, name)
-    await addSongsToList(db, id, userSongIds)
+    await addTunesToList(db, id, userTuneIds)
     return id
   })
   return () => deleteList(db, listId)
 }
 
-export async function removeSongsFromList(
+export async function removeTunesFromList(
   db: CrosstuneDb,
   itemIds: readonly string[],
 ): Promise<Undo> {
@@ -223,7 +223,7 @@ export async function removeSongsFromList(
     const at = now()
     for (const id of unique(itemIds)) {
       const item = await db.list_items.get(id)
-      if (!item || item.deleted_at) throw new Error(SONG_NOT_IN_LIST)
+      if (!item || item.deleted_at) throw new Error(TUNE_NOT_IN_LIST)
       await tombstone(db, 'list_items', id, at)
       removed.push(id)
     }
@@ -237,8 +237,8 @@ export async function removeSongsFromList(
         const item = await db.list_items.get(id)
         if (!item || !item.deleted_at) continue
         const list = await db.lists.get(item.list_id)
-        const userSong = await db.user_songs.get(item.user_song_id)
-        if (!list || list.deleted_at || !userSong || userSong.deleted_at) continue
+        const userTune = await db.user_tunes.get(item.user_tune_id)
+        if (!list || list.deleted_at || !userTune || userTune.deleted_at) continue
         restorable.push(item)
       }
       const byList = new Map<string, LocalListItem[]>()
@@ -249,8 +249,8 @@ export async function removeSongsFromList(
       }
       for (const [listId, items] of byList) {
         const active = await activeItems(db, listId)
-        const members = new Set(active.map((member) => member.user_song_id))
-        const toRestore = items.filter((item) => !members.has(item.user_song_id))
+        const members = new Set(active.map((member) => member.user_tune_id))
+        const toRestore = items.filter((item) => !members.has(item.user_tune_id))
         if (toRestore.length === 0) continue
         const restored = toRestore.map((item) => ({ ...item, deleted_at: null, updated_at: at }))
         const restoredIds = new Set(restored.map((item) => item.id))

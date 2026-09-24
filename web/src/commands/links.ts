@@ -1,6 +1,6 @@
 import type { Provider } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
-import { SONG_NOT_FOUND } from './messages'
+import { TUNE_NOT_FOUND } from './messages'
 import { newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
 
 export interface LinkInput {
@@ -12,13 +12,13 @@ export interface LinkInput {
   label?: string | null
 }
 
-export async function addLink(db: CrosstuneDb, songId: string, link: LinkInput): Promise<string> {
+export async function addLink(db: CrosstuneDb, tuneId: string, link: LinkInput): Promise<string> {
   const at = now()
   const id = newId()
   await writeTx(db, async () => {
-    const song = await db.songs.get(songId)
-    if (!song || song.deleted_at) throw new Error(SONG_NOT_FOUND)
-    const existing = await db.recording_links.where('song_id').equals(songId).toArray()
+    const tune = await db.tunes.get(tuneId)
+    if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+    const existing = await db.recording_links.where('tune_id').equals(tuneId).toArray()
     const active = existing.filter((l) => !l.deleted_at)
     await putRow(db, 'recording_links', {
       id,
@@ -26,7 +26,7 @@ export async function addLink(db: CrosstuneDb, songId: string, link: LinkInput):
       updated_at: at,
       deleted_at: null,
       server_seq: 0,
-      song_id: songId,
+      tune_id: tuneId,
       url: link.url.trim(),
       provider: link.provider,
       provider_ref: link.provider_ref ?? null,

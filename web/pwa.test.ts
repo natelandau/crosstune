@@ -8,7 +8,7 @@ import { parseBrand, readBrand } from './src/test/brand'
 describe('pwaOptions', () => {
   it('never caches the API', () => {
     const denylist = pwaOptions.workbox?.navigateFallbackDenylist ?? []
-    expect(denylist.some((re) => re.test('/v1/songs'))).toBe(true)
+    expect(denylist.some((re) => re.test('/v1/tunes'))).toBe(true)
     expect(denylist.some((re) => re.test('/v1/'))).toBe(true)
     expect(pwaOptions.workbox?.runtimeCaching).toEqual([])
   })
