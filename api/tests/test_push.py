@@ -34,7 +34,9 @@ def change(table: str, id_: str, updated_at: datetime, op: str = "upsert", **dat
 
 
 async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> list[dict]:
-    response = await client.post("/v1/sync/push", json={"changes": list(changes)}, headers=headers)
+    response = await client.post(
+        "/v1/sync/push?names=tunes", json={"changes": list(changes)}, headers=headers
+    )
     assert response.status_code == 200, response.text
     return response.json()["results"]
 
@@ -380,7 +382,7 @@ async def test_lyrics_round_trip_through_push_and_pull(client, auth_headers) -> 
         change("tunes", tune_id, T0, title="Uncle Joe", lyrics=words),
     )
     assert results[0]["status"] == "applied"
-    response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
+    response = await client.get("/v1/sync/pull?since=0&names=tunes", headers=auth_headers("user_a"))
     assert response.status_code == 200, response.text
     rows = [r for r in response.json()["rows"] if r["table"] == "tunes"]
     assert rows[0]["row"]["lyrics"] == words

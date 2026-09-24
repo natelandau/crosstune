@@ -6,8 +6,9 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from crosstune.schemas.legacy import current_change
 from crosstune.schemas.rows import (
     ListItemRow,
     ListRow,
@@ -41,6 +42,11 @@ class Change(BaseModel):
     id: uuid.UUID
     updated_at: datetime
     data: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_song_names(cls, value: Any) -> Any:
+        return current_change(value)
 
 
 class _ChangeResult(BaseModel):

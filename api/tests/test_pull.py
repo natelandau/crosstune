@@ -10,7 +10,7 @@ pytestmark = pytest.mark.anyio
 
 
 async def pull(client, headers, since: int = 0) -> dict:
-    response = await client.get(f"/v1/sync/pull?since={since}", headers=headers)
+    response = await client.get(f"/v1/sync/pull?since={since}&names=tunes", headers=headers)
     assert response.status_code == 200, response.text
     return response.json()
 
