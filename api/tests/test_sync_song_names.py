@@ -269,3 +269,34 @@ async def test_an_old_client_violin_tuning_joins_a_stored_map_in_song_names(
         "guitar": {"tuning": "DADGAD", "capo": 2},
         "violin": {"tuning": "Cross A (AEAE)"},
     }
+
+
+async def test_an_old_clients_mode_edit_in_song_names_keeps_the_second_part(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    song = uid()
+    headers = auth_headers("user_a")
+    await push(
+        client,
+        headers,
+        change("tunes", song, T0, title="Cooley's", modes=["major", "minor"]),
+    )
+    [result] = await push_in_song_names(
+        client,
+        headers,
+        change(
+            "songs",
+            song,
+            T1,
+            title="Cooley's",
+            feel="Reel",
+            mode="dorian",
+            modes=["major", "minor"],
+        ),
+    )
+    assert result["row"]["modes"] == ["dorian", "minor"]
+    assert result["row"]["mode"] == "dorian"
+    stored = await verify_session.get(Tune, uuid.UUID(song))
+    assert stored is not None
+    assert stored.modes == ["dorian", "minor"]
+    assert stored.mode == "dorian"

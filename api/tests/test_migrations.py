@@ -302,7 +302,7 @@ async def test_modes_check_rejects_a_fifth_mode(session: AsyncSession) -> None:
         )
 
 
-async def test_downgrade_to_0012_and_back_restores_type_and_modes(
+async def test_downgrade_to_0012_and_back_restores_the_columns(
     session: AsyncSession, database_url: str
 ) -> None:
     config = Config("alembic.ini")
@@ -319,6 +319,95 @@ async def test_downgrade_to_0012_and_back_restores_type_and_modes(
         text("select column_name from information_schema.columns where table_name = 'tunes'")
     )
     assert {"tune_type", "modes", "composer", "feel", "mode"} <= {row[0] for row in result}
+
+
+async def test_0013_copies_feel_and_mode_into_type_and_modes(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    jig = "018f0000-0000-7000-8000-000000000021"
+    plain = "018f0000-0000-7000-8000-000000000022"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0012")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            for tune_id, feel, mode in ((jig, "Jig", "dorian"), (plain, None, None)):
+                await conn.execute(
+                    text(
+                        "insert into tunes (id, owner_user_id, title, alternate_titles, "
+                        "feel, mode, is_crooked, created_at, updated_at) values "
+                        "(:id, :user, 't', '{}', :feel, :mode, false, now(), now())"
+                    ),
+                    {"id": tune_id, "user": user, "feel": feel, "mode": mode},
+                )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text("select id::text as id, tune_type, modes from tunes")
+            )
+        }
+    assert rows[jig].tune_type == "Jig"
+    assert rows[jig].modes == ["dorian"]
+    assert rows[plain].tune_type is None
+    assert rows[plain].modes == []
+
+
+async def test_downgrade_to_0012_maps_3_2_to_other_and_leaves_other_signatures_alone(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    slow_air = "018f0000-0000-7000-8000-000000000021"  # 3/2
+    jig = "018f0000-0000-7000-8000-000000000022"  # 6/8
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_a', now(), now())"
+            ),
+            {"id": user},
+        )
+        for tune_id, signature in ((slow_air, "3/2"), (jig, "6/8")):
+            await conn.execute(
+                text(
+                    "insert into tunes (id, owner_user_id, title, alternate_titles, "
+                    "time_signature, is_crooked, created_at, updated_at) values "
+                    "(:id, :user, 't', '{}', :sig, false, now(), :stamped)"
+                ),
+                {"id": tune_id, "user": user, "sig": signature, "stamped": STAMPED},
+            )
+        before = dict(
+            (await conn.execute(text("select id::text, server_seq from tunes"))).tuples().all()
+        )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0012")
+        async with engine.connect() as conn:
+            rows = {
+                row.id: row
+                for row in await conn.execute(
+                    text("select id::text as id, time_signature, server_seq, updated_at from tunes")
+                )
+            }
+        assert rows[slow_air].time_signature == "other"
+        assert rows[slow_air].server_seq > before[slow_air]
+        assert rows[slow_air].updated_at == STAMPED
+        assert rows[jig].time_signature == "6/8"
+        assert rows[jig].server_seq == before[jig]
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
 
 async def test_user_settings_table_holds_one_row_per_user(session: AsyncSession) -> None:

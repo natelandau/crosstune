@@ -70,6 +70,36 @@ async def test_a_new_client_push_fills_the_old_columns(client, auth_headers) -> 
     assert results[0]["row"]["modes"] == ["major"]
 
 
+async def test_an_old_clients_mode_edit_keeps_the_second_part(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    headers = auth_headers("user_a")
+    await push(
+        client,
+        headers,
+        change("tunes", tune_id, T0, title="Cooley's", modes=["major", "minor"]),
+    )
+    results = await push(
+        client,
+        headers,
+        change(
+            "tunes",
+            tune_id,
+            T1,
+            title="Cooley's",
+            feel="Reel",
+            mode="dorian",
+            modes=["major", "minor"],
+        ),
+    )
+    assert results[0]["row"]["modes"] == ["dorian", "minor"]
+    assert results[0]["row"]["mode"] == "dorian"
+    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert stored.modes == ["dorian", "minor"]
+    assert stored.mode == "dorian"
+
+
 async def test_batch_creates_tune_user_tune_and_link(
     client, auth_headers, verify_session: AsyncSession
 ) -> None:
