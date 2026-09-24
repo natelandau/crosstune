@@ -40,10 +40,11 @@ const tune: LocalTune = {
   title: "Soldier's Joy",
   alternate_titles: [],
   genre: null,
-  feel: null,
+  tune_type: null,
+  modes: ['major'],
+  composer: null,
   lyrics: null,
   key: 'D',
-  mode: 'major',
   tunings: {},
   part_structure: 'AABB',
   time_signature: '4/4',
@@ -275,16 +276,17 @@ describe('row shaping', () => {
     const data = toChangeData(tune)
     expect(Object.keys(data).sort()).toEqual([
       'alternate_titles',
+      'composer',
       'created_at',
-      'feel',
       'genre',
       'is_crooked',
       'key',
       'lyrics',
-      'mode',
+      'modes',
       'part_structure',
       'time_signature',
       'title',
+      'tune_type',
       'tunings',
     ])
     const local = stripOwnership({ ...tune, owner_user_id: 'u', server_seq: 9 })

@@ -22,11 +22,16 @@ export const FACET_LABELS: Record<Facet, string> = {
   genre: 'Genre',
 }
 
-/** What a facet reads on a tune: a column, or one instrument's tuning from the map. */
-export function facetValue(tune: LocalTune, facet: Facet): string | null {
-  if (!isTuningKey(facet)) return tune[facet] ?? null
+/** Every value a tune holds for a facet: one mode per part, one instrument's tuning from the
+ * map, or a column's one value. */
+export function facetValuesOf(
+  tune: LocalTune,
+  facet: Facet,
+): readonly (string | null | undefined)[] {
+  if (facet === 'mode') return tune.modes
+  if (!isTuningKey(facet)) return [tune[facet]]
   const instrument = tuningKeyInstrument(facet)
-  return instrument ? tuningEntry(tune.tunings, instrument).tuning : null
+  return [instrument ? tuningEntry(tune.tunings, instrument).tuning : null]
 }
 
 export type CatalogFilters = Record<Facet, string> & {
@@ -111,7 +116,9 @@ export function filterCatalog(
   return hideArchived(entries, filters.archived).filter(({ tune, userTune }) => {
     if (filters.status !== 'all' && userTune.status !== filters.status) return false
     for (const facet of FACETS) {
-      if (!facetMatches(filters[facet], facetValue(tune, facet))) return false
+      const values = facetValuesOf(tune, facet)
+      if (filters[facet] !== 'all' && !values.some((value) => facetMatches(filters[facet], value)))
+        return false
     }
     if (!needle) return true
     const haystack = [tune.title, ...tune.alternate_titles].map((t) => t.toLocaleLowerCase())
@@ -133,7 +140,7 @@ export type FacetValues = Record<Facet, string[]>
 
 export function facetValues(entries: CatalogEntry[]): FacetValues {
   return Object.fromEntries(
-    FACETS.map((facet) => [facet, distinct(entries.map((e) => facetValue(e.tune, facet)))]),
+    FACETS.map((facet) => [facet, distinct(entries.flatMap((e) => facetValuesOf(e.tune, facet)))]),
   ) as FacetValues
 }
 

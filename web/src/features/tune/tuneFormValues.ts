@@ -25,7 +25,7 @@ export interface TuneFormValues {
   mode: Mode | ''
   tunings: Partial<Record<Instrument, TuningValues>>
   genre: string
-  feel: string
+  tune_type: string
   part_structure: string
   time_signature: TimeSignature | ''
   is_crooked: boolean
@@ -44,7 +44,7 @@ export function emptyValues(): TuneFormValues {
     mode: '',
     tunings: {},
     genre: '',
-    feel: '',
+    tune_type: '',
     part_structure: '',
     time_signature: '4/4',
     is_crooked: false,
@@ -69,7 +69,7 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
     title: tune.title,
     alternate_titles: tune.alternate_titles.join(', '),
     key: tune.key ?? '',
-    mode: asMode(tune.mode),
+    mode: asMode(tune.modes[0]),
     tunings: Object.fromEntries(
       INSTRUMENTS.map((instrument) => {
         const { tuning, capo } = tuningEntry(tune.tunings, instrument)
@@ -77,7 +77,7 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
       }),
     ),
     genre: tune.genre ?? '',
-    feel: tune.feel ?? '',
+    tune_type: tune.tune_type ?? '',
     part_structure: tune.part_structure ?? '',
     time_signature: asTimeSignature(tune.time_signature),
     is_crooked: tune.is_crooked,
@@ -121,10 +121,10 @@ export function inputsFromValues(
         .map((t) => t.trim())
         .filter(Boolean),
       key: blankToNull(values.key),
-      mode: values.mode || null,
+      modes: values.mode ? [values.mode] : [],
       tunings: tuningsFromValues(values, stored),
       genre: blankToNull(values.genre),
-      feel: blankToNull(values.feel),
+      tune_type: blankToNull(values.tune_type),
       part_structure: blankToNull(values.part_structure),
       time_signature: values.time_signature || null,
       is_crooked: values.is_crooked,

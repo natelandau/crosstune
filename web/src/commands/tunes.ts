@@ -9,10 +9,11 @@ export interface TuneInput {
   title: string
   alternate_titles?: string[]
   genre?: string | null
-  feel?: string | null
   lyrics?: string | null
   key?: string | null
-  mode?: Mode | null
+  tune_type?: string | null
+  modes?: Mode[]
+  composer?: string | null
   tunings?: TuningsMap
   part_structure?: string | null
   time_signature?: TimeSignature | null
@@ -46,10 +47,11 @@ export async function createTune(
       title,
       alternate_titles: tune.alternate_titles ?? [],
       genre: tune.genre ?? null,
-      feel: tune.feel ?? null,
       lyrics: tune.lyrics ?? null,
       key: tune.key ?? null,
-      mode: tune.mode ?? null,
+      tune_type: tune.tune_type ?? null,
+      modes: tune.modes ?? [],
+      composer: tune.composer ?? null,
       tunings: tune.tunings ?? {},
       part_structure: tune.part_structure ?? null,
       time_signature: tune.time_signature ?? null,

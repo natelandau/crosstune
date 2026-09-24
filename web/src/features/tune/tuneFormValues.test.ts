@@ -15,7 +15,7 @@ describe('tuneFormValues', () => {
     const tune = tuneRow('s1', "Soldier's Joy", {
       key: 'D',
       alternate_titles: ['Joy'],
-      mode: 'major',
+      modes: ['major'],
     })
     const userTune = userTuneRow('u1', 's1', { status: 'known', notes: '  ' })
     const values = valuesFromRows(tune, userTune)
@@ -37,16 +37,28 @@ describe('tuneFormValues', () => {
   })
 
   it('falls back when a stored mode or time signature is unknown', () => {
-    const tune = tuneRow('s1', 'Odd', { mode: 'lydian', time_signature: '7/8' })
+    const tune = tuneRow('s1', 'Odd', { modes: ['lydian'], time_signature: '7/8' })
     const values = valuesFromRows(tune, userTuneRow('u1', 's1', { status: 'bogus' }))
     expect(values).toMatchObject({ mode: '', time_signature: '', status: 'want_to_learn' })
   })
 
   it('saves an unrecognized stored time signature and mode as not set', () => {
-    const tune = tuneRow('t1', 'Odd', { mode: 'lydian', time_signature: '7/8' })
+    const tune = tuneRow('t1', 'Odd', { modes: ['lydian'], time_signature: '7/8' })
     const { tune: out } = inputsFromValues(valuesFromRows(tune, userTuneRow('u1', 't1')))
     expect(out.time_signature).toBeNull()
-    expect(out.mode).toBeNull()
+    expect(out.modes).toEqual([])
+  })
+
+  it('reads the first part mode and the type into the form', () => {
+    const tune = tuneRow('t1', "Cooley's", { modes: ['dorian', 'minor'], tune_type: 'Reel' })
+    const values = valuesFromRows(tune, userTuneRow('u1', 't1'))
+    expect(values).toMatchObject({ mode: 'dorian', tune_type: 'Reel' })
+  })
+
+  it('saves the mode as a one-part list and a blank mode as none', () => {
+    const values = { ...emptyValues(), title: 'Sally Ann', mode: 'major' as const }
+    expect(inputsFromValues(values).tune.modes).toEqual(['major'])
+    expect(inputsFromValues({ ...values, mode: '' }).tune.modes).toEqual([])
   })
 
   it('carries lyrics through and nulls a whitespace-only body', () => {

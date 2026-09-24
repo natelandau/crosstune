@@ -1314,18 +1314,6 @@
             ],
             "title": "Deleted At"
           },
-          "feel": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Feel"
-          },
           "genre": {
             "anyOf": [
               {
@@ -1372,30 +1360,13 @@
             ],
             "title": "Lyrics"
           },
-          "mode": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Mode"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "modes": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/Mode"
-                },
-                "maxItems": 4,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modes"
+            "items": {
+              "$ref": "#/components/schemas/Mode"
+            },
+            "maxItems": 4,
+            "title": "Modes",
+            "type": "array"
           },
           "owner_user_id": {
             "anyOf": [
@@ -1470,6 +1441,7 @@
           "server_seq",
           "created_at",
           "title",
+          "modes",
           "owner_user_id"
         ],
         "title": "TuneRow",

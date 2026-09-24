@@ -61,7 +61,6 @@ export type TuneStatus = (typeof STATUSES)[number]
 export const TUNE_LIMITS = {
   alternate_titles: 200,
   composer: 200,
-  feel: 100,
   genre: 100,
   key: 10,
   lyrics: 20000,

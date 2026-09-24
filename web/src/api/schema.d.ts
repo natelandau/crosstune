@@ -764,8 +764,6 @@ export interface components {
             created_at: string;
             /** Deleted At */
             deleted_at: string | null;
-            /** Feel */
-            feel?: string | null;
             /** Genre */
             genre?: string | null;
             /**
@@ -782,9 +780,8 @@ export interface components {
             key?: string | null;
             /** Lyrics */
             lyrics?: string | null;
-            mode?: components["schemas"]["Mode"] | null;
             /** Modes */
-            modes?: components["schemas"]["Mode"][] | null;
+            modes: components["schemas"]["Mode"][];
             /** Owner User Id */
             owner_user_id: string | null;
             /** Part Structure */

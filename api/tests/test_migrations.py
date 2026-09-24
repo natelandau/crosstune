@@ -38,22 +38,18 @@ async def test_catalog_tables_exist(session: AsyncSession) -> None:
     assert {"tunes", "user_tunes", "recording_links", "lists", "list_items"} <= tables
 
 
-async def test_mode_check_constraint_accepts_modal(session: AsyncSession) -> None:
+async def test_modes_check_accepts_modal(session: AsyncSession) -> None:
+    await _seed_user(session)
     await session.execute(
         text(
-            "insert into users (id, clerk_user_id, created_at, updated_at) "
-            "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+            "insert into tunes (id, owner_user_id, title, modes, is_crooked, created_at, "
+            "updated_at) values ('018f0000-0000-7000-8000-000000000002', "
+            "'018f0000-0000-7000-8000-000000000001', 'Cluck Old Hen', '{modal}', false, "
+            "now(), now())"
         )
     )
-    await session.execute(
-        text(
-            "insert into tunes (id, owner_user_id, title, mode, is_crooked, created_at, updated_at) "
-            "values ('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
-            "'Cluck Old Hen', 'modal', false, now(), now())"
-        )
-    )
-    stored = await session.execute(text("select mode from tunes"))
-    assert stored.scalar_one() == "modal"
+    stored = await session.execute(text("select modes from tunes"))
+    assert stored.scalar_one() == ["modal"]
 
 
 async def test_time_signature_check_constraint_rejects_unknown_value(session: AsyncSession) -> None:
@@ -381,7 +377,9 @@ async def test_downgrade_to_0012_and_back_restores_the_columns(
     result = await session.execute(
         text("select column_name from information_schema.columns where table_name = 'tunes'")
     )
-    assert {"tune_type", "modes", "composer", "feel", "mode"} <= {row[0] for row in result}
+    columns = {row[0] for row in result}
+    assert {"tune_type", "modes", "composer"} <= columns
+    assert not {"feel", "mode"} & columns
 
 
 async def test_0013_copies_feel_and_mode_into_type_and_modes(
@@ -1102,3 +1100,48 @@ async def test_0011_downgrade_and_back_keeps_every_tune_and_its_references(
             )
         ).one()
     assert tuple(row) == (tune, user_tune)
+
+
+async def test_tunes_no_longer_carry_feel_or_a_single_mode(session: AsyncSession) -> None:
+    result = await session.execute(
+        text("select column_name from information_schema.columns where table_name = 'tunes'")
+    )
+    assert not {"feel", "mode"} & {row[0] for row in result}
+
+
+async def test_downgrade_to_0014_restores_feel_and_mode_from_type_and_first_mode(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    kesh = "018f0000-0000-7000-8000-000000000021"
+    plain = "018f0000-0000-7000-8000-000000000022"
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_a', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, alternate_titles, tune_type, modes, "
+                "is_crooked, created_at, updated_at) values "
+                "(:kesh, :user, 'The Kesh', '{}', 'Jig', '{dorian,major}', false, now(), now()), "
+                "(:plain, :user, 'Sally Ann', '{}', null, '{}', false, now(), now())"
+            ),
+            {"kesh": kesh, "plain": plain, "user": user},
+        )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0014")
+        async with engine.connect() as conn:
+            rows = {
+                row.id: row
+                for row in await conn.execute(text("select id::text as id, feel, mode from tunes"))
+            }
+        assert (rows[kesh].feel, rows[kesh].mode) == ("Jig", "dorian")
+        assert (rows[plain].feel, rows[plain].mode) == (None, None)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")

@@ -64,7 +64,7 @@ beforeEach(async () => {
     {
       title: "Soldier's Joy",
       key: 'D',
-      mode: 'major',
+      modes: ['major'],
       alternate_titles: ['Joy'],
       tunings: { violin: { tuning: 'Standard (GDAE)' } },
       is_crooked: true,

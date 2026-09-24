@@ -30,11 +30,20 @@ function unique(ids: readonly string[]): string[] {
   return [...new Set(ids)]
 }
 
+/** Equal values, comparing arrays such as a tune's modes element by element. */
+function same(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((value, index) => value === b[index])
+  return a === b
+}
+
 /** The patch entries that would change the row, skipping undefined, which means keep. */
 function changes(row: object, patch: Fields): Fields {
   const current = row as Fields
   return Object.fromEntries(
-    Object.entries(patch).filter(([key, value]) => value !== undefined && current[key] !== value),
+    Object.entries(patch).filter(
+      ([key, value]) => value !== undefined && !same(current[key], value),
+    ),
   )
 }
 

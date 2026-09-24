@@ -19,7 +19,7 @@ export const EDIT_FIELDS = [
   'mode',
   ...TUNING_KEYS,
   'genre',
-  'feel',
+  'tune_type',
   'time_signature',
   'part_structure',
   'is_crooked',
@@ -40,7 +40,7 @@ export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   mode: DETAIL_LABELS.mode,
   ...byTuningKey(tuningLabel),
   genre: DETAIL_LABELS.genre,
-  feel: DETAIL_LABELS.feel,
+  tune_type: DETAIL_LABELS.tune_type,
   time_signature: DETAIL_LABELS.time_signature,
   part_structure: 'Part structure',
   is_crooked: DETAIL_LABELS.is_crooked,
@@ -55,7 +55,7 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   mode: 'choice',
   ...byTuningKey(() => 'choice' as const),
   genre: 'choice',
-  feel: 'choice',
+  tune_type: 'choice',
   time_signature: 'choice',
   part_structure: 'choice',
   is_crooked: 'boolean',
@@ -85,9 +85,12 @@ function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | n
     const instrument = tuningKeyInstrument(field)
     return instrument ? tuningEntry(entry.tune.tunings, instrument).tuning : null
   }
+  if (field === 'mode') {
+    const modes = entry.tune.modes.filter((m) => (MODES as readonly string[]).includes(m))
+    return modes.length > 0 ? modes.join(', ') : null
+  }
   const value: unknown = isUserTuneField(field) ? entry.userTune[field] : entry.tune[field]
   if (typeof value !== 'string' && typeof value !== 'boolean') return null
-  if (field === 'mode') return (MODES as readonly string[]).includes(value as string) ? value : null
   if (field === 'time_signature')
     return (TIME_SIGNATURES as readonly string[]).includes(value as string) ? value : null
   if (field === 'status') return typeof value === 'string' && isTuneStatus(value) ? value : null
@@ -143,6 +146,10 @@ export function toPatch(touched: Touched): BulkPatch {
     if (raw === undefined) continue
     const value = normalize(raw)
     if (field === 'status' && value === null) continue
+    if (field === 'mode') {
+      tune.modes = typeof value === 'string' ? [value] : []
+      continue
+    }
     const instrument = tuningInstrument(field)
     if (instrument) tunings[instrument] = typeof value === 'string' ? value : null
     else (isUserTuneField(field) ? userTune : tune)[field] = value

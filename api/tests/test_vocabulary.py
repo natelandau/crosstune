@@ -14,7 +14,6 @@ NOW = datetime(2026, 9, 22, tzinfo=UTC)
 
 # Every check constraint that lists values, and the enum it must list.
 CHECKS = {
-    (Tune, "ck_tunes_mode"): ("mode", vocabulary.Mode, True),
     (Tune, "ck_tunes_time_signature"): ("time_signature", vocabulary.TimeSignature, True),
     (UserTune, "ck_user_tunes_status"): ("status", vocabulary.TuneStatus, False),
     (RecordingLink, "ck_recording_links_provider"): ("provider", vocabulary.Provider, False),
@@ -90,8 +89,8 @@ def test_every_schema_max_length_matches_the_table() -> None:
 
 
 def test_validated_values_are_stored_as_plain_strings() -> None:
-    tune = TuneData(title="Sally Ann", mode="major", created_at=NOW)
-    assert type(tune.model_dump()["mode"]) is str
+    tune = TuneData(title="Sally Ann", modes=["major"], created_at=NOW)
+    assert type(tune.model_dump()["modes"][0]) is str
     settings = UserSettingsData(instruments=["violin"], created_at=NOW)
     assert type(settings.model_dump()["audio_quality"]) is str
     assert type(settings.model_dump()["instruments"][0]) is str

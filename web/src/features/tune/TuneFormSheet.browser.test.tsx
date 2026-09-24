@@ -76,7 +76,7 @@ describe('TuneFormSheet', () => {
       DETAIL_LABELS.mode,
       DETAIL_LABELS.genre,
       DETAIL_LABELS.time_signature,
-      DETAIL_LABELS.feel,
+      DETAIL_LABELS.tune_type,
       DETAIL_LABELS.part_structure,
       DETAIL_LABELS.is_crooked,
       DETAIL_LABELS.lyrics,

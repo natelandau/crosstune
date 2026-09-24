@@ -21,7 +21,6 @@ class Tune(SyncColumns, Base):
 
     __tablename__ = "tunes"
     __table_args__ = (
-        CheckConstraint(in_list("mode", tuple(Mode)), name="ck_tunes_mode"),
         CheckConstraint(within_list("modes", tuple(Mode), MAX_MODES), name="ck_tunes_modes"),
         CheckConstraint(
             in_list("time_signature", tuple(TimeSignature)), name="ck_tunes_time_signature"
@@ -42,11 +41,9 @@ class Tune(SyncColumns, Base):
         ARRAY(String(TUNE["alternate_titles"])), nullable=False, default=list
     )
     genre: Mapped[str | None] = mapped_column(String(TUNE["genre"]), nullable=True)
-    feel: Mapped[str | None] = mapped_column(String(TUNE["feel"]), nullable=True)
     tune_type: Mapped[str | None] = mapped_column(String(TUNE["tune_type"]), nullable=True)
     lyrics: Mapped[str | None] = mapped_column(Text, nullable=True)
     key: Mapped[str | None] = mapped_column(String(TUNE["key"]), nullable=True)
-    mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
     modes: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), nullable=False, default=list, server_default="{}"
     )

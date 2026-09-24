@@ -224,7 +224,7 @@ function badgesFor(
     })),
     { field: 'time_signature', label: tune.time_signature },
     { field: 'is_crooked', label: tune.is_crooked ? 'Crooked' : null },
-    { field: 'feel', label: tune.feel },
+    { field: 'tune_type', label: tune.tune_type },
     { field: 'genre', label: tune.genre },
     { field: 'part_structure', label: tune.part_structure },
   ].filter((badge): badge is { field: string; label: string } => Boolean(badge.label))
@@ -268,7 +268,7 @@ function TuneBody({
   onReadLyrics: () => void
 }) {
   const archived = userTune.archived_at !== null
-  const mode = tune.mode ?? ''
+  const mode = tune.modes[0] ?? ''
   const learned = userTune.learned_from !== null || userTune.learned_on !== null
   // A body runs to 20,000 characters, and this screen re-renders on every change to the tune.
   const hasLyrics = useMemo(() => lyricOpening(tune.lyrics, 1).length > 0, [tune.lyrics])

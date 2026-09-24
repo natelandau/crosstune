@@ -68,6 +68,24 @@ describe('createTune', () => {
     expect((await db.tunes.get(without.tuneId))!.tunings).toEqual({})
   })
 
+  it('creates a tune with a type, part modes, and a composer', async () => {
+    const { tuneId } = await createTune(
+      db,
+      { title: 'The Kesh', tune_type: 'Jig', modes: ['major', 'mixolydian'], composer: 'Trad.' },
+      { status: 'known' },
+    )
+    expect(await db.tunes.get(tuneId)).toMatchObject({
+      tune_type: 'Jig',
+      modes: ['major', 'mixolydian'],
+      composer: 'Trad.',
+    })
+  })
+
+  it('creates a tune with no type, modes, or composer as empty values', async () => {
+    const { tuneId } = await createTune(db, { title: 'Sally Ann' }, { status: 'known' })
+    expect(await db.tunes.get(tuneId)).toMatchObject({ tune_type: null, modes: [], composer: null })
+  })
+
   it('rejects an empty title', async () => {
     await expect(createTune(db, { title: '  ' }, { status: 'known' })).rejects.toThrow()
     expect(await db.tunes.count()).toBe(0)

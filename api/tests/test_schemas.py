@@ -29,12 +29,7 @@ def test_tune_requires_title() -> None:
 
 
 def test_tune_accepts_the_modal_mode() -> None:
-    assert TuneData(title="Cluck Old Hen", mode="modal", created_at=NOW).mode == "modal"
-
-
-def test_tune_rejects_unknown_mode() -> None:
-    with pytest.raises(ValidationError):
-        TuneData(title="Sally Ann", mode="lydian", created_at=NOW)
+    assert TuneData(title="Cluck Old Hen", modes=["modal"], created_at=NOW).modes == ["modal"]
 
 
 def test_tune_rejects_unknown_time_signature() -> None:
@@ -61,6 +56,22 @@ def test_tune_rejects_a_fifth_mode() -> None:
 def test_tune_rejects_an_unknown_part_mode() -> None:
     with pytest.raises(ValidationError):
         TuneData(title="Sally Ann", modes=["major", "lydian"], created_at=NOW)
+
+
+def test_tune_refuses_the_retired_feel_and_mode_fields() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", feel="Reel", created_at=NOW)
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", mode="major", created_at=NOW)
+
+
+def test_tune_defaults_to_no_modes() -> None:
+    assert TuneData(title="Sally Ann", created_at=NOW).modes == []
+
+
+def test_tune_refuses_null_modes() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", modes=None, created_at=NOW)
 
 
 def test_tune_accepts_three_two_time() -> None:

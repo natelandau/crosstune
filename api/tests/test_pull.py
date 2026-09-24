@@ -83,7 +83,7 @@ async def test_pull_pages(client, app, auth_headers) -> None:
     assert pages == 3
 
 
-async def test_pull_carries_both_tune_shapes(client, auth_headers) -> None:
+async def test_pull_carries_type_modes_and_composer_only(client, auth_headers) -> None:
     headers = auth_headers("user_a")
     await push(
         client,
@@ -101,7 +101,8 @@ async def test_pull_carries_both_tune_shapes(client, auth_headers) -> None:
     body = await pull(client, headers)
     row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
     assert (row["tune_type"], row["modes"], row["composer"]) == ("Reel", ["dorian"], "Trad.")
-    assert (row["feel"], row["mode"]) == ("Reel", "dorian")
+    assert "feel" not in row
+    assert "mode" not in row
 
 
 async def test_pull_requires_auth(client) -> None:

@@ -15,7 +15,6 @@ from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.models import List, ListItem, Recording, RecordingLink, UserTune
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
-from crosstune.sync.legacy_tune_shape import reconcile_tune
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
 if TYPE_CHECKING:
@@ -159,8 +158,6 @@ async def _upsert(
     except ValidationError as exc:
         fields = ", ".join(".".join(str(p) for p in e["loc"]) or "body" for e in exc.errors())
         return _invalid(change, f"invalid fields: {fields}")
-    if spec.name == "tunes":
-        data = reconcile_tune(data, sent=(change.data or {}).keys())
 
     reason = await _parents_owned(session, spec, data, user_id)
     if reason:

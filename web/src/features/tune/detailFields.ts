@@ -10,7 +10,7 @@ export type DetailField =
     }
   | {
       kind: 'pick'
-      key: 'mode' | 'genre' | 'time_signature' | 'feel' | 'part_structure'
+      key: 'mode' | 'genre' | 'time_signature' | 'tune_type' | 'part_structure'
       label: string
       options: readonly string[]
       other: boolean
@@ -26,7 +26,7 @@ export const DETAIL_LABELS = {
   mode: 'Mode',
   genre: 'Genre',
   time_signature: 'Time signature',
-  feel: 'Feel',
+  tune_type: 'Type',
   part_structure: 'Parts',
   is_crooked: 'Crooked',
   lyrics: 'Lyrics',
@@ -65,11 +65,11 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
   },
   {
     kind: 'pick',
-    key: 'feel',
-    label: DETAIL_LABELS.feel,
+    key: 'tune_type',
+    label: DETAIL_LABELS.tune_type,
     options: FEELS,
     other: true,
-    maxLength: TUNE_LIMITS.feel,
+    maxLength: TUNE_LIMITS.tune_type,
   },
   {
     kind: 'pick',

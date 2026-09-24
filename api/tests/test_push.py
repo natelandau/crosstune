@@ -39,65 +39,6 @@ async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> lis
     return response.json()["results"]
 
 
-async def test_an_old_client_type_edit_reaches_the_new_column(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    headers = auth_headers("user_a")
-    await push(client, headers, change("tunes", tune_id, T0, title="Swallowtail", tune_type="Reel"))
-    results = await push(
-        client,
-        headers,
-        change("tunes", tune_id, T1, title="Swallowtail", feel="Jig", tune_type="Reel"),
-    )
-    assert results[0]["status"] == "applied"
-    assert results[0]["row"]["tune_type"] == "Jig"
-    assert results[0]["row"]["feel"] == "Jig"
-    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert (stored.tune_type, stored.feel) == ("Jig", "Jig")
-
-
-async def test_a_new_client_push_fills_the_old_columns(client, auth_headers) -> None:
-    results = await push(
-        client,
-        auth_headers("user_a"),
-        change("tunes", uid(), T0, title="Out on the Ocean", tune_type="Jig", modes=["major"]),
-    )
-    assert results[0]["row"]["feel"] == "Jig"
-    assert results[0]["row"]["mode"] == "major"
-    assert results[0]["row"]["modes"] == ["major"]
-
-
-async def test_an_old_clients_mode_edit_keeps_the_second_part(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    headers = auth_headers("user_a")
-    await push(
-        client,
-        headers,
-        change("tunes", tune_id, T0, title="Cooley's", modes=["major", "minor"]),
-    )
-    results = await push(
-        client,
-        headers,
-        change(
-            "tunes",
-            tune_id,
-            T1,
-            title="Cooley's",
-            feel="Reel",
-            mode="dorian",
-            modes=["major", "minor"],
-        ),
-    )
-    assert results[0]["row"]["modes"] == ["dorian", "minor"]
-    assert results[0]["row"]["mode"] == "dorian"
-    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert stored.modes == ["dorian", "minor"]
-    assert stored.mode == "dorian"
-
-
 async def test_batch_creates_tune_user_tune_and_link(
     client, auth_headers, verify_session: AsyncSession
 ) -> None:
@@ -172,11 +113,37 @@ async def test_invalid_change_does_not_reject_the_batch(client, auth_headers) ->
         client,
         auth_headers("user_a"),
         change("tunes", uid(), T0, title="Good"),
-        change("tunes", uid(), T0, title="Bad", mode="lydian"),
+        change("tunes", uid(), T0, title="Bad", modes=["lydian"]),
         change("tunes", uid(), T0, title="Also good"),
     )
     assert [r["status"] for r in results] == ["applied", "invalid", "applied"]
-    assert "mode" in results[1]["reason"]
+    assert "modes" in results[1]["reason"]
+
+
+@pytest.mark.parametrize(("field", "value"), [("feel", "Jig"), ("mode", "dorian")])
+async def test_a_push_carrying_a_retired_tune_field_is_invalid(
+    client, auth_headers, field: str, value: str
+) -> None:
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", uid(), T0, title="Swallowtail", **{field: value}),
+    )
+    assert results[0]["status"] == "invalid"
+    assert field in results[0]["reason"]
+
+
+async def test_a_tune_pushed_without_modes_stores_an_empty_list(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    results = await push(
+        client, auth_headers("user_a"), change("tunes", tune_id, T0, title="Sally Ann")
+    )
+    assert results[0]["row"]["modes"] == []
+    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert stored is not None
+    assert stored.modes == []
 
 
 async def test_link_with_a_non_web_scheme_is_invalid(client, auth_headers) -> None:

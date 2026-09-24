@@ -119,6 +119,21 @@ describe('updateTunes', () => {
     expect(await pendingFor(db, 'tunes', a.tuneId)).toBeUndefined()
   })
 
+  it('leaves a tune whose modes already match untouched', async () => {
+    const a = await tune('The Kesh', { title: '', modes: ['dorian'] })
+    await db.outbox.clear()
+    await updateTunes(db, [a.userTuneId], { tune: { modes: ['dorian'] } })
+    expect(await db.outbox.count()).toBe(0)
+  })
+
+  it('restores every part mode on undo', async () => {
+    const a = await tune('The Kesh', { title: '', modes: ['major', 'mixolydian'] })
+    const undo = await updateTunes(db, [a.userTuneId], { tune: { modes: ['dorian'] } })
+    expect((await db.tunes.get(a.tuneId))?.modes).toEqual(['dorian'])
+    await undo()
+    expect((await db.tunes.get(a.tuneId))?.modes).toEqual(['major', 'mixolydian'])
+  })
+
   it('undo gives the restored row a fresh updated_at', async () => {
     const a = await tune('Say Old Man')
     const undo = await updateTunes(db, [a.userTuneId], { tune: { key: 'A' } })

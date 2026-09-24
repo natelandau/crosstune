@@ -37,7 +37,7 @@ const PICKS: Partial<Record<EditField, { options: readonly string[]; other: bool
   mode: { options: MODES, other: false },
   ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
   genre: { options: GENRES, other: true },
-  feel: { options: FEELS, other: true },
+  tune_type: { options: FEELS, other: true },
   time_signature: { options: TIME_SIGNATURES, other: false },
   part_structure: { options: PART_STRUCTURES, other: true },
 }

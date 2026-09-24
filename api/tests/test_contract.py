@@ -108,3 +108,10 @@ def test_openapi_types_each_instrument_in_the_tunings_map() -> None:
     assert set(tunings["properties"]) == {i.value for i in vocabulary.Instrument}
     assert "capo" not in resolve(tunings["properties"]["violin"])["properties"]
     assert "capo" in resolve(tunings["properties"]["five_string_banjo"])["properties"]
+
+
+def test_a_tune_row_always_carries_its_modes() -> None:
+    row = create_app().openapi()["components"]["schemas"]["TuneRow"]
+    assert "modes" in row["required"]
+    assert row["properties"]["modes"]["type"] == "array"
+    assert not {"feel", "mode"} & set(row["properties"])

@@ -31,12 +31,18 @@ describe('summarize', () => {
   })
 
   it('treats a mode this client does not know as no value', () => {
-    const lydian1 = { ...a, tune: { ...a.tune, mode: 'lydian' } }
-    const lydian2 = { ...b, tune: { ...b.tune, mode: 'lydian' } }
+    const lydian1 = { ...a, tune: { ...a.tune, modes: ['lydian'] } }
+    const lydian2 = { ...b, tune: { ...b.tune, modes: ['lydian'] } }
     expect(summarize([lydian1, lydian2]).mode).toEqual({ kind: 'empty' })
 
-    const major = { ...b, tune: { ...b.tune, mode: 'major' } }
+    const major = { ...b, tune: { ...b.tune, modes: ['major'] } }
     expect(summarize([lydian1, major]).mode).toEqual({ kind: 'mixed' })
+  })
+
+  it('summarizes part modes as one shared value when every tune agrees', () => {
+    const kesh1 = { ...a, tune: { ...a.tune, modes: ['major', 'minor'] } }
+    const kesh2 = { ...b, tune: { ...b.tune, modes: ['major', 'minor'] } }
+    expect(summarize([kesh1, kesh2]).mode).toEqual({ kind: 'shared', value: 'major, minor' })
   })
 
   it('treats an unknown status as no value', () => {
@@ -85,7 +91,7 @@ describe('toPatch', () => {
         learned_from: 'Bruce Molsky',
       }),
     ).toEqual({
-      tune: { genre: null, mode: null, is_crooked: true },
+      tune: { genre: null, modes: [], is_crooked: true },
       userTune: { status: 'known', learned_from: 'Bruce Molsky' },
       tunings: { violin: 'Cross A (AEAE)' },
     })
@@ -97,6 +103,15 @@ describe('toPatch', () => {
       userTune: {},
       tunings: { guitar: null },
     })
+  })
+
+  it('writes a picked mode as the whole list', () => {
+    expect(toPatch({ mode: 'dorian' }).tune).toEqual({ modes: ['dorian'] })
+    expect(toPatch({ mode: null }).tune).toEqual({ modes: [] })
+  })
+
+  it('edits the type', () => {
+    expect(toPatch({ tune_type: 'Reel' }).tune).toEqual({ tune_type: 'Reel' })
   })
 
   it('never clears status', () => {

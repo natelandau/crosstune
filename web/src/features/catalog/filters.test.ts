@@ -18,11 +18,11 @@ import {
 const tunes = [
   tune('s1', "soldier's joy", {
     key: 'D',
-    mode: 'major',
+    modes: ['major'],
     tunings: { violin: { tuning: 'ADAE' }, five_string_banjo: { tuning: 'gDGBD' } },
     genre: 'Old-time',
   }),
-  tune('s2', 'Cluck Old Hen', { key: 'A', mode: 'mixolydian', alternate_titles: ['Cluck'] }),
+  tune('s2', 'Cluck Old Hen', { key: 'A', modes: ['mixolydian'], alternate_titles: ['Cluck'] }),
   tune('s3', 'Deleted', { deleted_at: 't' }),
   tune('s4', 'Angeline the Baker', { key: 'D' }),
   tune('s5', 'Orphan', { key: 'G' }),
@@ -127,6 +127,26 @@ describe('facetValues', () => {
     expect(facets.key).toEqual(['D'])
     expect(facets.genre).toEqual(['old-time'])
     expect(filterCatalog(entries, { ...DEFAULT_FILTERS, key: 'D' })).toHaveLength(2)
+  })
+})
+
+describe('part modes', () => {
+  const kesh = catalogEntries(
+    [tune('k1', 'The Kesh', { modes: ['major', 'mixolydian'] }), tune('k2', 'Sally Ann')],
+    [userTune('ku1', 'k1'), userTune('ku2', 'k2')],
+  )
+
+  it('matches a mode held by any part', () => {
+    const found = filterCatalog(kesh, { ...DEFAULT_FILTERS, mode: 'mixolydian' })
+    expect(found.map((e) => e.tune.id)).toEqual(['k1'])
+  })
+
+  it('keeps a tune with no mode while no mode is chosen', () => {
+    expect(filterCatalog(kesh, DEFAULT_FILTERS)).toHaveLength(2)
+  })
+
+  it('offers each part mode as a mode value', () => {
+    expect(facetValues(kesh).mode).toEqual(['major', 'mixolydian'])
   })
 })
 
