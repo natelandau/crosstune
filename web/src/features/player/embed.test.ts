@@ -48,9 +48,9 @@ describe('embedFor', () => {
       175,
     ],
     [
-      'apple music tune path',
-      link('apple_music', null, 'https://music.apple.com/us/tune/roaring-river/148243927'),
-      'https://embed.music.apple.com/us/tune/roaring-river/148243927',
+      'apple music song path',
+      link('apple_music', null, 'https://music.apple.com/us/song/roaring-river/148243927'),
+      'https://embed.music.apple.com/us/song/roaring-river/148243927',
       175,
     ],
     [
@@ -61,8 +61,8 @@ describe('embedFor', () => {
     ],
     [
       'apple music over http',
-      link('apple_music', null, 'http://music.apple.com/us/tune/roaring-river/148243927'),
-      'https://embed.music.apple.com/us/tune/roaring-river/148243927',
+      link('apple_music', null, 'http://music.apple.com/us/song/roaring-river/148243927'),
+      'https://embed.music.apple.com/us/song/roaring-river/148243927',
       175,
     ],
     [

@@ -97,7 +97,8 @@ export const FEELS = [
   'Reel',
   'Hornpipe',
   'March',
-  'Tune',
+  // A feel for a piece with words. Stored rows hold this exact string.
+  'Song',
   'Slow',
 ]
 
