@@ -19,6 +19,7 @@ from pydantic import (
 
 from crosstune.vocabulary import (
     LIMITS,
+    MAX_MODES,
     TUNING_LENGTH,
     AudioQuality,
     Instrument,
@@ -105,10 +106,15 @@ class TuneData(_Data):
     title: str = Field(min_length=1, max_length=TUNE["title"])
     alternate_titles: list[Annotated[str, Field(max_length=TUNE["alternate_titles"])]] = []
     genre: str | None = Field(default=None, max_length=TUNE["genre"])
+    tune_type: str | None = Field(default=None, max_length=TUNE["tune_type"])
+    # None only from a client that predates part modes; the push stores it as [].
+    modes: list[Mode] | None = Field(default=None, max_length=MAX_MODES)
+    composer: str | None = Field(default=None, max_length=TUNE["composer"])
+    # The single-mode shape, kept while clients that predate part modes are in use.
     feel: str | None = Field(default=None, max_length=TUNE["feel"])
+    mode: Mode | None = None
     lyrics: str | None = Field(default=None, max_length=TUNE["lyrics"])
     key: str | None = Field(default=None, max_length=TUNE["key"])
-    mode: Mode | None = None
     tunings: Tunings = Tunings()
     # Legacy shape, accepted until every client sends tunings. Push folds them into tunings.
     violin_tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)

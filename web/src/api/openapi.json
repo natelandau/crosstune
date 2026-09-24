@@ -1193,6 +1193,7 @@
           "2/4",
           "2/2",
           "3/4",
+          "3/2",
           "6/8",
           "9/8",
           "12/8",
@@ -1296,6 +1297,18 @@
             ],
             "title": "Banjo Tuning"
           },
+          "composer": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composer"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1381,6 +1394,21 @@
               }
             ]
           },
+          "modes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mode"
+                },
+                "maxItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modes"
+          },
           "owner_user_id": {
             "anyOf": [
               {
@@ -1424,6 +1452,18 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "tune_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tune Type"
           },
           "tunings": {
             "$ref": "#/components/schemas/Tunings",

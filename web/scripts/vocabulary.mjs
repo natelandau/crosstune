@@ -29,11 +29,15 @@ const LIMIT_OBJECTS = {
   RECORDING_LIMITS: ['RecordingRow'],
 }
 
-/** The max length a property publishes directly, under anyOf, or on its array items. */
-function maxLength(property) {
+/** A string's max length, directly, under anyOf, or on its array items; else an array's max items. */
+function limitOf(property) {
   const candidates = [property, ...(property.anyOf ?? []), property.items ?? {}]
-  const found = candidates.find((c) => c.type === 'string' && Number.isInteger(c.maxLength))
-  return found?.maxLength
+  const text = candidates.find((c) => c.type === 'string' && Number.isInteger(c.maxLength))
+  if (text) return text.maxLength
+  const list = [property, ...(property.anyOf ?? [])].find(
+    (c) => c.type === 'array' && Number.isInteger(c.maxItems),
+  )
+  return list?.maxItems
 }
 
 function quote(value) {
@@ -65,7 +69,7 @@ export function render(doc) {
       if (!properties)
         throw new Error(`No row schema ${row} for ${objectName}; update LIMIT_OBJECTS`)
       for (const [field, property] of Object.entries(properties)) {
-        const limit = maxLength(property)
+        const limit = limitOf(property)
         if (limit !== undefined) lines.push(`  ${field}: ${limit},`)
       }
     }

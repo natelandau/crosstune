@@ -83,6 +83,27 @@ async def test_pull_pages(client, app, auth_headers) -> None:
     assert pages == 3
 
 
+async def test_pull_carries_both_tune_shapes(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    await push(
+        client,
+        headers,
+        change(
+            "tunes",
+            uid(),
+            T0,
+            title="Cooley's",
+            tune_type="Reel",
+            modes=["dorian"],
+            composer="Trad.",
+        ),
+    )
+    body = await pull(client, headers)
+    row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
+    assert (row["tune_type"], row["modes"], row["composer"]) == ("Reel", ["dorian"], "Trad.")
+    assert (row["feel"], row["mode"]) == ("Reel", "dorian")
+
+
 async def test_pull_requires_auth(client) -> None:
     response = await client.get("/v1/sync/pull?since=0")
     assert response.status_code == 401

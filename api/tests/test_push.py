@@ -41,6 +41,35 @@ async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> lis
     return response.json()["results"]
 
 
+async def test_an_old_client_type_edit_reaches_the_new_column(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, change("tunes", tune_id, T0, title="Swallowtail", tune_type="Reel"))
+    results = await push(
+        client,
+        headers,
+        change("tunes", tune_id, T1, title="Swallowtail", feel="Jig", tune_type="Reel"),
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["tune_type"] == "Jig"
+    assert results[0]["row"]["feel"] == "Jig"
+    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert (stored.tune_type, stored.feel) == ("Jig", "Jig")
+
+
+async def test_a_new_client_push_fills_the_old_columns(client, auth_headers) -> None:
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", uid(), T0, title="Out on the Ocean", tune_type="Jig", modes=["major"]),
+    )
+    assert results[0]["row"]["feel"] == "Jig"
+    assert results[0]["row"]["mode"] == "major"
+    assert results[0]["row"]["modes"] == ["major"]
+
+
 async def test_batch_creates_tune_user_tune_and_link(
     client, auth_headers, verify_session: AsyncSession
 ) -> None:
