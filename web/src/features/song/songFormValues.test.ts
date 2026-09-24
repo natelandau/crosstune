@@ -65,6 +65,25 @@ describe('songFormValues', () => {
     expect(out.time_signature).toBe('4/4')
   })
 
+  it('keeps an unrecognized mode on save when the field is left alone', () => {
+    const song = songRow('s1', 'Odd', { mode: 'lydian' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    const { song: out } = inputsFromValues(values)
+    expect(out.mode).toBe('lydian')
+  })
+
+  it('clears an unrecognized mode once the player picks a value', () => {
+    const song = songRow('s1', 'Odd', { mode: 'lydian' })
+    const values = valuesFromRows(song, userSongRow('u1', 's1'))
+    const { song: out } = inputsFromValues({ ...values, mode: 'dorian', mode_raw: null })
+    expect(out.mode).toBe('dorian')
+  })
+
+  it('has no raw mode to fall back to for a new song', () => {
+    const { song: out } = inputsFromValues(emptyValues())
+    expect(out.mode).toBeNull()
+  })
+
   it('carries lyrics through and nulls a whitespace-only body', () => {
     const song = songRow('s1', 'Uncle Joe', { lyrics: 'Did you ever go to meeting' })
     const values = valuesFromRows(song, userSongRow('u1', 's1'))
