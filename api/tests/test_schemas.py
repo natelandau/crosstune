@@ -5,11 +5,15 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from crosstune import vocabulary
 from crosstune.schemas.rows import (
     DATA_SCHEMAS,
+    FrettedTuning,
+    InstrumentTuning,
     RecordingLinkData,
     RecordingLinkRow,
     TuneData,
+    Tunings,
     UserSettingsData,
     UserTuneData,
 )
@@ -136,6 +140,11 @@ def test_user_settings_rejects_a_retired_instrument() -> None:
         UserSettingsData(instruments=["other"], created_at=NOW)
 
 
+def test_user_settings_accepts_every_instrument() -> None:
+    every = [i.value for i in vocabulary.Instrument]
+    assert UserSettingsData(instruments=every, created_at=NOW).instruments == every
+
+
 def test_user_settings_rejects_a_repeated_instrument() -> None:
     with pytest.raises(ValidationError):
         UserSettingsData(instruments=["violin", "violin"], created_at=NOW)
@@ -159,3 +168,54 @@ def test_tune_rejects_lyrics_past_the_cap() -> None:
 def test_tune_rejects_the_removed_has_lyrics_field() -> None:
     with pytest.raises(ValidationError):
         TuneData(title="Sally Ann", has_lyrics=True, created_at=NOW)
+
+
+def test_tunings_has_one_field_per_instrument() -> None:
+    assert set(Tunings.model_fields) == {i.value for i in vocabulary.Instrument}
+
+
+def test_only_fretted_instruments_take_a_capo() -> None:
+    for name, field in Tunings.model_fields.items():
+        entry_type = next(a for a in field.annotation.__args__ if a is not type(None))
+        expected = FrettedTuning if name in vocabulary.FRETTED else InstrumentTuning
+        assert entry_type is expected, name
+
+
+def test_tunings_reject_an_unknown_instrument() -> None:
+    with pytest.raises(ValidationError):
+        Tunings.model_validate({"kazoo": {"tuning": "x"}})
+
+
+def test_tunings_reject_a_capo_on_violin() -> None:
+    with pytest.raises(ValidationError):
+        Tunings.model_validate({"violin": {"tuning": "Cross A (AEAE)", "capo": 2}})
+
+
+@pytest.mark.parametrize("capo", [0, 13, -1])
+def test_tunings_reject_a_capo_out_of_range(capo: int) -> None:
+    with pytest.raises(ValidationError):
+        Tunings.model_validate({"guitar": {"tuning": "DADGAD", "capo": capo}})
+
+
+def test_tunings_reject_a_tuning_past_the_cap() -> None:
+    with pytest.raises(ValidationError):
+        Tunings.model_validate({"guitar": {"tuning": "a" * 101}})
+
+
+def test_tunings_dump_drops_empty_entries() -> None:
+    tunings = Tunings.model_validate(
+        {
+            "violin": {"tuning": "Cross A (AEAE)"},
+            "guitar": {"tuning": None, "capo": None},
+            "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2},
+        }
+    )
+    assert tunings.model_dump() == {
+        "violin": {"tuning": "Cross A (AEAE)"},
+        "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2},
+    }
+
+
+def test_tunings_keep_a_capo_without_a_tuning() -> None:
+    dumped = Tunings.model_validate({"guitar": {"capo": 3}}).model_dump()
+    assert dumped == {"guitar": {"tuning": None, "capo": 3}}

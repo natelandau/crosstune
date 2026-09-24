@@ -338,12 +338,14 @@ async def test_user_settings_upsert_applies_and_a_second_row_is_invalid(
     results = await push(
         client,
         auth_headers("user_a"),
-        change("user_settings", first, T0, instruments=["violin", "banjo"]),
+        change("user_settings", first, T0, instruments=["violin", "five_string_banjo"]),
     )
     assert results[0]["status"] == "applied"
-    assert results[0]["row"]["instruments"] == ["violin", "banjo"]
+    assert results[0]["row"]["instruments"] == ["violin", "five_string_banjo"]
     results = await push(
-        client, auth_headers("user_a"), change("user_settings", second, T1, instruments=["banjo"])
+        client,
+        auth_headers("user_a"),
+        change("user_settings", second, T1, instruments=["five_string_banjo"]),
     )
     assert results[0]["status"] == "invalid"
     assert "constraint violation" in results[0]["reason"]
@@ -359,7 +361,7 @@ async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
     results = await push(
         client,
         auth_headers("user_a"),
-        change("user_settings", settings_id, T0, instruments=["banjo"]),
+        change("user_settings", settings_id, T0, instruments=["five_string_banjo"]),
     )
     assert results[0]["status"] == "stale"
     assert results[0]["row"]["instruments"] == ["violin"]

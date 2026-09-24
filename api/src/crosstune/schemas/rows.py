@@ -7,10 +7,19 @@ import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+)
 
 from crosstune.vocabulary import (
     LIMITS,
+    TUNING_LENGTH,
     AudioQuality,
     Instrument,
     Mode,
@@ -50,6 +59,45 @@ class _Data(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
     created_at: datetime
+
+
+class InstrumentTuning(BaseModel):
+    """One instrument's tuning on a tune."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)
+
+
+class FrettedTuning(InstrumentTuning):
+    """A fretted instrument's tuning, with the fret its capo sits at."""
+
+    capo: int | None = Field(default=None, ge=1, le=12)
+
+
+class Tunings(BaseModel):
+    """A tune's tunings, one optional entry per instrument."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    violin: InstrumentTuning | None = None
+    five_string_banjo: FrettedTuning | None = None
+    tenor_banjo: FrettedTuning | None = None
+    guitar: FrettedTuning | None = None
+    mandolin: FrettedTuning | None = None
+    bouzouki: FrettedTuning | None = None
+    mountain_dulcimer: FrettedTuning | None = None
+
+    # Stored and sent compactly, so an empty map is {} and an entry exists only when it says
+    # something.
+    @model_serializer(mode="wrap")
+    def _compact(self, handler: SerializerFunctionWrapHandler) -> dict[str, dict]:
+        dumped: dict[str, dict | None] = handler(self)
+        return {
+            name: entry
+            for name, entry in dumped.items()
+            if entry is not None and any(v is not None for v in entry.values())
+        }
 
 
 class TuneData(_Data):
