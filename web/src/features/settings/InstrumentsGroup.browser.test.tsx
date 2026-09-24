@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { INSTRUMENTS } from '../../api/vocabulary'
 import { setInstruments, settingsId, toggleInstrumentSetting } from '../../commands/settings'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { pendingBatch } from '../../db/outbox'
@@ -8,13 +7,8 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { NOT_SET } from '../../ui/FieldRow'
-import { INSTRUMENTS_HELP, TUNING_FIELDS } from './instruments'
+import { INSTRUMENTS_HELP, LISTED_INSTRUMENTS } from './instruments'
 import { InstrumentsGroup } from './InstrumentsGroup'
-
-// Mirrors the filter InstrumentRows itself applies inside the sheet.
-const LISTED = INSTRUMENTS.filter((instrument) =>
-  Object.values(TUNING_FIELDS).some((field) => field.instrument === instrument),
-)
 
 vi.mock('../../commands/settings', { spy: true })
 
@@ -132,7 +126,9 @@ describe('InstrumentsGroup', () => {
   it('gives the row and every checkbox a tap target a finger can hit', async () => {
     show()
     await openSheet()
-    await expect.element(box(INSTRUMENT_LABELS[LISTED[LISTED.length - 1]!])).toBeVisible()
+    await expect
+      .element(box(INSTRUMENT_LABELS[LISTED_INSTRUMENTS[LISTED_INSTRUMENTS.length - 1]!]))
+      .toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }

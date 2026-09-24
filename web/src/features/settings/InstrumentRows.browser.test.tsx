@@ -1,18 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
+import type { Instrument } from '../../api/vocabulary'
 import { INSTRUMENT_LABELS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { TUNING_FIELDS } from './instruments'
+import { LISTED_INSTRUMENTS } from './instruments'
 import { InstrumentRows } from './InstrumentRows'
 
-// Mirrors the filter InstrumentRows itself applies: only instruments a song can show a
-// tuning for are listed, until the tunings map reaches the form.
-const LISTED = INSTRUMENTS.filter((instrument) =>
-  Object.values(TUNING_FIELDS).some((field) => field.instrument === instrument),
-)
-const LABELS = LISTED.map((instrument) => INSTRUMENT_LABELS[instrument])
+const LABELS = LISTED_INSTRUMENTS.map((instrument) => INSTRUMENT_LABELS[instrument])
 const LAST_LABEL = LABELS[LABELS.length - 1]!
 
 function show(
