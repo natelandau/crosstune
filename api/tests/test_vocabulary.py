@@ -6,7 +6,7 @@ from sqlalchemy import ARRAY, CheckConstraint, String
 
 from crosstune import vocabulary
 from crosstune.models import Recording, RecordingLink, Tune, UserSettings, UserTune
-from crosstune.models._checks import in_list
+from crosstune.models._checks import in_list, within_list
 from crosstune.schemas.rows import DATA_SCHEMAS, RecordingRow, TuneData, UserSettingsData
 from crosstune.sync.tables import TABLES
 
@@ -36,6 +36,15 @@ def test_every_listed_check_constraint_matches_its_enum() -> None:
     for (model, name), (column, enum, nullable) in CHECKS.items():
         expected = in_list(column, tuple(enum), nullable=nullable)
         assert str(_constraint(model, name).sqltext) == expected, name
+
+
+def test_modes_check_lists_every_mode_and_the_cap() -> None:
+    expected = within_list("modes", tuple(vocabulary.Mode), vocabulary.MAX_MODES)
+    assert str(_constraint(Tune, "ck_tunes_modes").sqltext) == expected
+
+
+def test_three_two_is_a_time_signature() -> None:
+    assert vocabulary.TimeSignature("3/2") is vocabulary.TimeSignature.THREE_TWO
 
 
 def test_every_limited_column_width_matches_the_table() -> None:

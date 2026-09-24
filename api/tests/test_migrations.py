@@ -252,6 +252,75 @@ async def test_downgrade_to_0011_restores_the_columns_and_strips_new_instruments
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
 
 
+async def _seed_user(session: AsyncSession) -> None:
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+        )
+    )
+
+
+async def test_tunes_hold_type_modes_and_composer(session: AsyncSession) -> None:
+    await _seed_user(session)
+    await session.execute(
+        text(
+            "insert into tunes (id, owner_user_id, title, tune_type, modes, composer, "
+            "time_signature, is_crooked, created_at, updated_at) values "
+            "('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
+            "'Rolling in the Ryegrass', 'Reel', '{major,dorian}', 'Trad.', '3/2', false, "
+            "now(), now())"
+        )
+    )
+    row = (await session.execute(text("select tune_type, modes, composer from tunes"))).one()
+    assert row == ("Reel", ["major", "dorian"], "Trad.")
+
+
+async def test_modes_check_rejects_an_unknown_mode(session: AsyncSession) -> None:
+    await _seed_user(session)
+    with pytest.raises(DBAPIError):
+        await session.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, modes, is_crooked, created_at, "
+                "updated_at) values ('018f0000-0000-7000-8000-000000000002', "
+                "'018f0000-0000-7000-8000-000000000001', 'Sally Ann', '{lydian}', false, "
+                "now(), now())"
+            )
+        )
+
+
+async def test_modes_check_rejects_a_fifth_mode(session: AsyncSession) -> None:
+    await _seed_user(session)
+    with pytest.raises(DBAPIError):
+        await session.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, modes, is_crooked, created_at, "
+                "updated_at) values ('018f0000-0000-7000-8000-000000000002', "
+                "'018f0000-0000-7000-8000-000000000001', 'Sally Ann', "
+                "'{major,minor,major,minor,major}', false, now(), now())"
+            )
+        )
+
+
+async def test_downgrade_to_0012_and_back_restores_type_and_modes(
+    session: AsyncSession, database_url: str
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0012")
+        result = await session.execute(
+            text("select column_name from information_schema.columns where table_name = 'tunes'")
+        )
+        assert not {"tune_type", "modes", "composer"} & {row[0] for row in result}
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    result = await session.execute(
+        text("select column_name from information_schema.columns where table_name = 'tunes'")
+    )
+    assert {"tune_type", "modes", "composer", "feel", "mode"} <= {row[0] for row in result}
+
+
 async def test_user_settings_table_holds_one_row_per_user(session: AsyncSession) -> None:
     result = await session.execute(
         text(
