@@ -23,7 +23,7 @@ import { useLists, useMembership } from '../lists/useLists'
 import { lyricOpening } from '../lyrics/lyricLines'
 import { LyricsModal } from '../lyrics/LyricsModal'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
-import { visibleTunings } from '../settings/instruments'
+import { tuningDisplay, tuningInstruments, tuningKey } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
@@ -217,7 +217,11 @@ function badgesFor(
   instruments: NonNullable<ReturnType<typeof useInstruments>>,
 ): { field: string; label: string }[] {
   return [
-    ...visibleTunings(instruments, tune).map((field) => ({ field, label: tune[field] })),
+    // Two instruments can share a tuning's name, so each badge names its instrument.
+    ...tuningInstruments(instruments, tune).map((instrument) => ({
+      field: tuningKey(instrument),
+      label: tuningDisplay(instrument, tune.tunings, { withInstrument: true }),
+    })),
     { field: 'time_signature', label: tune.time_signature },
     { field: 'is_crooked', label: tune.is_crooked ? 'Crooked' : null },
     { field: 'feel', label: tune.feel },

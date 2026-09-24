@@ -60,7 +60,6 @@ export type TuneStatus = (typeof STATUSES)[number]
 
 export const TUNE_LIMITS = {
   alternate_titles: 200,
-  banjo_tuning: 100,
   composer: 200,
   feel: 100,
   genre: 100,
@@ -70,7 +69,6 @@ export const TUNE_LIMITS = {
   part_structure: 100,
   title: 200,
   tune_type: 100,
-  violin_tuning: 100,
   learned_from: 200,
   notes: 20000,
   tuning: 100,

@@ -66,7 +66,7 @@ beforeEach(async () => {
       key: 'D',
       mode: 'major',
       alternate_titles: ['Joy'],
-      violin_tuning: 'Standard (GDAE)',
+      tunings: { violin: { tuning: 'Standard (GDAE)' } },
       is_crooked: true,
       genre: 'Old-time',
     },
@@ -142,7 +142,7 @@ describe('TuneScreen', () => {
     show()
     await expect.element(title()).toBeVisible()
     await expect.element(page.getByText('Joy', { exact: true })).toBeVisible()
-    for (const facet of ['major', 'Learning', 'Standard (GDAE)', 'Crooked', 'Old-time']) {
+    for (const facet of ['major', 'Learning', 'Violin: Standard (GDAE)', 'Crooked', 'Old-time']) {
       await expect.element(page.getByText(facet, { exact: true })).toBeVisible()
     }
     await expect.element(page.getByText('Learned from Jim')).toBeVisible()
@@ -162,7 +162,7 @@ describe('TuneScreen', () => {
       'D',
       'major',
       'Learning',
-      'Standard (GDAE)',
+      'Violin: Standard (GDAE)',
       'Crooked',
       'Old-time',
     ])
@@ -204,15 +204,48 @@ describe('TuneScreen', () => {
     const errors = vi.spyOn(console, 'error')
     const { tuneId } = await createTune(
       db,
-      { title: 'Cluck Old Hen', violin_tuning: 'Cross A', banjo_tuning: 'Cross A' },
+      { title: 'Cluck Old Hen', genre: 'Crooked', is_crooked: true },
       { status: 'known' },
     )
     show(tuneId)
     await expect
       .element(page.getByRole('heading', { name: 'Cluck Old Hen', level: 1 }))
       .toBeVisible()
-    expect(page.getByText('Cross A', { exact: true }).elements()).toHaveLength(2)
+    expect(page.getByText('Crooked', { exact: true }).elements()).toHaveLength(2)
     expect(errors.mock.calls.flat().join(' ')).not.toContain('same key')
+  })
+
+  it('names the instrument on each tuning, so a shared tuning reads apart', async () => {
+    const { tuneId } = await createTune(
+      db,
+      {
+        title: 'Cluck Old Hen',
+        tunings: { violin: { tuning: 'Cross A' }, five_string_banjo: { tuning: 'Cross A' } },
+      },
+      { status: 'known' },
+    )
+    show(tuneId)
+    await expect.element(page.getByText('Violin: Cross A', { exact: true })).toBeVisible()
+    await expect.element(page.getByText('5-string banjo: Cross A', { exact: true })).toBeVisible()
+  })
+
+  it('shows every tuning the tune holds, standard and capo included', async () => {
+    const { tuneId } = await createTune(
+      db,
+      {
+        title: 'Capo tune',
+        tunings: {
+          violin: { tuning: 'Standard (GDAE)' },
+          guitar: { tuning: 'DADGAD', capo: 2 },
+          mandolin: { capo: 3 },
+        },
+      },
+      { status: 'known' },
+    )
+    show(tuneId)
+    await expect.element(page.getByText('Violin: Standard (GDAE)', { exact: true })).toBeVisible()
+    await expect.element(page.getByText('Guitar: DADGAD, capo 2', { exact: true })).toBeVisible()
+    await expect.element(page.getByText('Mandolin: Capo 3', { exact: true })).toBeVisible()
   })
 
   it('keeps a level 1 heading while the tune loads', async () => {

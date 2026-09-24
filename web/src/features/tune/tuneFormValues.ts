@@ -1,6 +1,8 @@
 import {
+  INSTRUMENTS,
   MODES,
   TIME_SIGNATURES,
+  type Instrument,
   type Mode,
   type TuneStatus,
   type TimeSignature,
@@ -8,6 +10,13 @@ import {
 import type { TuneInput, UserTuneInput } from '../../commands/tunes'
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { isTuneStatus } from '../catalog/status'
+import { setTuning, tuningEntry, tuningsMap, type TuningsMap } from '../settings/instruments'
+
+/** One instrument's tuning and capo as the form holds them: text, empty when unset. */
+export interface TuningValues {
+  tuning: string
+  capo: string
+}
 
 export interface TuneFormValues {
   title: string
@@ -17,8 +26,7 @@ export interface TuneFormValues {
   /** The row's raw stored mode, kept only until the player picks or clears one, so a value
    *  this client predates survives a save that never touches the field. */
   mode_raw: string | null
-  violin_tuning: string
-  banjo_tuning: string
+  tunings: Partial<Record<Instrument, TuningValues>>
   genre: string
   feel: string
   part_structure: string
@@ -41,8 +49,7 @@ export function emptyValues(): TuneFormValues {
     key: '',
     mode: '',
     mode_raw: null,
-    violin_tuning: '',
-    banjo_tuning: '',
+    tunings: {},
     genre: '',
     feel: '',
     part_structure: '',
@@ -72,8 +79,12 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
     key: tune.key ?? '',
     mode: asMode(tune.mode),
     mode_raw: tune.mode ?? null,
-    violin_tuning: tune.violin_tuning ?? '',
-    banjo_tuning: tune.banjo_tuning ?? '',
+    tunings: Object.fromEntries(
+      INSTRUMENTS.map((instrument) => {
+        const { tuning, capo } = tuningEntry(tune.tunings, instrument)
+        return [instrument, { tuning: tuning ?? '', capo: capo === null ? '' : String(capo) }]
+      }),
+    ),
     genre: tune.genre ?? '',
     feel: tune.feel ?? '',
     part_structure: tune.part_structure ?? '',
@@ -90,7 +101,25 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
 
 const blankToNull = (value: string): string | null => (value.trim() ? value.trim() : null)
 
-export function inputsFromValues(values: TuneFormValues): {
+/** The stored map with each instrument the form holds written over it, so a key this client
+ * does not know survives the save. */
+function tuningsFromValues(values: TuneFormValues, stored: unknown): TuningsMap {
+  let tunings = tuningsMap(stored)
+  for (const instrument of INSTRUMENTS) {
+    const entry = values.tunings[instrument]
+    if (!entry) continue
+    tunings = setTuning(tunings, instrument, {
+      tuning: blankToNull(entry.tuning),
+      capo: entry.capo === '' ? null : Number(entry.capo),
+    })
+  }
+  return tunings
+}
+
+export function inputsFromValues(
+  values: TuneFormValues,
+  stored?: unknown,
+): {
   tune: TuneInput
   userTune: UserTuneInput
 } {
@@ -105,8 +134,7 @@ export function inputsFromValues(values: TuneFormValues): {
       // A raw fallback may hold a value from a schema version this client predates; write it
       // through untyped, the same as a pulled row carries it locally.
       mode: (values.mode || values.mode_raw) as Mode | null,
-      violin_tuning: blankToNull(values.violin_tuning),
-      banjo_tuning: blankToNull(values.banjo_tuning),
+      tunings: tuningsFromValues(values, stored),
       genre: blankToNull(values.genre),
       feel: blankToNull(values.feel),
       part_structure: blankToNull(values.part_structure),

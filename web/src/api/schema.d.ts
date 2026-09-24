@@ -755,8 +755,6 @@ export interface components {
              * @default []
              */
             alternate_titles: string[];
-            /** Banjo Tuning */
-            banjo_tuning?: string | null;
             /** Composer */
             composer?: string | null;
             /**
@@ -805,8 +803,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /** Violin Tuning */
-            violin_tuning?: string | null;
         };
         /**
          * TuneStatus

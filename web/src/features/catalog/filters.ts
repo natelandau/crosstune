@@ -1,22 +1,33 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { countTunes } from '../selection/copy'
-import { TUNING_FIELDS } from '../settings/instruments'
+import {
+  byTuningKey,
+  isTuningKey,
+  TUNING_KEYS,
+  tuningEntry,
+  tuningKey,
+  tuningKeyInstrument,
+  tuningLabel,
+} from '../settings/instruments'
 
-export const FACETS = ['key', 'mode', 'violin_tuning', 'banjo_tuning', 'genre'] as const
+/** One tuning facet per instrument, so each instrument's tunings filter on their own. */
+export const FACETS = ['key', 'mode', ...TUNING_KEYS, 'genre'] as const
 export type Facet = (typeof FACETS)[number]
 
 export const FACET_LABELS: Record<Facet, string> = {
   key: 'Key',
   mode: 'Mode',
-  violin_tuning: TUNING_FIELDS.violin_tuning.label,
-  banjo_tuning: TUNING_FIELDS.banjo_tuning.label,
+  ...byTuningKey(tuningLabel),
   genre: 'Genre',
 }
 
-const FACET_INSTRUMENT: Partial<Record<Facet, Instrument>> = Object.fromEntries(
-  Object.entries(TUNING_FIELDS).map(([field, { instrument }]) => [field, instrument]),
-)
+/** What a facet reads on a tune: a column, or one instrument's tuning from the map. */
+export function facetValue(tune: LocalTune, facet: Facet): string | null {
+  if (!isTuningKey(facet)) return tune[facet] ?? null
+  const instrument = tuningKeyInstrument(facet)
+  return instrument ? tuningEntry(tune.tunings, instrument).tuning : null
+}
 
 export type CatalogFilters = Record<Facet, string> & {
   status: TuneStatus | 'all'
@@ -27,8 +38,7 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   status: 'all',
   key: 'all',
   mode: 'all',
-  violin_tuning: 'all',
-  banjo_tuning: 'all',
+  ...byTuningKey(() => 'all'),
   genre: 'all',
   archived: false,
 }
@@ -51,12 +61,13 @@ export function normalizeFilters(value: unknown): CatalogFilters {
   >
   const text = (key: Facet) =>
     typeof stored[key] === 'string' ? (stored[key] as string) : DEFAULT_FILTERS[key]
+  // Only current facet keys are read, so a filter stored under a retired key reads as Any and
+  // the next write drops it.
   return {
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
     key: text('key'),
     mode: text('mode'),
-    violin_tuning: text('violin_tuning'),
-    banjo_tuning: text('banjo_tuning'),
+    ...byTuningKey((instrument) => text(tuningKey(instrument))),
     genre: text('genre'),
     archived: stored.archived === true,
   }
@@ -100,7 +111,7 @@ export function filterCatalog(
   return hideArchived(entries, filters.archived).filter(({ tune, userTune }) => {
     if (filters.status !== 'all' && userTune.status !== filters.status) return false
     for (const facet of FACETS) {
-      if (!facetMatches(filters[facet], tune[facet])) return false
+      if (!facetMatches(filters[facet], facetValue(tune, facet))) return false
     }
     if (!needle) return true
     const haystack = [tune.title, ...tune.alternate_titles].map((t) => t.toLocaleLowerCase())
@@ -122,7 +133,7 @@ export type FacetValues = Record<Facet, string[]>
 
 export function facetValues(entries: CatalogEntry[]): FacetValues {
   return Object.fromEntries(
-    FACETS.map((facet) => [facet, distinct(entries.map((e) => e.tune[facet]))]),
+    FACETS.map((facet) => [facet, distinct(entries.map((e) => facetValue(e.tune, facet)))]),
   ) as FacetValues
 }
 
@@ -130,7 +141,7 @@ export function facetValues(entries: CatalogEntry[]): FacetValues {
 export function visibleFacets(facets: FacetValues, instruments: ReadonlySet<Instrument>): Facet[] {
   return FACETS.filter((facet) => {
     if (facets[facet].length === 0) return false
-    const instrument = FACET_INSTRUMENT[facet]
+    const instrument = tuningKeyInstrument(facet)
     return instrument === undefined || instruments.has(instrument)
   })
 }

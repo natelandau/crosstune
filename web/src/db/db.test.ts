@@ -44,8 +44,7 @@ const tune: LocalTune = {
   lyrics: null,
   key: 'D',
   mode: 'major',
-  violin_tuning: null,
-  banjo_tuning: null,
+  tunings: {},
   part_structure: 'AABB',
   time_signature: '4/4',
   is_crooked: false,
@@ -276,7 +275,6 @@ describe('row shaping', () => {
     const data = toChangeData(tune)
     expect(Object.keys(data).sort()).toEqual([
       'alternate_titles',
-      'banjo_tuning',
       'created_at',
       'feel',
       'genre',
@@ -287,7 +285,7 @@ describe('row shaping', () => {
       'part_structure',
       'time_signature',
       'title',
-      'violin_tuning',
+      'tunings',
     ])
     const local = stripOwnership({ ...tune, owner_user_id: 'u', server_seq: 9 })
     expect('owner_user_id' in local).toBe(false)

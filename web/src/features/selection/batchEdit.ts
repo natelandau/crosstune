@@ -3,15 +3,21 @@ import type { BulkPatch } from '../../commands/bulk'
 import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
 import { isTuneStatus } from '../catalog/status'
-import { TUNING_FIELDS } from '../settings/instruments'
+import {
+  byTuningKey,
+  isTuningKey,
+  TUNING_KEYS,
+  tuningEntry,
+  tuningKeyInstrument,
+  tuningLabel,
+} from '../settings/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 
 export const EDIT_FIELDS = [
   'status',
   'key',
   'mode',
-  'violin_tuning',
-  'banjo_tuning',
+  ...TUNING_KEYS,
   'genre',
   'feel',
   'time_signature',
@@ -23,12 +29,16 @@ export const EDIT_FIELDS = [
 
 export type EditField = (typeof EDIT_FIELDS)[number]
 
+/** The instrument whose tuning a field edits, or undefined for a column. */
+export function tuningInstrument(field: EditField): Instrument | undefined {
+  return tuningKeyInstrument(field)
+}
+
 export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   status: 'Status',
   key: 'Key',
   mode: DETAIL_LABELS.mode,
-  violin_tuning: TUNING_FIELDS.violin_tuning.label,
-  banjo_tuning: TUNING_FIELDS.banjo_tuning.label,
+  ...byTuningKey(tuningLabel),
   genre: DETAIL_LABELS.genre,
   feel: DETAIL_LABELS.feel,
   time_signature: DETAIL_LABELS.time_signature,
@@ -43,8 +53,7 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   status: 'choice',
   key: 'choice',
   mode: 'choice',
-  violin_tuning: 'choice',
-  banjo_tuning: 'choice',
+  ...byTuningKey(() => 'choice' as const),
   genre: 'choice',
   feel: 'choice',
   time_signature: 'choice',
@@ -72,6 +81,10 @@ export type Touched = Partial<Record<EditField, TouchedValue>>
 // A server row can carry a value from a schema version this client predates;
 // fall back to empty rather than trust it as one of this client's known options.
 function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | null {
+  if (isTuningKey(field)) {
+    const instrument = tuningKeyInstrument(field)
+    return instrument ? tuningEntry(entry.tune.tunings, instrument).tuning : null
+  }
   const value: unknown = isUserTuneField(field) ? entry.userTune[field] : entry.tune[field]
   if (typeof value !== 'string' && typeof value !== 'boolean') return null
   if (field === 'mode') return (MODES as readonly string[]).includes(value as string) ? value : null
@@ -98,10 +111,11 @@ export function visibleEditFields(
   instruments: ReadonlySet<Instrument>,
 ): EditField[] {
   return EDIT_FIELDS.filter((field) => {
-    if (field !== 'violin_tuning' && field !== 'banjo_tuning') return true
+    const instrument = tuningInstrument(field)
+    if (!instrument) return true
     return (
-      instruments.has(TUNING_FIELDS[field].instrument) ||
-      entries.some((entry) => (entry.tune[field] ?? null) !== null)
+      instruments.has(instrument) ||
+      entries.some((entry) => tuningEntry(entry.tune.tunings, instrument).tuning !== null)
     )
   })
 }
@@ -123,15 +137,22 @@ export function isUnchanged(summary: Summary, value: TouchedValue): boolean {
 export function toPatch(touched: Touched): BulkPatch {
   const tune: Record<string, unknown> = {}
   const userTune: Record<string, unknown> = {}
+  const tunings: Partial<Record<Instrument, string | null>> = {}
   for (const field of EDIT_FIELDS) {
     const raw = touched[field]
     if (raw === undefined) continue
     const value = normalize(raw)
     if (field === 'status' && value === null) continue
-    const target = isUserTuneField(field) ? userTune : tune
-    target[field] = value
+    const instrument = tuningInstrument(field)
+    if (instrument) tunings[instrument] = typeof value === 'string' ? value : null
+    else (isUserTuneField(field) ? userTune : tune)[field] = value
   }
-  return { tune: tune as BulkPatch['tune'], userTune: userTune as BulkPatch['userTune'] }
+  const patch: BulkPatch = {
+    tune: tune as BulkPatch['tune'],
+    userTune: userTune as BulkPatch['userTune'],
+  }
+  if (Object.keys(tunings).length > 0) patch.tunings = tunings
+  return patch
 }
 
 export function displayValue(field: EditField, value: string | boolean): string {

@@ -131,7 +131,7 @@ const undo = () => page.getByRole('button', { name: 'Undo' }).click()
 
 const statusOf = async (id: string) => (await db.user_tunes.get(id))!.status
 const archivedAt = async (id: string) => (await db.user_tunes.get(id))!.archived_at
-const tuningOf = async (id: string) => (await db.tunes.get(id))!.violin_tuning
+const tuningOf = async (id: string) => (await db.tunes.get(id))!.tunings.violin?.tuning ?? null
 const order = async (listId: string) =>
   (await activeItems(db, listId)).map((item) => item.user_tune_id)
 

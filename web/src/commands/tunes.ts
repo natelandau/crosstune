@@ -1,5 +1,6 @@
 import type { Mode, TuneStatus, TimeSignature } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
+import type { TuningsMap } from '../features/settings/instruments'
 import { TUNE_NOT_FOUND } from './messages'
 import { tombstoneTuneRecordings } from './recordings'
 import { defined, newId, now, putRow, recordingTx, tombstone, writeTx } from './write'
@@ -12,8 +13,7 @@ export interface TuneInput {
   lyrics?: string | null
   key?: string | null
   mode?: Mode | null
-  violin_tuning?: string | null
-  banjo_tuning?: string | null
+  tunings?: TuningsMap
   part_structure?: string | null
   time_signature?: TimeSignature | null
   is_crooked?: boolean
@@ -50,8 +50,7 @@ export async function createTune(
       lyrics: tune.lyrics ?? null,
       key: tune.key ?? null,
       mode: tune.mode ?? null,
-      violin_tuning: tune.violin_tuning ?? null,
-      banjo_tuning: tune.banjo_tuning ?? null,
+      tunings: tune.tunings ?? {},
       part_structure: tune.part_structure ?? null,
       time_signature: tune.time_signature ?? null,
       is_crooked: tune.is_crooked ?? false,

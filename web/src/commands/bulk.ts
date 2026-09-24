@@ -1,6 +1,8 @@
+import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem, LocalTune, LocalUserTune } from '../db/types'
 import { activeItems, createList, deleteList, writeOrder } from './lists'
+import { setTuning, tuningsMap } from '../features/settings/instruments'
 import { LIST_NOT_FOUND, TUNE_NOT_FOUND, TUNE_NOT_IN_LIST } from './messages'
 import { tombstoneTune, type TuneInput, type UserTuneInput } from './tunes'
 import { newId, nextPosition, now, putRow, recordingTx, tombstone, writeTx } from './write'
@@ -9,8 +11,10 @@ export type Undo = () => Promise<void>
 
 /** Fields that describe many tunes at once; per-tune text such as titles and notes is left out. */
 export interface BulkPatch {
-  tune?: Partial<Omit<TuneInput, 'title' | 'alternate_titles'>>
+  tune?: Partial<Omit<TuneInput, 'title' | 'alternate_titles' | 'tunings'>>
   userTune?: Partial<Omit<UserTuneInput, 'notes'>>
+  /** A tuning per instrument; null clears it. Capos and other instruments are kept. */
+  tunings?: Partial<Record<Instrument, string | null>>
 }
 
 type Fields = Record<string, unknown>
@@ -84,7 +88,20 @@ export async function updateTunes(
       const tune = await db.tunes.get(userTune.tune_id)
       if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
 
-      const tuneChanges = changes(tune, tunePatch)
+      let rowPatch = tunePatch
+      if (patch.tunings) {
+        let tunings = tuningsMap(tune.tunings)
+        for (const instrument of INSTRUMENTS) {
+          const tuning = patch.tunings[instrument]
+          if (tuning !== undefined) tunings = setTuning(tunings, instrument, { tuning })
+        }
+        // setTuning returns a new object every time, so compare by value to skip a tune the
+        // patch leaves as it was.
+        if (JSON.stringify(tunings) !== JSON.stringify(tune.tunings)) {
+          rowPatch = { ...tunePatch, tunings }
+        }
+      }
+      const tuneChanges = changes(tune, rowPatch)
       if (Object.keys(tuneChanges).length > 0) {
         snapshots.push({ table: 'tunes', id: tune.id, before: previous(tune, tuneChanges) })
         await putRow(db, 'tunes', {

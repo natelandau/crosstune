@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
 import {
+  byTuningKey,
   capoLabel,
   INSTRUMENTS_HELP,
   instrumentsFrom,
+  isTuningKey,
   setTuning,
+  TUNING_KEYS,
   tuningDisplay,
   tuningEntry,
   tuningInstruments,
+  tuningKeyInstrument,
   tuningLabel,
   tuningSummary,
-  visibleTunings,
 } from './instruments'
 
 const played = (...instruments: Instrument[]) => new Set<Instrument>(instruments)
@@ -45,24 +48,6 @@ describe('instrumentsFrom', () => {
   })
 })
 
-describe('visibleTunings', () => {
-  it('shows a tuning for each played instrument', () => {
-    expect(visibleTunings(played('violin'), null)).toEqual(['violin_tuning'])
-    expect(visibleTunings(played('five_string_banjo', 'violin'), null)).toEqual([
-      'violin_tuning',
-      'banjo_tuning',
-    ])
-    expect(visibleTunings(played(), null)).toEqual([])
-  })
-
-  it('also shows a tuning the tune already carries', () => {
-    expect(
-      visibleTunings(played('violin'), { violin_tuning: null, banjo_tuning: 'gDGBD' }),
-    ).toEqual(['violin_tuning', 'banjo_tuning'])
-    expect(visibleTunings(played(), { violin_tuning: null, banjo_tuning: null })).toEqual([])
-  })
-})
-
 describe('tuningInstruments', () => {
   it('lists played instruments in vocabulary order', () => {
     expect(tuningInstruments(played('guitar', 'violin'), null)).toEqual(['violin', 'guitar'])
@@ -76,6 +61,26 @@ describe('tuningInstruments', () => {
 
   it('ignores an instrument key this client does not know', () => {
     expect(tuningInstruments(played(), { tunings: { hardanger: { tuning: 'x' } } })).toEqual([])
+  })
+})
+
+describe('tuning keys', () => {
+  it('names one key per instrument and reads each back', () => {
+    expect(TUNING_KEYS).toHaveLength(7)
+    expect(TUNING_KEYS[0]).toBe('tuning:violin')
+    expect(tuningKeyInstrument('tuning:tenor_banjo')).toBe('tenor_banjo')
+    expect(isTuningKey('tuning:guitar')).toBe(true)
+  })
+
+  it('refuses a key for an instrument this client does not know, or a column', () => {
+    expect(tuningKeyInstrument('tuning:hardanger')).toBeUndefined()
+    expect(isTuningKey('violin_tuning')).toBe(false)
+    expect(isTuningKey('key')).toBe(false)
+  })
+
+  it('builds one value per key', () => {
+    expect(byTuningKey(tuningLabel)['tuning:five_string_banjo']).toBe('5-string banjo tuning')
+    expect(Object.keys(byTuningKey(() => 'all'))).toEqual(TUNING_KEYS)
   })
 })
 

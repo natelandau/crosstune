@@ -95,7 +95,7 @@ beforeEach(async () => {
   db = openTestDb()
   joy = await createTune(
     db,
-    { title: "Soldier's Joy", key: 'D', violin_tuning: 'Standard (GDAE)' },
+    { title: "Soldier's Joy", key: 'D', tunings: { violin: { tuning: 'Standard (GDAE)' } } },
     { status: 'known' },
   )
   hen = await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
@@ -395,12 +395,12 @@ describe('CatalogPage', () => {
   })
 
   it('forgets a hidden facet on every filter write', async () => {
-    await setMeta(db, META_CATALOG_FILTERS, { banjo_tuning: 'Open G (gDGBD)' })
+    await setMeta(db, META_CATALOG_FILTERS, { 'tuning:five_string_banjo': 'Open G (gDGBD)' })
     show()
     await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect
       .poll(async () => getMeta<Record<string, unknown> | null>(db, META_CATALOG_FILTERS, null))
-      .toMatchObject({ status: 'known', banjo_tuning: 'all' })
+      .toMatchObject({ status: 'known', 'tuning:five_string_banjo': 'all' })
   })
 
   it('announces the count when filters change but not while typing', async () => {
@@ -656,10 +656,23 @@ describe('CatalogPage', () => {
   })
 
   it('does not let a hidden facet narrow the catalog', async () => {
-    await setMeta(db, META_CATALOG_FILTERS, { banjo_tuning: 'Open G (gDGBD)' })
+    await setMeta(db, META_CATALOG_FILTERS, { 'tuning:five_string_banjo': 'Open G (gDGBD)' })
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await expect.element(row('Cluck Old Hen')).toBeVisible()
+  })
+
+  it('ignores a filter stored under a retired tuning key and drops it on the next write', async () => {
+    await setMeta(db, META_CATALOG_FILTERS, { violin_tuning: 'Cross A (AEAE)' })
+    show()
+    await expect.element(row("Soldier's Joy")).toBeVisible()
+    await expect.element(row('Cluck Old Hen')).toBeVisible()
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
+    await expect
+      .poll(async () => getMeta<Record<string, unknown> | null>(db, META_CATALOG_FILTERS, null))
+      .toMatchObject({ status: 'known', 'tuning:violin': 'all' })
+    const stored = await getMeta<Record<string, unknown>>(db, META_CATALOG_FILTERS, {})
+    expect('violin_tuning' in stored).toBe(false)
   })
 
   it('focuses search with / on a mouse', async () => {

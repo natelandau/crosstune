@@ -15,7 +15,6 @@ import type {
   TimeSignature,
   TuneStatus,
 } from './api/vocabulary'
-import type { TuningField } from './features/settings/instruments'
 
 // ---- Instruments and tunings ---------------------------------------------------------------
 
@@ -27,28 +26,6 @@ export const INSTRUMENT_LABELS: Record<Instrument, string> = {
   mandolin: 'Mandolin',
   bouzouki: 'Bouzouki',
   mountain_dulcimer: 'Mountain dulcimer',
-}
-
-export const VIOLIN_TUNINGS = [
-  'Standard (GDAE)',
-  'Cross A (AEAE)',
-  'Cross G (GDGD)',
-  'High Bass (ADAE)',
-  'Calico (AEAC#)',
-  'Dead Man (DDAD)',
-]
-
-export const BANJO_TUNINGS = [
-  'Open G (gDGBD)',
-  'Standard C (gCGBD)',
-  'Double C (gCGCD)',
-  'Sawmill (gDGCD)',
-  'Double D (aDADE)',
-]
-
-export const TUNING_SUGGESTIONS: Record<TuningField, string[]> = {
-  violin_tuning: VIOLIN_TUNINGS,
-  banjo_tuning: BANJO_TUNINGS,
 }
 
 /** Suggestions per instrument, name then strings, lowercase for a drone. The first is standard

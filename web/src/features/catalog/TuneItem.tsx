@@ -1,12 +1,12 @@
 import { IonLabel } from '@ionic/react'
 import { Fragment, type ReactNode } from 'react'
-import type { Instrument } from '../../api/vocabulary'
+import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import { KeyPill } from '../../ui/KeyPill'
 import { Row, type RowAction } from '../../ui/Row'
 import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
-import { TUNING_FIELD_NAMES, TUNING_FIELDS } from '../settings/instruments'
+import { tuningSummary } from '../settings/instruments'
 import type { CatalogEntry } from './filters'
 import { isTuneStatus } from './status'
 
@@ -35,10 +35,10 @@ export function TuneMeta({
   entry: CatalogEntry
   instruments: ReadonlySet<Instrument>
 }) {
-  const tunings = TUNING_FIELD_NAMES.filter((field) =>
-    instruments.has(TUNING_FIELDS[field].instrument),
-  )
-    .map((field) => tune[field])
+  // A player of one instrument knows whose tuning it is; two instruments can share a name.
+  const withInstrument = instruments.size > 1
+  const tunings = INSTRUMENTS.filter((instrument) => instruments.has(instrument))
+    .map((instrument) => tuningSummary(instrument, tune.tunings, { withInstrument }))
     .filter(Boolean)
     .join(' · ')
   // Adjacent spans with only visual (flex-gap) spacing read as one run-on word to a screen

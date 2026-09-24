@@ -128,7 +128,7 @@ describe('TuneFormSheet', () => {
     expect(group.closest('ion-list')).toBeNull()
   })
 
-  it('holds both tuning rows in one card when both instruments are played', async () => {
+  it('holds every tuning and capo row in one card', async () => {
     const both = new Set<Instrument>(['violin', 'five_string_banjo'])
     renderIonic(
       <TuneFormSheet
@@ -146,7 +146,93 @@ describe('TuneFormSheet', () => {
     expect(tuning.querySelectorAll('ion-list')).toHaveLength(1)
     expect(
       Array.from(tuning.querySelectorAll('[data-row-label]')).map((e) => e.textContent),
-    ).toEqual(['Violin', 'Banjo'])
+    ).toEqual(['Violin', '5-string banjo', '5-string banjo capo'])
+  })
+
+  it('offers a capo for a fretted instrument and none for violin', async () => {
+    renderIonic(
+      <TuneFormSheet
+        target={{ kind: 'new' }}
+        instruments={new Set<Instrument>(['violin', 'guitar'])}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      { db: openTestDb() },
+    )
+    await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Guitar capo, None', exact: true }))
+      .toBeInTheDocument()
+    expect(page.getByRole('button', { name: /^Violin capo/ }).elements()).toHaveLength(0)
+  })
+
+  it('saves a capo with no tuning', async () => {
+    const db = openTestDb()
+    renderIonic(
+      <TuneFormSheet
+        target={{ kind: 'new', title: 'Capo tune' }}
+        instruments={new Set<Instrument>(['guitar'])}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      { db },
+    )
+    await openDetail('Guitar capo, None')
+    await page.getByRole('radio', { name: '2', exact: true }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await vi.waitFor(async () =>
+      expect((await db.tunes.toArray())[0]?.tunings).toEqual({ guitar: { capo: 2 } }),
+    )
+  })
+
+  it('keeps a stored capo with no tuning through a save', async () => {
+    const db = openTestDb()
+    const { tuneId, userTuneId } = await createTune(
+      db,
+      { title: 'Capo tune', tunings: { guitar: { capo: 3 } } },
+      { status: 'known' },
+    )
+    const entry = {
+      tune: (await db.tunes.get(tuneId))!,
+      userTune: (await db.user_tunes.get(userTuneId))!,
+    }
+    renderIonic(
+      <TuneFormSheet
+        target={{ kind: 'edit', entry }}
+        instruments={new Set<Instrument>()}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />,
+      { db },
+    )
+    await expect
+      .element(page.getByRole('button', { name: 'Guitar tuning, Not set', exact: true }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: 'Guitar capo, 3', exact: true }))
+      .toBeInTheDocument()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await vi.waitFor(async () =>
+      expect((await db.tunes.get(tuneId))?.updated_at).not.toBe(entry.tune.updated_at),
+    )
+    expect((await db.tunes.get(tuneId))!.tunings).toEqual({ guitar: { capo: 3 } })
+  })
+
+  it('keeps a pulled tuning for an instrument this client does not know through a save', async () => {
+    const db = openTestDb()
+    const tunings = { hardanger: { tuning: 'AEAC#' }, violin: { tuning: 'Cross A (AEAE)' } }
+    await db.tunes.put(tuneRow('s1', 'Hardanger tune', { tunings }))
+    await db.user_tunes.put(userTuneRow('u1', 's1'))
+    const entry = {
+      tune: (await db.tunes.get('s1'))!,
+      userTune: (await db.user_tunes.get('u1'))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await expect.element(page.getByText(EDIT_TUNE_TITLE)).toBeVisible()
+    await page.getByLabelText('Title').fill('Hardanger tune (A)')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await sheetDismissed()
+    expect((await db.tunes.get('s1'))!.tunings).toEqual(tunings)
   })
 
   it('puts the comma rule under the Details card rather than inside it', async () => {
@@ -545,7 +631,7 @@ describe('TuneFormSheet', () => {
     const db = openTestDb()
     const { tuneId, userTuneId } = await createTune(
       db,
-      { title: 'Cripple Creek', banjo_tuning: 'Open G (gDGBD)' },
+      { title: 'Cripple Creek', tunings: { five_string_banjo: { tuning: 'Open G (gDGBD)' } } },
       { status: 'known' },
     )
     const entry = {
@@ -555,7 +641,9 @@ describe('TuneFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
     await expect.element(page.getByRole('heading', { name: 'Tuning' })).toBeVisible()
     await expect
-      .element(page.getByRole('button', { name: 'Banjo tuning, Open G (gDGBD)', exact: true }))
+      .element(
+        page.getByRole('button', { name: '5-string banjo tuning, Open G (gDGBD)', exact: true }),
+      )
       .toBeInTheDocument()
   })
 

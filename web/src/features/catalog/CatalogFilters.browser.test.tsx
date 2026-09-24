@@ -3,24 +3,25 @@ import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { TUNING_FIELDS } from '../settings/instruments'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
 import { ALL_KEYS_LABEL, CatalogFilters } from './CatalogFilters'
 import {
   DEFAULT_FILTERS,
+  FACET_LABELS,
+  facetValues,
   type CatalogFilters as Filters,
   type Facet,
   type FacetValues,
 } from './filters'
 
 const facets: FacetValues = {
+  ...facetValues([]),
   key: ['A', 'D'],
   mode: ['major'],
-  violin_tuning: ['Standard (GDAE)'],
-  banjo_tuning: [],
+  'tuning:violin': ['Standard (GDAE)'],
   genre: ['Old-time'],
 }
-const visible: Facet[] = ['key', 'mode', 'violin_tuning', 'genre']
+const visible: Facet[] = ['key', 'mode', 'tuning:violin', 'genre']
 const counts = { visible: 3, total: 5, archived: 2, all: 7 }
 
 function Host({
@@ -214,7 +215,7 @@ describe('CatalogFilterSheet', () => {
     await expect.element(page.getByText('Filters')).toBeVisible()
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
     const labels = Array.from(open.querySelectorAll('[data-row-label]')).map((e) => e.textContent)
-    expect(labels).toEqual(['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre'])
+    expect(labels).toEqual(['Mode', FACET_LABELS['tuning:violin'], 'Genre'])
     const count = open.querySelector('[aria-live="polite"]') as HTMLElement
     expect(Number.parseFloat(getComputedStyle(count).paddingLeft)).toBe(32)
   })
@@ -224,7 +225,7 @@ describe('CatalogFilterSheet', () => {
     await expect.element(page.getByText('3 of 5 tunes')).toBeVisible()
     // IonSelect's accessible name is "<label>, <value>", and its own button is clipped, so
     // visibility is asserted on the row that contains it.
-    for (const label of ['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre']) {
+    for (const label of ['Mode', FACET_LABELS['tuning:violin'], 'Genre']) {
       await expect
         .element(
           page.getByRole('listitem').filter({ has: page.getByLabelText(label, { exact: false }) }),

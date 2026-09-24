@@ -1,8 +1,8 @@
 import { IonButton, IonInput, IonItem, IonTextarea, IonToggle } from '@ionic/react'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createTune, updateTuneEntry } from '../../commands/tunes'
-import { TUNING_SUGGESTIONS } from '../../constants'
+import { CAPO_FRETS, CAPO_INSTRUMENTS, INSTRUMENT_LABELS, TUNINGS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
 import { FieldRow, NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
@@ -11,7 +11,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { LyricsSheet } from '../lyrics/LyricsSheet'
-import { TUNING_FIELDS, visibleTunings, type TuningField } from '../settings/instruments'
+import { capoLabel, NO_CAPO, tuningInstruments, tuningLabel } from '../settings/instruments'
 import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
 import { KeyChooser } from './KeyChooser'
 import {
@@ -21,6 +21,7 @@ import {
   inputsFromValues,
   valuesFromRows,
   type TuneFormValues,
+  type TuningValues,
 } from './tuneFormValues'
 import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
@@ -57,7 +58,7 @@ export function TuneFormSheet({
   const db = useDb()
   const { error, pending, runThen, clear } = useAction()
   const [values, setValues] = useState<TuneFormValues>(emptyValues)
-  const [tunings, setTunings] = useState<TuningField[]>([])
+  const [tunings, setTunings] = useState<Instrument[]>([])
   const [validation, setValidation] = useState<string | null>(null)
   const titleRef = useRef<HTMLIonInputElement>(null)
   // The target a save is running for. A ref, because two submits in one tick both read the
@@ -78,7 +79,7 @@ export function TuneFormSheet({
       setShown(target)
       setClosing(false)
       setValues(initialValues(target))
-      setTunings(visibleTunings(instruments, target.kind === 'edit' ? target.entry.tune : null))
+      setTunings(tuningInstruments(instruments, target.kind === 'edit' ? target.entry.tune : null))
       setValidation(null)
       setEditingLyrics(false)
       clear()
@@ -98,11 +99,23 @@ export function TuneFormSheet({
   const set = <K extends keyof TuneFormValues>(key: K, value: TuneFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }))
 
+  const setTuningValue = (instrument: Instrument, patch: Partial<TuningValues>) =>
+    setValues((current) => ({
+      ...current,
+      tunings: {
+        ...current.tunings,
+        [instrument]: { tuning: '', capo: '', ...current.tunings[instrument], ...patch },
+      },
+    }))
+
   const save = () => {
     // Enter reaches this through the hidden submit button, which the toolbar's disabled state
     // does not cover.
     if (!target || closing || savingFor.current === target) return
-    const { tune, userTune } = inputsFromValues(values)
+    const { tune, userTune } = inputsFromValues(
+      values,
+      target.kind === 'edit' ? target.entry.tune.tunings : undefined,
+    )
     if (!tune.title) {
       // A rejection from an earlier attempt no longer describes this form.
       clear()
@@ -214,17 +227,30 @@ export function TuneFormSheet({
 
         {tunings.length > 0 ? (
           <Group header="Tuning">
-            {tunings.map((field) => (
-              <SuggestSelect
-                key={field}
-                label={TUNING_FIELDS[field].label}
-                rowLabel={TUNING_FIELDS[field].short}
-                value={values[field]}
-                options={TUNING_SUGGESTIONS[field]}
-                other
-                maxLength={TUNE_LIMITS[field]}
-                onChange={(value) => set(field, value)}
-              />
+            {tunings.map((instrument) => (
+              <Fragment key={instrument}>
+                <SuggestSelect
+                  label={tuningLabel(instrument)}
+                  rowLabel={INSTRUMENT_LABELS[instrument]}
+                  value={values.tunings[instrument]?.tuning ?? ''}
+                  options={TUNINGS[instrument]}
+                  other
+                  maxLength={TUNE_LIMITS.tuning}
+                  onChange={(tuning) => setTuningValue(instrument, { tuning })}
+                />
+                {/* The Tuning header does not name the instrument, so the capo row keeps its
+                    full name visible. */}
+                {CAPO_INSTRUMENTS[instrument] ? (
+                  <SuggestSelect
+                    label={capoLabel(instrument)}
+                    value={values.tunings[instrument]?.capo ?? ''}
+                    options={CAPO_FRETS}
+                    other={false}
+                    placeholder={NO_CAPO}
+                    onChange={(capo) => setTuningValue(instrument, { capo })}
+                  />
+                ) : null}
+              </Fragment>
             ))}
           </Group>
         ) : null}

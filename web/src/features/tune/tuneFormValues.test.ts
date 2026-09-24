@@ -91,4 +91,30 @@ describe('tuneFormValues', () => {
     expect(inputsFromValues(values).tune.lyrics).toBe('Did you ever go to meeting')
     expect(inputsFromValues({ ...values, lyrics: '  \n\n  ' }).tune.lyrics).toBeNull()
   })
+
+  it('reads each tuning and capo into the form and writes back a compact map', () => {
+    const tunings = {
+      hardanger: { tuning: 'x' },
+      guitar: { tuning: 'DADGAD', capo: 2 },
+      bouzouki: { capo: 3 },
+    }
+    const tune = tuneRow('s1', 'Sally Ann', { tunings })
+    const values = valuesFromRows(tune, userTuneRow('u1', 's1'))
+    expect(values.tunings.guitar).toEqual({ tuning: 'DADGAD', capo: '2' })
+    expect(values.tunings.bouzouki).toEqual({ tuning: '', capo: '3' })
+    expect(values.tunings.violin).toEqual({ tuning: '', capo: '' })
+    values.tunings.violin = { tuning: ' Cross A (AEAE) ', capo: '' }
+    values.tunings.guitar = { tuning: '', capo: '' }
+    expect(inputsFromValues(values, tunings).tune.tunings).toEqual({
+      hardanger: { tuning: 'x' },
+      bouzouki: { capo: 3 },
+      violin: { tuning: 'Cross A (AEAE)' },
+    })
+  })
+
+  it('writes only the instruments the form touched for a new tune', () => {
+    const values = emptyValues()
+    values.tunings.guitar = { tuning: '', capo: '2' }
+    expect(inputsFromValues(values).tune.tunings).toEqual({ guitar: { capo: 2 } })
+  })
 })

@@ -40,8 +40,7 @@ export type Local<Row> = {
   [Key in keyof Omit<Row, OwnershipKey>]: Loosen<Omit<Row, OwnershipKey>[Key]>
 }
 
-// A tune written by this client has no tunings map until the form edits it directly.
-export type LocalTune = Local<Omit<TuneRow, 'tunings'>> & { tunings?: Local<TuneRow>['tunings'] }
+export type LocalTune = Local<TuneRow>
 export type LocalUserTune = Local<UserTuneRow>
 export type LocalRecordingLink = Local<RecordingLinkRow>
 export type LocalList = Local<ListRow>

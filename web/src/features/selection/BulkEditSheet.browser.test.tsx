@@ -8,7 +8,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
-import { TUNING_FIELDS } from '../settings/instruments'
+import { tuningLabel } from '../settings/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { BulkEditSheet } from './BulkEditSheet'
 
@@ -276,22 +276,23 @@ describe('BulkEditSheet', () => {
   it('hides a tuning nobody plays and shows one some tune already has', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
+    await expect.element(page.getByRole('heading', { name: tuningLabel('violin') })).toBeVisible()
     await expect
-      .element(page.getByRole('heading', { name: TUNING_FIELDS.violin_tuning.label }))
-      .toBeVisible()
-    await expect
-      .element(page.getByRole('heading', { name: TUNING_FIELDS.banjo_tuning.label }))
+      .element(page.getByRole('heading', { name: tuningLabel('five_string_banjo') }))
       .not.toBeInTheDocument()
   })
 
   it('shows a tuning nobody plays when a selected tune already has one', async () => {
     const entries = [
-      await seed({ title: 'Say Old Man', banjo_tuning: 'Open G (gDGBD)' }),
+      await seed({
+        title: 'Say Old Man',
+        tunings: { five_string_banjo: { tuning: 'Open G (gDGBD)' } },
+      }),
       await seed({ title: 'Lost Indian' }),
     ]
     renderIonic(<Host entries={entries} />, { db })
     await expect
-      .element(page.getByRole('heading', { name: TUNING_FIELDS.banjo_tuning.label }))
+      .element(page.getByRole('heading', { name: tuningLabel('five_string_banjo') }))
       .toBeVisible()
   })
 

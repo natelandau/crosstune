@@ -6,7 +6,7 @@ import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
 const a = {
   tune: tuneRow('s1', 'Say Old Man', {
     key: 'A',
-    violin_tuning: 'Standard (GDAE)',
+    tunings: { violin: { tuning: 'Standard (GDAE)' } },
     is_crooked: false,
   }),
   userTune: userTuneRow('u1', 's1', { status: 'known' }),
@@ -14,7 +14,7 @@ const a = {
 const b = {
   tune: tuneRow('s2', 'Lost Indian', {
     key: 'A',
-    violin_tuning: 'Cross A (AEAE)',
+    tunings: { violin: { tuning: 'Cross A (AEAE)' } },
     is_crooked: false,
   }),
   userTune: userTuneRow('u2', 's2', { status: 'learning' }),
@@ -24,7 +24,7 @@ describe('summarize', () => {
   it('reports shared, mixed, and empty fields', () => {
     const summary = summarize([a, b])
     expect(summary.key).toEqual({ kind: 'shared', value: 'A' })
-    expect(summary.violin_tuning).toEqual({ kind: 'mixed' })
+    expect(summary['tuning:violin']).toEqual({ kind: 'mixed' })
     expect(summary.genre).toEqual({ kind: 'empty' })
     expect(summary.status).toEqual({ kind: 'mixed' })
     expect(summary.is_crooked).toEqual({ kind: 'shared', value: false })
@@ -48,19 +48,18 @@ describe('summarize', () => {
 describe('visibleEditFields', () => {
   const violin = new Set<Instrument>(['violin'])
 
-  it('shows a tuning for a played instrument', () => {
-    expect(visibleEditFields([a, b], violin)).toContain('violin_tuning')
-    expect(visibleEditFields([a, b], violin)).not.toContain('banjo_tuning')
+  it('shows a tuning for a played instrument or one a selected tune holds', () => {
+    const plain = { ...a, tune: { ...a.tune, tunings: {} } }
+    const bouzouki = { ...b, tune: { ...b.tune, tunings: { bouzouki: { tuning: 'GDAD' } } } }
+    const fields = visibleEditFields([plain, bouzouki], violin)
+    expect(fields).toContain('tuning:violin')
+    expect(fields).toContain('tuning:bouzouki')
+    expect(fields).not.toContain('tuning:guitar')
   })
 
-  it('shows a tuning any selected tune already has', () => {
-    const banjo = { ...b, tune: { ...b.tune, banjo_tuning: 'Double C (gCGCD)' } }
-    expect(visibleEditFields([a, banjo], violin)).toContain('banjo_tuning')
-  })
-
-  it('does not treat an undefined tuning as a value', () => {
-    const undefinedTuning = { ...b, tune: { ...b.tune, banjo_tuning: undefined } }
-    expect(visibleEditFields([a, undefinedTuning], violin)).not.toContain('banjo_tuning')
+  it('does not show a tuning field for a capo alone', () => {
+    const capo = { ...b, tune: { ...b.tune, tunings: { guitar: { capo: 2 } } } }
+    expect(visibleEditFields([a, capo], violin)).not.toContain('tuning:guitar')
   })
 })
 
@@ -78,7 +77,7 @@ describe('toPatch', () => {
   it('splits touched fields between tune and user tune, trimming and clearing', () => {
     expect(
       toPatch({
-        violin_tuning: ' Cross A (AEAE) ',
+        'tuning:violin': ' Cross A (AEAE) ',
         genre: '',
         mode: null,
         is_crooked: true,
@@ -86,8 +85,17 @@ describe('toPatch', () => {
         learned_from: 'Bruce Molsky',
       }),
     ).toEqual({
-      tune: { violin_tuning: 'Cross A (AEAE)', genre: null, mode: null, is_crooked: true },
+      tune: { genre: null, mode: null, is_crooked: true },
       userTune: { status: 'known', learned_from: 'Bruce Molsky' },
+      tunings: { violin: 'Cross A (AEAE)' },
+    })
+  })
+
+  it('clears a tuning left blank', () => {
+    expect(toPatch({ 'tuning:guitar': '  ' })).toEqual({
+      tune: {},
+      userTune: {},
+      tunings: { guitar: null },
     })
   })
 

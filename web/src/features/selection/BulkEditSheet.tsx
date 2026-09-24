@@ -9,7 +9,7 @@ import {
   PART_STRUCTURES,
   QUICK_KEYS,
   STATUS_LABELS,
-  TUNING_SUGGESTIONS,
+  TUNINGS,
 } from '../../constants'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow, NOT_SET } from '../../ui/FieldRow'
@@ -17,7 +17,7 @@ import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
-import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
+import { byTuningKey, tuningLabel } from '../settings/instruments'
 import { SuggestSelect } from '../tune/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
@@ -25,6 +25,7 @@ import {
   isUnchanged,
   summarize,
   toPatch,
+  tuningInstrument,
   visibleEditFields,
   type EditField,
   type Summary,
@@ -36,8 +37,7 @@ import { countTunes } from './copy'
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
   key: { options: QUICK_KEYS, other: true },
   mode: { options: MODES, other: false },
-  violin_tuning: { options: TUNING_SUGGESTIONS.violin_tuning, other: true },
-  banjo_tuning: { options: TUNING_SUGGESTIONS.banjo_tuning, other: true },
+  ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
   genre: { options: GENRES, other: true },
   feel: { options: FEELS, other: true },
   time_signature: { options: OFFERED_TIME_SIGNATURES, other: false },
@@ -48,10 +48,9 @@ const PICKS: Partial<Record<EditField, { options: readonly string[]; other: bool
 // choice keeps every tune as it is rather than clearing them: the column takes no null.
 const YES_NO = ['Yes', 'No']
 
-const LIMITS = TUNE_LIMITS as Partial<Record<EditField, number>>
-
-function isTuning(field: EditField): field is TuningField {
-  return (TUNING_FIELD_NAMES as readonly string[]).includes(field)
+const LIMITS: Partial<Record<EditField, number>> = {
+  ...TUNE_LIMITS,
+  ...byTuningKey(() => TUNE_LIMITS.tuning),
 }
 
 /** The touched value once the row is touched, the shared value when every tune agrees, else none. */
@@ -284,9 +283,12 @@ export function BulkEditSheet({
     />
   )
 
-  const tunings = TUNING_FIELD_NAMES.filter((field) => fields.includes(field))
+  const tunings = fields.flatMap((field) => {
+    const instrument = tuningInstrument(field)
+    return instrument ? [{ field, instrument }] : []
+  })
   const details = fields.filter(
-    (field) => field !== 'status' && field !== 'key' && !isTuning(field),
+    (field) => field !== 'status' && field !== 'key' && tuningInstrument(field) === undefined,
   )
 
   return (
@@ -312,8 +314,8 @@ export function BulkEditSheet({
         {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
         <Group header="Status">{row('status', false)}</Group>
         <Group header="Key">{row('key', false)}</Group>
-        {tunings.map((field) => (
-          <Group key={field} header={TUNING_FIELDS[field].label}>
+        {tunings.map(({ field, instrument }) => (
+          <Group key={field} header={tuningLabel(instrument)}>
             {row(field, false)}
           </Group>
         ))}

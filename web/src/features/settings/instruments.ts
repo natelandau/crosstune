@@ -1,25 +1,6 @@
 import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import { CAPO_INSTRUMENTS, INSTRUMENT_LABELS, STANDARD_TUNINGS } from '../../constants'
-import {
-  isInstrument,
-  storedInstruments,
-  type LocalTune,
-  type LocalUserSettings,
-} from '../../db/types'
-
-/**
- * Each per-tune tuning field, the instrument it belongs to, its label, and the shorter label a row
- * shows when a header above it already says Tuning. `label` stays the accessible name in both
- * places, so a row reading "Violin" is still announced as "Violin tuning".
- */
-export const TUNING_FIELDS = {
-  violin_tuning: { instrument: 'violin', label: 'Violin tuning', short: 'Violin' },
-  banjo_tuning: { instrument: 'five_string_banjo', label: 'Banjo tuning', short: 'Banjo' },
-} as const satisfies Record<string, { instrument: Instrument; label: string; short: string }>
-
-export type TuningField = keyof typeof TUNING_FIELDS
-
-export const TUNING_FIELD_NAMES = Object.keys(TUNING_FIELDS) as TuningField[]
+import { isInstrument, storedInstruments, type LocalUserSettings } from '../../db/types'
 
 /** The footer under the instruments setting, wherever it is asked. */
 export const INSTRUMENTS_HELP = 'Tunes show a tuning for each instrument chosen here.'
@@ -31,16 +12,6 @@ export function instrumentsFrom(
   return new Set((stored ?? []).filter(isInstrument))
 }
 
-/** Tuning fields to show: one per played instrument, plus any the tune already fills. */
-export function visibleTunings(
-  instruments: ReadonlySet<Instrument>,
-  tune: Pick<LocalTune, TuningField> | null,
-): TuningField[] {
-  return TUNING_FIELD_NAMES.filter(
-    (field) => instruments.has(TUNING_FIELDS[field].instrument) || (tune?.[field] ?? null) !== null,
-  )
-}
-
 /** One instrument's entry in a tune's tunings. A field is present only when it is set. */
 export interface TuningEntry {
   tuning?: string
@@ -49,6 +20,39 @@ export interface TuningEntry {
 
 /** A tune's tunings. A key can name an instrument this client does not know yet. */
 export type TuningsMap = Record<string, TuningEntry>
+
+/** A filter or bulk edit field that reads one instrument's tuning out of the map. */
+export type TuningKey = `tuning:${Instrument}`
+
+export const tuningKey = (instrument: Instrument): TuningKey => `tuning:${instrument}`
+
+export const TUNING_KEYS: readonly TuningKey[] = INSTRUMENTS.map(tuningKey)
+
+const KEY_INSTRUMENTS = new Map<string, Instrument>(
+  INSTRUMENTS.map((instrument) => [tuningKey(instrument), instrument]),
+)
+
+export function isTuningKey(key: string): key is TuningKey {
+  return KEY_INSTRUMENTS.has(key)
+}
+
+export function tuningKeyInstrument(key: string): Instrument | undefined {
+  return KEY_INSTRUMENTS.get(key)
+}
+
+function hasEveryTuningKey<T>(
+  record: Partial<Record<TuningKey, T>>,
+): record is Record<TuningKey, T> {
+  return TUNING_KEYS.every((key) => key in record)
+}
+
+/** One value per tuning key, typed as a complete record. */
+export function byTuningKey<T>(value: (instrument: Instrument) => T): Record<TuningKey, T> {
+  const record: Partial<Record<TuningKey, T>> = {}
+  for (const instrument of INSTRUMENTS) record[tuningKey(instrument)] = value(instrument)
+  if (!hasEveryTuningKey(record)) throw new Error('A tuning key is missing its value')
+  return record
+}
 
 export const tuningLabel = (instrument: Instrument) => `${INSTRUMENT_LABELS[instrument]} tuning`
 

@@ -57,6 +57,17 @@ describe('createTune', () => {
     expect(Object.keys(queued[1]!.data!)).not.toContain('user_id')
   })
 
+  it('creates a tune with its tunings map, or an empty one', async () => {
+    const withMap = await createTune(
+      db,
+      { title: 'Sally Ann', tunings: { guitar: { capo: 2 } } },
+      { status: 'known' },
+    )
+    expect((await db.tunes.get(withMap.tuneId))!.tunings).toEqual({ guitar: { capo: 2 } })
+    const without = await createTune(db, { title: 'Sally Goodin' }, { status: 'known' })
+    expect((await db.tunes.get(without.tuneId))!.tunings).toEqual({})
+  })
+
   it('rejects an empty title', async () => {
     await expect(createTune(db, { title: '  ' }, { status: 'known' })).rejects.toThrow()
     expect(await db.tunes.count()).toBe(0)
@@ -71,19 +82,23 @@ describe('updateTune / updateUserTune', () => {
       { status: 'known' },
     )
     vi.setSystemTime(new Date('2026-09-11T10:05:00.000Z'))
-    await updateTune(db, tuneId, { violin_tuning: 'AEAE', banjo_tuning: 'gDGBD', key: undefined })
+    await updateTune(db, tuneId, {
+      tunings: { violin: { tuning: 'AEAE' }, five_string_banjo: { tuning: 'gDGBD' } },
+      key: undefined,
+    })
     await updateUserTune(db, userTuneId, { notes: 'from Bruce' })
     const tune = await db.tunes.get(tuneId)
     expect(tune).toMatchObject({
       key: 'A',
-      violin_tuning: 'AEAE',
-      banjo_tuning: 'gDGBD',
+      tunings: { violin: { tuning: 'AEAE' }, five_string_banjo: { tuning: 'gDGBD' } },
       updated_at: '2026-09-11T10:05:00.000Z',
     })
     expect((await db.user_tunes.get(userTuneId))?.notes).toBe('from Bruce')
     expect(await pendingBatch(db)).toHaveLength(2)
-    expect((await pendingFor(db, 'tunes', tuneId))?.data?.violin_tuning).toBe('AEAE')
-    expect((await pendingFor(db, 'tunes', tuneId))?.data?.banjo_tuning).toBe('gDGBD')
+    expect((await pendingFor(db, 'tunes', tuneId))?.data?.tunings).toEqual({
+      violin: { tuning: 'AEAE' },
+      five_string_banjo: { tuning: 'gDGBD' },
+    })
   })
 
   it('archives and unarchives through archived_at', async () => {

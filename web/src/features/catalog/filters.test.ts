@@ -4,6 +4,7 @@ import { tuneRow as tune, userTuneRow as userTune } from '../../test/rows'
 import {
   catalogEntries,
   DEFAULT_FILTERS,
+  FACET_LABELS,
   FACETS,
   facetValues,
   filterCatalog,
@@ -18,8 +19,7 @@ const tunes = [
   tune('s1', "soldier's joy", {
     key: 'D',
     mode: 'major',
-    violin_tuning: 'ADAE',
-    banjo_tuning: 'gDGBD',
+    tunings: { violin: { tuning: 'ADAE' }, five_string_banjo: { tuning: 'gDGBD' } },
     genre: 'Old-time',
   }),
   tune('s2', 'Cluck Old Hen', { key: 'A', mode: 'mixolydian', alternate_titles: ['Cluck'] }),
@@ -85,18 +85,22 @@ describe('filterCatalog', () => {
       's1',
     ])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, mode: 'mixolydian', violin_tuning: 'all' }).map(
-        (e) => e.tune.id,
-      ),
+      filterCatalog(entries, {
+        ...DEFAULT_FILTERS,
+        mode: 'mixolydian',
+        'tuning:violin': 'all',
+      }).map((e) => e.tune.id),
     ).toEqual(['s2'])
     expect(
       filterCatalog(entries, { ...DEFAULT_FILTERS, genre: 'Old-time' }).map((e) => e.tune.id),
     ).toEqual(['s1'])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, violin_tuning: 'ADAE' }).map((e) => e.tune.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, 'tuning:violin': 'ADAE' }).map((e) => e.tune.id),
     ).toEqual(['s1'])
     expect(
-      filterCatalog(entries, { ...DEFAULT_FILTERS, banjo_tuning: 'gCGCD' }).map((e) => e.tune.id),
+      filterCatalog(entries, { ...DEFAULT_FILTERS, 'tuning:five_string_banjo': 'gCGCD' }).map(
+        (e) => e.tune.id,
+      ),
     ).toEqual([])
   })
 })
@@ -106,8 +110,8 @@ describe('facetValues', () => {
     const facets = facetValues(catalogEntries(tunes, userTunes))
     expect(facets.key).toEqual(['A', 'D'])
     expect(facets.mode).toEqual(['major', 'mixolydian'])
-    expect(facets.violin_tuning).toEqual(['ADAE'])
-    expect(facets.banjo_tuning).toEqual(['gDGBD'])
+    expect(facets['tuning:violin']).toEqual(['ADAE'])
+    expect(facets['tuning:five_string_banjo']).toEqual(['gDGBD'])
     expect(facets.genre).toEqual(['Old-time'])
   })
 
@@ -137,11 +141,17 @@ describe('normalizeFilters', () => {
     expect('query' in normalizeFilters({ query: 'soldier', key: 'D' })).toBe(false)
   })
 
-  it('ignores a filter stored under the retired tuning key', () => {
-    const filters = normalizeFilters({ tuning: 'AEAE', violin_tuning: 'ADAE' })
-    expect(filters.violin_tuning).toBe('ADAE')
-    expect(filters.banjo_tuning).toBe('all')
-    expect('tuning' in filters).toBe(false)
+  it('reads a filter stored under a retired tuning key as Any', () => {
+    const filters = normalizeFilters({
+      tuning: 'AEAE',
+      violin_tuning: 'ADAE',
+      banjo_tuning: 'gDGBD',
+    })
+    expect(filters['tuning:violin']).toBe('all')
+    expect(filters['tuning:five_string_banjo']).toBe('all')
+    for (const key of ['tuning', 'violin_tuning', 'banjo_tuning']) {
+      expect(key in filters).toBe(false)
+    }
   })
 })
 
@@ -152,18 +162,18 @@ describe('visibleFacets', () => {
     expect(visibleFacets(facets, new Set<Instrument>(['violin']))).toEqual([
       'key',
       'mode',
-      'violin_tuning',
+      'tuning:violin',
       'genre',
     ])
     expect(visibleFacets(facets, new Set<Instrument>(['five_string_banjo']))).toEqual([
       'key',
       'mode',
-      'banjo_tuning',
+      'tuning:five_string_banjo',
       'genre',
     ])
     expect(
       visibleFacets({ ...facets, genre: [] }, new Set<Instrument>(['violin', 'five_string_banjo'])),
-    ).toEqual(FACETS.filter((f) => f !== 'genre'))
+    ).toEqual(['key', 'mode', 'tuning:violin', 'tuning:five_string_banjo'])
   })
 
   it('names the counts the same way wherever they are shown', () => {
@@ -175,7 +185,47 @@ describe('visibleFacets', () => {
   })
 
   it('builds a reset patch for hidden facets only', () => {
-    expect(hiddenResets(['key', 'mode', 'violin_tuning', 'genre'])).toEqual({ banjo_tuning: 'all' })
+    expect(hiddenResets(['key', 'mode', 'tuning:violin', 'genre'])).toEqual({
+      'tuning:five_string_banjo': 'all',
+      'tuning:tenor_banjo': 'all',
+      'tuning:guitar': 'all',
+      'tuning:mandolin': 'all',
+      'tuning:bouzouki': 'all',
+      'tuning:mountain_dulcimer': 'all',
+    })
     expect(hiddenResets([...FACETS])).toEqual({})
+  })
+})
+
+describe('tuning facets', () => {
+  it('filters by one instrument’s tuning and ignores its capo', () => {
+    const entries = catalogEntries(
+      [
+        tune('g1', 'Guitar', { tunings: { guitar: { tuning: 'DADGAD', capo: 2 } } }),
+        tune('g2', 'Capo only', { tunings: { guitar: { capo: 2 } } }),
+      ],
+      [userTune('u1', 'g1'), userTune('u2', 'g2')],
+    )
+    expect(
+      filterCatalog(entries, { ...DEFAULT_FILTERS, 'tuning:guitar': 'DADGAD' }).map(
+        (e) => e.tune.id,
+      ),
+    ).toEqual(['g1'])
+    expect(facetValues(entries)['tuning:guitar']).toEqual(['DADGAD'])
+  })
+
+  it('offers a tuning facet only for a played instrument with values', () => {
+    const values = facetValues(
+      catalogEntries(
+        [tune('g1', 'Guitar', { tunings: { guitar: { tuning: 'DADGAD' } } })],
+        [userTune('u1', 'g1')],
+      ),
+    )
+    expect(visibleFacets(values, new Set<Instrument>(['violin']))).not.toContain('tuning:guitar')
+    expect(visibleFacets(values, new Set<Instrument>(['guitar']))).toContain('tuning:guitar')
+  })
+
+  it('labels a tuning facet by its instrument', () => {
+    expect(FACET_LABELS['tuning:tenor_banjo']).toBe('Tenor banjo tuning')
   })
 })

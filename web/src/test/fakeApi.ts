@@ -200,8 +200,6 @@ export function serverTune(overrides: Partial<TuneRow> & { id: string }): TuneRo
     lyrics: null,
     key: null,
     mode: null,
-    violin_tuning: null,
-    banjo_tuning: null,
     part_structure: null,
     time_signature: null,
     is_crooked: false,

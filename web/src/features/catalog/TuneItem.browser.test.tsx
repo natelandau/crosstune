@@ -32,8 +32,10 @@ const played = new Set<Instrument>(['violin', 'five_string_banjo'])
 function show(
   tune = tuneRow('s1', "Soldier's Joy", {
     key: 'D',
-    violin_tuning: 'Standard (GDAE)',
-    banjo_tuning: 'Open G (gDGBD)',
+    tunings: {
+      violin: { tuning: 'Cross A (AEAE)' },
+      five_string_banjo: { tuning: 'Double C (gCGCD)' },
+    },
   }),
   userTune = userTuneRow('u1', 's1', { status: 'known' }),
   instruments = played,
@@ -91,12 +93,46 @@ describe('TuneItem', () => {
   it('shows the key, the status with its label, and tunings for played instruments in order', async () => {
     show()
     const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Key D, Known, Standard (GDAE) · Open G (gDGBD)')
+    expect(line.textContent).toBe(
+      'Key D, Known, Violin: Cross A (AEAE) · 5-string banjo: Double C (gCGCD)',
+    )
+  })
+
+  it('leaves the instrument unsaid when only one is played', async () => {
+    show(undefined, undefined, new Set<Instrument>(['violin']))
+    const line = document.querySelector('[data-tune-meta]')!
+    expect(line.textContent).toBe('Key D, Known, Cross A (AEAE)')
+  })
+
+  it('leaves a standard tuning unsaid and shows a capo', async () => {
+    show(
+      tuneRow('s1', "Soldier's Joy", {
+        key: 'D',
+        tunings: {
+          violin: { tuning: 'Standard (GDAE)' },
+          five_string_banjo: { tuning: 'Open G (gDGBD)', capo: 2 },
+        },
+      }),
+    )
+    const line = document.querySelector('[data-tune-meta]')!
+    expect(line.textContent).toBe('Key D, Known, 5-string banjo: Open G (gDGBD), capo 2')
+  })
+
+  it('shows a capo with no tuning', async () => {
+    show(
+      tuneRow('s1', 'Capo tune', { tunings: { guitar: { capo: 3 } } }),
+      userTuneRow('u1', 's1', { status: 'known' }),
+      new Set<Instrument>(['guitar']),
+    )
+    const line = document.querySelector('[data-tune-meta]')!
+    expect(line.textContent).toBe('Known, Capo 3')
   })
 
   it('leaves out a missing key and a tuning for an instrument not played', async () => {
     show(
-      tuneRow('s1', 'Cluck Old Hen', { banjo_tuning: 'Open G (gDGBD)' }),
+      tuneRow('s1', 'Cluck Old Hen', {
+        tunings: { five_string_banjo: { tuning: 'Double C (gCGCD)' } },
+      }),
       userTuneRow('u1', 's1', { status: 'learning' }),
       new Set<Instrument>(['violin']),
     )
@@ -123,7 +159,7 @@ describe('TuneItem', () => {
   it('separates the parts of the row open control spoken name', async () => {
     show()
     const open = page.getByRole('button', {
-      name: "Soldier's Joy Key D , Known , Standard (GDAE) · Open G (gDGBD)",
+      name: "Soldier's Joy Key D , Known , Violin: Cross A (AEAE) · 5-string banjo: Double C (gCGCD)",
       exact: true,
     })
     await expect.element(open).toBeVisible()

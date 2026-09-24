@@ -1285,18 +1285,6 @@
             "title": "Alternate Titles",
             "type": "array"
           },
-          "banjo_tuning": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Banjo Tuning"
-          },
           "composer": {
             "anyOf": [
               {
@@ -1473,18 +1461,6 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
-          },
-          "violin_tuning": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Violin Tuning"
           }
         },
         "required": [

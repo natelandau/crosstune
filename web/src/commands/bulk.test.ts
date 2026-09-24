@@ -34,12 +34,13 @@ describe('updateTunes', () => {
     const a = await tune('Say Old Man', { title: '', key: 'A' })
     const b = await tune('Lost Indian', { title: '', key: 'A', genre: 'Old-time' })
     await updateTunes(db, [a.userTuneId, b.userTuneId], {
-      tune: { violin_tuning: 'Cross A (AEAE)', genre: null },
+      tune: { genre: null },
+      tunings: { violin: 'Cross A (AEAE)' },
       userTune: { status: 'known' },
     })
     for (const { tuneId, userTuneId } of [a, b]) {
       expect(await db.tunes.get(tuneId)).toMatchObject({
-        violin_tuning: 'Cross A (AEAE)',
+        tunings: { violin: { tuning: 'Cross A (AEAE)' } },
         genre: null,
         key: 'A',
       })
@@ -74,19 +75,48 @@ describe('updateTunes', () => {
   })
 
   it('undoes only the fields it changed, keeping an edit made since', async () => {
-    const a = await tune('Say Old Man', { title: '', key: 'A', violin_tuning: 'Standard (GDAE)' })
+    const a = await tune('Say Old Man', {
+      title: '',
+      key: 'A',
+      tunings: { violin: { tuning: 'Standard (GDAE)' } },
+    })
     const undo = await updateTunes(db, [a.userTuneId], {
-      tune: { violin_tuning: 'Cross A (AEAE)' },
+      tunings: { violin: 'Cross A (AEAE)' },
       userTune: { status: 'known' },
     })
     await updateTune(db, a.tuneId, { key: 'G' })
     await undo()
     expect(await db.tunes.get(a.tuneId)).toMatchObject({
-      violin_tuning: 'Standard (GDAE)',
+      tunings: { violin: { tuning: 'Standard (GDAE)' } },
       key: 'G',
     })
     expect((await db.user_tunes.get(a.userTuneId))?.status).toBe('learning')
     expect(await pendingFor(db, 'tunes', a.tuneId)).toMatchObject({ op: 'upsert' })
+  })
+
+  it('sets one instrument’s tuning, keeps capos and unknown keys, and undoes the whole map', async () => {
+    const tunings = {
+      guitar: { tuning: 'DADGAD', capo: 2 },
+      violin: { tuning: 'AEAE' },
+      hardanger: { tuning: 'x' },
+    }
+    const a = await tune('Say Old Man', { title: '', tunings })
+    const undo = await updateTunes(db, [a.userTuneId], {
+      tunings: { guitar: 'Drop D (DADGBE)', violin: null },
+    })
+    expect((await db.tunes.get(a.tuneId))!.tunings).toEqual({
+      guitar: { tuning: 'Drop D (DADGBE)', capo: 2 },
+      hardanger: { tuning: 'x' },
+    })
+    await undo()
+    expect((await db.tunes.get(a.tuneId))!.tunings).toEqual(tunings)
+  })
+
+  it('leaves a tune alone when its tunings already match', async () => {
+    const a = await tune('Say Old Man', { title: '', tunings: { violin: { tuning: 'AEAE' } } })
+    await db.outbox.clear()
+    await updateTunes(db, [a.userTuneId], { tunings: { violin: 'AEAE' } })
+    expect(await pendingFor(db, 'tunes', a.tuneId)).toBeUndefined()
   })
 
   it('undo gives the restored row a fresh updated_at', async () => {
