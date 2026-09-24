@@ -25,6 +25,13 @@ describe('instrumentsFrom', () => {
     expect([...instrumentsFrom(row)]).toEqual(['five_string_banjo'])
   })
 
+  it('reads a stored banjo as the five-string banjo', () => {
+    expect([...instrumentsFrom({ ...row, instruments: ['banjo'] })]).toEqual(['five_string_banjo'])
+    expect([...instrumentsFrom({ ...row, instruments: ['banjo', 'five_string_banjo'] })]).toEqual([
+      'five_string_banjo',
+    ])
+  })
+
   it('is empty when instruments is not an array', () => {
     expect(instrumentsFrom({ ...row, instruments: 'violin' } as never)).toEqual(played())
   })

@@ -82,7 +82,7 @@ describe('InstrumentsGroup', () => {
     show()
     await openSheet()
     await box('5-string banjo').click()
-    await expect.poll(stored).toEqual(['violin', 'five_string_banjo'])
+    await expect.poll(stored).toEqual(['violin', 'banjo'])
     await expect.element(box('5-string banjo')).toBeChecked()
     expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
 
