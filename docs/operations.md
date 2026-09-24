@@ -207,9 +207,9 @@ For a pull request, point it at the PR's Railway hostname and preview URL.
 The manual phone test covers what the script cannot:
 
 1. Open `https://<domain>` and sign in.
-2. Add a song and paste a YouTube link.
+2. Add a tune and paste a YouTube link.
 3. Install the app to the home screen.
-4. Turn on airplane mode and edit the song.
+4. Turn on airplane mode and edit the tune.
 5. Turn off airplane mode.
 6. Confirm the edit synced. Settings shows the last sync time.
 

@@ -8,7 +8,7 @@ folder. A new screen composes it and never rebuilds it.
 
 ## Words
 
-- Song, never tune. Violin, never fiddle. The glossary in `product.md` holds
+- Tune, never song. Violin, never fiddle. The glossary in `product.md` holds
   the terms.
 - Clarity over colloquialism. A label uses the word a player of any folk
   tradition, and a non-native English speaker, understands first, never a
@@ -16,19 +16,19 @@ folder. A new screen composes it and never rebuilds it.
 - Sentence case everywhere. Proper nouns keep their capitals. `ios` edit
   mode copies Apple's capitals.
 - A button is a bare imperative verb: Edit, Save, Delete. Add an object only
-  when the target is ambiguous: Add song, Add to list.
-- Anything that acts on several songs carries the count: "Archive 3 songs",
-  "1 song".
+  when the target is ambiguous: Add tune, Add to list.
+- Anything that acts on several tunes carries the count: "Archive 3 tunes",
+  "1 tune".
 - A title inside a message sits in straight double quotes:
   `Delete "Soldier's Joy"?`
 - Help text is one or two sentences with a period. A label has no period.
 - An example placeholder is lowercase and ends in an ellipsis. A search
-  placeholder is an imperative with a capital: `Search songs`.
+  placeholder is an imperative with a capital: `Search tunes`.
 - A control that opens more interface ends in an ellipsis: `New list…`.
 - A glyph-only control is named in words.
 - A picker's empty choice is named for what it does: "Not set" leaves a
   field empty, "Any" or "All" widens a filter, "Clear" erases across many
-  songs, "Keep" changes nothing. Songs that disagree show "Mixed".
+  tunes, "Keep" changes nothing. Tunes that disagree show "Mixed".
 - A set filter is a filled capsule named for its value. Its remove control
   reads "Remove filter" plus the value.
 - A relative date carries its verb: "Edited today", "Edited Mar 4", with the
@@ -48,7 +48,7 @@ Three axes decide the chrome. No screen asks which device it is on;
 | Frame   | `phone`, `wide`  | Tab bar or sidebar, full width or a measured column       | Viewport width at 768px              |
 | Pointer | `touch`, `mouse` | Swipe or hover, sheet or popover, whether shortcuts exist | `(hover: hover) and (pointer: fine)` |
 
-- One router and one outlet always render. Routes are tab-scoped, so a song
+- One router and one outlet always render. Routes are tab-scoped, so a tune
   opened from a list stays in that tab and Back returns to the list.
 - No overlay is a route. A modal or sheet opens over the current screen and
   the URL does not change.
@@ -134,24 +134,24 @@ Three axes decide the chrome. No screen asks which device it is on;
 - Icons are generated from `brand/` by `just web::icons`, never hand-edited.
 - The status bar takes the page background.
 
-## Song rows
+## Tune rows
 
-Everywhere the app lists songs it uses one row.
+Everywhere the app lists tunes it uses one row.
 
 - Line one is the title, truncated when long.
 - Line two holds the key, the status dot with its label, the tunings for
   played instruments, and "Archived", each omitted when unset. A screen
   reader hears a comma between parts.
 - An archived row is dimmed as a whole.
-- A tap opens the song. While selecting, a tap toggles the row.
+- A tap opens the tune. While selecting, a tap toggles the row.
 - In a list, the row gains a position number, a Reorder button, and a drag
   grip.
 
 ## Keys, modes, and tunings
 
 - A row shows the key alone, never the mode. Modes are lowercase everywhere.
-- A facet shows only when the song holds the value. A screen that shows what
-  a song is puts every facet in one wrapping row, key first.
+- A facet shows only when the tune holds the value. A screen that shows what
+  a tune is puts every facet in one wrapping row, key first.
 - A tuning field, filter, or badge appears only for an instrument the
   musician plays, except a field that already holds a value, which always
   shows so data never becomes unreachable.
@@ -185,7 +185,7 @@ Everywhere the app lists songs it uses one row.
 
 ## Search and create
 
-Every box that searches songs also offers to create one.
+Every box that searches tunes also offers to create one.
 
 - A non-empty query shows an add row under the results: `Add "query"`, or
   `Add another "query"` when the title exists. Titles are not unique, so an
@@ -195,14 +195,14 @@ Every box that searches songs also offers to create one.
 - Enter opens the only visible result, or the hidden exact match, or creates
   when nothing matches. With two or more results Enter only closes the
   keyboard. Enter never creates a duplicate title.
-- The add row carries the typed title into the new song form, and from a
+- The add row carries the typed title into the new tune form, and from a
   picker also the list or the recording.
-- A picker never hides a song. One already in the list stays in the results,
-  marked "In this list" and inert. Pickers search archived songs too.
+- A picker never hides a tune. One already in the list stays in the results,
+  marked "In this list" and inert. Pickers search archived tunes too.
 - The search field is named for what it searches and its placeholder repeats
   that. "Clear search" appears while the field has focus.
 - Query text lasts the browser session and filters persist. Opening the new
-  song form and signing out clear the query.
+  tune form and signing out clear the query.
 
 ## Filters
 
@@ -223,7 +223,7 @@ Only the catalog has filters.
 - A rail of chips stays on one line at every width and text size. It scrolls,
   fades at its end while there is more, and scrolls the chosen chip into
   view.
-- Under the list a count reads "84 songs", or "11 of 84 songs" while
+- Under the list a count reads "84 tunes", or "11 of 84 tunes" while
   narrowed, and is absent when the catalog is empty.
 - Matching ignores case and accents.
 - List screens keep their own Show archived setting.
@@ -243,11 +243,11 @@ and menu items, long press has the Select item, and drag has the move menu.
 - A destructive glyph says what it destroys: trash for gone for good, a list
   with a cross for removed from a list.
 - Editing a row opens the form as a sheet over the current screen.
-- A press held 500 ms on a song row enters selection, on touch only. More
+- A press held 500 ms on a tune row enters selection, on touch only. More
   than 10px of movement cancels it. The phone vibrates where it can.
 - A reorder grip swallows every click and is unnamed, so a draggable row also
   carries a move button that opens a menu. After a move a live region says
-  where the song landed. Both appear only with more than one visible song.
+  where the tune landed. Both appear only with more than one visible tune.
   Reordering stops while selecting, and a selecting row has no swipe actions.
 - On `ios` a pushed page swipes back.
 - On a mouse, `/` focuses search, arrow keys walk the rows, Enter opens,
@@ -266,7 +266,7 @@ Selection is component state, never a URL.
   bar stays.
 - The count is a digit beside a word that can elide. A screen wearing the
   selection toolbar shows no back button.
-- The selection holds only visible songs. A song hidden by search, a filter,
+- The selection holds only visible tunes. A tune hidden by search, a filter,
   or the archived setting leaves it. Select all means the current view.
 - Every action applies at once, ends the mode, and raises a toast with Undo.
   There is no confirmation, because a confirmation gets clicked through and
@@ -281,11 +281,11 @@ Selection is component state, never a URL.
   clears.
 - Focus moves to a row's checkbox on entering and returns to the opening
   control, or the screen landmark, on leaving.
-- Bulk edit is the song form over many songs. Each row shows the shared
+- Bulk edit is the tune form over many tunes. Each row shows the shared
   value, `Not set`, or `Mixed`. Only a touched row is written, and Save is
   dead until one is. A choice row clears through Clear, a yes or no row keeps
   through Keep, and `Other…` keeps the current value.
-- A field whose value is unique to one song is never bulk editable.
+- A field whose value is unique to one tune is never bulk editable.
 
 ## Forms
 
@@ -373,7 +373,7 @@ Recordings and links share one row shape.
   musician's own recordings first.
 - A header carries only the name of what its rows belong to. When it leads
   somewhere, the whole line opens it.
-- The dock opens only from a play tap. Opening a song never loads a player.
+- The dock opens only from a play tap. Opening a tune never loads a player.
   At most one item is loaded, and it stays loaded while the musician browses.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.

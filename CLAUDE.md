@@ -20,7 +20,7 @@ Feature specs, plans, and design records go in the vault, never under
 
 ## Naming
 
-`violin`, never `fiddle`, and song, never tune, in the schema, the API, and
+`violin`, never `fiddle`, and tune, never song, in the schema, the API, and
 every label. The glossary in `docs/product.md` has the reasons.
 
 ## Task runner

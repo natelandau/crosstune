@@ -59,7 +59,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row. |
 | Who owns a row           | The token.                                                                                                                                                                                |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                       |
-| Which tables sync        | User settings, songs, user-song, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                          |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                          |
 | Which local database     | One per user, named after the user, so two accounts on one phone never share data. Sign-out deletes it, and refuses while the outbox holds unsent changes.                                |
 | Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                   |
 | Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                            |
@@ -83,7 +83,7 @@ Push:
   else. Only that change is refused. The client drops it and reports to
   Sentry. A recording link whose URL names a scheme other than http or https
   is invalid. A URL with no scheme is accepted, as the paste sheet accepts it.
-- A song delete cascades to its user record, links, and list items. A list
+- A tune delete cascades to its user record, links, and list items. A list
   delete cascades to its items.
 - A row carrying an unknown field, or missing an expected one, is `invalid`.
   An old client against a new API and a new client against an old API fail
