@@ -54,7 +54,13 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   learned_on: 'date',
 }
 
-const USER_TUNE_FIELDS: ReadonlySet<EditField> = new Set(['status', 'learned_from', 'learned_on'])
+const USER_TUNE_FIELDS = ['status', 'learned_from', 'learned_on'] as const satisfies EditField[]
+
+type UserTuneField = (typeof USER_TUNE_FIELDS)[number]
+
+function isUserTuneField(field: EditField): field is UserTuneField {
+  return USER_TUNE_FIELDS.some((userField) => userField === field)
+}
 
 export type Summary =
   { kind: 'shared'; value: string | boolean } | { kind: 'mixed' } | { kind: 'empty' }
@@ -66,11 +72,7 @@ export type Touched = Partial<Record<EditField, TouchedValue>>
 // A server row can carry a value from a schema version this client predates;
 // fall back to empty rather than trust it as one of this client's known options.
 function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | null {
-  const row = (USER_TUNE_FIELDS.has(field) ? entry.userTune : entry.tune) as unknown as Record<
-    string,
-    unknown
-  >
-  const value = row[field]
+  const value: unknown = isUserTuneField(field) ? entry.userTune[field] : entry.tune[field]
   if (typeof value !== 'string' && typeof value !== 'boolean') return null
   if (field === 'mode') return (MODES as readonly string[]).includes(value as string) ? value : null
   if (field === 'time_signature')
@@ -126,7 +128,7 @@ export function toPatch(touched: Touched): BulkPatch {
     if (raw === undefined) continue
     const value = normalize(raw)
     if (field === 'status' && value === null) continue
-    const target = USER_TUNE_FIELDS.has(field) ? userTune : tune
+    const target = isUserTuneField(field) ? userTune : tune
     target[field] = value
   }
   return { tune: tune as BulkPatch['tune'], userTune: userTune as BulkPatch['userTune'] }
