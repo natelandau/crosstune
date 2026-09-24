@@ -167,6 +167,10 @@ A change to the shape of a synced row:
   later one that drops the old field.
 - Otherwise ship the client first and the API minutes later. An API shipped
   first breaks every install until its service worker updates.
+- A migration renaming a table or column breaks the running API between the
+  pre-deploy migration and the new API passing its healthcheck. Sync
+  requests fail with a retryable 5xx and no edit is lost, but a transcode
+  claimed in that gap uses one retry.
 
 Rollback:
 
