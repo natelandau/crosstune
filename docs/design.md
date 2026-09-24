@@ -168,6 +168,8 @@ Everywhere the app lists tunes it uses one row.
   "Capo 2". A tune's own screen shows every tuning, standard included.
 - A capo is offered only for a fretted instrument, as a closed list from
   None to 12.
+- A row names the instrument before a tuning only when the player plays
+  more than one instrument. A tune's own screen always names it.
 - A field's label reads the same on every screen. A row under a header that
   carries half the name may show less, but a screen reader hears the full
   name.
