@@ -1,5 +1,5 @@
 import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
-import { FEELS, GENRES, PART_STRUCTURES } from '../../constants'
+import { GENRES, PART_STRUCTURES, TUNE_TYPES } from '../../constants'
 
 export type DetailField =
   | {
@@ -67,7 +67,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     kind: 'pick',
     key: 'tune_type',
     label: DETAIL_LABELS.tune_type,
-    options: FEELS,
+    options: TUNE_TYPES,
     other: true,
     maxLength: TUNE_LIMITS.tune_type,
   },

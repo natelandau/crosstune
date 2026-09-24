@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import openapi from './api/openapi.json'
 import { INSTRUMENTS } from './api/vocabulary'
-import { CAPO_FRETS, CAPO_INSTRUMENTS, FEELS, STANDARD_TUNINGS, TUNINGS } from './constants'
+import { CAPO_FRETS, CAPO_INSTRUMENTS, STANDARD_TUNINGS, TUNE_TYPES, TUNINGS } from './constants'
 
-describe('FEELS', () => {
-  it('offers Song, the feel stored rows carry for a piece with words', () => {
-    expect(FEELS).toContain('Song')
+describe('TUNE_TYPES', () => {
+  it('offers Song, the type stored rows carry for a piece with words', () => {
+    expect(TUNE_TYPES).toContain('Song')
   })
 })
 

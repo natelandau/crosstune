@@ -8,7 +8,14 @@ import {
   type Instrument,
 } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
-import { FEELS, GENRES, PART_STRUCTURES, QUICK_KEYS, STATUS_LABELS, TUNINGS } from '../../constants'
+import {
+  GENRES,
+  PART_STRUCTURES,
+  QUICK_KEYS,
+  STATUS_LABELS,
+  TUNE_TYPES,
+  TUNINGS,
+} from '../../constants'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow, NOT_SET } from '../../ui/FieldRow'
 import { Group } from '../../ui/Group'
@@ -37,7 +44,7 @@ const PICKS: Partial<Record<EditField, { options: readonly string[]; other: bool
   mode: { options: MODES, other: false },
   ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
   genre: { options: GENRES, other: true },
-  tune_type: { options: FEELS, other: true },
+  tune_type: { options: TUNE_TYPES, other: true },
   time_signature: { options: TIME_SIGNATURES, other: false },
   part_structure: { options: PART_STRUCTURES, other: true },
 }

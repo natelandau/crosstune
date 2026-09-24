@@ -7,7 +7,13 @@
  * through the contract, as `src/api/vocabulary.ts`; the label tables below are typed against
  * them, so a new server value fails the build until it has a label.
  */
-import type { AudioQuality, Instrument, Provider, TuneStatus } from './api/vocabulary'
+import type {
+  AudioQuality,
+  Instrument,
+  Provider,
+  TimeSignature,
+  TuneStatus,
+} from './api/vocabulary'
 
 // ---- Instruments and tunings ---------------------------------------------------------------
 
@@ -103,20 +109,70 @@ export const QUICK_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'Bb', 'Eb'] as con
 
 // ---- Tune details --------------------------------------------------------------------------
 
-export const GENRES = ['Old-time', 'Bluegrass', 'Irish', 'Cajun', 'Gospel', 'Blues', 'Swing']
-
-export const FEELS = [
-  'Breakdown',
-  'Waltz',
-  'Rag',
-  'Jig',
-  'Reel',
-  'Hornpipe',
-  'March',
-  // A feel for a piece with words. Stored rows hold this exact string.
-  'Song',
-  'Slow',
+export const GENRES = [
+  'Old-time',
+  'Bluegrass',
+  'Irish',
+  'Scottish',
+  'Cape Breton',
+  'Cajun',
+  'Gospel',
+  'Blues',
+  'Swing',
 ]
+
+/**
+ * The types a genre's players reach for, most common first. A tune in one of these genres
+ * offers these types first; every other type follows alphabetically.
+ */
+export const GENRE_TYPES: Record<string, readonly string[]> = {
+  Irish: [
+    'Reel',
+    'Jig',
+    'Slip jig',
+    'Single jig',
+    'Hop jig',
+    'Slide',
+    'Polka',
+    'Hornpipe',
+    'Barndance',
+    'Highland',
+    'Mazurka',
+    'Set dance',
+    'Air',
+    'Planxty',
+    'March',
+    'Waltz',
+  ],
+  Scottish: ['Reel', 'Jig', 'Strathspey', 'March', 'Air', 'Waltz'],
+  'Old-time': ['Breakdown', 'Waltz', 'Rag', 'Hornpipe', 'March', 'Song'],
+  Bluegrass: ['Breakdown', 'Song', 'Waltz', 'Gospel'],
+}
+
+/** Every suggested type, once. */
+export const TUNE_TYPES: readonly string[] = [
+  ...new Set([...Object.values(GENRE_TYPES).flat(), 'Slow']),
+].sort()
+
+/** The time signature a type is written in, for the types that have only one. */
+export const TYPE_TIME_SIGNATURES: Record<string, TimeSignature> = {
+  Reel: '4/4',
+  Hornpipe: '4/4',
+  Barndance: '4/4',
+  Highland: '4/4',
+  Strathspey: '4/4',
+  Breakdown: '4/4',
+  Rag: '4/4',
+  Jig: '6/8',
+  'Slip jig': '9/8',
+  'Hop jig': '9/8',
+  Slide: '12/8',
+  'Single jig': '12/8',
+  Polka: '2/4',
+  March: '2/4',
+  Waltz: '3/4',
+  Mazurka: '3/4',
+}
 
 export const PART_STRUCTURES = ['AABB', 'AABBCC', 'AB', 'ABC', 'AAB', 'ABB']
 
