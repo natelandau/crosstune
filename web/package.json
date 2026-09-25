@@ -19,7 +19,7 @@
     "fix": "eslint --fix . && prettier --write .",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
-    "contract": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts"
+    "contract": "openapi-typescript ../api/openapi.json -o src/api/schema.d.ts"
   },
   "devDependencies": {
     "@clerk/testing": "^2.2.34",

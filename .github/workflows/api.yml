@@ -4,11 +4,11 @@ name: API
 on:
   pull_request:
     paths:
-      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml"]
   push:
     branches: [main]
     paths:
-      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml"]
   workflow_call:
 
 permissions:
@@ -85,4 +85,4 @@ jobs:
       - run: just contract
       - name: fail if the committed contract is stale
         working-directory: .
-        run: git diff --exit-code -- web/src/api/openapi.json
+        run: git diff --exit-code -- api/openapi.json
