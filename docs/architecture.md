@@ -89,9 +89,11 @@ Push:
   is invalid. A URL with no scheme is accepted, as the paste sheet accepts it.
 - A tune delete cascades to its user record, links, and list items. A list
   delete cascades to its items.
-- A row carrying an unknown field, or missing an expected one, is `invalid`.
-  An old client against a new API and a new client against an old API fail
-  alike. `operations.md` says how to release a schema change.
+- A row carrying an unknown field, or missing a required one, is
+  `invalid`. A missing optional field takes its default, so an upsert from
+  a client that predates the field resets it. A new client against an old
+  API fails on the unknown field. `operations.md` says how to release a
+  schema change.
 
 Pull:
 

@@ -164,9 +164,10 @@ git push --follow-tags origin main
 
 A change to the shape of a synced row:
 
-- The API refuses a push with an unknown or missing field, and the refused
-  edit is lost. One tag deploys both sides within minutes of each other, in
-  either order.
+- The API refuses a push with an unknown field or a missing required
+  field, and the refused edit is lost. A push without an optional field
+  stores its default, so a client that predates the field resets it. One
+  tag deploys both sides within minutes of each other, in either order.
 - Once the app has real users, a shape change is staged so no edit is
   lost: an API release that accepts both shapes, then the client, then an
   API release that drops the old field.
