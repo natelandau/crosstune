@@ -162,11 +162,14 @@ A change to the shape of a synced row:
 
 - The API refuses a push with an unknown or missing field, and the refused
   edit is lost. One tag deploys both sides within minutes of each other, in
-  either order, and an edit in that window is lost.
-- The lossless path is an API release that accepts both shapes, then a
-  later one that drops the old field.
-- Otherwise ship the client first and the API minutes later. An API shipped
-  first breaks every install until its service worker updates.
+  either order.
+- Once the app has real users, a shape change is staged so no edit is
+  lost: an API release that accepts both shapes, then the client, then an
+  API release that drops the old field.
+- While the app is pre-release, a clean break ships in one tag. An edit
+  made while the two sides disagree is lost. After both hosts deploy,
+  reload the app: the service worker updates and the local database starts
+  over.
 - A migration renaming or dropping a table or column breaks the running API
   between the pre-deploy migration and the new API passing its healthcheck.
   Sync requests that touch the changed table fail with a retryable 5xx and
@@ -177,9 +180,6 @@ A change to the shape of a synced row:
 - A value added to a validated vocabulary is recognized by the client in
   one release and offered in the next, once the API that accepts it is
   live on both hosts, because one tag deploys both sides in either order.
-- A release that drops a sync compatibility layer deploys the API first
-  and the web client after the API passes its healthcheck. A new client
-  against the old API reads rows in the old shape.
 - A local shape change bumps the Dexie version with the start-over
   upgrader while the app is pre-release. Each device loses its unsent
   edits and unuploaded recordings, then pulls every row again.

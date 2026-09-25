@@ -99,7 +99,11 @@ Pull:
   The next pull fetches every row again. Unsent edits and unuploaded
   recordings on that device are lost.
 - A client that finds a local database written by a newer client, as after
-  a web rollback, deletes it and pulls from zero, with the same loss.
+  a web rollback, deletes the whole database and pulls from zero. It loses
+  what a start-over loses and also the meta a start-over keeps, such as
+  catalog filters and keep offline.
+- Where `indexedDB.databases()` is missing, as in Firefox before 126, the
+  client cannot see the newer version and opens that database as it is.
 - A pulled row that is also in the outbox with a newer local timestamp keeps
   the local row. The next push settles it.
 
