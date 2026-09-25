@@ -71,13 +71,18 @@ describe('createTune', () => {
   it('creates a tune with a type, part modes, and a composer', async () => {
     const { tuneId } = await createTune(
       db,
-      { title: 'The Kesh', tune_type: 'Jig', modes: ['major', 'mixolydian'], composer: 'Trad.' },
+      {
+        title: 'The Kesh',
+        tune_type: 'Jig',
+        modes: ['major', 'mixolydian'],
+        composer: 'Traditional',
+      },
       { status: 'known' },
     )
     expect(await db.tunes.get(tuneId)).toMatchObject({
       tune_type: 'Jig',
       modes: ['major', 'mixolydian'],
-      composer: 'Trad.',
+      composer: 'Traditional',
     })
   })
 

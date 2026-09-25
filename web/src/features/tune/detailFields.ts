@@ -1,6 +1,6 @@
 import { TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
 import { GENRES, PART_STRUCTURES, TUNE_TYPES } from '../../constants'
-import { TRAD } from './tuneTypes'
+import { TRADITIONAL } from './tuneTypes'
 
 export type DetailField =
   | {
@@ -63,7 +63,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     kind: 'pick',
     key: 'composer',
     label: DETAIL_LABELS.composer,
-    options: [TRAD],
+    options: [TRADITIONAL],
     other: true,
     maxLength: TUNE_LIMITS.composer,
   },

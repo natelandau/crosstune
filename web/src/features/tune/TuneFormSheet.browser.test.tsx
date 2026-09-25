@@ -24,6 +24,7 @@ import {
   type TuneFormTarget,
 } from './TuneFormSheet'
 import { OTHER_OPTION } from './SuggestSelect'
+import { TRADITIONAL } from './tuneTypes'
 
 vi.mock('../../commands/tunes', { spy: true })
 
@@ -825,16 +826,16 @@ describe('TuneFormSheet', () => {
       .toBeInTheDocument()
   })
 
-  it('suggests the catalog composers after Trad.', async () => {
+  it('suggests the catalog composers after Traditional', async () => {
     const db = openTestDb()
     await createTune(db, { title: 'Lucy Farr', composer: 'Ed Reavy' }, { status: 'known' })
     renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
     await openDetail(`${DETAIL_LABELS.composer}, ${NOT_SET}`)
     await expect.element(page.getByRole('radio', { name: 'Ed Reavy' })).toBeVisible()
-    await page.getByRole('radio', { name: 'Trad.' }).click()
+    await page.getByRole('radio', { name: TRADITIONAL }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await sheetDismissed()
     const created = (await db.tunes.toArray()).find((t) => t.title === 'The Kesh')
-    expect(created?.composer).toBe('Trad.')
+    expect(created?.composer).toBe(TRADITIONAL)
   })
 })

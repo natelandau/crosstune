@@ -327,12 +327,12 @@ async def test_tunes_hold_type_modes_and_composer(session: AsyncSession) -> None
             "insert into tunes (id, owner_user_id, title, tune_type, modes, composer, "
             "time_signature, is_crooked, created_at, updated_at) values "
             "('018f0000-0000-7000-8000-000000000002', '018f0000-0000-7000-8000-000000000001', "
-            "'Rolling in the Ryegrass', 'Reel', '{major,dorian}', 'Trad.', '3/2', false, "
+            "'Rolling in the Ryegrass', 'Reel', '{major,dorian}', 'Traditional', '3/2', false, "
             "now(), now())"
         )
     )
     row = (await session.execute(text("select tune_type, modes, composer from tunes"))).one()
-    assert row == ("Reel", ["major", "dorian"], "Trad.")
+    assert row == ("Reel", ["major", "dorian"], "Traditional")
 
 
 async def test_modes_check_rejects_an_unknown_mode(session: AsyncSession) -> None:

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { TYPE_TIME_SIGNATURES } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
-import { TRAD, catalogComposers, mostUsedGenre, orderedTypes, timeSignatureFor } from './tuneTypes'
+import {
+  TRADITIONAL,
+  catalogComposers,
+  mostUsedGenre,
+  orderedTypes,
+  timeSignatureFor,
+} from './tuneTypes'
 
 function entry(fields: Partial<CatalogEntry['tune']>): CatalogEntry {
   return {
@@ -84,9 +90,9 @@ describe('mostUsedGenre', () => {
 })
 
 describe('catalogComposers', () => {
-  it('offers Trad. first, then every composer once, alphabetically', () => {
+  it('offers Traditional first, then every composer once, alphabetically', () => {
     const entries = [entry({ composer: 'Ed Reavy' }), entry({ composer: 'ed reavy' })]
-    expect(catalogComposers(entries)).toEqual([TRAD, 'Ed Reavy'])
+    expect(catalogComposers(entries)).toEqual([TRADITIONAL, 'Ed Reavy'])
   })
 
   it('spells a composer the way most tunes do', () => {
@@ -95,7 +101,7 @@ describe('catalogComposers', () => {
       entry({ composer: 'Ed Reavy' }),
       entry({ composer: 'Ed Reavy' }),
     ]
-    expect(catalogComposers(entries)).toEqual([TRAD, 'Ed Reavy'])
+    expect(catalogComposers(entries)).toEqual([TRADITIONAL, 'Ed Reavy'])
   })
 })
 

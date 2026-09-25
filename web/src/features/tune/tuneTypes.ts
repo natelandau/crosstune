@@ -3,7 +3,7 @@ import { GENRES, GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../con
 import type { CatalogEntry } from '../catalog/filters'
 
 /** The composer a player writes for a tune with no known author. */
-export const TRAD = 'Trad.'
+export const TRADITIONAL = 'Traditional'
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 const same = (a: string, b: string) => collator.compare(a, b) === 0
@@ -97,10 +97,10 @@ export function mostUsedGenre(entries: readonly CatalogEntry[]): string | null {
   )
 }
 
-/** Composer suggestions: Trad. first, then every composer the catalog holds, alphabetically. */
+/** Composer suggestions: Traditional first, then every composer the catalog holds, alphabetically. */
 export function catalogComposers(entries: readonly CatalogEntry[]): string[] {
   const named = [...tally(live(entries).map((e) => e.tune.composer)).keys()]
-  return [TRAD, ...without(named, [TRAD]).sort(collator.compare)]
+  return [TRADITIONAL, ...without(named, [TRADITIONAL]).sort(collator.compare)]
 }
 
 /** The one time signature a type is written in, or null when it has none or several. */

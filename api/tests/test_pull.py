@@ -95,12 +95,12 @@ async def test_pull_carries_type_modes_and_composer_only(client, auth_headers) -
             title="Cooley's",
             tune_type="Reel",
             modes=["dorian"],
-            composer="Trad.",
+            composer="Traditional",
         ),
     )
     body = await pull(client, headers)
     row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
-    assert (row["tune_type"], row["modes"], row["composer"]) == ("Reel", ["dorian"], "Trad.")
+    assert (row["tune_type"], row["modes"], row["composer"]) == ("Reel", ["dorian"], "Traditional")
     assert "feel" not in row
     assert "mode" not in row
 

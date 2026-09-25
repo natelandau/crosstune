@@ -42,10 +42,14 @@ def test_tune_accepts_type_modes_and_composer() -> None:
         title="The Mason's Apron",
         tune_type="Reel",
         modes=["major", "minor"],
-        composer="Trad.",
+        composer="Traditional",
         created_at=NOW,
     )
-    assert (tune.tune_type, tune.modes, tune.composer) == ("Reel", ["major", "minor"], "Trad.")
+    assert (tune.tune_type, tune.modes, tune.composer) == (
+        "Reel",
+        ["major", "minor"],
+        "Traditional",
+    )
 
 
 def test_tune_rejects_a_fifth_mode() -> None:
