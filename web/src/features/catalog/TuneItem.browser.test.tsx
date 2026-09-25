@@ -134,8 +134,10 @@ describe('TuneItem', () => {
   it('shows the key with its first mode and reads the full name', async () => {
     show(tuneRow('s1', "Soldier's Joy", { key: 'E', modes: ['dorian', 'major'] }))
     const meta = document.querySelector('[data-tune-meta]')!
-    expect(meta.querySelector('.key-pill')?.textContent).toBe('E dor')
-    expect(meta.textContent).toContain('Key E dorian')
+    const pill = meta.querySelector('.key-pill')!
+    expect(pill.textContent).toBe('E dor')
+    expect(pill.closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key E dorian')
   })
 
   it('shows no mode for a tune with no key', async () => {

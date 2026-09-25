@@ -37,6 +37,9 @@ export const DETAIL_LABELS = {
   learned_on: 'Learned on',
 } as const
 
+/** The tune screen's own composer line, beside the Details field of the same name. */
+export const COMPOSER_LABEL = DETAIL_LABELS.composer
+
 /** Each part's mode row, in part order. The first covers the whole tune when it has one mode. */
 export const PART_MODE_LABELS = ['Mode', 'B part mode', 'C part mode', 'D part mode'] as const
 

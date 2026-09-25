@@ -19,15 +19,9 @@ import { RecordProvider } from '../recording/useRecord'
 import * as recordingsModule from '../recordings/useRecordings'
 import type * as ConfirmModule from '../../ui/Confirm'
 import type * as TunesModule from '../../commands/tunes'
+import { COMPOSER_LABEL } from './detailFields'
 import { EDIT_TUNE_TITLE } from './TuneFormSheet'
-import {
-  ADD_TO_LIST_TITLE,
-  COMPOSER_LABEL,
-  NOT_IN_LIST,
-  OPEN_LYRICS,
-  TUNE_GONE,
-  TuneScreen,
-} from './TuneScreen'
+import { ADD_TO_LIST_TITLE, NOT_IN_LIST, OPEN_LYRICS, TUNE_GONE, TuneScreen } from './TuneScreen'
 
 vi.mock('../../commands/tunes', { spy: true })
 vi.mock('../../commands/lists', { spy: true })

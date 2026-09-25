@@ -27,7 +27,7 @@ import { tuningDisplay, tuningInstruments, tuningKey } from '../settings/instrum
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
-import { DETAIL_LABELS } from './detailFields'
+import { COMPOSER_LABEL } from './detailFields'
 import { TuneFormSheet, type TuneFormTarget } from './TuneFormSheet'
 import { TuneMedia } from './TuneMedia'
 import { useTune } from './useTune'
@@ -36,8 +36,6 @@ export const ADD_TO_LIST_TITLE = 'Add to a list'
 export const NOT_IN_LIST = 'Not in any list yet.'
 export const OPEN_LYRICS = 'Open lyrics'
 export const TUNE_GONE = 'This tune is gone'
-// A template literal, not a plain reference, so react-refresh still treats this as a constant.
-export const COMPOSER_LABEL = `${DETAIL_LABELS.composer}`
 
 type Params = Readonly<Record<string, string | undefined>>
 
