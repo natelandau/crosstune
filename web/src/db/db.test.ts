@@ -190,6 +190,26 @@ describe('schema', () => {
       await upgraded.delete()
     }
   })
+
+  it('deletes a database a newer client wrote and opens it fresh', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v6 = new Dexie(name)
+    v6.version(6).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v6.table('tunes').put({ id: tune.id, title: tune.title })
+    await v6.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v6.close()
+
+    const older = new CrosstuneDb(name)
+    try {
+      // A query auto-opens, the path the app takes.
+      expect(await older.tunes.count()).toBe(0)
+      expect(older.backendDB().version).toBe(50)
+      expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
+      expect(await getPullCursor(older)).toBe(0)
+    } finally {
+      await older.delete()
+    }
+  })
 })
 
 describe('outbox', () => {

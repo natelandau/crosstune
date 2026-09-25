@@ -29,6 +29,22 @@ async function startOver(tx: Transaction): Promise<void> {
   await tx.table('meta').delete(META_PULL_CURSOR)
 }
 
+/**
+ * Delete the named database when a newer client wrote it, as after a web rollback. Dexie opens
+ * a newer database as it is, so this client would read rows in a shape it does not know and
+ * keep a pull cursor that never refills its own stores. Unsynced edits are dropped.
+ */
+async function deleteIfNewer(name: string, verno: number): Promise<void> {
+  const factory = Dexie.dependencies.indexedDB
+  // Firefox before 126 has no databases() and opens a newer database as it is.
+  if (!('databases' in factory)) return
+  const stored = (await factory.databases()).find((info) => info.name === name)
+  // Dexie stores version n as native version 10n, plus one when it patches a schema in place.
+  if (stored?.version !== undefined && Math.floor(stored.version / 10) > verno) {
+    await Dexie.delete(name)
+  }
+}
+
 export class CrosstuneDb extends Dexie {
   // EntityTable<T, K> makes the key property K optional on insert, Dexie's convention for
   // autoincrement keys. These tables use app-supplied ids, so Table<T, string> keeps inserts
@@ -44,6 +60,7 @@ export class CrosstuneDb extends Dexie {
   recording_chunks!: Table<RecordingChunk, [string, number]>
   outbox!: EntityTable<OutboxEntry, 'seq'>
   meta!: Table<MetaEntry, string>
+  private newerChecked: Promise<void> | undefined
 
   constructor(name: string) {
     super(name)
@@ -66,6 +83,13 @@ export class CrosstuneDb extends Dexie {
         user_songs: null,
       })
       .upgrade(startOver)
+  }
+
+  // Dexie's auto-open on the first query calls this method too.
+  override open() {
+    // A failed check must not keep the app from opening its database.
+    this.newerChecked ??= deleteIfNewer(this.name, this.verno).catch(() => undefined)
+    return Dexie.Promise.resolve(this.newerChecked).then(() => super.open())
   }
 }
 
