@@ -10,21 +10,24 @@ import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
+import { useCatalog } from '../catalog/useCatalog'
 import { LyricsSheet } from '../lyrics/LyricsSheet'
 import { capoLabel, NO_CAPO, tuningInstruments, tuningLabel } from '../settings/instruments'
 import { DETAIL_FIELDS, DETAILS_FOOTER } from './detailFields'
 import { KeyChooser } from './KeyChooser'
+import { ModeRows } from './ModeRows'
 import {
-  asMode,
   asTimeSignature,
   emptyValues,
   inputsFromValues,
+  typeChanged,
   valuesFromRows,
   type TuneFormValues,
   type TuningValues,
 } from './tuneFormValues'
 import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
+import { catalogComposers, mostUsedGenre, orderedTypes } from './tuneTypes'
 
 export const TITLE_REQUIRED = 'A title is required'
 export const EDIT_TUNE_TITLE = 'Edit tune'
@@ -56,6 +59,7 @@ export function TuneFormSheet({
   onSaved: (ids: { tuneId: string; userTuneId: string }) => void
 }) {
   const db = useDb()
+  const catalog = useCatalog(target !== null) ?? []
   const { error, pending, runThen, clear } = useAction()
   const [values, setValues] = useState<TuneFormValues>(emptyValues)
   const [tunings, setTunings] = useState<Instrument[]>([])
@@ -70,6 +74,10 @@ export function TuneFormSheet({
   const [shown, setShown] = useState<TuneFormTarget | null>(null)
   // Set by Cancel or a save; the sheet closes itself and reports it once, when dismissal ends.
   const [closing, setClosing] = useState(false)
+  // A type fills the time signature only while the player has not chosen one.
+  const [timeSignatureTouched, setTimeSignatureTouched] = useState(false)
+  // The seeded genre stands down once the player picks one, even an empty one.
+  const [genreTouched, setGenreTouched] = useState(false)
 
   // Reset during render so the sheet's first frame already shows the target's values. Tunings
   // are decided at open, so a field never disappears mid-edit.
@@ -82,6 +90,8 @@ export function TuneFormSheet({
       setTunings(tuningInstruments(instruments, target.kind === 'edit' ? target.entry.tune : null))
       setValidation(null)
       setEditingLyrics(false)
+      setTimeSignatureTouched(false)
+      setGenreTouched(false)
       clear()
     }
   }
@@ -95,6 +105,12 @@ export function TuneFormSheet({
     if (validation) input.setAttribute('aria-invalid', 'true')
     else input.removeAttribute('aria-invalid')
   }, [validation])
+
+  // The catalog arrives after the open-reset has run, so a new tune's genre is seeded on the
+  // first render that has it. Seeding fills the genre, so this runs once per open.
+  const seedGenre =
+    target?.kind === 'new' && !genreTouched && values.genre === '' ? mostUsedGenre(catalog) : null
+  if (seedGenre) setValues((current) => ({ ...current, genre: seedGenre }))
 
   const set = <K extends keyof TuneFormValues>(key: K, value: TuneFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }))
@@ -164,6 +180,12 @@ export function TuneFormSheet({
     // A parent may reopen the sheet with the very target object that was just saved.
     savingFor.current = null
     if (target === null || closing) onClose()
+  }
+
+  const pickOptions = (key: string, options: readonly string[]): readonly string[] => {
+    if (key === 'tune_type') return orderedTypes(values.genre, catalog)
+    if (key === 'composer') return catalogComposers(catalog)
+    return options
   }
 
   const editing = shown?.kind === 'edit'
@@ -329,20 +351,32 @@ export function TuneFormSheet({
                 </FieldRow>
               )
             }
+            if (field.kind === 'modes') {
+              return (
+                <ModeRows key={field.key} modes={values.modes} onChange={(m) => set('modes', m)} />
+              )
+            }
             return (
               <SuggestSelect
                 key={field.key}
                 detail={field.label}
                 label={field.label}
                 value={values[field.key]}
-                options={field.options}
+                options={pickOptions(field.key, field.options)}
                 other={field.other}
                 maxLength={field.maxLength}
                 onChange={(value) => {
-                  if (field.key === 'mode') set('mode', asMode(value))
-                  else if (field.key === 'time_signature')
+                  if (field.key === 'tune_type') {
+                    setValues((current) =>
+                      typeChanged(current, value, target?.kind === 'new', timeSignatureTouched),
+                    )
+                  } else if (field.key === 'time_signature') {
+                    setTimeSignatureTouched(true)
                     set('time_signature', asTimeSignature(value))
-                  else set(field.key, value)
+                  } else {
+                    if (field.key === 'genre') setGenreTouched(true)
+                    set(field.key, value)
+                  }
                 }}
               />
             )

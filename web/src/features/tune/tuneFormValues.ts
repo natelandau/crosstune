@@ -11,6 +11,7 @@ import type { TuneInput, UserTuneInput } from '../../commands/tunes'
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { isTuneStatus } from '../catalog/status'
 import { setTuning, tuningEntry, tuningsMap, type TuningsMap } from '../settings/instruments'
+import { timeSignatureFor } from './tuneTypes'
 
 /** One instrument's tuning and capo as the form holds them: text, empty when unset. */
 export interface TuningValues {
@@ -22,7 +23,8 @@ export interface TuneFormValues {
   title: string
   alternate_titles: string
   key: string
-  mode: Mode | ''
+  modes: (Mode | '')[]
+  composer: string
   tunings: Partial<Record<Instrument, TuningValues>>
   genre: string
   tune_type: string
@@ -41,7 +43,8 @@ export function emptyValues(): TuneFormValues {
     title: '',
     alternate_titles: '',
     key: '',
-    mode: '',
+    modes: [],
+    composer: '',
     tunings: {},
     genre: '',
     tune_type: '',
@@ -69,7 +72,8 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
     title: tune.title,
     alternate_titles: tune.alternate_titles.join(', '),
     key: tune.key ?? '',
-    mode: asMode(tune.modes[0]),
+    modes: tune.modes.map(asMode).filter((m): m is Mode => m !== ''),
+    composer: tune.composer ?? '',
     tunings: Object.fromEntries(
       INSTRUMENTS.map((instrument) => {
         const { tuning, capo } = tuningEntry(tune.tunings, instrument)
@@ -121,7 +125,8 @@ export function inputsFromValues(
         .map((t) => t.trim())
         .filter(Boolean),
       key: blankToNull(values.key),
-      modes: values.mode ? [values.mode] : [],
+      modes: values.modes.filter((m): m is Mode => m !== ''),
+      composer: blankToNull(values.composer),
       tunings: tuningsFromValues(values, stored),
       genre: blankToNull(values.genre),
       tune_type: blankToNull(values.tune_type),
@@ -137,4 +142,20 @@ export function inputsFromValues(
       notes: blankToNull(values.notes),
     },
   }
+}
+
+/**
+ * The values after choosing a type. The type's time signature replaces one the player has
+ * not chosen: an empty one, or a new tune's untouched default.
+ */
+export function typeChanged(
+  values: TuneFormValues,
+  type: string,
+  isNew: boolean,
+  timeSignatureTouched: boolean,
+): TuneFormValues {
+  const next = { ...values, tune_type: type }
+  const fill = timeSignatureFor(type)
+  const replaceable = values.time_signature === '' || (isNew && !timeSignatureTouched)
+  return fill && replaceable ? { ...next, time_signature: fill } : next
 }

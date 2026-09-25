@@ -7,7 +7,14 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
 import { tuneRow, userTuneRow } from '../../test/rows'
-import { CROOKED_HELP, DETAILS_FOOTER, DETAIL_LABELS } from './detailFields'
+import { NOT_SET } from '../../ui/FieldRow'
+import {
+  ADD_PART_MODE,
+  CROOKED_HELP,
+  DETAILS_FOOTER,
+  DETAIL_LABELS,
+  PART_MODE_LABELS,
+} from './detailFields'
 import {
   EDIT_TUNE_TITLE,
   NEW_TUNE_TITLE,
@@ -73,10 +80,11 @@ describe('TuneFormSheet', () => {
     )
     expect(labels).toEqual([
       DETAIL_LABELS.alternate_titles,
+      DETAIL_LABELS.composer,
       DETAIL_LABELS.mode,
       DETAIL_LABELS.genre,
-      DETAIL_LABELS.time_signature,
       DETAIL_LABELS.tune_type,
+      DETAIL_LABELS.time_signature,
       DETAIL_LABELS.part_structure,
       DETAIL_LABELS.is_crooked,
       DETAIL_LABELS.lyrics,
@@ -682,5 +690,144 @@ describe('TuneFormSheet', () => {
     // The row is a way in, so it reads the same before and after: the words live on the other
     // side of it.
     await expect.element(row).toBeVisible()
+  })
+
+  it('shows Genre above Type', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    const genre = page.getByRole('button', { name: `${DETAIL_LABELS.genre}, ${NOT_SET}` })
+    const type = page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, ${NOT_SET}` })
+    await expect.element(genre).toBeInTheDocument()
+    const order = genre.element().compareDocumentPosition(type.element())
+    expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('adds a B part mode row once the first mode is set', async () => {
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
+    await expect.element(page.getByRole('button', { name: ADD_PART_MODE })).not.toBeInTheDocument()
+    await openDetail(`${PART_MODE_LABELS[0]}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: 'dorian' }).click()
+    await page.getByRole('button', { name: ADD_PART_MODE }).click()
+    await expect
+      .element(page.getByRole('button', { name: `${PART_MODE_LABELS[1]}, ${NOT_SET}` }))
+      .toBeInTheDocument()
+  })
+
+  it('keeps the B part row when the first mode is cleared, and saves no gap', async () => {
+    const db = openTestDb()
+    const { tuneId, userTuneId } = await createTune(
+      db,
+      { title: "Cooley's", modes: ['major', 'minor'] },
+      { status: 'known' },
+    )
+    const entry = {
+      tune: (await db.tunes.get(tuneId))!,
+      userTune: (await db.user_tunes.get(userTuneId))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await openDetail(`${PART_MODE_LABELS[0]}, major`)
+    await page.getByRole('radio', { name: NOT_SET }).click()
+    await expect
+      .element(page.getByRole('button', { name: `${PART_MODE_LABELS[0]}, ${NOT_SET}` }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: `${PART_MODE_LABELS[1]}, minor` }))
+      .toBeInTheDocument()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await sheetDismissed()
+    expect((await db.tunes.get(tuneId))?.modes).toEqual(['minor'])
+  })
+
+  it('keeps both part modes through a save that never touches them', async () => {
+    const db = openTestDb()
+    const { tuneId, userTuneId } = await createTune(
+      db,
+      { title: "Cooley's", modes: ['major', 'dorian'] },
+      { status: 'known' },
+    )
+    const entry = {
+      tune: (await db.tunes.get(tuneId))!,
+      userTune: (await db.user_tunes.get(userTuneId))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await page.getByLabelText('Title').fill("Cooley's Reel")
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await sheetDismissed()
+    const saved = await db.tunes.get(tuneId)
+    expect(saved?.title).toBe("Cooley's Reel")
+    expect(saved?.modes).toEqual(['major', 'dorian'])
+  })
+
+  it('fills 6/8 when a new tune is given the Jig type', async () => {
+    const db = openTestDb()
+    renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 4/4` }))
+      .toBeInTheDocument()
+    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: 'Jig', exact: true }).click()
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 6/8` }))
+      .toBeInTheDocument()
+  })
+
+  it('keeps a time signature the player set when a new tune is given a type', async () => {
+    const db = openTestDb()
+    renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
+    await openDetail(`${DETAIL_LABELS.time_signature}, 4/4`)
+    await page.getByRole('radio', { name: '3/4', exact: true }).click()
+    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: 'Jig', exact: true }).click()
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, Jig` }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 3/4` }))
+      .toBeInTheDocument()
+  })
+
+  it("keeps an edited tune's stored 4/4 when it is given the Jig type", async () => {
+    const db = openTestDb()
+    const { tuneId, userTuneId } = await createTune(
+      db,
+      { title: 'The Kesh', time_signature: '4/4' },
+      { status: 'known' },
+    )
+    const entry = {
+      tune: (await db.tunes.get(tuneId))!,
+      userTune: (await db.user_tunes.get(userTuneId))!,
+    }
+    renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
+    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: 'Jig', exact: true }).click()
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, Jig` }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 4/4` }))
+      .toBeInTheDocument()
+  })
+
+  it('defaults a new tune to the most-used genre', async () => {
+    const db = openTestDb()
+    for (const genre of ['Irish', 'Irish', 'Old-time']) {
+      await createTune(db, { title: `A ${genre} tune`, genre }, { status: 'known' })
+    }
+    renderIonic(<Host initial={{ kind: 'new' }} />, { db })
+    await expect
+      .element(page.getByRole('button', { name: `${DETAIL_LABELS.genre}, Irish` }))
+      .toBeInTheDocument()
+  })
+
+  it('suggests the catalog composers after Trad.', async () => {
+    const db = openTestDb()
+    await createTune(db, { title: 'Lucy Farr', composer: 'Ed Reavy' }, { status: 'known' })
+    renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
+    await openDetail(`${DETAIL_LABELS.composer}, ${NOT_SET}`)
+    await expect.element(page.getByRole('radio', { name: 'Ed Reavy' })).toBeVisible()
+    await page.getByRole('radio', { name: 'Trad.' }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await sheetDismissed()
+    const created = (await db.tunes.toArray()).find((t) => t.title === 'The Kesh')
+    expect(created?.composer).toBe('Trad.')
   })
 })

@@ -1,5 +1,6 @@
-import { MODES, TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
+import { TIME_SIGNATURES, TUNE_LIMITS } from '../../api/vocabulary'
 import { GENRES, PART_STRUCTURES, TUNE_TYPES } from '../../constants'
+import { TRAD } from './tuneTypes'
 
 export type DetailField =
   | {
@@ -10,12 +11,13 @@ export type DetailField =
     }
   | {
       kind: 'pick'
-      key: 'mode' | 'genre' | 'time_signature' | 'tune_type' | 'part_structure'
+      key: 'composer' | 'genre' | 'time_signature' | 'tune_type' | 'part_structure'
       label: string
       options: readonly string[]
       other: boolean
       maxLength?: number
     }
+  | { kind: 'modes'; key: 'modes'; label: string }
   | { kind: 'switch'; key: 'is_crooked'; label: string; help?: string }
   | { kind: 'lyrics'; key: 'lyrics'; label: string }
   | { kind: 'date'; key: 'learned_on'; label: string }
@@ -23,6 +25,7 @@ export type DetailField =
 /** What each detail field is called, on the tune form and in the bulk edit sheet alike. */
 export const DETAIL_LABELS = {
   alternate_titles: 'Also known as',
+  composer: 'Composer',
   mode: 'Mode',
   genre: 'Genre',
   time_signature: 'Time signature',
@@ -33,6 +36,11 @@ export const DETAIL_LABELS = {
   learned_from: 'Learned from',
   learned_on: 'Learned on',
 } as const
+
+/** Each part's mode row, in part order. The first covers the whole tune when it has one mode. */
+export const PART_MODE_LABELS = ['Mode', 'B part mode', 'C part mode', 'D part mode'] as const
+
+export const ADD_PART_MODE = 'Add mode for another part'
 
 export const CROOKED_HELP = 'An odd number of beats or bars in a part.'
 
@@ -47,7 +55,16 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     key: 'alternate_titles',
     label: DETAIL_LABELS.alternate_titles,
   },
-  { kind: 'pick', key: 'mode', label: DETAIL_LABELS.mode, options: MODES, other: false },
+  // The form swaps in the catalog's composers.
+  {
+    kind: 'pick',
+    key: 'composer',
+    label: DETAIL_LABELS.composer,
+    options: [TRAD],
+    other: true,
+    maxLength: TUNE_LIMITS.composer,
+  },
+  { kind: 'modes', key: 'modes', label: DETAIL_LABELS.mode },
   {
     kind: 'pick',
     key: 'genre',
@@ -56,13 +73,7 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     other: true,
     maxLength: TUNE_LIMITS.genre,
   },
-  {
-    kind: 'pick',
-    key: 'time_signature',
-    label: DETAIL_LABELS.time_signature,
-    options: TIME_SIGNATURES,
-    other: false,
-  },
+  // The form swaps in the types ordered for the tune's genre.
   {
     kind: 'pick',
     key: 'tune_type',
@@ -70,6 +81,13 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     options: TUNE_TYPES,
     other: true,
     maxLength: TUNE_LIMITS.tune_type,
+  },
+  {
+    kind: 'pick',
+    key: 'time_signature',
+    label: DETAIL_LABELS.time_signature,
+    options: TIME_SIGNATURES,
+    other: false,
   },
   {
     kind: 'pick',
