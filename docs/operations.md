@@ -17,7 +17,7 @@ back, smoke check, and rebuild. The settings each host holds are in
 | [Xcode](https://developer.apple.com/xcode/)   | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
 
 You also need a free [Clerk](https://clerk.com) development instance with
-email magic link sign-in enabled. From its dashboard, copy the Frontend API
+email verification code sign-in enabled. From its dashboard, copy the Frontend API
 URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
 (`pk_test_...`).
 
@@ -48,6 +48,20 @@ answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
 and worktree shares one Postgres container and one database. Browsers reach
 RustFS through the dev server's `/storage` proxy, so a phone on the dev
 server's Tailscale Serve URL can record and play back too.
+
+The Apple app's Debug build calls the API on port 8000 and signs in
+against the Clerk development instance. Start the API with `just dev` or
+`just api::run`, open `apple/Crosstune.xcodeproj`, and run the `Crosstune`
+scheme on a Simulator or on My Mac. The local API listens on the Mac only,
+so a device needs another API. Create `apple/Config/Local.xcconfig`, which
+git ignores and only Debug builds read, and point it at the development
+API:
+
+```text
+CROSSTUNE_API_ORIGIN = https:/$()/crosstune-development.up.railway.app
+```
+
+An xcconfig reads `//` as a comment, so `$()` splits the slashes.
 
 RustFS holds local recordings. Its console is at http://localhost:9001,
 sign in with `crosstune` and `crosstune-local-secret`. List objects with

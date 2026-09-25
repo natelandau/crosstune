@@ -1,0 +1,11 @@
+// A Debug build talks to the API `just dev` runs and to the Clerk development instance.
+#include "Base.xcconfig"
+
+// An xcconfig reads `//` as a comment, so `$()` splits the scheme's slashes.
+CROSSTUNE_API_ORIGIN = http:/$()/localhost:8000
+// A publishable key is public by design: every build of the app carries it.
+CLERK_PUBLISHABLE_KEY = pk_test_cHVtcGVkLXBvbGVjYXQtMTg2MC5jbGVyay5hY2NvdW50cy5kZXYk // gitleaks:allow
+
+// Overrides for one machine, such as the Mac's LAN address for a device. Gitignored, and
+// read by Debug only, so no release build can pick up a developer's origin.
+#include? "Local.xcconfig"

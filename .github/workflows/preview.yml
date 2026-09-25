@@ -72,14 +72,14 @@ jobs:
 
       # A reset keeps the branch's endpoint, so the connection string stored in
       # Railway at creation stays valid and every push migrates a clean copy.
+      # neonctl directly rather than neondatabase/reset-branch-action, which wraps this
+      # one command behind a setup-node pinned to a deprecated Node runtime.
       - name: reset the Neon branch to its parent
         if: github.event.action == 'synchronize'
-        uses: neondatabase/reset-branch-action@v1
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: ${{ env.PR_NAME }}
-          parent: true
-          api_key: ${{ secrets.NEON_API_KEY }}
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: npx --yes neonctl@2.22.0 branches reset "$PR_NAME" --project-id "$NEON_PROJECT_ID" --parent
 
       - uses: astral-sh/setup-uv@v7
         with:

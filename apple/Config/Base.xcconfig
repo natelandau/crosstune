@@ -20,6 +20,8 @@ INFOPLIST_KEY_CFBundleDisplayName = Crosstune
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
 INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.music
-CODE_SIGN_ENTITLEMENTS[sdk=macosx*] = Config/Crosstune.entitlements
+INFOPLIST_FILE = Config/Info.plist
+CODE_SIGN_ENTITLEMENTS[sdk=iphone*] = Config/Crosstune-iOS.entitlements
+CODE_SIGN_ENTITLEMENTS[sdk=macosx*] = Config/Crosstune-macOS.entitlements
 CODE_SIGN_STYLE = Automatic
 ENABLE_PREVIEWS = YES

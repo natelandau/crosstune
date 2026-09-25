@@ -109,8 +109,12 @@ reopens one without new information. Add a new entry at the end.
 
 ## Clerk for sign-in
 
-- Email magic link, Google, and Apple. Apple is required by the App Store
-  when any other social login is offered.
+- An emailed one-time code, Google, and Apple. Apple is required by the
+  App Store when any other social login is offered.
+- The code over a magic link: it works when the email is read on another
+  device, and a native app needs no Universal Links for it.
+- No passwords: they add a reset flow and a credential to protect, and save
+  only one code per device. Passkeys come later as the direct sign-in.
 - The API verifies Clerk JWTs offline against the issuer's JWKS.
 - Self-hosted auth was rejected: password reset, deliverability, and social
   login are too much for a solo developer.

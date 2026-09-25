@@ -41,7 +41,7 @@ Everything else supports this loop.
 A native app for iPhone, iPad, and Mac, and an installable web app (PWA)
 for Android and every browser. The parts that matter:
 
-- Accounts. Sign in with an email magic link, Google, or Apple. Each
+- Accounts. Sign in with an emailed code, Google, or Apple. Each
   catalog is private to its owner.
 - Catalog. Tunes with musical attributes (key, mode for each part, tunings,
   genre, type, time signature, part structure, composer), lyrics, where and

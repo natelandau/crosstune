@@ -23,6 +23,7 @@ apple/**/.swiftpm/
 xcuserdata/
 DerivedData/
 *.xcresult
+apple/Config/Local.xcconfig
 
 # Local dev
 .dev/

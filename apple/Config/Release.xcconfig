@@ -1,0 +1,7 @@
+// A Release build talks to production: its API and the Clerk production instance.
+#include "Base.xcconfig"
+
+// An xcconfig reads `//` as a comment, so `$()` splits the scheme's slashes.
+CROSSTUNE_API_ORIGIN = https:/$()/api.crosstune.app
+// A publishable key is public by design: every build of the app carries it.
+CLERK_PUBLISHABLE_KEY = pk_live_Y2xlcmsuY3Jvc3N0dW5lLmFwcCQ // gitleaks:allow

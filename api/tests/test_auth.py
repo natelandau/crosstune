@@ -51,6 +51,13 @@ async def test_unauthorized_party_is_401(client: httpx2.AsyncClient, make_token)
     assert response.status_code == 401
 
 
+async def test_a_native_token_without_azp_is_200(client: httpx2.AsyncClient, make_token) -> None:
+    """Clerk's native SDKs send no Origin, so their session tokens carry no azp."""
+    token = make_token("user_a", azp=None)
+    response = await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+
+
 async def test_unknown_kid_is_401(client: httpx2.AsyncClient, make_token) -> None:
     token = make_token("user_a", kid="not-a-real-kid")
     response = await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
