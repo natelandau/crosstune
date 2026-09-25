@@ -22,10 +22,12 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Boundaries
 
-- Screens read only the local IndexedDB copy (Dexie), through live queries.
-  They never call the API.
+- Screens read only the local copy, through live queries: IndexedDB (Dexie)
+  on the web, SQLite (GRDB) in the Apple app. They never call the API.
 - A user action runs a command. A command writes the row and an outbox entry
-  in one IndexedDB transaction.
+  in one transaction.
+- A local row keeps every server field the client does not know, and a push
+  sends it back unchanged, so an older client never erases a newer field.
 - Only the sync engine talks to the network. Recording files are the one
   exception: they move over presigned R2 URLs in a transfer pass of their
   own.
@@ -58,16 +60,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                               |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                 |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.            |
-| Who owns a row           | The token.                                                                                                                                                                                           |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                  |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                                     |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data. Sign-out deletes it, and refuses while the outbox holds unsent changes. A shape change starts it over (see Pull). |
-| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                              |
-| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                       |
+| Question                 | Answer                                                                                                                                                                                                                                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                           |
+| Who owns a row           | The token.                                                                                                                                                                                                                                                                                          |
+| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                 |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                                                                                                                                    |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file and audio in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes. A shape change starts it over (see Pull). |
+| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                             |
+| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                      |
 
 ## Sync
 

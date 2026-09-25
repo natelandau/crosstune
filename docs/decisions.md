@@ -141,3 +141,16 @@ reopens one without new information. Add a new entry at the end.
   a new server value fails the client build until it has a label.
 - The check constraints stay. A value change is one edit plus a migration,
   which is also where existing rows are reshaped when a value is retired.
+
+## GRDB for the Apple app's local store
+
+- The Apple app keeps each user's catalog in SQLite through GRDB.
+- The store is a cache of server rows beside an outbox. It needs a unique
+  index per queued row, an ordered queue, one transaction across a row and
+  its change, JSON columns, and a whole-file delete on sign-out. GRDB gives
+  each directly, and `ValueObservation` feeds SwiftUI.
+- SwiftData was rejected: it manages transactions, change propagation
+  between contexts, and schema migration for the app, and the sync rules
+  need exact control of each.
+- SQLiteData was rejected: it adds a macro query language, Point-Free's
+  dependency stack, and CloudKit sync, which the app does not use.
