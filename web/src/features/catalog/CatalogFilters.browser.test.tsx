@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { INSTRUMENT_LABELS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
@@ -214,6 +215,52 @@ describe('CatalogFilters', () => {
     await expect.poll(() => state().mode).toBe('all')
     await page.getByRole('button', { name: 'Remove filter Archived shown' }).click()
     await expect.poll(() => state().archived).toBe(false)
+  })
+
+  it('names the instrument on a set tuning pill so two instruments stay apart', async () => {
+    const standard = 'Standard (GDAE)'
+    renderIonic(
+      <Host
+        start={{ ...DEFAULT_FILTERS, 'tuning:violin': standard, 'tuning:mandolin': standard }}
+        visible={[...visible, 'tuning:mandolin']}
+      />,
+      { db: openTestDb() },
+    )
+    const mandolin = page.getByRole('button', {
+      name: `Remove filter ${INSTRUMENT_LABELS.mandolin}: ${standard}`,
+    })
+    await expect
+      .element(
+        page.getByRole('button', {
+          name: `Remove filter ${INSTRUMENT_LABELS.violin}: ${standard}`,
+        }),
+      )
+      .toBeVisible()
+    await mandolin.click()
+    await expect.poll(() => state()['tuning:mandolin']).toBe('all')
+    expect(state()['tuning:violin']).toBe(standard)
+  })
+
+  it('keeps a set key the catalog no longer holds as its own pressed chip', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, key: 'F' }} />, { db: openTestDb() })
+    await expect
+      .element(page.getByRole('button', { name: 'F', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .element(page.getByRole('button', { name: ALL_KEYS_LABEL, exact: true }))
+      .toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps a set type the catalog no longer holds as its own pressed chip', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, tune_type: 'Hornpipe' }} />, {
+      db: openTestDb(),
+    })
+    await expect
+      .element(page.getByRole('button', { name: 'Hornpipe', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .element(page.getByRole('button', { name: ALL_TYPES_LABEL, exact: true }))
+      .toHaveAttribute('aria-pressed', 'false')
   })
 
   it('shows a Type rail only when Type is a visible facet', async () => {

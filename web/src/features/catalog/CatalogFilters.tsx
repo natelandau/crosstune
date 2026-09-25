@@ -2,6 +2,8 @@ import { X } from 'lucide-react'
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { Rail } from '../../ui/Rail'
+import { INSTRUMENT_LABELS } from '../../constants'
+import { tuningKeyInstrument } from '../settings/instruments'
 import { StatusChooser } from '../tune/StatusChooser'
 import {
   FACET_LABELS,
@@ -13,6 +15,17 @@ import {
 
 export const ALL_KEYS_LABEL = 'All keys'
 export const ALL_TYPES_LABEL = 'All types'
+
+// A tuning pill names its instrument, since two instruments can share a tuning's name.
+function pillLabel(facet: Facet, value: string): string {
+  const instrument = tuningKeyInstrument(facet)
+  return instrument ? `${INSTRUMENT_LABELS[instrument]}: ${value}` : value
+}
+
+// A set value the catalog no longer holds keeps its chip, so the rail never reads as All.
+function railChoices(values: readonly string[], set: string): readonly string[] {
+  return set !== 'all' && !values.includes(set) ? [...values, set] : values
+}
 
 export function CatalogFilters({
   filters,
@@ -27,15 +40,16 @@ export function CatalogFilters({
 }) {
   const pills: { key: string; label: string; patch: Partial<Filters> }[] = sheetFacets(visible)
     .filter((facet) => filters[facet] !== 'all')
-    .map((facet) => ({ key: facet, label: filters[facet], patch: { [facet]: 'all' } }))
+    .map((facet) => ({
+      key: facet,
+      label: pillLabel(facet, filters[facet]),
+      patch: { [facet]: 'all' },
+    }))
   if (filters.archived)
     pills.push({ key: 'archived', label: 'Archived shown', patch: { archived: false } })
 
-  // A type the catalog no longer holds keeps its chip while it is the filter, so it never reads as All.
-  const typeChoices =
-    filters.tune_type !== 'all' && !facets.tune_type.includes(filters.tune_type)
-      ? [...facets.tune_type, filters.tune_type]
-      : facets.tune_type
+  const keyChoices = railChoices(facets.key, filters.key)
+  const typeChoices = railChoices(facets.tune_type, filters.tune_type)
 
   return (
     <div className="space-y-2 pt-1 pb-2">
@@ -50,7 +64,7 @@ export function CatalogFilters({
           <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
             {ALL_KEYS_LABEL}
           </Capsule>
-          {facets.key.map((key) => (
+          {keyChoices.map((key) => (
             <PressTarget
               key={key}
               pressed={filters.key === key}
