@@ -147,7 +147,8 @@ git push --follow-tags origin main
 ```
 
 - `just bump` runs commitizen. It picks the increment from the commits,
-  writes the version to the API package, `web/package.json`, and `.cz.toml`,
+  writes the version to the API package, `web/package.json`, the Apple
+  app's `apple/Config/Version.xcconfig`, and `.cz.toml`,
   refreshes `api/uv.lock`, updates `CHANGELOG.md`, commits, and tags
   `v<version>`. `just bump --dry-run` shows the plan.
 - Bump on `main` only. A tag on a PR branch points at a commit the squash
