@@ -7,6 +7,7 @@ import { Row, type RowAction } from '../../ui/Row'
 import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
 import { tuningSummary } from '../settings/instruments'
+import { keyModeLabel } from '../tune/keyMode'
 import type { CatalogEntry } from './filters'
 import { isTuneStatus } from './status'
 
@@ -45,10 +46,13 @@ export function TuneMeta({
   // reader, so an sr-only comma marks each part boundary without changing the visible layout.
   const parts: ReactNode[] = []
   if (tune.key) {
+    const { suffix, spoken } = keyModeLabel(tune.key, tune.modes[0])
     parts.push(
       <span className="inline-flex items-center">
-        <span className="sr-only">Key </span>
-        <KeyPill value={tune.key} compact />
+        <span className="sr-only">Key {spoken}</span>
+        <span aria-hidden="true">
+          <KeyPill value={tune.key} suffix={suffix} compact />
+        </span>
       </span>,
     )
   }

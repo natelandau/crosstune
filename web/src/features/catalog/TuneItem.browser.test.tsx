@@ -94,14 +94,17 @@ describe('TuneItem', () => {
     show()
     const line = document.querySelector('[data-tune-meta]')!
     expect(line.textContent).toBe(
-      'Key D, Known, Violin: Cross A (AEAE) · 5-string banjo: Double C (gCGCD)',
+      // The sr-only span speaks the full key ("Key D") and the aria-hidden pill still shows in
+      // raw textContent, so the key's own text appears twice; a screen reader only hears the
+      // sr-only span, and a sighted reader only sees the pill.
+      'Key DD, Known, Violin: Cross A (AEAE) · 5-string banjo: Double C (gCGCD)',
     )
   })
 
   it('leaves the instrument unsaid when only one is played', async () => {
     show(undefined, undefined, new Set<Instrument>(['violin']))
     const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Key D, Known, Cross A (AEAE)')
+    expect(line.textContent).toBe('Key DD, Known, Cross A (AEAE)')
   })
 
   it('leaves a standard tuning unsaid and shows a capo', async () => {
@@ -115,7 +118,7 @@ describe('TuneItem', () => {
       }),
     )
     const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Key D, Known, 5-string banjo: Open G (gDGBD), capo 2')
+    expect(line.textContent).toBe('Key DD, Known, 5-string banjo: Open G (gDGBD), capo 2')
   })
 
   it('shows a capo with no tuning', async () => {
@@ -126,6 +129,18 @@ describe('TuneItem', () => {
     )
     const line = document.querySelector('[data-tune-meta]')!
     expect(line.textContent).toBe('Known, Capo 3')
+  })
+
+  it('shows the key with its first mode and reads the full name', async () => {
+    show(tuneRow('s1', "Soldier's Joy", { key: 'E', modes: ['dorian', 'major'] }))
+    const meta = document.querySelector('[data-tune-meta]')!
+    expect(meta.querySelector('.key-pill')?.textContent).toBe('E dor')
+    expect(meta.textContent).toContain('Key E dorian')
+  })
+
+  it('shows no mode for a tune with no key', async () => {
+    show(tuneRow('s1', "Soldier's Joy", { key: null, modes: ['dorian'] }))
+    expect(document.querySelector('[data-tune-meta]')!.textContent).not.toContain('dorian')
   })
 
   it('leaves out a missing key and a tuning for an instrument not played', async () => {

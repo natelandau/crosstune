@@ -20,7 +20,14 @@ import * as recordingsModule from '../recordings/useRecordings'
 import type * as ConfirmModule from '../../ui/Confirm'
 import type * as TunesModule from '../../commands/tunes'
 import { EDIT_TUNE_TITLE } from './TuneFormSheet'
-import { ADD_TO_LIST_TITLE, NOT_IN_LIST, OPEN_LYRICS, TUNE_GONE, TuneScreen } from './TuneScreen'
+import {
+  ADD_TO_LIST_TITLE,
+  COMPOSER_LABEL,
+  NOT_IN_LIST,
+  OPEN_LYRICS,
+  TUNE_GONE,
+  TuneScreen,
+} from './TuneScreen'
 
 vi.mock('../../commands/tunes', { spy: true })
 vi.mock('../../commands/lists', { spy: true })
@@ -166,6 +173,28 @@ describe('TuneScreen', () => {
       'Crooked',
       'Old-time',
     ])
+  })
+
+  it('lists every part mode in order and the composer', async () => {
+    const { tuneId } = await createTune(
+      db,
+      {
+        title: 'The Bucks of Oranmore',
+        key: 'D',
+        modes: ['major', 'minor'],
+        composer: 'Ed Reavy',
+        tune_type: 'Reel',
+      },
+      { status: 'known' },
+    )
+    show(tuneId)
+    await expect
+      .element(page.getByRole('heading', { name: 'The Bucks of Oranmore', level: 1 }))
+      .toBeVisible()
+    const facets = document.querySelector('[data-tune-facets]')!
+    expect(facets.textContent).toMatch(/major.*minor/)
+    expect(facets.textContent).toContain('Reel')
+    await expect.element(page.getByText(`${COMPOSER_LABEL}: Ed Reavy`)).toBeInTheDocument()
   })
 
   it('sets its groups as cards on the grouped surface', async () => {

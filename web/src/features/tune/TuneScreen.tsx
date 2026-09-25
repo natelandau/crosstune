@@ -27,6 +27,7 @@ import { tuningDisplay, tuningInstruments, tuningKey } from '../settings/instrum
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from './archiveLabels'
 import { DELETE_TUNE_TITLE, deleteTuneMessage } from './deleteTuneMessage'
+import { DETAIL_LABELS } from './detailFields'
 import { TuneFormSheet, type TuneFormTarget } from './TuneFormSheet'
 import { TuneMedia } from './TuneMedia'
 import { useTune } from './useTune'
@@ -35,6 +36,8 @@ export const ADD_TO_LIST_TITLE = 'Add to a list'
 export const NOT_IN_LIST = 'Not in any list yet.'
 export const OPEN_LYRICS = 'Open lyrics'
 export const TUNE_GONE = 'This tune is gone'
+// A template literal, not a plain reference, so react-refresh still treats this as a constant.
+export const COMPOSER_LABEL = `${DETAIL_LABELS.composer}`
 
 type Params = Readonly<Record<string, string | undefined>>
 
@@ -268,7 +271,6 @@ function TuneBody({
   onReadLyrics: () => void
 }) {
   const archived = userTune.archived_at !== null
-  const mode = tune.modes[0] ?? ''
   const learned = userTune.learned_from !== null || userTune.learned_on !== null
   // A body runs to 20,000 characters, and this screen re-renders on every change to the tune.
   const hasLyrics = useMemo(() => lyricOpening(tune.lyrics, 1).length > 0, [tune.lyrics])
@@ -281,11 +283,18 @@ function TuneBody({
         {tune.alternate_titles.length > 0 ? (
           <p className="type-footnote m-0">{tune.alternate_titles.join(', ')}</p>
         ) : null}
+        {tune.composer ? (
+          <p className="type-footnote m-0">
+            {COMPOSER_LABEL}: {tune.composer}
+          </p>
+        ) : null}
         {/* Every facet the tune holds, in one wrapping row: what it is comes before anything
             the screen asks the musician to do about it. */}
         <div data-tune-facets className="flex flex-wrap items-center gap-1 pt-2">
           {tune.key ? <KeyPill value={tune.key} /> : null}
-          {mode ? <Capsule>{mode}</Capsule> : null}
+          {tune.modes.map((mode, index) => (
+            <Capsule key={`mode-${index}`}>{mode}</Capsule>
+          ))}
           <Capsule>
             <StatusDot status={userTune.status} />
           </Capsule>

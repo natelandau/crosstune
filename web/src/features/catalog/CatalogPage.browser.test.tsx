@@ -504,7 +504,7 @@ describe('CatalogPage', () => {
     const pill = meta.querySelector('.key-pill')!
     expect(pill.getAttribute('data-pitch')).toBe('2')
     expect(pill.textContent).toBe('D')
-    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key ')
+    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key D')
   })
 
   it('puts Filters in the search row and leaves the toolbar to Add tune and More actions', async () => {

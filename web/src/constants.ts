@@ -10,6 +10,7 @@
 import type {
   AudioQuality,
   Instrument,
+  Mode,
   Provider,
   TimeSignature,
   TuneStatus,
@@ -185,6 +186,16 @@ export const STATUS_LABELS: Record<TuneStatus, string> = {
   known: 'Known',
   learning: 'Learning',
   want_to_learn: 'Unknown',
+}
+
+/** What follows a key on a row. Major reads as the key alone, as players write it. */
+export const MODE_ABBREVIATIONS: Record<Mode, string> = {
+  major: '',
+  minor: 'm',
+  dorian: ' dor',
+  mixolydian: ' mix',
+  modal: ' modal',
+  other: '',
 }
 
 export const PROVIDER_LABELS: Record<Provider, string> = {
