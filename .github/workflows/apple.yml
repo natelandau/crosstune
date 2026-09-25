@@ -19,7 +19,9 @@ jobs:
   check:
     if: ${{ !startsWith(github.event.head_commit.message, 'bump(release):') }}
     name: Apple check
-    runs-on: macos-26
+    # The image with the Xcode the app is built and shipped with. The `macos-*` images
+    # default to an older Xcode.
+    runs-on: xcode-27
     defaults:
       run:
         working-directory: apple

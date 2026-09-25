@@ -14,7 +14,7 @@ back, smoke check, and rebuild. The settings each host holds are in
 | [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                              |
 | [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
-| [Xcode](https://developer.apple.com/xcode/)   | 26 or newer    | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
+| [Xcode](https://developer.apple.com/xcode/)   | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
 
 You also need a free [Clerk](https://clerk.com) development instance with
 email magic link sign-in enabled. From its dashboard, copy the Frontend API
@@ -129,7 +129,7 @@ and fails instead in CI, where the `API` workflow always starts it.
 - CI runs on every pull request and push to `main`. `API` lints, type
   checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
   lints, type checks, tests, builds, and checks the generated types.
-  `Apple` runs on macOS: it lints, runs the Swift package tests, builds for
+  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift package tests, builds for
   the iOS Simulator and macOS, and checks the generated Swift client. It
   runs only when `apple/` or the contract changes, and no host deploys
   from it. It is not a required check, because a required check must run
