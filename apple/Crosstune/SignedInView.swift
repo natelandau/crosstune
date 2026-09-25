@@ -24,7 +24,7 @@ struct SignedInView: View {
                 Text("Sign in again to sync.")
                     .foregroundStyle(.red)
             }
-            if let failure = failure ?? session.storeFailure {
+            if let failure = (session.isOffline ? nil : failure) ?? session.storeFailure {
                 Text(failure)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
@@ -47,6 +47,8 @@ struct SignedInView: View {
             email = try await client.meV1MeGet().ok.body.json.email
             failure = nil
         } catch {
+            // Going offline cancels the request, and its failure says nothing new.
+            guard !Task.isCancelled else { return }
             failure = "Could not reach the API: \(error.localizedDescription)"
         }
     }
