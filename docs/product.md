@@ -42,9 +42,9 @@ An installable web app (PWA). The parts that matter:
 
 - Accounts. Sign in with an email magic link, Google, or Apple. Each
   catalog is private to its owner.
-- Catalog. Tunes with musical attributes (key, mode, tunings, genre, feel,
-  time signature, part structure), lyrics, where and when they were learned,
-  notes, and a status. Tunes can be archived.
+- Catalog. Tunes with musical attributes (key, mode for each part, tunings,
+  genre, type, time signature, part structure, composer), lyrics, where and
+  when they were learned, notes, and a status. Tunes can be archived.
 - Lists. Ordered, named lists such as a setlist. A tune can be in many.
 - Links. Paste a URL from YouTube, Spotify, Apple Music, TIDAL, Bandcamp,
   SoundCloud, the Internet Archive, or any site. The app resolves title and
@@ -104,7 +104,8 @@ understands it. Tuning values keep their traditional names.
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tune           | The catalog entity: a piece a musician plays, with or without words. A sung piece is a tune of type Song.                                                                    |
 | Key            | The tonal center, such as D or A. Different players use different keys for one tune.                                                                                         |
-| Mode           | The scale flavor: major, minor, mixolydian, dorian, or modal, a tune between minor and mixolydian.                                                                           |
+| Mode           | The scale flavor: major, minor, mixolydian, dorian, or modal, a tune between minor and mixolydian. A tune can change mode between parts.                                     |
+| Type           | The tune's form, such as reel, jig, slip jig, breakdown, or waltz. It usually fixes the time signature.                                                                      |
 | Tuning         | The string tuning and capo for one instrument on a tune: cross-tuning (AEAE) on violin, double C on 5-string banjo, DADGAD capo 2 on guitar. The product name comes from it. |
 | Crooked        | A tune with an irregular number of beats or measures in a part.                                                                                                              |
 | Part structure | The order and repeats of a tune's sections: AABB, AABBCC.                                                                                                                    |

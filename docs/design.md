@@ -139,9 +139,9 @@ Three axes decide the chrome. No screen asks which device it is on;
 Everywhere the app lists tunes it uses one row.
 
 - Line one is the title, truncated when long.
-- Line two holds the key, the status dot with its label, the non-standard
-  tunings and capos for played instruments, and "Archived", each omitted
-  when unset. A screen reader hears a comma between parts.
+- Line two holds the key with its mode, the status dot with its label, the
+  non-standard tunings and capos for played instruments, and "Archived",
+  each omitted when unset. A screen reader hears a comma between parts.
 - An archived row is dimmed as a whole.
 - A tap opens the tune. While selecting, a tap toggles the row.
 - In a list, the row gains a position number, a Reorder button, and a drag
@@ -149,15 +149,23 @@ Everywhere the app lists tunes it uses one row.
 
 ## Keys, modes, and tunings
 
-- A row shows the key alone, never the mode. Modes are lowercase everywhere.
+- A row shows the key with its first mode, abbreviated: the key alone for
+  major, `Dm`, `E dor`, `A mix`, `G modal`. A screen reader hears the full
+  name, "E dorian". A tune with no key shows no mode.
+- A tune holds one mode per part, in part order. The tune screen shows every
+  one; a row shows the first. Modes are lowercase everywhere.
+- Type is the tune's form: reel, jig, breakdown, waltz. Suggestions follow
+  the tune's genre, then the catalog's own use.
+- Choosing a type fills the time signature when the player has not chosen
+  one. A time signature the player chose is never replaced.
 - A facet shows only when the tune holds the value. A screen that shows what
   a tune is puts every facet in one wrapping row, key first.
 - A tuning field, filter, or badge appears only for an instrument the
   musician plays, except a field that already holds a value, which always
   shows so data never becomes unreachable.
-- Tuning, mode, genre, feel, time signature, and part structure are open
-  vocabularies picked from suggestions, each with an `Other…` choice that
-  reveals a text field.
+- Tuning, genre, type, composer, and part structure are open vocabularies
+  picked from suggestions, each with an `Other…` choice that reveals a text
+  field. Mode and time signature are closed lists the API validates.
 - Key is closed: a grid of pills, never typed. Both spellings of a black key
   are offered and share one hue. A stored key the grid lacks joins it as its
   own pill.
