@@ -34,6 +34,7 @@ let package = Package(
             name: "CrosstuneAuth",
             dependencies: [
                 "CrosstuneAPI",
+                "CrosstuneStore",
                 .product(name: "ClerkKit", package: "clerk-ios"),
                 .product(name: "ClerkKitUI", package: "clerk-ios"),
             ]
@@ -48,7 +49,7 @@ let package = Package(
         ),
         .testTarget(
             name: "CrosstuneAuthTests",
-            dependencies: ["CrosstuneAuth"]
+            dependencies: ["CrosstuneAuth", "CrosstuneStore"]
         ),
         .testTarget(
             name: "CrosstuneAPITests",

@@ -21,5 +21,8 @@ struct RootView: View {
         .onChange(of: session.clerkUserID, initial: true) {
             session.clerkUserChanged()
         }
+        .onChange(of: session.phase, initial: true) {
+            session.phaseChanged()
+        }
     }
 }

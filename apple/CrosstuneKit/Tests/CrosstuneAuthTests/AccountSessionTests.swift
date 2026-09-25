@@ -1,3 +1,4 @@
+import CrosstuneStore
 import Foundation
 import Testing
 
@@ -42,4 +43,76 @@ import Testing
 
     remembered.userID = nil
     #expect(RememberedUser(defaults: defaults).userID == nil)
+}
+
+/// A store in a folder that removes itself when the test ends.
+@MainActor
+private final class TemporaryStore {
+    let root = FileManager.default.temporaryDirectory
+        .appending(path: "crosstune-auth-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
+    let store: CrosstuneStore
+
+    init() throws {
+        store = try CrosstuneStore.open(userID: "user_a", root: root)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    var folderExists: Bool { FileManager.default.fileExists(atPath: store.folder.path()) }
+
+    func leave(keepingUnsynced: Bool, endSession: () async throws -> Void = {}) async throws {
+        try await AccountSession.leave(
+            userID: "user_a", store: store, root: root, keepingUnsynced: keepingUnsynced, endSession: endSession)
+    }
+}
+
+private struct ClerkFailed: Error {}
+
+@MainActor
+@Test func signOutDeletesTheUsersFolder() async throws {
+    let temporary = try TemporaryStore()
+    var ended = false
+
+    try await temporary.leave(keepingUnsynced: false) { ended = true }
+
+    #expect(ended)
+    #expect(!temporary.folderExists)
+}
+
+@MainActor
+@Test func signOutRefusesWhileChangesAreUnsent() async throws {
+    let temporary = try TemporaryStore()
+    try await temporary.store.write { writer in try writer.put(Tune(title: "Leather Britches")) }
+    var ended = false
+
+    await #expect(throws: AccountSession.LeaveError.unsyncedChanges) {
+        try await temporary.leave(keepingUnsynced: false) { ended = true }
+    }
+
+    #expect(!ended)
+    #expect(temporary.folderExists)
+}
+
+@MainActor
+@Test func deletingTheAccountDropsUnsentChanges() async throws {
+    let temporary = try TemporaryStore()
+    try await temporary.store.write { writer in try writer.put(Tune(title: "Leather Britches")) }
+
+    try await temporary.leave(keepingUnsynced: true)
+
+    #expect(!temporary.folderExists)
+}
+
+@MainActor
+@Test func theFolderStaysWhenTheSessionDoesNotEnd() async throws {
+    let temporary = try TemporaryStore()
+
+    await #expect(throws: ClerkFailed.self) {
+        try await temporary.leave(keepingUnsynced: false) { throw ClerkFailed() }
+    }
+
+    #expect(temporary.folderExists)
+    #expect(try await temporary.store.pendingChangeCount() == 0)
 }

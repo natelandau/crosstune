@@ -25,19 +25,16 @@ struct SignedInView: View {
                 Text("Sign in again to sync.")
                     .foregroundStyle(.red)
             }
-            if let failure {
+            if let failure = failure ?? session.storeFailure {
                 Text(failure)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
             Button("Account") { showsAccount = true }
-            Button("Sign out") {
-                Task { try? await session.signOut() }
-            }
         }
         .padding()
         .sheet(isPresented: $showsAccount) {
-            AccountView()
+            AccountView(session: session)
         }
         .task(id: confirmed) {
             guard confirmed else { return }
