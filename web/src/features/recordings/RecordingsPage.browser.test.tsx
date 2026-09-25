@@ -2,17 +2,17 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
-import { recordingFile, recordingRow, songRow } from '../../test/rows'
-import { SEARCH_SONGS } from '../catalog/SongSearch'
+import { recordingFile, recordingRow, tuneRow } from '../../test/rows'
+import { SEARCH_TUNES } from '../catalog/TuneSearch'
 import type { Player } from '../player/usePlayer'
-import { ADD_TO_SONG_TITLE } from './AddToSongSheet'
+import { ADD_TO_TUNE_TITLE } from './AddToTuneSheet'
 import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from './recordingRow'
 import { NO_RECORDINGS_HINT, NO_RECORDINGS_TITLE, RecordingsPage } from './RecordingsPage'
 import { RECORDING_NAME_LABEL, RENAME_RECORDING_TITLE } from './RenameRecordingSheet'
@@ -71,9 +71,9 @@ const groupNames = () =>
     .elements()
     .map((list) => list.getAttribute('aria-label'))
 
-/** A song with a key and a user row, so its shared row has something to show. */
-const addSong = (title: string, key = 'A') =>
-  createSong(db, { title, key }, { status: 'known' }).then(({ songId }) => songId)
+/** A tune with a key and a user row, so its shared row has something to show. */
+const addTune = (title: string, key = 'A') =>
+  createTune(db, { title, key }, { status: 'known' }).then(({ tuneId }) => tuneId)
 
 describe('RecordingsPage', () => {
   it('names the empty state and what to do about it', async () => {
@@ -82,11 +82,11 @@ describe('RecordingsPage', () => {
     await expect.element(page.getByText(NO_RECORDINGS_HINT)).toBeVisible()
   })
 
-  it('groups recordings under their song, unfiled first', async () => {
-    const songId = await addSong("Soldier's Joy")
+  it('groups recordings under their tune, unfiled first', async () => {
+    const tuneId = await addTune("Soldier's Joy")
     await db.recordings.put(
       recordingRow('r1', {
-        song_id: songId,
+        tune_id: tuneId,
         label: 'Filed take',
         recorded_at: '2026-02-02T12:00:00.000Z',
       }),
@@ -99,15 +99,15 @@ describe('RecordingsPage', () => {
     expect(groupNames()).toEqual(['Unfiled', "Soldier's Joy"])
   })
 
-  it("heads a song's group with its name alone, above its recordings", async () => {
-    const songId = await addSong("Soldier's Joy")
-    await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Filed take' }))
+  it("heads a tune's group with its name alone, above its recordings", async () => {
+    const tuneId = await addTune("Soldier's Joy")
+    await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Filed take' }))
     show()
     const heading = page.getByRole('heading', { name: "Soldier's Joy", level: 2 })
     await expect.element(heading).toBeVisible()
     // The name and nothing else: the key, the status, and the tunings stay on the catalog's row.
     expect(heading.element().textContent).toBe("Soldier's Joy")
-    expect(document.querySelectorAll('[data-song-meta]')).toHaveLength(0)
+    expect(document.querySelectorAll('[data-tune-meta]')).toHaveLength(0)
     // The heading sits above the group rather than inside it, and its recordings a level under.
     await expect.element(page.getByRole('heading', { name: 'Filed take', level: 3 })).toBeVisible()
     const group = page.getByRole('list', { name: "Soldier's Joy" }).element()
@@ -129,10 +129,10 @@ describe('RecordingsPage', () => {
   })
 
   it('titles an unlabeled recording by its date rather than repeating its heading', async () => {
-    const songId = await addSong("Soldier's Joy")
+    const tuneId = await addTune("Soldier's Joy")
     await db.recordings.put(
       recordingRow('r1', {
-        song_id: songId,
+        tune_id: tuneId,
         label: null,
         recorded_at: '2026-03-14T20:05:00.000Z',
       }),
@@ -144,16 +144,16 @@ describe('RecordingsPage', () => {
     const row = page.getByRole('heading', { name: 'Recording, ', exact: false, level: 3 })
     await expect.element(row).toBeVisible()
     const title = row.element().textContent!
-    // The song's name belongs to the heading above the group, never to a row inside it.
+    // The tune's name belongs to the heading above the group, never to a row inside it.
     expect(group.element().textContent).not.toContain("Soldier's Joy")
     expect(title).not.toContain("Soldier's Joy")
     // The row's actions are named from the same title.
     await expect.element(page.getByRole('button', { name: `Rename ${title}` })).toBeInTheDocument()
   })
 
-  it('files a recording as unfiled once its song is deleted elsewhere', async () => {
-    await db.songs.put(songRow('s1', "Soldier's Joy", { deleted_at: '2026-02-01T00:00:00.000Z' }))
-    await db.recordings.put(recordingRow('r1', { song_id: 's1', label: 'Jam recording' }))
+  it('files a recording as unfiled once its tune is deleted elsewhere', async () => {
+    await db.tunes.put(tuneRow('s1', "Soldier's Joy", { deleted_at: '2026-02-01T00:00:00.000Z' }))
+    await db.recordings.put(recordingRow('r1', { tune_id: 's1', label: 'Jam recording' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     expect(groupNames()).toEqual(['Unfiled'])
@@ -170,38 +170,38 @@ describe('RecordingsPage', () => {
       .toHaveValue('Jam recording')
   })
 
-  it('offers an unfiled recording the song picker, and not the reverse', async () => {
+  it('offers an unfiled recording the tune picker, and not the reverse', async () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
-    expect(page.getByRole('button', { name: 'Remove from song Jam recording' }).elements()).toEqual(
+    expect(page.getByRole('button', { name: 'Remove from tune Jam recording' }).elements()).toEqual(
       [],
     )
-    await page.getByRole('button', { name: 'Add to song Jam recording' }).click()
-    await expect.element(page.getByText(ADD_TO_SONG_TITLE)).toBeVisible()
-    await expect.element(page.getByRole('searchbox', { name: SEARCH_SONGS })).toBeVisible()
+    await page.getByRole('button', { name: 'Add to tune Jam recording' }).click()
+    await expect.element(page.getByText(ADD_TO_TUNE_TITLE)).toBeVisible()
+    await expect.element(page.getByRole('searchbox', { name: SEARCH_TUNES })).toBeVisible()
   })
 
   it('unfiles a filed recording from its own row', async () => {
-    const songId = await addSong("Soldier's Joy")
-    await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Filed take' }))
+    const tuneId = await addTune("Soldier's Joy")
+    await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Filed take' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Filed take' })).toBeVisible()
-    expect(page.getByRole('button', { name: 'Add to song Filed take' }).elements()).toEqual([])
-    await page.getByRole('button', { name: 'Remove from song Filed take' }).click()
-    await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.song_id).toBeNull())
+    expect(page.getByRole('button', { name: 'Add to tune Filed take' }).elements()).toEqual([])
+    await page.getByRole('button', { name: 'Remove from tune Filed take' }).click()
+    await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.tune_id).toBeNull())
     await vi.waitFor(() => expect(groupNames()).toEqual(['Unfiled']))
   })
 
   it('reports a refused row action on one line under the groups', async () => {
-    const songId = await addSong("Soldier's Joy")
-    await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Filed take' }))
+    const tuneId = await addTune("Soldier's Joy")
+    await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Filed take' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Filed take' })).toBeVisible()
-    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('The song would not let go.'))
-    await page.getByRole('button', { name: 'Remove from song Filed take' }).click()
+    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('The tune would not let go.'))
+    await page.getByRole('button', { name: 'Remove from tune Filed take' }).click()
     const line = page.getByRole('alert')
-    await expect.element(line).toHaveTextContent('The song would not let go.')
+    await expect.element(line).toHaveTextContent('The tune would not let go.')
     // Under the groups, not inside the row that failed.
     expect(line.element().closest('ion-item')).toBeNull()
   })
@@ -316,17 +316,17 @@ describe('RecordingsPage', () => {
     expect(sync).toHaveBeenCalledOnce()
   })
 
-  it("opens a group's song from its heading, and leaves Unfiled's heading inert", async () => {
-    const songId = await addSong("Soldier's Joy")
-    await db.recordings.put(recordingRow('r1', { song_id: songId, label: 'Filed take' }))
+  it("opens a group's tune from its heading, and leaves Unfiled's heading inert", async () => {
+    const tuneId = await addTune("Soldier's Joy")
+    await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Filed take' }))
     await db.recordings.put(recordingRow('r2', { label: 'Jam recording' }))
-    show({ probes: { '/recordings/:songId': 'Song probe' } })
+    show({ probes: { '/recordings/:tuneId': 'Tune probe' } })
     const heading = page.getByRole('button', { name: "Open Soldier's Joy" })
     await expect.element(heading).toBeVisible()
-    // Unfiled names no song, so its heading is a label rather than a way into anything.
+    // Unfiled names no tune, so its heading is a label rather than a way into anything.
     expect(page.getByRole('button', { name: 'Open Unfiled' }).elements()).toEqual([])
     await heading.click()
-    await expect.element(page.getByRole('heading', { name: 'Song probe' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'Tune probe' })).toBeVisible()
   })
 
   it('shows one level 1 heading and nothing else while its rows load', async () => {

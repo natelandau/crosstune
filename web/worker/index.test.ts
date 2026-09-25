@@ -96,7 +96,7 @@ describe('handleRequest', () => {
     const assets = vi.fn(async () => new Response('<div id="root">', { status: 200 }))
     const env = makeEnv({ ASSETS: { fetch: assets } })
     const response = await handleRequest(
-      new Request('https://example.com/songs/new'),
+      new Request('https://example.com/tunes/new'),
       env,
       upstream,
     )

@@ -22,8 +22,8 @@ describe('Screen', () => {
       <Screen
         title="Catalog"
         level="top"
-        end={<IonButton aria-label="Add song">+</IonButton>}
-        search={<IonSearchbar placeholder="Search songs" aria-label="Search songs" />}
+        end={<IonButton aria-label="Add tune">+</IonButton>}
+        search={<IonSearchbar placeholder="Search tunes" aria-label="Search tunes" />}
       >
         <p>Body</p>
       </Screen>,
@@ -31,8 +31,8 @@ describe('Screen', () => {
     )
     expect(await screen.findByText('Body')).toBeInTheDocument()
     expect(screen.getAllByText('Catalog').length).toBeGreaterThan(0)
-    await expect.element(page.getByLabelText('Add song')).toBeInTheDocument()
-    expect(screen.getByLabelText('Search songs')).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Add tune')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search tunes')).toBeInTheDocument()
   })
 
   it('puts a search-row control after the field, inside the same toolbar', async () => {
@@ -41,8 +41,8 @@ describe('Screen', () => {
       <Screen
         title="Catalog"
         level="top"
-        end={<IonButton aria-label="Add song">+</IonButton>}
-        search={<IonSearchbar aria-label="Search songs" />}
+        end={<IonButton aria-label="Add tune">+</IonButton>}
+        search={<IonSearchbar aria-label="Search tunes" />}
         searchEnd={<IonButton aria-label="Filters">F</IonButton>}
       >
         <p>Body</p>
@@ -58,7 +58,7 @@ describe('Screen', () => {
     const host = (name: string) =>
       (page.getByLabelText(name).element().getRootNode() as ShadowRoot).host
     expect(row.contains(host('Filters'))).toBe(true)
-    expect(row.contains(host('Add song'))).toBe(false)
+    expect(row.contains(host('Add tune'))).toBe(false)
     await vi.waitFor(() => {
       const field = searchbar.getBoundingClientRect()
       const control = host('Filters').getBoundingClientRect()
@@ -73,7 +73,7 @@ describe('Screen', () => {
     await page.viewport(1024, 768)
     try {
       renderScreen(
-        <Screen title="Catalog" level="top" search={<IonSearchbar aria-label="Search songs" />}>
+        <Screen title="Catalog" level="top" search={<IonSearchbar aria-label="Search tunes" />}>
           <IonList>
             <IonItem>
               <IonLabel>Liberty</IonLabel>

@@ -17,7 +17,7 @@ afterEach(async () => {
 })
 
 describe('useListShowArchived', () => {
-  it('hides archived songs until asked, and saves the choice', async () => {
+  it('hides archived tunes until asked, and saves the choice', async () => {
     const { result } = renderHook(() => useListShowArchived(), {
       wrapper: dataProviders({ db }),
     })

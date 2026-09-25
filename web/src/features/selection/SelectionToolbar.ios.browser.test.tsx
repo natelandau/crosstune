@@ -14,7 +14,7 @@ import {
   useSelectionToolbar,
   type BulkAction,
 } from './SelectionToolbar'
-import type { SongSelection } from './useSongSelection'
+import type { TuneSelection } from './useTuneSelection'
 
 let db: CrosstuneDb
 
@@ -26,11 +26,11 @@ const ACTIONS: readonly BulkAction[] = [
   { label: 'Edit', icon: SquarePen, onPress: () => {} },
   { label: ADD_TO_LIST, icon: ListPlus, onPress: () => {} },
 ]
-const MORE: readonly MenuItem[] = [{ label: 'Archive 2 songs', onPress: () => {} }]
+const MORE: readonly MenuItem[] = [{ label: 'Archive 2 tunes', onPress: () => {} }]
 
 function Harness({ count }: { count: number }) {
   const [all, setAll] = useState(false)
-  const selection: SongSelection = {
+  const selection: TuneSelection = {
     count,
     allSelected: all,
     isSelected: () => false,

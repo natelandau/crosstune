@@ -9,7 +9,7 @@ function Probe() {
   const db = useDb()
   const [result, setResult] = useState('pending')
   useEffect(() => {
-    db.songs
+    db.tunes
       .count()
       .then((count) => setResult(`ok:${count}`))
       .catch((error: Error) => setResult(`error:${error.name}`))
@@ -37,10 +37,10 @@ describe('DbProvider', () => {
     )
     await waitFor(() => expect(dbRef.current).not.toBeNull())
     const db = dbRef.current!
-    await db.songs.count()
+    await db.tunes.count()
     db.close()
     unmount()
-    await expect(db.songs.count()).rejects.toMatchObject({ name: 'DatabaseClosedError' })
+    await expect(db.tunes.count()).rejects.toMatchObject({ name: 'DatabaseClosedError' })
   })
 
   it('serves queries after a StrictMode remount closes and reopens the database', async () => {

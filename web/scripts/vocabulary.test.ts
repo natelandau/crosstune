@@ -61,11 +61,11 @@ describe('vocabulary generator', () => {
     expect(text).toContain('export type Mode = (typeof MODES)[number]')
   })
 
-  it('emits one limits object per row, merging song and user song, from direct, nullable, and array item limits', () => {
+  it('emits one limits object per row, merging tune and user tune, from direct, nullable, and array item limits', () => {
     const { text } = generate({ ...ROWS, Mode: { type: 'string', enum: ['major'] } })
     expect(text).toContain(
       [
-        'export const SONG_LIMITS = {',
+        'export const TUNE_LIMITS = {',
         '  title: 200,',
         '  alternate_titles: 200,',
         '  genre: 100,',

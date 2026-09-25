@@ -74,7 +74,7 @@ function CountingSheetHost() {
   return (
     <>
       <IonButton onClick={() => setOpen(true)}>Open</IonButton>
-      <Sheet open={open} title={`Edit ${count} songs`} onClose={() => setOpen(false)}>
+      <Sheet open={open} title={`Edit ${count} tunes`} onClose={() => setOpen(false)}>
         <IonButton onClick={() => setCount(3)}>Select another</IonButton>
       </Sheet>
     </>
@@ -146,7 +146,7 @@ function ConfirmHost({ onResult }: { onResult: (ok: boolean) => void }) {
         }).then(onResult)
       }
     >
-      Delete song
+      Delete tune
     </IonButton>
   )
 }
@@ -241,10 +241,10 @@ describe('Sheet', () => {
   it('names the dialog for the title it is showing, not the one it loaded with', async () => {
     renderIonic(<CountingSheetHost />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Open'))
-    await expect.element(page.getByRole('dialog', { name: 'Edit 2 songs' })).toBeVisible()
+    await expect.element(page.getByRole('dialog', { name: 'Edit 2 tunes' })).toBeVisible()
     await userEvent.click(await screen.findByText('Select another'))
-    await expect.element(page.getByRole('dialog', { name: 'Edit 3 songs' })).toBeVisible()
-    expect(page.getByRole('dialog', { name: 'Edit 2 songs' }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('dialog', { name: 'Edit 3 tunes' })).toBeVisible()
+    expect(page.getByRole('dialog', { name: 'Edit 2 tunes' }).elements()).toHaveLength(0)
   })
 
   it('shows its body inside the dialog on a mouse', async () => {
@@ -323,7 +323,7 @@ describe('useConfirm', () => {
   it('resolves true on the action and false on cancel', async () => {
     const onResult = vi.fn()
     renderIonic(<ConfirmHost onResult={onResult} />, { db: openTestDb() })
-    await userEvent.click(await screen.findByText('Delete song'))
+    await userEvent.click(await screen.findByText('Delete tune'))
     await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
     await userEvent.click(screen.getByText('Cancel'))
     await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(false))
@@ -332,14 +332,14 @@ describe('useConfirm', () => {
     await waitFor(() =>
       expect(screen.queryByText('This removes 3 recordings.')).not.toBeInTheDocument(),
     )
-    await userEvent.click(screen.getByText('Delete song'))
+    await userEvent.click(screen.getByText('Delete tune'))
     await userEvent.click(await screen.findByText('Delete'))
     await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(true))
   })
 
   it('paints its destructive button in the danger color', async () => {
     renderIonic(<ConfirmHost onResult={() => {}} />, { db: openTestDb() })
-    await userEvent.click(await screen.findByText('Delete song'))
+    await userEvent.click(await screen.findByText('Delete tune'))
     await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
     const { destructive, cancel } = confirmButtons()
     expect(getComputedStyle(destructive).color).toBe(dangerColor())
@@ -487,21 +487,21 @@ describe('on touch', () => {
     it('resolves true on the action and false on cancel', async () => {
       const onResult = vi.fn()
       renderIonic(<ConfirmHost onResult={onResult} />, { db: openTestDb() })
-      await userEvent.click(await screen.findByText('Delete song'))
+      await userEvent.click(await screen.findByText('Delete tune'))
       await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
       await userEvent.click(screen.getByText('Cancel'))
       await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(false))
       await waitFor(() =>
         expect(screen.queryByText('This removes 3 recordings.')).not.toBeInTheDocument(),
       )
-      await userEvent.click(screen.getByText('Delete song'))
+      await userEvent.click(screen.getByText('Delete tune'))
       await userEvent.click(await screen.findByText('Delete'))
       await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(true))
     })
 
     it('paints its destructive button in the danger color', async () => {
       renderIonic(<ConfirmHost onResult={() => {}} />, { db: openTestDb() })
-      await userEvent.click(await screen.findByText('Delete song'))
+      await userEvent.click(await screen.findByText('Delete tune'))
       await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
       const { destructive, cancel } = confirmButtons()
       expect(getComputedStyle(destructive).color).toBe(dangerColor())

@@ -13,11 +13,11 @@ export const UPLOAD_AUDIO = 'Upload audio file'
 
 /** Adds an audio file already on the device as a recording. */
 export function UploadButton({
-  songId,
+  tuneId,
   label = 'Upload',
   onError,
 }: {
-  songId: string | null
+  tuneId: string | null
   label?: string
   /**
    * Takes the refusal, and null as a fresh pick clears the last one, for a caller with room to
@@ -40,7 +40,7 @@ export function UploadButton({
     if (figures && file.size > figures.max_file_bytes) {
       throw new Error(`Files are limited to ${formatBytes(figures.max_file_bytes)}.`)
     }
-    await addUploadedFile(db, file, { songId, label: file.name.replace(/\.[^.]+$/, '') })
+    await addUploadedFile(db, file, { tuneId, label: file.name.replace(/\.[^.]+$/, '') })
   }
 
   return (

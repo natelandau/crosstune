@@ -15,11 +15,14 @@ export function KeyPill({
   value,
   chosen = false,
   compact = false,
+  suffix = '',
 }: {
   value: string
   chosen?: boolean
   /** Sits in a row of metadata rather than standing on its own as a control. */
   compact?: boolean
+  /** Text after the key, such as a mode abbreviation. The hue still comes from the key alone. */
+  suffix?: string
 }) {
   const text = value.trim()
   if (!text) return null
@@ -31,6 +34,7 @@ export function KeyPill({
       data-chosen={chosen ? '' : undefined}
     >
       {text}
+      {suffix}
     </span>
   )
 }

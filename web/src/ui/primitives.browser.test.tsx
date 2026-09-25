@@ -55,7 +55,7 @@ describe('Group', () => {
 
   it('names its list and takes a rendered header', async () => {
     renderIonic(
-      <Group header={<a href="/songs/1">Soldier&apos;s Joy</a>} name="Soldier's Joy">
+      <Group header={<a href="/tunes/1">Soldier&apos;s Joy</a>} name="Soldier's Joy">
         <IonItem>
           <IonLabel>Row</IonLabel>
         </IonItem>
@@ -145,9 +145,9 @@ describe('Capsule', () => {
 
 describe('InlineError', () => {
   it('announces as an alert', async () => {
-    renderIonic(<InlineError>Song not found</InlineError>, { db: openTestDb() })
+    renderIonic(<InlineError>Tune not found</InlineError>, { db: openTestDb() })
     const alert = page.getByRole('alert')
-    await expect.element(alert).toHaveTextContent('Song not found')
+    await expect.element(alert).toHaveTextContent('Tune not found')
     await vi.waitFor(() => expect(alert.element()).toBeTruthy())
     expect(getComputedStyle(alert.element()).color).toBe(computedColor('--ion-color-danger'))
   })

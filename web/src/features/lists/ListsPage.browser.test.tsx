@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { addToList, createList } from '../../commands/lists'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
@@ -40,10 +40,10 @@ describe('ListsPage', () => {
   it('lists lists in position order with counts', async () => {
     const jam = await createList(db, 'Tuesday jam')
     await createList(db, 'Square dance set')
-    const { userSongId } = await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
-    await addToList(db, jam, userSongId)
+    const { userTuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+    await addToList(db, jam, userTuneId)
     show()
-    await expect.element(page.getByText('1 song · Edited today')).toBeVisible()
+    await expect.element(page.getByText('1 tune · Edited today')).toBeVisible()
     const names = Array.from(document.querySelectorAll('ion-list h2')).map((h) => h.textContent)
     expect(names).toEqual(['Tuesday jam', 'Square dance set'])
   })

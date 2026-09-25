@@ -15,7 +15,7 @@ import {
   setFileState,
   updateRecording,
 } from '../../commands/recordings'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
@@ -28,11 +28,11 @@ import { CLOSE_PLAYER, Dock } from './Dock'
 import { usePlayer, type PlayerItem } from './usePlayer'
 
 let db: CrosstuneDb
-let songId: string
+let tuneId: string
 
 beforeEach(async () => {
   db = openTestDb()
-  songId = (await createSong(db, { title: 'Cluck Old Hen' }, { status: 'learning' })).songId
+  tuneId = (await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })).tuneId
 })
 
 afterEach(async () => {
@@ -40,7 +40,7 @@ afterEach(async () => {
 })
 
 function addYouTube() {
-  return addLink(db, songId, {
+  return addLink(db, tuneId, {
     url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     provider: 'youtube',
     provider_ref: 'dQw4w9WgXcQ',
@@ -49,7 +49,7 @@ function addYouTube() {
 }
 
 function addSpotify() {
-  return addLink(db, songId, {
+  return addLink(db, tuneId, {
     url: 'https://open.spotify.com/track/403iATVGis7FqKA0BcTSRt',
     provider: 'spotify',
     provider_ref: 'track:403iATVGis7FqKA0BcTSRt',
@@ -60,10 +60,10 @@ function addSpotify() {
 /** A recording captured on this device, so its blob is already held locally. */
 async function localRecording(label: string): Promise<string> {
   const id = newId()
-  await beginCapture(db, id, { songId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
+  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
   await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
   await finishCapture(db, id, {
-    songId,
+    tuneId,
     mime: 'audio/mp4',
     durationMs: 3000,
     recordedAt: '2026-09-14T20:00:00.000Z',
@@ -72,13 +72,13 @@ async function localRecording(label: string): Promise<string> {
   return id
 }
 
-/** A recording with no label and no song, so its title has nothing to fall back to but its date. */
+/** A recording with no label and no tune, so its title has nothing to fall back to but its date. */
 async function unfiledRecording(): Promise<string> {
   const id = newId()
-  await beginCapture(db, id, { songId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
+  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
   await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
   await finishCapture(db, id, {
-    songId: null,
+    tuneId: null,
     mime: 'audio/mp4',
     durationMs: 3000,
     recordedAt: '2026-09-14T20:00:00.000Z',
@@ -97,7 +97,7 @@ async function remoteRecording(id: string, state = 'ready'): Promise<string> {
     updated_at: '2026-09-14T20:00:00.000Z',
     deleted_at: null,
     server_seq: 3,
-    song_id: songId,
+    tune_id: tuneId,
     label: 'From my other phone',
     source: 'microphone',
     recorded_at: '2026-09-14T20:00:00.000Z',
@@ -212,7 +212,7 @@ describe('Dock', () => {
   })
 
   it('closes itself when the loaded link has no player', async () => {
-    const linkId = await addLink(db, songId, {
+    const linkId = await addLink(db, tuneId, {
       url: 'https://example.com/cluck-old-hen',
       provider: 'other',
     })

@@ -5,16 +5,14 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import (
     AfterValidator,
     BaseModel,
-    BeforeValidator,
     ConfigDict,
     Field,
     field_validator,
-    model_validator,
 )
 
 from crosstune.vocabulary import (
@@ -107,18 +105,11 @@ class TuneData(_Data):
     alternate_titles: list[Annotated[str, Field(max_length=TUNE["alternate_titles"])]] = []
     genre: str | None = Field(default=None, max_length=TUNE["genre"])
     tune_type: str | None = Field(default=None, max_length=TUNE["tune_type"])
-    # None only from a client that predates part modes; the push stores it as [].
-    modes: list[Mode] | None = Field(default=None, max_length=MAX_MODES)
+    modes: list[Mode] = Field(default=[], max_length=MAX_MODES)
     composer: str | None = Field(default=None, max_length=TUNE["composer"])
-    # The single-mode shape, kept while clients that predate part modes are in use.
-    feel: str | None = Field(default=None, max_length=TUNE["feel"])
-    mode: Mode | None = None
     lyrics: str | None = Field(default=None, max_length=TUNE["lyrics"])
     key: str | None = Field(default=None, max_length=TUNE["key"])
     tunings: Tunings = Tunings()
-    # Legacy shape, accepted until every client sends tunings. Push folds them into tunings.
-    violin_tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)
-    banjo_tuning: str | None = Field(default=None, max_length=TUNING_LENGTH)
     part_structure: str | None = Field(default=None, max_length=TUNE["part_structure"])
     time_signature: TimeSignature | None = None
     is_crooked: bool = False
@@ -188,24 +179,10 @@ class RecordingData(_Data):
     position: int = 0
 
 
-def _renamed_instruments(values: Any) -> Any:
-    # A client that predates five_string_banjo still sends banjo.
-    if not isinstance(values, list):
-        return values
-    renamed = ["five_string_banjo" if v == "banjo" else v for v in values]
-    if "banjo" in values and "five_string_banjo" in values:
-        # Both spellings name one instrument, so they merge rather than read as a repeat.
-        first = renamed.index("five_string_banjo")
-        return [v for i, v in enumerate(renamed) if v != "five_string_banjo" or i == first]
-    return renamed
-
-
 class UserSettingsData(_Data):
     """Client-editable fields of a user's settings."""
 
-    instruments: Annotated[
-        list[Instrument], BeforeValidator(_renamed_instruments), AfterValidator(_distinct)
-    ] = []
+    instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
     # The default is validated too, so it is stored as a plain string like a sent value.
     audio_quality: AudioQuality = Field(default=AudioQuality.STANDARD, validate_default=True)
 
@@ -231,19 +208,8 @@ class TuneRow(TuneData, _Row):
     model_config = ConfigDict(extra="ignore")
 
     owner_user_id: uuid.UUID | None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _legacy_tunings(cls, row: Any) -> Any:
-        # A client that predates the map still reads its two instruments from these fields.
-        if isinstance(row, dict) and isinstance(row.get("tunings"), dict):
-            tunings = row["tunings"]
-            row = {
-                **row,
-                "violin_tuning": (tunings.get("violin") or {}).get("tuning"),
-                "banjo_tuning": (tunings.get("five_string_banjo") or {}).get("tuning"),
-            }
-        return row
+    # No default, so the contract promises the list on every row the client reads.
+    modes: list[Mode] = Field(max_length=MAX_MODES)
 
 
 class UserTuneRow(UserTuneData, _Row):

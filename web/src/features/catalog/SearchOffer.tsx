@@ -29,20 +29,20 @@ export function HiddenMatchNote({
   onOpen,
 }: {
   outcome: SearchOutcome
-  onOpen: (songId: string) => void
+  onOpen: (tuneId: string) => void
 }) {
   if (outcome.kind !== 'create' || !outcome.hidden) return null
   const { entry, reason } = outcome.hidden
   return (
     <p className="type-footnote px-5 pt-2">
-      <span>{`"${entry.song.title}" is ${reason === 'archived' ? 'archived' : 'hidden by your filters'}.`}</span>{' '}
+      <span>{`"${entry.tune.title}" is ${reason === 'archived' ? 'archived' : 'hidden by your filters'}.`}</span>{' '}
       <a
-        href={`/catalog/${entry.song.id}`}
+        href={`/catalog/${entry.tune.id}`}
         className="-my-3 inline-flex min-h-11 min-w-11 items-center justify-center text-(--ion-color-primary)"
-        aria-label={`Open ${entry.song.title}`}
+        aria-label={`Open ${entry.tune.title}`}
         onClick={(event) => {
           event.preventDefault()
-          onOpen(entry.song.id)
+          onOpen(entry.tune.id)
         }}
       >
         Open

@@ -11,7 +11,7 @@ describe('stylesheet cascade', () => {
       <IonList>
         <IonItem>
           <Music slot="start" data-testid="icon" className="size-6" aria-hidden />
-          <IonLabel>Songs</IonLabel>
+          <IonLabel>Tunes</IonLabel>
         </IonItem>
       </IonList>,
       { db: openTestDb() },

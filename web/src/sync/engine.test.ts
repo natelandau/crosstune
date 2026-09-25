@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
-import { createSong, deleteSong, updateSong } from '../commands/songs'
+import { createTune, deleteTune, updateTune } from '../commands/tunes'
 import { getInvalidChangeCount, getPullCursor } from '../db/meta'
 import { pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
-import { createFakeApi, serverSong } from '../test/fakeApi'
+import { createFakeApi, serverTune } from '../test/fakeApi'
 import { BACKOFF_MS, classifyFailure, createSyncEngine } from './engine'
 import type { SyncStatus } from './types'
 
@@ -41,15 +41,15 @@ async function drainRealTasks(iterations = 50): Promise<void> {
 
 describe('createSyncEngine', () => {
   it('pushes the outbox, then pulls until has_more is false', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
     fake.queuePull(
       {
-        rows: [{ table: 'songs', row: serverSong({ id: 'a', server_seq: 10 }) }],
+        rows: [{ table: 'tunes', row: serverTune({ id: 'a', server_seq: 10 }) }],
         next_since: 10,
         has_more: true,
       },
       {
-        rows: [{ table: 'songs', row: serverSong({ id: 'b', server_seq: 12 }) }],
+        rows: [{ table: 'tunes', row: serverTune({ id: 'b', server_seq: 12 }) }],
         next_since: 12,
         has_more: false,
       },
@@ -57,11 +57,11 @@ describe('createSyncEngine', () => {
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     const seen = trackStatuses(engine)
     await engine.sync()
-    expect(fake.pushes[0]?.map((c) => c.id)).toContain(songId)
+    expect(fake.pushes[0]?.map((c) => c.id)).toContain(tuneId)
     expect(fake.pushes[0]?.[0]?.data).not.toHaveProperty('id')
     expect(fake.pulls).toEqual([0, 10])
     expect(await getPullCursor(db)).toBe(12)
-    expect(await db.songs.count()).toBe(3)
+    expect(await db.tunes.count()).toBe(3)
     expect(await pendingBatch(db)).toHaveLength(0)
     expect(seen).toEqual(['syncing', 'idle'])
   })
@@ -69,12 +69,12 @@ describe('createSyncEngine', () => {
   it('keeps an entry written while its batch was in flight and pushes it next', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-09-11T10:00:00.000Z'))
-    const { songId } = await createSong(db, { title: 'v1' }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: 'v1' }, { status: 'known' })
     fake.respondToPush(async (changes) => {
       // Give the concurrent write a distinct updated_at, otherwise it can land in the
       // same millisecond as the original and the "changed since sent" check misses it.
       vi.setSystemTime(new Date('2026-09-11T10:00:05.000Z'))
-      await updateSong(db, songId, { title: 'v2' })
+      await updateTune(db, tuneId, { title: 'v2' })
       return changes.map((c) => ({ table: c.table, id: c.id, status: 'applied' as const }))
     })
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
@@ -120,7 +120,7 @@ describe('createSyncEngine', () => {
   })
 
   it('coalesces concurrent sync calls', async () => {
-    await createSong(db, { title: 'X' }, { status: 'known' })
+    await createTune(db, { title: 'X' }, { status: 'known' })
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await Promise.all([engine.sync(), engine.sync(), engine.sync()])
     expect(fake.pushes).toHaveLength(1)
@@ -146,7 +146,7 @@ describe('createSyncEngine', () => {
 
   it('arms no retry when stop() lands during an in-flight failure', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    await createSong(db, { title: 'X' }, { status: 'known' })
+    await createTune(db, { title: 'X' }, { status: 'known' })
     let rejectPush: (error: unknown) => void = () => {}
     fake.respondToPush(
       () =>
@@ -180,29 +180,29 @@ describe('createSyncEngine', () => {
   })
 
   it('reports a rejected change and counts it', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
     fake.respondToPush((changes) =>
       changes.map((c) => ({
         table: c.table,
         id: c.id,
-        status: c.id === songId ? ('invalid' as const) : ('applied' as const),
-        reason: c.id === songId ? 'title too long' : null,
+        status: c.id === tuneId ? ('invalid' as const) : ('applied' as const),
+        reason: c.id === tuneId ? 'title too long' : null,
       })),
     )
     const onInvalid = vi.fn()
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, onInvalid })
     await engine.sync()
     expect(onInvalid).toHaveBeenCalledWith({
-      table: 'songs',
-      id: songId,
+      table: 'tunes',
+      id: tuneId,
       reason: 'title too long',
     })
     expect(await getInvalidChangeCount(db)).toBe(1)
   })
 
   it('does not count a delete the server never stored as a lost change', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
-    await deleteSong(db, songId)
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    await deleteTune(db, tuneId)
     fake.respondToPush((changes) =>
       changes.map((c) => ({
         table: c.table,
@@ -228,7 +228,7 @@ describe('createSyncEngine', () => {
   })
 
   it('stops pushing when a full batch settles nothing', async () => {
-    await createSong(db, { title: 'X' }, { status: 'known' })
+    await createTune(db, { title: 'X' }, { status: 'known' })
     fake.respondToPush(() => [])
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, batchSize: 1 })
     await engine.sync()
@@ -237,8 +237,8 @@ describe('createSyncEngine', () => {
   })
 
   it('pushes the outbox in batches until it is empty', async () => {
-    await createSong(db, { title: 'X' }, { status: 'known' })
-    await createSong(db, { title: 'Y' }, { status: 'known' })
+    await createTune(db, { title: 'X' }, { status: 'known' })
+    await createTune(db, { title: 'Y' }, { status: 'known' })
     expect(await pendingBatch(db)).toHaveLength(4)
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true, batchSize: 2 })
     await engine.sync()

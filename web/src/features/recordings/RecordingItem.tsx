@@ -24,15 +24,15 @@ export function RecordingItem({
   view,
   actions,
   error,
-  songNamedAbove = false,
+  tuneNamedAbove = false,
   onRetry,
 }: {
   view: RecordingView
   actions?: readonly RowAction[]
   /** Shown under the meta line, for a stuck upload or a failed download. */
   error?: string | null
-  /** True in a list whose heading above this row already names the recording's song. */
-  songNamedAbove?: boolean
+  /** True in a list whose heading above this row already names the recording's tune. */
+  tuneNamedAbove?: boolean
   onRetry: (kind: 'upload' | 'transcode') => void
 }) {
   const { recording, file } = view
@@ -44,7 +44,7 @@ export function RecordingItem({
   // durable to carry that state. Distinguishing a failure from idle is what lets a failed
   // download say so, the way a stuck upload does.
   const [fetch, setFetch] = useState<'idle' | 'fetching' | 'failed'>('idle')
-  const title = recordingTitle(view, { songNamedAbove })
+  const title = recordingTitle(view, { tuneNamedAbove })
   const item = { kind: 'recording' as const, id: recording.id }
   const loaded = isPlaying(player, item)
   const blockedQuota = file?.local_state === 'blocked_quota'
@@ -137,7 +137,7 @@ export function RecordingItem({
       {...open}
     >
       <IonLabel className="my-2.5 overflow-hidden">
-        {/* A level below the heading of the group this row sits in, which is a song's own row. */}
+        {/* A level below the heading of the group this row sits in, which is a tune's own row. */}
         <h3 className="type-headline truncate">{title}</h3>
         <p className="type-subheadline truncate tabular-nums">{meta}</p>
       </IonLabel>

@@ -21,7 +21,7 @@ describe('Screen on iOS', () => {
     await page.viewport(1024, 768)
     try {
       renderScreen(
-        <Screen title="Catalog" level="top" search={<IonSearchbar aria-label="Search songs" />}>
+        <Screen title="Catalog" level="top" search={<IonSearchbar aria-label="Search tunes" />}>
           <IonList>
             <IonItem>
               <IonLabel>Liberty</IonLabel>

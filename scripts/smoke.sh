@@ -44,6 +44,6 @@ name="web serves the service worker"
 if [ "$(status_of "$web/sw.js")" = 200 ]; then pass "$name"; else fail "$name"; fi
 
 name="web serves the shell for a client-side route"
-if curl -sS "$web/songs/new" | grep -q '<div id="root">'; then pass "$name"; else fail "$name"; fi
+if curl -sS "$web/tunes/new" | grep -q '<div id="root">'; then pass "$name"; else fail "$name"; fi
 
 exit "$failed"

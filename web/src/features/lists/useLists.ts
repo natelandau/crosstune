@@ -2,12 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { activeItems } from '../../commands/lists'
 import { activeByPosition } from '../../commands/write'
 import { useDb } from '../../db/DbProvider'
-import { liveSong } from '../../db/songs'
-import type { LocalList, LocalListItem, LocalSong, LocalUserSong } from '../../db/types'
+import { liveTune } from '../../db/tunes'
+import type { LocalList, LocalListItem, LocalTune, LocalUserTune } from '../../db/types'
 
 export type ListSummary = LocalList & { count: number; lastEditedAt: string }
 
-/** The newest updated_at across a list and its item rows; removed items count, since removing a song edits the list. */
+/** The newest updated_at across a list and its item rows; removed items count, since removing a tune edits the list. */
 function lastEdited(list: LocalList, items: LocalListItem[]): string {
   return items.reduce(
     (latest, item) => (Date.parse(item.updated_at) > Date.parse(latest) ? item.updated_at : latest),
@@ -33,8 +33,8 @@ export function useLists(): ListSummary[] | undefined {
 
 export interface ListItemView {
   item: LocalListItem
-  song: LocalSong
-  userSong: LocalUserSong
+  tune: LocalTune
+  userTune: LocalUserTune
 }
 
 export function useListView(
@@ -45,50 +45,50 @@ export function useListView(
     const list = await db.lists.get(listId)
     if (!list || list.deleted_at) return null
     const items = await activeItems(db, listId)
-    const userSongs = await db.user_songs.bulkGet(items.map((item) => item.user_song_id))
-    const songs = await db.songs.bulkGet(userSongs.map((userSong) => userSong?.song_id ?? ''))
+    const userTunes = await db.user_tunes.bulkGet(items.map((item) => item.user_tune_id))
+    const tunes = await db.tunes.bulkGet(userTunes.map((userTune) => userTune?.tune_id ?? ''))
     const views: ListItemView[] = []
     for (const [index, item] of items.entries()) {
-      const userSong = userSongs[index]
-      const song = songs[index]
-      const liveSongRow = liveSong(song)
-      if (userSong && !userSong.deleted_at && liveSongRow) {
-        views.push({ item, song: liveSongRow, userSong })
+      const userTune = userTunes[index]
+      const tune = tunes[index]
+      const liveTuneRow = liveTune(tune)
+      if (userTune && !userTune.deleted_at && liveTuneRow) {
+        views.push({ item, tune: liveTuneRow, userTune })
       }
     }
     return { list, items: views }
   }, [db, listId])
 }
 
-/** The song's live list item per list it is in, keyed by list id, so removal has the item to tombstone. */
-export function useMembership(userSongId: string): Map<string, string> {
+/** The tune's live list item per list it is in, keyed by list id, so removal has the item to tombstone. */
+export function useMembership(userTuneId: string): Map<string, string> {
   const db = useDb()
   return (
     useLiveQuery(async () => {
-      const items = await db.list_items.where('user_song_id').equals(userSongId).toArray()
+      const items = await db.list_items.where('user_tune_id').equals(userTuneId).toArray()
       return new Map(items.filter((i) => !i.deleted_at).map((i) => [i.list_id, i.id]))
-    }, [db, userSongId]) ?? new Map<string, string>()
+    }, [db, userTuneId]) ?? new Map<string, string>()
   )
 }
 
 /**
- * How many of the given songs each list holds, keyed by list id. Undefined until the first
+ * How many of the given tunes each list holds, keyed by list id. Undefined until the first
  * result arrives, so a caller can tell "still loading" apart from "loaded, none of these in
  * it". Depends on the ids joined into one string rather than the array itself, since a caller
  * that rebuilds the array every render would otherwise resubscribe the query on every render;
  * pass a memoized array anyway so the caller's own re-renders stay cheap.
  */
 export function useMembershipCounts(
-  userSongIds: readonly string[],
+  userTuneIds: readonly string[],
 ): Map<string, number> | undefined {
   const db = useDb()
-  const key = userSongIds.join(',')
+  const key = userTuneIds.join(',')
   return useLiveQuery(async () => {
     const counts = new Map<string, number>()
-    if (userSongIds.length === 0) return counts
+    if (userTuneIds.length === 0) return counts
     const items = await db.list_items
-      .where('user_song_id')
-      .anyOf([...userSongIds])
+      .where('user_tune_id')
+      .anyOf([...userTuneIds])
       .toArray()
     for (const item of items) {
       if (item.deleted_at) continue

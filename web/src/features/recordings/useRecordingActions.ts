@@ -11,7 +11,7 @@ import { deleteRecordingMessage } from './recordingRow'
 import type { RecordingView } from './useRecordings'
 
 export const DELETE_RECORDING_TITLE = 'Delete this recording?'
-export const REMOVE_FROM_SONG = 'Remove from song'
+export const REMOVE_FROM_TUNE = 'Remove from tune'
 
 export interface RecordingActions {
   /** One line for every refusal a list of recordings can report, wherever the control sits. */
@@ -27,11 +27,11 @@ export interface RecordingActions {
 /** What every list of recordings does to a row: rename it, file it, delete it, unstick it. */
 export function useRecordingActions({
   onRename,
-  onAddToSong,
+  onAddToTune,
 }: {
   onRename: (view: RecordingView) => void
-  /** Left out by a list where every recording is already filed under the song it belongs to. */
-  onAddToSong?: (view: RecordingView) => void
+  /** Left out by a list where every recording is already filed under the tune it belongs to. */
+  onAddToTune?: (view: RecordingView) => void
 }): RecordingActions {
   const db = useDb()
   const engine = useSyncEngine()
@@ -80,22 +80,22 @@ export function useRecordingActions({
   }
 
   const filing = (view: RecordingView): RowAction | null => {
-    if (view.songId) {
+    if (view.tuneId) {
       return {
-        label: REMOVE_FROM_SONG,
+        label: REMOVE_FROM_TUNE,
         short: 'Remove',
         icon: FolderOutput,
         tone: 'warning',
-        onPress: () => run(() => updateRecording(db, view.recording.id, { song_id: null })),
+        onPress: () => run(() => updateRecording(db, view.recording.id, { tune_id: null })),
       }
     }
-    if (!onAddToSong) return null
+    if (!onAddToTune) return null
     return {
-      label: 'Add to song',
+      label: 'Add to tune',
       short: 'Add',
       icon: FolderInput,
       tone: 'warning',
-      onPress: () => onAddToSong(view),
+      onPress: () => onAddToTune(view),
     }
   }
 

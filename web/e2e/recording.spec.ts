@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addSong, signIn, swipeLeft, unique } from './helpers'
+import { addTune, signIn, swipeLeft, unique } from './helpers'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
@@ -23,21 +23,21 @@ async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
   return row
 }
 
-/** File an unfiled row under `title` from its swipe action, and return its row under that song. */
-async function addToSong(page: Page, row: Locator, title: string): Promise<Locator> {
+/** File an unfiled row under `title` from its swipe action, and return its row under that tune. */
+async function addToTune(page: Page, row: Locator, title: string): Promise<Locator> {
   await swipeLeft(page, row)
   // The swipe actions are a sibling of the row inside ion-item-sliding, not a descendant of it,
   // so reaching them means stepping up to the sliding element first.
   await row
     .locator('xpath=..')
-    .getByRole('button', { name: /^Add to song / })
+    .getByRole('button', { name: /^Add to tune / })
     .click()
-  // The sheet's own controls are never scoped to its dialog, for the reason `addSong` in
+  // The sheet's own controls are never scoped to its dialog, for the reason `addTune` in
   // helpers.ts records: the dialog is a wrapper inside ion-modal's shadow root and the sheet's
   // content is slotted light DOM rather than a descendant of it.
-  await page.getByRole('searchbox', { name: 'Search songs' }).fill(title)
+  await page.getByRole('searchbox', { name: 'Search tunes' }).fill(title)
   await page.getByRole('button', { name: `Add to ${title}` }).click()
-  // A song's group is headed by the song's own row, so the recording is never the first item.
+  // A tune's group is headed by the tune's own row, so the recording is never the first item.
   const filed = page
     .getByRole('list', { name: title })
     .getByRole('listitem')
@@ -47,13 +47,13 @@ async function addToSong(page: Page, row: Locator, title: string): Promise<Locat
   return filed
 }
 
-test('record, add the recording to a song, and play it back on the device', async ({ page }) => {
+test('record, add the recording to a tune, and play it back on the device', async ({ page }) => {
   await signIn(page)
   const title = unique('Cluck Old Hen')
-  await addSong(page, title, 'A')
+  await addTune(page, title, 'A')
 
   const unfiled = await recordUnfiled(page, 6)
-  const row = await addToSong(page, unfiled, title)
+  const row = await addToTune(page, unfiled, title)
   await row.getByRole('button', { name: /^Play / }).click()
   const audio = page.getByRole('region', { name: 'Player' }).locator('audio')
   await expect(audio).toBeVisible()
@@ -75,12 +75,12 @@ test('uploads a recording, transcodes it, and plays it back from a second device
 
   await signIn(page)
   const title = unique('Boil Them Cabbage Down')
-  await addSong(page, title, 'G')
-  const songUrl = page.url()
+  await addTune(page, title, 'G')
+  const tuneUrl = page.url()
 
   const unfiled = await recordUnfiled(page, 3)
-  await addToSong(page, unfiled, title)
-  await page.goto(songUrl)
+  await addToTune(page, unfiled, title)
+  await page.goto(tuneUrl)
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
   const row = page.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
   await expect(row).toContainText(DEFAULT_LABEL)
@@ -98,7 +98,7 @@ test('uploads a recording, transcodes it, and plays it back from a second device
     await page.getByRole('tab', { name: 'Settings' }).click()
     await page.getByRole('button', { name: 'Sync now' }).click()
     await page.waitForTimeout(3_000)
-    await page.goto(songUrl)
+    await page.goto(tuneUrl)
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
   }
   expect(
@@ -115,7 +115,7 @@ test('uploads a recording, transcodes it, and plays it back from a second device
       if (msg.type() === 'error') consoleErrors2.push(msg.text())
     })
     await signIn(page2)
-    await page2.goto(songUrl)
+    await page2.goto(tuneUrl)
     await expect(page2.getByRole('heading', { name: title })).toBeVisible()
     const row2 = page2.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
     // The second device holds no audio yet: the row fetches it first, then offers to play it.

@@ -1,19 +1,26 @@
-import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
+import { TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
-import { isSongStatus } from '../catalog/status'
-import { TUNING_FIELDS } from '../settings/instruments'
-import { DETAIL_LABELS } from '../song/detailFields'
+import { isTuneStatus } from '../catalog/status'
+import {
+  byTuningKey,
+  isTuningKey,
+  TUNING_KEYS,
+  tuningEntry,
+  tuningKeyInstrument,
+  tuningLabel,
+} from '../settings/instruments'
+import { DETAIL_LABELS } from '../tune/detailFields'
+import { isMode } from '../tune/keyMode'
 
 export const EDIT_FIELDS = [
   'status',
   'key',
   'mode',
-  'violin_tuning',
-  'banjo_tuning',
+  ...TUNING_KEYS,
   'genre',
-  'feel',
+  'tune_type',
   'time_signature',
   'part_structure',
   'is_crooked',
@@ -23,16 +30,20 @@ export const EDIT_FIELDS = [
 
 export type EditField = (typeof EDIT_FIELDS)[number]
 
+/** The instrument whose tuning a field edits, or undefined for a column. */
+export function tuningInstrument(field: EditField): Instrument | undefined {
+  return tuningKeyInstrument(field)
+}
+
 export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   status: 'Status',
   key: 'Key',
   mode: DETAIL_LABELS.mode,
-  violin_tuning: TUNING_FIELDS.violin_tuning.label,
-  banjo_tuning: TUNING_FIELDS.banjo_tuning.label,
+  ...byTuningKey(tuningLabel),
   genre: DETAIL_LABELS.genre,
-  feel: DETAIL_LABELS.feel,
+  tune_type: DETAIL_LABELS.tune_type,
   time_signature: DETAIL_LABELS.time_signature,
-  part_structure: 'Part structure',
+  part_structure: DETAIL_LABELS.part_structure,
   is_crooked: DETAIL_LABELS.is_crooked,
   learned_from: DETAIL_LABELS.learned_from,
   learned_on: DETAIL_LABELS.learned_on,
@@ -43,10 +54,9 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   status: 'choice',
   key: 'choice',
   mode: 'choice',
-  violin_tuning: 'choice',
-  banjo_tuning: 'choice',
+  ...byTuningKey(() => 'choice' as const),
   genre: 'choice',
-  feel: 'choice',
+  tune_type: 'choice',
   time_signature: 'choice',
   part_structure: 'choice',
   is_crooked: 'boolean',
@@ -54,7 +64,13 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   learned_on: 'date',
 }
 
-const USER_SONG_FIELDS: ReadonlySet<EditField> = new Set(['status', 'learned_from', 'learned_on'])
+const USER_TUNE_FIELDS = ['status', 'learned_from', 'learned_on'] as const satisfies EditField[]
+
+type UserTuneField = (typeof USER_TUNE_FIELDS)[number]
+
+function isUserTuneField(field: EditField): field is UserTuneField {
+  return USER_TUNE_FIELDS.some((userField) => userField === field)
+}
 
 export type Summary =
   { kind: 'shared'; value: string | boolean } | { kind: 'mixed' } | { kind: 'empty' }
@@ -66,40 +82,49 @@ export type Touched = Partial<Record<EditField, TouchedValue>>
 // A server row can carry a value from a schema version this client predates;
 // fall back to empty rather than trust it as one of this client's known options.
 function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | null {
-  const row = (USER_SONG_FIELDS.has(field) ? entry.userSong : entry.song) as unknown as Record<
-    string,
-    unknown
-  >
-  const value = row[field]
+  if (isTuningKey(field)) {
+    const instrument = tuningKeyInstrument(field)
+    return instrument ? tuningEntry(entry.tune.tunings, instrument).tuning : null
+  }
+  if (field === 'mode') {
+    const modes = entry.tune.modes.filter(isMode)
+    return modes.length > 0 ? modes.join(', ') : null
+  }
+  const value: unknown = isUserTuneField(field) ? entry.userTune[field] : entry.tune[field]
   if (typeof value !== 'string' && typeof value !== 'boolean') return null
-  if (field === 'mode') return (MODES as readonly string[]).includes(value as string) ? value : null
   if (field === 'time_signature')
-    return (TIME_SIGNATURES as readonly string[]).includes(value as string) ? value : null
-  if (field === 'status') return typeof value === 'string' && isSongStatus(value) ? value : null
+    return TIME_SIGNATURES.some((signature) => signature === value) ? value : null
+  if (field === 'status') return typeof value === 'string' && isTuneStatus(value) ? value : null
   return value
 }
 
 export function summarize(entries: readonly CatalogEntry[]): Record<EditField, Summary> {
-  const summaries = {} as Record<EditField, Summary>
+  const summaries: Partial<Record<EditField, Summary>> = {}
   for (const field of EDIT_FIELDS) {
     const values = entries.map((entry) => fieldValue(entry, field))
     const first = values[0] ?? null
     if (!values.every((value) => value === first)) summaries[field] = { kind: 'mixed' }
     else summaries[field] = first === null ? { kind: 'empty' } : { kind: 'shared', value: first }
   }
+  if (!hasEveryField(summaries)) throw new Error('An edit field is missing its summary')
   return summaries
 }
 
-/** Every field, except a tuning for an instrument the user does not play that no selected song fills. */
+function hasEveryField<T>(record: Partial<Record<EditField, T>>): record is Record<EditField, T> {
+  return EDIT_FIELDS.every((field) => record[field] !== undefined)
+}
+
+/** Every field, except a tuning for an instrument the user does not play that no selected tune fills. */
 export function visibleEditFields(
   entries: readonly CatalogEntry[],
   instruments: ReadonlySet<Instrument>,
 ): EditField[] {
   return EDIT_FIELDS.filter((field) => {
-    if (field !== 'violin_tuning' && field !== 'banjo_tuning') return true
+    const instrument = tuningInstrument(field)
+    if (!instrument) return true
     return (
-      instruments.has(TUNING_FIELDS[field].instrument) ||
-      entries.some((entry) => (entry.song[field] ?? null) !== null)
+      instruments.has(instrument) ||
+      entries.some((entry) => tuningEntry(entry.tune.tunings, instrument).tuning !== null)
     )
   })
 }
@@ -109,7 +134,7 @@ function normalize(value: TouchedValue): string | boolean | null {
 }
 
 /**
- * True when saving the value would leave every selected song as it is. Compares the
+ * True when saving the value would leave every selected tune as it is. Compares the
  * raw value, not the trimmed one that is saved, so a trailing space typed mid-edit does
  * not snap a text field back to untouched.
  */
@@ -119,21 +144,55 @@ export function isUnchanged(summary: Summary, value: TouchedValue): boolean {
 }
 
 export function toPatch(touched: Touched): BulkPatch {
-  const song: Record<string, unknown> = {}
-  const userSong: Record<string, unknown> = {}
+  const tune: NonNullable<BulkPatch['tune']> = {}
+  const userTune: NonNullable<BulkPatch['userTune']> = {}
+  const tunings: Partial<Record<Instrument, string | null>> = {}
   for (const field of EDIT_FIELDS) {
     const raw = touched[field]
     if (raw === undefined) continue
     const value = normalize(raw)
-    if (field === 'status' && value === null) continue
-    const target = USER_SONG_FIELDS.has(field) ? userSong : song
-    target[field] = value
+    const text = typeof value === 'string' ? value : null
+    if (isTuningKey(field)) {
+      const instrument = tuningKeyInstrument(field)
+      if (instrument) tunings[instrument] = text
+      continue
+    }
+    // A value outside a field's vocabulary is skipped, so it never reaches the outbox.
+    switch (field) {
+      case 'status':
+        if (text !== null && isTuneStatus(text)) userTune.status = text
+        break
+      case 'learned_from':
+      case 'learned_on':
+        userTune[field] = text
+        break
+      case 'mode':
+        if (text === null) tune.modes = []
+        else if (isMode(text)) tune.modes = [text]
+        break
+      case 'time_signature': {
+        const signature = TIME_SIGNATURES.find((known) => known === text)
+        if (text === null || signature) tune.time_signature = signature ?? null
+        break
+      }
+      case 'is_crooked':
+        if (typeof value === 'boolean') tune.is_crooked = value
+        break
+      case 'key':
+      case 'genre':
+      case 'tune_type':
+      case 'part_structure':
+        tune[field] = text
+        break
+    }
   }
-  return { song: song as BulkPatch['song'], userSong: userSong as BulkPatch['userSong'] }
+  const patch: BulkPatch = { tune, userTune }
+  if (Object.keys(tunings).length > 0) patch.tunings = tunings
+  return patch
 }
 
 export function displayValue(field: EditField, value: string | boolean): string {
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
-  if (field === 'status' && isSongStatus(value)) return STATUS_LABELS[value]
+  if (field === 'status' && isTuneStatus(value)) return STATUS_LABELS[value]
   return value
 }

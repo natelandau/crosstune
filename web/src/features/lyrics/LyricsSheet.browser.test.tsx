@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { SONG_LIMITS } from '../../api/vocabulary'
+import { TUNE_LIMITS } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { LyricsSheet } from './LyricsSheet'
@@ -59,6 +59,6 @@ it('discards the draft on cancel and starts fresh from the host value on reopen'
 it('caps a body longer than the limit rather than rejecting it', async () => {
   renderIonic(<Host />, { db: openTestDb() })
   await expect.element(field()).toBeVisible()
-  await field().fill('x'.repeat(SONG_LIMITS.lyrics + 100))
-  await expect.element(field()).toHaveValue('x'.repeat(SONG_LIMITS.lyrics))
+  await field().fill('x'.repeat(TUNE_LIMITS.lyrics + 100))
+  await expect.element(field()).toHaveValue('x'.repeat(TUNE_LIMITS.lyrics))
 })

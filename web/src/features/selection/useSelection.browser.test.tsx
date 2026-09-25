@@ -7,16 +7,16 @@ import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
-import { songRow, userSongRow } from '../../test/rows'
+import { tuneRow, userTuneRow } from '../../test/rows'
 import { Screen } from '../../ui/Screen'
-import { SongItem } from '../catalog/SongItem'
+import { TuneItem } from '../catalog/TuneItem'
 import { selectionCheckboxId } from './ids'
 import { useSelection } from './useSelection'
 
 const ENTRIES = [
-  { song: songRow('s1', 'Angeline the Baker'), userSong: userSongRow('u1', 's1') },
-  { song: songRow('s2', 'Cluck Old Hen'), userSong: userSongRow('u2', 's2') },
-  { song: songRow('s3', "Soldier's Joy"), userSong: userSongRow('u3', 's3') },
+  { tune: tuneRow('s1', 'Angeline the Baker'), userTune: userTuneRow('u1', 's1') },
+  { tune: tuneRow('s2', 'Cluck Old Hen'), userTune: userTuneRow('u2', 's2') },
+  { tune: tuneRow('s3', "Soldier's Joy"), userTune: userTuneRow('u3', 's3') },
 ]
 const ALL_IDS: readonly string[] = ['u1', 'u2', 'u3']
 const FIRST_TWO: readonly string[] = ['u1', 'u2']
@@ -39,7 +39,7 @@ function forceTouch() {
 }
 
 /**
- * A screen of three song rows driven by the hook, with the controls a test needs to change what
+ * A screen of three tune rows driven by the hook, with the controls a test needs to change what
  * is visible and to take the Select control away without stealing focus from it.
  */
 function Harness({ onEnter }: { onEnter?: () => void }) {
@@ -74,11 +74,11 @@ function Harness({ onEnter }: { onEnter?: () => void }) {
       </p>
       <IonInput label="Notes" />
       <IonList onClickCapture={onClickCapture}>
-        {ENTRIES.filter((entry) => ids.includes(entry.userSong.id)).map((entry) => {
-          const row = rowSelection(entry.userSong.id)
+        {ENTRIES.filter((entry) => ids.includes(entry.userTune.id)).map((entry) => {
+          const row = rowSelection(entry.userTune.id)
           return (
-            <SongItem
-              key={entry.userSong.id}
+            <TuneItem
+              key={entry.userTune.id}
               entry={entry}
               instruments={INSTRUMENTS}
               onOpen={() => {}}
@@ -319,7 +319,7 @@ describe('useSelection', () => {
     expect(registerBack().find((entry) => entry.priority === 50)).toBeUndefined()
   })
 
-  it('drops a song the visible set no longer holds', async () => {
+  it('drops a tune the visible set no longer holds', async () => {
     show()
     await expect.element(control('Select')).toBeVisible()
     await startSelecting()
@@ -329,7 +329,7 @@ describe('useSelection', () => {
     await settle(() => expect(count()).toBe(2))
   })
 
-  it('does not bring a song back when it becomes visible again', async () => {
+  it('does not bring a tune back when it becomes visible again', async () => {
     show()
     await expect.element(control('Select')).toBeVisible()
     await startSelecting()

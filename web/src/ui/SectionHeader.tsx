@@ -17,7 +17,7 @@ type Opening =
  *
  * A header labels its section by default, in the footnote role and the secondary color, quieter
  * than the rows beneath it. `names` instead marks a header carrying the name of the thing those
- * rows belong to, such as the song over its recordings. It takes the title role, one step under
+ * rows belong to, such as the tune over its recordings. It takes the title role, one step under
  * the screen's own title, so the screen reads from its title down to its rows rather than flat
  * across them, and it keeps the tap height whether or not it opens anything, so every group on
  * a screen sets its rows off by the same distance.

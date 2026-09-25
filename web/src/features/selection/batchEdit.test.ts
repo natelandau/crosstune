@@ -1,66 +1,85 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
-import { songRow, userSongRow } from '../../test/rows'
-import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
+import { tuneRow, userTuneRow } from '../../test/rows'
+import { DETAIL_LABELS } from '../tune/detailFields'
+import { EDIT_FIELD_LABELS, isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
 
 const a = {
-  song: songRow('s1', 'Say Old Man', {
+  tune: tuneRow('s1', 'Say Old Man', {
     key: 'A',
-    violin_tuning: 'Standard (GDAE)',
+    tunings: { violin: { tuning: 'Standard (GDAE)' } },
     is_crooked: false,
   }),
-  userSong: userSongRow('u1', 's1', { status: 'known' }),
+  userTune: userTuneRow('u1', 's1', { status: 'known' }),
 }
 const b = {
-  song: songRow('s2', 'Lost Indian', {
+  tune: tuneRow('s2', 'Lost Indian', {
     key: 'A',
-    violin_tuning: 'Cross A (AEAE)',
+    tunings: { violin: { tuning: 'Cross A (AEAE)' } },
     is_crooked: false,
   }),
-  userSong: userSongRow('u2', 's2', { status: 'learning' }),
+  userTune: userTuneRow('u2', 's2', { status: 'learning' }),
 }
 
 describe('summarize', () => {
   it('reports shared, mixed, and empty fields', () => {
     const summary = summarize([a, b])
     expect(summary.key).toEqual({ kind: 'shared', value: 'A' })
-    expect(summary.violin_tuning).toEqual({ kind: 'mixed' })
+    expect(summary['tuning:violin']).toEqual({ kind: 'mixed' })
     expect(summary.genre).toEqual({ kind: 'empty' })
     expect(summary.status).toEqual({ kind: 'mixed' })
     expect(summary.is_crooked).toEqual({ kind: 'shared', value: false })
   })
 
   it('treats a mode this client does not know as no value', () => {
-    const lydian1 = { ...a, song: { ...a.song, mode: 'lydian' } }
-    const lydian2 = { ...b, song: { ...b.song, mode: 'lydian' } }
+    const lydian1 = { ...a, tune: { ...a.tune, modes: ['lydian'] } }
+    const lydian2 = { ...b, tune: { ...b.tune, modes: ['lydian'] } }
     expect(summarize([lydian1, lydian2]).mode).toEqual({ kind: 'empty' })
 
-    const major = { ...b, song: { ...b.song, mode: 'major' } }
+    const major = { ...b, tune: { ...b.tune, modes: ['major'] } }
     expect(summarize([lydian1, major]).mode).toEqual({ kind: 'mixed' })
   })
 
+  it('summarizes part modes as one shared value when every tune agrees', () => {
+    const kesh1 = { ...a, tune: { ...a.tune, modes: ['major', 'minor'] } }
+    const kesh2 = { ...b, tune: { ...b.tune, modes: ['major', 'minor'] } }
+    expect(summarize([kesh1, kesh2]).mode).toEqual({ kind: 'shared', value: 'major, minor' })
+  })
+
   it('treats an unknown status as no value', () => {
-    const unknown = { ...a, userSong: { ...a.userSong, status: 'retired' } }
+    const unknown = { ...a, userTune: { ...a.userTune, status: 'retired' } }
     expect(summarize([unknown]).status).toEqual({ kind: 'empty' })
+  })
+
+  it('treats a time signature this client does not know as no value', () => {
+    const unknown = { ...a, tune: { ...a.tune, time_signature: '7/8' } }
+    expect(summarize([unknown]).time_signature).toEqual({ kind: 'empty' })
+    const known = { ...a, tune: { ...a.tune, time_signature: '3/2' } }
+    expect(summarize([known]).time_signature).toEqual({ kind: 'shared', value: '3/2' })
+  })
+})
+
+describe('EDIT_FIELD_LABELS', () => {
+  it('labels part structure as the tune form does', () => {
+    expect(EDIT_FIELD_LABELS.part_structure).toBe(DETAIL_LABELS.part_structure)
   })
 })
 
 describe('visibleEditFields', () => {
   const violin = new Set<Instrument>(['violin'])
 
-  it('shows a tuning for a played instrument', () => {
-    expect(visibleEditFields([a, b], violin)).toContain('violin_tuning')
-    expect(visibleEditFields([a, b], violin)).not.toContain('banjo_tuning')
+  it('shows a tuning for a played instrument or one a selected tune holds', () => {
+    const plain = { ...a, tune: { ...a.tune, tunings: {} } }
+    const bouzouki = { ...b, tune: { ...b.tune, tunings: { bouzouki: { tuning: 'GDAD' } } } }
+    const fields = visibleEditFields([plain, bouzouki], violin)
+    expect(fields).toContain('tuning:violin')
+    expect(fields).toContain('tuning:bouzouki')
+    expect(fields).not.toContain('tuning:guitar')
   })
 
-  it('shows a tuning any selected song already has', () => {
-    const banjo = { ...b, song: { ...b.song, banjo_tuning: 'Double C (gCGCD)' } }
-    expect(visibleEditFields([a, banjo], violin)).toContain('banjo_tuning')
-  })
-
-  it('does not treat an undefined tuning as a value', () => {
-    const undefinedTuning = { ...b, song: { ...b.song, banjo_tuning: undefined } }
-    expect(visibleEditFields([a, undefinedTuning], violin)).not.toContain('banjo_tuning')
+  it('does not show a tuning field for a capo alone', () => {
+    const capo = { ...b, tune: { ...b.tune, tunings: { guitar: { capo: 2 } } } }
+    expect(visibleEditFields([a, capo], violin)).not.toContain('tuning:guitar')
   })
 })
 
@@ -75,10 +94,10 @@ describe('touched fields', () => {
 })
 
 describe('toPatch', () => {
-  it('splits touched fields between song and user song, trimming and clearing', () => {
+  it('splits touched fields between tune and user tune, trimming and clearing', () => {
     expect(
       toPatch({
-        violin_tuning: ' Cross A (AEAE) ',
+        'tuning:violin': ' Cross A (AEAE) ',
         genre: '',
         mode: null,
         is_crooked: true,
@@ -86,12 +105,37 @@ describe('toPatch', () => {
         learned_from: 'Bruce Molsky',
       }),
     ).toEqual({
-      song: { violin_tuning: 'Cross A (AEAE)', genre: null, mode: null, is_crooked: true },
-      userSong: { status: 'known', learned_from: 'Bruce Molsky' },
+      tune: { genre: null, modes: [], is_crooked: true },
+      userTune: { status: 'known', learned_from: 'Bruce Molsky' },
+      tunings: { violin: 'Cross A (AEAE)' },
     })
   })
 
+  it('clears a tuning left blank', () => {
+    expect(toPatch({ 'tuning:guitar': '  ' })).toEqual({
+      tune: {},
+      userTune: {},
+      tunings: { guitar: null },
+    })
+  })
+
+  it('writes a picked mode as the whole list', () => {
+    expect(toPatch({ mode: 'dorian' }).tune).toEqual({ modes: ['dorian'] })
+    expect(toPatch({ mode: null }).tune).toEqual({ modes: [] })
+  })
+
+  it('edits the type', () => {
+    expect(toPatch({ tune_type: 'Reel' }).tune).toEqual({ tune_type: 'Reel' })
+  })
+
+  it('skips a value outside its field vocabulary', () => {
+    expect(
+      toPatch({ status: 'mastered', mode: 'lydian', time_signature: '13/8', is_crooked: null }),
+    ).toEqual({ tune: {}, userTune: {} })
+    expect(toPatch({ time_signature: null }).tune).toEqual({ time_signature: null })
+  })
+
   it('never clears status', () => {
-    expect(toPatch({ status: null })).toEqual({ song: {}, userSong: {} })
+    expect(toPatch({ status: null })).toEqual({ tune: {}, userTune: {} })
   })
 })

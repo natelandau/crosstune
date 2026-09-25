@@ -23,7 +23,7 @@ import { ListItem } from './ListItem'
 import { ListNameSheet, type ListNameTarget } from './ListNameSheet'
 import { useLists, type ListSummary } from './useLists'
 
-export const NO_LISTS_HINT = 'A list is an ordered set of songs, like a setlist.'
+export const NO_LISTS_HINT = 'A list is an ordered set of tunes, like a setlist.'
 export const ADD_LIST = 'Add list'
 export const NO_LISTS_TITLE = 'No lists yet'
 

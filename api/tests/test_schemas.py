@@ -29,12 +29,7 @@ def test_tune_requires_title() -> None:
 
 
 def test_tune_accepts_the_modal_mode() -> None:
-    assert TuneData(title="Cluck Old Hen", mode="modal", created_at=NOW).mode == "modal"
-
-
-def test_tune_rejects_unknown_mode() -> None:
-    with pytest.raises(ValidationError):
-        TuneData(title="Sally Ann", mode="lydian", created_at=NOW)
+    assert TuneData(title="Cluck Old Hen", modes=["modal"], created_at=NOW).modes == ["modal"]
 
 
 def test_tune_rejects_unknown_time_signature() -> None:
@@ -47,10 +42,14 @@ def test_tune_accepts_type_modes_and_composer() -> None:
         title="The Mason's Apron",
         tune_type="Reel",
         modes=["major", "minor"],
-        composer="Trad.",
+        composer="Traditional",
         created_at=NOW,
     )
-    assert (tune.tune_type, tune.modes, tune.composer) == ("Reel", ["major", "minor"], "Trad.")
+    assert (tune.tune_type, tune.modes, tune.composer) == (
+        "Reel",
+        ["major", "minor"],
+        "Traditional",
+    )
 
 
 def test_tune_rejects_a_fifth_mode() -> None:
@@ -61,6 +60,22 @@ def test_tune_rejects_a_fifth_mode() -> None:
 def test_tune_rejects_an_unknown_part_mode() -> None:
     with pytest.raises(ValidationError):
         TuneData(title="Sally Ann", modes=["major", "lydian"], created_at=NOW)
+
+
+def test_tune_refuses_the_retired_feel_and_mode_fields() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", feel="Reel", created_at=NOW)
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", mode="major", created_at=NOW)
+
+
+def test_tune_defaults_to_no_modes() -> None:
+    assert TuneData(title="Sally Ann", created_at=NOW).modes == []
+
+
+def test_tune_refuses_null_modes() -> None:
+    with pytest.raises(ValidationError):
+        TuneData(title="Sally Ann", modes=None, created_at=NOW)
 
 
 def test_tune_accepts_three_two_time() -> None:
@@ -171,37 +186,19 @@ def test_tune_defaults_to_no_tunings() -> None:
     assert TuneData(title="Sally Ann", created_at=NOW).model_dump()["tunings"] == {}
 
 
-def test_tune_row_derives_the_legacy_tuning_fields() -> None:
-    row = TuneRow.model_validate(
-        {
-            "id": "018f0000-0000-7000-8000-000000000021",
-            "owner_user_id": None,
-            "title": "Sally Ann",
-            "tunings": {"violin": {"tuning": "AEAE"}, "five_string_banjo": {"tuning": "gDGBD"}},
-            "created_at": NOW,
-            "updated_at": NOW,
-            "deleted_at": None,
-            "server_seq": 1,
-        }
-    )
-    assert (row.violin_tuning, row.banjo_tuning) == ("AEAE", "gDGBD")
-
-
-def test_user_settings_reads_banjo_as_the_five_string_banjo() -> None:
-    settings = UserSettingsData(instruments=["banjo", "violin"], created_at=NOW)
-    assert settings.instruments == ["five_string_banjo", "violin"]
-
-
-def test_user_settings_merges_both_banjo_spellings_into_one() -> None:
-    settings = UserSettingsData(
-        instruments=["banjo", "violin", "five_string_banjo"], created_at=NOW
-    )
-    assert settings.instruments == ["five_string_banjo", "violin"]
-
-
-def test_user_settings_rejects_a_repeated_legacy_banjo() -> None:
+@pytest.mark.parametrize("field", ["violin_tuning", "banjo_tuning"])
+def test_tune_rejects_a_legacy_tuning_field(field: str) -> None:
     with pytest.raises(ValidationError):
-        UserSettingsData(instruments=["banjo", "banjo"], created_at=NOW)
+        TuneData.model_validate({"title": "Sally Ann", field: "AEAE", "created_at": NOW})
+
+
+def test_tune_row_carries_no_legacy_tuning_fields() -> None:
+    assert not {"violin_tuning", "banjo_tuning"} & set(TuneRow.model_fields)
+
+
+def test_user_settings_rejects_banjo() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(instruments=["banjo"], created_at=NOW)
 
 
 def test_user_settings_rejects_unknown_instrument() -> None:

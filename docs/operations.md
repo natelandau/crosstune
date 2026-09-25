@@ -162,11 +162,14 @@ A change to the shape of a synced row:
 
 - The API refuses a push with an unknown or missing field, and the refused
   edit is lost. One tag deploys both sides within minutes of each other, in
-  either order, and an edit in that window is lost.
-- The lossless path is an API release that accepts both shapes, then a
-  later one that drops the old field.
-- Otherwise ship the client first and the API minutes later. An API shipped
-  first breaks every install until its service worker updates.
+  either order.
+- Once the app has real users, a shape change is staged so no edit is
+  lost: an API release that accepts both shapes, then the client, then an
+  API release that drops the old field.
+- While the app is pre-release, a clean break ships in one tag. An edit
+  made while the two sides disagree is lost. After both hosts deploy,
+  reload the app: the service worker updates and the local database starts
+  over.
 - A migration renaming or dropping a table or column breaks the running API
   between the pre-deploy migration and the new API passing its healthcheck.
   Sync requests that touch the changed table fail with a retryable 5xx and
@@ -177,6 +180,9 @@ A change to the shape of a synced row:
 - A value added to a validated vocabulary is recognized by the client in
   one release and offered in the next, once the API that accepts it is
   live on both hosts, because one tag deploys both sides in either order.
+- A local shape change bumps the Dexie version with the start-over
+  upgrader while the app is pre-release. Each device loses its unsent
+  edits and unuploaded recordings, then pulls every row again.
 
 Rollback:
 
@@ -186,6 +192,9 @@ Rollback:
 - A rollback across a migration fails the pre-deploy command. Roll forward,
   or downgrade the schema first.
 - A client outage loses no edits. The outbox holds them.
+- A web rollback past a release that bumped the local database version
+  deletes the local database on every device and pulls again, losing
+  unsent edits and unuploaded recordings.
 
 ## Smoke check
 
@@ -207,9 +216,9 @@ For a pull request, point it at the PR's Railway hostname and preview URL.
 The manual phone test covers what the script cannot:
 
 1. Open `https://<domain>` and sign in.
-2. Add a song and paste a YouTube link.
+2. Add a tune and paste a YouTube link.
 3. Install the app to the home screen.
-4. Turn on airplane mode and edit the song.
+4. Turn on airplane mode and edit the tune.
 5. Turn off airplane mode.
 6. Confirm the edit synced. Settings shows the last sync time.
 

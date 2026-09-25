@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import * as bulk from '../../commands/bulk'
 import { addToList, createList } from '../../commands/lists'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { ListPicker, NEW_LIST_ITEM, NEW_LIST_NAME_LABEL, type ListAddition } from './ListPicker'
@@ -19,8 +19,8 @@ vi.mock('./useLists', async (importOriginal) => {
   const actual = await importOriginal<typeof UseListsModule>()
   return {
     ...actual,
-    useMembershipCounts(userSongIds: readonly string[]) {
-      const counts = actual.useMembershipCounts(userSongIds)
+    useMembershipCounts(userTuneIds: readonly string[]) {
+      const counts = actual.useMembershipCounts(userTuneIds)
       const [ready, setReady] = useState(membershipGate === undefined)
       useEffect(() => {
         const wait = membershipGate
@@ -48,12 +48,12 @@ function gate() {
 }
 
 function Host({
-  userSongIds,
+  userTuneIds,
   excludeListId,
   onClose,
   onAdded,
 }: {
-  userSongIds: string[]
+  userTuneIds: string[]
   excludeListId?: string
   onClose?: () => void
   onAdded?: (addition: ListAddition) => void
@@ -62,7 +62,7 @@ function Host({
   return (
     <ListPicker
       open={open}
-      userSongIds={userSongIds}
+      userTuneIds={userTuneIds}
       excludeListId={excludeListId}
       title="Add to a list"
       onAdded={onAdded}
@@ -78,13 +78,13 @@ const sheetDismissed = () =>
   vi.waitFor(() => expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull())
 
 describe('ListPicker', () => {
-  it('adds the song to a picked list and marks a list it is already in', async () => {
+  it('adds the tune to a picked list and marks a list it is already in', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
     const set = await createList(db, 'Square dance set')
-    await addToList(db, set, userSongId)
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    await addToList(db, set, userTuneId)
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await expect.element(page.getByText('Add to a list')).toBeVisible()
     await expect.element(page.getByText('all in it')).toBeVisible()
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
@@ -94,40 +94,40 @@ describe('ListPicker', () => {
     })
   })
 
-  it('titles itself by the number of songs for a two-song selection', async () => {
+  it('titles itself by the number of tunes for a two-tune selection', async () => {
     const db = openTestDb()
-    const { userSongId: a } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    const { userSongId: b } = await createSong(db, { title: 'Bill Cheatham' }, { status: 'known' })
-    renderIonic(<ListPicker open userSongIds={[a, b]} onClose={() => {}} />, { db })
-    await expect.element(page.getByText('Add 2 songs to a list')).toBeVisible()
+    const { userTuneId: a } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId: b } = await createTune(db, { title: 'Bill Cheatham' }, { status: 'known' })
+    renderIonic(<ListPicker open userTuneIds={[a, b]} onClose={() => {}} />, { db })
+    await expect.element(page.getByText('Add 2 tunes to a list')).toBeVisible()
   })
 
-  it('titles itself by the number of songs for a one-song selection', async () => {
+  it('titles itself by the number of tunes for a one-tune selection', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    renderIonic(<ListPicker open userSongIds={[userSongId]} onClose={() => {}} />, { db })
-    await expect.element(page.getByText('Add 1 song to a list')).toBeVisible()
+    const { userTuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    renderIonic(<ListPicker open userTuneIds={[userTuneId]} onClose={() => {}} />, { db })
+    await expect.element(page.getByText('Add 1 tune to a list')).toBeVisible()
   })
 
   it('reads a partial list as N of M in it', async () => {
     const db = openTestDb()
-    const { userSongId: a } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    const { userSongId: b } = await createSong(db, { title: 'Bill Cheatham' }, { status: 'known' })
+    const { userTuneId: a } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId: b } = await createTune(db, { title: 'Bill Cheatham' }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
     await addToList(db, jam, a)
-    renderIonic(<Host userSongIds={[a, b]} />, { db })
+    renderIonic(<Host userTuneIds={[a, b]} />, { db })
     await expect.element(page.getByText('1 of 2 in it')).toBeVisible()
     await expect.element(page.getByRole('button', { name: /Tuesday jam/ })).toBeEnabled()
   })
 
   it('reads a full list as all in it and disables it', async () => {
     const db = openTestDb()
-    const { userSongId: a } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    const { userSongId: b } = await createSong(db, { title: 'Bill Cheatham' }, { status: 'known' })
+    const { userTuneId: a } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId: b } = await createTune(db, { title: 'Bill Cheatham' }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
     await addToList(db, jam, a)
     await addToList(db, jam, b)
-    renderIonic(<Host userSongIds={[a, b]} />, { db })
+    renderIonic(<Host userTuneIds={[a, b]} />, { db })
     await expect.element(page.getByText('all in it')).toBeVisible()
     expect(page.getByRole('button', { name: /Tuesday jam/ }).elements()).toHaveLength(0)
     const row = document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')
@@ -137,21 +137,21 @@ describe('ListPicker', () => {
 
   it('reads an empty list as none in it', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
     await createList(db, 'Tuesday jam')
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await expect.element(page.getByText('none in it')).toBeVisible()
     await expect.element(page.getByRole('button', { name: /Tuesday jam/ })).toBeEnabled()
   })
 
-  it('adds only the songs that were not already members', async () => {
+  it('adds only the tunes that were not already members', async () => {
     const db = openTestDb()
-    const { userSongId: a } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    const { userSongId: b } = await createSong(db, { title: 'Bill Cheatham' }, { status: 'known' })
+    const { userTuneId: a } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId: b } = await createTune(db, { title: 'Bill Cheatham' }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
     await addToList(db, jam, a)
     const onAdded = vi.fn()
-    renderIonic(<Host userSongIds={[a, b]} onAdded={onAdded} />, { db })
+    renderIonic(<Host userTuneIds={[a, b]} onAdded={onAdded} />, { db })
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
     await vi.waitFor(() =>
       expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({ added: 1 })),
@@ -160,11 +160,11 @@ describe('ListPicker', () => {
     expect(items.filter((item) => !item.deleted_at)).toHaveLength(2)
   })
 
-  it('creates a list holding every selected song', async () => {
+  it('creates a list holding every selected tune', async () => {
     const db = openTestDb()
-    const { userSongId: a } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    const { userSongId: b } = await createSong(db, { title: 'Bill Cheatham' }, { status: 'known' })
-    renderIonic(<Host userSongIds={[a, b]} />, { db })
+    const { userTuneId: a } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId: b } = await createTune(db, { title: 'Bill Cheatham' }, { status: 'known' })
+    renderIonic(<Host userTuneIds={[a, b]} />, { db })
     await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
     await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Violin club')
     await page.getByRole('button', { name: 'Create' }).click()
@@ -174,27 +174,27 @@ describe('ListPicker', () => {
       expect(await db.list_items.count()).toBe(2)
     })
     const items = await db.list_items.toArray()
-    expect(new Set(items.map((item) => item.user_song_id))).toEqual(new Set([a, b]))
+    expect(new Set(items.map((item) => item.user_tune_id))).toEqual(new Set([a, b]))
   })
 
   it('does not offer the list it was told to exclude', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
     await createList(db, 'Square dance set')
-    renderIonic(<Host userSongIds={[userSongId]} excludeListId={jam} />, { db })
+    renderIonic(<Host userTuneIds={[userTuneId]} excludeListId={jam} />, { db })
     await expect.element(page.getByText('Square dance set')).toBeVisible()
     expect(page.getByText('Tuesday jam').elements()).toHaveLength(0)
   })
 
   it('disables every row until membership has loaded', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
     await createList(db, 'Tuesday jam')
     const wait = gate()
     membershipGate = wait.opened
     try {
-      renderIonic(<Host userSongIds={[userSongId]} />, { db })
+      renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
       await expect.element(page.getByText('Tuesday jam')).toBeVisible()
       expect(page.getByText('none in it').elements()).toHaveLength(0)
       const row = document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')
@@ -209,28 +209,28 @@ describe('ListPicker', () => {
 
   it('refuses a whitespace-only new list name', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Cluck Old Hen' }, { status: 'known' })
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    const { userTuneId } = await createTune(db, { title: 'Cluck Old Hen' }, { status: 'known' })
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
     const field = page.getByLabelText(NEW_LIST_NAME_LABEL)
     await field.fill('   ')
     await expect.element(page.getByRole('button', { name: 'Create' })).toBeDisabled()
     await userEvent.keyboard('{Enter}')
-    expect(bulk.createListWithSongs).not.toHaveBeenCalled()
+    expect(bulk.createListWithTunes).not.toHaveBeenCalled()
     await expect.element(field).toBeVisible()
     expect(await db.lists.count()).toBe(0)
   })
 
-  it('cannot pick a list the song is already in', async () => {
+  it('cannot pick a list the tune is already in', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(
+    const { userTuneId } = await createTune(
       db,
       { title: 'Angeline the Baker' },
       { status: 'known' },
     )
     const set = await createList(db, 'Square dance set')
-    await addToList(db, set, userSongId)
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    await addToList(db, set, userTuneId)
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await expect.element(page.getByText('all in it')).toBeVisible()
     expect(page.getByRole('button', { name: /Square dance set/ }).elements()).toHaveLength(0)
     const row = document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')
@@ -240,9 +240,9 @@ describe('ListPicker', () => {
 
   it('picks a list once from two clicks in the same tick', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'June Apple' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'June Apple' }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await expect.element(page.getByText('Add to a list')).toBeVisible()
     const item = page.getByRole('button', { name: /Tuesday jam/ }).element()
     item.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }))
@@ -256,14 +256,14 @@ describe('ListPicker', () => {
 
   it('creates one list from two Create clicks in the same tick', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(
+    const { userTuneId } = await createTune(
       db,
       { title: 'Whiskey Before Breakfast' },
       {
         status: 'known',
       },
     )
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
     await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Fiddlers convention')
     const create = document.querySelector('ion-button[slot="end"]')!
@@ -276,10 +276,10 @@ describe('ListPicker', () => {
 
   it('reports the close once when a pick succeeds', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Old Joe Clark' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'Old Joe Clark' }, { status: 'known' })
     await createList(db, 'Tuesday jam')
     const onClose = vi.fn()
-    renderIonic(<Host userSongIds={[userSongId]} onClose={onClose} />, { db })
+    renderIonic(<Host userTuneIds={[userTuneId]} onClose={onClose} />, { db })
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
     await sheetDismissed()
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -288,7 +288,7 @@ describe('ListPicker', () => {
 
   it('reports the close once on Cancel', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(
+    const { userTuneId } = await createTune(
       db,
       { title: 'Blackberry Blossom' },
       {
@@ -296,7 +296,7 @@ describe('ListPicker', () => {
       },
     )
     const onClose = vi.fn()
-    renderIonic(<Host userSongIds={[userSongId]} onClose={onClose} />, { db })
+    renderIonic(<Host userTuneIds={[userTuneId]} onClose={onClose} />, { db })
     await expect.element(page.getByText('Add to a list')).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
     await sheetDismissed()
@@ -306,10 +306,10 @@ describe('ListPicker', () => {
 
   it('lets a failed add be tried again', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Sail Away Ladies' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'Sail Away Ladies' }, { status: 'known' })
     const jam = await createList(db, 'Tuesday jam')
-    vi.mocked(bulk.addSongsToList).mockRejectedValueOnce(new Error('Could not add'))
-    renderIonic(<Host userSongIds={[userSongId]} />, { db })
+    vi.mocked(bulk.addTunesToList).mockRejectedValueOnce(new Error('Could not add'))
+    renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Could not add')
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
@@ -320,7 +320,7 @@ describe('ListPicker', () => {
 
   it('clears the new list form when reopened', async () => {
     const db = openTestDb()
-    const { userSongId } = await createSong(db, { title: 'Forked Deer' }, { status: 'known' })
+    const { userTuneId } = await createTune(db, { title: 'Forked Deer' }, { status: 'known' })
     function ReopenHost() {
       const [open, setOpen] = useState(true)
       return (
@@ -330,7 +330,7 @@ describe('ListPicker', () => {
           </button>
           <ListPicker
             open={open}
-            userSongIds={[userSongId]}
+            userTuneIds={[userTuneId]}
             title="Add to a list"
             onClose={() => setOpen(false)}
           />

@@ -34,16 +34,16 @@ describe('ListItem', () => {
     const name = page.getByRole('heading', { name: 'Tuesday jam' })
     await expect.element(name).toBeVisible()
     expect(name.element().classList.contains('type-headline')).toBe(true)
-    await expect.element(page.getByText('3 songs · Edited today')).toBeVisible()
+    await expect.element(page.getByText('3 tunes · Edited today')).toBeVisible()
   })
 
-  it('counts one song in the singular', async () => {
+  it('counts one tune in the singular', async () => {
     renderIonic(
       <IonList>
         <ListItem list={summary({ count: 1 })} />
       </IonList>,
       { db: openTestDb() },
     )
-    await expect.element(page.getByText('1 song · Edited today')).toBeVisible()
+    await expect.element(page.getByText('1 tune · Edited today')).toBeVisible()
   })
 })

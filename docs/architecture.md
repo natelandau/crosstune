@@ -53,16 +53,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                    |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                      |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row. |
-| Who owns a row           | The token.                                                                                                                                                                                |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                       |
-| Which tables sync        | User settings, songs, user-song, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                          |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data. Sign-out deletes it, and refuses while the outbox holds unsent changes.                                |
-| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                   |
-| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                            |
+| Question                 | Answer                                                                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                 |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.            |
+| Who owns a row           | The token.                                                                                                                                                                                           |
+| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                  |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                                     |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data. Sign-out deletes it, and refuses while the outbox holds unsent changes. A shape change starts it over (see Pull). |
+| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                              |
+| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                       |
 
 ## Sync
 
@@ -83,21 +83,27 @@ Push:
   else. Only that change is refused. The client drops it and reports to
   Sentry. A recording link whose URL names a scheme other than http or https
   is invalid. A URL with no scheme is accepted, as the paste sheet accepts it.
-- A song delete cascades to its user record, links, and list items. A list
+- A tune delete cascades to its user record, links, and list items. A list
   delete cascades to its items.
 - A row carrying an unknown field, or missing an expected one, is `invalid`.
   An old client against a new API and a new client against an old API fail
   alike. `operations.md` says how to release a schema change.
-- Push reads a change in tune names or in the wire's first names (`songs`,
-  `user_songs`, `song_id`, `user_song_id`). Push and pull answer in the first
-  names unless the request asks with `names=tunes`; an invalid result's
-  reason stays in tune names. Each request answered in the first names logs
-  `sync: song names` with its `X-Client-Version`.
 
 Pull:
 
 - Rows with `server_seq` above the cursor, every table, oldest first, 500
   per page. A fresh install pulls from zero.
+- A local database shape change starts the local database over. It clears
+  every synced store, the outbox, and unuploaded recording files and
+  chunks, and resets the pull cursor. Other meta, such as filters, stays.
+  The next pull fetches every row again. Unsent edits and unuploaded
+  recordings on that device are lost.
+- A client that finds a local database written by a newer client, as after
+  a web rollback, deletes the whole database and pulls from zero. It loses
+  what a start-over loses and also the meta a start-over keeps, such as
+  catalog filters and keep offline.
+- Where `indexedDB.databases()` is missing, as in Firefox before 126, the
+  client cannot see the newer version and opens that database as it is.
 - A pulled row that is also in the outbox with a newer local timestamp keeps
   the local row. The next push settles it.
 

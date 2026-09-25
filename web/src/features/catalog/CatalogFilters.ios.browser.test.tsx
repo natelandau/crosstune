@@ -3,9 +3,9 @@ import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilters } from './CatalogFilters'
-import { DEFAULT_FILTERS, type FacetValues } from './filters'
+import { DEFAULT_FILTERS, facetValues } from './filters'
 
-const facets: FacetValues = { key: [], mode: [], violin_tuning: [], banjo_tuning: [], genre: [] }
+const facets = facetValues([])
 
 /** No status label is clipped, and the four capsules stay on one line, at phone width. */
 async function expectNoStatusLabelOverflow() {

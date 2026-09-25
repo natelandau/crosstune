@@ -1,7 +1,7 @@
 import type { RecordingFile } from '../db/recordings'
-import type { LocalRecording, LocalRecordingLink, LocalSong, LocalUserSong } from '../db/types'
+import type { LocalRecording, LocalRecordingLink, LocalTune, LocalUserTune } from '../db/types'
 
-export function songRow(id: string, title: string, extra: Partial<LocalSong> = {}): LocalSong {
+export function tuneRow(id: string, title: string, extra: Partial<LocalTune> = {}): LocalTune {
   return {
     id,
     created_at: '2026-01-01T00:00:00.000Z',
@@ -11,12 +11,12 @@ export function songRow(id: string, title: string, extra: Partial<LocalSong> = {
     title,
     alternate_titles: [],
     genre: null,
-    feel: null,
+    tune_type: null,
+    modes: [],
+    composer: null,
     lyrics: null,
     key: null,
-    mode: null,
-    violin_tuning: null,
-    banjo_tuning: null,
+    tunings: {},
     part_structure: null,
     time_signature: null,
     is_crooked: false,
@@ -24,18 +24,18 @@ export function songRow(id: string, title: string, extra: Partial<LocalSong> = {
   }
 }
 
-export function userSongRow(
+export function userTuneRow(
   id: string,
-  songId: string,
-  extra: Partial<LocalUserSong> = {},
-): LocalUserSong {
+  tuneId: string,
+  extra: Partial<LocalUserTune> = {},
+): LocalUserTune {
   return {
     id,
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
-    song_id: songId,
+    tune_id: tuneId,
     status: 'known',
     learned_from: null,
     learned_on: null,
@@ -47,7 +47,7 @@ export function userSongRow(
 
 export function linkRow(
   id: string,
-  songId: string,
+  tuneId: string,
   extra: Partial<LocalRecordingLink> = {},
 ): LocalRecordingLink {
   return {
@@ -56,7 +56,7 @@ export function linkRow(
     updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
-    song_id: songId,
+    tune_id: tuneId,
     url: 'https://example.com/x',
     provider: 'other',
     provider_ref: null,
@@ -75,7 +75,7 @@ export function recordingRow(id: string, extra: Partial<LocalRecording> = {}): L
     updated_at: '2026-01-01T00:00:00.000Z',
     deleted_at: null,
     server_seq: 0,
-    song_id: null,
+    tune_id: null,
     label: null,
     source: 'microphone',
     recorded_at: '2026-01-01T12:00:00.000Z',
@@ -99,7 +99,7 @@ export function recordingFile(id: string, extra: Partial<RecordingFile> = {}): R
     local_state: 'captured',
     error: null,
     last_chunk_at: null,
-    song_id: null,
+    tune_id: null,
     recorded_at: null,
     next_attempt_at: null,
     upload_attempts: 0,

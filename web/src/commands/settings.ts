@@ -2,13 +2,7 @@ import { v5 as uuidv5 } from 'uuid'
 import { INSTRUMENTS, type AudioQuality, type Instrument } from '../api/vocabulary'
 import { storedAudioQuality } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
-import {
-  isInstrument,
-  readInstrument,
-  storedInstruments,
-  writeInstrument,
-  type LocalUserSettings,
-} from '../db/types'
+import { isInstrument, storedInstruments, type LocalUserSettings } from '../db/types'
 import { now, putRow, writeTx } from './write'
 
 // Every device derives the same id for a user's single settings row, so offline
@@ -19,15 +13,12 @@ export function settingsId(clerkUserId: string): string {
   return uuidv5(clerkUserId, SETTINGS_NAMESPACE)
 }
 
-/**
- * Known instruments in canonical order, then each unrecognized value once, in first-seen order,
- * each spelled as writeInstrument says.
- */
+/** Known instruments in canonical order, then each unrecognized value once, in first-seen order. */
 function normalizeInstruments(values: readonly string[]): string[] {
-  const set = new Set(values.map(readInstrument))
+  const set = new Set(values)
   const known = INSTRUMENTS.filter((i) => set.has(i))
   const unknown = [...set].filter((v) => !isInstrument(v))
-  return [...known, ...unknown].map(writeInstrument)
+  return [...known, ...unknown]
 }
 
 /** Store the row and queue its upsert. Call inside writeTx with the row as read there. */

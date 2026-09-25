@@ -19,7 +19,7 @@ import {
   useSelectionToolbar,
   type BulkAction,
 } from './SelectionToolbar'
-import type { SongSelection } from './useSongSelection'
+import type { TuneSelection } from './useTuneSelection'
 
 let db: CrosstuneDb
 
@@ -33,7 +33,7 @@ const ACTIONS: readonly BulkAction[] = [
   { label: 'Edit', icon: SquarePen, onPress: () => {} },
   { label: ADD_TO_LIST, icon: ListPlus, onPress: () => {} },
 ]
-const MORE: readonly MenuItem[] = [{ label: 'Archive 2 songs', onPress: onArchive }]
+const MORE: readonly MenuItem[] = [{ label: 'Archive 2 tunes', onPress: onArchive }]
 const NAMES = ['Status', 'Edit', ADD_TO_LIST, MORE_ACTIONS]
 
 /** Reports the flag the footer publishes, which on md nothing may raise. */
@@ -44,7 +44,7 @@ function ChromeProbe() {
 
 function Harness({ count, level = 'top' }: { count: number; level?: 'top' | 'pushed' }) {
   const [all, setAll] = useState(false)
-  const selection: SongSelection = {
+  const selection: TuneSelection = {
     count: all ? 3 : count,
     allSelected: all,
     isSelected: () => false,
@@ -161,7 +161,7 @@ describe('useSelectionToolbar on md', () => {
     await expect.element(control(MORE_ACTIONS)).toBeVisible()
     await control(MORE_ACTIONS).click()
     await expect.element(await screen.findByText(SELECT_ALL)).toBeVisible()
-    await expect.element(await screen.findByText('Archive 2 songs')).toBeVisible()
+    await expect.element(await screen.findByText('Archive 2 tunes')).toBeVisible()
     await screen.getByText(SELECT_ALL).click()
     await vi.waitFor(() => expect(toggleAll).toHaveBeenCalledOnce())
     await vi.waitFor(() => expect(screen.queryByText(SELECT_ALL)).not.toBeInTheDocument(), {

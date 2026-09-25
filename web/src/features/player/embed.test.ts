@@ -38,7 +38,7 @@ describe('embedFor', () => {
       152,
     ],
     [
-      'apple music song',
+      'apple music tune',
       link(
         'apple_music',
         '148243927',

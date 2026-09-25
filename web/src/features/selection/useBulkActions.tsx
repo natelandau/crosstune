@@ -2,14 +2,14 @@ import { ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { STATUSES, type Instrument } from '../../api/vocabulary'
 import {
-  deleteSongs,
-  removeSongsFromList,
+  deleteTunes,
+  removeTunesFromList,
   setArchivedMany,
-  updateSongs,
+  updateTunes,
   type BulkPatch,
   type Undo,
 } from '../../commands/bulk'
-import { activeRecordingsForSong } from '../../commands/recordings'
+import { activeRecordingsForTune } from '../../commands/recordings'
 import { STATUS_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
 import { DELETE, useConfirm } from '../../ui/Confirm'
@@ -18,10 +18,10 @@ import { useToast } from '../../ui/Toast'
 import { useAction, type Action } from '../../ui/useAction'
 import type { CatalogEntry } from '../catalog/filters'
 import { ADD_TO_LIST, ListPicker, type ListAddition } from '../lists/ListPicker'
-import { ARCHIVE, UNARCHIVE } from '../song/archiveLabels'
-import { DELETE_SONG_TITLE, deleteSongMessage, deleteSongsMessage } from '../song/deleteSongMessage'
+import { ARCHIVE, UNARCHIVE } from '../tune/archiveLabels'
+import { DELETE_TUNE_TITLE, deleteTuneMessage, deleteTunesMessage } from '../tune/deleteTuneMessage'
 import { BulkEditSheet } from './BulkEditSheet'
-import { countSongs } from './copy'
+import { countTunes } from './copy'
 import type { BulkAction } from './SelectionToolbar'
 
 /** Where the selection is being made, since a list offers one action the catalog cannot. */
@@ -31,12 +31,12 @@ export type SelectionContext =
       kind: 'list'
       listId: string
       listName: string
-      /** The `list_items` row per selected song, which is what a removal tombstones. */
-      itemIdByUserSong: ReadonlyMap<string, string>
+      /** The `list_items` row per selected tune, which is what a removal tombstones. */
+      itemIdByUserTune: ReadonlyMap<string, string>
     }
 
 export interface BulkActionsInput {
-  /** The selected songs, in screen order. */
+  /** The selected tunes, in screen order. */
   entries: readonly CatalogEntry[]
   instruments: ReadonlySet<Instrument>
   context: SelectionContext
@@ -78,13 +78,13 @@ export function useBulkActions({
   const edit = useAction()
   const [sheet, setSheet] = useState<OpenSheet>(null)
 
-  const ids = useMemo(() => entries.map((entry) => entry.userSong.id), [entries])
+  const ids = useMemo(() => entries.map((entry) => entry.userTune.id), [entries])
   // Keyed on the map rather than on `context`, which a screen rebuilds as a literal on every
   // render and which would leave this recomputing behind a memo that never holds.
-  const itemIdByUserSong = context.kind === 'list' ? context.itemIdByUserSong : null
+  const itemIdByUserTune = context.kind === 'list' ? context.itemIdByUserTune : null
   const itemIds = useMemo(
-    () => (itemIdByUserSong ? ids.flatMap((id) => itemIdByUserSong.get(id) ?? []) : []),
-    [itemIdByUserSong, ids],
+    () => (itemIdByUserTune ? ids.flatMap((id) => itemIdByUserTune.get(id) ?? []) : []),
+    [itemIdByUserTune, ids],
   )
 
   const apply = (
@@ -104,8 +104,8 @@ export function useBulkActions({
       apply(
         bar,
         async () => ({
-          undo: await updateSongs(db, ids, { userSong: { status } }),
-          message: `Set ${countSongs(ids.length)} to ${STATUS_LABELS[status]}`,
+          undo: await updateTunes(db, ids, { userTune: { status } }),
+          message: `Set ${countTunes(ids.length)} to ${STATUS_LABELS[status]}`,
         }),
         onExit,
       ),
@@ -131,12 +131,12 @@ export function useBulkActions({
     { label: ADD_TO_LIST, icon: ListPlus, onPress: () => setSheet('list') },
   ]
 
-  // Only the songs in the opposite state, so the count names what the item will actually change.
+  // Only the tunes in the opposite state, so the count names what the item will actually change.
   const archiveItem = (archive: boolean): MenuItem | null => {
-    const targets = entries.filter((entry) => (entry.userSong.archived_at === null) === archive)
+    const targets = entries.filter((entry) => (entry.userTune.archived_at === null) === archive)
     if (targets.length === 0) return null
     const verb = archive ? ARCHIVE : UNARCHIVE
-    const count = countSongs(targets.length)
+    const count = countTunes(targets.length)
     return {
       label: `${verb} ${count}`,
       tone: 'warning',
@@ -146,7 +146,7 @@ export function useBulkActions({
           async () => ({
             undo: await setArchivedMany(
               db,
-              targets.map((entry) => entry.userSong.id),
+              targets.map((entry) => entry.userTune.id),
               archive,
             ),
             message: `${verb}d ${count}`,
@@ -159,23 +159,23 @@ export function useBulkActions({
   // Read at press time rather than watched, because the count only has to be right for the
   // question being asked.
   const confirmDelete = async () => {
-    const songIds = [...new Set(entries.map((entry) => entry.song.id))]
+    const tuneIds = [...new Set(entries.map((entry) => entry.tune.id))]
     const recordings = (
-      await Promise.all(songIds.map((songId) => activeRecordingsForSong(db, songId)))
+      await Promise.all(tuneIds.map((tuneId) => activeRecordingsForTune(db, tuneId)))
     ).flat()
     const files = await db.recording_files.bulkGet(recordings.map((row) => row.id))
     const views = files.map((file) => ({ file }))
     const only = entries.length === 1 ? entries[0] : undefined
     const ok = await confirm({
-      title: only ? DELETE_SONG_TITLE : `Delete ${countSongs(entries.length)}?`,
+      title: only ? DELETE_TUNE_TITLE : `Delete ${countTunes(entries.length)}?`,
       message: only
-        ? deleteSongMessage(only.song.title, views)
-        : deleteSongsMessage(countSongs(entries.length), views),
+        ? deleteTuneMessage(only.tune.title, views)
+        : deleteTunesMessage(countTunes(entries.length), views),
       action: DELETE,
     })
     if (!ok) return
     // No toast: this is the one bulk action with nothing to undo.
-    bar.runThen(() => deleteSongs(db, ids), onExit)
+    bar.runThen(() => deleteTunes(db, ids), onExit)
   }
 
   const more: MenuItem[] = [archiveItem(true), archiveItem(false)].filter(
@@ -190,8 +190,8 @@ export function useBulkActions({
         apply(
           bar,
           async () => ({
-            undo: await removeSongsFromList(db, itemIds),
-            message: `Removed ${countSongs(itemIds.length)} from ${listName}`,
+            undo: await removeTunesFromList(db, itemIds),
+            message: `Removed ${countTunes(itemIds.length)} from ${listName}`,
           }),
           onExit,
         ),
@@ -202,7 +202,7 @@ export function useBulkActions({
   // nothing; pending keeps a second press off a write already running.
   if (entries.length > 0 && !bar.pending) {
     more.push({
-      label: `Delete ${countSongs(entries.length)}`,
+      label: `Delete ${countTunes(entries.length)}`,
       tone: 'error',
       onPress: () => void confirmDelete(),
     })
@@ -224,8 +224,8 @@ export function useBulkActions({
           apply(
             edit,
             async () => ({
-              undo: await updateSongs(db, ids, patch),
-              message: `Edited ${countSongs(ids.length)}`,
+              undo: await updateTunes(db, ids, patch),
+              message: `Edited ${countTunes(ids.length)}`,
             }),
             () => {
               setSheet(null)
@@ -238,14 +238,14 @@ export function useBulkActions({
           did so the toast and the undo still belong here, like every other action. */}
       <ListPicker
         open={sheet === 'list'}
-        userSongIds={ids}
+        userTuneIds={ids}
         excludeListId={context.kind === 'list' ? context.listId : undefined}
         onClose={() => closeSheet('list')}
         onAdded={({ undo, added, listName, created }: ListAddition) => {
           toast({
             message: created
-              ? `Created ${listName} with ${countSongs(added)}`
-              : `Added ${countSongs(added)} to ${listName}`,
+              ? `Created ${listName} with ${countTunes(added)}`
+              : `Added ${countTunes(added)} to ${listName}`,
             undo,
           })
           setSheet(null)

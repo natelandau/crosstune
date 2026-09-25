@@ -3,7 +3,7 @@ import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
-import { SONG_NOT_FOUND } from './messages'
+import { TUNE_NOT_FOUND } from './messages'
 import {
   addUploadedFile,
   appendChunk,
@@ -19,7 +19,7 @@ import {
   defaultRecordingLabel,
   updateRecording,
 } from './recordings'
-import { createSong, deleteSong } from './songs'
+import { createTune, deleteTune } from './tunes'
 import { newId } from './write'
 
 let db: CrosstuneDb
@@ -34,12 +34,12 @@ afterEach(async () => {
 
 const AT = '2026-09-14T20:00:00.000Z'
 
-async function captured(songId: string | null = null): Promise<string> {
+async function captured(tuneId: string | null = null): Promise<string> {
   const id = newId()
-  await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+  await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
   await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
   await appendChunk(db, id, 1, new Blob(['cd'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, { songId, mime: 'audio/mp4', durationMs: 10_000, recordedAt: AT })
+  await finishCapture(db, id, { tuneId, mime: 'audio/mp4', durationMs: 10_000, recordedAt: AT })
   return id
 }
 
@@ -64,7 +64,7 @@ describe('capture', () => {
     expect(await db.recording_chunks.where('recording_id').equals(id).count()).toBe(0)
     const row = await db.recordings.get(id)
     expect(row).toMatchObject({
-      song_id: null,
+      tune_id: null,
       source: 'microphone',
       recorded_at: AT,
       state: 'pending_upload',
@@ -76,7 +76,7 @@ describe('capture', () => {
 
   it('cancel drops the chunks and the file row', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['x']))
     await cancelCapture(db, id)
     expect(await db.recording_files.get(id)).toBeUndefined()
@@ -84,10 +84,10 @@ describe('capture', () => {
     expect(await db.recordings.get(id)).toBeUndefined()
   })
 
-  it('attaches to a song and positions after existing recordings', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
-    await captured(songId)
-    const second = await captured(songId)
+  it('attaches to a tune and positions after existing recordings', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    await captured(tuneId)
+    const second = await captured(tuneId)
     expect((await db.recordings.get(second))?.position).toBe(1)
   })
 
@@ -95,7 +95,7 @@ describe('capture', () => {
     const id = await captured()
     const position = (await db.recordings.get(id))?.position
     await finishCapture(db, id, {
-      songId: null,
+      tuneId: null,
       mime: 'audio/mp4',
       durationMs: 5_000,
       recordedAt: AT,
@@ -117,11 +117,11 @@ describe('capture', () => {
 
   it('ignores a finish after cancelCapture', async () => {
     const id = newId()
-    await beginCapture(db, id, { songId: null, recordedAt: new Date().toISOString() })
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
     await appendChunk(db, id, 0, new Blob(['x']))
     await cancelCapture(db, id)
     await finishCapture(db, id, {
-      songId: null,
+      tuneId: null,
       mime: 'audio/mp4',
       durationMs: 1000,
       recordedAt: AT,
@@ -146,7 +146,7 @@ describe('capture', () => {
 describe('uploads and edits', () => {
   it('stores an uploaded file as captured with its type', async () => {
     const file = new File(['wav-bytes'], 'jam.wav', { type: 'audio/wav' })
-    const id = await addUploadedFile(db, file, { songId: null, label: 'Field recorder' })
+    const id = await addUploadedFile(db, file, { tuneId: null, label: 'Field recorder' })
     expect(await db.recording_files.get(id)).toMatchObject({
       local_state: 'captured',
       mime: 'audio/wav',
@@ -155,14 +155,14 @@ describe('uploads and edits', () => {
     expect(await db.recordings.get(id)).toMatchObject({ source: 'upload', label: 'Field recorder' })
   })
 
-  it('updates label and song and queues the row', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
+  it('updates label and tune and queues the row', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
     const id = await captured()
-    await updateRecording(db, id, { label: 'Recording 2', song_id: songId })
-    expect(await db.recordings.get(id)).toMatchObject({ label: 'Recording 2', song_id: songId })
+    await updateRecording(db, id, { label: 'Recording 2', tune_id: tuneId })
+    expect(await db.recordings.get(id)).toMatchObject({ label: 'Recording 2', tune_id: tuneId })
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({
       label: 'Recording 2',
-      song_id: songId,
+      tune_id: tuneId,
     })
   })
 
@@ -203,12 +203,12 @@ describe('uploads and edits', () => {
     })
   })
 
-  it('rejects moving a recording to a deleted song and leaves the row unchanged', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
-    await deleteSong(db, songId)
+  it('rejects moving a recording to a deleted tune and leaves the row unchanged', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    await deleteTune(db, tuneId)
     const id = await captured()
     const before = await db.recordings.get(id)
-    await expect(updateRecording(db, id, { song_id: songId })).rejects.toThrow(SONG_NOT_FOUND)
+    await expect(updateRecording(db, id, { tune_id: tuneId })).rejects.toThrow(TUNE_NOT_FOUND)
     expect(await db.recordings.get(id)).toEqual(before)
   })
 
@@ -220,10 +220,10 @@ describe('uploads and edits', () => {
     expect(await db.recording_files.get(id)).toBeUndefined()
   })
 
-  it('deleting a song tombstones its recordings without a second delete change', async () => {
-    const { songId } = await createSong(db, { title: 'X' }, { status: 'known' })
-    const id = await captured(songId)
-    await deleteSong(db, songId)
+  it('deleting a tune tombstones its recordings without a second delete change', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    await deleteTune(db, tuneId)
     expect((await db.recordings.get(id))?.deleted_at).not.toBeNull()
     expect(await pendingFor(db, 'recordings', id)).toBeUndefined()
     expect(await db.recording_files.get(id)).toBeUndefined()
@@ -251,7 +251,7 @@ describe('keep offline and local audio', () => {
       updated_at: AT,
       deleted_at: null,
       server_seq: 1,
-      song_id: null,
+      tune_id: null,
       label: null,
       source: 'microphone',
       recorded_at: AT,

@@ -10,7 +10,7 @@ pytestmark = pytest.mark.anyio
 
 
 async def pull(client, headers, since: int = 0) -> dict:
-    response = await client.get(f"/v1/sync/pull?since={since}&names=tunes", headers=headers)
+    response = await client.get(f"/v1/sync/pull?since={since}", headers=headers)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -83,7 +83,7 @@ async def test_pull_pages(client, app, auth_headers) -> None:
     assert pages == 3
 
 
-async def test_pull_carries_both_tune_shapes(client, auth_headers) -> None:
+async def test_pull_carries_type_modes_and_composer_only(client, auth_headers) -> None:
     headers = auth_headers("user_a")
     await push(
         client,
@@ -95,13 +95,14 @@ async def test_pull_carries_both_tune_shapes(client, auth_headers) -> None:
             title="Cooley's",
             tune_type="Reel",
             modes=["dorian"],
-            composer="Trad.",
+            composer="Traditional",
         ),
     )
     body = await pull(client, headers)
     row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
-    assert (row["tune_type"], row["modes"], row["composer"]) == ("Reel", ["dorian"], "Trad.")
-    assert (row["feel"], row["mode"]) == ("Reel", "dorian")
+    assert (row["tune_type"], row["modes"], row["composer"]) == ("Reel", ["dorian"], "Traditional")
+    assert "feel" not in row
+    assert "mode" not in row
 
 
 async def test_pull_requires_auth(client) -> None:
@@ -165,7 +166,7 @@ async def test_pull_includes_user_settings(client, auth_headers) -> None:
     ]
 
 
-async def test_pull_returns_tunings_and_the_derived_legacy_fields(client, auth_headers) -> None:
+async def test_pull_returns_tunings_without_unset_fields(client, auth_headers) -> None:
     tune_id = uid()
     await push(
         client,
@@ -175,12 +176,26 @@ async def test_pull_returns_tunings_and_the_derived_legacy_fields(client, auth_h
             tune_id,
             T0,
             title="Sally Ann",
-            tunings={"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}},
+            tunings={
+                "violin": {"tuning": "Cross A (AEAE)"},
+                "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": None},
+                "guitar": {"tuning": None, "capo": 3},
+                "mandolin": {"tuning": None, "capo": None},
+            },
         ),
     )
     body = await pull(client, auth_headers("user_a"))
-    rows = [r for r in body["rows"] if r["table"] == "tunes"]
-    row = rows[0]["row"]
-    assert row["tunings"] == {"five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2}}
-    assert row["banjo_tuning"] == "Open G (gDGBD)"
-    assert row["violin_tuning"] is None
+    row = next(r["row"] for r in body["rows"] if r["table"] == "tunes")
+    assert row["tunings"] == {
+        "violin": {"tuning": "Cross A (AEAE)"},
+        "five_string_banjo": {"tuning": "Open G (gDGBD)"},
+        "guitar": {"capo": 3},
+    }
+    assert not {"violin_tuning", "banjo_tuning"} & set(row)
+
+
+async def test_pull_answers_in_tune_names_without_being_asked(client, auth_headers) -> None:
+    await push(client, auth_headers("user_a"), change("tunes", uid(), T0, title="Sally Ann"))
+    response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
+    assert response.status_code == 200, response.text
+    assert {r["table"] for r in response.json()["rows"]} == {"tunes"}

@@ -1,3 +1,3 @@
-export function selectionCheckboxId(userSongId: string): string {
-  return `select-${userSongId}`
+export function selectionCheckboxId(userTuneId: string): string {
+  return `select-${userTuneId}`
 }

@@ -3,18 +3,18 @@ import type {
   ListRow,
   RecordingLinkRow,
   RecordingRow,
-  SongRow,
+  TuneRow,
   TableName,
   UserSettingsRow,
-  UserSongRow,
+  UserTuneRow,
 } from '../api/types'
 import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 
 export type { TableName }
 
 export const TABLE_NAMES = [
-  'songs',
-  'user_songs',
+  'tunes',
+  'user_tunes',
   'lists',
   'list_items',
   'recording_links',
@@ -40,41 +40,25 @@ export type Local<Row> = {
   [Key in keyof Omit<Row, OwnershipKey>]: Loosen<Omit<Row, OwnershipKey>[Key]>
 }
 
-// A song written by this client has no tunings map until the form edits it directly.
-export type LocalSong = Local<Omit<SongRow, 'tunings'>> & { tunings?: Local<SongRow>['tunings'] }
-export type LocalUserSong = Local<UserSongRow>
+export type LocalTune = Local<TuneRow>
+export type LocalUserTune = Local<UserTuneRow>
 export type LocalRecordingLink = Local<RecordingLinkRow>
 export type LocalList = Local<ListRow>
 export type LocalListItem = Local<ListItemRow>
 export type LocalUserSettings = Local<UserSettingsRow>
 export type LocalRecording = Local<RecordingRow>
 
-// Removed in tag B. An API before tag A knows the five-string banjo only as "banjo" and the
-// tag A API reads both spellings, so this client reads either and writes "banjo", which is
-// safe whichever API it meets.
-const LEGACY_BANJO = 'banjo'
-
-/** An instrument value as stored or pulled, with the legacy banjo read as five_string_banjo. */
-export function readInstrument(value: string): string {
-  return value === LEGACY_BANJO ? 'five_string_banjo' : value
-}
-
-/** An instrument value as written and pushed, with five_string_banjo spelled "banjo". */
-export function writeInstrument(value: string): string {
-  return value === 'five_string_banjo' ? LEGACY_BANJO : value
-}
-
 /** The instruments a settings row holds, or null when there is no usable row. */
 export function storedInstruments(
   row: LocalUserSettings | null | undefined,
 ): readonly string[] | null {
   if (!row || row.deleted_at || !Array.isArray(row.instruments)) return null
-  return [...new Set(row.instruments.map(readInstrument))]
+  return [...new Set(row.instruments)]
 }
 
 export interface LocalRows {
-  songs: LocalSong
-  user_songs: LocalUserSong
+  tunes: LocalTune
+  user_tunes: LocalUserTune
   lists: LocalList
   list_items: LocalListItem
   recording_links: LocalRecordingLink

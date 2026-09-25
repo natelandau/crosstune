@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
-  addSong,
+  addTune,
   escapeRegExp,
   expectNoOverlay,
   expectSynced,
@@ -14,8 +14,8 @@ import {
 
 const toast = (page: Page, text: string) => page.getByRole('status').filter({ hasText: text })
 
-/** A catalog row. Its name is the title followed by the song's key, status, and tunings. */
-const songRow = (page: Page, title: string) =>
+/** A catalog row. Its name is the title followed by the tune's key, status, and tunings. */
+const tuneRow = (page: Page, title: string) =>
   page.getByRole('button', { name: new RegExp(`^${escapeRegExp(title)}`) })
 
 /**
@@ -23,11 +23,11 @@ const songRow = (page: Page, title: string) =>
  * button inside the item's shadow root and holds no text of its own; the lines it is named
  * after are slotted beside it.
  */
-const songRowText = (page: Page, title: string) =>
+const tuneRowText = (page: Page, title: string) =>
   page.getByRole('listitem').filter({ hasText: title })
 
 /** A catalog row while selecting: the row opens as a checkbox named for what a tap would do. */
-const songCheckbox = (page: Page, title: string) =>
+const tuneCheckbox = (page: Page, title: string) =>
   page.getByRole('checkbox', { name: new RegExp(`^(Select|Deselect) ${escapeRegExp(title)}`) })
 
 /** A row in a list, whose name leads with its position. */
@@ -68,23 +68,23 @@ async function createList(page: Page, listName: string): Promise<void> {
   await expect(listLink(page, listName)).toBeVisible()
 }
 
-/** A list's row on the Lists screen, whose name carries its song count and when it was edited. */
+/** A list's row on the Lists screen, whose name carries its tune count and when it was edited. */
 const listLink = (page: Page, listName: string): Locator =>
   page.getByRole('button', { name: new RegExp(`^${escapeRegExp(listName)} `) })
 
-test('select songs in a search, set their violin tuning, and undo', async ({ page }) => {
+test('select tunes in a search, set their violin tuning, and undo', async ({ page }) => {
   await signIn(page)
   await playInstrument(page, 'Violin')
   const tag = unique('Bulk tuning')
   const first = `${tag} Say Old Man`
   const second = `${tag} Lost Indian`
   await openTab(page, 'Catalog')
-  await addSong(page, first, 'A')
+  await addTune(page, first, 'A')
   await openTab(page, 'Catalog')
-  await addSong(page, second, 'A')
+  await addTune(page, second, 'A')
 
   await openTab(page, 'Catalog')
-  await page.getByRole('searchbox', { name: 'Search songs' }).fill(tag)
+  await page.getByRole('searchbox', { name: 'Search tunes' }).fill(tag)
   await startSelecting(page)
   await selectAll(page)
   await expect(selectedCount(page, '2 selected')).toBeVisible()
@@ -93,7 +93,7 @@ test('select songs in a search, set their violin tuning, and undo', async ({ pag
   // the name it was given before anything was selected. Nothing inside it is ever scoped to it:
   // an ion-modal puts the role on a wrapper in its shadow root and slots the sheet's own content
   // beside it, so a scoped locator matches nothing while the dialog itself resolves.
-  const sheet = page.getByRole('dialog', { name: 'Edit 2 songs' })
+  const sheet = page.getByRole('dialog', { name: 'Edit 2 tunes' })
   await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await expect(sheet).toBeVisible()
   await page.keyboard.press('Escape')
@@ -110,29 +110,29 @@ test('select songs in a search, set their violin tuning, and undo', async ({ pag
   await expectNoOverlay(page)
   await page.getByRole('button', { name: 'Save', exact: true }).click()
 
-  await expect(toast(page, 'Edited 2 songs')).toBeVisible()
-  const row = songRowText(page, first)
+  await expect(toast(page, 'Edited 2 tunes')).toBeVisible()
+  const row = tuneRowText(page, first)
   await expect(row).toContainText('Cross A (AEAE)')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(row).not.toContainText('Cross A (AEAE)')
 })
 
-test('long-press a song, set its status, and add it to a list', async ({ page }) => {
+test('long-press a tune, set its status, and add it to a list', async ({ page }) => {
   await signIn(page)
   const title = unique('Long press Elzic’s Farewell')
   const listName = unique('Bulk set')
   await createList(page, listName)
   await openTab(page, 'Catalog')
-  await addSong(page, title, 'A')
+  await addTune(page, title, 'A')
   const since = new Date().toISOString()
 
   await openTab(page, 'Catalog')
   // The pending write syncs on its own, and the pull rebuilds the list it lands in. A row
   // replaced under the pointer takes the gesture with it, so the gesture waits for it.
   await expectSynced(page, since)
-  await page.getByRole('searchbox', { name: 'Search songs' }).fill(title)
-  const hold = await longPress(page, songRow(page, title))
-  await expect(songCheckbox(page, title)).toBeChecked()
+  await page.getByRole('searchbox', { name: 'Search tunes' }).fill(title)
+  const hold = await longPress(page, tuneRow(page, title))
+  await expect(tuneCheckbox(page, title)).toBeChecked()
   await hold.release()
 
   await page.getByRole('button', { name: 'Status', exact: true }).click()
@@ -142,46 +142,46 @@ test('long-press a song, set its status, and add it to a list', async ({ page })
   await expect(statusMenu).toBeVisible()
   await statusMenu.getByText('Known', { exact: true }).click()
   await expectNoOverlay(page)
-  await expect(toast(page, 'Set 1 song to Known')).toBeVisible()
+  await expect(toast(page, 'Set 1 tune to Known')).toBeVisible()
 
-  const hold2 = await longPress(page, songRow(page, title))
-  await expect(songCheckbox(page, title)).toBeChecked()
+  const hold2 = await longPress(page, tuneRow(page, title))
+  await expect(tuneCheckbox(page, title)).toBeChecked()
   await hold2.release()
   await page.getByRole('button', { name: 'Add to list', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Add 1 song to a list' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Add 1 tune to a list' })).toBeVisible()
   await expandSheet(page)
   // Each list says how much of the selection it already holds.
   await page.getByRole('button', { name: `${listName} none in it`, exact: true }).click()
-  await expect(toast(page, `Added 1 song to ${listName}`)).toBeVisible()
+  await expect(toast(page, `Added 1 tune to ${listName}`)).toBeVisible()
 
   await openTab(page, 'Lists')
   await listLink(page, listName).click()
   await expect(page.getByRole('listitem').filter({ hasText: title })).toBeVisible()
 })
 
-test('select songs in a list, remove them, and undo', async ({ page, context }) => {
+test('select tunes in a list, remove them, and undo', async ({ page, context }) => {
   await signIn(page)
   const tag = unique('List remove')
   const titles = [`${tag} Old Molly Hare`, `${tag} Sail Away Ladies`, `${tag} Big Sciota`]
   const listName = unique('Remove set')
   for (const title of titles) {
-    await addSong(page, title, 'D')
+    await addTune(page, title, 'D')
     await openTab(page, 'Catalog')
   }
   await createList(page, listName)
   await listLink(page, listName).click()
   await expect(page.getByRole('heading', { name: listName, level: 1 })).toBeVisible()
-  // The screen's own Add songs control, not the one the empty state offers.
-  await page.getByRole('banner').getByRole('button', { name: 'Add songs' }).click()
+  // The screen's own Add tunes control, not the one the empty state offers.
+  await page.getByRole('banner').getByRole('button', { name: 'Add tunes' }).click()
   for (const title of titles) {
-    await page.getByRole('searchbox', { name: 'Search songs' }).fill(title)
+    await page.getByRole('searchbox', { name: 'Search tunes' }).fill(title)
     await page.getByRole('button', { name: `Add ${title}` }).click()
   }
   const since = new Date().toISOString()
   await page.getByRole('button', { name: 'Done', exact: true }).click()
   await expect(page.getByRole('listitem')).toHaveCount(3)
 
-  // Removing the first song leaves a gap in the stored positions, which undo must handle.
+  // Removing the first tune leaves a gap in the stored positions, which undo must handle.
   // The pending write syncs on its own, and the pull rebuilds the list it lands in. A row
   // replaced under the pointer takes the gesture with it, so the gesture waits for it.
   await expectSynced(page, since)
@@ -194,7 +194,7 @@ test('select songs in a list, remove them, and undo', async ({ page, context }) 
   await expect(selectedCount(page, '2 selected')).toBeVisible()
   await page.getByRole('button', { name: 'More actions' }).click()
   await page.getByRole('button', { name: 'Remove 2 from list', exact: true }).click()
-  await expect(toast(page, `Removed 2 songs from ${listName}`)).toBeVisible()
+  await expect(toast(page, `Removed 2 tunes from ${listName}`)).toBeVisible()
   await expect(page.getByRole('listitem')).toHaveCount(0)
 
   // Offline, so the list shows what undo wrote locally rather than what a sync brings back.

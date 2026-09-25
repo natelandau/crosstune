@@ -12,12 +12,12 @@ import { unlockAudioContext } from './audioContext'
 import { RecordModal } from './RecordModal'
 
 export interface RecordTarget {
-  songId: string | null
+  tuneId: string | null
 }
 
 interface Record {
-  /** Opens the record modal. A song id files the recording under that song. */
-  start: (songId?: string) => void
+  /** Opens the record modal. A tune id files the recording under that tune. */
+  start: (tuneId?: string) => void
   /** True while the record modal is up, for anything that must not appear over it. */
   recording: boolean
 }
@@ -40,14 +40,14 @@ export function RecordProvider({ children }: { children: ReactNode }) {
   const open = useRef(false)
 
   const start = useCallback(
-    (songId?: string) => {
+    (tuneId?: string) => {
       // A second start while the modal is up would restart a live recording under it.
       if (open.current) return
       open.current = true
       // iOS only unlocks audio inside the gesture that asked for it, so this runs before any await.
       unlockAudioContext()
       player.close()
-      setTarget({ songId: songId ?? null })
+      setTarget({ tuneId: tuneId ?? null })
     },
     [player],
   )

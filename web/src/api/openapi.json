@@ -1285,18 +1285,6 @@
             "title": "Alternate Titles",
             "type": "array"
           },
-          "banjo_tuning": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Banjo Tuning"
-          },
           "composer": {
             "anyOf": [
               {
@@ -1325,18 +1313,6 @@
               }
             ],
             "title": "Deleted At"
-          },
-          "feel": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Feel"
           },
           "genre": {
             "anyOf": [
@@ -1384,30 +1360,13 @@
             ],
             "title": "Lyrics"
           },
-          "mode": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Mode"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "modes": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/Mode"
-                },
-                "maxItems": 4,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Modes"
+            "items": {
+              "$ref": "#/components/schemas/Mode"
+            },
+            "maxItems": 4,
+            "title": "Modes",
+            "type": "array"
           },
           "owner_user_id": {
             "anyOf": [
@@ -1473,18 +1432,6 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
-          },
-          "violin_tuning": {
-            "anyOf": [
-              {
-                "maxLength": 100,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Violin Tuning"
           }
         },
         "required": [
@@ -1494,6 +1441,7 @@
           "server_seq",
           "created_at",
           "title",
+          "modes",
           "owner_user_id"
         ],
         "title": "TuneRow",
@@ -2333,22 +2281,6 @@
               "title": "Since",
               "type": "integer"
             }
-          },
-          {
-            "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-            "in": "query",
-            "name": "names",
-            "required": false,
-            "schema": {
-              "default": "songs",
-              "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-              "enum": [
-                "songs",
-                "tunes"
-              ],
-              "title": "Names",
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -2383,24 +2315,6 @@
       "post": {
         "description": "Apply a batch of client changes. One result per change, in order.",
         "operationId": "push_v1_sync_push_post",
-        "parameters": [
-          {
-            "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-            "in": "query",
-            "name": "names",
-            "required": false,
-            "schema": {
-              "default": "songs",
-              "description": "The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes.",
-              "enum": [
-                "songs",
-                "tunes"
-              ],
-              "title": "Names",
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { SONG_NOT_FOUND } from '../../commands/messages'
-import { createSong } from '../../commands/songs'
+import { TUNE_NOT_FOUND } from '../../commands/messages'
+import { createTune } from '../../commands/tunes'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { DEFAULT_LYRICS_STEP, LYRICS_SIZE_KEY, LYRICS_STEPS, setLyricsStep } from './lyricsSize'
@@ -19,7 +19,7 @@ beforeEach(() => {
 })
 
 function show(onClose = () => {}) {
-  renderIonic(<LyricsModal open songId="s1" title="Uncle Joe" lyrics={WORDS} onClose={onClose} />, {
+  renderIonic(<LyricsModal open tuneId="s1" title="Uncle Joe" lyrics={WORDS} onClose={onClose} />, {
     db: openTestDb(),
   })
 }
@@ -39,7 +39,7 @@ function Reopenable() {
       </button>
       <LyricsModal
         open={open}
-        songId="s1"
+        tuneId="s1"
         title="Uncle Joe"
         lyrics={WORDS}
         onClose={() => setOpen(false)}
@@ -167,7 +167,7 @@ it('gives a verse a larger gap than the gap between its own lines', async () => 
   // Short lines that never wrap at any step, so each offsetTop delta below is a clean line
   // gap or verse gap rather than a wrapped line's own height.
   renderIonic(
-    <LyricsModal open songId="s1" title="Short" lyrics={'One\nTwo\n\nThree'} onClose={() => {}} />,
+    <LyricsModal open tuneId="s1" title="Short" lyrics={'One\nTwo\n\nThree'} onClose={() => {}} />,
     {
       db: openTestDb(),
     },
@@ -190,17 +190,17 @@ it('gives a verse a larger gap than the gap between its own lines', async () => 
 
 it('edits the words from the end of them, and writes without a form', async () => {
   const db = openTestDb()
-  const { songId } = await createSong(
+  const { tuneId } = await createTune(
     db,
     { title: 'Uncle Joe', lyrics: WORDS },
     { status: 'known' },
   )
   renderIonic(
-    <LyricsModal open songId={songId} title="Uncle Joe" lyrics={WORDS} onClose={() => {}} />,
+    <LyricsModal open tuneId={tuneId} title="Uncle Joe" lyrics={WORDS} onClose={() => {}} />,
     { db },
   )
   // Past the last verse, where a musician who has read to the end already is, and where a
-  // scroll mid-song never reaches.
+  // scroll mid-tune never reaches.
   const edit = page.getByRole('button', { name: EDIT_LYRICS })
   await expect.element(edit).toBeVisible()
   const lastLine = Array.from(document.querySelectorAll<HTMLElement>('[data-verse] p')).at(-1)!
@@ -215,23 +215,23 @@ it('edits the words from the end of them, and writes without a form', async () =
   await field.clear()
   await field.fill('New words entirely')
   await page.getByRole('button', { name: 'Done', exact: true }).click()
-  // No song form stands behind this one, so the sheet's own Done is the write.
+  // No tune form stands behind this one, so the sheet's own Done is the write.
   await vi.waitFor(async () =>
-    expect((await db.songs.get(songId))?.lyrics).toBe('New words entirely'),
+    expect((await db.tunes.get(tuneId))?.lyrics).toBe('New words entirely'),
   )
 })
 
 it('keeps refused words in the box, with the reason, rather than dropping them', async () => {
   const db = openTestDb()
-  const { songId } = await createSong(
+  const { tuneId } = await createTune(
     db,
     { title: 'Uncle Joe', lyrics: WORDS },
     { status: 'known' },
   )
-  // A song deleted from another device while the sheet is open is what the write meets.
-  await db.songs.delete(songId)
+  // A tune deleted from another device while the sheet is open is what the write meets.
+  await db.tunes.delete(tuneId)
   renderIonic(
-    <LyricsModal open songId={songId} title="Uncle Joe" lyrics={WORDS} onClose={() => {}} />,
+    <LyricsModal open tuneId={tuneId} title="Uncle Joe" lyrics={WORDS} onClose={() => {}} />,
     { db },
   )
   await page.getByRole('button', { name: EDIT_LYRICS }).click()
@@ -241,7 +241,7 @@ it('keeps refused words in the box, with the reason, rather than dropping them',
   await field.fill('Words worth keeping')
   await page.getByRole('button', { name: 'Done', exact: true }).click()
 
-  await expect.element(page.getByRole('alert')).toHaveTextContent(SONG_NOT_FOUND)
+  await expect.element(page.getByRole('alert')).toHaveTextContent(TUNE_NOT_FOUND)
   await expect
     .element(page.getByRole('textbox', { name: 'Lyrics' }))
     .toHaveValue('Words worth keeping')
@@ -249,7 +249,7 @@ it('keeps refused words in the box, with the reason, rather than dropping them',
 
 it('opens on the words after a close that left the editor up', async () => {
   const db = openTestDb()
-  const { songId } = await createSong(
+  const { tuneId } = await createTune(
     db,
     { title: 'Uncle Joe', lyrics: WORDS },
     { status: 'known' },
@@ -263,7 +263,7 @@ it('opens on the words after a close that left the editor up', async () => {
         </button>
         <LyricsModal
           open={open}
-          songId={songId}
+          tuneId={tuneId}
           title="Uncle Joe"
           lyrics={WORDS}
           onClose={() => setOpen(false)}
@@ -283,7 +283,7 @@ it('opens on the words after a close that left the editor up', async () => {
   expect(document.querySelector('ion-textarea')).toBeNull()
 })
 
-it('names the dialog for the title the song carries now', async () => {
+it('names the dialog for the title the tune carries now', async () => {
   function Renamer() {
     const [title, setTitle] = useState('Old Joe')
     const [open, setOpen] = useState(false)
@@ -297,7 +297,7 @@ it('names the dialog for the title the song carries now', async () => {
         </button>
         <LyricsModal
           open={open}
-          songId="s1"
+          tuneId="s1"
           title={title}
           lyrics={WORDS}
           onClose={() => setOpen(false)}

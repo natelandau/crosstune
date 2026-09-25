@@ -74,20 +74,20 @@ export function RecordModal({
     live.current = value
   }, [])
 
-  const songId = target?.songId ?? null
+  const tuneId = target?.tuneId ?? null
   const done = useCallback(
     (saved: boolean) => {
       setClosing(true)
       if (!saved) return
-      const path = songId ? `/catalog/${songId}` : '/recordings'
+      const path = tuneId ? `/catalog/${tuneId}` : '/recordings'
       const here = router.routeInfo?.pathname ?? ''
       // A recording started from the page it would land on must not stack a second copy of
-      // that page behind the one already open. A song page lives in every tab's stack, so any
-      // path ending in the song's id is that page.
-      const alreadyThere = songId ? here.endsWith(`/${songId}`) : here === path
+      // that page behind the one already open. A tune page lives in every tab's stack, so any
+      // path ending in the tune's id is that page.
+      const alreadyThere = tuneId ? here.endsWith(`/${tuneId}`) : here === path
       if (!alreadyThere) router.push(path, 'forward', 'push')
     },
-    [router, songId],
+    [router, tuneId],
   )
 
   return (
@@ -104,23 +104,23 @@ export function RecordModal({
       </IonHeader>
       <IonContent>
         {/* Mounted only while open, so the capture starts with the modal and ends with it. */}
-        {target ? <Capture songId={target.songId} onDone={done} onLive={setLive} /> : null}
+        {target ? <Capture tuneId={target.tuneId} onDone={done} onLive={setLive} /> : null}
       </IonContent>
     </IonModal>
   )
 }
 
 function Capture({
-  songId,
+  tuneId,
   onDone,
   onLive,
 }: {
-  songId: string | null
+  tuneId: string | null
   /** True once the recording is saved, false when it was discarded or never started. */
   onDone: (saved: boolean) => void
   onLive: (live: boolean) => void
 }) {
-  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture({ songId })
+  const { phase, elapsedMs, analyser, error, stop, cancel } = useCapture({ tuneId })
   const confirm = useConfirm()
   const toast = useToast()
   // Two presses in one tick both read the same committed state, so the guard is a ref.

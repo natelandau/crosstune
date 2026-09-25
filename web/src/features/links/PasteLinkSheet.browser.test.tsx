@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { ResolveResponse } from '../../api/types'
-import { createSong } from '../../commands/songs'
+import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
@@ -17,11 +17,11 @@ import {
   PasteLinkSheet,
 } from './PasteLinkSheet'
 
-function Host({ songId, onClose = () => {} }: { songId: string | null; onClose?: () => void }) {
-  const [current, setCurrent] = useState(songId)
+function Host({ tuneId, onClose = () => {} }: { tuneId: string | null; onClose?: () => void }) {
+  const [current, setCurrent] = useState(tuneId)
   return (
     <PasteLinkSheet
-      songId={current}
+      tuneId={current}
       onClose={() => {
         onClose()
         setCurrent(null)
@@ -32,25 +32,25 @@ function Host({ songId, onClose = () => {} }: { songId: string | null; onClose?:
 
 const sheetOpen = () => document.querySelector('ion-modal:not(.overlay-hidden)') !== null
 
-async function song(db: CrosstuneDb) {
-  const { songId } = await createSong(db, { title: 'Reel' }, { status: 'known' })
-  return songId
+async function tune(db: CrosstuneDb) {
+  const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'known' })
+  return tuneId
 }
 
 function show(
-  songId: string,
+  tuneId: string,
   opts: { db?: CrosstuneDb; engine?: SyncEngine; onClose?: () => void } = {},
 ) {
   const db = opts.db ?? openTestDb()
-  renderIonic(<Host songId={songId} onClose={opts.onClose} />, { db, engine: opts.engine })
+  renderIonic(<Host tuneId={tuneId} onClose={opts.onClose} />, { db, engine: opts.engine })
   return db
 }
 
 describe('PasteLinkSheet', () => {
   it('shows the title, fields, and placeholders', async () => {
     const db = openTestDb()
-    const songId = await song(db)
-    show(songId, { db })
+    const tuneId = await tune(db)
+    show(tuneId, { db })
     await expect.element(page.getByText(PASTE_LINK)).toBeVisible()
     await expect.element(page.getByLabelText('Link')).toBeVisible()
     await expect.element(page.getByPlaceholder(LINK_PLACEHOLDER)).toBeVisible()
@@ -60,8 +60,8 @@ describe('PasteLinkSheet', () => {
 
   it('adds a link with the provider and ref a YouTube url detects', async () => {
     const db = openTestDb()
-    const songId = await song(db)
-    show(songId, { db })
+    const tuneId = await tune(db)
+    show(tuneId, { db })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
@@ -72,8 +72,8 @@ describe('PasteLinkSheet', () => {
 
   it('still adds a url this client cannot parse into a known provider, as other', async () => {
     const db = openTestDb()
-    const songId = await song(db)
-    show(songId, { db })
+    const tuneId = await tune(db)
+    show(tuneId, { db })
     await page.getByLabelText('Link').fill('https://example.com/some-recording')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
@@ -84,7 +84,7 @@ describe('PasteLinkSheet', () => {
 
   it('fills the title from the resolver when it answers', async () => {
     const db = openTestDb()
-    const songId = await song(db)
+    const tuneId = await tune(db)
     const resolved: ResolveResponse = {
       url: 'https://youtu.be/dQw4w9WgXcQ',
       provider: 'youtube',
@@ -92,7 +92,7 @@ describe('PasteLinkSheet', () => {
       title: 'Resolved title',
       artwork_url: null,
     }
-    show(songId, { db, engine: fakeEngine({ resolveLink: async () => resolved }) })
+    show(tuneId, { db, engine: fakeEngine({ resolveLink: async () => resolved }) })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
@@ -102,8 +102,8 @@ describe('PasteLinkSheet', () => {
 
   it('still adds the link when the resolver does not answer', async () => {
     const db = openTestDb()
-    const songId = await song(db)
-    show(songId, { db, engine: fakeEngine({ resolveLink: async () => null }) })
+    const tuneId = await tune(db)
+    show(tuneId, { db, engine: fakeEngine({ resolveLink: async () => null }) })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
@@ -113,8 +113,8 @@ describe('PasteLinkSheet', () => {
 
   it('refuses a blank url with a message under the field', async () => {
     const db = openTestDb()
-    const songId = await song(db)
-    show(songId, { db })
+    const tuneId = await tune(db)
+    show(tuneId, { db })
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await expect.element(page.getByRole('alert')).toHaveTextContent(LINK_REQUIRED)
     expect(await db.recording_links.count()).toBe(0)
@@ -122,9 +122,9 @@ describe('PasteLinkSheet', () => {
 
   it('refuses a url that is not a web address, before asking the resolver', async () => {
     const db = openTestDb()
-    const songId = await song(db)
+    const tuneId = await tune(db)
     const resolveLink = vi.fn(async () => null)
-    show(songId, { db, engine: fakeEngine({ resolveLink }) })
+    show(tuneId, { db, engine: fakeEngine({ resolveLink }) })
     await page.getByLabelText('Link').fill('javascript:alert(1)')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await expect.element(page.getByRole('alert')).toHaveTextContent(LINK_NOT_WEB)
@@ -134,8 +134,8 @@ describe('PasteLinkSheet', () => {
 
   it('adds one link from two submits in the same tick', async () => {
     const db = openTestDb()
-    const songId = await song(db)
-    show(songId, { db })
+    const tuneId = await tune(db)
+    show(tuneId, { db })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     const form = document.querySelector('ion-modal form')!
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
@@ -146,9 +146,9 @@ describe('PasteLinkSheet', () => {
 
   it('closes once per dismissal', async () => {
     const db = openTestDb()
-    const songId = await song(db)
+    const tuneId = await tune(db)
     const onClose = vi.fn()
-    show(songId, { db, onClose })
+    show(tuneId, { db, onClose })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
@@ -157,9 +157,9 @@ describe('PasteLinkSheet', () => {
 
   it('discards a half-typed link on Cancel and reports the close once', async () => {
     const db = openTestDb()
-    const songId = await song(db)
+    const tuneId = await tune(db)
     const onClose = vi.fn()
-    show(songId, { db, onClose })
+    show(tuneId, { db, onClose })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
@@ -169,9 +169,9 @@ describe('PasteLinkSheet', () => {
 
   it('refuses a backdrop tap or a swipe gesture while a link is half typed, keeping it', async () => {
     const db = openTestDb()
-    const songId = await song(db)
+    const tuneId = await tune(db)
     const onClose = vi.fn()
-    show(songId, { db, onClose })
+    show(tuneId, { db, onClose })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     const modal = document.querySelector('ion-modal') as HTMLIonModalElement
     const canDismiss = modal.canDismiss as (data?: unknown, role?: string) => Promise<boolean>
@@ -185,18 +185,18 @@ describe('PasteLinkSheet', () => {
     await expect.element(page.getByLabelText('Link')).toHaveValue('https://youtu.be/dQw4w9WgXcQ')
   })
 
-  it('reopens for the same song after Cancel', async () => {
+  it('reopens for the same tune after Cancel', async () => {
     const db = openTestDb()
-    const songId = await song(db)
+    const tuneId = await tune(db)
 
     function ReopenHost() {
-      const [current, setCurrent] = useState<string | null>(songId)
+      const [current, setCurrent] = useState<string | null>(tuneId)
       return (
         <>
-          <button type="button" onClick={() => setCurrent(songId)}>
+          <button type="button" onClick={() => setCurrent(tuneId)}>
             Reopen
           </button>
-          <PasteLinkSheet songId={current} onClose={() => setCurrent(null)} />
+          <PasteLinkSheet tuneId={current} onClose={() => setCurrent(null)} />
         </>
       )
     }

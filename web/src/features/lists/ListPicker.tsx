@@ -1,12 +1,12 @@
 import { IonButton, IonInput, IonItem, IonLabel, IonNote } from '@ionic/react'
 import { useRef, useState } from 'react'
 import { LIST_LIMITS } from '../../api/vocabulary'
-import { addSongsToList, createListWithSongs, type Undo } from '../../commands/bulk'
+import { addTunesToList, createListWithTunes, type Undo } from '../../commands/bulk'
 import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
-import { countSongs } from '../selection/copy'
+import { countTunes } from '../selection/copy'
 import { LIST_NAME_PLACEHOLDER } from './ListNameSheet'
 import { useLists, useMembershipCounts } from './useLists'
 
@@ -16,29 +16,29 @@ export const NEW_LIST_ITEM = 'New list…'
 
 /**
  * What one successful add did. The picker reports the facts rather than a sentence, so the
- * caller words its own toast and holds the undo; the wording differs between the song page
+ * caller words its own toast and holds the undo; the wording differs between the tune page
  * and a bulk selection.
  */
 export interface ListAddition {
   undo: Undo
-  /** How many of the selection were actually added, since a song already in the list does not count again. */
+  /** How many of the selection were actually added, since a tune already in the list does not count again. */
   added: number
   listName: string
   /** True when the pick created the list rather than adding to one that already existed. */
   created: boolean
 }
 
-/** Adds one or more songs to an existing list, or to a new one, without leaving the page behind it. */
+/** Adds one or more tunes to an existing list, or to a new one, without leaving the page behind it. */
 export function ListPicker({
   open,
-  userSongIds,
+  userTuneIds,
   excludeListId,
   title,
   onClose,
   onAdded,
 }: {
   open: boolean
-  userSongIds: readonly string[]
+  userTuneIds: readonly string[]
   /** Left off the offered lists, such as the list already open on the list detail screen. */
   excludeListId?: string
   /** Defaults to naming the selection size; a caller with its own fixed wording passes this instead. */
@@ -49,8 +49,8 @@ export function ListPicker({
 }) {
   const db = useDb()
   const lists = (useLists() ?? []).filter((list) => list.id !== excludeListId)
-  const counts = useMembershipCounts(userSongIds)
-  const total = userSongIds.length
+  const counts = useMembershipCounts(userTuneIds)
+  const total = userTuneIds.length
   const { error, pending, runThen, clear } = useAction()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
@@ -88,7 +88,7 @@ export function ListPicker({
     runThen(
       async () => {
         try {
-          const { undo, added } = await addSongsToList(db, list.id, userSongIds)
+          const { undo, added } = await addTunesToList(db, list.id, userTuneIds)
           addition = { undo, added, listName: list.name, created: false }
         } catch (caught) {
           busy.current = false
@@ -113,7 +113,7 @@ export function ListPicker({
     runThen(
       async () => {
         try {
-          const undo = await createListWithSongs(db, listName, userSongIds)
+          const undo = await createListWithTunes(db, listName, userTuneIds)
           addition = { undo, added: total, listName, created: true }
         } catch (caught) {
           busy.current = false
@@ -133,7 +133,7 @@ export function ListPicker({
   return (
     <Sheet
       open={open && !closing}
-      title={title ?? `Add ${countSongs(total)} to a list`}
+      title={title ?? `Add ${countTunes(total)} to a list`}
       dismissible={!pending}
       onClose={dismissed}
       start={

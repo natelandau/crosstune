@@ -240,7 +240,7 @@ html.ios ion-modal .sheet-toolbar ion-buttons[slot='end'] {
 
 /* An iOS title otherwise spans the whole bar padded for one control, and this toolbar carries
    three. Between the two button slots instead, it takes only the room they leave, and shrinks
-   below its own text width so the song's name gives up its own letters rather than the
+   below its own text width so the tune's name gives up its own letters rather than the
    controls giving up the bar. */
 html.ios ion-modal .lyrics-toolbar ion-title {
   position: relative;

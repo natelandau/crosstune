@@ -7,7 +7,7 @@ import { getMeta, setMeta } from '../../db/meta'
  * leaves it alone. */
 export const META_LIST_SHOW_ARCHIVED = 'list_show_archived'
 
-/** Whether lists show archived songs, undefined until read. */
+/** Whether lists show archived tunes, undefined until read. */
 export function useListShowArchived(): [boolean | undefined, (show: boolean) => Promise<void>] {
   const db = useDb()
   const show = useLiveQuery(

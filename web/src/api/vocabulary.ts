@@ -58,11 +58,9 @@ export type TimeSignature = (typeof TIME_SIGNATURES)[number]
 export const STATUSES = ['known', 'learning', 'want_to_learn'] as const
 export type TuneStatus = (typeof STATUSES)[number]
 
-export const SONG_LIMITS = {
+export const TUNE_LIMITS = {
   alternate_titles: 200,
-  banjo_tuning: 100,
   composer: 200,
-  feel: 100,
   genre: 100,
   key: 10,
   lyrics: 20000,
@@ -70,7 +68,6 @@ export const SONG_LIMITS = {
   part_structure: 100,
   title: 200,
   tune_type: 100,
-  violin_tuning: 100,
   learned_from: 200,
   notes: 20000,
   tuning: 100,

@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, func, select
 
 from crosstune.models import ListItem, RecordingLink, Tune, UserTune
 
@@ -34,70 +34,9 @@ def change(table: str, id_: str, updated_at: datetime, op: str = "upsert", **dat
 
 
 async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> list[dict]:
-    response = await client.post(
-        "/v1/sync/push?names=tunes", json={"changes": list(changes)}, headers=headers
-    )
+    response = await client.post("/v1/sync/push", json={"changes": list(changes)}, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()["results"]
-
-
-async def test_an_old_client_type_edit_reaches_the_new_column(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    headers = auth_headers("user_a")
-    await push(client, headers, change("tunes", tune_id, T0, title="Swallowtail", tune_type="Reel"))
-    results = await push(
-        client,
-        headers,
-        change("tunes", tune_id, T1, title="Swallowtail", feel="Jig", tune_type="Reel"),
-    )
-    assert results[0]["status"] == "applied"
-    assert results[0]["row"]["tune_type"] == "Jig"
-    assert results[0]["row"]["feel"] == "Jig"
-    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert (stored.tune_type, stored.feel) == ("Jig", "Jig")
-
-
-async def test_a_new_client_push_fills_the_old_columns(client, auth_headers) -> None:
-    results = await push(
-        client,
-        auth_headers("user_a"),
-        change("tunes", uid(), T0, title="Out on the Ocean", tune_type="Jig", modes=["major"]),
-    )
-    assert results[0]["row"]["feel"] == "Jig"
-    assert results[0]["row"]["mode"] == "major"
-    assert results[0]["row"]["modes"] == ["major"]
-
-
-async def test_an_old_clients_mode_edit_keeps_the_second_part(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    headers = auth_headers("user_a")
-    await push(
-        client,
-        headers,
-        change("tunes", tune_id, T0, title="Cooley's", modes=["major", "minor"]),
-    )
-    results = await push(
-        client,
-        headers,
-        change(
-            "tunes",
-            tune_id,
-            T1,
-            title="Cooley's",
-            feel="Reel",
-            mode="dorian",
-            modes=["major", "minor"],
-        ),
-    )
-    assert results[0]["row"]["modes"] == ["dorian", "minor"]
-    assert results[0]["row"]["mode"] == "dorian"
-    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert stored.modes == ["dorian", "minor"]
-    assert stored.mode == "dorian"
 
 
 async def test_batch_creates_tune_user_tune_and_link(
@@ -174,11 +113,37 @@ async def test_invalid_change_does_not_reject_the_batch(client, auth_headers) ->
         client,
         auth_headers("user_a"),
         change("tunes", uid(), T0, title="Good"),
-        change("tunes", uid(), T0, title="Bad", mode="lydian"),
+        change("tunes", uid(), T0, title="Bad", modes=["lydian"]),
         change("tunes", uid(), T0, title="Also good"),
     )
     assert [r["status"] for r in results] == ["applied", "invalid", "applied"]
-    assert "mode" in results[1]["reason"]
+    assert "modes" in results[1]["reason"]
+
+
+@pytest.mark.parametrize(("field", "value"), [("feel", "Jig"), ("mode", "dorian")])
+async def test_a_push_carrying_a_retired_tune_field_is_invalid(
+    client, auth_headers, field: str, value: str
+) -> None:
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", uid(), T0, title="Swallowtail", **{field: value}),
+    )
+    assert results[0]["status"] == "invalid"
+    assert field in results[0]["reason"]
+
+
+async def test_a_tune_pushed_without_modes_stores_an_empty_list(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    tune_id = uid()
+    results = await push(
+        client, auth_headers("user_a"), change("tunes", tune_id, T0, title="Sally Ann")
+    )
+    assert results[0]["row"]["modes"] == []
+    stored = await verify_session.get(Tune, uuid.UUID(tune_id))
+    assert stored is not None
+    assert stored.modes == []
 
 
 async def test_link_with_a_non_web_scheme_is_invalid(client, auth_headers) -> None:
@@ -426,16 +391,6 @@ async def test_user_settings_newer_write_wins(client, auth_headers) -> None:
     assert results[0]["row"]["instruments"] == ["violin"]
 
 
-async def test_user_settings_push_with_both_banjo_spellings_applies(client, auth_headers) -> None:
-    results = await push(
-        client,
-        auth_headers("user_a"),
-        change("user_settings", uid(), T0, instruments=["banjo", "five_string_banjo"]),
-    )
-    assert results[0]["status"] == "applied"
-    assert results[0]["row"]["instruments"] == ["five_string_banjo"]
-
-
 async def test_user_settings_rejects_an_unknown_instrument(client, auth_headers) -> None:
     results = await push(
         client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["kazoo"])
@@ -453,7 +408,7 @@ async def test_lyrics_round_trip_through_push_and_pull(client, auth_headers) -> 
         change("tunes", tune_id, T0, title="Uncle Joe", lyrics=words),
     )
     assert results[0]["status"] == "applied"
-    response = await client.get("/v1/sync/pull?since=0&names=tunes", headers=auth_headers("user_a"))
+    response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
     assert response.status_code == 200, response.text
     rows = [r for r in response.json()["rows"] if r["table"] == "tunes"]
     assert rows[0]["row"]["lyrics"] == words
@@ -482,98 +437,49 @@ async def test_an_applied_upsert_reads_its_row_back_from_the_write(
     assert not [sql for sql in statements[write + 1 :] if "from tunes" in sql]
 
 
-async def test_a_legacy_push_keeps_other_instruments_and_the_capo(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    headers = auth_headers("user_a")
-    await push(
-        client,
-        headers,
-        change(
-            "tunes",
-            tune_id,
-            T0,
-            title="Sally Ann",
-            tunings={
-                "five_string_banjo": {"tuning": "Open G (gDGBD)", "capo": 2},
-                "guitar": {"tuning": "DADGAD"},
-            },
-        ),
-    )
-    results = await push(
-        client,
-        headers,
-        change(
-            "tunes",
-            tune_id,
-            T1,
-            title="Sally Ann",
-            violin_tuning="Cross A (AEAE)",
-            banjo_tuning="Double C (gCGCD)",
-        ),
-    )
-    assert results[0]["status"] == "applied"
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {
-        "violin": {"tuning": "Cross A (AEAE)"},
-        "five_string_banjo": {"tuning": "Double C (gCGCD)", "capo": 2},
-        "guitar": {"tuning": "DADGAD"},
-    }
-
-
-async def test_a_legacy_field_overrides_the_same_instrument_in_a_sent_map(
-    client, auth_headers, verify_session: AsyncSession
+@pytest.mark.parametrize("field", ["violin_tuning", "banjo_tuning"])
+async def test_a_legacy_tuning_push_is_invalid(
+    client, auth_headers, verify_session: AsyncSession, field: str
 ) -> None:
     tune_id = uid()
     results = await push(
         client,
         auth_headers("user_a"),
-        change(
-            "tunes",
-            tune_id,
-            T0,
-            title="Sally Ann",
-            tunings={"violin": {"tuning": "Standard (GDAE)"}, "guitar": {"tuning": "DADGAD"}},
-            violin_tuning=None,
-        ),
-    )
-    assert results[0]["status"] == "applied"
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}
-
-
-async def test_a_legacy_create_builds_the_map(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    await push(
-        client,
-        auth_headers("user_a"),
-        change("tunes", tune_id, T0, title="Sally Ann", violin_tuning="AEAE", banjo_tuning=None),
-    )
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {"violin": {"tuning": "AEAE"}}
-
-
-async def test_a_legacy_push_never_reads_another_users_tune(
-    client, auth_headers, verify_session: AsyncSession
-) -> None:
-    tune_id = uid()
-    await push(
-        client,
-        auth_headers("user_a"),
-        change("tunes", tune_id, T0, title="A", tunings={"guitar": {"tuning": "DADGAD"}}),
-    )
-    results = await push(
-        client,
-        auth_headers("user_b"),
-        change("tunes", tune_id, T1, title="B", violin_tuning="AEAE"),
+        change("tunes", tune_id, T0, title="Sally Ann", **{field: "AEAE"}),
     )
     assert results[0]["status"] == "invalid"
-    tune = await verify_session.get(Tune, uuid.UUID(tune_id))
-    assert tune is not None
-    assert tune.tunings == {"guitar": {"tuning": "DADGAD"}}
+    assert field in results[0]["reason"]
+    assert await verify_session.get(Tune, uuid.UUID(tune_id)) is None
+
+
+async def test_a_settings_push_holding_banjo_is_invalid(client, auth_headers) -> None:
+    results = await push(
+        client, auth_headers("user_a"), change("user_settings", uid(), T0, instruments=["banjo"])
+    )
+    assert results[0]["status"] == "invalid"
+    assert "instruments" in results[0]["reason"]
+
+
+async def test_a_push_in_song_names_is_refused_whole(
+    client, auth_headers, verify_session: AsyncSession
+) -> None:
+    response = await client.post(
+        "/v1/sync/push",
+        json={"changes": [change("songs", uid(), T0, title="Sally Ann")]},
+        headers=auth_headers("user_a"),
+    )
+    assert response.status_code == 422
+    stored = await verify_session.execute(select(func.count()).select_from(Tune))
+    assert stored.scalar_one() == 0
+
+
+async def test_a_song_id_field_is_an_unknown_field(client, auth_headers) -> None:
+    tune_id, user_tune_id = uid(), uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, T0, title="Sally Ann"),
+        change("user_tunes", user_tune_id, T0, song_id=tune_id, status="known"),
+    )
+    assert [r["status"] for r in results] == ["applied", "invalid"]
+    assert "song_id" in results[1]["reason"]

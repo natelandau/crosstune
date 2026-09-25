@@ -19,8 +19,8 @@ reopens one without new information. Add a new entry at the end.
 
 ## Per-user catalog, shared catalog designed in
 
-- Every song is owned by its creator and invisible to others.
-- The schema separates the song from the user-song relationship, so a shared
+- Every tune is owned by its creator and invisible to others.
+- The schema separates the tune from the user-tune relationship, so a shared
   canonical catalog can be added by a merge step.
 - A shared catalog at launch brings deduplication, naming variants, and
   permissions that nobody needs yet.

@@ -1,37 +1,42 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { withInstrumentLabel } from '../settings/instruments'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { TUNING_FIELDS } from '../settings/instruments'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
-import { ALL_KEYS_LABEL, CatalogFilters } from './CatalogFilters'
+import { ALL_KEYS_LABEL, ALL_TYPES_LABEL, CatalogFilters } from './CatalogFilters'
 import {
   DEFAULT_FILTERS,
+  FACET_LABELS,
+  facetValues,
   type CatalogFilters as Filters,
   type Facet,
   type FacetValues,
 } from './filters'
 
 const facets: FacetValues = {
+  ...facetValues([]),
   key: ['A', 'D'],
   mode: ['major'],
-  violin_tuning: ['Standard (GDAE)'],
-  banjo_tuning: [],
+  'tuning:violin': ['Standard (GDAE)'],
   genre: ['Old-time'],
+  tune_type: ['Jig', 'Reel'],
 }
-const visible: Facet[] = ['key', 'mode', 'violin_tuning', 'genre']
+const visible: Facet[] = ['key', 'tune_type', 'mode', 'tuning:violin', 'genre']
 const counts = { visible: 3, total: 5, archived: 2, all: 7 }
 
 function Host({
   start = DEFAULT_FILTERS,
   sheet = false,
   keys,
+  visible: visibleProp = visible,
 }: {
   start?: Filters
   sheet?: boolean
   /** Overrides the key facet, for a rail that holds two spellings of one pitch. */
   keys?: string[]
+  visible?: Facet[]
 }) {
   const [filters, setFilters] = useState(start)
   const [open, setOpen] = useState(sheet)
@@ -40,12 +45,17 @@ function Host({
   return (
     <>
       <output data-testid="state">{JSON.stringify(filters)}</output>
-      <CatalogFilters filters={filters} facets={railFacets} visible={visible} onChange={onChange} />
+      <CatalogFilters
+        filters={filters}
+        facets={railFacets}
+        visible={visibleProp}
+        onChange={onChange}
+      />
       <CatalogFilterSheet
         open={open}
         filters={filters}
         facets={facets}
-        visible={visible}
+        visible={visibleProp}
         counts={counts}
         onChange={onChange}
         onClose={() => setOpen(false)}
@@ -206,6 +216,65 @@ describe('CatalogFilters', () => {
     await page.getByRole('button', { name: 'Remove filter Archived shown' }).click()
     await expect.poll(() => state().archived).toBe(false)
   })
+
+  it('names the instrument on a set tuning pill so two instruments stay apart', async () => {
+    const standard = 'Standard (GDAE)'
+    renderIonic(
+      <Host
+        start={{ ...DEFAULT_FILTERS, 'tuning:violin': standard, 'tuning:mandolin': standard }}
+        visible={[...visible, 'tuning:mandolin']}
+      />,
+      { db: openTestDb() },
+    )
+    const mandolin = page.getByRole('button', {
+      name: `Remove filter ${withInstrumentLabel('mandolin', standard)}`,
+    })
+    await expect
+      .element(
+        page.getByRole('button', {
+          name: `Remove filter ${withInstrumentLabel('violin', standard)}`,
+        }),
+      )
+      .toBeVisible()
+    await mandolin.click()
+    await expect.poll(() => state()['tuning:mandolin']).toBe('all')
+    expect(state()['tuning:violin']).toBe(standard)
+  })
+
+  it('keeps a set key the catalog no longer holds as its own pressed chip', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, key: 'F' }} />, { db: openTestDb() })
+    await expect
+      .element(page.getByRole('button', { name: 'F', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .element(page.getByRole('button', { name: ALL_KEYS_LABEL, exact: true }))
+      .toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps a set type the catalog no longer holds as its own pressed chip', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, tune_type: 'Hornpipe' }} />, {
+      db: openTestDb(),
+    })
+    await expect
+      .element(page.getByRole('button', { name: 'Hornpipe', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .element(page.getByRole('button', { name: ALL_TYPES_LABEL, exact: true }))
+      .toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('shows a Type rail only when Type is a visible facet', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    await page.getByRole('button', { name: 'Reel', exact: true }).click()
+    await expect.poll(() => state().tune_type).toBe('Reel')
+  })
+
+  it('has no Type rail while no tune has a type', async () => {
+    renderIonic(<Host visible={['key', 'mode']} />, { db: openTestDb() })
+    await expect
+      .element(page.getByRole('button', { name: ALL_TYPES_LABEL }))
+      .not.toBeInTheDocument()
+  })
 })
 
 describe('CatalogFilterSheet', () => {
@@ -214,17 +283,17 @@ describe('CatalogFilterSheet', () => {
     await expect.element(page.getByText('Filters')).toBeVisible()
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
     const labels = Array.from(open.querySelectorAll('[data-row-label]')).map((e) => e.textContent)
-    expect(labels).toEqual(['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre'])
+    expect(labels).toEqual(['Mode', FACET_LABELS['tuning:violin'], 'Genre'])
     const count = open.querySelector('[aria-live="polite"]') as HTMLElement
     expect(Number.parseFloat(getComputedStyle(count).paddingLeft)).toBe(32)
   })
 
   it('shows the live count, a select per sheet facet, and the archived switch with its count', async () => {
     renderIonic(<Host sheet />, { db: openTestDb() })
-    await expect.element(page.getByText('3 of 5 songs')).toBeVisible()
+    await expect.element(page.getByText('3 of 5 tunes')).toBeVisible()
     // IonSelect's accessible name is "<label>, <value>", and its own button is clipped, so
     // visibility is asserted on the row that contains it.
-    for (const label of ['Mode', TUNING_FIELDS.violin_tuning.label, 'Genre']) {
+    for (const label of ['Mode', FACET_LABELS['tuning:violin'], 'Genre']) {
       await expect
         .element(
           page.getByRole('listitem').filter({ has: page.getByLabelText(label, { exact: false }) }),
@@ -233,7 +302,7 @@ describe('CatalogFilterSheet', () => {
     }
     // Scoped to the sheet: the catalog's own Key rail is also labeled "Key".
     expect(page.getByRole('dialog').getByLabelText('Key').elements()).toHaveLength(0)
-    await expect.element(page.getByText('2 archived songs')).toBeVisible()
+    await expect.element(page.getByText('2 archived tunes')).toBeVisible()
     // The archived count is tabular, like every other count in the catalog.
     expect(document.querySelector('ion-modal p.type-footnote span')).toHaveClass('tabular-nums')
   })

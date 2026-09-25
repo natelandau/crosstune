@@ -11,7 +11,7 @@ import { baseContentType, CHUNK_MS, isNotUploaded, type LocalFileState } from '.
 import { getKeepOffline, getStorage, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
-import { liveSong } from '../db/songs'
+import { liveTune } from '../db/tunes'
 import { defaultLocks, heldCaptureIds } from './captureLock'
 import { isAuthFailure } from './errors'
 
@@ -45,9 +45,9 @@ export async function recoverInterruptedCaptures(
       await cancelCapture(db, file.id)
       continue
     }
-    const song = file.song_id ? await db.songs.get(file.song_id) : undefined
+    const tune = file.tune_id ? await db.tunes.get(file.tune_id) : undefined
     await finishCapture(db, file.id, {
-      songId: liveSong(song)?.id ?? null,
+      tuneId: liveTune(tune)?.id ?? null,
       mime: chunks[0]!.blob.type || 'audio/mp4',
       // The recorder never reported a duration for a recording this abandoned, so the chunk
       // count is the only record of how long it ran.
@@ -190,7 +190,7 @@ async function dropTombstonedFiles(db: CrosstuneDb): Promise<void> {
         await putRow(db, 'recordings', {
           ...row,
           deleted_at: null,
-          song_id: null,
+          tune_id: null,
           updated_at: now(),
         })
         await db.recording_files.update(file.id, { local_state: 'captured', error: null })

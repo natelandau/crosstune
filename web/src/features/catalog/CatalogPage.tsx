@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../api/vocabulary'
-import { setArchived } from '../../commands/songs'
+import { setArchived } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { usePointer } from '../../platform/pointer'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -33,8 +33,8 @@ import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useBulkActions, type SelectionContext } from '../selection/useBulkActions'
 import { useSelection } from '../selection/useSelection'
 import { useInstruments } from '../settings/useInstruments'
-import { ARCHIVE, UNARCHIVE } from '../song/archiveLabels'
-import { SongFormSheet, type SongFormTarget } from '../song/SongFormSheet'
+import { ARCHIVE, UNARCHIVE } from '../tune/archiveLabels'
+import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
 import { CatalogFilters } from './CatalogFilters'
 import { CatalogFilterSheet } from './CatalogFilterSheet'
 import {
@@ -43,7 +43,7 @@ import {
   hiddenResets,
   hideArchived,
   sheetFilterCount,
-  songCountLabel,
+  tuneCountLabel,
   visibleFacets,
   DEFAULT_FILTERS,
   type CatalogEntry,
@@ -52,14 +52,14 @@ import {
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
 import { HiddenMatchNote, SearchOfferRow } from './SearchOffer'
 import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSession'
-import { SongItem } from './SongItem'
-import { SEARCH_SONGS } from './SongSearch'
+import { TuneItem } from './TuneItem'
+import { SEARCH_TUNES } from './TuneSearch'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
 
-export const ADD_SONG = 'Add song'
-export const NO_SONGS_HINT = 'Add the first song you know.'
-export const NO_SONGS_TITLE = 'No songs yet'
+export const ADD_TUNE = 'Add tune'
+export const NO_TUNES_HINT = 'Add the first tune you know.'
+export const NO_TUNES_TITLE = 'No tunes yet'
 
 const NO_ENTRIES: CatalogEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
@@ -86,7 +86,7 @@ export function CatalogPage() {
   const { error, run } = useAction()
   const [query, setQuery] = useState(readSearchQuery)
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [form, setForm] = useState<SongFormTarget | null>(null)
+  const [form, setForm] = useState<TuneFormTarget | null>(null)
   const searchRef = useRef<SearchFieldHandle>(null)
   const listRef = useRef<HTMLIonListElement>(null)
 
@@ -104,19 +104,19 @@ export function CatalogPage() {
     () => filterCatalog(entries, effective, query),
     [entries, effective, query],
   )
-  // Catalog-wide counts change with the stored songs, not with each search keystroke.
+  // Catalog-wide counts change with the stored tunes, not with each search keystroke.
   const stored = useMemo(
     () => ({
       total: hideArchived(entries, effective.archived).length,
-      archived: entries.filter((entry) => entry.userSong.archived_at !== null).length,
+      archived: entries.filter((entry) => entry.userTune.archived_at !== null).length,
       all: entries.length,
     }),
     [entries, effective.archived],
   )
   const counts = useMemo(() => ({ ...stored, visible: visible.length }), [stored, visible.length])
-  const countLabel = songCountLabel(counts.visible, counts.total)
+  const countLabel = tuneCountLabel(counts.visible, counts.total)
 
-  const visibleIds = useMemo(() => visible.map((entry) => entry.userSong.id), [visible])
+  const visibleIds = useMemo(() => visible.map((entry) => entry.userTune.id), [visible])
   // One ref covers both: the arrow keys walk this list, and a swipe leaves a row in it open.
   const closeOpenRow = useCallback(() => void listRef.current?.closeSlidingItems(), [])
   const { active, selection, selectRef, enter, exit, rowSelection, onClickCapture } = useSelection(
@@ -125,9 +125,9 @@ export function CatalogPage() {
   )
   const { isSelected } = selection
   // Filtered out of the visible list rather than gathered from the set, so an action reads the
-  // songs in the order the screen shows them.
+  // tunes in the order the screen shows them.
   const selected = useMemo(
-    () => visible.filter((entry) => isSelected(entry.userSong.id)),
+    () => visible.filter((entry) => isSelected(entry.userTune.id)),
     [visible, isSelected],
   )
   const bulk = useBulkActions({ entries: selected, instruments, context: CATALOG, onExit: exit })
@@ -144,7 +144,7 @@ export function CatalogPage() {
     [active, entries, visible, query, effective.archived],
   )
   // A count read out on every keystroke would talk over the typing, so the live region only
-  // takes a new count when the filters or the stored songs change, and stays quiet on load.
+  // takes a new count when the filters or the stored tunes change, and stays quiet on load.
   const [announced, setAnnounced] = useState({ effective, entries, ready, text: '' })
   if (
     announced.effective !== effective ||
@@ -162,9 +162,9 @@ export function CatalogPage() {
     setQuery(value)
     writeSearchQuery(value)
   }
-  const openSong = (songId: string) => router.push(`/catalog/${songId}`, 'forward', 'push')
+  const openTune = (tuneId: string) => router.push(`/catalog/${tuneId}`, 'forward', 'push')
   const createFromSearch = (title: string) => {
-    // A song created from the search ends that search, whatever the form's outcome.
+    // A tune created from the search ends that search, whatever the form's outcome.
     clearSearchQuery()
     setQuery('')
     setForm({ kind: 'new', title })
@@ -173,7 +173,7 @@ export function CatalogPage() {
     if (!ready) return
     // Enter must not navigate while selecting: leaving the screen drops the selection.
     const action = active ? ({ kind: 'blur' } as const) : enterAction(query, visible, outcome)
-    if (action.kind === 'open') openSong(action.songId)
+    if (action.kind === 'open') openTune(action.tuneId)
     else if (action.kind === 'create') createFromSearch(action.title)
     else searchRef.current?.blur()
   }
@@ -184,10 +184,10 @@ export function CatalogPage() {
   // the mode under it.
   const sheetOwnsScreen = sheetOpen || form !== null
 
-  const noSongs = entries.length === 0 && !query.trim()
-  let emptyTitle = noSongs ? NO_SONGS_TITLE : 'Nothing matches'
+  const noTunes = entries.length === 0 && !query.trim()
+  let emptyTitle = noTunes ? NO_TUNES_TITLE : 'Nothing matches'
   if (outcome.kind === 'create' && !outcome.another)
-    emptyTitle = `No song called "${outcome.title}"`
+    emptyTitle = `No tune called "${outcome.title}"`
 
   return (
     <Screen
@@ -203,7 +203,7 @@ export function CatalogPage() {
           <>
             <IonButton
               className="toolbar-control"
-              aria-label={ADD_SONG}
+              aria-label={ADD_TUNE}
               onClick={() => setForm({ kind: 'new' })}
             >
               <Plus aria-hidden="true" className="size-7" />
@@ -226,7 +226,7 @@ export function CatalogPage() {
       search={
         <SearchField
           ref={searchRef}
-          name={SEARCH_SONGS}
+          name={SEARCH_TUNES}
           value={query}
           onInput={changeQuery}
           onEnter={submitSearch}
@@ -275,20 +275,20 @@ export function CatalogPage() {
             <EmptyState
               icon={Music}
               title={emptyTitle}
-              hint={noSongs ? NO_SONGS_HINT : undefined}
+              hint={noTunes ? NO_TUNES_HINT : undefined}
               action={
                 outcome.kind === 'create' ? (
                   <>
-                    <HiddenMatchNote outcome={outcome} onOpen={openSong} />
+                    <HiddenMatchNote outcome={outcome} onOpen={openTune} />
                     <IonButton shape="round" onClick={() => createFromSearch(outcome.title)}>
                       {outcome.another
                         ? `Add another "${outcome.title}"`
                         : `Add "${outcome.title}"`}
                     </IonButton>
                   </>
-                ) : noSongs ? (
+                ) : noTunes ? (
                   <IonButton shape="round" onClick={() => setForm({ kind: 'new' })}>
-                    {ADD_SONG}
+                    {ADD_TUNE}
                   </IonButton>
                 ) : null
               }
@@ -297,16 +297,16 @@ export function CatalogPage() {
             <>
               <IonList ref={listRef} onClickCapture={onClickCapture}>
                 {visible.map((entry) => {
-                  const { song, userSong } = entry
-                  const archived = userSong.archived_at !== null
-                  const row = rowSelection(userSong.id)
+                  const { tune, userTune } = entry
+                  const archived = userTune.archived_at !== null
+                  const row = rowSelection(userTune.id)
                   return (
-                    <SongItem
-                      key={userSong.id}
+                    <TuneItem
+                      key={userTune.id}
                       entry={entry}
                       instruments={instruments}
                       selection={active ? row : undefined}
-                      onOpen={() => openSong(song.id)}
+                      onOpen={() => openTune(tune.id)}
                       onLongPress={sheetOwnsScreen ? undefined : row.onLongPress}
                       actions={
                         active
@@ -322,7 +322,7 @@ export function CatalogPage() {
                                 label: archived ? UNARCHIVE : ARCHIVE,
                                 icon: archived ? ArchiveRestore : Archive,
                                 tone: 'warning',
-                                onPress: () => run(() => setArchived(db, userSong.id, !archived)),
+                                onPress: () => run(() => setArchived(db, userTune.id, !archived)),
                               },
                             ]
                       }
@@ -331,7 +331,7 @@ export function CatalogPage() {
                 })}
                 <SearchOfferRow outcome={outcome} onCreate={createFromSearch} />
               </IonList>
-              <HiddenMatchNote outcome={outcome} onOpen={openSong} />
+              <HiddenMatchNote outcome={outcome} onOpen={openTune} />
             </>
           )}
           {counts.all > 0 ? (
@@ -349,14 +349,14 @@ export function CatalogPage() {
             onChange={update}
             onClose={() => setSheetOpen(false)}
           />
-          <SongFormSheet
+          <TuneFormSheet
             target={form}
             instruments={instruments}
             onClose={() => setForm(null)}
-            onSaved={({ songId }) => {
+            onSaved={({ tuneId }) => {
               const created = form?.kind === 'new'
               setForm(null)
-              if (created) openSong(songId)
+              if (created) openTune(tuneId)
             }}
           />
           {/* Never behind `active`: a successful edit ends the mode while its sheet is still

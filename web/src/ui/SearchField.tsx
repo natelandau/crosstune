@@ -21,7 +21,7 @@ export function SearchField({
   onEnter,
   ref,
 }: {
-  /** The input's accessible name, such as "Search songs". */
+  /** The input's accessible name, such as "Search tunes". */
   name: string
   value: string
   placeholder?: string

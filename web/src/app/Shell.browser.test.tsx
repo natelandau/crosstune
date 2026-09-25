@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
+import { addTunesToList } from '../commands/bulk'
 import { createList } from '../commands/lists'
-import { createSong } from '../commands/songs'
+import { createTune } from '../commands/tunes'
 import { NEW_RECORDING } from '../features/recording/RecordModal'
 import { NO_RECORDINGS_TITLE } from '../features/recordings/RecordingsPage'
 import { openTestDb } from '../test/db'
@@ -99,29 +100,57 @@ describe('Shell', () => {
     }
   })
 
-  it('redirects an old song link into the catalog stack', async () => {
+  it('redirects an old tune link into the catalog stack', async () => {
     const db = openTestDb()
-    const { songId } = await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
-    renderIonic(<Shell initialPath={`/songs/${songId}`} />, { db })
+    const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+    renderIonic(<Shell initialPath={`/tunes/${tuneId}`} />, { db })
     await expect
       .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
       .toBeVisible()
     await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
   })
 
-  it('returns to the song a tab was showing after switching tabs in the sidebar', async () => {
+  it('opens a tune from a link saved under songs', async () => {
+    const db = openTestDb()
+    const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+    renderIonic(<Shell initialPath={`/songs/${tuneId}`} />, { db })
+    await expect
+      .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
+      .toBeVisible()
+    await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
+  })
+
+  it('opens a tune in its list from a list link saved under songs', async () => {
+    const db = openTestDb()
+    const { tuneId, userTuneId } = await createTune(
+      db,
+      { title: "Soldier's Joy" },
+      { status: 'known' },
+    )
+    const listId = await createList(db, 'Friday')
+    await addTunesToList(db, listId, [userTuneId])
+    renderIonic(<Shell initialPath={`/lists/${listId}/songs/${tuneId}`} />, { db })
+    await expect
+      .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
+      .toBeVisible()
+    await expect
+      .poll(() => document.querySelector('ion-back-button')?.defaultHref)
+      .toBe(`/lists/${listId}`)
+  })
+
+  it('returns to the tune a tab was showing after switching tabs in the sidebar', async () => {
     await page.viewport(1024, 768)
     try {
       const db = openTestDb()
-      const { songId } = await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
-      renderIonic(<Shell initialPath={`/catalog/${songId}`} />, { db })
-      const song = page.getByRole('heading', { name: "Soldier's Joy", level: 1 })
-      await expect.element(song).toBeVisible()
+      const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
+      renderIonic(<Shell initialPath={`/catalog/${tuneId}`} />, { db })
+      const tune = page.getByRole('heading', { name: "Soldier's Joy", level: 1 })
+      await expect.element(tune).toBeVisible()
       const sidebar = page.getByRole('navigation', { name: 'Sidebar' })
       await sidebar.getByText('Lists').click()
       await expect.element(page.getByRole('heading', { name: 'Lists', level: 1 })).toBeVisible()
       await sidebar.getByText('Catalog').click()
-      await expect.element(song).toBeVisible()
+      await expect.element(tune).toBeVisible()
       await expect
         .element(sidebar.getByRole('listitem').first())
         .toHaveAttribute('aria-current', 'page')
@@ -220,17 +249,17 @@ describe('Shell', () => {
 
   it('points Back at the parent of a pushed screen', async () => {
     const db = openTestDb()
-    const { songId } = await createSong(db, { title: "Soldier's Joy" }, { status: 'known' })
+    const { tuneId } = await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
     const listId = await createList(db, 'Tuesday jam')
     const cases: [string, string][] = [
-      [`/catalog/${songId}`, '/catalog'],
+      [`/catalog/${tuneId}`, '/catalog'],
       [`/lists/${listId}`, '/lists'],
-      [`/lists/${listId}/songs/${songId}`, `/lists/${listId}`],
-      [`/recordings/${songId}`, '/recordings'],
+      [`/lists/${listId}/tunes/${tuneId}`, `/lists/${listId}`],
+      [`/recordings/${tuneId}`, '/recordings'],
     ]
     for (const [path, parent] of cases) {
       const view = renderIonic(<Shell initialPath={path} />, { db })
-      if (path.includes(songId)) {
+      if (path.includes(tuneId)) {
         await expect
           .element(page.getByRole('heading', { name: "Soldier's Joy", level: 1 }))
           .toBeVisible()

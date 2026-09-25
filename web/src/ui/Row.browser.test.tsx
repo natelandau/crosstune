@@ -258,7 +258,7 @@ describe('Row on touch', () => {
           name="Take 3"
           actions={[
             {
-              label: 'Remove from song',
+              label: 'Remove from tune',
               short: 'Remove',
               icon: Archive,
               tone: 'warning',
@@ -281,7 +281,7 @@ describe('Row on touch', () => {
     const option = sliding.querySelector('ion-item-option')!
     expect(option.querySelector('[aria-hidden]')!.textContent).toBe('Remove')
     await expect
-      .element(page.getByRole('button', { name: 'Remove from song Take 3' }))
+      .element(page.getByRole('button', { name: 'Remove from tune Take 3' }))
       .toBeVisible()
   })
 

@@ -755,8 +755,6 @@ export interface components {
              * @default []
              */
             alternate_titles: string[];
-            /** Banjo Tuning */
-            banjo_tuning?: string | null;
             /** Composer */
             composer?: string | null;
             /**
@@ -766,8 +764,6 @@ export interface components {
             created_at: string;
             /** Deleted At */
             deleted_at: string | null;
-            /** Feel */
-            feel?: string | null;
             /** Genre */
             genre?: string | null;
             /**
@@ -784,9 +780,8 @@ export interface components {
             key?: string | null;
             /** Lyrics */
             lyrics?: string | null;
-            mode?: components["schemas"]["Mode"] | null;
             /** Modes */
-            modes?: components["schemas"]["Mode"][] | null;
+            modes: components["schemas"]["Mode"][];
             /** Owner User Id */
             owner_user_id: string | null;
             /** Part Structure */
@@ -805,8 +800,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /** Violin Tuning */
-            violin_tuning?: string | null;
         };
         /**
          * TuneStatus
@@ -1315,8 +1308,6 @@ export interface operations {
         parameters: {
             query?: {
                 since?: number;
-                /** @description The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes. */
-                names?: "songs" | "tunes";
             };
             header?: never;
             path?: never;
@@ -1346,10 +1337,7 @@ export interface operations {
     };
     push_v1_sync_push_post: {
         parameters: {
-            query?: {
-                /** @description The names a response uses. `songs`, the default, is the wire's first names, kept for installs that predate tunes. */
-                names?: "songs" | "tunes";
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

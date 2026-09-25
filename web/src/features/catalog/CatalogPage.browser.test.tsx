@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import * as bulkModule from '../../commands/bulk'
 import { activeItems, createList } from '../../commands/lists'
-import { SONG_NOT_FOUND } from '../../commands/messages'
-import * as songsModule from '../../commands/songs'
-import { createSong, setArchived } from '../../commands/songs'
+import { TUNE_NOT_FOUND } from '../../commands/messages'
+import * as tunesModule from '../../commands/tunes'
+import { createTune, setArchived } from '../../commands/tunes'
 import * as metaModule from '../../db/meta'
 import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
@@ -19,23 +19,23 @@ import { MORE_ACTIONS } from '../../ui/Menu'
 import { CLEAR_SEARCH } from '../../ui/SearchField'
 import { ADD_TO_LIST } from '../lists/ListPicker'
 import { CANCEL_SELECTION, DESELECT_ALL, SELECT_ALL } from '../selection/SelectionToolbar'
-import { EDIT_SONG_TITLE, NEW_SONG_TITLE } from '../song/SongFormSheet'
+import { EDIT_TUNE_TITLE, NEW_TUNE_TITLE } from '../tune/TuneFormSheet'
 import { SHOW_ARCHIVED } from './CatalogFilterSheet'
-import { ADD_SONG, CatalogPage, NO_SONGS_HINT, NO_SONGS_TITLE } from './CatalogPage'
+import { ADD_TUNE, CatalogPage, NO_TUNES_HINT, NO_TUNES_TITLE } from './CatalogPage'
 import { META_CATALOG_FILTERS } from './filters'
 import { readSearchQuery, writeSearchQuery } from './searchSession'
-import { SEARCH_SONGS } from './SongSearch'
+import { SEARCH_TUNES } from './TuneSearch'
 import * as catalogModule from './useCatalog'
 import { FILTER_SAVE_ERROR } from './useCatalogFilters'
 
 vi.mock('../../commands/bulk', { spy: true })
-vi.mock('../../commands/songs', { spy: true })
+vi.mock('../../commands/tunes', { spy: true })
 vi.mock('./useCatalog', { spy: true })
 vi.mock('../../db/meta', { spy: true })
 
 let db: CrosstuneDb
-let joy: { songId: string; userSongId: string }
-let hen: { songId: string; userSongId: string }
+let joy: { tuneId: string; userTuneId: string }
+let hen: { tuneId: string; userTuneId: string }
 
 const originalMatchMedia = window.matchMedia
 
@@ -93,12 +93,12 @@ function forceTouch() {
 
 beforeEach(async () => {
   db = openTestDb()
-  joy = await createSong(
+  joy = await createTune(
     db,
-    { title: "Soldier's Joy", key: 'D', violin_tuning: 'Standard (GDAE)' },
+    { title: "Soldier's Joy", key: 'D', tunings: { violin: { tuning: 'Standard (GDAE)' } } },
     { status: 'known' },
   )
-  hen = await createSong(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
+  hen = await createTune(db, { title: 'Cluck Old Hen', key: 'A' }, { status: 'learning' })
 })
 
 afterEach(async () => {
@@ -108,7 +108,7 @@ afterEach(async () => {
 })
 
 const show = () => renderScreen(<CatalogPage />, { db, path: '/catalog' })
-const search = () => page.getByRole('searchbox', { name: SEARCH_SONGS })
+const search = () => page.getByRole('searchbox', { name: SEARCH_TUNES })
 const row = (title: string) => page.getByRole('heading', { name: title })
 const sheetOpen = () => document.querySelector('ion-modal:not(.overlay-hidden)')
 const more = () => page.getByRole('button', { name: MORE_ACTIONS })
@@ -147,7 +147,7 @@ function buttonHost(name: string): HTMLElement {
   return (root as ShadowRoot).host as HTMLElement
 }
 const archivedCount = async () =>
-  (await db.user_songs.toArray()).filter((song) => song.archived_at !== null).length
+  (await db.user_tunes.toArray()).filter((tune) => tune.archived_at !== null).length
 
 /**
  * Ionic keeps a menu in the page while it dismisses and its focus trap holds the keyboard, so
@@ -179,7 +179,7 @@ const openEditRow = (name: string) =>
     .filter({ has: page.getByRole('button', { name, exact: true }) })
     .click()
 
-const keyOf = async (songId: string) => (await db.songs.get(songId))?.key
+const keyOf = async (tuneId: string) => (await db.tunes.get(tuneId))?.key
 
 /**
  * Holds the row at `index` until the mode opens, then lifts. The hold blocks the click it
@@ -223,20 +223,20 @@ function showInRouter() {
     <IonReactMemoryRouter initialEntries={['/catalog']}>
       <IonRouterOutlet>
         <Route path="/catalog" element={<CatalogPage />} />
-        <Route path="/catalog/:songId" element={<SongProbe />} />
+        <Route path="/catalog/:tuneId" element={<TuneProbe />} />
       </IonRouterOutlet>
     </IonReactMemoryRouter>,
     { db },
   )
 }
 
-function SongProbe() {
-  const { songId } = useParams()
+function TuneProbe() {
+  const { tuneId } = useParams()
   const router = useIonRouter()
   return (
     <IonPage>
       <IonContent>
-        <h1>Song {songId}</h1>
+        <h1>Tune {tuneId}</h1>
         <button type="button" onClick={() => router.goBack()}>
           Back
         </button>
@@ -253,7 +253,7 @@ describe('CatalogPage', () => {
       .toBeInTheDocument()
   })
 
-  it('lists songs and narrows them by search text', async () => {
+  it('lists tunes and narrows them by search text', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await search().fill('cluck')
@@ -284,8 +284,8 @@ describe('CatalogPage', () => {
     const known = page.getByRole('button', { name: 'Known', exact: true })
     await known.click({ force: true })
     await expect.element(known).toHaveAttribute('aria-pressed', 'true')
-    // A song arriving mid-write re-renders the filters with the stored status.
-    await createSong(db, { title: 'Angeline the Baker' }, { status: 'known' })
+    // A tune arriving mid-write re-renders the filters with the stored status.
+    await createTune(db, { title: 'Angeline the Baker' }, { status: 'known' })
     await expect.element(row('Angeline the Baker')).toBeVisible()
     expect(known.element().getAttribute('aria-pressed')).toBe('true')
     write.open()
@@ -376,10 +376,10 @@ describe('CatalogPage', () => {
     write.open()
     const filterError = page.getByText(FILTER_SAVE_ERROR)
     await expect.element(filterError).toBeVisible()
-    vi.mocked(songsModule.setArchived).mockRejectedValueOnce(new Error(SONG_NOT_FOUND))
+    vi.mocked(tunesModule.setArchived).mockRejectedValueOnce(new Error(TUNE_NOT_FOUND))
     await userEvent.hover(document.querySelector('[data-row-open]')!)
     await page.getByRole('button', { name: "Archive Soldier's Joy" }).click()
-    const archiveError = page.getByText(SONG_NOT_FOUND)
+    const archiveError = page.getByText(TUNE_NOT_FOUND)
     await expect.element(archiveError).toBeVisible()
     await expect.element(filterError).toBeVisible()
     expect(page.getByRole('alert').elements()).toHaveLength(2)
@@ -389,33 +389,33 @@ describe('CatalogPage', () => {
     await expect.element(archiveError).toBeVisible()
     await page.getByRole('button', { name: "Archive Soldier's Joy" }).click()
     await expect
-      .poll(async () => (await db.user_songs.get(joy.userSongId))?.archived_at)
+      .poll(async () => (await db.user_tunes.get(joy.userTuneId))?.archived_at)
       .not.toBeNull()
     await expect.poll(() => page.getByRole('alert').elements().length).toBe(0)
   })
 
   it('forgets a hidden facet on every filter write', async () => {
-    await setMeta(db, META_CATALOG_FILTERS, { banjo_tuning: 'Open G (gDGBD)' })
+    await setMeta(db, META_CATALOG_FILTERS, { 'tuning:five_string_banjo': 'Open G (gDGBD)' })
     show()
     await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect
       .poll(async () => getMeta<Record<string, unknown> | null>(db, META_CATALOG_FILTERS, null))
-      .toMatchObject({ status: 'known', banjo_tuning: 'all' })
+      .toMatchObject({ status: 'known', 'tuning:five_string_banjo': 'all' })
   })
 
   it('announces the count when filters change but not while typing', async () => {
     show()
-    await expect.element(page.getByText('2 songs')).toBeVisible()
+    await expect.element(page.getByText('2 tunes')).toBeVisible()
     const live = () => document.querySelector('ion-content [aria-live="polite"]')!.textContent
     await search().fill('cluck')
-    await expect.element(page.getByText('1 of 2 songs')).toBeVisible()
+    await expect.element(page.getByText('1 of 2 tunes')).toBeVisible()
     expect(live()).toBe('')
     await search().fill('')
     await page.getByRole('button', { name: 'Learning', exact: true }).click({ force: true })
-    await expect.poll(live).toBe('1 of 2 songs')
+    await expect.poll(live).toBe('1 of 2 tunes')
     await search().fill('zzz')
-    await expect.element(page.getByText('0 of 2 songs')).toBeVisible()
-    expect(live()).toBe('1 of 2 songs')
+    await expect.element(page.getByText('0 of 2 tunes')).toBeVisible()
+    expect(live()).toBe('1 of 2 tunes')
   })
 
   it('does nothing on Enter before the catalog has loaded', async () => {
@@ -433,15 +433,15 @@ describe('CatalogPage', () => {
     }
   })
 
-  it('shows the count under the list and keeps it while every song is archived', async () => {
+  it('shows the count under the list and keeps it while every tune is archived', async () => {
     show()
-    await expect.element(page.getByText('2 songs')).toBeVisible()
-    for (const song of await db.user_songs.toArray()) await setArchived(db, song.id, true)
-    // The live region repeats the count after the stored songs change; the footnote comes first.
-    await expect.element(page.getByText('0 songs').first()).toBeVisible()
+    await expect.element(page.getByText('2 tunes')).toBeVisible()
+    for (const tune of await db.user_tunes.toArray()) await setArchived(db, tune.id, true)
+    // The live region repeats the count after the stored tunes change; the footnote comes first.
+    await expect.element(page.getByText('0 tunes').first()).toBeVisible()
   })
 
-  it('offers to add the query under partial matches and another song for an exact title', async () => {
+  it('offers to add the query under partial matches and another tune for an exact title', async () => {
     show()
     await search().fill('soldier')
     await expect.element(page.getByRole('button', { name: 'Add "soldier"' })).toBeVisible()
@@ -452,7 +452,7 @@ describe('CatalogPage', () => {
   })
 
   it('points to an archived exact match and opens it', async () => {
-    await setArchived(db, joy.userSongId, true)
+    await setArchived(db, joy.userTuneId, true)
     showInRouter()
     await search().fill("soldier's joy")
     await expect.element(page.getByText('"Soldier\'s Joy" is archived.')).toBeVisible()
@@ -465,7 +465,7 @@ describe('CatalogPage', () => {
     expect(open.element().closest('p')!.getBoundingClientRect().height).toBeLessThan(44)
     await open.click()
     await expect
-      .element(page.getByRole('heading', { name: `Song ${joy.songId}`, level: 1 }))
+      .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .toBeVisible()
   })
 
@@ -493,32 +493,32 @@ describe('CatalogPage', () => {
     )
   })
 
-  it('shows a song key as a colored pill, still named for a screen reader', async () => {
+  it('shows a tune key as a colored pill, still named for a screen reader', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     // The rows sort by title, so Cluck Old Hen's own key pill comes first in the document.
     const meta = row("Soldier's Joy")
       .element()
       .closest('ion-item')!
-      .querySelector('[data-song-meta]')!
+      .querySelector('[data-tune-meta]')!
     const pill = meta.querySelector('.key-pill')!
     expect(pill.getAttribute('data-pitch')).toBe('2')
     expect(pill.textContent).toBe('D')
-    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key ')
+    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key D')
   })
 
-  it('puts Filters in the search row and leaves the toolbar to Add song and More actions', async () => {
+  it('puts Filters in the search row and leaves the toolbar to Add tune and More actions', async () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
     const searchRow = search().element().closest('ion-toolbar')!
     expect(searchRow.contains(buttonHost('Filters'))).toBe(true)
-    for (const name of [ADD_SONG, MORE_ACTIONS]) {
+    for (const name of [ADD_TUNE, MORE_ACTIONS]) {
       expect(searchRow.contains(buttonHost(name)), name).toBe(false)
     }
   })
 
   it('opens the filter sheet and names how many filters are set', async () => {
-    await db.songs.update(joy.songId, { genre: 'Old-time' })
+    await db.tunes.update(joy.tuneId, { genre: 'Old-time' })
     await setMeta(db, META_CATALOG_FILTERS, { genre: 'Old-time', archived: true })
     show()
     await expect.element(page.getByRole('button', { name: 'Remove filter Old-time' })).toBeVisible()
@@ -532,30 +532,30 @@ describe('CatalogPage', () => {
   it('names the empty states', async () => {
     show()
     await search().fill('zzz')
-    await expect.element(page.getByText('No song called "zzz"')).toBeVisible()
+    await expect.element(page.getByText('No tune called "zzz"')).toBeVisible()
   })
 
-  it('offers More actions only when there is a song to select', async () => {
+  it('offers More actions only when there is a tune to select', async () => {
     show()
     await expect.element(more()).toBeVisible()
     await search().fill('zzz')
     await expect.element(more()).not.toBeInTheDocument()
   })
 
-  it('invites the first song when the catalog is empty', async () => {
-    await db.user_songs.clear()
-    await db.songs.clear()
+  it('invites the first tune when the catalog is empty', async () => {
+    await db.user_tunes.clear()
+    await db.tunes.clear()
     show()
-    await expect.element(page.getByText(NO_SONGS_TITLE)).toBeVisible()
-    await expect.element(page.getByText(NO_SONGS_HINT)).toBeVisible()
-    expect(page.getByText(/\d+ songs?$/).elements()).toHaveLength(0)
+    await expect.element(page.getByText(NO_TUNES_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NO_TUNES_HINT)).toBeVisible()
+    expect(page.getByText(/\d+ tunes?$/).elements()).toHaveLength(0)
   })
 
-  it('opens the new song form with the query as its title from Enter and clears the search', async () => {
+  it('opens the new tune form with the query as its title from Enter and clears the search', async () => {
     show()
     await search().fill('Sally Goodin')
     await userEvent.keyboard('{Enter}')
-    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
+    await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue('Sally Goodin')
     expect(readSearchQuery()).toBe('')
   })
@@ -585,31 +585,31 @@ describe('CatalogPage', () => {
     )
   })
 
-  it('opens the only visible song from Enter', async () => {
+  it('opens the only visible tune from Enter', async () => {
     showInRouter()
     await search().fill('soldier')
     await userEvent.keyboard('{Enter}')
     await expect
-      .element(page.getByRole('heading', { name: `Song ${joy.songId}`, level: 1 }))
+      .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .toBeVisible()
   })
 
-  it('opens the form from Add song in the toolbar', async () => {
+  it('opens the form from Add tune in the toolbar', async () => {
     show()
-    await page.getByRole('button', { name: ADD_SONG }).click()
-    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
+    await page.getByRole('button', { name: ADD_TUNE }).click()
+    await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
   })
 
-  it('opens a new song after saving it and leaves no sheet open', async () => {
+  it('opens a new tune after saving it and leaves no sheet open', async () => {
     showInRouter()
-    await page.getByRole('button', { name: ADD_SONG }).click()
-    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
+    await page.getByRole('button', { name: ADD_TUNE }).click()
+    await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
     await page.getByLabelText('Title').fill('Sally Goodin')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
-    await expect.poll(() => db.songs.where('title').equals('Sally Goodin').count()).toBe(1)
-    const created = (await db.songs.where('title').equals('Sally Goodin').first())!
+    await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
+    const created = (await db.tunes.where('title').equals('Sally Goodin').first())!
     await expect
-      .element(page.getByRole('heading', { name: `Song ${created.id}`, level: 1 }))
+      .element(page.getByRole('heading', { name: `Tune ${created.id}`, level: 1 }))
       .toBeVisible()
     await vi.waitFor(() => expect(sheetOpen()).toBeNull())
   })
@@ -620,12 +620,12 @@ describe('CatalogPage', () => {
     await userEvent.hover(document.querySelector('[data-row-open]')!)
     await page.getByRole('button', { name: "Archive Soldier's Joy" }).click()
     await expect
-      .poll(async () => (await db.user_songs.get(joy.userSongId))?.archived_at)
+      .poll(async () => (await db.user_tunes.get(joy.userTuneId))?.archived_at)
       .not.toBeNull()
-    vi.mocked(songsModule.setArchived).mockRejectedValueOnce(new Error(SONG_NOT_FOUND))
+    vi.mocked(tunesModule.setArchived).mockRejectedValueOnce(new Error(TUNE_NOT_FOUND))
     await page.getByRole('button', { name: 'Archive Cluck Old Hen' }).click()
     const alert = page.getByRole('alert')
-    await expect.element(alert).toHaveTextContent(SONG_NOT_FOUND)
+    await expect.element(alert).toHaveTextContent(TUNE_NOT_FOUND)
     const list = document.querySelector('ion-list')!
     expect(
       alert.element().compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -633,17 +633,17 @@ describe('CatalogPage', () => {
   })
 
   it('unarchives an archived row', async () => {
-    await setArchived(db, joy.userSongId, true)
+    await setArchived(db, joy.userTuneId, true)
     await setMeta(db, META_CATALOG_FILTERS, { archived: true })
     show()
     await page.getByRole('button', { name: "Unarchive Soldier's Joy" }).click()
-    await expect.poll(async () => (await db.user_songs.get(joy.userSongId))?.archived_at).toBeNull()
+    await expect.poll(async () => (await db.user_tunes.get(joy.userTuneId))?.archived_at).toBeNull()
   })
 
-  it('edits a song from its row in the form sheet', async () => {
+  it('edits a tune from its row in the form sheet', async () => {
     show()
     await page.getByRole('button', { name: "Edit Soldier's Joy" }).click()
-    await expect.element(page.getByText(EDIT_SONG_TITLE)).toBeVisible()
+    await expect.element(page.getByText(EDIT_TUNE_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue("Soldier's Joy")
   })
 
@@ -656,10 +656,23 @@ describe('CatalogPage', () => {
   })
 
   it('does not let a hidden facet narrow the catalog', async () => {
-    await setMeta(db, META_CATALOG_FILTERS, { banjo_tuning: 'Open G (gDGBD)' })
+    await setMeta(db, META_CATALOG_FILTERS, { 'tuning:five_string_banjo': 'Open G (gDGBD)' })
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await expect.element(row('Cluck Old Hen')).toBeVisible()
+  })
+
+  it('ignores a filter stored under a retired tuning key and drops it on the next write', async () => {
+    await setMeta(db, META_CATALOG_FILTERS, { violin_tuning: 'Cross A (AEAE)' })
+    show()
+    await expect.element(row("Soldier's Joy")).toBeVisible()
+    await expect.element(row('Cluck Old Hen')).toBeVisible()
+    await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
+    await expect
+      .poll(async () => getMeta<Record<string, unknown> | null>(db, META_CATALOG_FILTERS, null))
+      .toMatchObject({ status: 'known', 'tuning:violin': 'all' })
+    const stored = await getMeta<Record<string, unknown>>(db, META_CATALOG_FILTERS, {})
+    expect('violin_tuning' in stored).toBe(false)
   })
 
   it('focuses search with / on a mouse', async () => {
@@ -671,8 +684,8 @@ describe('CatalogPage', () => {
 
   it('ignores / while the form sheet is open', async () => {
     show()
-    await page.getByRole('button', { name: ADD_SONG }).click()
-    await expect.element(page.getByText(NEW_SONG_TITLE)).toBeVisible()
+    await page.getByRole('button', { name: ADD_TUNE }).click()
+    await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
     ;(document.activeElement as HTMLElement | null)?.blur()
     expect(await pressSlash()).toBe(false)
     expect(document.activeElement?.closest('ion-searchbar')).toBeNull()
@@ -683,7 +696,7 @@ describe('CatalogPage', () => {
     await search().fill('soldier')
     await userEvent.keyboard('{Enter}')
     await expect
-      .element(page.getByRole('heading', { name: `Song ${joy.songId}`, level: 1 }))
+      .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .toBeVisible()
     ;(document.activeElement as HTMLElement | null)?.blur()
     expect(await pressSlash()).toBe(false)
@@ -691,7 +704,7 @@ describe('CatalogPage', () => {
 
     await page.getByRole('button', { name: 'Back', exact: true }).click()
     await expect
-      .element(page.getByRole('heading', { name: `Song ${joy.songId}`, level: 1 }))
+      .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .not.toBeInTheDocument()
     ;(document.activeElement as HTMLElement | null)?.blur()
     expect(await pressSlash()).toBe(true)
@@ -739,7 +752,7 @@ describe('CatalogPage selection', () => {
   it('gives every toolbar control a 44px tap target', async () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
-    for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
+    for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
       const box = buttonHost(name).getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
       expect(box.width).toBeGreaterThanOrEqual(44)
@@ -751,14 +764,14 @@ describe('CatalogPage selection', () => {
     try {
       show()
       await expect.element(more()).toBeVisible()
-      for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
+      for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)
       }
       await search().fill('zzz')
       await expect.element(more()).not.toBeInTheDocument()
-      for (const name of ['Filters', ADD_SONG]) {
+      for (const name of ['Filters', ADD_TUNE]) {
         const box = buttonHost(name).getBoundingClientRect()
         expect(box.height, name).toBeGreaterThanOrEqual(44)
         expect(box.width, name).toBeGreaterThanOrEqual(44)
@@ -774,7 +787,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await expect.element(page.getByRole('button', { name: 'Status' })).toBeVisible()
     await leaveSelection().click()
-    for (const name of ['Filters', ADD_SONG, MORE_ACTIONS]) {
+    for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
       await expect.element(page.getByRole('button', { name })).toBeVisible()
     }
     expect(page.getByRole('button', { name: 'Status' }).elements()).toHaveLength(0)
@@ -787,7 +800,7 @@ describe('CatalogPage selection', () => {
     await expect.poll(screenTitle).toBe('0 selected')
     await leaveSelection().click()
     await expect.poll(screenTitle).toBe('Catalog')
-    await expect.element(page.getByRole('button', { name: ADD_SONG })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: ADD_TUNE })).toBeVisible()
   })
 
   it('enters from a long press with that row selected', async () => {
@@ -821,7 +834,7 @@ describe('CatalogPage selection', () => {
     await expect.poll(screenTitle).toBe('1 selected')
   })
 
-  it('selects and deselects every visible song', async () => {
+  it('selects and deselects every visible tune', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
@@ -832,7 +845,7 @@ describe('CatalogPage selection', () => {
   })
 
   it('extends a range with shift-click', async () => {
-    await createSong(db, { title: 'Angeline the Baker' }, { status: 'known' })
+    await createTune(db, { title: 'Angeline the Baker' }, { status: 'known' })
     show()
     await expect.element(row('Angeline the Baker')).toBeVisible()
     await startSelecting()
@@ -850,8 +863,8 @@ describe('CatalogPage selection', () => {
     await expect.poll(screenTitle).toBe('2 selected')
   })
 
-  it('drops songs a filter hides from the selection', async () => {
-    await createSong(db, { title: 'Angeline the Baker' }, { status: 'known' })
+  it('drops tunes a filter hides from the selection', async () => {
+    await createTune(db, { title: 'Angeline the Baker' }, { status: 'known' })
     show()
     await expect.element(row('Angeline the Baker')).toBeVisible()
     await startSelecting()
@@ -861,7 +874,7 @@ describe('CatalogPage selection', () => {
     await expect.poll(screenTitle).toBe('2 selected')
   })
 
-  it('drops songs the search hides from the selection', async () => {
+  it('drops tunes the search hides from the selection', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
@@ -882,9 +895,9 @@ describe('CatalogPage selection', () => {
     await expect.element(open).toBeVisible()
   })
 
-  it('hides Add song and Filters while selecting', async () => {
+  it('hides Add tune and Filters while selecting', async () => {
     show()
-    const add = page.getByRole('button', { name: ADD_SONG })
+    const add = page.getByRole('button', { name: ADD_TUNE })
     const filters = page.getByRole('button', { name: 'Filters' })
     await expect.element(add).toBeVisible()
     await expect.element(filters).toBeVisible()
@@ -909,7 +922,7 @@ describe('CatalogPage selection', () => {
     // Entered before the archive, since afterward Soldier's Joy is the only match and
     // archiving it takes the More actions button that opens this mode with it.
     await startSelecting()
-    await setArchived(db, joy.userSongId, true)
+    await setArchived(db, joy.userTuneId, true)
     await search().fill("Soldier's Joy")
     const hidden = page.getByRole('link', { name: "Open Soldier's Joy" })
     await expect.poll(() => hidden.elements().length).toBe(0)
@@ -928,7 +941,7 @@ describe('CatalogPage selection', () => {
     await userEvent.keyboard('{Enter}')
     await new Promise((resolve) => setTimeout(resolve, 300))
     expect(
-      page.getByRole('heading', { name: `Song ${joy.songId}`, level: 1 }).elements(),
+      page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }).elements(),
     ).toHaveLength(0)
     expect(screenTitle()).toBe('1 selected')
     await expect.element(leaveSelection()).toBeVisible()
@@ -955,12 +968,12 @@ describe('CatalogPage selection', () => {
     await page.getByRole('button', { name: 'Status' }).click()
     await menuItem('Learning').click()
     await expect
-      .poll(async () => (await db.user_songs.get(joy.userSongId))?.status)
+      .poll(async () => (await db.user_tunes.get(joy.userTuneId))?.status)
       .toBe('learning')
     await expect.poll(screenTitle).toBe('Catalog')
-    await expect.element(page.getByText('Set 1 song to Learning')).toBeVisible()
+    await expect.element(page.getByText('Set 1 tune to Learning')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
-    await expect.poll(async () => (await db.user_songs.get(joy.userSongId))?.status).toBe('known')
+    await expect.poll(async () => (await db.user_tunes.get(joy.userTuneId))?.status).toBe('known')
   })
 
   it('keeps the mode and reports a failed bulk write above the list', async () => {
@@ -969,10 +982,10 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await rowCheckbox(/^Select Soldier's Joy/).click()
     await expect.poll(screenTitle).toBe('1 selected')
-    vi.mocked(bulkModule.updateSongs).mockRejectedValueOnce(new Error(SONG_NOT_FOUND))
+    vi.mocked(bulkModule.updateTunes).mockRejectedValueOnce(new Error(TUNE_NOT_FOUND))
     await page.getByRole('button', { name: 'Status' }).click()
     await menuItem('Learning').click()
-    await expect.element(page.getByRole('alert')).toHaveTextContent(SONG_NOT_FOUND)
+    await expect.element(page.getByRole('alert')).toHaveTextContent(TUNE_NOT_FOUND)
     expect(screenTitle()).toBe('1 selected')
   })
 
@@ -982,7 +995,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
-    await pickFromMore('Archive 2 songs')
+    await pickFromMore('Archive 2 tunes')
     await expect.poll(archivedCount).toBe(2)
     await expect.poll(screenTitle).toBe('Catalog')
     await page.getByRole('button', { name: 'Undo' }).click()
@@ -995,7 +1008,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await rowCheckbox(/^Select Cluck Old Hen/).click()
     await expect.poll(screenTitle).toBe('1 selected')
-    await pickFromMore('Archive 1 song')
+    await pickFromMore('Archive 1 tune')
     await expect.poll(archivedCount).toBe(1)
     await expect.poll(screenTitle).toBe('Catalog')
     // The menu holds the keyboard until it has finished dismissing and then hands focus back to
@@ -1007,16 +1020,16 @@ describe('CatalogPage selection', () => {
     await expect.poll(archivedCount).toBe(0)
   })
 
-  it('moves focus to the page after every visible song is archived from the More menu', async () => {
+  it('moves focus to the page after every visible tune is archived from the More menu', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     await startSelecting()
     await pickFromMore(SELECT_ALL)
     await expect.poll(screenTitle).toBe('2 selected')
-    await pickFromMore('Archive 2 songs')
+    await pickFromMore('Archive 2 tunes')
     await expect.poll(archivedCount).toBe(2)
     await expect.poll(screenTitle).toBe('Catalog')
-    // Archiving every visible song takes the More actions button down with the list, so focus
+    // Archiving every visible tune takes the More actions button down with the list, so focus
     // falls back to the screen's own landmark rather than a control that no longer exists.
     await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('main')), {
       timeout: 3000,
@@ -1032,16 +1045,16 @@ describe('CatalogPage selection', () => {
     await rowCheckbox(/^Select Cluck Old Hen/).click()
     await expect.poll(screenTitle).toBe('1 selected')
     await page.getByRole('button', { name: 'Edit', exact: true }).click()
-    await expect.element(page.getByText('Edit 1 song')).toBeVisible()
+    await expect.element(page.getByText('Edit 1 tune')).toBeVisible()
     await openEditRow('Key, A')
     await page.getByRole('radio', { name: 'G', exact: true }).click()
     await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await expect.poll(() => keyOf(hen.songId)).toBe('G')
-    expect(await keyOf(joy.songId)).toBe('D')
+    await expect.poll(() => keyOf(hen.tuneId)).toBe('G')
+    expect(await keyOf(joy.tuneId)).toBe('D')
     await expect.poll(screenTitle).toBe('Catalog')
-    await expect.element(page.getByText('Edited 1 song')).toBeVisible()
+    await expect.element(page.getByText('Edited 1 tune')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
-    await expect.poll(() => keyOf(hen.songId)).toBe('A')
+    await expect.poll(() => keyOf(hen.tuneId)).toBe('A')
   })
 
   it('adds a selection to a list', async () => {
@@ -1055,7 +1068,7 @@ describe('CatalogPage selection', () => {
     await page.getByRole('button', { name: /Tuesday jam/ }).click()
     await expect.poll(async () => (await activeItems(db, listId)).length).toBe(1)
     await expect.poll(screenTitle).toBe('Catalog')
-    await expect.element(page.getByText('Added 1 song to Tuesday jam')).toBeVisible()
+    await expect.element(page.getByText('Added 1 tune to Tuesday jam')).toBeVisible()
     await page.getByRole('button', { name: 'Undo' }).click()
     await expect.poll(async () => (await activeItems(db, listId)).length).toBe(0)
   })

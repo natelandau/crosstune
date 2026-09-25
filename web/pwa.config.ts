@@ -5,7 +5,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   manifest: {
     name: 'Crosstune',
     short_name: 'Crosstune',
-    description: 'A song catalog for folk musicians',
+    description: 'A tune catalog for folk musicians',
     // The page sets the status bar color once it knows the theme; until then the manifest
     // falls back to the light page color.
     theme_color: '#ffffff',

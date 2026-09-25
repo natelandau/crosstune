@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createSong } from '../commands/songs'
+import { createTune } from '../commands/tunes'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
 import { openTestDb } from '../test/db'
@@ -13,7 +13,7 @@ function processingRecording(overrides: Partial<LocalRecording> = {}): LocalReco
     updated_at: '2026-09-14T00:00:00.000Z',
     deleted_at: null,
     server_seq: 1,
-    song_id: null,
+    tune_id: null,
     label: null,
     source: 'microphone',
     recorded_at: '2026-09-14T00:00:00.000Z',
@@ -87,8 +87,8 @@ describe('startSyncTriggers', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const engine = fakeEngine()
     const stop = startSyncTriggers(engine, db, { debounceMs: WRITE_DEBOUNCE_MS })
-    await createSong(db, { title: 'A' }, { status: 'known' })
-    await createSong(db, { title: 'B' }, { status: 'known' })
+    await createTune(db, { title: 'A' }, { status: 'known' })
+    await createTune(db, { title: 'B' }, { status: 'known' })
     // The live query observes the outbox asynchronously; wait for the debounce timer to exist.
     await vi.waitFor(() => expect(vi.getTimerCount()).toBeGreaterThan(0))
     expect(engine.calls).toBe(1)
@@ -101,7 +101,7 @@ describe('startSyncTriggers', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const engine = fakeEngine()
     const stop = startSyncTriggers(engine, db, { debounceMs: WRITE_DEBOUNCE_MS })
-    await createSong(db, { title: 'A' }, { status: 'known' })
+    await createTune(db, { title: 'A' }, { status: 'known' })
     await vi.waitFor(() => expect(vi.getTimerCount()).toBeGreaterThan(0))
     stop()
     expect(vi.getTimerCount()).toBe(0)

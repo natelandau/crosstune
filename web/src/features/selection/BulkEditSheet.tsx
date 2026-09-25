@@ -1,15 +1,20 @@
 import { IonButton, IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MODES, SONG_LIMITS, STATUSES, type Instrument } from '../../api/vocabulary'
+import {
+  MODES,
+  TIME_SIGNATURES,
+  TUNE_LIMITS,
+  STATUSES,
+  type Instrument,
+} from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import {
-  FEELS,
   GENRES,
-  OFFERED_TIME_SIGNATURES,
   PART_STRUCTURES,
   QUICK_KEYS,
   STATUS_LABELS,
-  TUNING_SUGGESTIONS,
+  TUNE_TYPES,
+  TUNINGS,
 } from '../../constants'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow, NOT_SET } from '../../ui/FieldRow'
@@ -17,44 +22,43 @@ import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
-import { TUNING_FIELD_NAMES, TUNING_FIELDS, type TuningField } from '../settings/instruments'
-import { SuggestSelect } from '../song/SuggestSelect'
+import { byTuningKey, tuningLabel } from '../settings/instruments'
+import { SuggestSelect } from '../tune/SuggestSelect'
 import {
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
   isUnchanged,
   summarize,
   toPatch,
+  tuningInstrument,
   visibleEditFields,
   type EditField,
   type Summary,
   type Touched,
   type TouchedValue,
 } from './batchEdit'
-import { countSongs } from './copy'
+import { countTunes } from './copy'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
   key: { options: QUICK_KEYS, other: true },
   mode: { options: MODES, other: false },
-  violin_tuning: { options: TUNING_SUGGESTIONS.violin_tuning, other: true },
-  banjo_tuning: { options: TUNING_SUGGESTIONS.banjo_tuning, other: true },
+  ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
   genre: { options: GENRES, other: true },
-  feel: { options: FEELS, other: true },
-  time_signature: { options: OFFERED_TIME_SIGNATURES, other: false },
+  tune_type: { options: TUNE_TYPES, other: true },
+  time_signature: { options: TIME_SIGNATURES, other: false },
   part_structure: { options: PART_STRUCTURES, other: true },
 }
 
 // A toggle cannot show a third state, so a yes or no field is picked from a list. Its empty
-// choice keeps every song as it is rather than clearing them: the column takes no null.
+// choice keeps every tune as it is rather than clearing them: the column takes no null.
 const YES_NO = ['Yes', 'No']
 
-const LIMITS = SONG_LIMITS as Partial<Record<EditField, number>>
-
-function isTuning(field: EditField): field is TuningField {
-  return (TUNING_FIELD_NAMES as readonly string[]).includes(field)
+const LIMITS: Partial<Record<EditField, number>> = {
+  ...TUNE_LIMITS,
+  ...byTuningKey(() => TUNE_LIMITS.tuning),
 }
 
-/** The touched value once the row is touched, the shared value when every song agrees, else none. */
+/** The touched value once the row is touched, the shared value when every tune agrees, else none. */
 function rowValue(summary: Summary, touched: TouchedValue | undefined): TouchedValue {
   if (touched !== undefined) return touched
   return summary.kind === 'shared' ? summary.value : null
@@ -145,7 +149,7 @@ function EditRow({
           onIonInput={(event) => {
             const typed = event.detail.event?.target
             // A date reads as empty until every part of it is filled, and taking that for a
-            // clear would wipe the field on every selected song halfway through typing one.
+            // clear would wipe the field on every selected tune halfway through typing one.
             if (typed instanceof HTMLInputElement && typed.validity.badInput) return
             onChange(String(event.detail.value ?? ''))
           }}
@@ -187,8 +191,8 @@ function EditRow({
 }
 
 /**
- * The song form's own Details list over many songs at once. Each row reads the value every
- * selected song shares, Not set when they are all empty, or Mixed when they disagree; only a
+ * The tune form's own Details list over many tunes at once. Each row reads the value every
+ * selected tune shares, Not set when they are all empty, or Mixed when they disagree; only a
  * row the musician touches is written.
  */
 export function BulkEditSheet({
@@ -201,7 +205,7 @@ export function BulkEditSheet({
   onApply,
 }: {
   open: boolean
-  /** The selected songs, in screen order. */
+  /** The selected tunes, in screen order. */
   entries: readonly CatalogEntry[]
   instruments: ReadonlySet<Instrument>
   /** The caller's failed write. The sheet stays open so the edit can be tried again. */
@@ -284,15 +288,18 @@ export function BulkEditSheet({
     />
   )
 
-  const tunings = TUNING_FIELD_NAMES.filter((field) => fields.includes(field))
+  const tunings = fields.flatMap((field) => {
+    const instrument = tuningInstrument(field)
+    return instrument ? [{ field, instrument }] : []
+  })
   const details = fields.filter(
-    (field) => field !== 'status' && field !== 'key' && !isTuning(field),
+    (field) => field !== 'status' && field !== 'key' && tuningInstrument(field) === undefined,
   )
 
   return (
     <Sheet
       open={open && !closing}
-      title={`Edit ${countSongs(entries.length)}`}
+      title={`Edit ${countTunes(entries.length)}`}
       height="full"
       dismissible={!pending}
       onClose={dismissed}
@@ -312,8 +319,8 @@ export function BulkEditSheet({
         {error ? <InlineError className="px-(--form-inset) pt-3">{error}</InlineError> : null}
         <Group header="Status">{row('status', false)}</Group>
         <Group header="Key">{row('key', false)}</Group>
-        {tunings.map((field) => (
-          <Group key={field} header={TUNING_FIELDS[field].label}>
+        {tunings.map(({ field, instrument }) => (
+          <Group key={field} header={tuningLabel(instrument)}>
             {row(field, false)}
           </Group>
         ))}

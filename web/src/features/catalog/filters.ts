@@ -1,22 +1,42 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
-import type { LocalSong, LocalUserSong } from '../../db/types'
-import { countSongs } from '../selection/copy'
-import { TUNING_FIELDS } from '../settings/instruments'
+import type { LocalTune, LocalUserTune } from '../../db/types'
+import { countTunes } from '../selection/copy'
+import { DETAIL_LABELS } from '../tune/detailFields'
+import {
+  byTuningKey,
+  isTuningKey,
+  TUNING_KEYS,
+  tuningEntry,
+  tuningKey,
+  tuningKeyInstrument,
+  tuningLabel,
+} from '../settings/instruments'
 
-export const FACETS = ['key', 'mode', 'violin_tuning', 'banjo_tuning', 'genre'] as const
+/** One tuning facet per instrument, so each instrument's tunings filter on their own. */
+export const FACETS = ['key', 'tune_type', 'mode', ...TUNING_KEYS, 'genre'] as const
 export type Facet = (typeof FACETS)[number]
 
 export const FACET_LABELS: Record<Facet, string> = {
   key: 'Key',
+  tune_type: DETAIL_LABELS.tune_type,
   mode: 'Mode',
-  violin_tuning: TUNING_FIELDS.violin_tuning.label,
-  banjo_tuning: TUNING_FIELDS.banjo_tuning.label,
+  ...byTuningKey(tuningLabel),
   genre: 'Genre',
 }
 
-const FACET_INSTRUMENT: Partial<Record<Facet, Instrument>> = Object.fromEntries(
-  Object.entries(TUNING_FIELDS).map(([field, { instrument }]) => [field, instrument]),
-)
+/**
+ * Every value a tune holds for a facet: one mode per part, one instrument's tuning from the
+ * map, or a column's one value.
+ */
+export function facetValuesOf(
+  tune: LocalTune,
+  facet: Facet,
+): readonly (string | null | undefined)[] {
+  if (facet === 'mode') return tune.modes
+  if (!isTuningKey(facet)) return [tune[facet]]
+  const instrument = tuningKeyInstrument(facet)
+  return [instrument ? tuningEntry(tune.tunings, instrument).tuning : null]
+}
 
 export type CatalogFilters = Record<Facet, string> & {
   status: TuneStatus | 'all'
@@ -26,9 +46,9 @@ export type CatalogFilters = Record<Facet, string> & {
 export const DEFAULT_FILTERS: CatalogFilters = {
   status: 'all',
   key: 'all',
+  tune_type: 'all',
   mode: 'all',
-  violin_tuning: 'all',
-  banjo_tuning: 'all',
+  ...byTuningKey(() => 'all'),
   genre: 'all',
   archived: false,
 }
@@ -36,8 +56,8 @@ export const DEFAULT_FILTERS: CatalogFilters = {
 export const META_CATALOG_FILTERS = 'catalog_filters'
 
 export interface CatalogEntry {
-  song: LocalSong
-  userSong: LocalUserSong
+  tune: LocalTune
+  userTune: LocalUserTune
 }
 
 function isStatus(value: unknown): value is TuneStatus {
@@ -51,12 +71,14 @@ export function normalizeFilters(value: unknown): CatalogFilters {
   >
   const text = (key: Facet) =>
     typeof stored[key] === 'string' ? (stored[key] as string) : DEFAULT_FILTERS[key]
+  // Only current facet keys are read, so a filter stored under a retired key reads as Any and
+  // the next write drops it.
   return {
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
     key: text('key'),
+    tune_type: text('tune_type'),
     mode: text('mode'),
-    violin_tuning: text('violin_tuning'),
-    banjo_tuning: text('banjo_tuning'),
+    ...byTuningKey((instrument) => text(tuningKey(instrument))),
     genre: text('genre'),
     archived: stored.archived === true,
   }
@@ -64,27 +86,27 @@ export function normalizeFilters(value: unknown): CatalogFilters {
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
-export function catalogEntries(songs: LocalSong[], userSongs: LocalUserSong[]): CatalogEntry[] {
-  const songById = new Map(songs.filter((s) => !s.deleted_at).map((s) => [s.id, s]))
+export function catalogEntries(tunes: LocalTune[], userTunes: LocalUserTune[]): CatalogEntry[] {
+  const tuneById = new Map(tunes.filter((s) => !s.deleted_at).map((s) => [s.id, s]))
   const entries: CatalogEntry[] = []
-  for (const userSong of userSongs) {
-    if (userSong.deleted_at) continue
-    const song = songById.get(userSong.song_id)
-    if (song) entries.push({ song, userSong })
+  for (const userTune of userTunes) {
+    if (userTune.deleted_at) continue
+    const tune = tuneById.get(userTune.tune_id)
+    if (tune) entries.push({ tune, userTune })
   }
-  return entries.sort((a, b) => collator.compare(a.song.title, b.song.title))
+  return entries.sort((a, b) => collator.compare(a.tune.title, b.tune.title))
 }
 
-/** True when the trimmed query equals the song's title or an alternate title, ignoring case and accents. */
-export function titleMatches(song: LocalSong, query: string): boolean {
+/** True when the trimmed query equals the tune's title or an alternate title, ignoring case and accents. */
+export function titleMatches(tune: LocalTune, query: string): boolean {
   const q = query.trim()
   return (
-    q !== '' && [song.title, ...song.alternate_titles].some((t) => collator.compare(t, q) === 0)
+    q !== '' && [tune.title, ...tune.alternate_titles].some((t) => collator.compare(t, q) === 0)
   )
 }
 
 export function hideArchived<T extends CatalogEntry>(entries: T[], show: boolean): T[] {
-  return show ? entries : entries.filter((entry) => !entry.userSong.archived_at)
+  return show ? entries : entries.filter((entry) => !entry.userTune.archived_at)
 }
 
 function facetMatches(filter: string, value: string | null | undefined): boolean {
@@ -97,15 +119,19 @@ export function filterCatalog(
   query = '',
 ): CatalogEntry[] {
   const needle = query.trim().toLocaleLowerCase()
-  return hideArchived(entries, filters.archived).filter(({ song, userSong }) => {
-    if (filters.status !== 'all' && userSong.status !== filters.status) return false
+  return hideArchived(entries, filters.archived).filter(({ tune, userTune }) => {
+    if (filters.status !== 'all' && userTune.status !== filters.status) return false
     for (const facet of FACETS) {
-      if (!facetMatches(filters[facet], song[facet])) return false
+      const values = facetValuesOf(tune, facet)
+      if (filters[facet] !== 'all' && !values.some((value) => facetMatches(filters[facet], value)))
+        return false
     }
     if (!needle) return true
-    const haystack = [song.title, ...song.alternate_titles].map((t) => t.toLocaleLowerCase())
+    const haystack = [tune.title, ...tune.alternate_titles, tune.composer ?? '']
+      .filter(Boolean)
+      .map((t) => t.toLocaleLowerCase())
     // An exact match ignoring accents must stay visible, or the search would call it hidden.
-    return haystack.some((t) => t.includes(needle)) || titleMatches(song, query)
+    return haystack.some((t) => t.includes(needle)) || titleMatches(tune, query)
   })
 }
 
@@ -122,7 +148,7 @@ export type FacetValues = Record<Facet, string[]>
 
 export function facetValues(entries: CatalogEntry[]): FacetValues {
   return Object.fromEntries(
-    FACETS.map((facet) => [facet, distinct(entries.map((e) => e.song[facet]))]),
+    FACETS.map((facet) => [facet, distinct(entries.flatMap((e) => facetValuesOf(e.tune, facet)))]),
   ) as FacetValues
 }
 
@@ -130,12 +156,12 @@ export function facetValues(entries: CatalogEntry[]): FacetValues {
 export function visibleFacets(facets: FacetValues, instruments: ReadonlySet<Instrument>): Facet[] {
   return FACETS.filter((facet) => {
     if (facets[facet].length === 0) return false
-    const instrument = FACET_INSTRUMENT[facet]
+    const instrument = tuningKeyInstrument(facet)
     return instrument === undefined || instruments.has(instrument)
   })
 }
 
-/** `all` counts the catalog as stored, so the count row outlives every song being filtered out. */
+/** `all` counts the catalog as stored, so the count row outlives every tune being filtered out. */
 export interface CatalogCounts {
   visible: number
   total: number
@@ -144,9 +170,9 @@ export interface CatalogCounts {
 }
 
 /** The one wording for a catalog count, so the bar and the filter sheet never disagree. */
-export function songCountLabel(visible: number, total: number): string {
-  if (visible !== total) return `${visible} of ${total} songs`
-  return countSongs(total)
+export function tuneCountLabel(visible: number, total: number): string {
+  if (visible !== total) return `${visible} of ${total} tunes`
+  return countTunes(total)
 }
 
 /** A patch that resets every hidden facet, so a change never carries a stale filter along. */
@@ -159,7 +185,7 @@ export function hiddenResets(visible: readonly Facet[]): Partial<CatalogFilters>
 }
 
 /** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
-export const BAR_FACETS: readonly Facet[] = ['key']
+export const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
 
 export function sheetFacets(visible: readonly Facet[]): Facet[] {
   return visible.filter((facet) => !BAR_FACETS.includes(facet))

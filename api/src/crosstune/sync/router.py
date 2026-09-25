@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import (
     AsyncSession,  # noqa: TC002 -- FastAPI resolves this annotation at route registration
 )
@@ -19,7 +18,6 @@ from crosstune.db.session import get_session
 from crosstune.errors import VALIDATION_RESPONSE
 from crosstune.links.resolve import ResolvedLink, resolve_link, unresolved_link
 from crosstune.schemas.common import PullResponse, PushRequest, PushResponse
-from crosstune.schemas.legacy import Names, song_names
 from crosstune.sync.pull import pull_since
 from crosstune.sync.push import apply_push
 
@@ -39,43 +37,6 @@ LINK_RESOLVE_BUDGET_SECONDS = 20.0
 
 # server_seq is a bigint, so a wider cursor is a client bug, not a query.
 MAX_CURSOR = 2**63 - 1
-
-NamesQuery = Annotated[
-    Names,
-    Query(
-        description=(
-            "The names a response uses. `songs`, the default, is the wire's first names, "
-            "kept for installs that predate tunes."
-        )
-    ),
-]
-
-
-def _song_names_body(
-    response: PushResponse | PullResponse, entries: str, names: Names, request: Request
-) -> JSONResponse | None:
-    """The response rewritten into song names, or None to send it as is for tune names."""
-    if names == "tunes":
-        return None
-    # One line per request from an install that has not updated, so its absence shows when
-    # song names can be retired.
-    log.info("sync: song names", extra={"client_version": request.headers.get("x-client-version")})
-    body: dict[str, Any] = response.model_dump(mode="json")
-    body[entries] = [song_names(entry) for entry in body[entries]]
-    return JSONResponse(body)
-
-
-def _push_in_names(
-    response: PushResponse, names: Names, request: Request
-) -> PushResponse | JSONResponse:
-    return _song_names_body(response, "results", names, request) or response
-
-
-def _pull_in_names(
-    response: PullResponse, names: Names, request: Request
-) -> PullResponse | JSONResponse:
-    return _song_names_body(response, "rows", names, request) or response
-
 
 router = APIRouter(prefix="/v1/sync", tags=["sync"])
 
@@ -137,14 +98,13 @@ async def _resolve_untitled_links(
     return resolved
 
 
-@router.post("/push", response_model=PushResponse, responses=VALIDATION_RESPONSE)
+@router.post("/push", responses=VALIDATION_RESPONSE)
 async def push(
     body: PushRequest,
     request: Request,
     user: CurrentUser,
     session: Annotated[AsyncSession, Depends(get_session)],
-    names: NamesQuery = "songs",
-) -> PushResponse | JSONResponse:
+) -> PushResponse:
     """Apply a batch of client changes. One result per change, in order."""
     settings = request.app.state.settings
     # Resolving the user opened a transaction, and with it a pooled connection. Commit it
@@ -166,20 +126,17 @@ async def push(
         return resolved.get(url) or unresolved_link(url)
 
     results = await apply_push(session, user.id, body.changes, enrich_link=enrich)
-    return _push_in_names(PushResponse(results=results), names, request)
+    return PushResponse(results=results)
 
 
-@router.get("/pull", response_model=PullResponse, responses=VALIDATION_RESPONSE)
+@router.get("/pull", responses=VALIDATION_RESPONSE)
 async def pull(
     request: Request,
     user: CurrentUser,
     session: Annotated[AsyncSession, Depends(get_session)],
     since: Annotated[int, Query(ge=0, le=MAX_CURSOR)] = 0,
-    names: NamesQuery = "songs",
-) -> PullResponse | JSONResponse:
+) -> PullResponse:
     """Every one of the caller's rows changed after `since`, oldest first."""
     limit = request.app.state.settings.pull_page_size
     rows, next_since, has_more = await pull_since(session, user.id, since, limit)
-    return _pull_in_names(
-        PullResponse(rows=rows, next_since=next_since, has_more=has_more), names, request
-    )
+    return PullResponse(rows=rows, next_since=next_since, has_more=has_more)

@@ -4,10 +4,10 @@ import { getMode } from '../../platform/mode'
 import { MORE_ACTIONS, useMenu, type MenuItem } from '../../ui/Menu'
 import { useSelectionChrome } from './SelectionProvider'
 import type { BulkAction } from './SelectionToolbar'
-import type { SongSelection } from './useSongSelection'
+import type { TuneSelection } from './useTuneSelection'
 
 export interface SelectionFooterProps {
-  selection: SongSelection
+  selection: TuneSelection
   actions: readonly BulkAction[]
   more: readonly MenuItem[]
 }

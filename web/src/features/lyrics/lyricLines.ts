@@ -1,6 +1,6 @@
 /**
  * A lyrics body as verses of lines. A blank line, however many of them a paste carries, is one
- * verse break; every other line is a line of the song, kept as written apart from the whitespace
+ * verse break; every other line is a line of the tune, kept as written apart from the whitespace
  * at either end: the reading view renders a line as ordinary text, which collapses an indent
  * anyway, and an indent that survived would read as a wrap.
  */

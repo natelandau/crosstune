@@ -8,7 +8,7 @@ import {
   sheetFacets,
   sheetFilterCount,
   sheetResets,
-  songCountLabel,
+  tuneCountLabel,
   type CatalogCounts,
   type CatalogFilters,
   type Facet,
@@ -53,11 +53,11 @@ export function CatalogFilterSheet({
       }
     >
       <p className="type-footnote px-(--form-inset) pt-5 tabular-nums" aria-live="polite">
-        {songCountLabel(counts.visible, counts.total)}
+        {tuneCountLabel(counts.visible, counts.total)}
       </p>
       <Group>
         {sheetFacets(visible).map((facet) => {
-          // A value the current catalog no longer has (an archived song's genre, say) still
+          // A value the current catalog no longer has (an archived tune's genre, say) still
           // needs its own option, or the select would show it as if it were Any.
           const stale = filters[facet] !== 'all' && !facets[facet].includes(filters[facet])
           const choices = stale ? [...facets[facet], filters[facet]] : facets[facet]
@@ -84,7 +84,7 @@ export function CatalogFilterSheet({
         footer={
           <>
             <span className="tabular-nums">{counts.archived}</span> archived{' '}
-            {counts.archived === 1 ? 'song' : 'songs'}
+            {counts.archived === 1 ? 'tune' : 'tunes'}
           </>
         }
       >

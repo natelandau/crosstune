@@ -49,14 +49,14 @@ function view(
   overrides: {
     recording?: Partial<ReturnType<typeof recordingRow>>
     file?: ReturnType<typeof recordingFile>
-    songTitle?: string | null
+    tuneTitle?: string | null
   } = {},
 ): RecordingView {
   return {
     recording: recordingRow('r1', { label: 'Jam recording', ...overrides.recording }),
     file: overrides.file,
-    songId: null,
-    songTitle: overrides.songTitle ?? null,
+    tuneId: null,
+    tuneTitle: overrides.tuneTitle ?? null,
   }
 }
 
