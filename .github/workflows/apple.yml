@@ -8,6 +8,12 @@ on:
     branches: [main]
     paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
 
+# A push to a pull request cancels that PR's previous run. Every other run, including a
+# push to main, falls back to its own run ID and is never canceled.
+concurrency:
+  group: apple-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

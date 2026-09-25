@@ -9,6 +9,12 @@ on:
     paths: ["web/**", "brand/**", "api/openapi.json", ".github/workflows/web.yml", "justfile"]
   workflow_call:
 
+# A push to a pull request cancels that PR's previous run. Every other run, including a
+# push to main and a Release call, falls back to its own run ID and is never canceled.
+concurrency:
+  group: web-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
