@@ -16,6 +16,13 @@ import {
   type TableName,
 } from './types'
 
+declare module 'dexie' {
+  // Dexie's untyped open state, of which close() needs the ready resolver.
+  interface Dexie {
+    readonly _state: { readonly isBeingOpened: boolean; readonly dbReadyResolve: () => void }
+  }
+}
+
 // Every store the server refills, plus what could only be pushed or uploaded in an older shape.
 const STARTED_OVER = [...TABLE_NAMES, 'recording_files', 'recording_chunks', 'outbox'] as const
 
@@ -101,8 +108,13 @@ export class CrosstuneDb extends Dexie {
   // delete() closes through this method, so it also cancels a pending open.
   override close(options: { disableAutoOpen: boolean } = { disableAutoOpen: true }) {
     // Dexie closes with disableAutoOpen false to reopen itself; that must not cancel the open.
-    if (options.disableAutoOpen) this.closes += 1
+    if (!options.disableAutoOpen) return super.close(options)
+    this.closes += 1
+    // A query that auto-opened during the newer check waits on a ready promise that Dexie's
+    // close replaces unsettled. Settling it makes that query reject as closed instead of hang.
+    const settleWaiters = this._state.isBeingOpened ? undefined : this._state.dbReadyResolve
     super.close(options)
+    settleWaiters?.()
   }
 }
 
