@@ -1,0 +1,39 @@
+---
+name: Apple
+
+on:
+  pull_request:
+    paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+  push:
+    branches: [main]
+    paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+# macOS minutes cost more than Linux minutes, so one job runs every check.
+jobs:
+  check:
+    if: ${{ !startsWith(github.event.head_commit.message, 'bump(release):') }}
+    name: Apple check
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - uses: extractions/setup-just@v4
+      - run: xcodebuild -version
+      - run: just lint
+      - run: just test
+      - run: just build
+      - run: just contract
+      - name: fail if the committed Swift client is stale
+        working-directory: .
+        run: |
+          git add --intent-to-add apple/CrosstuneKit/Sources/CrosstuneAPI/Generated
+          git diff --exit-code -- apple/CrosstuneKit/Sources/CrosstuneAPI/Generated

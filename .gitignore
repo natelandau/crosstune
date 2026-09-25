@@ -17,6 +17,13 @@ web/test-results/
 web/coverage/
 web/.vitest/
 
+# Apple
+apple/**/.build/
+apple/**/.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcresult
+
 # Local dev
 .dev/
 .env

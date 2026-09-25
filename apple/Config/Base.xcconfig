@@ -1,0 +1,24 @@
+// Settings shared by every configuration of the app target.
+#include "Version.xcconfig"
+
+// Placeholder until the product domain is chosen. The ID is permanent after the first
+// App Store upload.
+PRODUCT_BUNDLE_IDENTIFIER = com.example.crosstune
+PRODUCT_NAME = Crosstune
+
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
+SDKROOT = auto
+TARGETED_DEVICE_FAMILY = 1,2
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+MACOSX_DEPLOYMENT_TARGET = 26.0
+SUPPORTS_MACCATALYST = NO
+
+SWIFT_VERSION = 6.0
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_CFBundleDisplayName = Crosstune
+INFOPLIST_KEY_UILaunchScreen_Generation = YES
+INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.music
+CODE_SIGN_ENTITLEMENTS[sdk=macosx*] = Config/Crosstune.entitlements
+CODE_SIGN_STYLE = Automatic
+ENABLE_PREVIEWS = YES

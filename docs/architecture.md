@@ -29,10 +29,14 @@ Cloudflare also hosts the DNS zone for the product domain.
 - Only the sync engine talks to the network. Recording files are the one
   exception: they move over presigned R2 URLs in a transfer pass of their
   own.
-- The API knows nothing about the web client. Its OpenAPI schema is the
-  contract. The client's TypeScript types, and its copies of every value
-  and length limit the API validates, are generated from it, and CI fails
-  when a committed copy drifts. The Apple app uses the same endpoints.
+- The API knows nothing about its clients. Its OpenAPI schema,
+  `api/openapi.json`, is the contract. The web client's TypeScript types,
+  its copies of every value and length limit the API validates, and the
+  Apple app's Swift client are generated from it, and CI fails when a
+  committed copy drifts.
+- The Swift generator reads a normalized copy of the contract. Nullable
+  fields become the form it supports, and string enums and closed objects
+  are loosened, so an installed app decodes rows from a newer API.
 - Every `/v1` route except the Clerk webhook requires a Clerk bearer token.
   No user ID appears in a URL or a body. The server sets ownership from the
   token and scopes every query to the caller.

@@ -95,8 +95,8 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A model change: `just api::makemigrations "message"`, review the file,
   then `just api::migrate`.
 - An API change: `just contract` regenerates the OpenAPI file, the typed
-  web client, and the client's generated vocabulary file. CI fails when
-  the committed copies drift.
+  web client, the web client's generated vocabulary file, and the Swift
+  client. CI fails when the committed copies drift.
 - A validated value or length limit: edit `api/src/crosstune/vocabulary.py`,
   write the migration for the check constraint or column it changes, run
   `just contract`, and give any new value its label in
@@ -125,7 +125,11 @@ and fails instead in CI, where the `API` workflow always starts it.
   workflow from the Actions tab with the PR number and branch name.
 - CI runs on every pull request and push to `main`. `API` lints, type
   checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
-  lints, type checks, tests, builds, and checks the generated types. `E2E`
+  lints, type checks, tests, builds, and checks the generated types.
+  `Apple` runs on macOS: it lints, runs the Swift package tests, builds for
+  the iOS Simulator and macOS, and checks the generated Swift client. It
+  runs only when `apple/` or the contract changes, and no host deploys
+  from it. `E2E`
   runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges.

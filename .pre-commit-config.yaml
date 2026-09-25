@@ -125,3 +125,18 @@ repos:
         pass_filenames: false
         stages: [pre-push]
         files: ^(web|brand)/
+
+      - id: apple-swift-format
+        name: swift format
+        entry: just apple::format
+        language: system
+        pass_filenames: false
+        files: ^apple/.*\.swift$
+
+      - id: apple-swift-test
+        name: swift test
+        entry: just apple::test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^(apple/|api/openapi\.json$)

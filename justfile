@@ -6,6 +6,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 mod api
 mod web
+mod apple
 
 # Where the end-to-end API serves, matching e2e_port in api/justfile and e2e_api in
 # web/justfile. Not the :8000 of a dev session, so `just e2e` runs while `just dev` does.
@@ -16,17 +17,17 @@ default:
     @just --list
 
 # Run every linter in every module, then spell check the whole repository
-lint: api::lint web::lint typos
+lint: api::lint web::lint apple::lint typos
 
 # Spell check the whole repository, or only the given paths
 typos *paths:
     uv run --project api typos --config .typos.toml {{ paths }}
 
 # Check formatting in every module
-format: api::format web::format
+format: api::format web::format apple::format
 
 # Run every unit and integration suite; the end-to-end suite is `just e2e`
-test: api::test web::test
+test: api::test web::test apple::test
 
 # Run the end-to-end suite; extra args go to Playwright
 e2e *args:
@@ -65,8 +66,8 @@ e2e *args:
 # Remove build artifacts and caches everywhere
 clean: api::clean web::clean
 
-# Regenerate the OpenAPI contract and the typed web client from it
-contract: api::contract web::contract
+# Regenerate the OpenAPI contract and the typed web and Apple clients from it
+contract: api::contract web::contract apple::contract
 
 # Smoke-check a deployed API origin and web origin; needs no credentials
 smoke api_origin web_origin:

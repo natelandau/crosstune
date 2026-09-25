@@ -1,0 +1,68 @@
+# Recipes for the Apple client. Loaded as the `apple` module by the root justfile and run
+# from this directory: `just apple::test` from anywhere in the repository. Needs Xcode.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# Build products stay inside the module, so a clean checkout holds everything the build made.
+derived_data := ".build/DerivedData"
+
+[private]
+default:
+    @just --list apple
+
+# Every hand-written Swift file; the generated client is left as the generator wrote it
+[private]
+sources:
+    @find Crosstune CrosstuneKit Tools -name '*.swift' -not -path '*/Generated/*' -not -path '*/.build/*'
+
+# Check formatting and lint rules with swift format
+[group('lint')]
+format:
+    just sources | xargs swift format lint --strict
+
+# Spell check the Apple client
+[group('lint')]
+typos:
+    uv run --project ../api typos --config ../.typos.toml .
+
+# Run all linters
+[group('lint')]
+lint: format typos
+
+# Fix formatting where swift format can
+[group('lint')]
+fix:
+    just sources | xargs swift format --in-place
+
+# Run the package tests on the Mac; extra args go to swift test
+[group('test')]
+test *args:
+    swift test --package-path CrosstuneKit {{ args }}
+
+# Build the app for the iOS Simulator and for macOS, unsigned
+[group('build')]
+build:
+    for destination in 'generic/platform=iOS Simulator' 'generic/platform=macOS'; do \
+        xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+            -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO; \
+    done
+
+# Regenerate the Swift client from the committed OpenAPI contract, normalized for the generator
+[group('contract')]
+contract:
+    swift run --package-path Tools normalize-contract ../api/openapi.json .build/contract/openapi.json
+    swift run --package-path Tools swift-openapi-generator generate \
+        --config CrosstuneKit/Sources/CrosstuneAPI/openapi-generator-config.yaml \
+        --output-directory CrosstuneKit/Sources/CrosstuneAPI/Generated \
+        .build/contract/openapi.json
+
+# Upgrade the Swift package dependencies
+[group('maintenance')]
+update:
+    swift package update --package-path CrosstuneKit
+    swift package update --package-path Tools
+
+# Remove build artifacts and caches
+[group('maintenance')]
+clean:
+    rm -rf .build CrosstuneKit/.build Tools/.build

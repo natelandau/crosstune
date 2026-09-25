@@ -1,0 +1,4 @@
+// The Apple app's own version, separate from the API and web release. CI sets the build
+// number at archive time.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
