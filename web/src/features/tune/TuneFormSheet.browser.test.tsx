@@ -770,6 +770,7 @@ describe('TuneFormSheet', () => {
       .toBeInTheDocument()
   })
 
+  // The select shows a pick before the form's state holds it, so these read the saved row.
   it('keeps a time signature the player set when a new tune is given a type', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
@@ -777,12 +778,21 @@ describe('TuneFormSheet', () => {
     await page.getByRole('radio', { name: '3/4', exact: true }).click()
     await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'Jig', exact: true }).click()
-    await expect
-      .element(page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, Jig` }))
-      .toBeInTheDocument()
-    await expect
-      .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 3/4` }))
-      .toBeInTheDocument()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await sheetDismissed()
+    expect((await db.tunes.toArray())[0]).toMatchObject({ tune_type: 'Jig', time_signature: '3/4' })
+  })
+
+  it('keeps 4/4 on a new tune once the player picks it, though it was already set', async () => {
+    const db = openTestDb()
+    renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
+    await openDetail(`${DETAIL_LABELS.time_signature}, 4/4`)
+    await page.getByRole('radio', { name: '4/4', exact: true }).click()
+    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: 'Jig', exact: true }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await sheetDismissed()
+    expect((await db.tunes.toArray())[0]).toMatchObject({ tune_type: 'Jig', time_signature: '4/4' })
   })
 
   it("keeps an edited tune's stored 4/4 when it is given the Jig type", async () => {
@@ -799,12 +809,9 @@ describe('TuneFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
     await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'Jig', exact: true }).click()
-    await expect
-      .element(page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, Jig` }))
-      .toBeInTheDocument()
-    await expect
-      .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 4/4` }))
-      .toBeInTheDocument()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await sheetDismissed()
+    expect(await db.tunes.get(tuneId)).toMatchObject({ tune_type: 'Jig', time_signature: '4/4' })
   })
 
   it('defaults a new tune to the most-used genre', async () => {

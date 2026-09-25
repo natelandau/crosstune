@@ -20,6 +20,8 @@ import {
   asTimeSignature,
   emptyValues,
   inputsFromValues,
+  modeRows,
+  partModeChanged,
   typeChanged,
   valuesFromRows,
   type TuneFormValues,
@@ -353,7 +355,22 @@ export function TuneFormSheet({
             }
             if (field.kind === 'modes') {
               return (
-                <ModeRows key={field.key} modes={values.modes} onChange={(m) => set('modes', m)} />
+                <ModeRows
+                  key={field.key}
+                  modes={values.modes}
+                  onChange={(index, value) =>
+                    setValues((current) => ({
+                      ...current,
+                      modes: partModeChanged(current.modes, index, value),
+                    }))
+                  }
+                  onAdd={() =>
+                    setValues((current) => ({
+                      ...current,
+                      modes: [...modeRows(current.modes), ''],
+                    }))
+                  }
+                />
               )
             }
             return (
@@ -365,6 +382,11 @@ export function TuneFormSheet({
                 options={pickOptions(field.key, field.options)}
                 other={field.other}
                 maxLength={field.maxLength}
+                // A pick of the time signature already shown sends no change, yet it is still
+                // the player's choice, so closing its picker counts as setting it.
+                onPickerClose={
+                  field.key === 'time_signature' ? () => setTimeSignatureTouched(true) : undefined
+                }
                 onChange={(value) => {
                   if (field.key === 'tune_type') {
                     setValues((current) =>

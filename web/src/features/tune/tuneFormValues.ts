@@ -144,6 +144,19 @@ export function inputsFromValues(
   }
 }
 
+/** The form's mode rows: one per part, and one empty row for a tune with no mode. */
+export const modeRows = (modes: readonly (Mode | '')[]): (Mode | '')[] =>
+  modes.length === 0 ? [''] : [...modes]
+
+/** The mode rows with one part's mode set, or emptied for a value this client does not know. */
+export function partModeChanged(
+  modes: readonly (Mode | '')[],
+  index: number,
+  value: string,
+): (Mode | '')[] {
+  return modeRows(modes).map((mode, i) => (i === index ? asMode(value) : mode))
+}
+
 /**
  * The values after choosing a type. The type's time signature replaces one the player has
  * not chosen: an empty one, or a new tune's untouched default.

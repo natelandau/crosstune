@@ -28,6 +28,7 @@ export function SuggestSelect({
   detail,
   showLabel = true,
   onChange,
+  onPickerClose,
 }: {
   label: string
   /** The row's visible label when a header already carries the field's full name. Defaults to
@@ -52,6 +53,9 @@ export function SuggestSelect({
    * value, and `label` stays its accessible name. */
   showLabel?: boolean
   onChange: (value: string) => void
+  /** Called whenever the picker closes, by a pick or not. Ionic sends no change for a pick of
+   * the value already shown, so this is the one sign that the musician chose it. */
+  onPickerClose?: () => void
 }) {
   const mouse = usePointer() === 'mouse'
   const custom = value !== '' && !options.includes(value)
@@ -67,6 +71,7 @@ export function SuggestSelect({
       interface={mouse ? 'popover' : 'action-sheet'}
       // The sheet names the field it sets; its options alone do not say what they belong to.
       interfaceOptions={{ header: label }}
+      onIonDismiss={onPickerClose}
       value={typing ? OTHER : value}
       onIonChange={(event) => {
         const next = String(event.detail.value ?? '')

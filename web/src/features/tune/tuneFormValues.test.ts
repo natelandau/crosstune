@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Mode } from '../../api/vocabulary'
 import { tuneRow, userTuneRow } from '../../test/rows'
-import { emptyValues, inputsFromValues, typeChanged, valuesFromRows } from './tuneFormValues'
+import {
+  emptyValues,
+  inputsFromValues,
+  modeRows,
+  partModeChanged,
+  typeChanged,
+  valuesFromRows,
+} from './tuneFormValues'
 
 describe('tuneFormValues', () => {
   it('starts a new tune as want to learn in 4/4', () => {
@@ -85,6 +92,24 @@ describe('tuneFormValues', () => {
     )
     expect(values.composer).toBe('Ed Reavy')
     expect(inputsFromValues({ ...values, composer: '  ' }).tune.composer).toBeNull()
+  })
+
+  describe('part mode rows', () => {
+    it('shows one empty row for a tune with no mode', () => {
+      expect(modeRows([])).toEqual([''])
+    })
+
+    it('sets one part and keeps the others', () => {
+      expect(partModeChanged(['major', 'minor'], 1, 'dorian')).toEqual(['major', 'dorian'])
+    })
+
+    it('sets the first part of a tune with no mode', () => {
+      expect(partModeChanged([], 0, 'dorian')).toEqual(['dorian'])
+    })
+
+    it('empties a part set to a mode this client does not know', () => {
+      expect(partModeChanged(['major', 'minor'], 0, 'lydian')).toEqual(['', 'minor'])
+    })
   })
 
   describe('typeChanged', () => {
