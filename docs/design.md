@@ -234,7 +234,8 @@ Only the catalog has filters.
   never reads as Any.
 - Every choice in the sheet applies at once. Reset clears the sheet's filters
   only. Done closes it.
-- A set filter shows on the screen as a removable capsule.
+- A set filter shows on the screen as a removable capsule. A tuning capsule
+  names its instrument, since two instruments can share a tuning's name.
 - A rail of chips stays on one line at every width and text size. It scrolls,
   fades at its end while there is more, and scrolls the chosen chip into
   view.
