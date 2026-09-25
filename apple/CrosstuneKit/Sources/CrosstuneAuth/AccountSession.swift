@@ -1,8 +1,11 @@
 import ClerkKit
+import CrosstuneStore
 import Foundation
+import Network
 import Observation
 
-/// Who the app is open for, and whether the API still accepts their session.
+/// Who the app is open for, their on-device store, and whether the API still accepts their
+/// session.
 @MainActor
 @Observable
 public final class AccountSession {
@@ -19,19 +22,61 @@ public final class AccountSession {
         case signedIn(userID: String, confirmed: Bool)
     }
 
+    /// Why the app cannot sign out or delete the account right now.
+    public enum LeaveError: LocalizedError, Equatable {
+        /// Clerk cannot reach its servers, so it cannot end the session.
+        case offline
+        /// The outbox holds changes the API has not received.
+        case unsyncedChanges
+
+        public static let offlineMessage = "This needs a connection."
+        public static let unsyncedChangesMessage = "Some changes have not synced yet. Try again once they have."
+
+        public var errorDescription: String? {
+            switch self {
+            case .offline: Self.offlineMessage
+            case .unsyncedChanges: Self.unsyncedChangesMessage
+            }
+        }
+    }
+
     /// True once the API has refused the session even with a fresh token.
     public private(set) var needsSignIn = false
 
-    private let remembered: RememberedUser
-    private var graceElapsed = false
+    /// Whether the device has a network path. Clerk restores its user from its cache with no
+    /// network, so a loaded Clerk alone does not mean the app can reach it.
+    public private(set) var hasNetwork = true
 
-    public init(publishableKey: String, remembered: RememberedUser = RememberedUser()) {
+    /// The signed-in user's catalog. Nil while no one is signed in, or when it failed to open.
+    public private(set) var store: CrosstuneStore?
+    /// Why the store did not open.
+    public private(set) var storeFailure: String?
+
+    private let remembered: RememberedUser
+    private let storeRoot: URL
+    private var graceElapsed = false
+    @ObservationIgnored private let pathMonitor = NWPathMonitor()
+
+    public init(
+        publishableKey: String, remembered: RememberedUser = RememberedUser(),
+        storeRoot: URL = CrosstuneStore.defaultRoot
+    ) {
         self.remembered = remembered
+        self.storeRoot = storeRoot
         Clerk.configure(publishableKey: publishableKey)
         Task { [weak self] in
             try? await Task.sleep(for: Self.loadGrace)
             self?.graceElapsed = true
         }
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let hasNetwork = path.status == .satisfied
+            Task { @MainActor in self?.hasNetwork = hasNetwork }
+        }
+        pathMonitor.start(queue: .main)
+    }
+
+    isolated deinit {
+        pathMonitor.cancel()
     }
 
     public var phase: Phase {
@@ -47,6 +92,13 @@ public final class AccountSession {
     /// The signed-in Clerk user, for views that watch it change.
     public var clerkUserID: String? { Clerk.shared.user?.id }
 
+    /// The signed-in user's email, from Clerk's cache when offline. Nil until Clerk loads.
+    public var email: String? { Clerk.shared.user?.primaryEmailAddress?.emailAddress }
+
+    /// True when Clerk cannot reach its servers: no network, or Clerk has not loaded. Requests
+    /// wait, and sign-out is disabled.
+    public var isOffline: Bool { Self.isOffline(phase: phase, hasNetwork: hasNetwork) }
+
     /// Records the signed-in user, or forgets them on sign-out. Call when Clerk's user changes.
     public func clerkUserChanged() {
         let clerk = Clerk.shared
@@ -60,10 +112,85 @@ public final class AccountSession {
         needsSignIn = true
     }
 
+    /// Opens the store of the user the app is open for, including a remembered user before
+    /// Clerk loads, so the catalog shows offline. Call whenever `phase` changes.
+    public func phaseChanged() {
+        switch phase {
+        case .loading:
+            break
+        case .signedOut:
+            closeStore()
+        case .signedIn(let userID, let confirmed):
+            if store?.userID != userID {
+                closeStore()
+                do {
+                    store = try CrosstuneStore.open(userID: userID, root: storeRoot)
+                } catch {
+                    storeFailure = "Could not open this device's copy of your tunes: \(error.localizedDescription)"
+                }
+            }
+            // Only one user is signed in at a time, so any other folder was left by a sign-out
+            // that did not finish.
+            if confirmed { try? CrosstuneStore.deleteOthers(keeping: userID, root: storeRoot) }
+        }
+    }
+
+    /// Signs out and deletes this device's copy of the user's catalog. Refuses while any change
+    /// is unsent, since it would go with the catalog.
     public func signOut() async throws {
-        try await Clerk.shared.auth.signOut()
+        let userID = try confirmedUserID()
+        try await Self.leave(userID: userID, store: store, root: storeRoot, keepingUnsynced: false) {
+            try await Clerk.shared.auth.signOut()
+        }
+        forget()
+    }
+
+    /// Deletes the account on every device, then this device's copy of it. Unsent changes are
+    /// lost with the account.
+    public func deleteAccount() async throws {
+        let userID = try confirmedUserID()
+        guard let user = Clerk.shared.user else { throw LeaveError.offline }
+        try await Self.leave(userID: userID, store: store, root: storeRoot, keepingUnsynced: true) {
+            try await user.delete()
+        }
+        forget()
+    }
+
+    /// Ends the session, then deletes the user's folder. The catalog is private data on a
+    /// possibly shared device, so it goes with the session; if ending the session fails, it
+    /// stays.
+    static func leave(
+        userID: String, store: CrosstuneStore?, root: URL, keepingUnsynced: Bool,
+        endSession: () async throws -> Void
+    ) async throws {
+        if !keepingUnsynced, let store, try await store.pendingChangeCount() > 0 {
+            throw LeaveError.unsyncedChanges
+        }
+        try await endSession()
+        try? store?.close()
+        try CrosstuneStore.delete(userID: userID, root: root)
+    }
+
+    private func confirmedUserID() throws -> String {
+        guard !isOffline, case .signedIn(let userID, _) = phase else { throw LeaveError.offline }
+        return userID
+    }
+
+    private func forget() {
+        closeStore()
         remembered.userID = nil
         needsSignIn = false
+    }
+
+    private func closeStore() {
+        try? store?.close()
+        store = nil
+        storeFailure = nil
+    }
+
+    nonisolated static func isOffline(phase: Phase, hasNetwork: Bool) -> Bool {
+        guard hasNetwork, case .signedIn(_, confirmed: true) = phase else { return true }
+        return false
     }
 
     nonisolated static func phase(

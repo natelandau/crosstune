@@ -7,7 +7,6 @@ struct SignedInView: View {
     let session: AccountSession
     let client: Client
     let userID: String
-    let confirmed: Bool
 
     @State private var email: String?
     @State private var failure: String?
@@ -15,9 +14,9 @@ struct SignedInView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text(email ?? userID)
+            Text(session.email ?? email ?? userID)
                 .font(.headline)
-            if !confirmed {
+            if session.isOffline {
                 Text("Offline. Requests wait until you are back online.")
                     .foregroundStyle(.secondary)
             }
@@ -25,22 +24,20 @@ struct SignedInView: View {
                 Text("Sign in again to sync.")
                     .foregroundStyle(.red)
             }
-            if let failure {
+            if let failure = (session.isOffline ? nil : failure) ?? session.storeFailure {
                 Text(failure)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
             Button("Account") { showsAccount = true }
-            Button("Sign out") {
-                Task { try? await session.signOut() }
-            }
         }
         .padding()
         .sheet(isPresented: $showsAccount) {
-            AccountView()
+            AccountView(session: session)
         }
-        .task(id: confirmed) {
-            guard confirmed else { return }
+        .task(id: session.isOffline) {
+            failure = nil
+            guard !session.isOffline else { return }
             await loadProfile()
         }
     }
@@ -50,6 +47,8 @@ struct SignedInView: View {
             email = try await client.meV1MeGet().ok.body.json.email
             failure = nil
         } catch {
+            // Going offline cancels the request, and its failure says nothing new.
+            guard !Task.isCancelled else { return }
             failure = "Could not reach the API: \(error.localizedDescription)"
         }
     }
