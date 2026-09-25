@@ -1,3 +1,11 @@
+## v0.7.0 (2026-09-25)
+
+### Feat
+
+- call songs tunes and add types, part modes, and tunings (#53)
+- **api**: add tune type, part modes, composer, and 3/2 time (#52)
+- **api**: store tune tunings per instrument for seven instruments (#51)
+
 ## v0.6.1 (2026-09-24)
 
 ### Fix
