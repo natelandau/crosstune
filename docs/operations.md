@@ -177,6 +177,12 @@ A change to the shape of a synced row:
 - A value added to a validated vocabulary is recognized by the client in
   one release and offered in the next, once the API that accepts it is
   live on both hosts, because one tag deploys both sides in either order.
+- A release that drops a sync compatibility layer deploys the API first
+  and the web client after the API passes its healthcheck. A new client
+  against the old API reads rows in the old shape.
+- A local shape change bumps the Dexie version with the start-over
+  upgrader while the app is pre-release. Each device loses its unsent
+  edits and unuploaded recordings, then pulls every row again.
 
 Rollback:
 
@@ -186,6 +192,11 @@ Rollback:
 - A rollback across a migration fails the pre-deploy command. Roll forward,
   or downgrade the schema first.
 - A client outage loses no edits. The outbox holds them.
+- A web rollback past a release that bumped the local database version
+  deletes the local database on every device and pulls again, losing
+  unsent edits and unuploaded recordings. A build up to v0.6.1 lacks
+  this: it opens the newer database, keeps the pull cursor, and shows an
+  empty catalog until the user signs out or clears site data.
 
 ## Smoke check
 
