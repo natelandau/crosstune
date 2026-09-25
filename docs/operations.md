@@ -14,6 +14,7 @@ back, smoke check, and rebuild. The settings each host holds are in
 | [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                              |
 | [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
+| [Xcode](https://developer.apple.com/xcode/)   | 26 or newer    | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
 
 You also need a free [Clerk](https://clerk.com) development instance with
 email magic link sign-in enabled. From its dashboard, copy the Frontend API
@@ -61,14 +62,16 @@ Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
-| Command                 | Runs                                                                       |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `just lint`             | Every linter in both modules, then a spell check.                          |
-| `just test`             | API tests in their own Postgres container, and web unit and browser tests. |
-| `just api::test [args]` | API tests. Args narrow the run and drop coverage.                          |
-| `just web::test [args]` | Web tests. Args go to vitest.                                              |
-| `just typos [paths]`    | Spell check.                                                               |
-| `just e2e [args]`       | The Playwright suite. Args go to Playwright.                               |
+| Command                   | Runs                                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `just lint`               | Every linter in every module, then a spell check.                                                   |
+| `just test`               | API tests in their own Postgres container, web unit and browser tests, and the Swift package tests. |
+| `just api::test [args]`   | API tests. Args narrow the run and drop coverage.                                                   |
+| `just web::test [args]`   | Web tests. Args go to vitest.                                                                       |
+| `just apple::test [args]` | Swift package tests on the Mac. Args go to `swift test`.                                            |
+| `just apple::build`       | The app for the iOS Simulator and macOS, unsigned.                                                  |
+| `just typos [paths]`      | Spell check.                                                                                        |
+| `just e2e [args]`         | The Playwright suite. Args go to Playwright.                                                        |
 
 The end-to-end suite:
 
@@ -129,7 +132,8 @@ and fails instead in CI, where the `API` workflow always starts it.
   `Apple` runs on macOS: it lints, runs the Swift package tests, builds for
   the iOS Simulator and macOS, and checks the generated Swift client. It
   runs only when `apple/` or the contract changes, and no host deploys
-  from it. `E2E`
+  from it. It is not a required check, because a required check must run
+  on every PR and macOS minutes cost more. `E2E`
   runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges.

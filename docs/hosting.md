@@ -308,4 +308,5 @@ Actions secrets:
 
 > **Note:** Before turning enforcement on, remove the `paths` filter from
 > the `pull_request` trigger in both workflows. A required check that never
-> starts blocks the merge.
+> starts blocks the merge. `Apple` stays out of the ruleset, so its filter
+> stays.

@@ -7,6 +7,7 @@ why. `docs/README.md` indexes every page under `docs/`.
 
 - `api/` The FastAPI service. Python, managed by uv.
 - `web/` The web client. TypeScript, managed by pnpm.
+- `apple/` The iOS and macOS app. Swift, built with Xcode.
 - `brand/` The CT mark as SVG, in both colorways. The web icons are
   generated from it.
 - `docs/` The pages that hold what the code cannot say.
