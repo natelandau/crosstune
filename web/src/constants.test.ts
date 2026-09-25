@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import openapi from './api/openapi.json'
 import { INSTRUMENTS } from './api/vocabulary'
-import { CAPO_FRETS, CAPO_INSTRUMENTS, STANDARD_TUNINGS, TUNE_TYPES, TUNINGS } from './constants'
+import {
+  CAPO_FRETS,
+  CAPO_INSTRUMENTS,
+  GENRE_TYPES,
+  STANDARD_TUNINGS,
+  TUNE_TYPES,
+  TUNINGS,
+} from './constants'
 
 describe('TUNE_TYPES', () => {
   it('offers Song, the type stored rows carry for a piece with words', () => {
     expect(TUNE_TYPES).toContain('Song')
+  })
+})
+
+describe('GENRE_TYPES', () => {
+  it('offers Cape Breton the Scottish types', () => {
+    expect(GENRE_TYPES['Cape Breton']).toBe(GENRE_TYPES.Scottish)
   })
 })
 

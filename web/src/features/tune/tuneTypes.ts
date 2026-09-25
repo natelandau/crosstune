@@ -1,5 +1,5 @@
 import type { TimeSignature } from '../../api/vocabulary'
-import { GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
+import { GENRES, GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
 
 /** The composer a player writes for a tune with no known author. */
@@ -13,25 +13,48 @@ function lookup<T>(table: Record<string, T>, key: string): T | undefined {
   return found === undefined ? undefined : table[found]
 }
 
-/** Each value once, spelled with its most capitalized variant, with how many live tunes hold it. */
-function tally(values: readonly (string | null | undefined)[]): Map<string, number> {
-  const counts = new Map<string, number>()
+interface Spellings {
+  firstSeen: string
+  total: number
+  /** Each raw spelling with its count, in the order first seen. */
+  counts: Map<string, number>
+}
+
+function display(group: Spellings, canonical: readonly string[]): string {
+  const known = canonical.find((name) => same(name, group.firstSeen))
+  if (known !== undefined) return known
+  let best = group.firstSeen
+  let bestCount = 0
+  for (const [spelling, count] of group.counts) {
+    if (count > bestCount) {
+      best = spelling
+      bestCount = count
+    }
+  }
+  return best
+}
+
+/**
+ * Each value once, with how many live tunes hold it. A value that matches a canonical entry is
+ * shown the canonical way; any other is shown the way most tunes spell it, ties to the first seen.
+ */
+function tally(
+  values: readonly (string | null | undefined)[],
+  canonical: readonly string[] = [],
+): Map<string, number> {
+  const groups: Spellings[] = []
   for (const raw of values) {
     const value = raw?.trim()
     if (!value) continue
-    const existing = [...counts.keys()].find((key) => same(key, value))
-    if (existing === undefined) {
-      counts.set(value, 1)
-      continue
+    let group = groups.find((g) => same(g.firstSeen, value))
+    if (group === undefined) {
+      group = { firstSeen: value, total: 0, counts: new Map() }
+      groups.push(group)
     }
-    const count = counts.get(existing)! + 1
-    // A capital letter sorts before its lowercase form, so this keeps the tidier spelling
-    // as the display form regardless of which variant the catalog happened to see first.
-    const spelling = value < existing ? value : existing
-    if (spelling !== existing) counts.delete(existing)
-    counts.set(spelling, count)
+    group.total += 1
+    group.counts.set(value, (group.counts.get(value) ?? 0) + 1)
   }
-  return counts
+  return new Map(groups.map((group) => [display(group, canonical), group.total]))
 }
 
 const live = (entries: readonly CatalogEntry[]) => entries.filter((e) => !e.tune.deleted_at)
@@ -50,14 +73,28 @@ function without(values: readonly string[], taken: readonly string[]): string[] 
 export function orderedTypes(genre: string, entries: readonly CatalogEntry[]): string[] {
   const first = [...(lookup(GENRE_TYPES, genre.trim()) ?? [])]
   const lead =
-    first.length > 0 ? first : mostFirst(tally(live(entries).map((e) => e.tune.tune_type)))
+    first.length > 0
+      ? first
+      : mostFirst(
+          tally(
+            live(entries).map((e) => e.tune.tune_type),
+            TUNE_TYPES,
+          ),
+        )
   const rest = without(TUNE_TYPES, lead).sort(collator.compare)
   return [...lead, ...rest]
 }
 
 /** The genre most live tunes hold, ties broken alphabetically, or null when none has one. */
 export function mostUsedGenre(entries: readonly CatalogEntry[]): string | null {
-  return mostFirst(tally(live(entries).map((e) => e.tune.genre)))[0] ?? null
+  return (
+    mostFirst(
+      tally(
+        live(entries).map((e) => e.tune.genre),
+        GENRES,
+      ),
+    )[0] ?? null
+  )
 }
 
 /** Composer suggestions: Trad. first, then every composer the catalog holds, alphabetically. */

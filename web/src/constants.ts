@@ -121,6 +121,8 @@ export const GENRES = [
   'Swing',
 ]
 
+const SCOTTISH_TYPES: readonly string[] = ['Reel', 'Jig', 'Strathspey', 'March', 'Air', 'Waltz']
+
 /**
  * The types a genre's players reach for, most common first. A tune in one of these genres
  * offers these types first; every other type follows alphabetically.
@@ -144,7 +146,8 @@ export const GENRE_TYPES: Record<string, readonly string[]> = {
     'March',
     'Waltz',
   ],
-  Scottish: ['Reel', 'Jig', 'Strathspey', 'March', 'Air', 'Waltz'],
+  Scottish: SCOTTISH_TYPES,
+  'Cape Breton': SCOTTISH_TYPES,
   'Old-time': ['Breakdown', 'Waltz', 'Rag', 'Hornpipe', 'March', 'Song'],
   Bluegrass: ['Breakdown', 'Song', 'Waltz', 'Gospel'],
 }
