@@ -38,7 +38,8 @@ Everything else supports this loop.
 
 ## What it does
 
-An installable web app (PWA). The parts that matter:
+A native app for iPhone, iPad, and Mac, and an installable web app (PWA)
+for Android and every browser. The parts that matter:
 
 - Accounts. Sign in with an email magic link, Google, or Apple. Each
   catalog is private to its owner.
@@ -80,8 +81,8 @@ Each has a place in the data model and no code:
 - Phone first. The jam-night screen works one-handed, in poor light, in
   under two taps.
 - Offline. The catalog is readable and editable with no signal.
-- API first. The backend never depends on the web client. Native apps come
-  later for app store distribution and background audio.
+- API first. The backend never depends on a client. The Apple app and the
+  web client use the same endpoints.
 - Private now, shared later. The schema separates a tune from a user's
   relationship to it, so a shared catalog is a merge step, not a rewrite.
 - Musical facets live on the tune (key, mode, tuning, part structure). The

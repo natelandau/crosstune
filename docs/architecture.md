@@ -29,10 +29,14 @@ Cloudflare also hosts the DNS zone for the product domain.
 - Only the sync engine talks to the network. Recording files are the one
   exception: they move over presigned R2 URLs in a transfer pass of their
   own.
-- The API knows nothing about the web client. Its OpenAPI schema is the
-  contract. The client's TypeScript types, and its copies of every value
-  and length limit the API validates, are generated from it, and CI fails
-  when a committed copy drifts. A native client uses the same endpoints.
+- The API knows nothing about its clients. Its OpenAPI schema,
+  `api/openapi.json`, is the contract. The web client's TypeScript types,
+  its copies of every value and length limit the API validates, and the
+  Apple app's Swift client are generated from it, and CI fails when a
+  committed copy drifts.
+- The Swift generator reads a normalized copy of the contract. Nullable
+  fields become the form it supports, and string enums and closed objects
+  are loosened, so an installed app decodes rows from a newer API.
 - Every `/v1` route except the Clerk webhook requires a Clerk bearer token.
   No user ID appears in a URL or a body. The server sets ownership from the
   token and scopes every query to the caller.
@@ -85,9 +89,11 @@ Push:
   is invalid. A URL with no scheme is accepted, as the paste sheet accepts it.
 - A tune delete cascades to its user record, links, and list items. A list
   delete cascades to its items.
-- A row carrying an unknown field, or missing an expected one, is `invalid`.
-  An old client against a new API and a new client against an old API fail
-  alike. `operations.md` says how to release a schema change.
+- A row carrying an unknown field, or missing a required one, is
+  `invalid`. A missing optional field takes its default, so an upsert from
+  a client that predates the field resets it. A new client against an old
+  API fails on the unknown field. `operations.md` says how to release a
+  schema change.
 
 Pull:
 

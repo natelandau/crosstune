@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import openapi from './api/openapi.json'
+import openapi from '../../api/openapi.json'
 import { INSTRUMENTS } from './api/vocabulary'
 import {
   CAPO_FRETS,

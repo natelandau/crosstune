@@ -14,6 +14,7 @@ back, smoke check, and rebuild. The settings each host holds are in
 | [just](https://just.systems)                  | any            | The task runner. `just --list` shows every recipe.                              |
 | [Docker](https://docs.docker.com/get-docker/) | any            | Runs Postgres 18 and RustFS for development and the API tests. Must be running. |
 | [ffmpeg](https://ffmpeg.org/)                 | any            | Transcodes recordings. Without it the API tests that use audio skip.            |
+| [Xcode](https://developer.apple.com/xcode/)   | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
 
 You also need a free [Clerk](https://clerk.com) development instance with
 email magic link sign-in enabled. From its dashboard, copy the Frontend API
@@ -61,14 +62,16 @@ Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
-| Command                 | Runs                                                                       |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `just lint`             | Every linter in both modules, then a spell check.                          |
-| `just test`             | API tests in their own Postgres container, and web unit and browser tests. |
-| `just api::test [args]` | API tests. Args narrow the run and drop coverage.                          |
-| `just web::test [args]` | Web tests. Args go to vitest.                                              |
-| `just typos [paths]`    | Spell check.                                                               |
-| `just e2e [args]`       | The Playwright suite. Args go to Playwright.                               |
+| Command                   | Runs                                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `just lint`               | Every linter in every module, then a spell check.                                                   |
+| `just test`               | API tests in their own Postgres container, web unit and browser tests, and the Swift package tests. |
+| `just api::test [args]`   | API tests. Args narrow the run and drop coverage.                                                   |
+| `just web::test [args]`   | Web tests. Args go to vitest.                                                                       |
+| `just apple::test [args]` | Swift package tests on the Mac. Args go to `swift test`.                                            |
+| `just apple::build`       | The app for the iOS Simulator and macOS, unsigned.                                                  |
+| `just typos [paths]`      | Spell check.                                                                                        |
+| `just e2e [args]`         | The Playwright suite. Args go to Playwright.                                                        |
 
 The end-to-end suite:
 
@@ -95,8 +98,8 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A model change: `just api::makemigrations "message"`, review the file,
   then `just api::migrate`.
 - An API change: `just contract` regenerates the OpenAPI file, the typed
-  web client, and the client's generated vocabulary file. CI fails when
-  the committed copies drift.
+  web client, the web client's generated vocabulary file, and the Swift
+  client. CI fails when the committed copies drift.
 - A validated value or length limit: edit `api/src/crosstune/vocabulary.py`,
   write the migration for the check constraint or column it changes, run
   `just contract`, and give any new value its label in
@@ -125,7 +128,12 @@ and fails instead in CI, where the `API` workflow always starts it.
   workflow from the Actions tab with the PR number and branch name.
 - CI runs on every pull request and push to `main`. `API` lints, type
   checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
-  lints, type checks, tests, builds, and checks the generated types. `E2E`
+  lints, type checks, tests, builds, and checks the generated types.
+  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift package tests, builds for
+  the iOS Simulator and macOS, and checks the generated Swift client. It
+  runs only when `apple/` or the contract changes, and no host deploys
+  from it. It is not a required check, because a required check must run
+  on every PR and macOS minutes cost more. `E2E`
   runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges.
@@ -143,7 +151,8 @@ git push --follow-tags origin main
 ```
 
 - `just bump` runs commitizen. It picks the increment from the commits,
-  writes the version to the API package, `web/package.json`, and `.cz.toml`,
+  writes the version to the API package, `web/package.json`, the Apple
+  app's `apple/Config/Version.xcconfig`, and `.cz.toml`,
   refreshes `api/uv.lock`, updates `CHANGELOG.md`, commits, and tags
   `v<version>`. `just bump --dry-run` shows the plan.
 - Bump on `main` only. A tag on a PR branch points at a commit the squash
@@ -160,9 +169,10 @@ git push --follow-tags origin main
 
 A change to the shape of a synced row:
 
-- The API refuses a push with an unknown or missing field, and the refused
-  edit is lost. One tag deploys both sides within minutes of each other, in
-  either order.
+- The API refuses a push with an unknown field or a missing required
+  field, and the refused edit is lost. A push without an optional field
+  stores its default, so a client that predates the field resets it. One
+  tag deploys both sides within minutes of each other, in either order.
 - Once the app has real users, a shape change is staged so no edit is
   lost: an API release that accepts both shapes, then the client, then an
   API release that drops the old field.

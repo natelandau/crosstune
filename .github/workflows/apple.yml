@@ -1,0 +1,47 @@
+---
+name: Apple
+
+on:
+  pull_request:
+    paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+  push:
+    branches: [main]
+    paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+
+# A push to a pull request cancels that PR's previous run. Every other run, including a
+# push to main, falls back to its own run ID and is never canceled.
+concurrency:
+  group: apple-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+# macOS minutes cost more than Linux minutes, so one job runs every check.
+jobs:
+  check:
+    if: ${{ !startsWith(github.event.head_commit.message, 'bump(release):') }}
+    name: Apple check
+    # The image with the Xcode the app is built and shipped with. The `macos-*` images
+    # default to an older Xcode.
+    runs-on: xcode-27
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - uses: extractions/setup-just@v4
+      - run: xcodebuild -version
+      - run: just lint
+      - run: just test
+      - run: just build
+      - run: just contract
+      - name: fail if the committed Swift client is stale
+        working-directory: .
+        run: |
+          git add --intent-to-add apple/CrosstuneKit/Sources/CrosstuneAPI/Generated
+          git diff --exit-code -- apple/CrosstuneKit/Sources/CrosstuneAPI/Generated

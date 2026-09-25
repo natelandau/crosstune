@@ -8,4 +8,4 @@ cd "$(dirname "$0")/.."
 uv lock --project api
 just api::contract
 just web::contract
-git add api/uv.lock web/src/api/openapi.json web/src/api/schema.d.ts
+git add api/uv.lock api/openapi.json web/src/api/schema.d.ts

@@ -1,0 +1,226 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CA0000000000000000000011 /* CrosstuneAPI in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000010 /* CrosstuneAPI */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		CA0000000000000000000001 /* Crosstune.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Crosstune.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA0000000000000000000002 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		CA0000000000000000000003 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
+		CA0000000000000000000004 /* Crosstune.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Crosstune.entitlements; sourceTree = "<group>"; };
+		CA0000000000000000000005 /* CrosstuneKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = CrosstuneKit; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		CA0000000000000000000020 /* Crosstune */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Crosstune; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CA0000000000000000000030 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA0000000000000000000011 /* CrosstuneAPI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		CA0000000000000000000040 = {
+			isa = PBXGroup;
+			children = (
+				CA0000000000000000000020 /* Crosstune */,
+				CA0000000000000000000005 /* CrosstuneKit */,
+				CA0000000000000000000041 /* Config */,
+				CA0000000000000000000042 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CA0000000000000000000041 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				CA0000000000000000000002 /* Base.xcconfig */,
+				CA0000000000000000000003 /* Version.xcconfig */,
+				CA0000000000000000000004 /* Crosstune.entitlements */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		CA0000000000000000000042 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CA0000000000000000000001 /* Crosstune.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CA0000000000000000000050 /* Crosstune */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA0000000000000000000071 /* Build configuration list for PBXNativeTarget "Crosstune" */;
+			buildPhases = (
+				CA0000000000000000000051 /* Sources */,
+				CA0000000000000000000030 /* Frameworks */,
+				CA0000000000000000000052 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CA0000000000000000000020 /* Crosstune */,
+			);
+			name = Crosstune;
+			packageProductDependencies = (
+				CA0000000000000000000010 /* CrosstuneAPI */,
+			);
+			productName = Crosstune;
+			productReference = CA0000000000000000000001 /* Crosstune.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CA0000000000000000000060 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = CA0000000000000000000070 /* Build configuration list for PBXProject "Crosstune" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CA0000000000000000000040;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CA0000000000000000000012 /* XCLocalSwiftPackageReference "CrosstuneKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CA0000000000000000000042 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CA0000000000000000000050 /* Crosstune */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CA0000000000000000000052 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CA0000000000000000000051 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CA0000000000000000000080 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CA0000000000000000000081 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		CA0000000000000000000082 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA0000000000000000000002 /* Base.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		CA0000000000000000000083 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = CA0000000000000000000002 /* Base.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CA0000000000000000000070 /* Build configuration list for PBXProject "Crosstune" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA0000000000000000000080 /* Debug */,
+				CA0000000000000000000081 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CA0000000000000000000071 /* Build configuration list for PBXNativeTarget "Crosstune" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA0000000000000000000082 /* Debug */,
+				CA0000000000000000000083 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		CA0000000000000000000012 /* XCLocalSwiftPackageReference "CrosstuneKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = CrosstuneKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CA0000000000000000000010 /* CrosstuneAPI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneAPI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CA0000000000000000000060 /* Project object */;
+}

@@ -4,12 +4,18 @@ name: API
 on:
   pull_request:
     paths:
-      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml"]
   push:
     branches: [main]
     paths:
-      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml", "web/src/api/openapi.json"]
+      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml"]
   workflow_call:
+
+# A push to a pull request cancels that PR's previous run. Every other run, including a
+# push to main and a Release call, falls back to its own run ID and is never canceled.
+concurrency:
+  group: api-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -85,4 +91,4 @@ jobs:
       - run: just contract
       - name: fail if the committed contract is stale
         working-directory: .
-        run: git diff --exit-code -- web/src/api/openapi.json
+        run: git diff --exit-code -- api/openapi.json

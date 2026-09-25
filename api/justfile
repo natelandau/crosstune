@@ -163,12 +163,12 @@ _e2e-db mode:
         echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
     fi
 
-# Export the OpenAPI schema for the web client
+# Export the OpenAPI schema every client generates its types from
 [group('contract')]
 contract:
     #!/usr/bin/env bash
     set -euo pipefail
-    out=../web/src/api/openapi.json
+    out=openapi.json
     mkdir -p "$(dirname "$out")"
     # Written aside and moved into place, so a failed export leaves the committed
     # contract intact instead of truncating it.
