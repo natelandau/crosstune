@@ -1,9 +1,10 @@
 // Settings shared by every configuration of the app target.
 #include "Version.xcconfig"
 
-// Placeholder until the product domain is chosen. The ID is permanent after the first
+// Registered in the developer portal with Sign in with Apple. Permanent after the first
 // App Store upload.
-PRODUCT_BUNDLE_IDENTIFIER = com.example.crosstune
+PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.Crosstune
+DEVELOPMENT_TEAM = N76T49G924
 PRODUCT_NAME = Crosstune
 
 SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx
