@@ -65,8 +65,13 @@ async def verify_clerk_token(
         msg = "Invalid token"
         raise UnauthorizedError(msg) from exc
 
-    if (authorized_parties or authorized_party_regex) and not party_allowed(
-        claims.get("azp"), authorized_parties, authorized_party_regex
+    # Clerk sets azp from the browser's Origin, so a native SDK's tokens carry none. Clerk
+    # checks the claim only when present, and so does this: an azp must be an allowed party.
+    azp = claims.get("azp")
+    if (
+        azp is not None
+        and (authorized_parties or authorized_party_regex)
+        and not party_allowed(azp, authorized_parties, authorized_party_regex)
     ):
         msg = "Token not issued for this application"
         raise UnauthorizedError(msg)

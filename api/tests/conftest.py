@@ -326,6 +326,8 @@ def make_token(rsa_keypair, settings: Settings):
             "sid": "sess_test",
         }
         claims.update(overrides)
+        # An override of None leaves the claim out, as Clerk omits one it does not set.
+        claims = {name: value for name, value in claims.items() if value is not None}
         return jwt.encode(claims, private, algorithm="RS256", headers={"kid": kid})
 
     return _make

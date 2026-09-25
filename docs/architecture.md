@@ -44,8 +44,9 @@ Cloudflare also hosts the DNS zone for the product domain.
   size limit: 32 MiB for `/v1` routes, 64 KiB for the webhook. Anything
   else is a 401 or a 413 before the body is buffered.
 - The API has no CORS. Browsers reach it same-origin, through the Vite proxy
-  locally and the Worker when hosted. The token's `azp` claim must match an
-  allowed client origin.
+  locally and the Worker when hosted. The Apple app calls the API origin
+  directly, which CORS does not govern. A token's `azp` claim, when present,
+  must match an allowed client origin.
 - `web/src/platform/` is the only client module that reads the device: mode,
   frame, pointer, reduced motion, haptics, status bar, wake lock. A Capacitor
   plugin replaces one file.
@@ -123,9 +124,14 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   for a session token and sends it as a bearer token.
 - The API verifies without calling Clerk: it caches the issuer's JWKS and
   refetches on an unknown key at most once a minute. A valid token is RS256,
-  names the issuer, carries `exp`, `iat`, `sub`, and `sid`, and has an
-  allowed `azp`. The `sid` claim limits it to session tokens: a JWT template
-  token from the same instance has none.
+  names the issuer, and carries `exp`, `iat`, `sub`, and `sid`. The `sid`
+  claim limits it to session tokens: a JWT template token from the same
+  instance has none.
+- Clerk sets `azp` from the browser's `Origin`. A browser token must carry
+  an allowed `azp`. A native SDK sends no `Origin`, so the Apple app's
+  tokens carry no `azp`, and the API accepts a session token without one.
+  The API reads only the `Authorization` header, never a cookie, so the
+  claim guards nothing a missing value could expose.
 - The first valid token from a Clerk user inserts a user row.
 - Account deletion: Clerk's webhook (Svix-signed) hard-deletes the user row
   and foreign keys cascade. Bucket files are removed after the response, and
