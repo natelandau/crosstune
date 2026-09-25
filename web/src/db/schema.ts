@@ -118,11 +118,23 @@ export async function deleteDatabase(userId: string): Promise<void> {
   await Dexie.delete(databaseName(userId))
 }
 
+type RowsTables = { [K in TableName]: Table<LocalRows[K], string> }
+
 export function rowsTable<T extends TableName>(
   db: CrosstuneDb,
   name: T,
 ): Table<LocalRows[T], string> {
-  return db[name] as Table<LocalRows[T], string>
+  // A mapped type indexed by T resolves to Table<LocalRows[T]>, which db[name] does not.
+  const tables: RowsTables = {
+    tunes: db.tunes,
+    user_tunes: db.user_tunes,
+    lists: db.lists,
+    list_items: db.list_items,
+    recording_links: db.recording_links,
+    recordings: db.recordings,
+    user_settings: db.user_settings,
+  }
+  return tables[name]
 }
 
 export function syncTables(db: CrosstuneDb): Table[] {

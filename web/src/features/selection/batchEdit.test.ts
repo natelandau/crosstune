@@ -128,6 +128,13 @@ describe('toPatch', () => {
     expect(toPatch({ tune_type: 'Reel' }).tune).toEqual({ tune_type: 'Reel' })
   })
 
+  it('skips a value outside its field vocabulary', () => {
+    expect(
+      toPatch({ status: 'mastered', mode: 'lydian', time_signature: '13/8', is_crooked: null }),
+    ).toEqual({ tune: {}, userTune: {} })
+    expect(toPatch({ time_signature: null }).tune).toEqual({ time_signature: null })
+  })
+
   it('never clears status', () => {
     expect(toPatch({ status: null })).toEqual({ tune: {}, userTune: {} })
   })

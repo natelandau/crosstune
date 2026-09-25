@@ -17,14 +17,10 @@ export interface BulkPatch {
   tunings?: Partial<Record<Instrument, string | null>>
 }
 
-type Fields = Record<string, unknown>
-
 /** The previous values of the fields a bulk write changed on one row. */
-export interface Snapshot {
-  table: 'tunes' | 'user_tunes'
-  id: string
-  before: Fields
-}
+export type Snapshot =
+  | { table: 'tunes'; id: string; before: Partial<LocalTune> }
+  | { table: 'user_tunes'; id: string; before: Partial<LocalUserTune> }
 
 function unique(ids: readonly string[]): string[] {
   return [...new Set(ids)]
@@ -37,19 +33,25 @@ function same(a: unknown, b: unknown): boolean {
   return a === b
 }
 
-/** The patch entries that would change the row, skipping undefined, which means keep. */
-function changes(row: object, patch: Fields): Fields {
-  const current = row as Fields
-  return Object.fromEntries(
-    Object.entries(patch).filter(
-      ([key, value]) => value !== undefined && !same(current[key], value),
-    ),
-  )
+function isOwnKey<T extends object>(value: T, key: string): key is Extract<keyof T, string> {
+  return Object.hasOwn(value, key)
 }
 
-function previous(row: object, changed: Fields): Fields {
-  const current = row as Fields
-  return Object.fromEntries(Object.keys(changed).map((key) => [key, current[key]]))
+/** The patch entries that would change the row, skipping undefined, which means keep. */
+function changes<T extends object>(row: T, patch: Partial<T>): Partial<T> {
+  const changed: Partial<T> = {}
+  for (const key of Object.keys(patch)) {
+    if (!isOwnKey(patch, key)) continue
+    const value = patch[key]
+    if (value !== undefined && !same(row[key], value)) changed[key] = value
+  }
+  return changed
+}
+
+function previous<T extends object>(row: T, changed: Partial<T>): Partial<T> {
+  const before: Partial<T> = {}
+  for (const key of Object.keys(changed)) if (isOwnKey(changed, key)) before[key] = row[key]
+  return before
 }
 
 /**
@@ -63,19 +65,15 @@ export async function restoreFields(
   if (snapshots.length === 0) return
   await writeTx(db, async () => {
     const at = now()
-    for (const { table, id, before } of snapshots) {
-      if (table === 'tunes') {
-        const row = await db.tunes.get(id)
+    for (const snapshot of snapshots) {
+      if (snapshot.table === 'tunes') {
+        const row = await db.tunes.get(snapshot.id)
         if (!row || row.deleted_at) continue
-        await putRow(db, 'tunes', { ...row, ...(before as Partial<LocalTune>), updated_at: at })
+        await putRow(db, 'tunes', { ...row, ...snapshot.before, updated_at: at })
       } else {
-        const row = await db.user_tunes.get(id)
+        const row = await db.user_tunes.get(snapshot.id)
         if (!row || row.deleted_at) continue
-        await putRow(db, 'user_tunes', {
-          ...row,
-          ...(before as Partial<LocalUserTune>),
-          updated_at: at,
-        })
+        await putRow(db, 'user_tunes', { ...row, ...snapshot.before, updated_at: at })
       }
     }
   })
@@ -86,8 +84,8 @@ export async function updateTunes(
   userTuneIds: readonly string[],
   patch: BulkPatch,
 ): Promise<Undo> {
-  const tunePatch = (patch.tune ?? {}) as Fields
-  const userTunePatch = (patch.userTune ?? {}) as Fields
+  const tunePatch: Partial<LocalTune> = patch.tune ?? {}
+  const userTunePatch: Partial<LocalUserTune> = patch.userTune ?? {}
   const snapshots: Snapshot[] = []
   await writeTx(db, async () => {
     const at = now()
@@ -117,7 +115,7 @@ export async function updateTunes(
         snapshots.push({ table: 'tunes', id: tune.id, before: previous(tune, tuneChanges) })
         await putRow(db, 'tunes', {
           ...tune,
-          ...(tuneChanges as Partial<LocalTune>),
+          ...tuneChanges,
           updated_at: at,
         })
       }
@@ -131,7 +129,7 @@ export async function updateTunes(
         })
         await putRow(db, 'user_tunes', {
           ...userTune,
-          ...(userTuneChanges as Partial<LocalUserTune>),
+          ...userTuneChanges,
           updated_at: at,
         })
       }

@@ -99,14 +99,19 @@ function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | n
 }
 
 export function summarize(entries: readonly CatalogEntry[]): Record<EditField, Summary> {
-  const summaries = {} as Record<EditField, Summary>
+  const summaries: Partial<Record<EditField, Summary>> = {}
   for (const field of EDIT_FIELDS) {
     const values = entries.map((entry) => fieldValue(entry, field))
     const first = values[0] ?? null
     if (!values.every((value) => value === first)) summaries[field] = { kind: 'mixed' }
     else summaries[field] = first === null ? { kind: 'empty' } : { kind: 'shared', value: first }
   }
+  if (!hasEveryField(summaries)) throw new Error('An edit field is missing its summary')
   return summaries
+}
+
+function hasEveryField<T>(record: Partial<Record<EditField, T>>): record is Record<EditField, T> {
+  return EDIT_FIELDS.every((field) => record[field] !== undefined)
 }
 
 /** Every field, except a tuning for an instrument the user does not play that no selected tune fills. */
@@ -139,26 +144,49 @@ export function isUnchanged(summary: Summary, value: TouchedValue): boolean {
 }
 
 export function toPatch(touched: Touched): BulkPatch {
-  const tune: Record<string, unknown> = {}
-  const userTune: Record<string, unknown> = {}
+  const tune: NonNullable<BulkPatch['tune']> = {}
+  const userTune: NonNullable<BulkPatch['userTune']> = {}
   const tunings: Partial<Record<Instrument, string | null>> = {}
   for (const field of EDIT_FIELDS) {
     const raw = touched[field]
     if (raw === undefined) continue
     const value = normalize(raw)
-    if (field === 'status' && value === null) continue
-    if (field === 'mode') {
-      tune.modes = typeof value === 'string' ? [value] : []
+    const text = typeof value === 'string' ? value : null
+    if (isTuningKey(field)) {
+      const instrument = tuningKeyInstrument(field)
+      if (instrument) tunings[instrument] = text
       continue
     }
-    const instrument = tuningInstrument(field)
-    if (instrument) tunings[instrument] = typeof value === 'string' ? value : null
-    else (isUserTuneField(field) ? userTune : tune)[field] = value
+    // A value outside a field's vocabulary is skipped, so it never reaches the outbox.
+    switch (field) {
+      case 'status':
+        if (text !== null && isTuneStatus(text)) userTune.status = text
+        break
+      case 'learned_from':
+      case 'learned_on':
+        userTune[field] = text
+        break
+      case 'mode':
+        if (text === null) tune.modes = []
+        else if (isMode(text)) tune.modes = [text]
+        break
+      case 'time_signature': {
+        const signature = TIME_SIGNATURES.find((known) => known === text)
+        if (text === null || signature) tune.time_signature = signature ?? null
+        break
+      }
+      case 'is_crooked':
+        if (typeof value === 'boolean') tune.is_crooked = value
+        break
+      case 'key':
+      case 'genre':
+      case 'tune_type':
+      case 'part_structure':
+        tune[field] = text
+        break
+    }
   }
-  const patch: BulkPatch = {
-    tune: tune as BulkPatch['tune'],
-    userTune: userTune as BulkPatch['userTune'],
-  }
+  const patch: BulkPatch = { tune, userTune }
   if (Object.keys(tunings).length > 0) patch.tunings = tunings
   return patch
 }
