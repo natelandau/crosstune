@@ -2,8 +2,7 @@ import { X } from 'lucide-react'
 import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { Rail } from '../../ui/Rail'
-import { INSTRUMENT_LABELS } from '../../constants'
-import { tuningKeyInstrument } from '../settings/instruments'
+import { tuningKeyInstrument, withInstrumentLabel } from '../settings/instruments'
 import { StatusChooser } from '../tune/StatusChooser'
 import {
   FACET_LABELS,
@@ -19,7 +18,7 @@ export const ALL_TYPES_LABEL = 'All types'
 // A tuning pill names its instrument, since two instruments can share a tuning's name.
 function pillLabel(facet: Facet, value: string): string {
   const instrument = tuningKeyInstrument(facet)
-  return instrument ? `${INSTRUMENT_LABELS[instrument]}: ${value}` : value
+  return instrument ? withInstrumentLabel(instrument, value) : value
 }
 
 // A set value the catalog no longer holds keeps its chip, so the rail never reads as All.

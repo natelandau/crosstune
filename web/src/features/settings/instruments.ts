@@ -124,6 +124,11 @@ export function tuningInstruments(
   })
 }
 
+/** A tuning's text prefixed with its instrument's label, as `Mandolin: GDAE`. */
+export function withInstrumentLabel(instrument: Instrument, text: string): string {
+  return `${INSTRUMENT_LABELS[instrument]}: ${text}`
+}
+
 /**
  * One tuning's text: the tuning, its capo, or both. `options.withInstrument` prefixes the
  * instrument's label from `INSTRUMENT_LABELS`.
@@ -136,7 +141,7 @@ export function tuningDisplay(
   const { tuning, capo } = tuningEntry(tunings, instrument)
   const text = capo === null ? tuning : tuning === null ? `Capo ${capo}` : `${tuning}, capo ${capo}`
   if (text === null) return null
-  return options?.withInstrument ? `${INSTRUMENT_LABELS[instrument]}: ${text}` : text
+  return options?.withInstrument ? withInstrumentLabel(instrument, text) : text
 }
 
 /**

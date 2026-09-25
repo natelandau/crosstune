@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { INSTRUMENT_LABELS } from '../../constants'
+import { withInstrumentLabel } from '../settings/instruments'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
@@ -227,12 +227,12 @@ describe('CatalogFilters', () => {
       { db: openTestDb() },
     )
     const mandolin = page.getByRole('button', {
-      name: `Remove filter ${INSTRUMENT_LABELS.mandolin}: ${standard}`,
+      name: `Remove filter ${withInstrumentLabel('mandolin', standard)}`,
     })
     await expect
       .element(
         page.getByRole('button', {
-          name: `Remove filter ${INSTRUMENT_LABELS.violin}: ${standard}`,
+          name: `Remove filter ${withInstrumentLabel('violin', standard)}`,
         }),
       )
       .toBeVisible()
