@@ -17,7 +17,7 @@ back, smoke check, and rebuild. The settings each host holds are in
 | [Xcode](https://developer.apple.com/xcode/)   | 27             | Builds and tests the Apple app. Root `lint`, `format`, and `test` need it.      |
 
 You also need a free [Clerk](https://clerk.com) development instance with
-email magic link sign-in enabled. From its dashboard, copy the Frontend API
+email verification code sign-in enabled. From its dashboard, copy the Frontend API
 URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
 (`pk_test_...`).
 
