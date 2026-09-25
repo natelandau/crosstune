@@ -2,7 +2,7 @@ import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem, LocalTune, LocalUserTune } from '../db/types'
 import { activeItems, createList, deleteList, writeOrder } from './lists'
-import { setTuning, tuningsMap } from '../features/settings/instruments'
+import { setTuning, tuningEntry, tuningsMap } from '../features/settings/instruments'
 import { LIST_NOT_FOUND, TUNE_NOT_FOUND, TUNE_NOT_IN_LIST } from './messages'
 import { tombstoneTune, type TuneInput, type UserTuneInput } from './tunes'
 import { newId, nextPosition, now, putRow, recordingTx, tombstone, writeTx } from './write'
@@ -98,15 +98,17 @@ export async function updateTunes(
       if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
 
       let rowPatch = tunePatch
-      if (patch.tunings) {
-        let tunings = tuningsMap(tune.tunings)
-        for (const instrument of INSTRUMENTS) {
-          const tuning = patch.tunings[instrument]
-          if (tuning !== undefined) tunings = setTuning(tunings, instrument, { tuning })
-        }
-        // setTuning returns a new object every time, so compare by value to skip a tune the
-        // patch leaves as it was.
-        if (JSON.stringify(tunings) !== JSON.stringify(tune.tunings)) {
+      const { tunings: tuningsPatch } = patch
+      if (tuningsPatch) {
+        const touched = INSTRUMENTS.filter((instrument) => {
+          const tuning = tuningsPatch[instrument]
+          return tuning !== undefined && tuningEntry(tune.tunings, instrument).tuning !== tuning
+        })
+        if (touched.length > 0) {
+          let tunings = tuningsMap(tune.tunings)
+          for (const instrument of touched) {
+            tunings = setTuning(tunings, instrument, { tuning: tuningsPatch[instrument] })
+          }
           rowPatch = { ...tunePatch, tunings }
         }
       }

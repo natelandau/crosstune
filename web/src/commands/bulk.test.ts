@@ -119,6 +119,15 @@ describe('updateTunes', () => {
     expect(await pendingFor(db, 'tunes', a.tuneId)).toBeUndefined()
   })
 
+  it('leaves a tune alone when its tunings match in another key order', async () => {
+    const tunings = { violin: { tuning: 'AEAE' }, guitar: { capo: 2, tuning: 'DADGAD' } }
+    const a = await tune('Say Old Man', { title: '', tunings })
+    await db.outbox.clear()
+    await updateTunes(db, [a.userTuneId], { tunings: { guitar: 'DADGAD', violin: 'AEAE' } })
+    expect(await pendingFor(db, 'tunes', a.tuneId)).toBeUndefined()
+    expect((await db.tunes.get(a.tuneId))!.tunings).toEqual(tunings)
+  })
+
   it('leaves a tune whose modes already match untouched', async () => {
     const a = await tune('The Kesh', { title: '', modes: ['dorian'] })
     await db.outbox.clear()
