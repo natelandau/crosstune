@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../../api/vocabulary'
 import { tuneRow, userTuneRow } from '../../test/rows'
-import { isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
+import { DETAIL_LABELS } from '../tune/detailFields'
+import { EDIT_FIELD_LABELS, isUnchanged, summarize, toPatch, visibleEditFields } from './batchEdit'
 
 const a = {
   tune: tuneRow('s1', 'Say Old Man', {
@@ -48,6 +49,19 @@ describe('summarize', () => {
   it('treats an unknown status as no value', () => {
     const unknown = { ...a, userTune: { ...a.userTune, status: 'retired' } }
     expect(summarize([unknown]).status).toEqual({ kind: 'empty' })
+  })
+
+  it('treats a time signature this client does not know as no value', () => {
+    const unknown = { ...a, tune: { ...a.tune, time_signature: '7/8' } }
+    expect(summarize([unknown]).time_signature).toEqual({ kind: 'empty' })
+    const known = { ...a, tune: { ...a.tune, time_signature: '3/2' } }
+    expect(summarize([known]).time_signature).toEqual({ kind: 'shared', value: '3/2' })
+  })
+})
+
+describe('EDIT_FIELD_LABELS', () => {
+  it('labels part structure as the tune form does', () => {
+    expect(EDIT_FIELD_LABELS.part_structure).toBe(DETAIL_LABELS.part_structure)
   })
 })
 

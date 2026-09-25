@@ -22,15 +22,16 @@ describe('GENRE_TYPES', () => {
   })
 })
 
-type Schemas = Record<string, { properties?: Record<string, { anyOf?: { $ref?: string }[] }> }>
-
 describe('instrument tables', () => {
   it('offers a capo exactly where the API accepts one', () => {
-    const schemas = openapi.components.schemas as unknown as Schemas
-    const fields = schemas.Tunings!.properties!
+    const fields = openapi.components.schemas.Tunings.properties
     for (const instrument of INSTRUMENTS) {
-      const ref = fields[instrument]!.anyOf!.find((option) => option.$ref)!.$ref!
-      expect(CAPO_INSTRUMENTS[instrument], instrument).toBe(ref.endsWith('/FrettedTuning'))
+      const refs = fields[instrument].anyOf.flatMap((option) =>
+        '$ref' in option && typeof option.$ref === 'string' ? [option.$ref] : [],
+      )
+      expect(refs, instrument).toHaveLength(1)
+      const fretted = refs[0] === '#/components/schemas/FrettedTuning'
+      expect(CAPO_INSTRUMENTS[instrument], instrument).toBe(fretted)
     }
   })
 

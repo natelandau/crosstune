@@ -1,7 +1,8 @@
 import { MODES, type Mode } from '../../api/vocabulary'
 import { MODE_ABBREVIATIONS } from '../../constants'
 
-const isMode = (value: string | undefined): value is Mode => MODES.some((mode) => mode === value)
+export const isMode = (value: string | undefined): value is Mode =>
+  MODES.some((mode) => mode === value)
 
 /** A key and mode as a row shows them, and as a screen reader should hear them. */
 export function keyModeLabel(

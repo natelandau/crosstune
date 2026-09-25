@@ -18,8 +18,11 @@ export interface TuningEntry {
   capo?: number
 }
 
-/** A tune's tunings. A key can name an instrument this client does not know yet. */
-export type TuningsMap = Record<string, TuningEntry>
+/**
+ * A tune's tunings. A key can name an instrument this client does not know yet, and a value
+ * can take a shape it does not know, so entries are read through `tuningEntry`.
+ */
+export type TuningsMap = Record<string, unknown>
 
 /** A filter or bulk edit field that reads one instrument's tuning out of the map. */
 export type TuningKey = `tuning:${Instrument}`
@@ -61,7 +64,7 @@ export const capoLabel = (instrument: Instrument) => `${INSTRUMENT_LABELS[instru
 /** The capo picker's empty choice. */
 export const NO_CAPO = 'None'
 
-/** Whether a display helper should prefix its text with the instrument's short label. */
+/** Whether a display helper should prefix its text with the instrument's label. */
 interface DisplayOptions {
   withInstrument?: boolean
 }
@@ -69,18 +72,20 @@ interface DisplayOptions {
 // A pulled row can come from a server newer than this client, so the map is read defensively
 // and written back with every key it arrived with.
 export function tuningsMap(tunings: unknown): TuningsMap {
-  return typeof tunings === 'object' && tunings !== null && !Array.isArray(tunings)
-    ? { ...(tunings as TuningsMap) }
-    : {}
+  return isRecord(tunings) ? { ...tunings } : {}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export function tuningEntry(
   tunings: unknown,
   instrument: Instrument,
 ): { tuning: string | null; capo: number | null } {
-  const entry: unknown = tuningsMap(tunings)[instrument]
-  if (typeof entry !== 'object' || entry === null) return { tuning: null, capo: null }
-  const { tuning, capo } = entry as Record<string, unknown>
+  const entry = tuningsMap(tunings)[instrument]
+  if (!isRecord(entry)) return { tuning: null, capo: null }
+  const { tuning, capo } = entry
   return {
     tuning: typeof tuning === 'string' ? tuning : null,
     capo: typeof capo === 'number' ? capo : null,
@@ -119,8 +124,10 @@ export function tuningInstruments(
   })
 }
 
-/** The tune screen's text for one tuning. `options.withInstrument` prefixes the instrument's
- * short label, as the tune screen always does. */
+/**
+ * One tuning's text: the tuning, its capo, or both. `options.withInstrument` prefixes the
+ * instrument's label from `INSTRUMENT_LABELS`.
+ */
 export function tuningDisplay(
   instrument: Instrument,
   tunings: unknown,
@@ -132,9 +139,10 @@ export function tuningDisplay(
   return options?.withInstrument ? `${INSTRUMENT_LABELS[instrument]}: ${text}` : text
 }
 
-/** A row's text for one tuning; a standard tuning with no capo goes unsaid. `options.withInstrument`
- * prefixes the instrument's short label, as a row does only when the player plays more than one
- * instrument. */
+/**
+ * One tuning's text as `tuningDisplay` gives it, or null for the instrument's standard tuning
+ * with no capo. `options.withInstrument` prefixes the instrument's label from `INSTRUMENT_LABELS`.
+ */
 export function tuningSummary(
   instrument: Instrument,
   tunings: unknown,

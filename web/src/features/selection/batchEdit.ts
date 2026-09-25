@@ -1,4 +1,4 @@
-import { MODES, TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
+import { TIME_SIGNATURES, type Instrument } from '../../api/vocabulary'
 import type { BulkPatch } from '../../commands/bulk'
 import { STATUS_LABELS } from '../../constants'
 import type { CatalogEntry } from '../catalog/filters'
@@ -12,6 +12,7 @@ import {
   tuningLabel,
 } from '../settings/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
+import { isMode } from '../tune/keyMode'
 
 export const EDIT_FIELDS = [
   'status',
@@ -42,7 +43,7 @@ export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   genre: DETAIL_LABELS.genre,
   tune_type: DETAIL_LABELS.tune_type,
   time_signature: DETAIL_LABELS.time_signature,
-  part_structure: 'Part structure',
+  part_structure: DETAIL_LABELS.part_structure,
   is_crooked: DETAIL_LABELS.is_crooked,
   learned_from: DETAIL_LABELS.learned_from,
   learned_on: DETAIL_LABELS.learned_on,
@@ -86,13 +87,13 @@ function fieldValue(entry: CatalogEntry, field: EditField): string | boolean | n
     return instrument ? tuningEntry(entry.tune.tunings, instrument).tuning : null
   }
   if (field === 'mode') {
-    const modes = entry.tune.modes.filter((m) => (MODES as readonly string[]).includes(m))
+    const modes = entry.tune.modes.filter(isMode)
     return modes.length > 0 ? modes.join(', ') : null
   }
   const value: unknown = isUserTuneField(field) ? entry.userTune[field] : entry.tune[field]
   if (typeof value !== 'string' && typeof value !== 'boolean') return null
   if (field === 'time_signature')
-    return (TIME_SIGNATURES as readonly string[]).includes(value as string) ? value : null
+    return TIME_SIGNATURES.some((signature) => signature === value) ? value : null
   if (field === 'status') return typeof value === 'string' && isTuneStatus(value) ? value : null
   return value
 }

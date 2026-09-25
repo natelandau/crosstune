@@ -24,8 +24,10 @@ export const FACET_LABELS: Record<Facet, string> = {
   genre: 'Genre',
 }
 
-/** Every value a tune holds for a facet: one mode per part, one instrument's tuning from the
- * map, or a column's one value. */
+/**
+ * Every value a tune holds for a facet: one mode per part, one instrument's tuning from the
+ * map, or a column's one value.
+ */
 export function facetValuesOf(
   tune: LocalTune,
   facet: Facet,
