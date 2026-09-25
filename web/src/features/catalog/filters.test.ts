@@ -11,6 +11,7 @@ import {
   hiddenResets,
   hideArchived,
   normalizeFilters,
+  sheetFacets,
   tuneCountLabel,
   visibleFacets,
 } from './filters'
@@ -206,6 +207,7 @@ describe('visibleFacets', () => {
 
   it('builds a reset patch for hidden facets only', () => {
     expect(hiddenResets(['key', 'mode', 'tuning:violin', 'genre'])).toEqual({
+      tune_type: 'all',
       'tuning:five_string_banjo': 'all',
       'tuning:tenor_banjo': 'all',
       'tuning:guitar': 'all',
@@ -214,6 +216,33 @@ describe('visibleFacets', () => {
       'tuning:mountain_dulcimer': 'all',
     })
     expect(hiddenResets([...FACETS])).toEqual({})
+  })
+})
+
+describe('type and composer', () => {
+  const entries = catalogEntries(
+    [
+      tune('r1', 'The Silver Spear', { tune_type: 'reel' }),
+      tune('r2', 'Lucy Farr', { composer: 'Ed Reavy', tune_type: 'Barndance' }),
+    ],
+    [userTune('ru1', 'r1'), userTune('ru2', 'r2')],
+  )
+
+  it('matches a type ignoring case', () => {
+    const found = filterCatalog(entries, { ...DEFAULT_FILTERS, tune_type: 'Reel' })
+    expect(found.map((e) => e.tune.id)).toEqual(['r1'])
+  })
+
+  it('finds a tune by its composer', () => {
+    expect(filterCatalog(entries, DEFAULT_FILTERS, 'reavy').map((e) => e.tune.id)).toEqual(['r2'])
+  })
+
+  it('reads a stored filter from before Type as every type', () => {
+    expect(normalizeFilters({ key: 'D' }).tune_type).toBe('all')
+  })
+
+  it('keeps Type on the bar, not in the sheet', () => {
+    expect(sheetFacets(['key', 'tune_type', 'genre'])).toEqual(['genre'])
   })
 })
 

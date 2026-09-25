@@ -4,7 +4,7 @@ import { page } from 'vitest/browser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
-import { ALL_KEYS_LABEL, CatalogFilters } from './CatalogFilters'
+import { ALL_KEYS_LABEL, ALL_TYPES_LABEL, CatalogFilters } from './CatalogFilters'
 import {
   DEFAULT_FILTERS,
   FACET_LABELS,
@@ -20,19 +20,22 @@ const facets: FacetValues = {
   mode: ['major'],
   'tuning:violin': ['Standard (GDAE)'],
   genre: ['Old-time'],
+  tune_type: ['Jig', 'Reel'],
 }
-const visible: Facet[] = ['key', 'mode', 'tuning:violin', 'genre']
+const visible: Facet[] = ['key', 'tune_type', 'mode', 'tuning:violin', 'genre']
 const counts = { visible: 3, total: 5, archived: 2, all: 7 }
 
 function Host({
   start = DEFAULT_FILTERS,
   sheet = false,
   keys,
+  visible: visibleProp = visible,
 }: {
   start?: Filters
   sheet?: boolean
   /** Overrides the key facet, for a rail that holds two spellings of one pitch. */
   keys?: string[]
+  visible?: Facet[]
 }) {
   const [filters, setFilters] = useState(start)
   const [open, setOpen] = useState(sheet)
@@ -41,12 +44,17 @@ function Host({
   return (
     <>
       <output data-testid="state">{JSON.stringify(filters)}</output>
-      <CatalogFilters filters={filters} facets={railFacets} visible={visible} onChange={onChange} />
+      <CatalogFilters
+        filters={filters}
+        facets={railFacets}
+        visible={visibleProp}
+        onChange={onChange}
+      />
       <CatalogFilterSheet
         open={open}
         filters={filters}
         facets={facets}
-        visible={visible}
+        visible={visibleProp}
         counts={counts}
         onChange={onChange}
         onClose={() => setOpen(false)}
@@ -206,6 +214,19 @@ describe('CatalogFilters', () => {
     await expect.poll(() => state().mode).toBe('all')
     await page.getByRole('button', { name: 'Remove filter Archived shown' }).click()
     await expect.poll(() => state().archived).toBe(false)
+  })
+
+  it('shows a Type rail only when Type is a visible facet', async () => {
+    renderIonic(<Host />, { db: openTestDb() })
+    await page.getByRole('button', { name: 'Reel', exact: true }).click()
+    await expect.poll(() => state().tune_type).toBe('Reel')
+  })
+
+  it('has no Type rail while no tune has a type', async () => {
+    renderIonic(<Host visible={['key', 'mode']} />, { db: openTestDb() })
+    await expect
+      .element(page.getByRole('button', { name: ALL_TYPES_LABEL }))
+      .not.toBeInTheDocument()
   })
 })
 

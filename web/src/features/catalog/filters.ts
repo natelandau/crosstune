@@ -1,6 +1,7 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { countTunes } from '../selection/copy'
+import { DETAIL_LABELS } from '../tune/detailFields'
 import {
   byTuningKey,
   isTuningKey,
@@ -12,11 +13,12 @@ import {
 } from '../settings/instruments'
 
 /** One tuning facet per instrument, so each instrument's tunings filter on their own. */
-export const FACETS = ['key', 'mode', ...TUNING_KEYS, 'genre'] as const
+export const FACETS = ['key', 'tune_type', 'mode', ...TUNING_KEYS, 'genre'] as const
 export type Facet = (typeof FACETS)[number]
 
 export const FACET_LABELS: Record<Facet, string> = {
   key: 'Key',
+  tune_type: DETAIL_LABELS.tune_type,
   mode: 'Mode',
   ...byTuningKey(tuningLabel),
   genre: 'Genre',
@@ -42,6 +44,7 @@ export type CatalogFilters = Record<Facet, string> & {
 export const DEFAULT_FILTERS: CatalogFilters = {
   status: 'all',
   key: 'all',
+  tune_type: 'all',
   mode: 'all',
   ...byTuningKey(() => 'all'),
   genre: 'all',
@@ -71,6 +74,7 @@ export function normalizeFilters(value: unknown): CatalogFilters {
   return {
     status: isStatus(stored.status) || stored.status === 'all' ? stored.status : 'all',
     key: text('key'),
+    tune_type: text('tune_type'),
     mode: text('mode'),
     ...byTuningKey((instrument) => text(tuningKey(instrument))),
     genre: text('genre'),
@@ -121,7 +125,9 @@ export function filterCatalog(
         return false
     }
     if (!needle) return true
-    const haystack = [tune.title, ...tune.alternate_titles].map((t) => t.toLocaleLowerCase())
+    const haystack = [tune.title, ...tune.alternate_titles, tune.composer ?? '']
+      .filter(Boolean)
+      .map((t) => t.toLocaleLowerCase())
     // An exact match ignoring accents must stay visible, or the search would call it hidden.
     return haystack.some((t) => t.includes(needle)) || titleMatches(tune, query)
   })
@@ -177,7 +183,7 @@ export function hiddenResets(visible: readonly Facet[]): Partial<CatalogFilters>
 }
 
 /** Facets with their own control on the filter bar; every other visible facet lives in the sheet. */
-export const BAR_FACETS: readonly Facet[] = ['key']
+export const BAR_FACETS: readonly Facet[] = ['key', 'tune_type']
 
 export function sheetFacets(visible: readonly Facet[]): Facet[] {
   return visible.filter((facet) => !BAR_FACETS.includes(facet))

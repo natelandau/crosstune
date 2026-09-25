@@ -4,6 +4,7 @@ import { KeyPill } from '../../ui/KeyPill'
 import { Rail } from '../../ui/Rail'
 import { StatusChooser } from '../tune/StatusChooser'
 import {
+  FACET_LABELS,
   sheetFacets,
   type CatalogFilters as Filters,
   type Facet,
@@ -11,6 +12,7 @@ import {
 } from './filters'
 
 export const ALL_KEYS_LABEL = 'All keys'
+export const ALL_TYPES_LABEL = 'All types'
 
 export function CatalogFilters({
   filters,
@@ -28,6 +30,12 @@ export function CatalogFilters({
     .map((facet) => ({ key: facet, label: filters[facet], patch: { [facet]: 'all' } }))
   if (filters.archived)
     pills.push({ key: 'archived', label: 'Archived shown', patch: { archived: false } })
+
+  // A type the catalog no longer holds keeps its chip while it is the filter, so it never reads as All.
+  const typeChoices =
+    filters.tune_type !== 'all' && !facets.tune_type.includes(filters.tune_type)
+      ? [...facets.tune_type, filters.tune_type]
+      : facets.tune_type
 
   return (
     <div className="space-y-2 pt-1 pb-2">
@@ -50,6 +58,26 @@ export function CatalogFilters({
             >
               <KeyPill value={key} chosen={filters.key === key} />
             </PressTarget>
+          ))}
+        </Rail>
+      ) : null}
+
+      {visible.includes('tune_type') ? (
+        <Rail label={FACET_LABELS.tune_type}>
+          <Capsule
+            pressed={filters.tune_type === 'all'}
+            onPress={() => onChange({ tune_type: 'all' })}
+          >
+            {ALL_TYPES_LABEL}
+          </Capsule>
+          {typeChoices.map((type) => (
+            <Capsule
+              key={type}
+              pressed={filters.tune_type === type}
+              onPress={() => onChange({ tune_type: filters.tune_type === type ? 'all' : type })}
+            >
+              {type}
+            </Capsule>
           ))}
         </Rail>
       ) : null}
