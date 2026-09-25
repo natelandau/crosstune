@@ -3,13 +3,26 @@
 Choices that bind future work, with the alternatives rejected, so nobody
 reopens one without new information. Add a new entry at the end.
 
-## Web app first, native later
+## Native Swift for Apple, React and Ionic for Android and the web
 
-- A responsive web app, installable as a PWA, is the only client.
-- Native apps come later through Capacitor, with a native plugin for
-  background audio. React Native is the fallback if a WebView proves
-  limiting.
-- The API is the boundary. A native client plugs in without backend changes.
+- iOS and macOS get one native SwiftUI app. The web client, installable as
+  a PWA, serves Android and every browser. Android reaches the Play Store
+  as the web client in a Capacitor shell.
+- On iOS the web falls short on the core loop: Safari cannot receive a
+  shared link, playback with the screen locked is unreliable, WebKit can
+  evict local data, and MediaRecorder gives no control of recording
+  quality. On Android the web client covers these, so a native Android
+  app adds little.
+- SwiftUI builds iOS and macOS from one codebase.
+- Capacitor on every platform was rejected: it closes the iOS gaps only
+  through native plugins, and gives no native feel, macOS app, widgets, or
+  Siri.
+- A native Kotlin app was rejected: a third client and a second sync engine
+  rewrite for little gain over the web client.
+- The cost: two UI stacks and two sync engines, TypeScript and Swift, that
+  must behave the same way.
+- The API is the boundary. The Swift client uses the same endpoints and
+  generates its types from the OpenAPI schema.
 
 ## Paste a link, no in-app search
 

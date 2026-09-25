@@ -32,7 +32,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 - The API knows nothing about the web client. Its OpenAPI schema is the
   contract. The client's TypeScript types, and its copies of every value
   and length limit the API validates, are generated from it, and CI fails
-  when a committed copy drifts. A native client uses the same endpoints.
+  when a committed copy drifts. The Apple app uses the same endpoints.
 - Every `/v1` route except the Clerk webhook requires a Clerk bearer token.
   No user ID appears in a URL or a body. The server sets ownership from the
   token and scopes every query to the caller.
