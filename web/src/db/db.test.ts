@@ -210,6 +210,29 @@ describe('schema', () => {
       await older.delete()
     }
   })
+
+  it('does not recreate a database deleted while the newer check is pending', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const pending = new CrosstuneDb(name)
+    const opening = pending.open()
+    await pending.delete()
+    await expect(opening).rejects.toThrow(Dexie.DatabaseClosedError)
+    const names = (await indexedDB.databases()).map((info) => info.name)
+    expect(names).not.toContain(name)
+  })
+
+  it('opens again after a close that came during the newer check', async () => {
+    const reopened = openTestDb()
+    try {
+      const first = reopened.open()
+      reopened.close()
+      await expect(first).rejects.toThrow(Dexie.DatabaseClosedError)
+      await reopened.open()
+      expect(reopened.isOpen()).toBe(true)
+    } finally {
+      await reopened.delete()
+    }
+  })
 })
 
 describe('outbox', () => {

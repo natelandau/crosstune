@@ -61,6 +61,7 @@ export class CrosstuneDb extends Dexie {
   outbox!: EntityTable<OutboxEntry, 'seq'>
   meta!: Table<MetaEntry, string>
   private newerChecked: Promise<void> | undefined
+  private closes = 0
 
   constructor(name: string) {
     super(name)
@@ -89,7 +90,19 @@ export class CrosstuneDb extends Dexie {
   override open() {
     // A failed check must not keep the app from opening its database.
     this.newerChecked ??= deleteIfNewer(this.name, this.verno).catch(() => undefined)
-    return Dexie.Promise.resolve(this.newerChecked).then(() => super.open())
+    const closesAtOpen = this.closes
+    return Dexie.Promise.resolve(this.newerChecked).then(() => {
+      // A close or delete during the check wins, or this open would recreate the database.
+      if (this.closes !== closesAtOpen) throw new Dexie.DatabaseClosedError()
+      return super.open()
+    })
+  }
+
+  // delete() closes through this method, so it also cancels a pending open.
+  override close(options: { disableAutoOpen: boolean } = { disableAutoOpen: true }) {
+    // Dexie closes with disableAutoOpen false to reopen itself; that must not cancel the open.
+    if (options.disableAutoOpen) this.closes += 1
+    super.close(options)
   }
 }
 
