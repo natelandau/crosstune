@@ -236,16 +236,20 @@ describe('schema', () => {
 
   it('rejects queries that auto-opened during the newer check on close', async () => {
     const closing = openTestDb()
+    let timer: ReturnType<typeof setTimeout> | undefined
     try {
       const opening = closing.open()
       const query = closing.tunes.count()
       const transaction = closing.transaction('r', closing.tunes, () => closing.tunes.count())
       closing.close()
       await expect(opening).rejects.toThrow(Dexie.DatabaseClosedError)
-      const hung = new Promise((resolve) => setTimeout(() => resolve('hung'), 1000))
+      const hung = new Promise((resolve) => {
+        timer = setTimeout(() => resolve('hung'), 1000)
+      })
       await expect(Promise.race([query, hung])).rejects.toThrow(Dexie.DatabaseClosedError)
       await expect(Promise.race([transaction, hung])).rejects.toThrow(Dexie.DatabaseClosedError)
     } finally {
+      clearTimeout(timer)
       await closing.delete()
     }
   })
