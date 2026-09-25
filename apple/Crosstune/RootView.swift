@@ -14,8 +14,8 @@ struct RootView: View {
                 ProgressView()
             case .signedOut:
                 SignInView()
-            case .signedIn(let userID, let confirmed):
-                SignedInView(session: session, client: client, userID: userID, confirmed: confirmed)
+            case .signedIn(let userID, _):
+                SignedInView(session: session, client: client, userID: userID)
             }
         }
         .onChange(of: session.clerkUserID, initial: true) {

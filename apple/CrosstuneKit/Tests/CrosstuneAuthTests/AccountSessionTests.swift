@@ -32,6 +32,17 @@ import Testing
     #expect(signedOut == .signedOut)
 }
 
+@Test func isOfflineWithoutANetworkEvenWhenClerkRestoredTheUser() {
+    let restored = AccountSession.Phase.signedIn(userID: "user_a", confirmed: true)
+    #expect(AccountSession.isOffline(phase: restored, hasNetwork: false))
+    #expect(!AccountSession.isOffline(phase: restored, hasNetwork: true))
+}
+
+@Test func isOfflineUntilClerkLoads() {
+    let remembered = AccountSession.Phase.signedIn(userID: "user_a", confirmed: false)
+    #expect(AccountSession.isOffline(phase: remembered, hasNetwork: true))
+}
+
 @Test func remembersAndForgetsTheUser() throws {
     let suite = "crosstune.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))

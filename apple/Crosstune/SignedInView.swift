@@ -7,7 +7,6 @@ struct SignedInView: View {
     let session: AccountSession
     let client: Client
     let userID: String
-    let confirmed: Bool
 
     @State private var email: String?
     @State private var failure: String?
@@ -15,9 +14,9 @@ struct SignedInView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text(email ?? userID)
+            Text(session.email ?? email ?? userID)
                 .font(.headline)
-            if !confirmed {
+            if session.isOffline {
                 Text("Offline. Requests wait until you are back online.")
                     .foregroundStyle(.secondary)
             }
@@ -36,8 +35,9 @@ struct SignedInView: View {
         .sheet(isPresented: $showsAccount) {
             AccountView(session: session)
         }
-        .task(id: confirmed) {
-            guard confirmed else { return }
+        .task(id: session.isOffline) {
+            failure = nil
+            guard !session.isOffline else { return }
             await loadProfile()
         }
     }

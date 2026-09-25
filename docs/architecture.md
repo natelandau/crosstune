@@ -142,6 +142,9 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   connection, or when Clerk fails to load within 5 seconds, the app opens on
   that user's local database. Sync reports offline until Clerk loads, then
   runs at once.
+- The Apple app's Clerk restores its user from its cache with no network,
+  so a loaded Clerk does not mean online. The app is offline when the
+  device has no network path or Clerk has not loaded.
 - Production uses Clerk's production instance. Development, local work, and
   the end-to-end suite share one development instance.
 

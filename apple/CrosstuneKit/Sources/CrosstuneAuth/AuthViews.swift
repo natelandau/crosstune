@@ -45,9 +45,9 @@ public struct AccountView: View {
                     Button(Self.signOut, role: .destructive) {
                         run(failure: $signOutFailure) { try await session.signOut() }
                     }
-                    .disabled(pending || !confirmed)
+                    .disabled(pending || session.isOffline)
                 } footer: {
-                    if let footer = confirmed ? signOutFailure : Self.signOutOffline {
+                    if let footer = session.isOffline ? Self.signOutOffline : signOutFailure {
                         Text(footer)
                     }
                 }
@@ -75,15 +75,10 @@ public struct AccountView: View {
         }
     }
 
-    private var confirmed: Bool {
-        if case .signedIn(_, confirmed: true) = session.phase { return true }
-        return false
-    }
-
     /// Clerk has no user until it loads, so offline the row says so instead of an email.
     private var identity: String {
-        if let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress { return email }
-        if case .signedIn(let userID, confirmed: true) = session.phase { return userID }
+        if let email = session.email { return email }
+        if !session.isOffline, case .signedIn(let userID, _) = session.phase { return userID }
         return Self.signedInOffline
     }
 

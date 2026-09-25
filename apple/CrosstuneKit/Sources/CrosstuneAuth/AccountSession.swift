@@ -1,6 +1,7 @@
 import ClerkKit
 import CrosstuneStore
 import Foundation
+import Network
 import Observation
 
 /// Who the app is open for, their on-device store, and whether the API still accepts their
@@ -23,7 +24,7 @@ public final class AccountSession {
 
     /// Why the app cannot sign out or delete the account right now.
     public enum LeaveError: LocalizedError, Equatable {
-        /// Clerk has not loaded, so it cannot end the session.
+        /// Clerk cannot reach its servers, so it cannot end the session.
         case offline
         /// The outbox holds changes the API has not received.
         case unsyncedChanges
@@ -42,6 +43,10 @@ public final class AccountSession {
     /// True once the API has refused the session even with a fresh token.
     public private(set) var needsSignIn = false
 
+    /// Whether the device has a network path. Clerk restores its user from its cache with no
+    /// network, so a loaded Clerk alone does not mean the app can reach it.
+    public private(set) var hasNetwork = true
+
     /// The signed-in user's catalog. Nil while no one is signed in, or when it failed to open.
     public private(set) var store: CrosstuneStore?
     /// Why the store did not open.
@@ -50,6 +55,7 @@ public final class AccountSession {
     private let remembered: RememberedUser
     private let storeRoot: URL
     private var graceElapsed = false
+    @ObservationIgnored private let pathMonitor = NWPathMonitor()
 
     public init(
         publishableKey: String, remembered: RememberedUser = RememberedUser(),
@@ -62,6 +68,15 @@ public final class AccountSession {
             try? await Task.sleep(for: Self.loadGrace)
             self?.graceElapsed = true
         }
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let hasNetwork = path.status == .satisfied
+            Task { @MainActor in self?.hasNetwork = hasNetwork }
+        }
+        pathMonitor.start(queue: .main)
+    }
+
+    isolated deinit {
+        pathMonitor.cancel()
     }
 
     public var phase: Phase {
@@ -76,6 +91,13 @@ public final class AccountSession {
 
     /// The signed-in Clerk user, for views that watch it change.
     public var clerkUserID: String? { Clerk.shared.user?.id }
+
+    /// The signed-in user's email, from Clerk's cache when offline. Nil until Clerk loads.
+    public var email: String? { Clerk.shared.user?.primaryEmailAddress?.emailAddress }
+
+    /// True when Clerk cannot reach its servers: no network, or Clerk has not loaded. Requests
+    /// wait, and sign-out is disabled.
+    public var isOffline: Bool { Self.isOffline(phase: phase, hasNetwork: hasNetwork) }
 
     /// Records the signed-in user, or forgets them on sign-out. Call when Clerk's user changes.
     public func clerkUserChanged() {
@@ -150,7 +172,7 @@ public final class AccountSession {
     }
 
     private func confirmedUserID() throws -> String {
-        guard case .signedIn(let userID, confirmed: true) = phase else { throw LeaveError.offline }
+        guard !isOffline, case .signedIn(let userID, _) = phase else { throw LeaveError.offline }
         return userID
     }
 
@@ -164,6 +186,11 @@ public final class AccountSession {
         try? store?.close()
         store = nil
         storeFailure = nil
+    }
+
+    nonisolated static func isOffline(phase: Phase, hasNetwork: Bool) -> Bool {
+        guard hasNetwork, case .signedIn(_, confirmed: true) = phase else { return true }
+        return false
     }
 
     nonisolated static func phase(
