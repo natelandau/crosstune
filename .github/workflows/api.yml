@@ -3,8 +3,6 @@ name: API
 
 on:
   pull_request:
-    paths:
-      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml"]
   push:
     branches: [main]
     paths:
@@ -26,8 +24,34 @@ env:
 # A bump commit on `main` skips these jobs, because the Release workflow runs
 # them on the tag it makes. The called jobs see the tag ref, so they run there.
 jobs:
+  # The checks are required, so they run on every pull request and skip when it touches
+  # nothing they cover; a skipped job passes a required check, a missing one blocks it.
+  changes:
+    name: API changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -z "$BASE" ] || git diff --name-only "$BASE...$HEAD" | grep -qE '^(api/|scripts/|\.github/workflows/api\.yml$|\.pre-commit-config\.yaml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
   lint:
-    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
+    needs: changes
+    if: >-
+      needs.changes.outputs.relevant == 'true' &&
+      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
     name: API lint
     runs-on: ubuntu-latest
     defaults:
@@ -51,7 +75,10 @@ jobs:
           PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc
 
   test:
-    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
+    needs: changes
+    if: >-
+      needs.changes.outputs.relevant == 'true' &&
+      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
     name: API test
     runs-on: ubuntu-latest
     defaults:
@@ -74,7 +101,10 @@ jobs:
       - run: just test
 
   contract:
-    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
+    needs: changes
+    if: >-
+      needs.changes.outputs.relevant == 'true' &&
+      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
     name: API contract
     runs-on: ubuntu-latest
     defaults:

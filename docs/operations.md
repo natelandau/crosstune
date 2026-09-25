@@ -143,6 +143,9 @@ and fails instead in CI, where the `API` workflow always starts it.
 - CI runs on every pull request and push to `main`. `API` lints, type
   checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
   lints, type checks, tests, builds, and checks the generated types.
+  Both are required checks, so they start on every PR and skip their jobs
+  when it touches nothing they cover. A skipped job passes a required
+  check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift package tests, builds for
   the iOS Simulator and macOS, and checks the generated Swift client. It
   runs only when `apple/` or the contract changes, and no host deploys
