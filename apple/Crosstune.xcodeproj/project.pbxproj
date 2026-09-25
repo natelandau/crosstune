@@ -8,13 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		CA0000000000000000000011 /* CrosstuneAPI in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000010 /* CrosstuneAPI */; };
+		CA0000000000000000000014 /* CrosstuneAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CA0000000000000000000013 /* CrosstuneAuth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		CA0000000000000000000001 /* Crosstune.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Crosstune.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA0000000000000000000002 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		CA0000000000000000000003 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
-		CA0000000000000000000004 /* Crosstune.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Crosstune.entitlements; sourceTree = "<group>"; };
+		CA0000000000000000000004 /* Crosstune-macOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Crosstune-macOS.entitlements"; sourceTree = "<group>"; };
+		CA0000000000000000000006 /* Crosstune-iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Crosstune-iOS.entitlements"; sourceTree = "<group>"; };
+		CA0000000000000000000007 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		CA0000000000000000000008 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		CA0000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CA0000000000000000000005 /* CrosstuneKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = CrosstuneKit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -28,6 +33,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CA0000000000000000000011 /* CrosstuneAPI in Frameworks */,
+				CA0000000000000000000014 /* CrosstuneAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -49,7 +55,11 @@
 			children = (
 				CA0000000000000000000002 /* Base.xcconfig */,
 				CA0000000000000000000003 /* Version.xcconfig */,
-				CA0000000000000000000004 /* Crosstune.entitlements */,
+				CA0000000000000000000007 /* Debug.xcconfig */,
+				CA0000000000000000000008 /* Release.xcconfig */,
+				CA0000000000000000000009 /* Info.plist */,
+				CA0000000000000000000006 /* Crosstune-iOS.entitlements */,
+				CA0000000000000000000004 /* Crosstune-macOS.entitlements */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -83,6 +93,7 @@
 			name = Crosstune;
 			packageProductDependencies = (
 				CA0000000000000000000010 /* CrosstuneAPI */,
+				CA0000000000000000000013 /* CrosstuneAuth */,
 			);
 			productName = Crosstune;
 			productReference = CA0000000000000000000001 /* Crosstune.app */;
@@ -173,14 +184,14 @@
 		};
 		CA0000000000000000000082 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CA0000000000000000000002 /* Base.xcconfig */;
+			baseConfigurationReference = CA0000000000000000000007 /* Debug.xcconfig */;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		CA0000000000000000000083 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CA0000000000000000000002 /* Base.xcconfig */;
+			baseConfigurationReference = CA0000000000000000000008 /* Release.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
@@ -219,6 +230,10 @@
 		CA0000000000000000000010 /* CrosstuneAPI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CrosstuneAPI;
+		};
+		CA0000000000000000000013 /* CrosstuneAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CrosstuneAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

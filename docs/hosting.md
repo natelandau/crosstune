@@ -87,6 +87,17 @@ together is in `architecture.md`. Deploys and the rebuild order are in
   secret is `CROSSTUNE_CLERK_WEBHOOK_SECRET` in the matching Railway
   environment.
 
+- Both instances offer an emailed verification code, Google, and Apple, and
+  refuse passwords and email links. Users can delete their own accounts.
+- Both instances enable the Native API and list the Apple app on **Native
+  applications**: App ID Prefix `N76T49G924`, Bundle ID
+  `app.crosstune.Crosstune`. Production checks sign-in callbacks against
+  it.
+- The Apple app reads each instance's publishable key from
+  `apple/Config/Debug.xcconfig` (development) and `Release.xcconfig`
+  (production). Its tokens carry no `azp`, so
+  `CROSSTUNE_CLERK_AUTHORIZED_PARTIES` lists browser origins only.
+
 > **Note:** If certificate issuance hangs, look for CAA records on the
 > domain that exclude Let's Encrypt or Google Trust Services.
 
