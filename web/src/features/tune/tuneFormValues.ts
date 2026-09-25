@@ -62,10 +62,10 @@ export function emptyValues(): TuneFormValues {
 // A server row can carry a facet value from a schema version this client predates;
 // fall back rather than trust it as one of this client's known options.
 export const asMode = (value: string | null | undefined): Mode | '' =>
-  (MODES as readonly string[]).includes(value ?? '') ? (value as Mode) : ''
+  MODES.find((mode) => mode === value) ?? ''
 
 export const asTimeSignature = (value: string | null | undefined): TimeSignature | '' =>
-  (TIME_SIGNATURES as readonly string[]).includes(value ?? '') ? (value as TimeSignature) : ''
+  TIME_SIGNATURES.find((signature) => signature === value) ?? ''
 
 export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFormValues {
   return {
@@ -95,17 +95,20 @@ export function valuesFromRows(tune: LocalTune, userTune: LocalUserTune): TuneFo
 
 const blankToNull = (value: string): string | null => (value.trim() ? value.trim() : null)
 
-/** The stored map with each instrument the form holds written over it, so a key this client
- * does not know survives the save. */
+/**
+ * The stored map with each instrument the form changed written over it. A key this client does
+ * not know, and every field of an entry the form left as stored, survives the save.
+ */
 function tuningsFromValues(values: TuneFormValues, stored: unknown): TuningsMap {
   let tunings = tuningsMap(stored)
   for (const instrument of INSTRUMENTS) {
     const entry = values.tunings[instrument]
     if (!entry) continue
-    tunings = setTuning(tunings, instrument, {
-      tuning: blankToNull(entry.tuning),
-      capo: entry.capo === '' ? null : Number(entry.capo),
-    })
+    const tuning = blankToNull(entry.tuning)
+    const capo = entry.capo === '' ? null : Number(entry.capo)
+    const current = tuningEntry(stored, instrument)
+    if (tuning === current.tuning && capo === current.capo) continue
+    tunings = setTuning(tunings, instrument, { tuning, capo })
   }
   return tunings
 }

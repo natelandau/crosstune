@@ -167,6 +167,22 @@ describe('tuneFormValues', () => {
     })
   })
 
+  it('keeps an untouched tuning entry exactly as stored', () => {
+    const tunings = {
+      guitar: { tuning: 'DADGAD', capo: 2, strings: 6 },
+      violin: { capo: 1, tuning: 'AEAE' },
+    }
+    const values = valuesFromRows(tuneRow('s1', 'Sally Ann', { tunings }), userTuneRow('u1', 's1'))
+    expect(inputsFromValues(values, tunings).tune.tunings).toEqual(tunings)
+  })
+
+  it('keeps the capo when a stored tuning is cleared', () => {
+    const tunings = { guitar: { tuning: 'DADGAD', capo: 2 } }
+    const values = valuesFromRows(tuneRow('s1', 'Sally Ann', { tunings }), userTuneRow('u1', 's1'))
+    values.tunings.guitar = { tuning: '', capo: '2' }
+    expect(inputsFromValues(values, tunings).tune.tunings).toEqual({ guitar: { capo: 2 } })
+  })
+
   it('writes only the instruments the form touched for a new tune', () => {
     const values = emptyValues()
     values.tunings.guitar = { tuning: '', capo: '2' }
