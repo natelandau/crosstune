@@ -194,9 +194,7 @@ Rollback:
 - A client outage loses no edits. The outbox holds them.
 - A web rollback past a release that bumped the local database version
   deletes the local database on every device and pulls again, losing
-  unsent edits and unuploaded recordings. A build up to v0.6.1 lacks
-  this: it opens the newer database, keeps the pull cursor, and shows an
-  empty catalog until the user signs out or clears site data.
+  unsent edits and unuploaded recordings.
 
 ## Smoke check
 
