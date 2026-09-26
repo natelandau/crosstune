@@ -11,6 +11,9 @@
 //   - `additionalProperties: false`, which fails on a field the API adds later.
 //   - `enum` on a string, which fails on a vocabulary value the API adds later. The
 //     client reads each such value through its own list of the ones it knows.
+// Each sync row schema also gets `additionalProperties: true`, so the generated type carries
+// an `additionalProperties` container the store reads into a pulled row's `extra`, matching
+// the web client's own untyped pass-through of unknown row fields.
 
 import Foundation
 
@@ -20,8 +23,28 @@ guard arguments.count == 3 else {
     exit(64)
 }
 
-let input = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
-let document = try JSONSerialization.jsonObject(with: input)
+/// The tables synced with the API; the store keeps any field of these it does not model.
+let syncRowSchemas: Set<String> = [
+    "TuneRow", "UserTuneRow", "ListRow", "ListItemRow",
+    "RecordingLinkRow", "RecordingRow", "UserSettingsRow",
+]
+
+/// Marks each sync row schema open to additional properties, before the generic pass below
+/// normalizes the document.
+func openSyncRowSchemas(_ document: Any) -> Any {
+    guard var document = document as? [String: Any],
+        var components = document["components"] as? [String: Any],
+        var schemas = components["schemas"] as? [String: Any]
+    else { return document }
+    for name in syncRowSchemas {
+        guard var schema = schemas[name] as? [String: Any] else { continue }
+        schema["additionalProperties"] = true
+        schemas[name] = schema
+    }
+    components["schemas"] = schemas
+    document["components"] = components
+    return document
+}
 
 /// The rewritten schema, and whether it is a nullable reference its parent must stop requiring.
 func normalize(_ value: Any) -> (value: Any, dropFromRequired: Bool) {
@@ -89,13 +112,21 @@ func isNull(_ schema: Any) -> Bool {
     return schema.count == 1 && schema["type"] as? String == "null"
 }
 
-let output = try JSONSerialization.data(
-    withJSONObject: normalize(document).value,
-    options: [.prettyPrinted, .sortedKeys]
-)
-let outputURL = URL(fileURLWithPath: arguments[2])
-try FileManager.default.createDirectory(
-    at: outputURL.deletingLastPathComponent(),
-    withIntermediateDirectories: true
-)
-try output.write(to: outputURL)
+do {
+    let input = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+    let document = openSyncRowSchemas(try JSONSerialization.jsonObject(with: input))
+    let output = try JSONSerialization.data(
+        withJSONObject: normalize(document).value,
+        options: [.prettyPrinted, .sortedKeys]
+    )
+    let outputURL = URL(fileURLWithPath: arguments[2])
+    try FileManager.default.createDirectory(
+        at: outputURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try output.write(to: outputURL)
+} catch {
+    // A top-level throw traps with a crash report; a contract problem is the reader's to fix.
+    FileHandle.standardError.write(Data("normalize-contract: \(error.localizedDescription)\n".utf8))
+    exit(1)
+}

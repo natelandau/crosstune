@@ -10,6 +10,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.0.0")
     ],
     targets: [
-        .executableTarget(name: "normalize-contract")
+        .executableTarget(name: "normalize-contract"),
+        .executableTarget(name: "generate-vocabulary"),
     ]
 )

@@ -3,6 +3,10 @@
 
 // An xcconfig reads `//` as a comment, so `$()` splits the scheme's slashes.
 CROSSTUNE_API_ORIGIN = http:/$()/localhost:8000
+
+// A local API signs recording URLs as `/storage/...` for the web dev server, which proxies
+// them to RustFS. The app resolves them there, so recordings need `just dev`'s web server.
+CROSSTUNE_STORAGE_ORIGIN = http:/$()/localhost:5173
 // A publishable key is public by design: every build of the app carries it.
 CLERK_PUBLISHABLE_KEY = pk_test_cHVtcGVkLXBvbGVjYXQtMTg2MC5jbGVyay5hY2NvdW50cy5kZXYk // gitleaks:allow
 

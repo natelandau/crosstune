@@ -22,6 +22,10 @@ public protocol SyncedRecord: Codable, Sendable, Identifiable, FetchableRecord, 
 where ID == String {
     associatedtype CodingKeys: CodingKey, CaseIterable
     static var table: SyncTable { get }
+    /// The value a field takes when the server's row omits it, keyed by wire name. Covers only
+    /// fields the API contract itself declares a default for; every other absent field is
+    /// simply optional and decodes to `nil`.
+    static var wireDefaults: JSONObject { get }
     var id: String { get }
     var updatedAt: Timestamp { get set }
     var deletedAt: Timestamp? { get set }
@@ -30,6 +34,7 @@ where ID == String {
 
 extension SyncedRecord {
     public static var databaseTableName: String { table.rawValue }
+    public static var wireDefaults: JSONObject { [:] }
 
     public static func databaseJSONEncoder(for column: String) -> JSONEncoder {
         let encoder = JSONEncoder()
@@ -37,16 +42,39 @@ extension SyncedRecord {
         encoder.outputFormatting = .sortedKeys
         return encoder
     }
+
+    /// Builds a record from a decoded server row object: drops the ownership the server sets
+    /// from the token, fills a field the row omits with the contract's declared default, and
+    /// keeps every field this build does not model in `extra`.
+    public init(wire row: JSONObject) throws {
+        var fields = row
+        for key in ownershipKeys { fields.removeValue(forKey: key) }
+
+        let known = Set(Self.CodingKeys.allCases.map(\.stringValue))
+        var extra: JSONObject = [:]
+        for (key, value) in fields where !known.contains(key) {
+            extra[key] = value
+        }
+
+        for (key, value) in Self.wireDefaults where fields[key] == nil {
+            fields[key] = value
+        }
+        fields["extra"] = .object(extra)
+
+        self = try JSONDecoder().decode(Self.self, from: JSONEncoder().encode(fields))
+    }
 }
 
-/// Keys a change never carries: bookkeeping the server owns, ownership it takes from the token,
-/// and the fields the recording upload pipeline computes. The web client's `toChangeData`
-/// strips the same list.
-let keysNotInChanges: Set<String> = [
+/// Ownership the server sets from the token: a pulled row never keeps it locally, and an edit
+/// never sends it back.
+let ownershipKeys: Set<String> = ["owner_user_id", "user_id", "added_by_user_id"]
+
+/// Keys a change never carries: bookkeeping the server owns, ownership, and the fields the
+/// recording upload pipeline computes. The web client's `toChangeData` strips the same list.
+let keysNotInChanges: Set<String> = ownershipKeys.union([
     "id", "updated_at", "deleted_at", "server_seq",
-    "owner_user_id", "user_id", "added_by_user_id",
     "state", "duration_ms", "playback_mime", "playback_bytes", "error",
-]
+])
 
 extension SyncedRecord {
     /// The client-editable fields of this row, the only thing a pushed upsert carries: every
@@ -99,6 +127,10 @@ public struct Tune: SyncedRecord, Hashable {
         case partStructure = "part_structure"
         case isCrooked = "is_crooked"
         case lyrics, tunings, extra
+    }
+
+    public static var wireDefaults: JSONObject {
+        ["alternate_titles": .array([]), "is_crooked": .bool(false), "tunings": .object([:])]
     }
 
     public init(
@@ -203,6 +235,8 @@ public struct TuneList: SyncedRecord, Hashable {
         case name, position, extra
     }
 
+    public static var wireDefaults: JSONObject { ["position": .integer(0)] }
+
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, name: String, position: Int = 0,
@@ -242,6 +276,8 @@ public struct ListItem: SyncedRecord, Hashable {
         case userTuneID = "user_tune_id"
         case position, extra
     }
+
+    public static var wireDefaults: JSONObject { ["position": .integer(0)] }
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
@@ -291,6 +327,8 @@ public struct RecordingLink: SyncedRecord, Hashable {
         case artworkURL = "artwork_url"
         case position, extra
     }
+
+    public static var wireDefaults: JSONObject { ["position": .integer(0)] }
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
@@ -352,6 +390,8 @@ public struct Recording: SyncedRecord, Hashable {
         case error, extra
     }
 
+    public static var wireDefaults: JSONObject { ["position": .integer(0)] }
+
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String?, source: String,
@@ -398,6 +438,10 @@ public struct UserSettings: SyncedRecord, Hashable {
         case serverSeq = "server_seq"
         case audioQuality = "audio_quality"
         case instruments, extra
+    }
+
+    public static var wireDefaults: JSONObject {
+        ["audio_quality": .string("standard"), "instruments": .array([])]
     }
 
     public init(

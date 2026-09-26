@@ -6,6 +6,7 @@ import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { applyPullPage, applyPushResults, type InvalidChange } from './apply'
 import {
+  createDownloadRetries,
   downloadOne,
   downloadPass,
   recoverInterruptedCaptures,
@@ -195,6 +196,8 @@ export function createSyncEngine({
     return attempt
   }
 
+  const downloadRetries = createDownloadRetries()
+
   /** Audio moves on its own loop so a long upload never holds up push and pull. */
   const transfers = createLoop<TransferStatus>({
     idle: 'idle',
@@ -203,7 +206,7 @@ export function createSyncEngine({
       // A row's own transient failure is held rather than thrown immediately, so the
       // download pass still runs; it is rethrown below once it has.
       const uploadError = await uploadPass(db, api)
-      await downloadPass(db, api, fetchOne)
+      await downloadPass(db, api, fetchOne, downloadRetries)
       if (uploadError) throw uploadError
     },
     // A failed fetch while the browser reports a connection means the storage host or a

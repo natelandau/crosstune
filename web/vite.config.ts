@@ -44,7 +44,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
     define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-    server: { host, port: 5173, proxy, allowedHosts: hosts },
+    // A dev server that drifted off 5173 would lose the Clerk origin and the Apple app's
+    // storage origin, so a taken port is an error instead.
+    server: { host, port: 5173, strictPort: true, proxy, allowedHosts: hosts },
     preview: { host, port: 4173, proxy, allowedHosts: hosts },
   }
 })

@@ -40,8 +40,12 @@ jobs:
       - run: just test
       - run: just build
       - run: just contract
-      - name: fail if the committed Swift client is stale
+      - name: fail if the committed Swift client or vocabulary is stale
         working-directory: .
         run: |
-          git add --intent-to-add apple/CrosstuneKit/Sources/CrosstuneAPI/Generated
-          git diff --exit-code -- apple/CrosstuneKit/Sources/CrosstuneAPI/Generated
+          git add --intent-to-add \
+            apple/CrosstuneKit/Sources/CrosstuneAPI/Generated \
+            apple/CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
+          git diff --exit-code -- \
+            apple/CrosstuneKit/Sources/CrosstuneAPI/Generated \
+            apple/CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift

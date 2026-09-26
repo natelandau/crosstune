@@ -35,13 +35,13 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 
 ## Run
 
-| Command             | Does                                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. |
-| `just dev-down`     | Stops Postgres and RustFS.                                                                                          |
-| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                |
-| `just web::run`     | The web client alone.                                                                                               |
-| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                               |
+| Command             | Does                                                                                                                                                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. If either port is taken, it names what holds it and offers to stop a Crosstune server left from an earlier session. |
+| `just dev-down`     | Stops Postgres and RustFS.                                                                                                                                                                                                              |
+| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                                                                                                                                    |
+| `just web::run`     | The web client alone.                                                                                                                                                                                                                   |
+| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                   |
 
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
@@ -52,7 +52,9 @@ server's Tailscale Serve URL can record and play back too.
 The Apple app's Debug build calls the API on port 8000 and signs in
 against the Clerk development instance. Start the API with `just dev` or
 `just api::run`, open `apple/Crosstune.xcodeproj`, and run the `Crosstune`
-scheme on a Simulator or on My Mac. The local API listens on the Mac only,
+scheme on a Simulator or on My Mac. Recordings need `just dev`: the local
+API signs recording URLs as `/storage/...`, and the app sends them through
+the web dev server's proxy on port 5173, as a browser does. The local API listens on the Mac only,
 so a device needs another API. Create `apple/Config/Local.xcconfig`, which
 git ignores and only Debug builds read, and point it at the development
 API:
@@ -112,8 +114,9 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A model change: `just api::makemigrations "message"`, review the file,
   then `just api::migrate`.
 - An API change: `just contract` regenerates the OpenAPI file, the typed
-  web client, the web client's generated vocabulary file, and the Swift
-  client. CI fails when the committed copies drift.
+  web client, the web client's generated vocabulary file, the Apple app's
+  Swift client, and its own generated vocabulary file. CI fails when the
+  committed copies drift.
 - A validated value or length limit: edit `api/src/crosstune/vocabulary.py`,
   write the migration for the check constraint or column it changes, run
   `just contract`, and give any new value its label in
@@ -146,11 +149,12 @@ and fails instead in CI, where the `API` workflow always starts it.
   Both are required checks, so they start on every PR and skip their jobs
   when it touches nothing they cover. A skipped job passes a required
   check.
-  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift package tests, builds for
-  the iOS Simulator and macOS, and checks the generated Swift client. It
-  runs only when `apple/` or the contract changes, and no host deploys
-  from it. It is not a required check, because a required check must run
-  on every PR and macOS minutes cost more. `E2E`
+  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
+  package tests, builds for the iOS Simulator and macOS, and checks the
+  generated Swift client and vocabulary file. It runs only when `apple/` or
+  the contract changes, and no host deploys from it. It is not a required
+  check, because a required check must run on every PR and macOS minutes
+  cost more. `E2E`
   runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges.

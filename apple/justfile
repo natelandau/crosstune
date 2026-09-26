@@ -47,7 +47,7 @@ build:
             -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO; \
     done
 
-# Regenerate the Swift client from the committed OpenAPI contract, normalized for the generator
+# Regenerate the Swift client and vocabulary from the committed OpenAPI contract
 [group('contract')]
 contract:
     swift run --package-path Tools normalize-contract ../api/openapi.json .build/contract/openapi.json
@@ -55,6 +55,9 @@ contract:
         --config CrosstuneKit/Sources/CrosstuneAPI/openapi-generator-config.yaml \
         --output-directory CrosstuneKit/Sources/CrosstuneAPI/Generated \
         .build/contract/openapi.json
+    swift run --package-path Tools generate-vocabulary ../api/openapi.json \
+        CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
+    swift format --in-place CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
 
 # Upgrade the Swift package dependencies
 [group('maintenance')]

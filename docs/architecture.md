@@ -120,6 +120,14 @@ Triggers: app start, back online, tab visible, Clerk loading after an
 offline sign-in, and 3 seconds after the last local write. Failure backs
 off from 1 second to 60 seconds. The engine exposes one status value.
 
+The Apple app ports this engine on two serialized loops: one runs push,
+pull, and the storage figures; a second runs recording uploads then
+downloads, and runs again after every sync loop run. Both loops check
+before every request that they have not been stopped. An engine stopped
+to close one account's store during sign-out therefore never sends that
+account's request with the next account's token. The Apple app uses the
+same triggers. A return to the foreground stands in for a visible tab.
+
 ## Sign-in
 
 - Clerk's UI runs in the client. Before each request the client asks Clerk
@@ -170,10 +178,24 @@ off from 1 second to 60 seconds. The engine exposes one status value.
 - Playback: the client builds each embed URL from the stored provider,
   provider ref, and URL with no network call. One dock above the navigation
   holds at most one item.
+- The Apple app plays the same embed in a `WKWebView` that loads a local
+  HTML page holding one iframe pointed at that URL, so nothing here reaches
+  the network either. Playback is refused while a take is recording.
 
 ## Recordings
 
 - Capture and playback happen on the device. A new recording plays at once.
+- The Apple app captures with `AVAudioEngine` to a raw AAC stream in ADTS
+  framing, written as it records: every packet carries its own header, so a
+  capture cut off by a crash or a kill still plays up to its last complete
+  packet. On stop, an AAC passthrough export copies the stream into an
+  `.m4a` file with no re-encoding, and the raw stream is deleted. A capture
+  left unfinished by a crash or a kill is finished the same way when the
+  user's store next opens. One whose audio cannot be read stays in place
+  until the user deletes it, since sign-out refuses while it remains. A
+  capture stops itself at 95% of the server's per-file maximum
+  (`storage.max_file_bytes`) and keeps what it recorded, so the finished
+  file can still upload.
 - Upload: the client asks the API for an upload slot (quota reserved, PUT
   signed), PUTs the file to R2, then confirms. The API queues a transcode,
   and an in-process job runner produces the playback file. Retry reruns a
@@ -186,6 +208,22 @@ off from 1 second to 60 seconds. The engine exposes one status value.
   environment but `PATH`.
 - Download: the API signs a GET for a ready recording. Other devices fetch on
   play, or ahead of time when the setting to download all recordings is on.
+  A fetch ahead of time that fails waits out the same backoff as an upload
+  before the next pass retries it. The wait lives in memory, so a reload or
+  relaunch retries at once, and a play always fetches.
+- The Apple app excludes a downloaded recording's file from the device
+  backup; a captured file is not excluded, since it is the only copy until
+  it uploads.
+- A local delete drops its audio files through
+  `CrosstuneStore.writeDroppingAudio`. Deleting a recording, a tune, or
+  several tunes, and Remove downloaded audio, each run inside it. When the
+  write transaction commits, any audio file no longer named by a row is
+  removed. A failed write keeps both the file and the row. The transfer
+  pass uses the same method for a recording tombstoned elsewhere.
+- After launch recovery, the Apple app deletes every audio file that was
+  in the folder when the store opened and that no row names, such as one a
+  crash left behind. A capture file, and the finished file of a row still
+  capturing, always stay. An imported file never takes a capture's name.
 - Each database owns one storage space and holds credentials for no other,
   because the sweep and the purge delete whatever their own database does
   not know.

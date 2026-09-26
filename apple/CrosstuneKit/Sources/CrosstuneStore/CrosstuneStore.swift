@@ -20,10 +20,23 @@ public final class CrosstuneStore: Sendable {
 
     public var audioFolder: URL { folder.appending(path: "audio", directoryHint: .isDirectory) }
 
+    /// The extension of a capture still being written, which launch recovery finds and finishes
+    /// even when no row names it.
+    public static let captureExtension = "aac"
+    /// The extension of a finished capture, which recovery writes before the row names it.
+    public static let finishedExtension = "m4a"
+
+    /// The audio files the folder held when the store opened, the only ones
+    /// ``deleteUnnamedAudio()`` may delete, since anything written after is still settling.
+    private let audioAtOpen: Set<String>
+
     private init(userID: String, folder: URL, database: DatabasePool) {
         self.userID = userID
         self.folder = folder
         self.database = database
+        let audio = folder.appending(path: "audio", directoryHint: .isDirectory)
+        audioAtOpen = Set(
+            (try? FileManager.default.contentsOfDirectory(atPath: audio.path(percentEncoded: false))) ?? [])
     }
 
     /// Where every user's folder lives: `Application Support/Users/`.
@@ -52,6 +65,34 @@ public final class CrosstuneStore: Sendable {
         return CrosstuneStore(userID: userID, folder: folder, database: database)
     }
 
+    /// Deletes every audio file no recording file row names, as a crash leaves between a file and
+    /// its row landing or going. Call once launch recovery has run.
+    ///
+    /// Only files already there when the store opened are candidates, so an import, download,
+    /// or take written since, whose row lands after its file, is never touched. A capture is
+    /// left for recovery, and so is the finished file of a row still capturing, which recovery
+    /// records.
+    public func deleteUnnamedAudio() async {
+        let named: Set<String>
+        do {
+            named = try await database.read { db in
+                let files = try String.fetchAll(
+                    db, sql: "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL")
+                let capturing = try String.fetchAll(
+                    db, sql: "SELECT id FROM recording_files WHERE local_state = ?",
+                    arguments: [LocalFileState.capturing.rawValue])
+                return Set(files + capturing.map { "\($0).\(Self.finishedExtension)" })
+            }
+        } catch {
+            return
+        }
+        for name in audioAtOpen where !named.contains(name) {
+            let file = audioFolder.appending(path: name)
+            guard file.pathExtension != Self.captureExtension else { continue }
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
     /// Deletes a user's folder: their database and every audio file. Close their open store
     /// first.
     public static func delete(userID: String, root: URL = defaultRoot) throws {
@@ -60,9 +101,14 @@ public final class CrosstuneStore: Sendable {
 
     /// Deletes every user's folder except `userID`'s, such as one a failed sign-out left behind.
     public static func deleteOthers(keeping userID: String, root: URL = defaultRoot) throws {
-        let keep = try folder(for: userID, in: root).lastPathComponent
+        try deleteOthers(keeping: [userID], root: root)
+    }
+
+    /// Deletes every user's folder except those of `userIDs`.
+    public static func deleteOthers(keeping userIDs: Set<String>, root: URL = defaultRoot) throws {
+        let keep = Set(try userIDs.map { try folder(for: $0, in: root).lastPathComponent })
         let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        for folder in folders where folder.lastPathComponent != keep {
+        for folder in folders where !keep.contains(folder.lastPathComponent) {
             try removeIfPresent(folder)
         }
     }
@@ -79,6 +125,27 @@ public final class CrosstuneStore: Sendable {
         -> Value
     {
         try await database.write { db in try body(StoreWriter(db: db)) }
+    }
+
+    /// Runs `body` as ``write(_:)`` does, then deletes every audio file a recording file row named
+    /// before it and none names after it, whether the row was dropped or its file let go. The
+    /// files go only after the transaction commits, so a write that fails keeps every file its
+    /// rows still point to.
+    @discardableResult
+    public func writeDroppingAudio<Value: Sendable>(_ body: @escaping @Sendable (StoreWriter) throws -> Value)
+        async throws -> Value
+    {
+        let (value, dropped) = try await write { writer in
+            let named = "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL"
+            let before = Set(try String.fetchAll(writer.db, sql: named))
+            let value = try body(writer)
+            let after = Set(try String.fetchAll(writer.db, sql: named))
+            return (value, before.subtracting(after))
+        }
+        for name in dropped {
+            try? FileManager.default.removeItem(at: audioFolder.appending(path: name))
+        }
+        return value
     }
 
     public func read<Value: Sendable>(_ body: @escaping @Sendable (Database) throws -> Value) async throws -> Value {

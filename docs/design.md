@@ -418,3 +418,38 @@ Recordings and links share one row shape.
   wide frame. Overlays use Ionic's own presentation.
 - The app adds no motion of its own beyond the record control and the live
   waveform. Under reduced motion neither animates.
+
+## Apple app
+
+The Apple app follows Apple's Human Interface Guidelines for presentation:
+native SwiftUI controls, SF Symbols, system materials and fonts, Dynamic
+Type. Every rule above holds, words and behavior alike. Where a rule above
+describes Ionic's web chrome, the Apple app replaces it with the native
+equivalent below.
+
+- iPhone: a tab bar (Catalog, Lists, Recordings, Settings) with the record
+  dome centered over its middle, replacing the web's tab bar. iPad and Mac
+  use a split view (sidebar, content, detail) instead; an iPad in a compact
+  window falls back to the iPhone layout.
+- System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
+  Undo button replaces the web's toast.
+- Native search replaces the web's toolbar search field.
+- On iPhone, a top-level screen's large title shares a row with its
+  toolbar buttons and stays in place on scroll, instead of sitting in its
+  own row under them.
+- A segmented control is allowed for a short closed choice. Status still
+  stays a rail of capsules, because each carries its own dot color.
+- A long press opens the native context menu. Its Select item, and a
+  Select toolbar button, enter selection, replacing the web's long-press
+  gesture.
+- A screen's filters are its list's first row and scroll with it, not a
+  bar pinned under the navigation bar. At accessibility text sizes only the
+  status rail stays in the list. The other rails move into the filter sheet.
+- Dynamic Type replaces the web's three text size steps. The light, dark,
+  and system appearance setting carries over unchanged.
+- Native motion (SwiftUI transitions, symbol effects, haptics) is allowed
+  beyond the record control and the waveform, but nothing animates under
+  Reduce Motion.
+- The record dome and the menu commands that open a sheet stand down while
+  a sheet, dialog, or file picker is up. The record control and the Record
+  command also stand down while a screen is selecting.
