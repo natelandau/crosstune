@@ -17,7 +17,7 @@ struct RootView: View {
             case .loading:
                 ProgressView()
             case .signedOut:
-                SignInView()
+                SignInView(notice: session.showsDeletedNotice ? DeletedNotice.text : nil)
             case .signedIn:
                 if let store = session.store {
                     AppShell(store: store, player: player, stage: stage, recorders: recorders)

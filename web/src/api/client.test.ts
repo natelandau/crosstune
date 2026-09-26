@@ -92,6 +92,40 @@ describe('createApiClient', () => {
     expect((error as ApiError).problem?.detail).toBe('nope')
   })
 
+  it('sends DELETE /v1/me and resolves on 204', async () => {
+    const fetchMock = vi.fn(async (input: Request) => {
+      expect(input.method).toBe('DELETE')
+      expect(input.url).toBe('http://api.test/v1/me')
+      return new Response(null, { status: 204 })
+    })
+    const api = createApiClient({
+      baseUrl: 'http://api.test',
+      getToken: async () => 'tok',
+      clientVersion: '1',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await expect(api.deleteAccount()).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when deleteAccount gets a 502', async () => {
+    const problem = { type: 'about:blank', title: 'Bad Gateway', status: 502, detail: 'down' }
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(problem, {
+        status: 502,
+        headers: { 'content-type': 'application/problem+json' },
+      }),
+    )
+    const api = createApiClient({
+      baseUrl: 'http://api.test',
+      getToken: async () => 'tok',
+      clientVersion: '1',
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const error = await api.deleteAccount().catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(502)
+  })
+
   it('requests an upload slot and reports the problem type on refusal', async () => {
     const fetch = vi.fn(async (input: Request) => {
       expect(input.url).toContain('/v1/recordings/r1/upload-slot')

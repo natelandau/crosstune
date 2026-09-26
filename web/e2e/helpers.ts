@@ -13,11 +13,60 @@ export function escapeRegExp(value: string): string {
 export async function signIn(page: Page): Promise<void> {
   const emailAddress = process.env.E2E_CLERK_USER_EMAIL
   if (!emailAddress) throw new Error('E2E_CLERK_USER_EMAIL is not set')
+  await signInAs(page, emailAddress)
+}
+
+/** Sign in as an arbitrary Clerk user, such as a throwaway one a test owns outright. */
+export async function signInAs(page: Page, emailAddress: string): Promise<void> {
   await setupClerkTestingToken({ page })
   await page.goto('/')
   await clerk.signIn({ page, emailAddress })
   await page.goto('/')
   await expectSynced(page)
+}
+
+const CLERK_USERS_URL = 'https://api.clerk.com/v1/users'
+
+function clerkSecretKey(): string {
+  const key = process.env.CLERK_SECRET_KEY
+  if (!key) throw new Error('CLERK_SECRET_KEY is not set')
+  return key
+}
+
+/**
+ * Create a user this suite owns outright, so a deletion test never touches the shared fixture
+ * account. The `+clerk_test` address keeps it inside Clerk's test mode, and skipping the
+ * password requirement is what lets a bare email address stand up a user at all.
+ */
+export async function createThrowawayUser(): Promise<{ id: string; emailAddress: string }> {
+  const emailAddress = `e2e-delete-${Date.now()}+clerk_test@example.com`
+  const response = await fetch(CLERK_USERS_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${clerkSecretKey()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email_address: [emailAddress],
+      skip_password_requirement: true,
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`Clerk answered ${response.status} creating a throwaway user`)
+  }
+  const user = (await response.json()) as { id: string }
+  return { id: user.id, emailAddress }
+}
+
+/** Clean up a throwaway user regardless of how the test that created it fared. */
+export async function removeClerkUser(id: string): Promise<void> {
+  const response = await fetch(`${CLERK_USERS_URL}/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${clerkSecretKey()}` },
+  })
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Clerk answered ${response.status} deleting ${id}`)
+  }
 }
 
 /**

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import (
-    Request,  # noqa: TC002 -- FastAPI resolves this annotation at runtime to inject the request
+    Depends,
+    Request,
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
 )
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-
-    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -23,3 +25,10 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         except Exception:
             await session.rollback()
             raise
+
+
+# Function scope commits before the response is sent and before background tasks run,
+# so a client that hears success, and any task scheduled after the write, sees it
+# committed. Every route and dependency uses this one alias so the request shares one
+# cached session.
+DbSession = Annotated[AsyncSession, Depends(get_session, scope="function")]

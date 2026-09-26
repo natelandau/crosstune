@@ -7,6 +7,20 @@ import type { SyncEngine } from '../../sync/types'
 export const UNSYNCED_RECORDINGS_ERROR =
   'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.'
 
+/** The catalog is the user's private data on a possibly shared phone: gone with the session. */
+export async function forgetLocalData({
+  db,
+  userId,
+}: {
+  db: CrosstuneDb
+  userId: string
+}): Promise<void> {
+  db.close()
+  await deleteDatabase(userId)
+  forgetUser()
+  clearSearchQuery()
+}
+
 export async function signOutAndForget({
   db,
   userId,
@@ -35,9 +49,5 @@ export async function signOutAndForget({
     engine.resume()
     throw error
   }
-  // The catalog is the user's private data on a possibly shared phone: gone with the session.
-  db.close()
-  await deleteDatabase(userId)
-  forgetUser()
-  clearSearchQuery()
+  await forgetLocalData({ db, userId })
 }

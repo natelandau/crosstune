@@ -38,7 +38,13 @@ export interface paths {
         get: operations["me_v1_me_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Me
+         * @description Delete the calling user's account, every row it owns, and Clerk's copy.
+         *
+         *     Files are removed after the response.
+         */
+        delete: operations["delete_me_v1_me_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -427,6 +433,7 @@ export interface components {
             title: string;
             /**
              * Type
+             * @description `about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).
              * @default about:blank
              */
             type: string;
@@ -1050,6 +1057,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    delete_me_v1_me_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

@@ -5,7 +5,8 @@ import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine, testSession } from '../../test/providers'
-import { AccountGroup, SIGN_OUT, SIGN_OUT_OFFLINE, SIGNED_IN_OFFLINE } from './AccountGroup'
+import { AccountGroup, ACCOUNT_OFFLINE, SIGN_OUT, SIGNED_IN_OFFLINE } from './AccountGroup'
+import { DELETE_ACCOUNT, DELETE_ACCOUNT_TITLE } from './deleteAccountCopy'
 import { signOutAndForget } from './signOut'
 
 const clerk = vi.hoisted(() => ({
@@ -42,6 +43,7 @@ function show(options: { engine?: SyncEngine; offline?: boolean } = {}) {
 }
 
 const signOutRow = () => page.getByRole('button', { name: SIGN_OUT })
+const deleteAccountRow = () => page.getByRole('button', { name: DELETE_ACCOUNT })
 
 describe('AccountGroup', () => {
   it('names the signed-in account by its email', async () => {
@@ -55,12 +57,19 @@ describe('AccountGroup', () => {
     await expect.element(page.getByText('user_1')).toBeVisible()
   })
 
-  it('says the session is offline and refuses to sign out without a connection', async () => {
+  it('says the session is offline and refuses to sign out or delete without a connection', async () => {
     clerk.user = null
     show({ offline: true })
     await expect.element(page.getByText(SIGNED_IN_OFFLINE)).toBeVisible()
-    await expect.element(page.getByText(SIGN_OUT_OFFLINE)).toBeVisible()
+    await expect.element(page.getByText(ACCOUNT_OFFLINE)).toBeVisible()
     await expect.element(signOutRow()).toBeDisabled()
+    await expect.element(deleteAccountRow()).toBeDisabled()
+  })
+
+  it('opens the delete account sheet from its row', async () => {
+    show()
+    await deleteAccountRow().click()
+    await expect.element(page.getByRole('heading', { name: DELETE_ACCOUNT_TITLE })).toBeVisible()
   })
 
   it('signs out through signOutAndForget with this session and engine', async () => {
@@ -82,10 +91,12 @@ describe('AccountGroup', () => {
     await expect.element(signOutRow()).toBeEnabled()
   })
 
-  it('gives both rows a tap target a finger can hit', async () => {
+  it('gives every row a tap target a finger can hit', async () => {
     show()
     await expect.element(signOutRow()).toBeVisible()
+    // The closed delete sheet still holds its own rows offscreen behind a hidden modal.
     for (const item of document.querySelectorAll('ion-item')) {
+      if (item.closest('.overlay-hidden')) continue
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })

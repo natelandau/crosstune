@@ -93,7 +93,8 @@ The end-to-end suite:
 
 - Signs in through the Clerk development instance and spends its usage
   limits. It needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAIL` in
-  `web/.env`.
+  `web/.env`, and the same development key as `CROSSTUNE_CLERK_SECRET_KEY`
+  in `api/.env`.
 - Serves the API on 8001 against `crosstune_e2e`, created for the run and
   dropped afterwards, so it runs beside `just dev` and starts empty.
 - To keep the database after a failure, run `just api::run-e2e`, then

@@ -25,6 +25,15 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /v1/me`.
     /// - Remark: Generated from `#/paths//v1/me/get(me_v1_me_get)`.
     func meV1MeGet(_ input: Operations.MeV1MeGet.Input) async throws -> Operations.MeV1MeGet.Output
+    /// Delete Me
+    ///
+    /// Delete the calling user's account, every row it owns, and Clerk's copy.
+    ///
+    /// Files are removed after the response.
+    ///
+    /// - Remark: HTTP `DELETE /v1/me`.
+    /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
+    func deleteMeV1MeDelete(_ input: Operations.DeleteMeV1MeDelete.Input) async throws -> Operations.DeleteMeV1MeDelete.Output
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
@@ -100,6 +109,17 @@ extension APIProtocol {
     /// - Remark: Generated from `#/paths//v1/me/get(me_v1_me_get)`.
     public func meV1MeGet(headers: Operations.MeV1MeGet.Input.Headers = .init()) async throws -> Operations.MeV1MeGet.Output {
         try await meV1MeGet(Operations.MeV1MeGet.Input(headers: headers))
+    }
+    /// Delete Me
+    ///
+    /// Delete the calling user's account, every row it owns, and Clerk's copy.
+    ///
+    /// Files are removed after the response.
+    ///
+    /// - Remark: HTTP `DELETE /v1/me`.
+    /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
+    public func deleteMeV1MeDelete(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) async throws -> Operations.DeleteMeV1MeDelete.Output {
+        try await deleteMeV1MeDelete(Operations.DeleteMeV1MeDelete.Input(headers: headers))
     }
     /// Download
     ///

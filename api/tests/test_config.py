@@ -238,6 +238,7 @@ def test_storage_scope_refuses(overrides: dict[str, str]) -> None:
 CLERK = {
     "clerk_issuer": "https://clerk.example.test",
     "clerk_authorized_parties": ["https://example.test"],
+    "clerk_secret_key": "sk_test_fixture",  # gitleaks:allow -- fixture, not a credential
 }
 
 
@@ -247,6 +248,7 @@ CLERK = {
     [
         ({"clerk_issuer": ""}, "CROSSTUNE_CLERK_ISSUER"),
         ({"clerk_authorized_parties": []}, "CROSSTUNE_CLERK_AUTHORIZED_PARTIES"),
+        ({"clerk_secret_key": ""}, "CROSSTUNE_CLERK_SECRET_KEY"),
     ],
 )
 def test_a_hosted_environment_refuses_to_start_without_clerk_checks(
@@ -260,7 +262,11 @@ def test_a_hosted_environment_refuses_to_start_without_clerk_checks(
     "clerk",
     [
         CLERK,
-        {"clerk_issuer": CLERK["clerk_issuer"], "clerk_authorized_party_regex": "^https://x$"},
+        {
+            "clerk_issuer": CLERK["clerk_issuer"],
+            "clerk_authorized_party_regex": "^https://x$",
+            "clerk_secret_key": CLERK["clerk_secret_key"],
+        },
     ],
     ids=["parties", "regex"],
 )
@@ -272,3 +278,19 @@ def test_a_hosted_environment_starts_with_an_issuer_and_a_party_rule(
 
 def test_development_starts_without_clerk_checks() -> None:
     Settings(environment="development", clerk_issuer="", clerk_authorized_parties=[])
+
+
+def test_settings_repr_hides_every_secret() -> None:
+    """Sentry captures local variables, so a Settings repr must carry no secret."""
+    secrets = {
+        "clerk_secret_key": "sk_test_reprleak",  # gitleaks:allow -- fixture, not a credential
+        "clerk_webhook_secret": "whsec_reprleak",  # gitleaks:allow -- fixture, not a credential
+        "storage_secret_access_key": "storage-reprleak",  # gitleaks:allow -- fixture
+    }
+    settings = Settings(
+        database_url="postgresql+asyncpg://crosstune:dbpassreprleak@localhost:5432/crosstune",
+        **secrets,
+    )
+    shown = repr(settings) + str(settings)
+    for value in [*secrets.values(), "dbpassreprleak"]:
+        assert value not in shown

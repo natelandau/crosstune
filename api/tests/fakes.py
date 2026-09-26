@@ -10,12 +10,27 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+class FakeClerkUsers:
+    """A ClerkUsers stand-in. Set `error` to make the next delete_user raise it."""
+
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+        self.error: Exception | None = None
+
+    async def delete_user(self, clerk_user_id: str) -> None:
+        """Record the id, or raise the configured error instead of deleting."""
+        if self.error is not None:
+            raise self.error
+        self.deleted.append(clerk_user_id)
+
+
 class FakeObjectStore:
     """An ObjectStore held in a dict. Presigned URLs are recognizable strings, not signatures."""
 
     def __init__(self) -> None:
         self._objects: dict[str, tuple[bytes, str]] = {}
         self.presigned: list[tuple[str, str]] = []
+        self.deleted_prefixes: list[str] = []
 
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
         """What a client's PUT to a presigned URL leaves behind."""
@@ -70,6 +85,7 @@ class FakeObjectStore:
 
     async def delete_prefix(self, prefix: str) -> None:
         """Remove every object under a prefix."""
+        self.deleted_prefixes.append(prefix)
         for key in [k for k in self._objects if k.startswith(prefix)]:
             del self._objects[key]
 

@@ -37,7 +37,7 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 | Neon development project ID and database role              | Neon           | GitHub                               |
 | `crosstune-api` and `crosstune-web` DSNs                   | Sentry         | Railway, Workers Builds              |
 | Clerk development issuer, publishable key, and secret key  | Clerk          | Railway, Workers Builds, GitHub      |
-| Clerk production issuer and publishable key                | Clerk          | Railway, Workers Builds              |
+| Clerk production issuer, publishable key, and secret key   | Clerk          | Railway, Workers Builds              |
 | Clerk webhook signing secrets, one per instance            | Clerk          | Railway                              |
 | Railway development hostname                               | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
 | Railway project, development environment, and service IDs  | Railway        | GitHub                               |
@@ -151,6 +151,7 @@ Variables, both environments unless noted:
 | `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["https://<domain>"]`             | `["http://localhost:5173","http://localhost:4173"]`                     |
 | `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | Unset                              | `^https://[a-z0-9-]+-crosstune-web\.<workers-subdomain>\.workers\.dev$` |
 | `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Production endpoint secret         | Development endpoint secret                                             |
+| `CROSSTUNE_CLERK_SECRET_KEY`             | Production instance's secret key   | Development instance's secret key                                       |
 | `CROSSTUNE_SENTRY_DSN`                   | `crosstune-api` DSN                | `crosstune-api` DSN                                                     |
 | `CROSSTUNE_R2_ACCOUNT_ID`                | Cloudflare account ID              | Cloudflare account ID                                                   |
 | `CROSSTUNE_STORAGE_BUCKET`               | `crosstune-recordings`             | `crosstune-recordings-dev`                                              |
@@ -163,8 +164,8 @@ timeout, link resolve rate limit, and pull page size keep the defaults in
 `api/src/crosstune/config.py` and are not set on the host. The
 `CROSSTUNE_LOCAL_*` names are for local work and the end-to-end suite, and
 the API refuses to start with them on a hosted environment. Production and
-every `pr-<n>` environment refuse to start without the Clerk issuer and an
-authorized party or pattern. Railway injects
+every `pr-<n>` environment refuse to start without the Clerk issuer, a
+secret key, and an authorized party or pattern. Railway injects
 `PORT`. `api/.env.example` explains every name. The regex
 writes the `workers.dev` subdomain literally and admits every preview alias.
 The API refuses to start when `CROSSTUNE_STORAGE_PREFIX`,

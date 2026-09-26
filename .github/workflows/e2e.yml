@@ -75,6 +75,8 @@ jobs:
           just api::storage-setup
       - name: start the api on the database the suite owns
         working-directory: api
+        env:
+          CROSSTUNE_CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
         run: |
           nohup just run-e2e > "$RUNNER_TEMP/api.log" 2>&1 &
           # The recipe creates and migrates the database before it serves, so this waits for

@@ -37,16 +37,26 @@ const listRow = (page: Page, title: string) =>
 // The count is on screen twice: the toolbar's title and the live region that announces it.
 const selectedCount = (page: Page, text: string) => page.getByText(text, { exact: true }).first()
 
+/**
+ * Open the More actions menu of the screen in front. A screen leaving the stack stays visible,
+ * with its own More actions, until its transition ends, so this waits for the one that remains.
+ */
+async function openMoreActions(page: Page): Promise<void> {
+  const moreActions = page.getByRole('button', { name: 'More actions' })
+  await expect(moreActions).toHaveCount(1)
+  await moreActions.click()
+}
+
 /** Enter selection, which lives behind the screen's own More actions menu. */
 async function startSelecting(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'More actions' }).click()
+  await openMoreActions(page)
   await page.getByRole('button', { name: 'Select', exact: true }).click()
   await expectNoOverlay(page)
 }
 
 /** Take every row on screen, from the same menu the selection toolbar keeps its overflow in. */
 async function selectAll(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'More actions' }).click()
+  await openMoreActions(page)
   await page.getByRole('button', { name: 'Select all', exact: true }).click()
   await expectNoOverlay(page)
 }
@@ -192,7 +202,7 @@ test('select tunes in a list, remove them, and undo', async ({ page, context }) 
   await startSelecting(page)
   await selectAll(page)
   await expect(selectedCount(page, '2 selected')).toBeVisible()
-  await page.getByRole('button', { name: 'More actions' }).click()
+  await openMoreActions(page)
   await page.getByRole('button', { name: 'Remove 2 from list', exact: true }).click()
   await expect(toast(page, `Removed 2 tunes from ${listName}`)).toBeVisible()
   await expect(page.getByRole('listitem')).toHaveCount(0)

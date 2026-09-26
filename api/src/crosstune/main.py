@@ -23,12 +23,21 @@ from crosstune.recordings.router import router as recordings_router
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from crosstune.sync.router import router as sync_router
+from crosstune.users.clerk import ClerkBackendUsers
 from crosstune.users.router import router as users_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from crosstune.storage.store import ObjectStore
+
+
+def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.clerk_users when a secret key is configured and nothing built it yet."""
+    if app.state.clerk_users is None and settings.clerk_secret_key.get_secret_value():
+        app.state.clerk_users = ClerkBackendUsers(
+            app.state.http_client, settings.clerk_secret_key.get_secret_value()
+        )
 
 
 @asynccontextmanager
@@ -45,12 +54,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.http_client = public_only_client(settings.link_resolve_timeout_seconds)
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
+    _build_clerk_users(app, settings)
     if app.state.object_store is None and settings.storage_configured:
         store: ObjectStore = R2Store(
             endpoint_url=settings.storage_endpoint,
             bucket=settings.storage_bucket,
             access_key_id=settings.storage_access_key_id,
-            secret_access_key=settings.storage_secret_access_key,
+            secret_access_key=settings.storage_secret_access_key.get_secret_value(),
             browser_endpoint_url=settings.local_storage_browser_endpoint_url,
         )
         if settings.storage_prefix:
@@ -111,6 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = None
     app.state.http_client = None
     app.state.jwks = None
+    app.state.clerk_users = None
     app.state.object_store = None
     app.state.job_runner = None
     app.state.link_resolve_limiter = RateLimiter(

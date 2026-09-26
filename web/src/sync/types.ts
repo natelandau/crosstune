@@ -21,6 +21,9 @@ export interface SyncEngine {
   download(recordingId: string): Promise<Blob | null>
   /** Ask the server to transcode a failed recording again. */
   retry(recordingId: string): Promise<void>
+  deleteAccount(): Promise<void>
+  /** Called with the engine already stopped when the server says the account is gone. */
+  onAccountDeleted(listener: () => void): () => void
   stop(): void
   resume(): void
 }

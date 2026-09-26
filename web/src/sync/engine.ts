@@ -14,7 +14,7 @@ import {
   uploadPass,
 } from './transfers'
 import type { SyncApi, SyncEngine, SyncStatus, TransferStatus } from './types'
-import { isAuthFailure } from './errors'
+import { isAccountDeleted, isAuthFailure } from './errors'
 
 export const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000, 32000, 60000] as const
 
@@ -152,6 +152,8 @@ export function createSyncEngine({
   onInvalid = reportInvalid,
 }: EngineOptions): SyncEngine {
   let stopped = false
+  let accountDeleted = false
+  const accountDeletedListeners = new Set<() => void>()
   let syncedAt: string | null = null
   const inFlightDownloads = new Map<string, Promise<Blob | null>>()
 
@@ -198,17 +200,40 @@ export function createSyncEngine({
 
   const downloadRetries = createDownloadRetries()
 
+  function stop() {
+    stopped = true
+    syncing.cancelRetry()
+    transfers.cancelRetry()
+  }
+
+  /** Rethrows every failure, first stopping and telling listeners, once, of a deleted account. */
+  async function watchingForDeletion(run: () => Promise<void>): Promise<void> {
+    try {
+      await run()
+    } catch (error) {
+      // A stopped engine belongs to a device already leaving, such as one whose own delete
+      // is in flight; that leave does the wipe.
+      if (isAccountDeleted(error) && !accountDeleted && !stopped) {
+        accountDeleted = true
+        stop()
+        for (const listener of accountDeletedListeners) listener()
+      }
+      throw error
+    }
+  }
+
   /** Audio moves on its own loop so a long upload never holds up push and pull. */
   const transfers = createLoop<TransferStatus>({
     idle: 'idle',
     busy: 'transferring',
-    async run() {
-      // A row's own transient failure is held rather than thrown immediately, so the
-      // download pass still runs; it is rethrown below once it has.
-      const uploadError = await uploadPass(db, api)
-      await downloadPass(db, api, fetchOne, downloadRetries)
-      if (uploadError) throw uploadError
-    },
+    run: () =>
+      watchingForDeletion(async () => {
+        // A row's own transient failure is held rather than thrown immediately, so the
+        // download pass still runs; it is rethrown below once it has.
+        const uploadError = await uploadPass(db, api)
+        await downloadPass(db, api, fetchOne, downloadRetries)
+        if (uploadError) throw uploadError
+      }),
     // A failed fetch while the browser reports a connection means the storage host or a
     // CORS rule refused, which would otherwise sit silently under "offline" forever.
     classify: (error) => (!isOnline() || error instanceof NoTokenError ? 'offline' : 'error'),
@@ -218,21 +243,22 @@ export function createSyncEngine({
   const syncing = createLoop<SyncStatus>({
     idle: 'idle',
     busy: 'syncing',
-    async run() {
-      // Safe to run every pass: a capture is recovered only once no tab holds its
-      // lock, falling back to last-chunk staleness where there is no lock manager.
-      await recoverInterruptedCaptures(db)
-      await push()
-      await pull()
-      try {
-        await refreshStorage(db, api)
-      } catch (error) {
-        // Storage figures are informational; only an auth failure should fail a sync
-        // whose push and pull already landed.
-        if (isAuthFailure(error)) throw error
-      }
-      syncedAt = new Date().toISOString()
-    },
+    run: () =>
+      watchingForDeletion(async () => {
+        // Safe to run every pass: a capture is recovered only once no tab holds its
+        // lock, falling back to last-chunk staleness where there is no lock manager.
+        await recoverInterruptedCaptures(db)
+        await push()
+        await pull()
+        try {
+          await refreshStorage(db, api)
+        } catch (error) {
+          // Storage figures are informational; only an auth failure should fail a sync
+          // whose push and pull already landed.
+          if (isAuthFailure(error)) throw error
+        }
+        syncedAt = new Date().toISOString()
+      }),
     classify: (error) => classifyFailure(error, isOnline),
     isStopped: () => stopped,
     // A pushed row can now take its upload, and a pulled one its download.
@@ -270,11 +296,16 @@ export function createSyncEngine({
       await api.retryRecording(recordingId)
       void syncing.trigger()
     },
-    stop() {
-      stopped = true
-      syncing.cancelRetry()
-      transfers.cancelRetry()
+    async deleteAccount(): Promise<void> {
+      await api.deleteAccount()
     },
+    onAccountDeleted(listener) {
+      accountDeletedListeners.add(listener)
+      return () => {
+        accountDeletedListeners.delete(listener)
+      }
+    },
+    stop,
     resume() {
       stopped = false
     },

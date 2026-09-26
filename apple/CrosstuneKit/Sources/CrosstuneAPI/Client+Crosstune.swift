@@ -8,14 +8,17 @@ extension Client {
         origin: URL,
         tokens: any TokenProvider,
         clientVersion: String,
-        onUnauthorized: @escaping @Sendable () async -> Void
+        onUnauthorized: @escaping @Sendable () async -> Void,
+        onAccountDeleted: @escaping @Sendable () async -> Void
     ) -> Client {
         Client(
             serverURL: origin,
             configuration: .crosstune,
             transport: URLSessionTransport(),
             middlewares: [
-                AuthMiddleware(tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized)
+                AuthMiddleware(
+                    tokens: tokens, clientVersion: clientVersion, onUnauthorized: onUnauthorized,
+                    onAccountDeleted: onAccountDeleted)
             ]
         )
     }

@@ -6,15 +6,14 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,  # noqa: TC002 -- FastAPI resolves this annotation at route registration
-)
+from fastapi import APIRouter, Query, Request
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.db.session import get_session
+from crosstune.db.session import (
+    DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
+)
 from crosstune.errors import VALIDATION_RESPONSE
 from crosstune.links.resolve import ResolvedLink, resolve_link, unresolved_link
 from crosstune.schemas.common import PullResponse, PushRequest, PushResponse
@@ -103,7 +102,7 @@ async def push(
     body: PushRequest,
     request: Request,
     user: CurrentUser,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: DbSession,
 ) -> PushResponse:
     """Apply a batch of client changes. One result per change, in order."""
     settings = request.app.state.settings
@@ -133,7 +132,7 @@ async def push(
 async def pull(
     request: Request,
     user: CurrentUser,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: DbSession,
     since: Annotated[int, Query(ge=0, le=MAX_CURSOR)] = 0,
 ) -> PullResponse:
     """Every one of the caller's rows changed after `since`, oldest first."""

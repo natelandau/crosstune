@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import uuid  # noqa: TC003 -- FastAPI resolves path parameter annotations at runtime
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,  # noqa: TC002 -- FastAPI resolves this annotation at route registration
-)
 
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.db.locks import lock_user
-from crosstune.db.session import get_session
+from crosstune.db.session import (
+    DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
+)
 from crosstune.errors import (
     AppError,
     ConflictError,
@@ -90,7 +89,7 @@ async def upload_slot(
     body: UploadSlotRequest,
     request: Request,
     user: CurrentUser,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: DbSession,
 ) -> SignedUrl:
     """A presigned PUT for one recording's file, once the quota allows it.
 
@@ -149,7 +148,7 @@ async def upload_finished(
     recording_id: uuid.UUID,
     request: Request,
     user: CurrentUser,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: DbSession,
 ) -> Response:
     """Confirm the object landed and queue its transcode. Repeating the call changes nothing."""
     store = require_store(request)
@@ -197,7 +196,7 @@ async def retry(
     recording_id: uuid.UUID,
     request: Request,
     user: CurrentUser,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: DbSession,
 ) -> Response:
     """Transcode the object already in the bucket again, for a recording that failed.
 
@@ -222,7 +221,7 @@ async def download(
     recording_id: uuid.UUID,
     request: Request,
     user: CurrentUser,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: DbSession,
 ) -> SignedUrl:
     """A presigned GET for the playback file of a ready recording."""
     store = require_store(request)

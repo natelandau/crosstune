@@ -46,6 +46,24 @@ import Testing
     #expect(AccountSession.isOffline(phase: remembered, hasNetwork: true))
 }
 
+@Test func aFailedDeleteReadsAsNothingChanged() {
+    #expect(AccountSession.LeaveError.deleteFailed.errorDescription == AccountSession.LeaveError.deleteFailedMessage)
+}
+
+@Test func aDeletedUserIsSignedOutEvenWhileClerkStillHoldsTheirSession() {
+    let phase = AccountSession.phase(
+        clerkLoaded: true, clerkUserID: "user_a", rememberedUserID: nil, graceElapsed: true,
+        signedOutUserID: "user_a")
+    #expect(phase == .signedOut)
+}
+
+@Test func anotherUserSignsInPastADeletedOne() {
+    let phase = AccountSession.phase(
+        clerkLoaded: true, clerkUserID: "user_b", rememberedUserID: nil, graceElapsed: true,
+        signedOutUserID: "user_a")
+    #expect(phase == .signedIn(userID: "user_b", confirmed: true))
+}
+
 @Test func remembersAndForgetsTheUser() throws {
     let suite = "crosstune.tests.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
@@ -94,11 +112,9 @@ struct ClerkFailed: Error {}
 
     var folderExists: Bool { FileManager.default.fileExists(atPath: store.folder.path()) }
 
-    func leave(keepingUnsynced: Bool, endSession: () async throws -> Void = {}) async throws {
+    func leave(endSession: () async throws -> Void = {}) async throws {
         let log = log
-        try await AccountSession.leave(
-            userID: "user_a", store: store, root: root.url, sync: log, keepingUnsynced: keepingUnsynced
-        ) {
+        try await AccountSession.leave(userID: "user_a", store: store, root: root.url, sync: log) {
             log.steps.append("end session")
             try await endSession()
         }
@@ -113,7 +129,7 @@ struct ClerkFailed: Error {}
     }
 
     @Test func signOutSyncsThenStopsThenEndsTheSessionThenDeletesTheFolder() async throws {
-        try await leave(keepingUnsynced: false)
+        try await leave()
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session"])
         #expect(!folderExists)
@@ -124,7 +140,7 @@ struct ClerkFailed: Error {}
         let store = store
         log.onSync = { try await store.write { writer in try OutboxEntry.deleteAll(writer.db) } }
 
-        try await leave(keepingUnsynced: false)
+        try await leave()
 
         #expect(!folderExists)
     }
@@ -133,7 +149,7 @@ struct ClerkFailed: Error {}
         try await queueChange()
 
         await #expect(throws: AccountSession.LeaveError.unsyncedChanges) {
-            try await leave(keepingUnsynced: false)
+            try await leave()
         }
 
         #expect(log.steps == ["sync"])
@@ -145,7 +161,7 @@ struct ClerkFailed: Error {}
             try await putRecordingFile(state)
 
             await #expect(throws: AccountSession.LeaveError.unuploadedRecordings) {
-                try await leave(keepingUnsynced: false)
+                try await leave()
             }
 
             try await store.write { writer in try RecordingFile.deleteAll(writer.db) }
@@ -163,7 +179,7 @@ struct ClerkFailed: Error {}
             }
         }
 
-        try await leave(keepingUnsynced: false)
+        try await leave()
 
         #expect(!folderExists)
     }
@@ -171,24 +187,99 @@ struct ClerkFailed: Error {}
     @Test func signOutLeavesWithRecordingsTheServerHas() async throws {
         try await putRecordingFile(.downloaded)
 
-        try await leave(keepingUnsynced: false)
+        try await leave()
 
         #expect(!folderExists)
     }
 
-    @Test func deletingTheAccountDropsUnsentChangesWithoutSyncing() async throws {
+    func deleteAndLeave(
+        deleteRemote: () async throws -> Void = {}, endSession: () async throws -> Void = {}
+    ) async throws {
+        let log = log
+        try await AccountSession.deleteAndLeave(
+            userID: "user_a", store: store, root: root.url, sync: log,
+            deleteRemote: {
+                log.steps.append("deleteRemote")
+                try await deleteRemote()
+            },
+            endSession: {
+                log.steps.append("end session")
+                try await endSession()
+            }
+        )
+    }
+
+    @Test func deletingStopsSyncBeforeTheRequest() async throws {
+        try await deleteAndLeave()
+
+        #expect(log.steps == ["stop", "stopped", "deleteRemote", "end session"])
+        #expect(!folderExists)
+    }
+
+    @Test func aFailedDeleteKeepsTheStoreAndResumesSync() async throws {
+        await #expect(throws: ClerkFailed.self) {
+            try await deleteAndLeave(deleteRemote: { throw ClerkFailed() })
+        }
+
+        #expect(log.steps == ["stop", "stopped", "deleteRemote", "resume"])
+        #expect(folderExists)
+    }
+
+    @Test func deletingWipesTheStoreEvenWhenEndingTheSessionFails() async throws {
+        try await deleteAndLeave(endSession: { throw ClerkFailed() })
+
+        #expect(!folderExists)
+    }
+
+    @Test func deletingIgnoresUnsentChanges() async throws {
         try await queueChange()
         try await putRecordingFile(.captured)
+        #expect(try await store.pendingChangeCount() == 1)
 
-        try await leave(keepingUnsynced: true)
+        try await deleteAndLeave()
+
+        #expect(!log.steps.contains("sync"))
+        #expect(!folderExists)
+    }
+
+    @Test func deletingSucceedsEvenWhenTheFolderDeleteFails() async throws {
+        // An invalid user ID makes `CrosstuneStore.delete` throw before touching the
+        // filesystem, forcing the failure this test needs without a store folder to break.
+        try await AccountSession.deleteAndLeave(
+            userID: "not a valid id", store: store, root: root.url, sync: log,
+            deleteRemote: {}, endSession: {}
+        )
+
+        #expect(folderExists)
+    }
+
+    func forgetDeleted(endSession: () async throws -> Void = {}) async {
+        let log = log
+        await AccountSession.forgetDeleted(userID: "user_a", store: store, root: root.url, sync: log) {
+            log.steps.append("end session")
+            try await endSession()
+        }
+    }
+
+    @Test func anAccountDeletedElsewhereStopsSyncThenEndsTheSessionThenDeletesTheFolder() async throws {
+        try await queueChange()
+
+        await forgetDeleted()
 
         #expect(log.steps == ["stop", "stopped", "end session"])
         #expect(!folderExists)
     }
 
+    @Test func anAccountDeletedElsewhereDeletesTheFolderEvenWhenEndingTheSessionFails() async throws {
+        await forgetDeleted { throw ClerkFailed() }
+
+        #expect(!log.steps.contains("resume"))
+        #expect(!folderExists)
+    }
+
     @Test func syncResumesAndTheFolderStaysWhenTheSessionDoesNotEnd() async throws {
         await #expect(throws: ClerkFailed.self) {
-            try await leave(keepingUnsynced: false) { throw ClerkFailed() }
+            try await leave { throw ClerkFailed() }
         }
 
         #expect(log.steps == ["sync", "stop", "stopped", "end session", "resume"])
