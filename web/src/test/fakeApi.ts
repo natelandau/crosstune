@@ -95,6 +95,9 @@ export function createFakeApi() {
         storage,
       }
     },
+    async deleteAccount() {
+      if (failWith) throw failWith
+    },
     async requestUploadSlot(recordingId, body) {
       if (failWith) throw failWith
       if (slotError && (slotErrorId === null || slotErrorId === recordingId)) throw slotError

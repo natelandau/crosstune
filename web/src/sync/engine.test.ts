@@ -7,6 +7,7 @@ import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { createFakeApi, serverTune } from '../test/fakeApi'
 import { BACKOFF_MS, classifyFailure, createSyncEngine } from './engine'
+import { ACCOUNT_DELETED_PROBLEM } from './errors'
 import type { SyncStatus } from './types'
 
 let db: CrosstuneDb
@@ -224,6 +225,64 @@ describe('createSyncEngine', () => {
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await engine.sync()
     expect(engine.status()).toBe('unauthorized')
+    engine.stop()
+  })
+
+  it('stops and reports a deleted account once when the server says it is gone', async () => {
+    const deleted = new ApiError(401, {
+      type: ACCOUNT_DELETED_PROBLEM,
+      title: 'Unauthorized',
+      status: 401,
+      detail: 'This account was deleted',
+    })
+    fake.fail(deleted)
+    const onAccountDeleted = vi.fn()
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    engine.onAccountDeleted(onAccountDeleted)
+    await engine.sync()
+    expect(onAccountDeleted).toHaveBeenCalledOnce()
+    // A stopped engine ignores triggers, so no run can touch the database being deleted.
+    const pullsBefore = fake.pulls.length
+    await engine.sync()
+    expect(fake.pulls).toHaveLength(pullsBefore)
+    expect(onAccountDeleted).toHaveBeenCalledOnce()
+  })
+
+  it('does not report a deleted account once the engine is stopped', async () => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const pull = fake.api.pull
+    fake.api.pull = async (since) => {
+      await held
+      return pull(since)
+    }
+    fake.fail(
+      new ApiError(401, {
+        type: ACCOUNT_DELETED_PROBLEM,
+        title: 'Unauthorized',
+        status: 401,
+        detail: 'This account was deleted',
+      }),
+    )
+    const onAccountDeleted = vi.fn()
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    engine.onAccountDeleted(onAccountDeleted)
+    const run = engine.sync()
+    engine.stop()
+    release()
+    await run
+    expect(onAccountDeleted).not.toHaveBeenCalled()
+  })
+
+  it('treats a plain 401 as an expired session, not a deleted account', async () => {
+    fake.fail(new ApiError(401, null))
+    const onAccountDeleted = vi.fn()
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    engine.onAccountDeleted(onAccountDeleted)
+    await engine.sync()
+    expect(onAccountDeleted).not.toHaveBeenCalled()
     engine.stop()
   })
 

@@ -135,6 +135,9 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async me(): Promise<MeResponse> {
       return unwrap(await client.GET('/v1/me'))
     },
+    async deleteAccount(): Promise<void> {
+      unwrapEmpty(await client.DELETE('/v1/me'))
+    },
     async requestUploadSlot(recordingId, body: UploadSlotRequest): Promise<SignedUrl> {
       return unwrap(
         await client.POST('/v1/recordings/{recording_id}/upload-slot', {

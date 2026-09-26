@@ -44,6 +44,8 @@ function fakeEngine(): SyncEngine & { calls: number } {
     resolveLink: async () => null,
     download: async () => null,
     retry: async () => {},
+    deleteAccount: async () => {},
+    onAccountDeleted: () => () => {},
     stop: () => {},
     resume: () => {},
   }

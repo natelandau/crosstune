@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/react'
 import {
   createContext,
   useContext,
@@ -11,6 +12,7 @@ import { createApiClient } from '../api/client'
 import { useAuthSession } from '../auth/AuthContext'
 import { API_ORIGIN } from '../config'
 import { useDb } from '../db/DbProvider'
+import { forgetDeletedAccount } from '../features/settings/deleteAccount'
 import { APP_VERSION } from '../version'
 import { createSyncEngine } from './engine'
 import { startSyncTriggers } from './triggers'
@@ -22,7 +24,8 @@ export const SyncContext = createContext<SyncEngine | null>(null)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const db = useDb()
-  const { getToken, offline } = useAuthSession()
+  const { userId, getToken, offline } = useAuthSession()
+  const { signOut } = useAuth()
   const engine = useMemo(
     () =>
       createSyncEngine({
@@ -34,6 +37,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }),
       }),
     [db, getToken],
+  )
+  // Deleted from another device: this one wipes its copy as if it had made the delete.
+  useEffect(
+    () =>
+      engine.onAccountDeleted(
+        () => void forgetDeletedAccount({ db, userId, engine, signOut: () => signOut() }),
+      ),
+    [engine, db, userId, signOut],
   )
   useEffect(() => {
     engine.resume()

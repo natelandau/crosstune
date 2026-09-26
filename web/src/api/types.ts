@@ -28,6 +28,7 @@ export interface SyncApi {
   pull(since: number): Promise<PullResponse>
   resolveLink(url: string): Promise<ResolveResponse>
   me(): Promise<MeResponse>
+  deleteAccount(): Promise<void>
   requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>
   uploadFinished(recordingId: string): Promise<void>
   retryRecording(recordingId: string): Promise<void>

@@ -17,6 +17,8 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     resolveLink: async () => null,
     download: async () => null,
     retry: async () => {},
+    deleteAccount: async () => {},
+    onAccountDeleted: () => () => {},
     stop: () => {},
     resume: () => {},
     ...overrides,

@@ -1,17 +1,37 @@
 import { SignIn, useAuth } from '@clerk/react'
 import { IonSpinner } from '@ionic/react'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import { Lockup } from '../ui/Mark'
 import { clearSearchQuery } from '../features/catalog/searchSession'
 import { AuthProvider } from './AuthContext'
-import { forgetUser, rememberedUser, rememberUser } from './session'
+import {
+  clearAccountDeletedNotice,
+  clearLocalSignOut,
+  forgetUser,
+  hasAccountDeletedNotice,
+  locallySignedOutUser,
+  rememberedUser,
+  rememberUser,
+  subscribeLocalSignOut,
+} from './session'
 
 // A phone on a flaky jam-site network can take this long to learn Clerk is unreachable.
 export const CLERK_LOAD_GRACE_MS = 5000
 
+export const ACCOUNT_DELETED = 'Your account and all its data were deleted.'
+
 export function AuthGate({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, userId, getToken } = useAuth()
   const [graceOver, setGraceOver] = useState(false)
+  const signedOutUser = useSyncExternalStore(subscribeLocalSignOut, locallySignedOutUser)
+  const signedIn = isLoaded && isSignedIn && !!userId && userId !== signedOutUser
 
   useEffect(() => {
     if (isLoaded) return
@@ -21,29 +41,32 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoaded) return
-    if (isSignedIn && userId) {
+    // Once Clerk has let go of that user too, the local sign-out has nothing left to cover.
+    if (!isSignedIn || userId !== signedOutUser) clearLocalSignOut()
+    if (signedIn && userId) {
       rememberUser(userId)
+      clearAccountDeletedNotice()
     } else {
       forgetUser()
       // Whoever signs in next in this tab must not inherit the previous user's search.
       clearSearchQuery()
     }
-  }, [isLoaded, isSignedIn, userId])
+  }, [isLoaded, isSignedIn, userId, signedOutUser, signedIn])
 
   const latest = useRef<() => Promise<string | null>>(async () => null)
   useEffect(() => {
-    latest.current = isLoaded && isSignedIn ? () => getToken() : async () => null
-  }, [isLoaded, isSignedIn, getToken])
+    latest.current = signedIn ? () => getToken() : async () => null
+  }, [signedIn, getToken])
   const stableGetToken = useCallback(() => latest.current(), [])
 
-  if (isLoaded && isSignedIn && userId) {
+  if (signedIn && userId) {
     return (
       <AuthProvider value={{ userId, getToken: stableGetToken, offline: false }}>
         {children}
       </AuthProvider>
     )
   }
-  if (isLoaded) return <SignInScreen />
+  if (isLoaded) return <SignInScreen staleSession={!!isSignedIn && userId === signedOutUser} />
 
   const remembered = rememberedUser()
   if (remembered && (!navigator.onLine || graceOver)) {
@@ -68,11 +91,30 @@ function Centered({ children }: { children: ReactNode }) {
   )
 }
 
-function SignInScreen() {
+/**
+ * `staleSession` means Clerk still holds a session for a user this device signed out locally.
+ * Clerk's form redirects instead of rendering while a session is active, so this ends that
+ * session first and shows the form once Clerk lets go.
+ */
+function SignInScreen({ staleSession }: { staleSession: boolean }) {
+  // A sign-in clears the notice, so it shows here on every mount and reload until then.
+  const [deleted] = useState(hasAccountDeletedNotice)
+  const { signOut } = useAuth()
+  const triedSignOut = useRef(false)
+  useEffect(() => {
+    if (!staleSession || triedSignOut.current) return
+    triedSignOut.current = true
+    void signOut().catch(() => {})
+  }, [staleSession, signOut])
   return (
     <Centered>
       <Lockup className="type-title" />
-      <SignIn routing="hash" />
+      {deleted ? (
+        <p role="status" className="type-body">
+          {ACCOUNT_DELETED}
+        </p>
+      ) : null}
+      {staleSession ? null : <SignIn routing="hash" />}
     </Centered>
   )
 }
