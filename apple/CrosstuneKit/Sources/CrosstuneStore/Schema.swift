@@ -2,12 +2,13 @@ import GRDB
 
 /// The store's tables, versioned by SQLite's `user_version`.
 ///
-/// A store from an older build starts over: the synced tables and the outbox are rebuilt
-/// empty and the pull cursor reset, so the next sync pulls every row in this version's shape.
-/// Unsent edits are lost. Every other `meta` entry is a local preference and stays. Once the
-/// app has users, a schema change needs a migration that keeps the outbox instead.
+/// A store from an older build starts over: the synced tables, the outbox, and the recording
+/// files are rebuilt empty and the pull cursor and refused-change count reset, so the next sync
+/// pulls every row in this version's shape. Unsent edits and unuploaded recordings are lost. Every other `meta` entry
+/// is a local preference and stays. Once the app has users, a schema change needs a migration
+/// that keeps the outbox instead.
 enum Schema {
-    static let version = 1
+    static let version = 3
 
     static func storedVersion(_ db: Database) throws -> Int {
         try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
@@ -22,11 +23,16 @@ enum Schema {
                 try db.execute(sql: "DROP TABLE IF EXISTS \(table.rawValue)")
             }
             try db.execute(sql: "DROP TABLE IF EXISTS outbox")
-            try db.execute(sql: "DELETE FROM meta WHERE key = ?", arguments: [MetaKey.pullCursor.rawValue])
+            try db.execute(sql: "DROP TABLE IF EXISTS recording_files")
+            // The count of refused changes belongs to the outbox dropped above.
+            for key in [MetaKey.pullCursor, .invalidChanges] {
+                try db.execute(sql: "DELETE FROM meta WHERE key = ?", arguments: [key.rawValue])
+            }
         }
         try createMeta(db)
         try createSyncTables(db)
         try createOutbox(db)
+        try createRecordingFiles(db)
         try db.execute(sql: "PRAGMA user_version = \(version)")
     }
 
@@ -108,6 +114,25 @@ enum Schema {
         try createSyncTable(db, .userSettings) { t in
             t.column("audio_quality", .text).notNull()
             t.column("instruments", .jsonText).notNull()
+        }
+    }
+
+    /// The on-device state of each recording's audio file, keyed by the recording's own ID.
+    /// Not synced: the server never sees where a device keeps or how it names a file.
+    private static func createRecordingFiles(_ db: Database) throws {
+        try db.create(table: "recording_files") { t in
+            t.primaryKey("id", .text)
+            t.column("local_state", .text).notNull().indexed()
+            t.column("file_name", .text)
+            t.column("content_type", .text)
+            t.column("bytes", .integer)
+            t.column("local_duration_ms", .integer)
+            t.column("error", .text)
+            t.column("tune_id", .text)
+            t.column("recorded_at", .text)
+            t.column("upload_attempts", .integer).notNull().defaults(to: 0)
+            t.column("next_attempt_at", .text)
+            t.column("updated_at", .text).notNull()
         }
     }
 

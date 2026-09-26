@@ -266,6 +266,8 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/ListItemRow/user_tune_id`.
             public var userTuneId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `ListItemRow`.
             ///
             /// - Parameters:
@@ -277,6 +279,7 @@ extension Components {
             ///   - serverSeq:
             ///   - updatedAt:
             ///   - userTuneId:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 createdAt: Foundation.Date,
                 deletedAt: Foundation.Date? = nil,
@@ -285,7 +288,8 @@ extension Components {
                 position: Swift.Int? = nil,
                 serverSeq: Swift.Int,
                 updatedAt: Foundation.Date,
-                userTuneId: Swift.String
+                userTuneId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.createdAt = createdAt
                 self.deletedAt = deletedAt
@@ -295,6 +299,7 @@ extension Components {
                 self.serverSeq = serverSeq
                 self.updatedAt = updatedAt
                 self.userTuneId = userTuneId
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case createdAt = "created_at"
@@ -305,6 +310,87 @@ extension Components {
                 case serverSeq = "server_seq"
                 case updatedAt = "updated_at"
                 case userTuneId = "user_tune_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.listId = try container.decode(
+                    Swift.String.self,
+                    forKey: .listId
+                )
+                self.position = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .position
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userTuneId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userTuneId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "created_at",
+                    "deleted_at",
+                    "id",
+                    "list_id",
+                    "position",
+                    "server_seq",
+                    "updated_at",
+                    "user_tune_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encode(
+                    self.listId,
+                    forKey: .listId
+                )
+                try container.encodeIfPresent(
+                    self.position,
+                    forKey: .position
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userTuneId,
+                    forKey: .userTuneId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// A list row in a pull page.
@@ -356,6 +442,8 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/ListRow/user_id`.
             public var userId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `ListRow`.
             ///
             /// - Parameters:
@@ -367,6 +455,7 @@ extension Components {
             ///   - serverSeq:
             ///   - updatedAt:
             ///   - userId:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 createdAt: Foundation.Date,
                 deletedAt: Foundation.Date? = nil,
@@ -375,7 +464,8 @@ extension Components {
                 position: Swift.Int? = nil,
                 serverSeq: Swift.Int,
                 updatedAt: Foundation.Date,
-                userId: Swift.String
+                userId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.createdAt = createdAt
                 self.deletedAt = deletedAt
@@ -385,6 +475,7 @@ extension Components {
                 self.serverSeq = serverSeq
                 self.updatedAt = updatedAt
                 self.userId = userId
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case createdAt = "created_at"
@@ -395,6 +486,87 @@ extension Components {
                 case serverSeq = "server_seq"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.name = try container.decode(
+                    Swift.String.self,
+                    forKey: .name
+                )
+                self.position = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .position
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "created_at",
+                    "deleted_at",
+                    "id",
+                    "name",
+                    "position",
+                    "server_seq",
+                    "updated_at",
+                    "user_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encode(
+                    self.name,
+                    forKey: .name
+                )
+                try container.encodeIfPresent(
+                    self.position,
+                    forKey: .position
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userId,
+                    forKey: .userId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// The calling user's public profile.
@@ -869,6 +1041,8 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingLinkRow/url`.
             public var url: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `RecordingLinkRow`.
             ///
             /// - Parameters:
@@ -886,6 +1060,7 @@ extension Components {
             ///   - tuneId:
             ///   - updatedAt:
             ///   - url:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 addedByUserId: Swift.String,
                 artworkUrl: Swift.String? = nil,
@@ -900,7 +1075,8 @@ extension Components {
                 title: Swift.String? = nil,
                 tuneId: Swift.String,
                 updatedAt: Foundation.Date,
-                url: Swift.String
+                url: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.addedByUserId = addedByUserId
                 self.artworkUrl = artworkUrl
@@ -916,6 +1092,7 @@ extension Components {
                 self.tuneId = tuneId
                 self.updatedAt = updatedAt
                 self.url = url
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case addedByUserId = "added_by_user_id"
@@ -932,6 +1109,141 @@ extension Components {
                 case tuneId = "tune_id"
                 case updatedAt = "updated_at"
                 case url
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.addedByUserId = try container.decode(
+                    Swift.String.self,
+                    forKey: .addedByUserId
+                )
+                self.artworkUrl = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .artworkUrl
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.label = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .label
+                )
+                self.position = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .position
+                )
+                self.provider = try container.decode(
+                    Components.Schemas.Provider.self,
+                    forKey: .provider
+                )
+                self.providerRef = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .providerRef
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.title = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .title
+                )
+                self.tuneId = try container.decode(
+                    Swift.String.self,
+                    forKey: .tuneId
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.url = try container.decode(
+                    Swift.String.self,
+                    forKey: .url
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "added_by_user_id",
+                    "artwork_url",
+                    "created_at",
+                    "deleted_at",
+                    "id",
+                    "label",
+                    "position",
+                    "provider",
+                    "provider_ref",
+                    "server_seq",
+                    "title",
+                    "tune_id",
+                    "updated_at",
+                    "url"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.addedByUserId,
+                    forKey: .addedByUserId
+                )
+                try container.encodeIfPresent(
+                    self.artworkUrl,
+                    forKey: .artworkUrl
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.label,
+                    forKey: .label
+                )
+                try container.encodeIfPresent(
+                    self.position,
+                    forKey: .position
+                )
+                try container.encode(
+                    self.provider,
+                    forKey: .provider
+                )
+                try container.encodeIfPresent(
+                    self.providerRef,
+                    forKey: .providerRef
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encodeIfPresent(
+                    self.title,
+                    forKey: .title
+                )
+                try container.encode(
+                    self.tuneId,
+                    forKey: .tuneId
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.url,
+                    forKey: .url
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// A recording row in a pull page.
@@ -999,6 +1311,8 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingRow/user_id`.
             public var userId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `RecordingRow`.
             ///
             /// - Parameters:
@@ -1018,6 +1332,7 @@ extension Components {
             ///   - tuneId:
             ///   - updatedAt:
             ///   - userId:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 createdAt: Foundation.Date,
                 deletedAt: Foundation.Date? = nil,
@@ -1034,7 +1349,8 @@ extension Components {
                 state: Components.Schemas.RecordingState,
                 tuneId: Swift.String? = nil,
                 updatedAt: Foundation.Date,
-                userId: Swift.String
+                userId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.createdAt = createdAt
                 self.deletedAt = deletedAt
@@ -1052,6 +1368,7 @@ extension Components {
                 self.tuneId = tuneId
                 self.updatedAt = updatedAt
                 self.userId = userId
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case createdAt = "created_at"
@@ -1070,6 +1387,159 @@ extension Components {
                 case tuneId = "tune_id"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.durationMs = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .durationMs
+                )
+                self.error = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .error
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.label = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .label
+                )
+                self.playbackBytes = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .playbackBytes
+                )
+                self.playbackMime = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .playbackMime
+                )
+                self.position = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .position
+                )
+                self.recordedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .recordedAt
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.source = try container.decode(
+                    Components.Schemas.RecordingSource.self,
+                    forKey: .source
+                )
+                self.state = try container.decode(
+                    Components.Schemas.RecordingState.self,
+                    forKey: .state
+                )
+                self.tuneId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .tuneId
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "created_at",
+                    "deleted_at",
+                    "duration_ms",
+                    "error",
+                    "id",
+                    "label",
+                    "playback_bytes",
+                    "playback_mime",
+                    "position",
+                    "recorded_at",
+                    "server_seq",
+                    "source",
+                    "state",
+                    "tune_id",
+                    "updated_at",
+                    "user_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encodeIfPresent(
+                    self.durationMs,
+                    forKey: .durationMs
+                )
+                try container.encodeIfPresent(
+                    self.error,
+                    forKey: .error
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.label,
+                    forKey: .label
+                )
+                try container.encodeIfPresent(
+                    self.playbackBytes,
+                    forKey: .playbackBytes
+                )
+                try container.encodeIfPresent(
+                    self.playbackMime,
+                    forKey: .playbackMime
+                )
+                try container.encodeIfPresent(
+                    self.position,
+                    forKey: .position
+                )
+                try container.encode(
+                    self.recordedAt,
+                    forKey: .recordedAt
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.source,
+                    forKey: .source
+                )
+                try container.encode(
+                    self.state,
+                    forKey: .state
+                )
+                try container.encodeIfPresent(
+                    self.tuneId,
+                    forKey: .tuneId
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userId,
+                    forKey: .userId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// How a recording's audio arrived.
@@ -1316,6 +1786,8 @@ extension Components {
             public var tunings: Components.Schemas.Tunings?
             /// - Remark: Generated from `#/components/schemas/TuneRow/updated_at`.
             public var updatedAt: Foundation.Date
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `TuneRow`.
             ///
             /// - Parameters:
@@ -1337,6 +1809,7 @@ extension Components {
             ///   - tuneType:
             ///   - tunings:
             ///   - updatedAt:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 alternateTitles: [Swift.String]? = nil,
                 composer: Swift.String? = nil,
@@ -1355,7 +1828,8 @@ extension Components {
                 title: Swift.String,
                 tuneType: Swift.String? = nil,
                 tunings: Components.Schemas.Tunings? = nil,
-                updatedAt: Foundation.Date
+                updatedAt: Foundation.Date,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.alternateTitles = alternateTitles
                 self.composer = composer
@@ -1375,6 +1849,7 @@ extension Components {
                 self.tuneType = tuneType
                 self.tunings = tunings
                 self.updatedAt = updatedAt
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case alternateTitles = "alternate_titles"
@@ -1395,6 +1870,177 @@ extension Components {
                 case tuneType = "tune_type"
                 case tunings
                 case updatedAt = "updated_at"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.alternateTitles = try container.decodeIfPresent(
+                    [Swift.String].self,
+                    forKey: .alternateTitles
+                )
+                self.composer = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .composer
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.genre = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .genre
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.isCrooked = try container.decodeIfPresent(
+                    Swift.Bool.self,
+                    forKey: .isCrooked
+                )
+                self.key = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .key
+                )
+                self.lyrics = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .lyrics
+                )
+                self.modes = try container.decode(
+                    [Components.Schemas.Mode].self,
+                    forKey: .modes
+                )
+                self.ownerUserId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .ownerUserId
+                )
+                self.partStructure = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .partStructure
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.timeSignature = try container.decodeIfPresent(
+                    Components.Schemas.TimeSignature.self,
+                    forKey: .timeSignature
+                )
+                self.title = try container.decode(
+                    Swift.String.self,
+                    forKey: .title
+                )
+                self.tuneType = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .tuneType
+                )
+                self.tunings = try container.decodeIfPresent(
+                    Components.Schemas.Tunings.self,
+                    forKey: .tunings
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "alternate_titles",
+                    "composer",
+                    "created_at",
+                    "deleted_at",
+                    "genre",
+                    "id",
+                    "is_crooked",
+                    "key",
+                    "lyrics",
+                    "modes",
+                    "owner_user_id",
+                    "part_structure",
+                    "server_seq",
+                    "time_signature",
+                    "title",
+                    "tune_type",
+                    "tunings",
+                    "updated_at"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encodeIfPresent(
+                    self.alternateTitles,
+                    forKey: .alternateTitles
+                )
+                try container.encodeIfPresent(
+                    self.composer,
+                    forKey: .composer
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encodeIfPresent(
+                    self.genre,
+                    forKey: .genre
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.isCrooked,
+                    forKey: .isCrooked
+                )
+                try container.encodeIfPresent(
+                    self.key,
+                    forKey: .key
+                )
+                try container.encodeIfPresent(
+                    self.lyrics,
+                    forKey: .lyrics
+                )
+                try container.encode(
+                    self.modes,
+                    forKey: .modes
+                )
+                try container.encodeIfPresent(
+                    self.ownerUserId,
+                    forKey: .ownerUserId
+                )
+                try container.encodeIfPresent(
+                    self.partStructure,
+                    forKey: .partStructure
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encodeIfPresent(
+                    self.timeSignature,
+                    forKey: .timeSignature
+                )
+                try container.encode(
+                    self.title,
+                    forKey: .title
+                )
+                try container.encodeIfPresent(
+                    self.tuneType,
+                    forKey: .tuneType
+                )
+                try container.encodeIfPresent(
+                    self.tunings,
+                    forKey: .tunings
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// Where a player stands with a tune.
@@ -1577,6 +2223,8 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/user_id`.
             public var userId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `UserSettingsRow`.
             ///
             /// - Parameters:
@@ -1588,6 +2236,7 @@ extension Components {
             ///   - serverSeq:
             ///   - updatedAt:
             ///   - userId:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 audioQuality: Components.Schemas.AudioQuality? = nil,
                 createdAt: Foundation.Date,
@@ -1596,7 +2245,8 @@ extension Components {
                 instruments: [Components.Schemas.Instrument]? = nil,
                 serverSeq: Swift.Int,
                 updatedAt: Foundation.Date,
-                userId: Swift.String
+                userId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.audioQuality = audioQuality
                 self.createdAt = createdAt
@@ -1606,6 +2256,7 @@ extension Components {
                 self.serverSeq = serverSeq
                 self.updatedAt = updatedAt
                 self.userId = userId
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case audioQuality = "audio_quality"
@@ -1616,6 +2267,87 @@ extension Components {
                 case serverSeq = "server_seq"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.audioQuality = try container.decodeIfPresent(
+                    Components.Schemas.AudioQuality.self,
+                    forKey: .audioQuality
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.instruments = try container.decodeIfPresent(
+                    [Components.Schemas.Instrument].self,
+                    forKey: .instruments
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "audio_quality",
+                    "created_at",
+                    "deleted_at",
+                    "id",
+                    "instruments",
+                    "server_seq",
+                    "updated_at",
+                    "user_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encodeIfPresent(
+                    self.audioQuality,
+                    forKey: .audioQuality
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.instruments,
+                    forKey: .instruments
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userId,
+                    forKey: .userId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// The outcome of one change to a user tune.
@@ -1722,6 +2454,8 @@ extension Components {
             public var updatedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/UserTuneRow/user_id`.
             public var userId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
             /// Creates a new `UserTuneRow`.
             ///
             /// - Parameters:
@@ -1737,6 +2471,7 @@ extension Components {
             ///   - tuneId:
             ///   - updatedAt:
             ///   - userId:
+            ///   - additionalProperties: A container of undocumented properties.
             public init(
                 archivedAt: Foundation.Date? = nil,
                 createdAt: Foundation.Date,
@@ -1749,7 +2484,8 @@ extension Components {
                 status: Components.Schemas.TuneStatus,
                 tuneId: Swift.String,
                 updatedAt: Foundation.Date,
-                userId: Swift.String
+                userId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
                 self.archivedAt = archivedAt
                 self.createdAt = createdAt
@@ -1763,6 +2499,7 @@ extension Components {
                 self.tuneId = tuneId
                 self.updatedAt = updatedAt
                 self.userId = userId
+                self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
                 case archivedAt = "archived_at"
@@ -1777,6 +2514,123 @@ extension Components {
                 case tuneId = "tune_id"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.archivedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .archivedAt
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.learnedFrom = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .learnedFrom
+                )
+                self.learnedOn = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .learnedOn
+                )
+                self.notes = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .notes
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.status = try container.decode(
+                    Components.Schemas.TuneStatus.self,
+                    forKey: .status
+                )
+                self.tuneId = try container.decode(
+                    Swift.String.self,
+                    forKey: .tuneId
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "archived_at",
+                    "created_at",
+                    "deleted_at",
+                    "id",
+                    "learned_from",
+                    "learned_on",
+                    "notes",
+                    "server_seq",
+                    "status",
+                    "tune_id",
+                    "updated_at",
+                    "user_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encodeIfPresent(
+                    self.archivedAt,
+                    forKey: .archivedAt
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.learnedFrom,
+                    forKey: .learnedFrom
+                )
+                try container.encodeIfPresent(
+                    self.learnedOn,
+                    forKey: .learnedOn
+                )
+                try container.encodeIfPresent(
+                    self.notes,
+                    forKey: .notes
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.status,
+                    forKey: .status
+                )
+                try container.encode(
+                    self.tuneId,
+                    forKey: .tuneId
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userId,
+                    forKey: .userId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
     }

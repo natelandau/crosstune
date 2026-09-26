@@ -1,3 +1,4 @@
+import CrosstuneTestSupport
 import Foundation
 import GRDB
 import Testing
@@ -49,19 +50,37 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
 }
 
+@Test func deletingOthersKeepsEveryListedUser() throws {
+    let root = TemporaryRoot()
+    let first = try root.open("user_a")
+    let second = try root.open("user_b")
+    let stale = try root.open("user_c")
+    try stale.close()
+
+    try CrosstuneStore.deleteOthers(keeping: ["user_a", "user_b"], root: root.url)
+
+    #expect(FileManager.default.fileExists(atPath: first.folder.path()))
+    #expect(FileManager.default.fileExists(atPath: second.folder.path()))
+    #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
+}
+
 @Test func anOlderStoreStartsOverAndKeepsPreferences() async throws {
     let root = TemporaryRoot()
     let old = try root.open(schemaVersion: 1)
     try await old.write { writer in
         try writer.put(Tune(title: "Arkansas Traveler"))
+        try RecordingFile(id: newID(), localState: .captured, updatedAt: noon).insert(writer.db)
         try writer.setMeta(.pullCursor, to: 99)
+        try writer.setMeta(.invalidChanges, to: 3)
         try writer.setMeta(.keepOffline, to: true)
     }
     try old.close()
 
     let store = try root.open(schemaVersion: 2)
+    #expect(try await store.meta(.invalidChanges, as: Int.self) == nil)
 
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
+    #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
     #expect(try await store.pendingChangeCount() == 0)
     #expect(try await store.meta(.pullCursor, as: Int.self) == nil)
     #expect(try await store.meta(.keepOffline, as: Bool.self) == true)
@@ -98,6 +117,33 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
     #expect(try await store.pendingChangeCount() == 1)
     #expect(try await store.meta(.pullCursor, as: Int.self) == 7)
+}
+
+@Test func theSweepDeletesOnlyUnnamedAudioThatWasThereAtOpen() async throws {
+    let root = TemporaryRoot()
+    let first = try root.open()
+    let kept = "\(newID()).m4a"
+    let capturing = newID()
+    try await first.write { writer in
+        try RecordingFile(id: newID(), localState: .captured, fileName: kept, updatedAt: noon).insert(writer.db)
+        try RecordingFile(id: capturing, localState: .capturing, fileName: "\(capturing).aac", updatedAt: noon)
+            .insert(writer.db)
+    }
+    let names = [kept, "\(newID()).m4a", "\(newID()).mp3", "\(newID()).aac", "\(capturing).m4a"]
+    for name in names {
+        try Data([1]).write(to: first.audioFolder.appending(path: name))
+    }
+    try first.close()
+
+    let store = try root.open()
+    let later = "\(newID()).m4a"
+    try Data([1]).write(to: store.audioFolder.appending(path: later))
+    await store.deleteUnnamedAudio()
+
+    let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
+    #expect(
+        Set(left) == [kept, names[3], names[4], later],
+        "a capture, a capturing row's finished file, and a file written after open stay")
 }
 
 @MainActor

@@ -112,8 +112,9 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A model change: `just api::makemigrations "message"`, review the file,
   then `just api::migrate`.
 - An API change: `just contract` regenerates the OpenAPI file, the typed
-  web client, the web client's generated vocabulary file, and the Swift
-  client. CI fails when the committed copies drift.
+  web client, the web client's generated vocabulary file, the Apple app's
+  Swift client, and its own generated vocabulary file. CI fails when the
+  committed copies drift.
 - A validated value or length limit: edit `api/src/crosstune/vocabulary.py`,
   write the migration for the check constraint or column it changes, run
   `just contract`, and give any new value its label in
@@ -146,11 +147,12 @@ and fails instead in CI, where the `API` workflow always starts it.
   Both are required checks, so they start on every PR and skip their jobs
   when it touches nothing they cover. A skipped job passes a required
   check.
-  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift package tests, builds for
-  the iOS Simulator and macOS, and checks the generated Swift client. It
-  runs only when `apple/` or the contract changes, and no host deploys
-  from it. It is not a required check, because a required check must run
-  on every PR and macOS minutes cost more. `E2E`
+  `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
+  package tests, builds for the iOS Simulator and macOS, and checks the
+  generated Swift client and vocabulary file. It runs only when `apple/` or
+  the contract changes, and no host deploys from it. It is not a required
+  check, because a required check must run on every PR and macOS minutes
+  cost more. `E2E`
   runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges.

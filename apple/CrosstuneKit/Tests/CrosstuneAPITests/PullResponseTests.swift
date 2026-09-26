@@ -90,4 +90,5 @@ func fixture(_ name: String) throws -> Data {
     }
     #expect(tune.row.modes == ["lydian"])
     #expect(tune.row.timeSignature == "5/4")
+    #expect((tune.row.additionalProperties.value["field_added_later"] ?? nil) as? Bool == true)
 }

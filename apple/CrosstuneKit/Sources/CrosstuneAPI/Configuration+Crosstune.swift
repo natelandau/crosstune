@@ -17,7 +17,14 @@ public struct APIDateTranscoder: DateTranscoder {
     public init() {}
 
     public func encode(_ date: Date) throws -> String {
-        Self.fractional.format(date)
+        // A formatter truncates a Date's floating-point seconds, which often sit a hair under
+        // the intended millisecond. Rounding to the API's microsecond first keeps the millisecond
+        // the client stamped, and cuts the API's own microseconds to milliseconds as parsing does.
+        let microseconds = Int64((date.timeIntervalSince1970 * 1_000_000).rounded())
+        let (seconds, remainder) = microseconds.quotientAndRemainder(dividingBy: 1_000_000)
+        let (wholeSeconds, fraction) = remainder < 0 ? (seconds - 1, remainder + 1_000_000) : (seconds, remainder)
+        let text = Self.whole.format(Date(timeIntervalSince1970: Double(wholeSeconds)))
+        return text.dropLast() + String(format: ".%03lldZ", fraction / 1000)
     }
 
     public func decode(_ dateString: String) throws -> Date {
