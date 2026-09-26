@@ -488,6 +488,7 @@
           },
           "type": {
             "default": "about:blank",
+            "description": "`about:blank`, or a problem a client branches on: `urn:crosstune:account-deleted` (401, the account was deleted, so the client drops its local data), `urn:crosstune:quota-exceeded` (413), `urn:crosstune:file-too-large` (413).",
             "title": "Type",
             "type": "string"
           }
@@ -1932,6 +1933,59 @@
       }
     },
     "/v1/me": {
+      "delete": {
+        "description": "Delete the calling user's account, every row it owns, and Clerk's copy.\n\nFiles are removed after the response.",
+        "operationId": "delete_me_v1_me_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Delete Me",
+        "tags": [
+          "users"
+        ]
+      },
       "get": {
         "description": "The calling user's profile and storage figures.",
         "operationId": "me_v1_me_get",

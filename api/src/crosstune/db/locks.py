@@ -21,3 +21,13 @@ def advisory_lock_key(user_id: uuid.UUID) -> int:
 async def lock_user(session: AsyncSession, user_id: uuid.UUID) -> None:
     """Serialize this user's writes for the rest of the transaction; released with the transaction."""
     await session.execute(select(func.pg_advisory_xact_lock(advisory_lock_key(user_id))))
+
+
+async def lock_clerk_user(session: AsyncSession, clerk_user_id: str) -> None:
+    """Serialize account creation and purge for one Clerk id; released with the transaction.
+
+    Uses the two-key form of the advisory lock. Postgres tags it with a different
+    objsubid than the single-bigint form lock_user uses, so this key space can never
+    collide with a numeric user id lock.
+    """
+    await session.execute(select(func.pg_advisory_xact_lock(0, func.hashtext(clerk_user_id))))

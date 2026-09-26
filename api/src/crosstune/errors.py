@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException
 
 if TYPE_CHECKING:
@@ -18,12 +18,21 @@ if TYPE_CHECKING:
     from fastapi import FastAPI, Request
 
 PROBLEM_JSON = "application/problem+json"
+ACCOUNT_DELETED_PROBLEM = "urn:crosstune:account-deleted"
 
 
 class Problem(BaseModel):
     """An RFC 9457 problem details body, the shape of every error this API returns."""
 
-    type: str = "about:blank"
+    type: str = Field(
+        default="about:blank",
+        description=(
+            "`about:blank`, or a problem a client branches on: "
+            "`urn:crosstune:account-deleted` (401, the account was deleted, so the "
+            "client drops its local data), `urn:crosstune:quota-exceeded` (413), "
+            "`urn:crosstune:file-too-large` (413)."
+        ),
+    )
     title: str
     status: int
     detail: str
@@ -77,6 +86,15 @@ class UnauthorizedError(AppError):
 
     def __init__(self, detail: str = "Missing or invalid credentials") -> None:
         super().__init__(401, "Unauthorized", detail)
+
+
+class AccountDeletedError(UnauthorizedError):
+    """The token belongs to a deleted account, so the client must drop its local copy."""
+
+    def __init__(self) -> None:
+        AppError.__init__(
+            self, 401, "Unauthorized", "This account was deleted", type_=ACCOUNT_DELETED_PROBLEM
+        )
 
 
 class ForbiddenError(AppError):

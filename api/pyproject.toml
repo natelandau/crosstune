@@ -74,6 +74,7 @@
     CROSSTUNE_CLERK_AUTHORIZED_PARTIES           = '["http://testclient"]'
     CROSSTUNE_CLERK_ISSUER                       = "https://test.clerk.accounts.dev"
     CROSSTUNE_CLERK_WEBHOOK_SECRET               = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not a credential
+    CROSSTUNE_CLERK_SECRET_KEY                   = "sk_test_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not a credential
     CROSSTUNE_DEBUG                              = "true"
     # Pinned empty so a developer's api/.env DSN cannot leak into the suite.
     CROSSTUNE_SENTRY_DSN                         = ""

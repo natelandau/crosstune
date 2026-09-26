@@ -143,9 +143,19 @@ same triggers. A return to the foreground stands in for a visible tab.
   The API reads only the `Authorization` header, never a cookie, so the
   claim guards nothing a missing value could expose.
 - The first valid token from a Clerk user inserts a user row.
-- Account deletion: Clerk's webhook (Svix-signed) hard-deletes the user row
-  and foreign keys cascade. Bucket files are removed after the response, and
-  an hourly sweep deletes any user prefix whose row is gone.
+- Account deletion has two paths to the same row delete: `DELETE /v1/me`,
+  one transaction that deletes the user row then calls Clerk to delete the
+  account (a Clerk failure rolls the transaction back); and Clerk's webhook
+  (Svix-signed), the only path for a deletion made from the Clerk
+  dashboard. Both paths are idempotent. Foreign keys cascade to every table
+  the user owns.
+- `deleted_accounts` denylists the Clerk id so a token still valid after
+  deletion can never recreate the row. The API answers that token with a
+  401 of type `urn:crosstune:account-deleted`, and a client that receives
+  it wipes its local data as if it had made the delete itself.
+- Bucket files are removed after the response, and an hourly sweep deletes
+  any user prefix whose row is gone. A deleted row still exists in Neon's
+  point-in-time recovery history until that window ends.
 - Offline: the client remembers the last user ID in local storage. With no
   connection, or when Clerk fails to load within 5 seconds, the app opens on
   that user's local database. Sync reports offline until Clerk loads, then

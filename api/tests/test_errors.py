@@ -70,7 +70,7 @@ async def test_unknown_route_is_a_problem_details_404(client) -> None:
 
 
 async def test_wrong_method_is_a_problem_details_405(client) -> None:
-    response = await client.delete("/v1/me")
+    response = await client.put("/v1/me")
     assert response.status_code == 405
     assert response.headers["content-type"] == PROBLEM_JSON
     assert response.json()["title"] == "Method Not Allowed"

@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import ValidationInfo, field_validator, model_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
@@ -41,11 +41,16 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     debug: bool = False
-    database_url: str = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune"
+    # Hidden from repr because the URL carries the password; it stays a plain str since
+    # the engine, migrations, and the e2e guard all read it as one.
+    database_url: str = Field(
+        default="postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune", repr=False
+    )
     clerk_issuer: str = ""
     clerk_authorized_parties: list[str] = []
     clerk_authorized_party_regex: str = ""
-    clerk_webhook_secret: str = ""
+    clerk_webhook_secret: SecretStr = SecretStr("")
+    clerk_secret_key: SecretStr = SecretStr("")
     sentry_dsn: str = ""
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
@@ -54,7 +59,7 @@ class Settings(BaseSettings):
     r2_account_id: str = ""
     storage_bucket: str = ""
     storage_access_key_id: str = ""
-    storage_secret_access_key: str = ""
+    storage_secret_access_key: SecretStr = SecretStr("")
     storage_prefix: str = ""
     local_storage_endpoint_url: str = ""
     local_storage_browser_endpoint_url: str = ""
@@ -92,7 +97,7 @@ class Settings(BaseSettings):
             (self.r2_account_id or self.local_storage_endpoint_url)
             and self.storage_bucket
             and self.storage_access_key_id
-            and self.storage_secret_access_key
+            and self.storage_secret_access_key.get_secret_value()
         )
 
     @field_validator("database_url")
@@ -129,6 +134,9 @@ class Settings(BaseSettings):
             return self
         if not self.clerk_issuer:
             msg = f"{self.environment} needs CROSSTUNE_CLERK_ISSUER"
+            raise ValueError(msg)
+        if not self.clerk_secret_key.get_secret_value():
+            msg = f"{self.environment} needs CROSSTUNE_CLERK_SECRET_KEY"
             raise ValueError(msg)
         if not (self.clerk_authorized_parties or self.clerk_authorized_party_regex):
             msg = (

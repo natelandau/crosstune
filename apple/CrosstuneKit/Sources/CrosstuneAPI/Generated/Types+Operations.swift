@@ -354,6 +354,308 @@ public enum Operations {
             }
         }
     }
+    /// Delete Me
+    ///
+    /// Delete the calling user's account, every row it owns, and Clerk's copy.
+    ///
+    /// Files are removed after the response.
+    ///
+    /// - Remark: HTTP `DELETE /v1/me`.
+    /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
+    public enum DeleteMeV1MeDelete {
+        public static let id: Swift.String = "delete_me_v1_me_delete"
+        public struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/v1/me/DELETE/header`.
+            public struct Headers: Sendable, Hashable {
+                public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.DeleteMeV1MeDelete.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                public init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.DeleteMeV1MeDelete.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            public var headers: Operations.DeleteMeV1MeDelete.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            public init(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        @frozen public enum Output: Sendable, Hashable {
+            public struct NoContent: Sendable, Hashable {
+                /// Creates a new `NoContent`.
+                public init() {}
+            }
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            case noContent(Operations.DeleteMeV1MeDelete.Output.NoContent)
+            /// Successful Response
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            public static var noContent: Self {
+                .noContent(.init())
+            }
+            /// The associated value of the enum case if `self` is `.noContent`.
+            ///
+            /// - Throws: An error if `self` is not `.noContent`.
+            /// - SeeAlso: `.noContent`.
+            public var noContent: Operations.DeleteMeV1MeDelete.Output.NoContent {
+                get throws {
+                    switch self {
+                    case let .noContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "noContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/401/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/401/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.DeleteMeV1MeDelete.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.DeleteMeV1MeDelete.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// Unauthorized
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.DeleteMeV1MeDelete.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            public var unauthorized: Operations.DeleteMeV1MeDelete.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct UnprocessableContent: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/422/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/422/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.DeleteMeV1MeDelete.Output.UnprocessableContent.Body
+                /// Creates a new `UnprocessableContent`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.DeleteMeV1MeDelete.Output.UnprocessableContent.Body) {
+                    self.body = body
+                }
+            }
+            /// Validation Error
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/422`.
+            ///
+            /// HTTP response code: `422 unprocessableContent`.
+            case unprocessableContent(Operations.DeleteMeV1MeDelete.Output.UnprocessableContent)
+            /// The associated value of the enum case if `self` is `.unprocessableContent`.
+            ///
+            /// - Throws: An error if `self` is not `.unprocessableContent`.
+            /// - SeeAlso: `.unprocessableContent`.
+            public var unprocessableContent: Operations.DeleteMeV1MeDelete.Output.UnprocessableContent {
+                get throws {
+                    switch self {
+                    case let .unprocessableContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unprocessableContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct BadGateway: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/502/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/502/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.DeleteMeV1MeDelete.Output.BadGateway.Body
+                /// Creates a new `BadGateway`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.DeleteMeV1MeDelete.Output.BadGateway.Body) {
+                    self.body = body
+                }
+            }
+            /// Bad Gateway
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/502`.
+            ///
+            /// HTTP response code: `502 badGateway`.
+            case badGateway(Operations.DeleteMeV1MeDelete.Output.BadGateway)
+            /// The associated value of the enum case if `self` is `.badGateway`.
+            ///
+            /// - Throws: An error if `self` is not `.badGateway`.
+            /// - SeeAlso: `.badGateway`.
+            public var badGateway: Operations.DeleteMeV1MeDelete.Output.BadGateway {
+                get throws {
+                    switch self {
+                    case let .badGateway(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badGateway",
+                            response: self
+                        )
+                    }
+                }
+            }
+            public struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/503/content`.
+                @frozen public enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/v1/me/DELETE/responses/503/content/application\/problem+json`.
+                    case applicationProblemJson(Components.Schemas.Problem)
+                    /// The associated value of the enum case if `self` is `.applicationProblemJson`.
+                    ///
+                    /// - Throws: An error if `self` is not `.applicationProblemJson`.
+                    /// - SeeAlso: `.applicationProblemJson`.
+                    public var applicationProblemJson: Components.Schemas.Problem {
+                        get throws {
+                            switch self {
+                            case let .applicationProblemJson(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                public var body: Operations.DeleteMeV1MeDelete.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                public init(body: Operations.DeleteMeV1MeDelete.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// Service Unavailable
+            ///
+            /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.DeleteMeV1MeDelete.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            public var serviceUnavailable: Operations.DeleteMeV1MeDelete.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        @frozen public enum AcceptableContentType: AcceptableProtocol {
+            case applicationProblemJson
+            case other(Swift.String)
+            public init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/problem+json":
+                    self = .applicationProblemJson
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            public var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .applicationProblemJson:
+                    return "application/problem+json"
+                }
+            }
+            public static var allCases: [Self] {
+                [
+                    .applicationProblemJson
+                ]
+            }
+        }
+    }
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.

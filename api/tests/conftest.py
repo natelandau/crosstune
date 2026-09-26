@@ -28,7 +28,7 @@ from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
 from crosstune.ops import local_storage
-from tests.fakes import FakeObjectStore
+from tests.fakes import FakeClerkUsers, FakeObjectStore
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -361,7 +361,7 @@ async def truncate_all(engine) -> AsyncIterator[None]:
         await conn.execute(
             text(
                 "truncate upload_slots, jobs, recordings, list_items, lists, recording_links, "
-                "user_tunes, tunes, user_settings, users cascade"
+                "user_tunes, tunes, user_settings, users, deleted_accounts cascade"
             )
         )
 
@@ -378,6 +378,7 @@ def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjec
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.http_client = mock_http.client()
     app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
+    app.state.clerk_users = FakeClerkUsers()
     app.state.object_store = object_store
     return app
 

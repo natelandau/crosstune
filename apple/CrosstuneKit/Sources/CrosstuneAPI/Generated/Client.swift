@@ -214,6 +214,138 @@ public struct Client: APIProtocol {
             }
         )
     }
+    /// Delete Me
+    ///
+    /// Delete the calling user's account, every row it owns, and Clerk's copy.
+    ///
+    /// Files are removed after the response.
+    ///
+    /// - Remark: HTTP `DELETE /v1/me`.
+    /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
+    public func deleteMeV1MeDelete(_ input: Operations.DeleteMeV1MeDelete.Input) async throws -> Operations.DeleteMeV1MeDelete.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.DeleteMeV1MeDelete.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/me",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .delete
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.DeleteMeV1MeDelete.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.DeleteMeV1MeDelete.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                case 502:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.DeleteMeV1MeDelete.Output.BadGateway.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .badGateway(.init(body: body))
+                case 503:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.DeleteMeV1MeDelete.Output.ServiceUnavailable.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .serviceUnavailable(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Download
     ///
     /// A presigned GET for the playback file of a ready recording.
