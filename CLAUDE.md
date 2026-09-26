@@ -54,3 +54,10 @@ every label. The glossary in `docs/product.md` has the reasons.
 - A user-facing string that more than one file needs, tests included, is an
   exported constant beside the component that shows it; never retype it.
   The rule and its reason are in `docs/design.md`.
+- Every sheet, dialog, alert, and file picker in
+  `apple/CrosstuneKit/Sources/CrosstuneUI` claims the shell while it shows:
+  a sheet's root view carries `.shellSheet()` or `.partHeightSheet()`; a
+  dialog, alert, or file picker has no root view of its own, so the view
+  presenting it carries `.coversShell(_:)` on the line before. A test in
+  `CrosstuneUITests` enforces both, so the record dome hides and the shell's
+  menu commands stand down behind every presentation.
