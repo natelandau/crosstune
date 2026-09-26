@@ -5,12 +5,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,  # noqa: TC002 -- FastAPI resolves this annotation at route registration
-)
 
 from crosstune.auth.tokens import verify_clerk_token
-from crosstune.db.session import get_session
+from crosstune.db.session import (
+    DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
+)
 from crosstune.errors import UnauthorizedError
 from crosstune.models import (
     User,
@@ -48,9 +47,7 @@ async def verify_bearer(request: Request) -> dict:
     )
 
 
-async def current_user(
-    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
-) -> User:
+async def current_user(request: Request, session: DbSession) -> User:
     """Verify the bearer token and return the local user, creating it on first sight."""
     claims = getattr(request.state, CLAIMS_STATE_KEY, None) or await verify_bearer(request)
     email = claims.get("email")
