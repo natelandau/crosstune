@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.12.10-python3.13-trixie-slim AS builder
+FROM ghcr.io/astral-sh/uv:0.12.19-python3.13-trixie-slim AS builder
 ENV UV_COMPILE_BYTECODE=1
 WORKDIR /app
 COPY uv.lock pyproject.toml ./
