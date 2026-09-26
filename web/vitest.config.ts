@@ -8,6 +8,9 @@ export default defineConfig((env) =>
   mergeConfig(
     viteConfig(env),
     defineConfig({
+      // The dev server's strict port would reach each browser project's server, so a second
+      // run in the same checkout would fail instead of taking the next port.
+      server: { strictPort: false },
       test: {
         restoreMocks: true,
         // Node re-reads TZ per Date/Intl call, so this makes a test that formats a date

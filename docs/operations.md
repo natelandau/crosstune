@@ -35,13 +35,13 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 
 ## Run
 
-| Command             | Does                                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. |
-| `just dev-down`     | Stops Postgres and RustFS.                                                                                          |
-| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                |
-| `just web::run`     | The web client alone.                                                                                               |
-| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                               |
+| Command             | Does                                                                                                                                                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. If either port is taken, it names what holds it and offers to stop a Crosstune server left from an earlier session. |
+| `just dev-down`     | Stops Postgres and RustFS.                                                                                                                                                                                                              |
+| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                                                                                                                                    |
+| `just web::run`     | The web client alone.                                                                                                                                                                                                                   |
+| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                   |
 
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout

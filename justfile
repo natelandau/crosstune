@@ -80,6 +80,7 @@ dev-setup: api::setup web::setup
 
 # Start Postgres, apply migrations, then run the API and web client together
 dev:
+    scripts/dev-ports.sh 8000 5173
     docker compose up -d --wait
     just api::storage-setup
     just api::migrate
