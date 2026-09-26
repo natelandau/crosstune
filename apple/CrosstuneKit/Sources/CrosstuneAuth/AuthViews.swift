@@ -12,11 +12,41 @@ public struct SignInView: View {
     }
 }
 
-/// The account: who is signed in, sign-out, and account deletion.
+/// The account in a sheet of its own, for screens that have no Settings form to hold
+/// ``AccountSections``.
+public struct AccountView: View {
+    public static let done = "Done"
+
+    let session: AccountSession
+
+    @Environment(\.dismiss) private var dismiss
+
+    public init(session: AccountSession) {
+        self.session = session
+    }
+
+    public var body: some View {
+        NavigationStack {
+            Form {
+                AccountSections(session: session)
+            }
+            .formStyle(.grouped)
+            .navigationTitle(AccountSections.title)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(Self.done) { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+/// The account's sections of a form: who is signed in, sign-out, and account deletion.
 ///
 /// Not Clerk's `UserProfileView`, which always offers its own sign-out and so would skip the
 /// guard that keeps unsent changes from being deleted with the catalog.
-public struct AccountView: View {
+public struct AccountSections: View {
+    public static let title = "Account"
     public static let signOut = "Sign out"
     public static let signOutOffline = "Sign out needs a connection."
     public static let signedInOffline = "Signed in (offline)"
@@ -27,7 +57,6 @@ public struct AccountView: View {
 
     let session: AccountSession
 
-    @Environment(\.dismiss) private var dismiss
     @State private var pending = false
     @State private var signOutFailure: String?
     @State private var deleteFailure: String?
@@ -38,40 +67,31 @@ public struct AccountView: View {
     }
 
     public var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text(identity)
-                    Button(Self.signOut, role: .destructive) {
-                        run(failure: $signOutFailure) { try await session.signOut() }
+        Section {
+            Text(identity)
+            Button(Self.signOut, role: .destructive) {
+                run(failure: $signOutFailure) { try await session.signOut() }
+            }
+            .disabled(pending || session.isOffline)
+        } header: {
+            Text(Self.title)
+        } footer: {
+            if let footer = session.isOffline ? Self.signOutOffline : signOutFailure {
+                Text(footer)
+            }
+        }
+        Section {
+            Button(Self.deleteAccount, role: .destructive) { confirmsDelete = true }
+                .disabled(pending)
+                .confirmationDialog(Self.deleteQuestion, isPresented: $confirmsDelete, titleVisibility: .visible) {
+                    Button(Self.deleteAccount, role: .destructive) {
+                        run(failure: $deleteFailure) { try await session.deleteAccount() }
                     }
-                    .disabled(pending || session.isOffline)
-                } footer: {
-                    if let footer = session.isOffline ? Self.signOutOffline : signOutFailure {
-                        Text(footer)
-                    }
+                } message: {
+                    Text(Self.deleteWarning)
                 }
-                Section {
-                    Button(Self.deleteAccount, role: .destructive) { confirmsDelete = true }
-                        .disabled(pending)
-                } footer: {
-                    if let deleteFailure { Text(deleteFailure) }
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle("Account")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .confirmationDialog(Self.deleteQuestion, isPresented: $confirmsDelete, titleVisibility: .visible) {
-                Button(Self.deleteAccount, role: .destructive) {
-                    run(failure: $deleteFailure) { try await session.deleteAccount() }
-                }
-            } message: {
-                Text(Self.deleteWarning)
-            }
+        } footer: {
+            if let deleteFailure { Text(deleteFailure) }
         }
     }
 
