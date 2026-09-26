@@ -132,9 +132,11 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A version tag deploys production. The `Release` workflow moves the
   `production` branch to the tag, and both hosts deploy from that branch.
   Nothing else writes to `production`.
-- Every pull request from a branch of this repository gets its own API,
-  database, and recording prefix. A PR from a fork or from Dependabot gets
-  none, because its run has no Actions secrets. The `Preview` workflow creates a Neon branch `pr-<n>` from development and a
+- A pull request from a branch of this repository that changes a file
+  under `api/` gets its own API, database, and recording prefix. Any other
+  PR's preview uses the development API. A PR from a fork or from
+  Dependabot gets none, because its run has no Actions secrets. The
+  `Preview` workflow creates a Neon branch `pr-<n>` from development and a
   Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
   of the preview bucket. A KV entry maps the PR's preview alias to that
   API. Every push resets the Neon branch, so preview data is lost. Every
