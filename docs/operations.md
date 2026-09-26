@@ -132,8 +132,9 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A version tag deploys production. The `Release` workflow moves the
   `production` branch to the tag, and both hosts deploy from that branch.
   Nothing else writes to `production`.
-- Every pull request gets its own API, database, and recording prefix. The
-  `Preview` workflow creates a Neon branch `pr-<n>` from development and a
+- Every pull request from a branch of this repository gets its own API,
+  database, and recording prefix. A PR from a fork or from Dependabot gets
+  none, because its run has no Actions secrets. The `Preview` workflow creates a Neon branch `pr-<n>` from development and a
   Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
   of the preview bucket. A KV entry maps the PR's preview alias to that
   API. Every push resets the Neon branch, so preview data is lost. Every
@@ -157,7 +158,12 @@ and fails instead in CI, where the `API` workflow always starts it.
   cost more. `E2E`
   runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
   is not a required check, because a Clerk outage would block unrelated
-  merges.
+  merges. It skips fork and Dependabot PRs, which cannot sign in.
+- A workflow from a fork runs only after you approve it on the PR.
+- Dependabot opens one PR per ecosystem each month, grouped as configured
+  in `.github/dependabot.yml`, and skips a release until it is seven days
+  old. Its PR title is the squashed commit's subject. Check a PR that bumps
+  `packageManager` in `web/package.json`: it needs the pnpm step below.
 - A development deploy waits for CI (Railway's Wait for CI). Production has
   no host-side gate; the `Release` workflow is the gate.
 

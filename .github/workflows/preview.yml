@@ -26,23 +26,26 @@ concurrency:
   group: preview-${{ inputs.pr_number || github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Secrets are set on the steps that use them, never here, so third-party actions and
+# packages in other steps never see them in their environment.
 env:
   PR_NAME: pr-${{ inputs.pr_number || github.event.pull_request.number }}
   RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:5.60.0
-  RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
   RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID_DEVELOPMENT }}
   RAILWAY_API_SERVICE_ID: ${{ vars.RAILWAY_API_SERVICE_ID }}
-  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_KV_NAMESPACE_ID: ${{ vars.CLOUDFLARE_KV_NAMESPACE_ID }}
-  STORAGE_ACCESS_KEY_ID_PREVIEW: ${{ secrets.STORAGE_ACCESS_KEY_ID_PREVIEW }}
-  STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
 
 jobs:
   up:
     name: Create or refresh the preview environment
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    # Fork and Dependabot runs get no Actions secrets and would fail partway, so they are
+    # skipped outright.
+    if: >-
+      github.event_name == 'pull_request' && github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -59,7 +62,7 @@ jobs:
       # there, so a run cancelled after this step is healed by the next push.
       - name: create the Neon branch from development
         id: neon
-        uses: neondatabase/create-branch-action@v6
+        uses: neondatabase/create-branch-action@fb620d43d4c565abaf088b848a4e28e5c4ea4d9c  # v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: ${{ env.PR_NAME }}
@@ -93,6 +96,8 @@ jobs:
         env:
           STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT: ${{ secrets.STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT }}
           STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT: ${{ secrets.STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT }}
+          STORAGE_ACCESS_KEY_ID_PREVIEW: ${{ secrets.STORAGE_ACCESS_KEY_ID_PREVIEW }}
+          STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
         run: uv run --no-dev python -m crosstune.ops.preview_storage seed "$PR_NAME"
 
       # Railway's built-in PR environments copy the base environment's variables
@@ -105,6 +110,9 @@ jobs:
         env:
           NEON_DB_URL: ${{ steps.neon.outputs.db_url }}
           HEAD_REF: ${{ github.head_ref }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          STORAGE_ACCESS_KEY_ID_PREVIEW: ${{ secrets.STORAGE_ACCESS_KEY_ID_PREVIEW }}
+          STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
         run: |
           echo "::add-mask::$NEON_DB_URL"
           : "${NEON_DB_URL:?the Neon create step produced no db_url}"
@@ -153,6 +161,8 @@ jobs:
 
       - name: read the API hostname
         id: railway
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: |
           railway() {
             docker run --rm \
@@ -182,13 +192,18 @@ jobs:
         env:
           SLUG: ${{ steps.slug.outputs.slug }}
           API_HOSTNAME: ${{ steps.railway.outputs.hostname }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          npx --yes wrangler@4 kv key put "$SLUG" "https://$API_HOSTNAME" \
+          npx --yes wrangler@4.141.0 kv key put "$SLUG" "https://$API_HOSTNAME" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote
 
   down:
     name: Tear down the preview environment
-    if: github.event_name == 'workflow_dispatch' || github.event.action == 'closed'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
     steps:
       # The merge ref does not exist for a conflicted or deleted-branch PR, and
@@ -211,6 +226,8 @@ jobs:
       # environment is absent: an API error that read as "absent" would leak the
       # environment behind a green job, so the listing retries and then fails.
       - name: delete the Railway environment
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
         run: |
           railway() {
             docker run --rm \
@@ -251,12 +268,15 @@ jobs:
         id: storage-delete
         continue-on-error: true
         working-directory: api
+        env:
+          STORAGE_ACCESS_KEY_ID_PREVIEW: ${{ secrets.STORAGE_ACCESS_KEY_ID_PREVIEW }}
+          STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
         run: uv run --no-dev python -m crosstune.ops.preview_storage teardown "$PR_NAME"
 
       - name: delete the Neon branch
         id: neon-delete
         continue-on-error: true
-        uses: neondatabase/delete-branch-action@v3
+        uses: neondatabase/delete-branch-action@4468d825d5a88ef4012f1705a82f02ec3072f776  # v3
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch: ${{ env.PR_NAME }}
@@ -269,8 +289,9 @@ jobs:
       - name: delete the preview's API entry
         env:
           SLUG: ${{ steps.slug.outputs.slug }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          npx --yes wrangler@4 kv key delete "$SLUG" \
+          npx --yes wrangler@4.141.0 kv key delete "$SLUG" \
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
             || echo "::warning::could not delete KV entry $SLUG; it may still exist"
 
