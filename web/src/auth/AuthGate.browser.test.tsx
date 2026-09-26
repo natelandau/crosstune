@@ -141,6 +141,56 @@ describe('AuthGate in the Ionic app', () => {
     expect(hasAccountDeletedNotice()).toBe(true)
   })
 
+  it.each(['focus', 'online'])('tries the sign-out again on %s after it failed', async (event) => {
+    const signOut = vi.fn(async () => {
+      throw new Error('clerk refused')
+    })
+    clerk.signOut = signOut
+    markSignedOutLocally('user_gone')
+    clerk.userId = 'user_gone'
+    render(
+      <IonApp>
+        <AuthGate>
+          <p>signed in</p>
+        </AuthGate>
+      </IonApp>,
+    )
+    await vi.waitFor(() => expect(signOut).toHaveBeenCalledOnce())
+    // Let the failed attempt settle, so the next one is not refused as still in flight.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+    await act(async () => {
+      window.dispatchEvent(new Event(event))
+    })
+    await vi.waitFor(() => expect(signOut).toHaveBeenCalledTimes(2))
+  })
+
+  it('does not start a second sign-out while one is still running', async () => {
+    let finish = () => {}
+    const signOut = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
+    clerk.signOut = signOut
+    markSignedOutLocally('user_gone')
+    clerk.userId = 'user_gone'
+    render(
+      <IonApp>
+        <AuthGate>
+          <p>signed in</p>
+        </AuthGate>
+      </IonApp>,
+    )
+    await vi.waitFor(() => expect(signOut).toHaveBeenCalledOnce())
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new Event('online'))
+    })
+    expect(signOut).toHaveBeenCalledOnce()
+    await act(async () => finish())
+  })
+
   it('leaves the sign-in screen once the local sign-out is marked', async () => {
     clerk.userId = 'user_gone'
     render(

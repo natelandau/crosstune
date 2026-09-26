@@ -94,17 +94,33 @@ function Centered({ children }: { children: ReactNode }) {
 /**
  * `staleSession` means Clerk still holds a session for a user this device signed out locally.
  * Clerk's form redirects instead of rendering while a session is active, so this ends that
- * session first and shows the form once Clerk lets go.
+ * session first and shows the form once Clerk lets go. A failed attempt tries again when the
+ * window regains focus or the device comes back online, so the screen never stays without a
+ * form until a reload.
  */
 function SignInScreen({ staleSession }: { staleSession: boolean }) {
   // A sign-in clears the notice, so it shows here on every mount and reload until then.
   const [deleted] = useState(hasAccountDeletedNotice)
   const { signOut } = useAuth()
-  const triedSignOut = useRef(false)
+  const signingOut = useRef(false)
   useEffect(() => {
-    if (!staleSession || triedSignOut.current) return
-    triedSignOut.current = true
-    void signOut().catch(() => {})
+    if (!staleSession) return
+    const attempt = () => {
+      if (signingOut.current) return
+      signingOut.current = true
+      void signOut()
+        .catch(() => {})
+        .finally(() => {
+          signingOut.current = false
+        })
+    }
+    attempt()
+    window.addEventListener('focus', attempt)
+    window.addEventListener('online', attempt)
+    return () => {
+      window.removeEventListener('focus', attempt)
+      window.removeEventListener('online', attempt)
+    }
   }, [staleSession, signOut])
   return (
     <Centered>
