@@ -1,0 +1,92 @@
+---
+# One grouped pull request per ecosystem each month. The prefix becomes the PR title's
+# conventional-commit type and scope, and the PR title becomes the squashed commit's
+# subject, so group names stay short to keep titles within 70 characters.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(web)
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: /api
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(api)
+    groups:
+      uv:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /api
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(api)
+    groups:
+      docker:
+        patterns: ["*"]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(dev)
+    groups:
+      compose:
+        patterns: ["*"]
+
+  - package-ecosystem: swift
+    directories:
+      - /apple/CrosstuneKit
+      - /apple/Tools
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(apple)
+    groups:
+      spm:
+        patterns: ["*"]
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(pre-commit)
+    groups:
+      hooks:
+        patterns: ["*"]
