@@ -162,8 +162,10 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A workflow from a fork runs only after you approve it on the PR.
 - Dependabot opens one PR per ecosystem each month, grouped as configured
   in `.github/dependabot.yml`, and skips a release until it is seven days
-  old. Its PR title is the squashed commit's subject. Check a PR that bumps
-  `packageManager` in `web/package.json`: it needs the pnpm step below.
+  old. It skips the major versions listed under `ignore`, which the web
+  client cannot take yet. Its PR title is the squashed commit's subject.
+  Check a PR that bumps `packageManager` in `web/package.json`: it needs
+  the pnpm step below.
 - A development deploy waits for CI (Railway's Wait for CI). Production has
   no host-side gate; the `Release` workflow is the gate.
 
