@@ -21,10 +21,12 @@ import { createSyncEngine } from './engine'
 import type { SyncEngine } from './types'
 import {
   CAPTURE_LOCK_GRACE_MS,
+  createDownloadRetries,
   downloadOne,
   downloadPass,
   QUOTA_PROBLEM,
   recoverInterruptedCaptures,
+  retryDelayMs,
   STALE_CAPTURE_MS,
   uploadPass,
 } from './transfers'
@@ -606,6 +608,23 @@ describe('downloads', () => {
     await downloadPass(db, fake.api)
     expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
     expect(await (await db.recording_files.get('r2'))?.blob?.text()).toBe('xyz')
+  })
+
+  it('downloadPass waits out a failed download backoff before trying it again', async () => {
+    await readyOnServer('r1')
+    await setKeepOffline(db, true)
+    let now = 1_000_000
+    const retries = createDownloadRetries(() => now)
+    const spy = vi.spyOn(fake.api, 'downloadUrl').mockRejectedValueOnce(new Error('boom'))
+
+    await downloadPass(db, fake.api, undefined, retries)
+    await downloadPass(db, fake.api, undefined, retries)
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    now += retryDelayMs(0)
+    await downloadPass(db, fake.api, undefined, retries)
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
   })
 
   it('downloadPass fetches nothing while keep offline is off', async () => {

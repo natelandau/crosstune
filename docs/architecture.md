@@ -208,6 +208,9 @@ same triggers. A return to the foreground stands in for a visible tab.
   environment but `PATH`.
 - Download: the API signs a GET for a ready recording. Other devices fetch on
   play, or ahead of time when the setting to download all recordings is on.
+  A fetch ahead of time that fails waits out the same backoff as an upload
+  before the next pass retries it. The wait lives in memory, so a reload or
+  relaunch retries at once, and a play always fetches.
 - The Apple app excludes a downloaded recording's file from the device
   backup; a captured file is not excluded, since it is the only copy until
   it uploads.

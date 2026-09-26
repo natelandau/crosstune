@@ -61,13 +61,18 @@ export async function recoverInterruptedCaptures(
 const RETRY_BASE_MS = 30_000
 const RETRY_MAX_MS = 30 * 60_000
 
+/** How long a transfer that failed `attempts` times in a row waits before the next try. */
+export function retryDelayMs(attempts: number): number {
+  return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** attempts)
+}
+
 /** A transient failure goes back to captured for the next pass, but not before a backoff
  * that doubles with each consecutive miss, so a persistent error does not resend the same
  * blob on every pass. The row keeps the reason, so a recording that keeps waiting can say why. */
 async function scheduleRetry(db: CrosstuneDb, id: string, cause: unknown): Promise<void> {
   const file = await db.recording_files.get(id)
   const attempts = file?.upload_attempts ?? 0
-  const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** attempts)
+  const delay = retryDelayMs(attempts)
   await db.recording_files.update(id, {
     local_state: 'captured',
     error: cause instanceof Error ? cause.message : String(cause),
@@ -278,6 +283,32 @@ export async function downloadOne(db: CrosstuneDb, api: SyncApi, id: string): Pr
   }
 }
 
+export interface DownloadRetries {
+  isWaiting(id: string): boolean
+  failed(id: string): void
+  succeeded(id: string): void
+}
+
+/** When the download pass may next try each recording whose download failed, backing off as
+ * uploads do so a lasting error is not re-sent after every sync. Kept in memory: a reload
+ * tries each once more, and a Play tap fetches regardless. */
+export function createDownloadRetries(now: () => number = Date.now): DownloadRetries {
+  const waits = new Map<string, { attempts: number; until: number }>()
+  return {
+    isWaiting: (id) => {
+      const wait = waits.get(id)
+      return wait !== undefined && now() < wait.until
+    },
+    failed: (id) => {
+      const attempts = waits.get(id)?.attempts ?? 0
+      waits.set(id, { attempts: attempts + 1, until: now() + retryDelayMs(attempts) })
+    },
+    succeeded: (id) => {
+      waits.delete(id)
+    },
+  }
+}
+
 /** When the device keeps recordings offline, fetch audio for every ready recording that is
  * not already here. `fetch` lets the caller share one in-flight download per recording with
  * any other path that fetches. */
@@ -285,21 +316,24 @@ export async function downloadPass(
   db: CrosstuneDb,
   api: SyncApi,
   fetch: (id: string) => Promise<Blob | null> = (id) => downloadOne(db, api, id),
+  retries: DownloadRetries = createDownloadRetries(),
 ): Promise<void> {
   if (!(await getKeepOffline(db))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
   for (const [i, row] of rows.entries()) {
     const file = files[i]
-    if (file?.blob) continue
+    if (file?.blob || retries.isWaiting(row.id)) continue
     try {
       await fetch(row.id)
+      retries.succeeded(row.id)
     } catch (error) {
       // Offline and auth failures stop the whole pass; anything else is this row's
       // problem alone, so record it and let the rest of the kept-offline set still download.
       if (error instanceof NetworkError || isAuthFailure(error)) {
         throw error
       }
+      retries.failed(row.id)
       if (file) {
         const message = error instanceof Error ? error.message : String(error)
         await setFileState(db, row.id, restingState(file.local_state), message)
