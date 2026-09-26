@@ -1,9 +1,9 @@
 ---
 name: Preview
 
-# Every pull request gets its own API and database. Workers Builds deploys the
-# web preview on its own; this workflow provides the Railway environment and
-# the Neon branch behind it and tells the Worker where the API is.
+# A pull request that changes the API gets its own API and database. Workers
+# Builds deploys the web preview on its own; this workflow provides the Railway
+# environment and the Neon branch behind it and tells the Worker where the API is.
 on:
   pull_request:
     types: [opened, reopened, synchronize, closed]
@@ -38,12 +38,37 @@ env:
   CLOUDFLARE_KV_NAMESPACE_ID: ${{ vars.CLOUDFLARE_KV_NAMESPACE_ID }}
 
 jobs:
+  # Only an API change needs its own environment. A preview without one falls back to
+  # the development API, which matches main. The whole PR diff decides, so a PR that
+  # starts without an API change gets its environment on the first push that adds one.
+  changes:
+    name: Preview changes
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --name-only "$BASE...$HEAD" | grep -qE '^(api/|\.github/workflows/preview\.yml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
   up:
     name: Create or refresh the preview environment
+    needs: changes
     # Fork and Dependabot runs get no Actions secrets and would fail partway, so they are
     # skipped outright.
     if: >-
-      github.event_name == 'pull_request' && github.event.action != 'closed' &&
+      needs.changes.outputs.relevant == 'true' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
