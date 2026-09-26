@@ -117,3 +117,94 @@ let baseURL = URL(string: "https://api.example.test")!
     #expect(server.seen.count == 1)
     #expect(flag.isRaised)
 }
+
+/// Answers every request with a 401 whose problem body has the given type.
+func problemServer(type: String) -> @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?) {
+    { _, _, _ in
+        var response = HTTPResponse(status: .unauthorized)
+        response.headerFields[.contentType] = "application/problem+json"
+        let json = #"{"type":"\#(type)","title":"Unauthorized","status":401,"detail":"x"}"#
+        return (response, HTTPBody(json))
+    }
+}
+
+@Test func reportsADeletedAccountWithoutRetryingOrAskingForSignIn() async throws {
+    let deleted = Flag()
+    let rejected = Flag()
+    let tokens = CountingTokens()
+    let middleware = AuthMiddleware(
+        tokens: tokens, clientVersion: "0.7.0",
+        onUnauthorized: { rejected.raise() }, onAccountDeleted: { deleted.raise() })
+
+    let (response, body) = try await middleware.intercept(
+        request, body: nil, baseURL: baseURL, operationID: "me",
+        next: problemServer(type: AuthMiddleware.accountDeletedProblem))
+
+    #expect(response.status == .unauthorized)
+    #expect(deleted.isRaised)
+    #expect(!rejected.isRaised)
+    #expect(tokens.refreshes == [false])
+    // The body is handed on intact, so the generated client still decodes the problem.
+    let text = try await String(collecting: try #require(body), upTo: 1024)
+    #expect(text.contains(AuthMiddleware.accountDeletedProblem))
+}
+
+@Test func anOtherUnauthorizedProblemIsNotADeletedAccount() async throws {
+    let deleted = Flag()
+    let rejected = Flag()
+    let middleware = AuthMiddleware(
+        tokens: CountingTokens(), clientVersion: "0.7.0",
+        onUnauthorized: { rejected.raise() }, onAccountDeleted: { deleted.raise() })
+
+    _ = try await middleware.intercept(
+        request, body: nil, baseURL: baseURL, operationID: "me", next: problemServer(type: "about:blank"))
+
+    #expect(!deleted.isRaised)
+    #expect(rejected.isRaised)
+}
+
+struct StreamBroke: Error {}
+
+@Test func anOversizedUnauthorizedBodyIsAPlainUnauthorizedAndStopsBeingRead() async throws {
+    let chunkSize = 1024
+    let chunkCount = AuthMiddleware.maxProblemBytes / chunkSize * 4
+    let served = Mutex(0)
+    let head = ArraySlice(#"{"type":"\#(AuthMiddleware.accountDeletedProblem)","#.utf8)
+    let stream = AsyncStream<ArraySlice<UInt8>>(unfolding: {
+        let index = served.withLock { count -> Int in
+            count += 1
+            return count
+        }
+        guard index <= chunkCount else { return nil }
+        return index == 1 ? head : ArraySlice(repeating: UInt8(ascii: " "), count: chunkSize)
+    })
+    let body = HTTPBody(stream, length: .unknown, iterationBehavior: .single)
+
+    let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
+
+    #expect(!accountDeleted)
+    #expect(response.0.status == .unauthorized)
+    #expect(served.withLock { $0 } < chunkCount / 2)
+}
+
+@Test func anOversizedBodyOfKnownLengthIsNotRead() async throws {
+    let body = HTTPBody(Data(count: AuthMiddleware.maxProblemBytes + 1))
+
+    let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
+
+    #expect(!accountDeleted)
+    #expect(response.1 === body)
+}
+
+@Test func anUnreadableUnauthorizedBodyIsAPlainUnauthorized() async throws {
+    let stream = AsyncThrowingStream<ArraySlice<UInt8>, any Error> { continuation in
+        continuation.yield(ArraySlice(#"{"type":"#.utf8))
+        continuation.finish(throwing: StreamBroke())
+    }
+    let body = HTTPBody(stream, length: .unknown, iterationBehavior: .single)
+
+    let (response, accountDeleted) = await AuthMiddleware.readingProblem((HTTPResponse(status: .unauthorized), body))
+
+    #expect(!accountDeleted)
+    #expect(response.0.status == .unauthorized)
+}

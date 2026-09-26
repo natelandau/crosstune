@@ -33,17 +33,21 @@ public final class AccountSession {
         case unsyncedChanges
         /// A recording's audio exists only on this device.
         case unuploadedRecordings
+        /// Deleting the account failed before the API confirmed it, so nothing changed.
+        case deleteFailed
 
         public static let offlineMessage = "This needs a connection."
         public static let unsyncedChangesMessage = "Some changes have not synced yet. Try again once they have."
         public static let unuploadedRecordingsMessage =
             "Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload."
+        public static let deleteFailedMessage = "Your account was not deleted. Nothing was changed. Try again."
 
         public var errorDescription: String? {
             switch self {
             case .offline: Self.offlineMessage
             case .unsyncedChanges: Self.unsyncedChangesMessage
             case .unuploadedRecordings: Self.unuploadedRecordingsMessage
+            case .deleteFailed: Self.deleteFailedMessage
             }
         }
     }
@@ -61,6 +65,13 @@ public final class AccountSession {
     /// Why the store did not open.
     public private(set) var storeFailure: String?
 
+    /// True once the account is deleted, from this device or another, until the next sign-in.
+    public private(set) var showsDeletedNotice = false
+
+    /// A deleted account's user, signed out on this device even while Clerk still holds a
+    /// session for it, so a failed sign-out never reopens a store for an account that is gone.
+    private var signedOutUserID: String?
+
     /// Keeps the open store in step with the API. Nil while no store is open.
     public var syncEngine: SyncEngine? { sync?.engine }
 
@@ -70,7 +81,11 @@ public final class AccountSession {
         origin: apiOrigin,
         tokens: ClerkTokens(),
         clientVersion: clientVersion,
-        onUnauthorized: { [weak self] in await self?.sessionRejected() }
+        onUnauthorized: { [weak self] in await self?.sessionRejected() },
+        // Not awaited: leaving waits out the sync run whose request is reporting this.
+        onAccountDeleted: { [weak self] in
+            Task { @MainActor in await self?.accountDeletedElsewhere() }
+        }
     )
 
     private let remembered: RememberedUser
@@ -86,6 +101,8 @@ public final class AccountSession {
     /// The user whose store opens once their previous one has closed.
     @ObservationIgnored private var opening: String?
     @ObservationIgnored private let pathMonitor = NWPathMonitor()
+    /// True while this device is deleting the account or forgetting a deleted one.
+    @ObservationIgnored private var isLeavingDeleted = false
 
     /// - Parameters:
     ///   - apiOrigin: Where the API is served.
@@ -126,7 +143,8 @@ public final class AccountSession {
             clerkLoaded: clerk.isLoaded,
             clerkUserID: clerk.user?.id,
             rememberedUserID: remembered.userID,
-            graceElapsed: graceElapsed
+            graceElapsed: graceElapsed,
+            signedOutUserID: signedOutUserID
         )
     }
 
@@ -144,8 +162,16 @@ public final class AccountSession {
     public func clerkUserChanged() {
         let clerk = Clerk.shared
         guard clerk.isLoaded else { return }
-        remembered.userID = clerk.user?.id
-        if clerk.user == nil { needsSignIn = false }
+        let clerkUserID = clerk.user?.id
+        // Once Clerk has let go of the deleted user too, the local sign-out has nothing to cover.
+        if clerkUserID != signedOutUserID { signedOutUserID = nil }
+        let userID = clerkUserID == signedOutUserID ? nil : clerkUserID
+        remembered.userID = userID
+        if userID == nil {
+            needsSignIn = false
+        } else {
+            showsDeletedNotice = false
+        }
     }
 
     /// Called by the API client when the API refuses the session twice.
@@ -182,34 +208,78 @@ public final class AccountSession {
     /// any change or recording is still only on this device, since it would go with the catalog.
     public func signOut() async throws {
         let userID = try confirmedUserID()
-        try await Self.leave(userID: userID, store: store, root: storeRoot, sync: sync, keepingUnsynced: false) {
+        try await Self.leave(userID: userID, store: store, root: storeRoot, sync: sync) {
             try await Clerk.shared.auth.signOut()
         }
         forget()
     }
 
-    /// Deletes the account on every device, then this device's copy of it. Unsent changes are
-    /// lost with the account.
+    /// Deletes the account on the API, then this device's copy of it. Unsent changes are lost
+    /// with the account. Every failure before the API confirms the delete throws
+    /// ``LeaveError/deleteFailed``: the musician only needs to know nothing changed.
     public func deleteAccount() async throws {
-        let userID = try confirmedUserID()
-        guard let user = Clerk.shared.user else { throw LeaveError.offline }
-        try await Self.leave(userID: userID, store: store, root: storeRoot, sync: sync, keepingUnsynced: true) {
-            try await user.delete()
+        guard let userID = try? confirmedUserID() else { throw LeaveError.deleteFailed }
+        isLeavingDeleted = true
+        defer { isLeavingDeleted = false }
+        let client = client
+        do {
+            try await Self.deleteAndLeave(
+                userID: userID, store: store, root: storeRoot, sync: sync,
+                deleteRemote: { try await Self.deleteRemote(client: client) },
+                endSession: { try await Clerk.shared.auth.signOut() }
+            )
+        } catch {
+            throw LeaveError.deleteFailed
         }
+        finishLeaving(deleted: userID)
+    }
+
+    /// Another device deleted the account: this one drops its copy as if it had made the
+    /// delete, without a request of its own.
+    func accountDeletedElsewhere() async {
+        guard !isLeavingDeleted, case .signedIn(let userID, _) = phase else { return }
+        isLeavingDeleted = true
+        defer { isLeavingDeleted = false }
+        await Self.forgetDeleted(userID: userID, store: store, root: storeRoot, sync: sync) {
+            try await Clerk.shared.auth.signOut()
+        }
+        finishLeaving(deleted: userID)
+    }
+
+    /// Signed out whether or not Clerk ended its session, since the account it belongs to is gone.
+    private func finishLeaving(deleted userID: String) {
         forget()
+        signedOutUserID = userID
+        showsDeletedNotice = true
+    }
+
+    /// Only the status distinguishes a refusal here; the problem body has nothing the musician
+    /// needs to see.
+    private static func deleteRemote(client: CrosstuneAPI.Client) async throws {
+        switch try await client.deleteMeV1MeDelete() {
+        case .noContent: return
+        case .unauthorized(let refused):
+            // Another device deleted it first, which is the outcome this request asked for.
+            if (try? refused.body.applicationProblemJson._type) == AuthMiddleware.accountDeletedProblem { return }
+            throw APIStatusError(status: 401)
+        case .unprocessableContent: throw APIStatusError(status: 422)
+        case .badGateway: throw APIStatusError(status: 502)
+        case .serviceUnavailable: throw APIStatusError(status: 503)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
     }
 
     /// Ends the session, then deletes the user's folder. The catalog is private data on a
     /// possibly shared device, so it goes with the session; if ending the session fails, it
     /// stays.
     ///
-    /// Unless `keepingUnsynced`, it syncs first and refuses while anything is still only on this
-    /// device, since the folder takes it along.
+    /// Syncs first and refuses while anything is still only on this device, since the folder
+    /// takes it along.
     static func leave(
-        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?, keepingUnsynced: Bool,
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
         endSession: () async throws -> Void
     ) async throws {
-        if !keepingUnsynced, let store {
+        if let store {
             await sync?.sync()
             if try await store.pendingChangeCount() > 0 { throw LeaveError.unsyncedChanges }
             if try await store.notUploadedRecordingCount() > 0 { throw LeaveError.unuploadedRecordings }
@@ -224,6 +294,42 @@ public final class AccountSession {
         }
         try? store?.close()
         try CrosstuneStore.delete(userID: userID, root: root)
+    }
+
+    /// Deletes the account remotely, then this device's folder regardless of whether ending the
+    /// session or the folder delete itself succeeds. Once the account is gone on the API, the
+    /// app must finish leaving; a folder this leaves behind is swept on the next sign-in by
+    /// ``deleteOtherFolders(keeping:)``.
+    static func deleteAndLeave(
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
+        deleteRemote: () async throws -> Void, endSession: () async throws -> Void
+    ) async throws {
+        await sync?.stop()
+        do {
+            try await deleteRemote()
+        } catch {
+            sync?.resume()
+            throw error
+        }
+        await dropDeleted(userID: userID, store: store, root: root, endSession: endSession)
+    }
+
+    /// Stops syncing, then drops this device's copy of an account another device deleted. It
+    /// never throws: the account is already gone, so nothing here can leave it in place.
+    static func forgetDeleted(
+        userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
+        endSession: () async throws -> Void
+    ) async {
+        await sync?.stop()
+        await dropDeleted(userID: userID, store: store, root: root, endSession: endSession)
+    }
+
+    private static func dropDeleted(
+        userID: String, store: CrosstuneStore?, root: URL, endSession: () async throws -> Void
+    ) async {
+        try? await endSession()
+        try? store?.close()
+        try? CrosstuneStore.delete(userID: userID, root: root)
     }
 
     private func confirmedUserID() throws -> String {
@@ -324,10 +430,12 @@ public final class AccountSession {
         clerkLoaded: Bool,
         clerkUserID: String?,
         rememberedUserID: String?,
-        graceElapsed: Bool
+        graceElapsed: Bool,
+        signedOutUserID: String? = nil
     ) -> Phase {
         if clerkLoaded {
-            return clerkUserID.map { .signedIn(userID: $0, confirmed: true) } ?? .signedOut
+            guard let clerkUserID, clerkUserID != signedOutUserID else { return .signedOut }
+            return .signedIn(userID: clerkUserID, confirmed: true)
         }
         guard graceElapsed else { return .loading }
         return rememberedUserID.map { .signedIn(userID: $0, confirmed: false) } ?? .signedOut
