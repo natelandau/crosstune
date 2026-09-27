@@ -7,6 +7,7 @@ import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
+import { CANCEL } from '../../ui/Confirm'
 
 export const LIST_NAME_PLACEHOLDER = 'Tuesday jam, square dance set, …'
 export const LIST_NAME_LABEL = 'List name'
@@ -94,7 +95,7 @@ export function ListNameSheet({
       onClose={dismissed}
       start={
         <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
       end={

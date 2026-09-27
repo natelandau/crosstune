@@ -11,7 +11,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
-import { DELETING } from '../../ui/Confirm'
+import { CANCEL, DELETING } from '../../ui/Confirm'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { ADD_TO_LIST } from '../lists/ListPicker'
 import { LARGER_TEXT } from '../lyrics/LyricsModal'
@@ -369,7 +369,7 @@ describe('TuneScreen', () => {
     await expect
       .element(page.getByText('Delete "Soldier\'s Joy"? This removes its links and list entries.'))
       .toBeVisible()
-    await (await alertButton('Cancel')).click()
+    await (await alertButton(CANCEL)).click()
     await vi.waitFor(() =>
       expect(document.querySelector('ion-alert:not(.overlay-hidden)')).toBeNull(),
     )
@@ -404,7 +404,7 @@ describe('TuneScreen', () => {
     const item = deleteItem.element() as HTMLElement
     item.click()
     item.click()
-    await expect.element(await alertButton('Cancel')).toBeVisible()
+    await expect.element(await alertButton(CANCEL)).toBeVisible()
     expect(confirmCalls).toBe(1)
   })
 

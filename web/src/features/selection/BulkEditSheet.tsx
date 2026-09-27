@@ -38,6 +38,7 @@ import {
   type TouchedValue,
 } from './batchEdit'
 import { countTunes } from './copy'
+import { CANCEL } from '../../ui/Confirm'
 
 const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
   key: { options: QUICK_KEYS, other: true },
@@ -305,7 +306,7 @@ export function BulkEditSheet({
       onClose={dismissed}
       start={
         <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
       end={

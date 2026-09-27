@@ -6,6 +6,7 @@ import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { InlineError } from '../../ui/InlineError'
 import { formatBytes } from '../recording/format'
+import { measureDuration } from '../recording/measureDuration'
 
 export const NOT_AUDIO_ERROR = 'Choose an audio file.'
 export const EMPTY_FILE_ERROR = 'This file is empty.'
@@ -40,7 +41,14 @@ export function UploadButton({
     if (figures && file.size > figures.max_file_bytes) {
       throw new Error(`Files are limited to ${formatBytes(figures.max_file_bytes)}.`)
     }
-    await addUploadedFile(db, file, { tuneId, label: file.name.replace(/\.[^.]+$/, '') })
+    // Measured here, before the upload, so the file can be played and trimmed to its real
+    // length while it is still only on this device.
+    const durationMs = await measureDuration(file)
+    await addUploadedFile(db, file, {
+      tuneId,
+      label: file.name.replace(/\.[^.]+$/, ''),
+      durationMs,
+    })
   }
 
   return (

@@ -9,6 +9,7 @@ import { useAction } from '../../ui/useAction'
 import { countTunes } from '../selection/copy'
 import { LIST_NAME_PLACEHOLDER } from './ListNameSheet'
 import { useLists, useMembershipCounts } from './useLists'
+import { CANCEL } from '../../ui/Confirm'
 
 export const ADD_TO_LIST = 'Add to list'
 export const NEW_LIST_NAME_LABEL = 'New list name'
@@ -138,7 +139,7 @@ export function ListPicker({
       onClose={dismissed}
       start={
         <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
     >

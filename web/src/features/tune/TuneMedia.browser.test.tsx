@@ -14,7 +14,7 @@ import { NEW_RECORDING } from '../recording/RecordModal'
 import type * as RecordModule from '../recording/useRecord'
 import { RecordProvider } from '../recording/useRecord'
 import { DELETE_SYNCED_NOTE } from '../recordings/recordingRow'
-import { RECORDING_NAME_LABEL, RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
+import { EDIT_RECORDING } from '../recording-screen/useRecordingScreen'
 import { DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { ADD_RECORDING, NO_MEDIA_HINT, NO_MEDIA_TITLE, TuneMedia } from './TuneMedia'
@@ -222,14 +222,19 @@ describe('TuneMedia', () => {
     )
   })
 
-  it('opens the rename sheet on the recording a row names', async () => {
+  it('offers Edit, Remove from tune, and Delete on a row, and no Rename', async () => {
     await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam recording' }))
     show()
-    await page.getByRole('button', { name: 'Rename Jam recording' }).click()
-    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
     await expect
-      .element(page.getByRole('textbox', { name: RECORDING_NAME_LABEL }))
-      .toHaveValue('Jam recording')
+      .element(page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: 'Remove from tune Jam recording' }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: 'Delete Jam recording' }))
+      .toBeInTheDocument()
+    expect(page.getByRole('button', { name: 'Rename Jam recording' }).elements()).toHaveLength(0)
   })
 
   it('asks before deleting a recording, saying what it costs', async () => {

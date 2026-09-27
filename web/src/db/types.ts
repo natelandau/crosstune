@@ -88,6 +88,11 @@ const RECORDING_PIPELINE_KEYS = [
   'playback_mime',
   'playback_bytes',
   'error',
+  'source_duration_ms',
+  'playback_start_ms',
+  'playback_end_ms',
+  'playback_rev',
+  'peaks_rev',
 ] as const
 
 const BOOKKEEPING_KEYS = [

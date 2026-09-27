@@ -19,6 +19,8 @@ export interface SyncEngine {
   resolveLink(url: string): Promise<ResolveResponse | null>
   /** Fetch one recording's audio now, storing it locally. Null when it cannot be fetched. */
   download(recordingId: string): Promise<Blob | null>
+  /** Fetch one recording's waveform now, storing it locally. Null when it cannot be fetched. */
+  peaks(recordingId: string): Promise<Uint8Array | null>
   /** Ask the server to transcode a failed recording again. */
   retry(recordingId: string): Promise<void>
   deleteAccount(): Promise<void>

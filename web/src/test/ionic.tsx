@@ -6,8 +6,15 @@ import { Route } from 'react-router-dom'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
+import { Dock } from '../features/player/Dock'
+import type { PlaybackEngine } from '../features/player/playbackEngine'
+import {
+  PlaybackEngineContext,
+  PlaybackEngineProvider,
+} from '../features/player/PlaybackEngineProvider'
 import { PlayerProvider } from '../features/player/PlayerProvider'
 import { PlayerContext, type Player } from '../features/player/usePlayer'
+import { RecordingScreenProvider } from '../features/recording-screen/RecordingScreenProvider'
 import { SelectionProvider } from '../features/selection/SelectionProvider'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
@@ -20,6 +27,13 @@ export interface Options {
   session?: AuthSession
   /** A stand-in player, to watch what a tree asks of it. Omitted, the real provider runs. */
   player?: Player
+  /** A stand-in playback engine, for a test that drives or inspects it. Omitted, the real
+   * provider runs, backed by a real (unplayed) `<audio>` element. */
+  playbackEngine?: PlaybackEngine
+  /** Mount the recording screen, so a row's Edit action and the dock's title open it. */
+  recordingScreen?: boolean
+  /** Mount the dock beside the tree, so a recording the player loads reaches the engine. */
+  dock?: boolean
 }
 
 // Test helpers, not app code, so mixing this component with the render functions below
@@ -30,12 +44,37 @@ function Providers({
   engine = fakeEngine(),
   session = testSession,
   player,
+  playbackEngine,
+  recordingScreen = false,
+  dock = false,
   children,
 }: Options & { children: ReactNode }) {
-  const withPlayer = player ? (
-    <PlayerContext.Provider value={player}>{children}</PlayerContext.Provider>
+  const docked = dock ? (
+    <>
+      {children}
+      <Dock />
+    </>
   ) : (
-    <PlayerProvider>{children}</PlayerProvider>
+    children
+  )
+  const withScreen = recordingScreen ? (
+    <RecordingScreenProvider>{docked}</RecordingScreenProvider>
+  ) : (
+    docked
+  )
+  // PlayerProvider reaches the engine (to prime it inside a Play tap), so it nests inside
+  // PlaybackEngineProvider, matching Shell.
+  const withPlayer = player ? (
+    <PlayerContext.Provider value={player}>{withScreen}</PlayerContext.Provider>
+  ) : (
+    <PlayerProvider>{withScreen}</PlayerProvider>
+  )
+  const withEngine = playbackEngine ? (
+    <PlaybackEngineContext.Provider value={playbackEngine}>
+      {withPlayer}
+    </PlaybackEngineContext.Provider>
+  ) : (
+    <PlaybackEngineProvider>{withPlayer}</PlaybackEngineProvider>
   )
   return (
     <AuthProvider value={session}>
@@ -43,7 +82,7 @@ function Providers({
         <SyncContext.Provider value={engine}>
           <IonApp>
             <ToastProvider>
-              <SelectionProvider>{withPlayer}</SelectionProvider>
+              <SelectionProvider>{withEngine}</SelectionProvider>
             </ToastProvider>
           </IonApp>
         </SyncContext.Provider>

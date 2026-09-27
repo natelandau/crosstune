@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { TUNE_LIMITS } from '../../api/vocabulary'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
+import { CANCEL } from '../../ui/Confirm'
 
 /**
  * The whole lyrics body, at the height a body needs. Done hands the text to whoever opened the
@@ -47,7 +48,7 @@ export function LyricsSheet({
       onClose={onCancel}
       start={
         <IonButton disabled={pending} onClick={onCancel}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
       end={

@@ -13,7 +13,7 @@ export function deleteRecordingMessage(view: RecordingView): string {
     : DELETE_SYNCED_NOTE
 }
 
-function recordedAtLabel(recordedAt: string): string {
+export function recordedAtLabel(recordedAt: string): string {
   return new Date(recordedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 

@@ -15,10 +15,11 @@ import type { Player } from '../player/usePlayer'
 import { ADD_TO_TUNE_TITLE } from './AddToTuneSheet'
 import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from './recordingRow'
 import { NO_RECORDINGS_HINT, NO_RECORDINGS_TITLE, RecordingsPage } from './RecordingsPage'
-import { RECORDING_NAME_LABEL, RENAME_RECORDING_TITLE } from './RenameRecordingSheet'
+import { EDIT_RECORDING } from '../recording-screen/useRecordingScreen'
 import { NOT_AUDIO_ERROR, UPLOAD_AUDIO } from './UploadButton'
 import { DELETE_RECORDING_TITLE } from './useRecordingActions'
 import { useRecordingsWithFiles } from './useRecordings'
+import { CANCEL } from '../../ui/Confirm'
 
 vi.mock('../../commands/recordings', { spy: true })
 vi.mock('./useRecordings', { spy: true })
@@ -148,7 +149,7 @@ describe('RecordingsPage', () => {
     expect(group.element().textContent).not.toContain("Soldier's Joy")
     expect(title).not.toContain("Soldier's Joy")
     // The row's actions are named from the same title.
-    await expect.element(page.getByRole('button', { name: `Rename ${title}` })).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: `Edit ${title}` })).toBeInTheDocument()
   })
 
   it('files a recording as unfiled once its tune is deleted elsewhere', async () => {
@@ -160,14 +161,19 @@ describe('RecordingsPage', () => {
     expect(page.getByRole('button', { name: "Soldier's Joy" }).elements()).toHaveLength(0)
   })
 
-  it('opens the rename sheet on the recording a row names', async () => {
+  it('offers Edit, filing, and Delete on a row, and leaves Rename to the recording screen', async () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
     show()
-    await page.getByRole('button', { name: 'Rename Jam recording' }).click()
-    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
     await expect
-      .element(page.getByRole('textbox', { name: RECORDING_NAME_LABEL }))
-      .toHaveValue('Jam recording')
+      .element(page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: 'Add to tune Jam recording' }))
+      .toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: 'Delete Jam recording' }))
+      .toBeInTheDocument()
+    expect(page.getByRole('button', { name: 'Rename Jam recording' }).elements()).toHaveLength(0)
   })
 
   it('offers an unfiled recording the tune picker, and not the reverse', async () => {
@@ -213,7 +219,7 @@ describe('RecordingsPage', () => {
     await page.getByRole('button', { name: 'Delete Jam recording' }).click()
     await expect.element(page.getByText(DELETE_RECORDING_TITLE)).toBeVisible()
     await expect.element(page.getByText(DELETE_UNSYNCED_NOTE)).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: CANCEL }).click()
     await vi.waitFor(() => expect(document.querySelector('ion-alert')).toBeNull())
     expect((await db.recordings.get('r1'))?.deleted_at).toBeNull()
     await page.getByRole('button', { name: 'Delete Jam recording' }).click()

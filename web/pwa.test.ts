@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { minimatch } from 'minimatch'
 import { describe, expect, it } from 'vitest'
 import assetsConfig from './pwa-assets.config'
 import { pwaOptions } from './pwa.config'
@@ -11,6 +12,18 @@ describe('pwaOptions', () => {
     expect(denylist.some((re) => re.test('/v1/tunes'))).toBe(true)
     expect(denylist.some((re) => re.test('/v1/'))).toBe(true)
     expect(pwaOptions.workbox?.runtimeCaching).toEqual([])
+  })
+
+  // Config only: whether the built chunk is actually precached is for the task that mounts
+  // the engine and can run a real build against it.
+  it('config would precache lazily loaded .js chunks like the pitch stage, and nothing excludes them', () => {
+    const sampleChunks = ['assets/pitchStage-abc123.js', 'assets/SignalsmithStretch-abc123.js']
+    const patterns = pwaOptions.workbox?.globPatterns ?? []
+    const ignores = pwaOptions.workbox?.globIgnores ?? []
+    for (const chunk of sampleChunks) {
+      expect(patterns.some((pattern) => minimatch(chunk, pattern))).toBe(true)
+      expect(ignores.some((pattern) => minimatch(chunk, pattern))).toBe(false)
+    }
   })
 
   it('updates the shell in place and stays enabled', () => {

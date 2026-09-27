@@ -1,7 +1,16 @@
 import { IonButton } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { X } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Pause, Play, X } from 'lucide-react'
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import { liveTune } from '../../db/tunes'
@@ -9,13 +18,58 @@ import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { OFFLINE } from '../../sync/labels'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { displayTitle } from '../links/display'
-import { DOWNLOAD_FAILED, DOWNLOADING, fileStateLabel } from '../recording/format'
+import {
+  DOWNLOAD_FAILED,
+  DOWNLOADING,
+  fileStateLabel,
+  formatDuration,
+  NOT_AVAILABLE,
+} from '../recording/format'
 import { recordingTitle } from '../recordings/recordingRow'
+import { useRecordingScreen } from '../recording-screen/useRecordingScreen'
 import { embedFor, type Embed } from './embed'
 import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
+import { usePlaybackEngine } from './PlaybackEngineProvider'
+import { playbackWindow, type PlaybackWindow } from './playbackWindow'
+import { useCurrentAudio } from './useCurrentAudio'
 import { usePlayer } from './usePlayer'
 
 export const CLOSE_PLAYER = 'Close player'
+export const PLAY = 'Play'
+export const PAUSE = 'Pause'
+export const PLAY_FAILED = "Couldn't play"
+export const PITCH_UNAVAILABLE = "Pitch shift isn't available here"
+export const SPEED_LABEL = 'Speed'
+export const PITCH_LABEL = 'Pitch'
+export const ELAPSED_LABEL = 'Elapsed'
+export const REMAINING_LABEL = 'Remaining'
+
+/** `75%`, shown only away from the 100% default. */
+export function SPEED_BADGE(percent: number): string {
+  return `${percent}%`
+}
+
+/**
+ * Semitones with a sign, one decimal only when the cents are not a whole semitone: `+2`,
+ * `-1`, `+2.1`. Rounds the magnitude, then prefixes the sign from `cents`, so a negative and
+ * a positive value of the same size round identically (`Math.round` alone rounds halves
+ * toward positive infinity, which is asymmetric for negatives). Rounds at the
+ * tenths-of-a-semitone integer (`magnitude / 10`) rather than on the final float, so 205
+ * cents (2.05 semitones) rounds to 2.1 rather than whatever binary value `2.05` itself
+ * happens to be stored as, and never rounds a non-zero pitch away to a bare "0.0": the
+ * smallest a shown fraction ever reads is a tenth of a semitone.
+ */
+export function PITCH_BADGE(cents: number): string {
+  const magnitude = Math.abs(cents)
+  const sign = cents < 0 ? '-' : '+'
+  if (magnitude % 100 === 0) return `${sign}${(magnitude / 100).toFixed(0)}`
+  const tenths = Math.max(1, Math.round(magnitude / 10))
+  return `${sign}${(tenths / 10).toFixed(1)}`
+}
+
+export function OPEN_RECORDING(title: string): string {
+  return `Open ${title}`
+}
 
 type Shown =
   | { kind: 'link'; link: LocalRecordingLink; embed: Embed }
@@ -44,7 +98,9 @@ function RecordingBody({
   file: RecordingFile | null
   title: string
 }) {
-  const engine = useSyncEngine()
+  const syncEngine = useSyncEngine()
+  const engine = usePlaybackEngine()
+  const recordingScreen = useRecordingScreen()
   const online = useOnline()
   const [fetched, setFetched] = useState<{ id: string; blob: Blob | null } | null>(null)
   const blob = file?.blob ?? (fetched?.id === recording.id ? fetched.blob : null)
@@ -52,13 +108,14 @@ function RecordingBody({
   useEffect(() => {
     if (blob || recording.state !== 'ready') return
     let cancelled = false
-    void engine.download(recording.id).then((result) => {
+    void syncEngine.download(recording.id).then((result) => {
       if (!cancelled) setFetched({ id: recording.id, blob: result })
     })
     return () => {
       cancelled = true
     }
-  }, [blob, engine, recording.id, recording.state])
+  }, [blob, syncEngine, recording.id, recording.state])
+  useCurrentAudio(recording, file)
   // A read of the same row from IndexedDB can hand back a Blob that is not the same
   // object even though its content did not change, so the effect below keys on identity
   // (the recording and whether a blob exists) and reads the current blob through this ref,
@@ -69,7 +126,10 @@ function RecordingBody({
   })
   const hasBlob = !!blob
   // Minted and revoked in the same effect (not useMemo, which StrictMode can
-  // double-invoke without a matching cleanup) so every URL is revoked exactly once.
+  // double-invoke without a matching cleanup) so every URL is revoked exactly once. Keyed on
+  // the blob's own identity, not just whether one exists, so a trim that replaces this file's
+  // blob in place (same recording, same "has a blob") still mints a fresh url for it rather
+  // than going on playing the one it replaced.
   const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {
     if (!blobRef.current) return
@@ -81,9 +141,192 @@ function RecordingBody({
       URL.revokeObjectURL(url)
       setSrc(null)
     }
-  }, [recording.id, hasBlob])
-  if (src)
-    return <audio src={src} controls autoPlay aria-label={title} className="block h-14 w-full" />
+  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms])
+
+  // The exact fields playbackWindow reads, named here so adding one it reads without adding
+  // it here is a visible omission rather than a silently missed dependency.
+  const blobStartMs = file?.blob_start_ms ?? null
+  const localDurationMs = file?.local_duration_ms ?? null
+  const span = useMemo<PlaybackWindow | null>(() => {
+    if (blobStartMs === null) return null
+    return playbackWindow(
+      {
+        trim_start_ms: recording.trim_start_ms,
+        trim_end_ms: recording.trim_end_ms,
+        source_duration_ms: recording.source_duration_ms,
+      },
+      { blob_start_ms: blobStartMs, local_duration_ms: localDurationMs },
+    )
+  }, [
+    blobStartMs,
+    localDurationMs,
+    recording.trim_start_ms,
+    recording.trim_end_ms,
+    recording.source_duration_ms,
+  ])
+  const settings = useMemo(
+    () => ({ speedPercent: recording.speed_percent, pitchCents: recording.pitch_cents }),
+    [recording.speed_percent, recording.pitch_cents],
+  )
+
+  // The blob identity backing the current `span`, computed fresh every render exactly like
+  // `span` itself. `loadedBlobIdentity` (set only when a load actually runs) lags behind it
+  // by one render whenever the blob is replaced: React re-renders with the new file's props,
+  // and so a fresh `span`, before the mint effect above has minted the new blob a `src` and
+  // this component's own `[src]` effect has had a chance to load it. Comparing the two tells
+  // the effects below whether the recording they would adjust is the one actually loaded, or
+  // one already superseded and about to be replaced by the load this same render also
+  // triggers.
+  const blobIdentity = `${recording.id}:${hasBlob}:${file?.blob_rev ?? ''}:${blobStartMs}`
+  const loadedBlobIdentity = useRef<string | null>(null)
+
+  // Every recording reaches the dock from a Play tap, so its first url loads and plays it.
+  // This body is keyed on the recording, so any later url is the same recording's blob
+  // replaced (a trim landing), which keeps its place and plays only if it was playing. `src`
+  // is the only reactive trigger; the event always reads the latest span, settings, and title,
+  // and the settings the recording screen holds win over the row's, as they do below.
+  const onSrcReady = useEffectEvent(() => {
+    if (!src || !span) return
+    const replaced = loadedBlobIdentity.current === null ? null : engine.getState()
+    const held = recordingScreen.held(recording.id)
+    engine.load(
+      src,
+      span,
+      {
+        speedPercent: held?.speedPercent ?? settings.speedPercent,
+        pitchCents: held?.pitchCents ?? settings.pitchCents,
+      },
+      { title },
+    )
+    if (replaced) engine.seek(replaced.positionMs)
+    if (!replaced || replaced.playing) engine.play()
+    loadedBlobIdentity.current = blobIdentity
+  })
+  useEffect(() => {
+    onSrcReady()
+  }, [src])
+
+  // A trim narrowing the window while the same blob keeps playing: keeps position and
+  // playing state, unlike a full reload.
+  const onSpanChange = useEffectEvent(() => {
+    if (!src || !span || loadedBlobIdentity.current !== blobIdentity) return
+    engine.setWindow(span)
+  })
+  useEffect(() => {
+    onSpanChange()
+  }, [span])
+
+  // A speed or pitch change from another device, or a settled one from the recording screen:
+  // adjusts the running graph without restarting or moving playback. One effect per field, so
+  // a write of one never re-applies the other's stored value over a newer live one.
+  // A value the recording screen is still settling wins over the stored one, which can be
+  // that screen's own earlier write landing.
+  const onSpeedChange = useEffectEvent(() => {
+    if (!src || loadedBlobIdentity.current !== blobIdentity) return
+    engine.setSpeed(recordingScreen.held(recording.id)?.speedPercent ?? settings.speedPercent)
+  })
+  useEffect(() => {
+    onSpeedChange()
+  }, [settings.speedPercent])
+  const onPitchChange = useEffectEvent(() => {
+    if (!src || loadedBlobIdentity.current !== blobIdentity) return
+    engine.setPitch(recordingScreen.held(recording.id)?.pitchCents ?? settings.pitchCents)
+  })
+  useEffect(() => {
+    onPitchChange()
+  }, [settings.pitchCents])
+
+  // A rename touches only what the lock screen shows.
+  const onTitleChange = useEffectEvent(() => {
+    if (!src || loadedBlobIdentity.current !== blobIdentity) return
+    engine.setMetadata({ title })
+  })
+  useEffect(() => {
+    onTitleChange()
+  }, [title])
+
+  useEffect(() => {
+    return () => engine.unload()
+  }, [engine])
+
+  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+
+  if (src) {
+    const remainingMs = Math.max(0, state.lengthMs - state.positionMs)
+    const speedText = recording.speed_percent !== 100 ? SPEED_BADGE(recording.speed_percent) : null
+    const pitchText = recording.pitch_cents !== 0 ? PITCH_BADGE(recording.pitch_cents) : null
+    const pitchUnavailable = state.pitchUnavailable && recording.pitch_cents !== 0
+    return (
+      <div className="flex h-14 items-center gap-2">
+        <IonButton
+          fill="clear"
+          aria-label={state.playing ? PAUSE : PLAY}
+          onClick={() => (state.playing ? engine.pause() : engine.play())}
+        >
+          {state.playing ? (
+            <Pause aria-hidden="true" fill="currentColor" className="size-5" />
+          ) : (
+            <Play aria-hidden="true" fill="currentColor" className="ml-0.5 size-5" />
+          )}
+        </IonButton>
+        {state.failed ? (
+          <p role="status" className="type-footnote min-w-0 flex-1 truncate">
+            {PLAY_FAILED}
+          </p>
+        ) : (
+          <>
+            {speedText || pitchText ? (
+              <span
+                data-playback-badge
+                className="type-footnote inline-flex h-6 shrink-0 items-center rounded-full bg-(--fill-tertiary) px-2 tabular-nums"
+              >
+                {speedText ? (
+                  <span>
+                    <span className="sr-only">{SPEED_LABEL} </span>
+                    {speedText}
+                  </span>
+                ) : null}
+                {speedText && pitchText ? ' ' : null}
+                {pitchText ? (
+                  <span>
+                    <span className="sr-only">{PITCH_LABEL} </span>
+                    {pitchText}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+            {pitchUnavailable ? (
+              <p role="status" className="type-footnote shrink-0 truncate">
+                {PITCH_UNAVAILABLE}
+              </p>
+            ) : null}
+            <p
+              role="timer"
+              aria-live="off"
+              aria-label={`${ELAPSED_LABEL} ${formatDuration(state.positionMs)}`}
+              className="type-footnote shrink-0 tabular-nums"
+            >
+              {formatDuration(state.positionMs)}
+            </p>
+            <progress
+              aria-label={`${title} progress`}
+              value={state.lengthMs > 0 ? state.positionMs : 0}
+              max={Math.max(state.lengthMs, 1)}
+              className="h-1 min-w-0 flex-1"
+            />
+            <p
+              role="timer"
+              aria-live="off"
+              aria-label={`${REMAINING_LABEL} ${formatDuration(remainingMs)}`}
+              className="type-footnote shrink-0 tabular-nums"
+            >
+              -{formatDuration(remainingMs)}
+            </p>
+          </>
+        )}
+      </div>
+    )
+  }
   const label = !online
     ? OFFLINE
     : failed
@@ -94,7 +337,7 @@ function RecordingBody({
   return (
     <div className="flex h-14 items-center gap-2">
       <p role="status" className="type-footnote min-w-0 flex-1 truncate">
-        {label || 'Not available'}
+        {label || NOT_AVAILABLE}
       </p>
       {/* Offline refuses the tap by not offering it, rather than leaving a control that cannot work. */}
       {failed && online ? (
@@ -103,7 +346,7 @@ function RecordingBody({
           onClick={() => {
             // Clearing the failed result shows Downloading again until this attempt settles.
             setFetched(null)
-            void engine.download(recording.id).then((result) => {
+            void syncEngine.download(recording.id).then((result) => {
               setFetched({ id: recording.id, blob: result })
             })
           }}
@@ -123,6 +366,7 @@ function RecordingBody({
 export function Dock() {
   const db = useDb()
   const { item, close, returnFocus } = usePlayer()
+  const recordingScreen = useRecordingScreen()
 
   // Tagging the result with its item keeps a read for the previous item from being
   // taken as the answer for the new one while the new read is pending.
@@ -249,7 +493,18 @@ export function Dock() {
             where the lines above it do rather than out at the column's edge. */}
         <div className="mx-auto flex h-full w-full max-w-(--measure) flex-col px-5">
           <div className="flex h-11 shrink-0 items-center gap-2">
-            <span className="type-headline min-w-0 flex-1 truncate">{title}</span>
+            {next.kind === 'recording' ? (
+              <button
+                type="button"
+                aria-label={OPEN_RECORDING(title)}
+                className="type-headline min-w-0 flex-1 truncate text-left"
+                onClick={() => recordingScreen.open(next.recording.id)}
+              >
+                {title}
+              </button>
+            ) : (
+              <span className="type-headline min-w-0 flex-1 truncate">{title}</span>
+            )}
             <IonButton fill="clear" aria-label={CLOSE_PLAYER} onClick={close}>
               <X aria-hidden="true" className="size-5" />
             </IonButton>
@@ -269,7 +524,12 @@ export function Dock() {
               }
             />
           ) : (
-            <RecordingBody recording={next.recording} file={next.file} title={title} />
+            <RecordingBody
+              key={next.recording.id}
+              recording={next.recording}
+              file={next.file}
+              title={title}
+            />
           )}
         </div>
       </section>

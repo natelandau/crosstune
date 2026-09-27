@@ -10,6 +10,7 @@ import { FakeRecorder, stubMediaGlobals } from '../test/fakeMedia'
 import { renderIonic } from '../test/ionic'
 import { Shell } from './Shell'
 import { RECORD_LABEL } from './tabs'
+import { CANCEL } from '../ui/Confirm'
 
 // The settings screen reads the account from Clerk, which only answers under a ClerkProvider.
 vi.mock('@clerk/react', () => ({
@@ -184,7 +185,7 @@ describe('Shell', () => {
     await expect.element(page.getByRole('heading', { name: 'Lists', level: 1 })).toBeVisible()
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     // The modal covers the page and takes the accessible tree with it, so it closes first.
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await expect.element(page.getByRole('heading', { name: 'Lists', level: 1 })).toBeVisible()
     await expect
       .element(page.getByRole('tab', { name: 'Lists' }))

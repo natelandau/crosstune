@@ -9,6 +9,7 @@ import {
   createDownloadRetries,
   downloadOne,
   downloadPass,
+  fetchPeaks,
   recoverInterruptedCaptures,
   refreshStorage,
   uploadPass,
@@ -156,6 +157,7 @@ export function createSyncEngine({
   const accountDeletedListeners = new Set<() => void>()
   let syncedAt: string | null = null
   const inFlightDownloads = new Map<string, Promise<Blob | null>>()
+  const inFlightPeaks = new Map<string, Promise<Uint8Array | null>>()
 
   async function push(): Promise<void> {
     for (;;) {
@@ -198,6 +200,17 @@ export function createSyncEngine({
     return attempt
   }
 
+  /** One fetch per recording at a time, whether the download pass or a caller asks. */
+  function fetchPeaksOnce(recordingId: string): Promise<Uint8Array | null> {
+    const existing = inFlightPeaks.get(recordingId)
+    if (existing) return existing
+    const attempt = fetchPeaks(db, api, recordingId).finally(() => {
+      inFlightPeaks.delete(recordingId)
+    })
+    inFlightPeaks.set(recordingId, attempt)
+    return attempt
+  }
+
   const downloadRetries = createDownloadRetries()
 
   function stop() {
@@ -231,7 +244,7 @@ export function createSyncEngine({
         // A row's own transient failure is held rather than thrown immediately, so the
         // download pass still runs; it is rethrown below once it has.
         const uploadError = await uploadPass(db, api)
-        await downloadPass(db, api, fetchOne, downloadRetries)
+        await downloadPass(db, api, fetchOne, downloadRetries, fetchPeaksOnce)
         if (uploadError) throw uploadError
       }),
     // A failed fetch while the browser reports a connection means the storage host or a
@@ -288,6 +301,17 @@ export function createSyncEngine({
       }
       try {
         return await fetchOne(recordingId)
+      } catch {
+        return null
+      }
+    },
+    async peaks(recordingId: string): Promise<Uint8Array | null> {
+      if (!isOnline()) {
+        const file = await db.recording_files.get(recordingId)
+        return file?.peaks ?? null
+      }
+      try {
+        return await fetchPeaksOnce(recordingId)
       } catch {
         return null
       }

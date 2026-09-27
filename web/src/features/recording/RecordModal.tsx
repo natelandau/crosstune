@@ -8,7 +8,7 @@ import {
   useIonRouter,
 } from '@ionic/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useConfirm } from '../../ui/Confirm'
+import { CANCEL, useConfirm } from '../../ui/Confirm'
 import { InlineError } from '../../ui/InlineError'
 import { useToast } from '../../ui/Toast'
 import { formatDuration, RECORDING } from './format'
@@ -215,7 +215,7 @@ function Capture({
           </IonButton>
         ) : (
           <IonButton fill="clear" className="min-h-11" disabled={!live} onClick={discard}>
-            Cancel
+            {CANCEL}
           </IonButton>
         )}
       </div>

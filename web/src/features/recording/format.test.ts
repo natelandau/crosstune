@@ -4,6 +4,7 @@ import {
   fileStateLabel,
   formatBytes,
   formatDuration,
+  formatPreciseDuration,
   PROCESS_FAILED,
   STORAGE_FULL,
   UPLOAD_FAILED,
@@ -16,6 +17,13 @@ describe('format', () => {
     expect(formatDuration(61_430)).toBe('1:01')
     expect(formatDuration(3_600_000)).toBe('60:00')
     expect(formatDuration(null)).toBe('')
+  })
+
+  it('formats precise durations as m:ss.t', () => {
+    expect(formatPreciseDuration(0)).toBe('0:00.0')
+    expect(formatPreciseDuration(61_430)).toBe('1:01.4')
+    expect(formatPreciseDuration(59_960)).toBe('1:00.0')
+    expect(formatPreciseDuration(3_600_000)).toBe('60:00.0')
   })
 
   it('formats bytes in the nearest unit', () => {

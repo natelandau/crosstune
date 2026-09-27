@@ -4,6 +4,8 @@ import { AUDIO_BITRATES } from '../../constants'
 import { getStorage } from '../../db/meta'
 import { CHUNK_MS, pickMimeType, storedAudioQuality } from '../../db/recordings'
 import type { CrosstuneDb } from '../../db/schema'
+import { setAudioSessionType } from '../../platform/audioSession'
+import { encodePeaks, fitPeaks, peakByte } from '../waveform/peaks'
 import { createCapture, type Capture, type RecorderLike, type TrackLike } from './capture'
 
 export type RecordingPhase =
@@ -72,6 +74,7 @@ export interface RecordingSession {
 }
 
 const TICK_MS = 250
+const PEAK_WINDOW_MS = 20
 
 const MIC_DENIED =
   'Crosstune needs microphone access. Allow it in your browser or phone settings and try again.'
@@ -106,6 +109,7 @@ export function createRecordingSession<S extends MediaStreamLike>(
   let releaseLock: (() => void) | null = null
   let releaseWakeLock: (() => void) | null = null
   let stopTick: (() => void) | null = null
+  let stopPeakTick: (() => void) | null = null
   let begun = false
   let recorder: RecorderLike | null = null
   let capture: Capture | null = null
@@ -115,6 +119,10 @@ export function createRecordingSession<S extends MediaStreamLike>(
   let recordedAt = ''
   let bytesWritten = 0
   let sizeLimited = false
+  let interrupted = false
+  // One peak byte per 20 ms window, built up live so an offline take has a waveform before
+  // the server ever builds one.
+  const peakValues: number[] = []
 
   const emit = (patch: Partial<RecordingSnapshot>) => {
     snapshot = { ...snapshot, ...patch }
@@ -134,6 +142,8 @@ export function createRecordingSession<S extends MediaStreamLike>(
   const releaseHardware = () => {
     stopTick?.()
     stopTick = null
+    stopPeakTick?.()
+    stopPeakTick = null
     releaseWakeLock?.()
     releaseWakeLock = null
     source?.disconnect()
@@ -141,6 +151,9 @@ export function createRecordingSession<S extends MediaStreamLike>(
     if (media) for (const t of media.getTracks()) t.stop()
     media = null
     deps.suspendAudioContext()
+    // Hands the session back so it does not keep blocking pitch-shifted playback from
+    // reclaiming it, or a later recording from reading it as already spoken for.
+    setAudioSessionType('auto')
   }
 
   const unlock = () => {
@@ -173,6 +186,10 @@ export function createRecordingSession<S extends MediaStreamLike>(
           mime: recorder?.mimeType || 'audio/mp4',
           durationMs: activeMs,
           recordedAt,
+          peaks:
+            peakValues.length > 0
+              ? encodePeaks(fitPeaks(Uint8Array.from(peakValues), activeMs))
+              : null,
         }
         // One retry covers a transient IndexedDB failure; past that the chunks stay put
         // and sync recovery finishes the recording.
@@ -229,6 +246,9 @@ export function createRecordingSession<S extends MediaStreamLike>(
 
     let stream: S
     try {
+      // A session left claiming 'playback' from pitch-shifted playback would otherwise
+      // block the microphone from opening here.
+      setAudioSessionType('play-and-record')
       stream = await deps.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       })
@@ -254,11 +274,23 @@ export function createRecordingSession<S extends MediaStreamLike>(
       // unlockAudioContext also resumes a shared context an interruption left suspended.
       const context = deps.unlockAudioContext()
       const analyser = context.createAnalyser()
-      analyser.fftSize = 512
+      analyser.fftSize = 1024
       const node = context.createMediaStreamSource(stream)
       node.connect(analyser)
       source = node
       emit({ analyser })
+      const buffer = new Float32Array(analyser.fftSize)
+      stopPeakTick = deps.clock.every(PEAK_WINDOW_MS, () => {
+        // The recorder keeps running through a mute, capturing silence rather than
+        // pausing, so a real zero here keeps the waveform lined up with the audio
+        // instead of stretching across the gap once fitPeaks resamples to duration.
+        if (interrupted) {
+          peakValues.push(0)
+          return
+        }
+        analyser.getFloatTimeDomainData(buffer)
+        peakValues.push(peakByte(buffer))
+      })
     } catch {
       // The waveform is only a visual cue; a recording must never depend on it.
     }
@@ -295,8 +327,10 @@ export function createRecordingSession<S extends MediaStreamLike>(
         if (state === 'interrupted') {
           // The recorder itself keeps running through a mute, capturing silence rather
           // than pausing, so the clock keeps ticking too instead of freezing here.
+          interrupted = true
           emit({ phase: 'interrupted', elapsedMs: elapsed() })
         } else if (state === 'recording') {
+          interrupted = false
           emit({ phase: 'recording', elapsedMs: elapsed() })
         } else {
           // The recorder stopped without a tap on Stop (the track ended, or the

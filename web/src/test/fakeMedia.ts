@@ -69,7 +69,12 @@ export function stubMediaGlobals(): { track: FakeTrack; getUserMedia: Mock } {
       resume = vi.fn(async () => {})
       suspend = vi.fn(async () => {})
       createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() })
-      createAnalyser = () => ({ fftSize: 0, frequencyBinCount: 16, getByteTimeDomainData: vi.fn() })
+      createAnalyser = () => ({
+        fftSize: 0,
+        frequencyBinCount: 16,
+        getByteTimeDomainData: vi.fn(),
+        getFloatTimeDomainData: vi.fn(),
+      })
     },
   )
   const getUserMedia = vi.fn(async () => fakeStream(track))

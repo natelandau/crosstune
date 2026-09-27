@@ -1,6 +1,8 @@
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import openapi from '../../../api/openapi.json'
 import { openTestDb } from '../test/db'
+import { recordingRow } from '../test/rows'
 import {
   getKeepOffline,
   getMeta,
@@ -85,7 +87,7 @@ describe('schema', () => {
       expect(db.tables.map((t) => t.name)).toEqual(
         expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
       )
-      expect(db.verno).toBe(5)
+      expect(db.verno).toBe(6)
     } finally {
       await db.delete()
     }
@@ -151,7 +153,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(5)
+      expect(upgraded.verno).toBe(6)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -193,17 +195,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v6 = new Dexie(name)
-    v6.version(6).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v6.table('tunes').put({ id: tune.id, title: tune.title })
-    await v6.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v6.close()
+    const v7 = new Dexie(name)
+    v7.version(7).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v7.table('tunes').put({ id: tune.id, title: tune.title })
+    await v7.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v7.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(50)
+      expect(older.backendDB().version).toBe(60)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {
@@ -355,5 +357,23 @@ describe('row shaping', () => {
     const local = stripOwnership({ ...tune, owner_user_id: 'u', server_seq: 9 })
     expect('owner_user_id' in local).toBe(false)
     expect(local.server_seq).toBe(9)
+  })
+
+  it('recording change data carries only fields RecordingData accepts', () => {
+    const allowed = new Set(Object.keys(openapi.components.schemas.RecordingData.properties))
+    const row = recordingRow('r1', {
+      state: 'ready',
+      duration_ms: 4000,
+      playback_mime: 'audio/mp4',
+      playback_bytes: 512,
+      error: null,
+      source_duration_ms: 4200,
+      playback_start_ms: 0,
+      playback_end_ms: 4000,
+      playback_rev: 'abc12345',
+      peaks_rev: 'def67890',
+    })
+    const data = toChangeData(row)
+    for (const key of Object.keys(data)) expect(allowed).toContain(key)
   })
 })

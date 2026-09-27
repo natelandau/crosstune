@@ -39,7 +39,13 @@ async function captured(tuneId: string | null = null): Promise<string> {
   await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
   await appendChunk(db, id, 0, new Blob(['ab'], { type: 'audio/mp4' }))
   await appendChunk(db, id, 1, new Blob(['cd'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, { tuneId, mime: 'audio/mp4', durationMs: 10_000, recordedAt: AT })
+  await finishCapture(db, id, {
+    tuneId,
+    mime: 'audio/mp4',
+    durationMs: 10_000,
+    recordedAt: AT,
+    peaks: null,
+  })
   return id
 }
 
@@ -74,6 +80,21 @@ describe('capture', () => {
     expect(queued?.data).not.toHaveProperty('state')
   })
 
+  it('a new capture defaults trim, speed, and pitch', async () => {
+    const id = await captured()
+    expect(await db.recordings.get(id)).toMatchObject({
+      trim_start_ms: 0,
+      trim_end_ms: null,
+      speed_percent: 100,
+      pitch_cents: 0,
+      source_duration_ms: null,
+      playback_start_ms: null,
+      playback_end_ms: null,
+      playback_rev: null,
+      peaks_rev: null,
+    })
+  })
+
   it('cancel drops the chunks and the file row', async () => {
     const id = newId()
     await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
@@ -99,6 +120,7 @@ describe('capture', () => {
       mime: 'audio/mp4',
       durationMs: 5_000,
       recordedAt: AT,
+      peaks: null,
     })
     const file = await db.recording_files.get(id)
     expect(await file?.blob?.text()).toBe('abcd')
@@ -125,6 +147,7 @@ describe('capture', () => {
       mime: 'audio/mp4',
       durationMs: 1000,
       recordedAt: AT,
+      peaks: null,
     })
     expect(await db.recordings.get(id)).toBeUndefined()
     expect(await db.recording_files.get(id)).toBeUndefined()
@@ -146,13 +169,24 @@ describe('capture', () => {
 describe('uploads and edits', () => {
   it('stores an uploaded file as captured with its type', async () => {
     const file = new File(['wav-bytes'], 'jam.wav', { type: 'audio/wav' })
-    const id = await addUploadedFile(db, file, { tuneId: null, label: 'Field recorder' })
+    const id = await addUploadedFile(db, file, {
+      tuneId: null,
+      label: 'Field recorder',
+      durationMs: 187_457,
+    })
     expect(await db.recording_files.get(id)).toMatchObject({
       local_state: 'captured',
       mime: 'audio/wav',
       bytes: 9,
+      local_duration_ms: 187_457,
     })
     expect(await db.recordings.get(id)).toMatchObject({ source: 'upload', label: 'Field recorder' })
+  })
+
+  it('stores an uploaded file with no measured length as unknown', async () => {
+    const file = new File(['webm-bytes'], 'jam.webm', { type: 'audio/webm' })
+    const id = await addUploadedFile(db, file, { tuneId: null, label: null, durationMs: null })
+    expect((await db.recording_files.get(id))?.local_duration_ms).toBeNull()
   })
 
   it('updates label and tune and queues the row', async () => {
@@ -164,6 +198,19 @@ describe('uploads and edits', () => {
       label: 'Recording 2',
       tune_id: tuneId,
     })
+  })
+
+  it('updateRecording writes speed and pitch and queues one upsert', async () => {
+    const id = await captured()
+    await updateRecording(db, id, { speed_percent: 75, pitch_cents: 200 })
+    expect(await db.recordings.get(id)).toMatchObject({ speed_percent: 75, pitch_cents: 200 })
+    const queued = await pendingFor(db, 'recordings', id)
+    expect(queued?.data).toMatchObject({ speed_percent: 75, pitch_cents: 200 })
+    expect(queued?.data).not.toHaveProperty('source_duration_ms')
+    expect(queued?.data).not.toHaveProperty('playback_start_ms')
+    expect(queued?.data).not.toHaveProperty('playback_end_ms')
+    expect(queued?.data).not.toHaveProperty('playback_rev')
+    expect(queued?.data).not.toHaveProperty('peaks_rev')
   })
 
   it('puts a failed upload back in the queue when the recording is edited', async () => {
@@ -244,7 +291,7 @@ describe('keep offline and local audio', () => {
     const dropped = await captured()
     await setFileState(db, dropped, 'uploaded')
     await db.recordings.update(dropped, { state: 'ready' })
-    await storeDownloadedBlob(db, 'other', new Blob(['12345']), 'audio/mp4')
+    await storeDownloadedBlob(db, 'other', new Blob(['12345']), 'audio/mp4', 'seed-rev', 0)
     await db.recordings.put({
       id: 'other',
       created_at: AT,
@@ -261,6 +308,15 @@ describe('keep offline and local audio', () => {
       playback_mime: 'audio/mp4',
       playback_bytes: 5,
       error: null,
+      trim_start_ms: 0,
+      trim_end_ms: null,
+      speed_percent: 100,
+      pitch_cents: 0,
+      source_duration_ms: null,
+      playback_start_ms: null,
+      playback_end_ms: null,
+      playback_rev: null,
+      peaks_rev: null,
     })
     expect(await localAudioBytes(db)).toBe(4 + 4 + 5)
     await clearDownloadedBlobs(db)

@@ -54,6 +54,7 @@ describe('signOutAndForget', () => {
     const id = await addUploadedFile(db, new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }), {
       tuneId: null,
       label: null,
+      durationMs: null,
     })
     await setFileState(db, id, 'blocked_quota')
     await db.outbox.clear()

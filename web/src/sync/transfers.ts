@@ -5,13 +5,21 @@ import {
   finishCapture,
   setFileState,
   storeDownloadedBlob,
+  storePeaks,
 } from '../commands/recordings'
 import { now, putRow, recordingTx } from '../commands/write'
-import { baseContentType, CHUNK_MS, isNotUploaded, type LocalFileState } from '../db/recordings'
+import {
+  baseContentType,
+  CHUNK_MS,
+  isNotUploaded,
+  type LocalFileState,
+  type RecordingFile,
+} from '../db/recordings'
 import { getKeepOffline, getStorage, setStorage } from '../db/meta'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { liveTune } from '../db/tunes'
+import type { LocalRecording } from '../db/types'
 import { defaultLocks, heldCaptureIds } from './captureLock'
 import { isAuthFailure } from './errors'
 
@@ -53,6 +61,8 @@ export async function recoverInterruptedCaptures(
       // count is the only record of how long it ran.
       durationMs: file.local_duration_ms ?? chunks.length * CHUNK_MS,
       recordedAt: file.recorded_at ?? new Date().toISOString(),
+      // The tab that held this capture is gone, so nothing here ever sampled a waveform.
+      peaks: null,
     })
   }
 }
@@ -264,23 +274,66 @@ function restingState(state: LocalFileState): LocalFileState {
   return state === 'downloading' ? 'downloaded' : state
 }
 
+/** A downloaded blob whose revision no longer matches the row's current playback file, as
+ * after a trim. A blob never downloaded from the server (the raw capture or upload, kept
+ * as is) has no revision of its own and is never stale. */
+export function isStale(row: LocalRecording, file: RecordingFile): boolean {
+  return file.blob_rev !== null && file.blob_rev !== row.playback_rev
+}
+
 export async function downloadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<Blob | null> {
   const file = await db.recording_files.get(id)
-  if (file?.blob) return file.blob
   const row = await db.recordings.get(id)
+  if (file?.blob && !(row && isStale(row, file))) return file.blob
   if (!row || row.deleted_at || row.state !== 'ready') return null
   const previousState = file ? restingState(file.local_state) : null
   await setFileState(db, id, 'downloading')
   try {
+    // The row's own playback_rev/start can already be behind this response by the time it
+    // lands: a pull runs on its own loop and a trim can commit mid-download. What the server
+    // signed, not what this device has pulled, is what the downloaded bytes are tagged with.
     const signed = await api.downloadUrl(id)
     const blob = await api.getObject(signed.url)
-    await storeDownloadedBlob(db, id, blob, row.playback_mime ?? blob.type)
+    await storeDownloadedBlob(
+      db,
+      id,
+      blob,
+      row.playback_mime ?? blob.type,
+      signed.playback_rev,
+      signed.playback_start_ms,
+    )
+    // A waveform that fails to fetch never undoes an audio download that already succeeded.
+    await fetchPeaks(db, api, id).catch(() => null)
     return blob
   } catch (error) {
     // A row that had no state before downloading gets none back; setFileState no-ops on it.
     if (previousState) await setFileState(db, id, previousState)
     throw error
   }
+}
+
+/**
+ * Fetch the waveform for a recording's current revision, once. A row whose peaks have not
+ * been built yet keeps whatever it already has (capture-time peaks, or none) until they have.
+ */
+export async function fetchPeaks(
+  db: CrosstuneDb,
+  api: SyncApi,
+  id: string,
+): Promise<Uint8Array | null> {
+  const row = await db.recordings.get(id)
+  const file = await db.recording_files.get(id)
+  if (!row || row.deleted_at || row.state !== 'ready' || row.peaks_rev === null) {
+    return file?.peaks ?? null
+  }
+  if (file?.peaks && file.peaks_rev === row.peaks_rev) return file.peaks
+  // As with the download, tag the bytes with what the server actually signed, not
+  // with this row's own peaks_rev, which can already be behind it.
+  const signed = await api.peaksUrl(id)
+  const blob = await api.getObject(signed.url)
+  const peaks = new Uint8Array(await blob.arrayBuffer())
+  await storePeaks(db, id, peaks, signed.peaks_rev)
+  return peaks
 }
 
 export interface DownloadRetries {
@@ -309,34 +362,54 @@ export function createDownloadRetries(now: () => number = Date.now): DownloadRet
   }
 }
 
-/** When the device keeps recordings offline, fetch audio for every ready recording that is
- * not already here. `fetch` lets the caller share one in-flight download per recording with
+/** When the device keeps recordings offline, fetch audio and waveforms for every ready
+ * recording that lacks a current one, including a blob left over from a trimmed revision.
+ * `fetch` and `fetchPeaksFor` let the caller share one in-flight attempt per recording with
  * any other path that fetches. */
 export async function downloadPass(
   db: CrosstuneDb,
   api: SyncApi,
   fetch: (id: string) => Promise<Blob | null> = (id) => downloadOne(db, api, id),
   retries: DownloadRetries = createDownloadRetries(),
+  fetchPeaksFor: (id: string) => Promise<Uint8Array | null> = (id) => fetchPeaks(db, api, id),
 ): Promise<void> {
   if (!(await getKeepOffline(db))) return
   const rows = await db.recordings.filter((r) => !r.deleted_at && r.state === 'ready').toArray()
   const files = await db.recording_files.bulkGet(rows.map((r) => r.id))
   for (const [i, row] of rows.entries()) {
     const file = files[i]
-    if (file?.blob || retries.isWaiting(row.id)) continue
-    try {
-      await fetch(row.id)
-      retries.succeeded(row.id)
-    } catch (error) {
-      // Offline and auth failures stop the whole pass; anything else is this row's
-      // problem alone, so record it and let the rest of the kept-offline set still download.
-      if (error instanceof NetworkError || isAuthFailure(error)) {
-        throw error
+    if ((!file?.blob || isStale(row, file)) && !retries.isWaiting(row.id)) {
+      try {
+        await fetch(row.id)
+        retries.succeeded(row.id)
+      } catch (error) {
+        // Offline and auth failures stop the whole pass; anything else is this row's
+        // problem alone, so record it and let the rest of the kept-offline set still download.
+        if (error instanceof NetworkError || isAuthFailure(error)) {
+          throw error
+        }
+        retries.failed(row.id)
+        if (file) {
+          const message = error instanceof Error ? error.message : String(error)
+          await setFileState(db, row.id, restingState(file.local_state), message)
+        }
       }
-      retries.failed(row.id)
-      if (file) {
-        const message = error instanceof Error ? error.message : String(error)
-        await setFileState(db, row.id, restingState(file.local_state), message)
+    }
+
+    // Re-read: the fetch above may have just stored the peaks that came with a fresh blob.
+    const peaksWaitKey = `peaks:${row.id}`
+    const current = await db.recording_files.get(row.id)
+    if (
+      row.peaks_rev !== null &&
+      current?.peaks_rev !== row.peaks_rev &&
+      !retries.isWaiting(peaksWaitKey)
+    ) {
+      try {
+        await fetchPeaksFor(row.id)
+        retries.succeeded(peaksWaitKey)
+      } catch {
+        // A missing waveform never fails the pass; it just waits for the next one, backed off.
+        retries.failed(peaksWaitKey)
       }
     }
   }

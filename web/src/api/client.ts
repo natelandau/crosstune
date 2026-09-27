@@ -2,7 +2,9 @@ import createClient, { type Middleware } from 'openapi-fetch'
 import type { paths } from './schema'
 import type {
   Change,
+  DownloadUrl,
   MeResponse,
+  PeaksUrl,
   Problem,
   PullResponse,
   PushResponse,
@@ -160,9 +162,16 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
         }),
       )
     },
-    async downloadUrl(recordingId): Promise<SignedUrl> {
+    async downloadUrl(recordingId): Promise<DownloadUrl> {
       return unwrap(
         await client.GET('/v1/recordings/{recording_id}/download', {
+          params: { path: { recording_id: recordingId } },
+        }),
+      )
+    },
+    async peaksUrl(recordingId): Promise<PeaksUrl> {
+      return unwrap(
+        await client.GET('/v1/recordings/{recording_id}/peaks', {
           params: { path: { recording_id: recordingId } },
         }),
       )

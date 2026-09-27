@@ -5,6 +5,7 @@ import {
   beginCapture,
   finishCapture,
   storeDownloadedBlob,
+  storePeaks,
 } from '../commands/recordings'
 import { createTune, deleteTune } from '../commands/tunes'
 import { CHUNK_MS } from '../db/recordings'
@@ -24,6 +25,8 @@ import {
   createDownloadRetries,
   downloadOne,
   downloadPass,
+  fetchPeaks,
+  isStale,
   QUOTA_PROBLEM,
   recoverInterruptedCaptures,
   retryDelayMs,
@@ -49,7 +52,13 @@ async function captured(): Promise<string> {
   const id = newId()
   await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
   await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, { tuneId: null, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
+  await finishCapture(db, id, {
+    tuneId: null,
+    mime: 'audio/mp4',
+    durationMs: 3000,
+    recordedAt: AT,
+    peaks: null,
+  })
   return id
 }
 
@@ -83,9 +92,14 @@ async function pushed(id: string): Promise<void> {
 
 /** A file row left behind by Remove downloaded audio: known locally, blob gone. */
 async function clearedDownload(id: string): Promise<void> {
-  await storeDownloadedBlob(db, id, new Blob(['old']), 'audio/mp4')
+  await storeDownloadedBlob(db, id, new Blob(['old']), 'audio/mp4', 'seed-rev', 0)
   await db.recording_files.update(id, { blob: null, bytes: 0 })
 }
+
+// What a real pull would have already delivered for a ready recording's own row, and
+// what the fake signs a download for by default: a test after a specific race (a pull
+// behind what the server just signed) overrides one or the other explicitly.
+const READY_REV = 'ready0001'
 
 async function readyOnServer(id: string, tuneId: string | null = null): Promise<void> {
   await db.recordings.put({
@@ -104,9 +118,19 @@ async function readyOnServer(id: string, tuneId: string | null = null): Promise<
     playback_mime: 'audio/mp4',
     playback_bytes: 3,
     error: null,
+    trim_start_ms: 0,
+    trim_end_ms: null,
+    speed_percent: 100,
+    pitch_cents: 0,
+    source_duration_ms: null,
+    playback_start_ms: 0,
+    playback_end_ms: null,
+    playback_rev: READY_REV,
+    peaks_rev: null,
   })
   fake.recordingStates.set(id, 'ready')
   fake.objects.set(`${id}/playback.m4a`, new Blob(['xyz'], { type: 'audio/mp4' }))
+  fake.signDownload(id, READY_REV, 0)
 }
 
 describe('uploadPass', () => {
@@ -334,7 +358,13 @@ describe('uploadPass', () => {
     const id = newId()
     await beginCapture(db, id, { tuneId, recordedAt: AT })
     await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-    await finishCapture(db, id, { tuneId, mime: 'audio/mp4', durationMs: 3000, recordedAt: AT })
+    await finishCapture(db, id, {
+      tuneId,
+      mime: 'audio/mp4',
+      durationMs: 3000,
+      recordedAt: AT,
+      peaks: null,
+    })
     // As if the recording's row reached the server before the tune was deleted on another device.
     await db.outbox.clear()
     const deletedAt = '2026-09-14T21:00:00.000Z'
@@ -720,6 +750,125 @@ describe('downloads', () => {
   })
 })
 
+describe('stale files and peaks downloads', () => {
+  it('a captured blob is never stale', async () => {
+    const id = await captured()
+    const file = (await db.recording_files.get(id))!
+    const row = (await db.recordings.get(id))!
+    expect(isStale(row, file)).toBe(false)
+
+    // Not stale even once the recording is ready and carries a real revision: this
+    // blob was never downloaded from the server, so it has no revision to compare.
+    await db.recordings.update(id, { state: 'ready', playback_rev: 'rev-1' })
+    const ready = (await db.recordings.get(id))!
+    expect(isStale(ready, file)).toBe(false)
+  })
+
+  it('a blob from an old revision is refetched on download', async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { playback_rev: 'rev-new', playback_start_ms: 500 })
+    await storeDownloadedBlob(db, 'r1', new Blob(['old']), 'audio/mp4', 'rev-old', 0)
+    fake.signDownload('r1', 'rev-new', 500)
+
+    const blob = await downloadOne(db, fake.api, 'r1')
+    expect(await blob?.text()).toBe('xyz')
+    expect(await db.recording_files.get('r1')).toMatchObject({
+      blob_rev: 'rev-new',
+      blob_start_ms: 500,
+    })
+  })
+
+  it("stores the revision and start the server actually signed, not the row's own", async () => {
+    // The row here is what a prior pull left behind; the download endpoint's own row can
+    // already be ahead of it, as when a trim commits between the pull and this download.
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { playback_rev: 'rev-pulled', playback_start_ms: 0 })
+    fake.signDownload('r1', 'rev-signed', 750)
+
+    await downloadOne(db, fake.api, 'r1')
+    expect(await db.recording_files.get('r1')).toMatchObject({
+      blob_rev: 'rev-signed',
+      blob_start_ms: 750,
+    })
+
+    // Until the pull catches up, the stored blob now reads as stale against the row this
+    // device still has, which is correct: it really is a different revision than what was
+    // requested.
+    const row = (await db.recordings.get('r1'))!
+    const file = (await db.recording_files.get('r1'))!
+    expect(isStale(row, file)).toBe(true)
+  })
+
+  it('the keep-offline pass refetches stale blobs', async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { playback_rev: 'rev-new', playback_start_ms: 0 })
+    await storeDownloadedBlob(db, 'r1', new Blob(['old']), 'audio/mp4', 'rev-old', 0)
+    fake.signDownload('r1', 'rev-new', 0)
+    await setKeepOffline(db, true)
+
+    await downloadPass(db, fake.api)
+    expect(await (await db.recording_files.get('r1'))?.blob?.text()).toBe('xyz')
+    expect((await db.recording_files.get('r1'))?.blob_rev).toBe('rev-new')
+  })
+
+  it('peaks are fetched once per revision', async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { peaks_rev: 'peaks-1' })
+    fake.signPeaks('r1', 'peaks-1')
+    fake.objects.set('r1/peaks.bin', new Blob([new Uint8Array([1, 2, 3])]))
+    const spy = vi.spyOn(fake.api, 'peaksUrl')
+
+    const first = await fetchPeaks(db, fake.api, 'r1')
+    expect(Array.from(first ?? [])).toEqual([1, 2, 3])
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    // Same revision, so this reads the cached file instead of asking the server again.
+    const second = await fetchPeaks(db, fake.api, 'r1')
+    expect(Array.from(second ?? [])).toEqual([1, 2, 3])
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it("stores the peaks revision the server actually signed, not the row's own", async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { peaks_rev: 'peaks-pulled' })
+    fake.signPeaks('r1', 'peaks-signed')
+    fake.objects.set('r1/peaks.bin', new Blob([new Uint8Array([4, 5, 6])]))
+
+    const peaks = await fetchPeaks(db, fake.api, 'r1')
+    expect(Array.from(peaks ?? [])).toEqual([4, 5, 6])
+    expect((await db.recording_files.get('r1'))?.peaks_rev).toBe('peaks-signed')
+  })
+
+  it("capture-time peaks are replaced when the server's arrive", async () => {
+    const id = newId()
+    await beginCapture(db, id, { tuneId: null, recordedAt: new Date().toISOString() })
+    await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
+    await finishCapture(db, id, {
+      tuneId: null,
+      mime: 'audio/mp4',
+      durationMs: 3000,
+      recordedAt: AT,
+      peaks: new Uint8Array([1, 2, 3]),
+    })
+    const spy = vi.spyOn(fake.api, 'peaksUrl')
+
+    // A row whose peaks_rev is still null never asks the server; the capture-time
+    // waveform is all there is until it does.
+    const captureTime = await fetchPeaks(db, fake.api, id)
+    expect(Array.from(captureTime ?? [])).toEqual([1, 2, 3])
+    expect(spy).not.toHaveBeenCalled()
+
+    await db.recordings.update(id, { state: 'ready', peaks_rev: 'srv-1' })
+    fake.recordingStates.set(id, 'ready')
+    fake.signPeaks(id, 'srv-1')
+    fake.objects.set(`${id}/peaks.bin`, new Blob([new Uint8Array([9, 9, 9])]))
+
+    const fromServer = await fetchPeaks(db, fake.api, id)
+    expect(Array.from(fromServer ?? [])).toEqual([9, 9, 9])
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('createSyncEngine recovery and downloads', () => {
   it('never recovers a live capture whose last chunk is still fresh, across engines', async () => {
     const id = newId()
@@ -797,6 +946,44 @@ describe('createSyncEngine recovery and downloads', () => {
     const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
     await engine.sync()
     expect(engine.status()).toBe('idle')
+  })
+})
+
+describe('engine.peaks', () => {
+  it('returns the local peaks while offline, without asking the server', async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { peaks_rev: 'srv-1' })
+    await storePeaks(db, 'r1', new Uint8Array([1, 2, 3]), 'srv-1')
+    const peaksSpy = vi.spyOn(fake.api, 'peaksUrl')
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => false })
+
+    const peaks = await engine.peaks('r1')
+    expect(Array.from(peaks ?? [])).toEqual([1, 2, 3])
+    expect(peaksSpy).not.toHaveBeenCalled()
+  })
+
+  it('runs one peaksUrl call for two concurrent calls on the same id', async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { peaks_rev: 'srv-1' })
+    fake.signPeaks('r1', 'srv-1')
+    fake.objects.set('r1/peaks.bin', new Blob([new Uint8Array([4, 5, 6])]))
+    const peaksSpy = vi.spyOn(fake.api, 'peaksUrl')
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+
+    const [a, b] = await Promise.all([engine.peaks('r1'), engine.peaks('r1')])
+    expect(Array.from(a ?? [])).toEqual([4, 5, 6])
+    expect(Array.from(b ?? [])).toEqual([4, 5, 6])
+    expect(peaksSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns null instead of throwing when the fetch fails', async () => {
+    await readyOnServer('r1')
+    await db.recordings.update('r1', { peaks_rev: 'srv-1' })
+    fake.signPeaks('r1', 'srv-1')
+    // No object staged at the peaks key, so getObject rejects with a transfer error.
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+
+    expect(await engine.peaks('r1')).toBeNull()
   })
 })
 

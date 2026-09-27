@@ -8,6 +8,7 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { ListPicker, NEW_LIST_ITEM, NEW_LIST_NAME_LABEL, type ListAddition } from './ListPicker'
 import type * as UseListsModule from './useLists'
+import { CANCEL } from '../../ui/Confirm'
 
 vi.mock('../../commands/bulk', { spy: true })
 
@@ -298,7 +299,7 @@ describe('ListPicker', () => {
     const onClose = vi.fn()
     renderIonic(<Host userTuneIds={[userTuneId]} onClose={onClose} />, { db })
     await expect.element(page.getByText('Add to a list')).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: CANCEL }).click()
     await sheetDismissed()
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(onClose).toHaveBeenCalledOnce()
@@ -340,7 +341,7 @@ describe('ListPicker', () => {
     renderIonic(<ReopenHost />, { db })
     await page.getByRole('button', { name: NEW_LIST_ITEM }).click()
     await page.getByLabelText(NEW_LIST_NAME_LABEL).fill('Half typed name')
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: CANCEL }).click()
     await sheetDismissed()
     await page.getByRole('button', { name: 'Reopen' }).click()
     await expect.element(page.getByRole('button', { name: NEW_LIST_ITEM })).toBeVisible()

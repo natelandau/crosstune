@@ -15,6 +15,7 @@ import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import type { CatalogEntry } from '../catalog/filters'
 import { ADD_TO_LIST, NEW_LIST_ITEM, NEW_LIST_NAME_LABEL } from '../lists/ListPicker'
 import { useBulkActions, type SelectionContext } from './useBulkActions'
+import { CANCEL } from '../../ui/Confirm'
 
 vi.mock('../../commands/bulk', { spy: true })
 
@@ -439,7 +440,7 @@ describe('useBulkActions', () => {
     show([one, two])
     await tap('Edit')
     await expect.element(page.getByText('Edit 2 tunes')).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await sheetsClosed()
     expect(onExit).not.toHaveBeenCalled()
     expect(toasts()).toBe(0)
@@ -459,7 +460,7 @@ describe('useBulkActions', () => {
     show([one, two])
     await tap(ADD_TO_LIST)
     await expect.element(page.getByText('none in it')).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await sheetsClosed()
     expect(onExit).not.toHaveBeenCalled()
     expect(toasts()).toBe(0)
@@ -497,7 +498,7 @@ describe('useBulkActions', () => {
     show([one, two])
     await tap('More')
     await pick('Delete 2 tunes')
-    await answer('Cancel')
+    await answer(CANCEL)
 
     await vi.waitFor(() =>
       expect(document.querySelector('ion-alert:not(.overlay-hidden)')).toBeNull(),
@@ -522,7 +523,7 @@ describe('useBulkActions', () => {
     expect((await alertEl()).textContent).toContain(
       'Delete 2 tunes? This removes their links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',
     )
-    await answer('Cancel')
+    await answer(CANCEL)
   })
 
   it('names one selected tune in the question, as the tune page does', async () => {
@@ -534,7 +535,7 @@ describe('useBulkActions', () => {
     expect((await alertEl()).textContent).toContain(
       'Delete "Say Old Man"? This removes its links and list entries.',
     )
-    await answer('Cancel')
+    await answer(CANCEL)
   })
 
   it('keeps every action but offers no More items when nothing is selected', async () => {

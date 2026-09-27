@@ -11,6 +11,7 @@ import type { CatalogEntry } from '../catalog/filters'
 import { tuningLabel } from '../settings/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import { BulkEditSheet } from './BulkEditSheet'
+import { CANCEL } from '../../ui/Confirm'
 
 const violin = new Set<Instrument>(['violin'])
 
@@ -305,7 +306,7 @@ describe('BulkEditSheet', () => {
     await expect
       .element(page.getByRole('button', { name: 'Genre, Bluegrass', exact: true }))
       .toBeInTheDocument()
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await dismissed()
     await page.getByRole('button', { name: 'Reopen', exact: true }).click()
     await expect

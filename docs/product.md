@@ -53,8 +53,9 @@ for Android and every browser. The parts that matter:
   the provider.
 - Recordings. Record with the phone's microphone or upload audio. A
   recording is filed under a tune or waits unfiled. It plays at once, uploads
-  in the background, and reaches the musician's other devices. Free accounts
-  hold 1 GB.
+  in the background, and reaches the musician's other devices. A recording
+  can be trimmed for good, and plays at a slower or faster speed and a
+  shifted pitch on every device. Free accounts hold 1 GB.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.
@@ -73,7 +74,7 @@ Each has a place in the data model and no code:
 - A shared canonical catalog across users, with deduplication
 - Sharing tunes, lists, and recordings between users
 - Sheet music and chord charts
-- Audio tools: pitch correction, tempo change, melody transcription
+- Melody transcription
 - Paid access
 
 ## Constraints for every release

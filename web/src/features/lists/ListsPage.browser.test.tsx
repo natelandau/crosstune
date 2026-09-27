@@ -10,6 +10,7 @@ import { fakeEngine } from '../../test/providers'
 import { DELETE_LIST_MESSAGE } from './deleteListMessage'
 import { LIST_NAME_LABEL } from './ListNameSheet'
 import { ADD_LIST, ListsPage, NO_LISTS_HINT, NO_LISTS_TITLE } from './ListsPage'
+import { CANCEL } from '../../ui/Confirm'
 
 let db: CrosstuneDb
 const original = window.matchMedia
@@ -63,7 +64,7 @@ describe('ListsPage', () => {
     show()
     await page.getByRole('button', { name: 'Delete Tuesday jam' }).click()
     await expect.element(page.getByText(DELETE_LIST_MESSAGE)).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: CANCEL }).click()
     expect((await db.lists.get(jam))?.deleted_at).toBeNull()
     await page.getByRole('button', { name: 'Delete Tuesday jam' }).click()
     await page.getByRole('button', { name: 'Delete', exact: true }).click()

@@ -13,6 +13,7 @@ import {
   RENAME_LIST_TITLE,
   type ListNameTarget,
 } from './ListNameSheet'
+import { CANCEL } from '../../ui/Confirm'
 
 function Host({
   initial,
@@ -104,7 +105,7 @@ describe('ListNameSheet', () => {
     const onClose = vi.fn()
     renderIonic(<Host initial={{ kind: 'new' }} onClose={onClose} />, { db })
     await page.getByLabelText(LIST_NAME_LABEL).fill('Draft')
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
     expect(onClose).toHaveBeenCalledOnce()
     expect(await db.lists.count()).toBe(0)
@@ -134,7 +135,7 @@ describe('ListNameSheet', () => {
     }
     renderIonic(<SwapHost registerSwap={(fn) => (swap = fn)} />, { db })
     await expect.element(page.getByText(NEW_LIST_TITLE)).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     // The parent opens a new target immediately, while the cancelled sheet is still animating closed.
     swap()
     await expect.element(page.getByText(RENAME_LIST_TITLE)).toBeVisible()

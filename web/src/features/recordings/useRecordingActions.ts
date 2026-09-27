@@ -1,4 +1,4 @@
-import { FolderInput, FolderOutput, Pencil, Trash2 } from 'lucide-react'
+import { FolderInput, FolderOutput, Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { useAction } from '../../ui/useAction'
@@ -7,11 +7,14 @@ import { useSyncEngine } from '../../sync/SyncProvider'
 import { DELETE, useConfirm } from '../../ui/Confirm'
 import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
+import { EDIT_RECORDING, useRecordingScreen } from '../recording-screen/useRecordingScreen'
 import { deleteRecordingMessage } from './recordingRow'
 import type { RecordingView } from './useRecordings'
 
 export const DELETE_RECORDING_TITLE = 'Delete this recording?'
 export const REMOVE_FROM_TUNE = 'Remove from tune'
+export const RENAME = 'Rename'
+export const ADD_TO_TUNE = 'Add to tune'
 
 export interface RecordingActions {
   /** One line for every refusal a list of recordings can report, wherever the control sits. */
@@ -21,21 +24,32 @@ export interface RecordingActions {
   /** Runs any other mutation the same list offers, reporting it on the same one line. */
   run: (action: () => Promise<unknown>) => void
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
+  /** A row's actions: open it in the recording screen, file or unfile it, delete it. */
   actionsFor: (view: RecordingView) => RowAction[]
+  /** The recording screen's menu: rename it, file or unfile it, delete it. */
+  menuFor: (view: RecordingView) => RowAction[]
 }
 
-/** What every list of recordings does to a row: rename it, file it, delete it, unstick it. */
+/**
+ * What every list of recordings, and the recording screen, does to a recording: open it,
+ * rename it, file it, delete it, unstick it.
+ */
 export function useRecordingActions({
   onRename,
   onAddToTune,
+  onDeleted,
 }: {
-  onRename: (view: RecordingView) => void
+  /** Left out where nothing offers Rename; only the recording screen's menu does. */
+  onRename?: (view: RecordingView) => void
+  /** Runs once a confirmed delete is under way, for a screen that must go with its recording. */
+  onDeleted?: () => void
   /** Left out by a list where every recording is already filed under the tune it belongs to. */
   onAddToTune?: (view: RecordingView) => void
 }): RecordingActions {
   const db = useDb()
   const engine = useSyncEngine()
   const player = usePlayer()
+  const recordingScreen = useRecordingScreen()
   const confirm = useConfirm()
   const { error: actionError, run: runAction, clear: clearAction } = useAction()
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -63,6 +77,7 @@ export function useRecordingActions({
     // The player keeps whatever it loaded, so the row's audio has to leave it before the blob
     // goes, or it would sit on a source nothing can serve.
     if (isPlaying(player, { kind: 'recording', id })) player.close()
+    onDeleted?.()
     run(() => deleteRecording(db, id))
   }
 
@@ -91,7 +106,7 @@ export function useRecordingActions({
     }
     if (!onAddToTune) return null
     return {
-      label: 'Add to tune',
+      label: ADD_TO_TUNE,
       short: 'Add',
       icon: FolderInput,
       tone: 'warning',
@@ -99,12 +114,35 @@ export function useRecordingActions({
     }
   }
 
+  const deleteAction = (view: RecordingView): RowAction => ({
+    label: DELETE,
+    icon: Trash2,
+    tone: 'error',
+    onPress: () => void remove(view),
+  })
+
   const actionsFor = (view: RecordingView): RowAction[] => {
     const file = filing(view)
     return [
-      { label: 'Rename', icon: Pencil, tone: 'neutral', onPress: () => onRename(view) },
+      {
+        label: EDIT_RECORDING,
+        icon: SlidersHorizontal,
+        tone: 'neutral',
+        onPress: () => recordingScreen.open(view.recording.id),
+      },
       ...(file ? [file] : []),
-      { label: 'Delete', icon: Trash2, tone: 'error', onPress: () => void remove(view) },
+      deleteAction(view),
+    ]
+  }
+
+  const menuFor = (view: RecordingView): RowAction[] => {
+    const file = filing(view)
+    return [
+      ...(onRename
+        ? [{ label: RENAME, icon: Pencil, tone: 'neutral' as const, onPress: () => onRename(view) }]
+        : []),
+      ...(file ? [file] : []),
+      deleteAction(view),
     ]
   }
 
@@ -114,5 +152,6 @@ export function useRecordingActions({
     run,
     retry,
     actionsFor,
+    menuFor,
   }
 }

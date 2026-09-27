@@ -2,6 +2,7 @@ import type { LocalFileState } from '../../db/recordings'
 
 export const DOWNLOAD_FAILED = "Couldn't download"
 export const DOWNLOADING = 'Downloading'
+export const NOT_AVAILABLE = 'Not available'
 export const PROCESS_FAILED = "Couldn't process"
 export const RECORDING = 'Recording'
 export const STORAGE_FULL = 'Storage full'
@@ -14,6 +15,14 @@ export function formatDuration(ms: number | null | undefined): string {
   const minutes = Math.floor(total / 60)
   const seconds = total % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+/** `m:ss.t`, for placing a trim handle to the tenth of a second. */
+export function formatPreciseDuration(ms: number): string {
+  const tenths = Math.round(ms / 100)
+  const minutes = Math.floor(tenths / 600)
+  const seconds = Math.floor((tenths % 600) / 10)
+  return `${minutes}:${String(seconds).padStart(2, '0')}.${tenths % 10}`
 }
 
 export function formatBytes(bytes: number): string {

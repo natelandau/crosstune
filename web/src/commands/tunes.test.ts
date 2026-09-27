@@ -167,6 +167,7 @@ describe('deleteTune', () => {
       mime: 'audio/mp4',
       durationMs: 1000,
       recordedAt: '2026-09-11T10:00:00.000Z',
+      peaks: null,
     })
     vi.setSystemTime(new Date('2026-09-11T11:00:00.000Z'))
     await deleteTune(db, tuneId)

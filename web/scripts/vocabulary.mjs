@@ -29,6 +29,27 @@ const LIMIT_OBJECTS = {
   RECORDING_LIMITS: ['RecordingRow'],
 }
 
+// Exported ranges object -> the schema and fields it reads minimum/maximum from. A
+// field missing its range fails the run, so the client's own range is never silently
+// narrower or wider than what the API actually enforces.
+const RANGE_OBJECTS = {
+  RECORDING_RANGES: {
+    schema: 'RecordingData',
+    fields: ['speed_percent', 'pitch_cents', 'trim_start_ms'],
+  },
+}
+
+/** A number field's minimum and/or maximum, directly or under anyOf. */
+function rangeOf(property) {
+  const candidates = [property, ...(property.anyOf ?? [])]
+  const range = {}
+  for (const candidate of candidates) {
+    if (typeof candidate.minimum === 'number') range.min = candidate.minimum
+    if (typeof candidate.maximum === 'number') range.max = candidate.maximum
+  }
+  return range
+}
+
 /** A string's max length, directly, under anyOf, or on its array items; else an array's max items. */
 function limitOf(property) {
   const candidates = [property, ...(property.anyOf ?? []), property.items ?? {}]
@@ -72,6 +93,22 @@ export function render(doc) {
         const limit = limitOf(property)
         if (limit !== undefined) lines.push(`  ${field}: ${limit},`)
       }
+    }
+    lines.push('} as const', '')
+  }
+  for (const [objectName, { schema: schemaName, fields }] of Object.entries(RANGE_OBJECTS)) {
+    const schema = schemas[schemaName]
+    if (!schema) throw new Error(`No schema ${schemaName} for ${objectName}; update RANGE_OBJECTS`)
+    lines.push(`export const ${objectName} = {`)
+    for (const field of fields) {
+      const property = schema.properties?.[field]
+      if (!property) throw new Error(`No property ${schemaName}.${field} for ${objectName}`)
+      const range = rangeOf(property)
+      if (range.min === undefined && range.max === undefined) {
+        throw new Error(`No range on ${schemaName}.${field} for ${objectName}`)
+      }
+      const parts = Object.entries(range).map(([bound, value]) => `${bound}: ${value}`)
+      lines.push(`  ${field}: { ${parts.join(', ')} },`)
     }
     lines.push('} as const', '')
   }

@@ -17,6 +17,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import { usePointer } from '../platform/pointer'
+import { CANCEL } from './Confirm'
 
 export const MORE_ACTIONS = 'More actions'
 
@@ -155,7 +156,7 @@ export function useMenu(): (
                   },
                 }
               }),
-              { text: 'Cancel', role: 'cancel' },
+              { text: CANCEL, role: 'cancel' },
             ],
           }),
         )
