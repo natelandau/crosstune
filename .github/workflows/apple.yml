@@ -28,6 +28,7 @@ jobs:
     # The image with the Xcode the app is built and shipped with. The `macos-*` images
     # default to an older Xcode.
     runs-on: xcode-27
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apple
@@ -37,7 +38,30 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: xcodebuild -version
       - run: just lint
+      - name: "diagnose: run the delete-tune suites alone and sample them if they stall"
+        continue-on-error: true
+        run: |
+          swift build --package-path CrosstuneKit --build-tests
+          swift test --package-path CrosstuneKit --skip-build \
+            --filter 'DeleteTuneTests|DeleteTunesTests' > "$RUNNER_TEMP/diagnose.log" 2>&1 &
+          tests=$!
+          for _ in $(seq 1 180); do
+            kill -0 "$tests" 2> /dev/null || break
+            sleep 1
+          done
+          if kill -0 "$tests" 2> /dev/null; then
+            echo "::warning::the delete-tune suites were still running after 3 minutes"
+            for pid in $(pgrep -f 'swiftpm-testing|xctest|PackageTests'); do
+              ps -o pid,etime,command -p "$pid"
+              sample "$pid" 5 -file "$RUNNER_TEMP/sample-$pid.txt" > /dev/null 2>&1 || true
+              cat "$RUNNER_TEMP/sample-$pid.txt" 2> /dev/null || true
+            done
+            pkill -f 'swiftpm-testing|xctest|PackageTests' || true
+            kill "$tests" 2> /dev/null || true
+          fi
+          cat "$RUNNER_TEMP/diagnose.log"
       - run: just test
+        timeout-minutes: 15
       - run: just build
       - run: just contract
       - name: fail if the committed Swift client or vocabulary is stale
