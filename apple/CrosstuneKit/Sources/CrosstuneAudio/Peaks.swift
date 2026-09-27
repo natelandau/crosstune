@@ -75,17 +75,31 @@ public struct Peaks: Equatable, Sendable {
         try await decode(url, onStart: nil)
     }
 
-    /// The decode itself, off the caller's actor: the `AVAssetReader` loop below has no internal
-    /// suspension points, so without `@concurrent` it would run on, and block, whichever actor
-    /// awaited it for the whole decode. `onStart` is a test seam that observes the thread it
-    /// actually runs on.
-    @concurrent
+    /// Runs the blocking read loop below. `copyNextSampleBuffer()` holds its thread until
+    /// CoreMedia delivers, so the loop never runs on Swift's cooperative pool: a few decodes at
+    /// once would hold every pool thread on a machine with few cores, and the file reads they
+    /// wait on would never be scheduled.
+    private static let readQueue = DispatchQueue(
+        label: "crosstune.peaks.read", qos: .utility, attributes: .concurrent)
+
+    /// The decode itself, on ``readQueue`` rather than the caller's actor or the cooperative pool.
+    /// `onStart` is a test seam that observes the thread it actually runs on.
     static func decode(_ url: URL, onStart: (@Sendable () -> Void)?) async throws -> Peaks {
-        onStart?()
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
             throw PeaksError.noAudioTrack
         }
+        return try await withCheckedThrowingContinuation { continuation in
+            readQueue.async {
+                onStart?()
+                continuation.resume(with: Result { try readPeaks(of: track, in: asset) })
+            }
+        }
+    }
+
+    /// Reads `track` to the end as mono float PCM, one peak byte per 20 ms window. Blocks its
+    /// thread for the whole decode.
+    private static func readPeaks(of track: AVAssetTrack, in asset: AVURLAsset) throws -> Peaks {
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(
             track: track,
