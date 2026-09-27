@@ -308,14 +308,85 @@ async def test_download_returns_a_presigned_get_for_a_ready_recording(
     await verify_session.execute(
         update(Recording)
         .where(Recording.id == rec)
-        .values(state="ready", playback_key=f"u/{rec}/playback.m4a", playback_bytes=1)
+        .values(
+            state="ready",
+            playback_key=f"u/{rec}/playback.m4a",
+            playback_bytes=1,
+            playback_rev="abc12345",
+            playback_start_ms=250,
+        )
     )
     await verify_session.commit()
     response = await client.get(f"/v1/recordings/{rec}/download", headers=auth_headers("user_a"))
     assert response.status_code == 200
-    assert response.json()["url"] == f"https://fake.r2/u/{rec}/playback.m4a?get&expires=3600"
+    body = response.json()
+    assert body["url"] == f"https://fake.r2/u/{rec}/playback.m4a?get&expires=3600"
+    assert body["playback_rev"] == "abc12345"
+    assert body["playback_start_ms"] == 250
     other = await client.get(f"/v1/recordings/{rec}/download", headers=auth_headers("user_b"))
     assert other.status_code == 404
+
+
+async def test_download_conflict_without_a_revision(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="ready", playback_key=f"u/{rec}/playback.m4a", playback_bytes=1)
+    )
+    await verify_session.commit()
+    response = await client.get(f"/v1/recordings/{rec}/download", headers=auth_headers("user_a"))
+    assert response.status_code == 409
+
+
+async def peaks(client, headers, rec: str):
+    return await client.get(f"/v1/recordings/{rec}/peaks", headers=headers)
+
+
+async def test_peaks_url(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(peaks_key=f"u/{rec}/peaks.bin", peaks_rev="def67890")
+    )
+    await verify_session.commit()
+    response = await peaks(client, auth_headers("user_a"), rec)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["url"] == f"https://fake.r2/u/{rec}/peaks.bin?get&expires=3600"
+    assert body["peaks_rev"] == "def67890"
+
+
+async def test_peaks_conflict_without_peaks(client, auth_headers) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    response = await peaks(client, auth_headers("user_a"), rec)
+    assert response.status_code == 409
+
+
+async def test_peaks_conflict_without_a_revision(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording).where(Recording.id == rec).values(peaks_key=f"u/{rec}/peaks.bin")
+    )
+    await verify_session.commit()
+    response = await peaks(client, auth_headers("user_a"), rec)
+    assert response.status_code == 409
+
+
+async def test_peaks_other_user_not_found(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording).where(Recording.id == rec).values(peaks_key=f"u/{rec}/peaks.bin")
+    )
+    await verify_session.commit()
+    response = await peaks(client, auth_headers("user_b"), rec)
+    assert response.status_code == 404
 
 
 async def test_retry_requeues_a_failed_recording(client, auth_headers, verify_session) -> None:

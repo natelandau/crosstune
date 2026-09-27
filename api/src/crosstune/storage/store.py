@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    import logging
+    from collections.abc import Iterable
     from pathlib import Path
 
 PLAYBACK_MIME = "audio/mp4"
+PEAKS_MIME = "application/octet-stream"
 
 _EXTENSIONS: dict[str, str] = {
     "audio/mp4": "m4a",
@@ -50,15 +54,50 @@ def upload_key(user_id: object, recording_id: object) -> str:
     return f"{recording_prefix(user_id, recording_id)}upload"
 
 
-def playback_key(user_id: object, recording_id: object) -> str:
-    """The file every client downloads."""
-    return f"{recording_prefix(user_id, recording_id)}playback.m4a"
+def new_rev() -> str:
+    """A key revision, distinct enough that two transcodes never collide."""
+    return secrets.token_hex(4)
+
+
+def playback_key(user_id: object, recording_id: object, rev: str) -> str:
+    """The file a client downloads for one revision, so a later trim never overwrites it mid-fetch."""
+    return f"{recording_prefix(user_id, recording_id)}playback-{rev}.m4a"
+
+
+def peaks_key(user_id: object, recording_id: object, rev: str) -> str:
+    """The waveform peaks file for one playback revision."""
+    return f"{recording_prefix(user_id, recording_id)}peaks-{rev}.bin"
 
 
 def original_key(user_id: object, recording_id: object, content_type: str) -> str:
     """Where the untouched upload is kept when it differs from the playback file."""
     base = content_type.split(";", 1)[0].strip().lower()
     return f"{recording_prefix(user_id, recording_id)}original.{_EXTENSIONS.get(base, 'bin')}"
+
+
+async def delete_best_effort(
+    store: ObjectStore, keys: Iterable[str | None], *, log: logging.Logger, message: str
+) -> None:
+    """Delete zero or more objects, logging instead of raising if the store call fails.
+
+    A leftover object left by a failed delete here is bounded: the next successful
+    write to the same key overwrites it, or a recording's own purge sweep removes
+    it. Never pass an original object's key; those are never deleted.
+
+    Args:
+        store: Where the objects live.
+        keys: Keys to delete. A None entry is skipped, so a caller can pass keys
+            straight from a "did this change" comparison without filtering first.
+        log: The caller's logger, so a failure is attributed to the job that hit it.
+        message: What to log if the delete raises.
+    """
+    stale = [key for key in keys if key is not None]
+    if not stale:
+        return
+    try:
+        await store.delete(*stale)
+    except Exception:  # noqa: BLE001 -- a leftover object is bounded, not a caller failure
+        log.warning(message, extra={"keys": stale})
 
 
 class ObjectStore(Protocol):

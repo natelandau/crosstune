@@ -106,6 +106,22 @@ class RecordingState(StrEnum):
     FAILED = "failed"
 
 
+class JobKind(StrEnum):
+    """What work a queued job asks the runner to do."""
+
+    TRANSCODE = "transcode"
+    TRIM = "trim"
+    PEAKS = "peaks"
+
+
+SPEED_PERCENT_MIN: Final[int] = 50
+SPEED_PERCENT_MAX: Final[int] = 150
+PITCH_CENTS_MIN: Final[int] = -1200
+PITCH_CENTS_MAX: Final[int] = 1200
+MIN_TRIM_MS: Final[int] = 1000
+"""The shortest kept range a trim may leave; trim only narrows, never below this."""
+
+
 # Maximum lengths, by table then field. A column with a width takes it from here, the
 # row schema publishes it, and the client stops input at it.
 LIMITS: Final[dict[str, dict[str, int]]] = {

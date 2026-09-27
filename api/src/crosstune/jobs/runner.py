@@ -1,4 +1,4 @@
-"""Claims transcode jobs one at a time and sweeps deleted recordings and abandoned uploads."""
+"""Claims queued jobs one at a time and sweeps deleted recordings and abandoned uploads."""
 
 from __future__ import annotations
 
@@ -9,18 +9,28 @@ import tempfile
 import uuid
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import ARRAY, Uuid, any_, delete, exists, literal, or_, select
 
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import MediaError
+from crosstune.jobs.peaks_job import build_recording_peaks
 from crosstune.jobs.transcode import transcode
+from crosstune.jobs.trim import trim
 from crosstune.models import Job, Recording, UploadSlot, User
 from crosstune.models.user import utc_now
-from crosstune.recordings.service import bump_server_seq
-from crosstune.storage.store import recording_prefix, upload_key
+from crosstune.recordings.service import bump_server_seq, ensure_trim_job
+from crosstune.recordings.trim import needs_trim
+from crosstune.storage.store import (
+    PLAYBACK_MIME,
+    delete_best_effort,
+    original_key,
+    recording_prefix,
+    upload_key,
+)
+from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -79,6 +89,37 @@ def _owned_prefixes(
         if recording_id is not None:
             recordings.setdefault((user_id, recording_id), f"{user_segment}/{recording_segment}/")
     return users, recordings
+
+
+def _unnamed(recording: Recording | None, *keys: str | None) -> list[str | None]:
+    """Drop any key the reloaded row still names, so a failure never deletes a live file.
+
+    A commit that raises can still have landed; only the reloaded row knows. A row that is
+    gone names nothing, and the purge sweep owns its prefix anyway.
+    """
+    if recording is None:
+        return list(keys)
+    named = {recording.playback_key, recording.peaks_key, recording.original_key}
+    return [key for key in keys if key not in named]
+
+
+def _still_claimed(stored_job: Job | None, claimed: Job) -> TypeGuard[Job]:
+    """Whether a failing attempt may still write its job row.
+
+    An attempt that outran LOCK_SECONDS can be claimed again by another pass, which owns
+    the job row, and its recording's state, from then on. That pass may already have
+    finished and deleted the row, as may this attempt's own commit that raised after landing.
+    """
+    return stored_job is not None and stored_job.locked_until == claimed.locked_until
+
+
+async def _reload[T](session: AsyncSession, model: type[T], key: uuid.UUID) -> T | None:
+    """Re-read a row after a rollback, or None when it no longer exists.
+
+    `session.refresh` raises on a row deleted since it was loaded, which a reclaimed job or
+    a purged recording can be by the time a failing attempt looks again.
+    """
+    return await session.get(model, key, populate_existing=True)
 
 
 def _client_message(exc: Exception) -> str:
@@ -155,7 +196,7 @@ class JobRunner:
                     pass
 
     async def run_once(self) -> int:
-        """Run one transcode, purge a batch of deleted recordings, and sweep orphans when due.
+        """Run one job, purge a batch of deleted recordings, and sweep orphans when due.
 
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
@@ -163,7 +204,7 @@ class JobRunner:
         done = 0
         job = await self._claim()
         if job is not None:
-            await self._transcode(job)
+            await self._run_job(job)
             done += 1
         done += await self._purge()
         done += await self._release_abandoned_slots()
@@ -211,7 +252,10 @@ class JobRunner:
         async with self._sessionmaker() as session, session.begin():
             stmt = (
                 select(Job)
-                .where(or_(Job.locked_until.is_(None), Job.locked_until < now))
+                .where(
+                    Job.kind.in_([kind.value for kind in JobKind]),
+                    or_(Job.locked_until.is_(None), Job.locked_until < now),
+                )
                 .order_by(Job.created_at)
                 .limit(1)
                 .with_for_update(skip_locked=True)
@@ -227,6 +271,38 @@ class JobRunner:
             session.expunge(job)
             return job
 
+    async def _run_job(self, job: Job) -> None:
+        """Dispatch a claimed job to the method that knows its kind.
+
+        `_claim` only hands this a kind `JobKind` names. Any other kind can't come
+        from a current claim, but is dropped rather than left locked forever if one
+        ever does.
+        """
+        if job.kind == JobKind.TRANSCODE.value:
+            await self._transcode(job)
+        elif job.kind == JobKind.PEAKS.value:
+            await self._peaks(job)
+        elif job.kind == JobKind.TRIM.value:
+            await self._trim(job)
+        else:
+            log.warning(
+                "dropping a job of unknown kind", extra={"kind": job.kind, "job": str(job.id)}
+            )
+            async with self._sessionmaker() as session, session.begin():
+                stored_job = await session.get(Job, job.id)
+                if stored_job is not None and stored_job.locked_until == job.locked_until:
+                    await session.delete(stored_job)
+
+    async def _delete_stale(self, *keys: str | None) -> None:
+        """Best-effort delete of objects a job's own write superseded or orphaned.
+
+        Never called with an original key: the original is never deleted, since a
+        retry or a later job only ever overwrites it in place.
+        """
+        await delete_best_effort(
+            self._store, keys, log=log, message="could not delete a superseded object"
+        )
+
     async def _transcode(self, job: Job) -> None:
         """Run one job to completion, committing the setup and the outcome separately.
 
@@ -241,19 +317,49 @@ class JobRunner:
                 return
             recording, stored_job = prepared
             source_key = upload_key(recording.user_id, recording.id)
+            previous_playback_key = recording.playback_key
+            previous_peaks_key = recording.peaks_key
             with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
                 try:
                     await transcode(session, self._store, recording, Path(folder))
+                    await session.delete(stored_job)
+                    await ensure_trim_job(session, recording)
+                    await session.commit()
                 except Exception as exc:  # noqa: BLE001 -- any transcode failure is a job failure, not a crash
+                    # Whatever this attempt itself uploaded before failing is an
+                    # orphan once the rollback below discards the row's write.
+                    orphaned_playback_key = (
+                        recording.playback_key
+                        if recording.playback_key not in (None, previous_playback_key)
+                        else None
+                    )
+                    orphaned_peaks_key = (
+                        recording.peaks_key
+                        if recording.peaks_key not in (None, previous_peaks_key)
+                        else None
+                    )
                     # Roll back whatever transcode() flushed before failing, then
                     # reload so the failure state is written on top of clean data.
                     await session.rollback()
-                    await session.refresh(recording)
-                    await self._fail(session, stored_job, recording, exc)
+                    reloaded = await _reload(session, Recording, job.recording_id)
+                    stored = await _reload(session, Job, job.id)
+                    if reloaded is not None and _still_claimed(stored, job):
+                        await self._fail(session, stored, reloaded, exc)
                     await session.commit()
+                    await self._delete_stale(
+                        *_unnamed(reloaded, orphaned_playback_key, orphaned_peaks_key)
+                    )
                     return
-            await session.delete(stored_job)
-            await session.commit()
+            stale_playback_key = (
+                previous_playback_key
+                if previous_playback_key not in (None, recording.playback_key)
+                else None
+            )
+            stale_peaks_key = (
+                previous_peaks_key
+                if previous_peaks_key not in (None, recording.peaks_key)
+                else None
+            )
         try:
             # The upload is redundant only once the committed row points at the
             # playback file and, when needed, the original; a failure here must not
@@ -264,6 +370,7 @@ class JobRunner:
             log.warning(
                 "could not delete the finished upload", extra={"recording": str(job.recording_id)}
             )
+        await self._delete_stale(stale_playback_key, stale_peaks_key)
 
     async def _prepare(self, session: AsyncSession, job: Job) -> tuple[Recording, Job] | None:
         """Load the row pair, mark the recording processing, and commit that alone.
@@ -314,6 +421,185 @@ class JobRunner:
         bump_server_seq(recording)
         job.last_error = raw[:500]
         # Back off a little between attempts instead of hammering a bad file.
+        job.locked_until = utc_now() + timedelta(seconds=30 * job.attempts)
+
+    async def _peaks(self, job: Job) -> None:
+        """Build one recording's waveform peaks, never moving it through processing."""
+        async with self._sessionmaker() as session:
+            prepared = await self._prepare_peaks(session, job)
+            if prepared is None:
+                return
+            recording, stored_job = prepared
+            previous_peaks_key = recording.peaks_key
+            with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
+                try:
+                    await build_recording_peaks(session, self._store, recording, Path(folder))
+                except Exception as exc:  # noqa: BLE001 -- any failure here is a job failure, not a crash
+                    await session.rollback()
+                    reloaded = await _reload(session, Recording, job.recording_id)
+                    stored = await _reload(session, Job, job.id)
+                    if reloaded is not None and _still_claimed(stored, job):
+                        await self._fail_peaks(session, stored, reloaded, exc)
+                    await session.commit()
+                    return
+            # build_recording_peaks() holds the user's lock past its own return; a trim
+            # pushed while this job ran is only visible to ensure_trim_job read fresh now.
+            await session.refresh(recording, attribute_names=["trim_start_ms", "trim_end_ms"])
+            await session.delete(stored_job)
+            await ensure_trim_job(session, recording)
+            await session.commit()
+            stale_peaks_key = (
+                previous_peaks_key
+                if previous_peaks_key not in (None, recording.peaks_key)
+                else None
+            )
+        await self._delete_stale(stale_peaks_key)
+
+    async def _prepare_peaks(self, session: AsyncSession, job: Job) -> tuple[Recording, Job] | None:
+        """Load the row pair for a peaks job. Never marks the recording processing.
+
+        Returns:
+            tuple[Recording, Job] | None: The loaded pair, or None when there is
+            nothing left to build: the row is gone, already soft-deleted, has no
+            playback file to draw peaks from, or another claimer has since
+            re-locked the job past our own claim.
+        """
+        async with session.begin():
+            recording = await session.get(Recording, job.recording_id)
+            stored_job = await session.get(Job, job.id)
+            if recording is None or stored_job is None:
+                return None
+            if stored_job.locked_until != job.locked_until:
+                return None
+            if recording.deleted_at is not None or recording.playback_key is None:
+                # Nothing to build peaks from, now or on a retry; only a transcode
+                # or trim job ever sets a playback file, so waiting won't help this job.
+                await session.delete(stored_job)
+                return None
+        return recording, stored_job
+
+    async def _fail_peaks(
+        self, session: AsyncSession, job: Job, recording: Recording, exc: Exception
+    ) -> None:
+        """Record a peaks failure without ever touching the recording row."""
+        raw = str(exc)
+        log.warning(
+            "peaks build failed",
+            extra={"recording": str(recording.id), "attempt": job.attempts, "error": raw},
+        )
+        if job.attempts >= MAX_ATTEMPTS:
+            await session.delete(job)
+            return
+        job.last_error = raw[:500]
+        job.locked_until = utc_now() + timedelta(seconds=30 * job.attempts)
+
+    async def _trim(self, job: Job) -> None:
+        """Re-cut one recording's playback file to its saved trim, never leaving ready.
+
+        Like a transcode, the download and ffmpeg work run with no transaction open.
+        The superseded files are deleted only after the commit that stops pointing at
+        them, so a failure anywhere before it leaves the recording playing as before.
+        """
+        async with self._sessionmaker() as session:
+            prepared = await self._prepare_trim(session, job)
+            if prepared is None:
+                return
+            recording, stored_job = prepared
+            previous_playback_key = recording.playback_key
+            previous_peaks_key = recording.peaks_key
+            with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
+                try:
+                    superseded = await trim(session, self._store, recording, Path(folder))
+                    await session.delete(stored_job)
+                    # trim() read the trim columns fresh under the lock, so a trim saved
+                    # while it ran, which found this job holding the one trim slot, is
+                    # queued now.
+                    await ensure_trim_job(session, recording)
+                    await session.commit()
+                except Exception as exc:
+                    # trim() deletes its own uploads when it raises; these are only set
+                    # once it has returned and something after it failed.
+                    orphaned = [
+                        key
+                        for key in (recording.playback_key, recording.peaks_key)
+                        if key not in (None, previous_playback_key, previous_peaks_key)
+                    ]
+                    await session.rollback()
+                    stored = await _reload(session, Job, job.id)
+                    reloaded = await self._release_trim_backup(session, job)
+                    if _still_claimed(stored, job):
+                        if stored.attempts >= MAX_ATTEMPTS:
+                            log.exception(
+                                "trim gave up",
+                                extra={"recording": str(job.recording_id), "attempt": job.attempts},
+                            )
+                        await self._fail_trim(session, stored, exc)
+                    await session.commit()
+                    await self._delete_stale(*_unnamed(reloaded, *orphaned))
+                    return
+        await self._delete_stale(*superseded)
+
+    async def _release_trim_backup(self, session: AsyncSession, job: Job) -> Recording | None:
+        """Delete an original a failed trim copied but never got to name on the row.
+
+        Runs under the user's lock, where `trim` checks its backup still exists
+        before committing it, so this never removes an original some row names.
+
+        Returns:
+            Recording | None: The row as reloaded under the lock, or None once it is gone,
+            when the purge sweep owns its whole prefix.
+        """
+        # The rollback expired the row, so its ids come from the job.
+        await lock_user(session, job.user_id)
+        recording = await _reload(session, Recording, job.recording_id)
+        if recording is None or recording.original_key is not None:
+            return recording
+        await delete_best_effort(
+            self._store,
+            [original_key(job.user_id, job.recording_id, PLAYBACK_MIME)],
+            log=log,
+            message="could not delete an unkept original backup",
+        )
+        return recording
+
+    async def _prepare_trim(self, session: AsyncSession, job: Job) -> tuple[Recording, Job] | None:
+        """Load the row pair for a trim job. Never marks the recording processing.
+
+        Returns:
+            tuple[Recording, Job] | None: The loaded pair, or None when there is
+            nothing left to cut: the row is gone, soft-deleted, already matches its
+            trim, or another claimer has since re-locked the job past our own claim.
+        """
+        async with session.begin():
+            recording = await session.get(Recording, job.recording_id)
+            stored_job = await session.get(Job, job.id)
+            if recording is None or stored_job is None:
+                return None
+            if stored_job.locked_until != job.locked_until:
+                return None
+            if recording.deleted_at is not None or not needs_trim(recording):
+                # The purge sweep owns a deleted recording's files, and a row that
+                # already matches has nothing to cut; a later trim queues a new job.
+                await session.delete(stored_job)
+                return None
+        return recording, stored_job
+
+    async def _fail_trim(self, session: AsyncSession, job: Job, exc: Exception) -> None:
+        """Record a trim failure without ever touching the recording row.
+
+        The row stays ready on its current files, which clients keep playing
+        correctly through the seek offsets, so a trim that keeps failing stops
+        after its last attempt; `_trim` reports that one.
+        """
+        if job.attempts >= MAX_ATTEMPTS:
+            await session.delete(job)
+            return
+        raw = str(exc)
+        log.warning(
+            "trim failed",
+            extra={"recording": str(job.recording_id), "attempt": job.attempts, "error": raw},
+        )
+        job.last_error = raw[:500]
         job.locked_until = utc_now() + timedelta(seconds=30 * job.attempts)
 
     async def _release_abandoned_slots(self) -> int:

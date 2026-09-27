@@ -14,6 +14,8 @@ from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.models import List, ListItem, Recording, RecordingLink, UserTune
+from crosstune.recordings.service import ensure_trim_job
+from crosstune.recordings.trim import clamp_trim
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 
@@ -145,6 +147,30 @@ async def _enrich_recording_link(
             data["provider_ref"] = ref
 
 
+async def _clamp_recording_trim(
+    session: AsyncSession, recording_id: uuid.UUID, data: dict[str, Any]
+) -> None:
+    """Keep a pushed trim inside the stored row's playback range, in place.
+
+    Reads the row already in the database rather than the pushed values, so a stale
+    push (rejected by the upsert's timestamp check below) never has its rewritten
+    trim mistaken for what was actually written.
+    """
+    stored: Recording | None = await session.get(Recording, recording_id)
+    low = (stored.playback_start_ms or 0) if stored else 0
+    high = stored.playback_end_ms if stored else None
+    source_end = stored.source_duration_ms if stored else None
+    end = data["trim_end_ms"]
+    # A null end means the source end, which a playback file cut short no longer
+    # reaches, so it is clamped as that end and only stays null where it still fits.
+    if end is None and source_end is not None:
+        end = source_end
+    start, end = clamp_trim(data["trim_start_ms"], end, low=low, high=high)
+    if data["trim_end_ms"] is None and end == source_end:
+        end = None
+    data["trim_start_ms"], data["trim_end_ms"] = start, end
+
+
 async def _upsert(
     session: AsyncSession,
     spec: TableSpec,
@@ -165,6 +191,8 @@ async def _upsert(
 
     if spec.name == "recording_links":
         await _enrich_recording_link(data, enrich_link)
+    elif spec.name == "recordings":
+        await _clamp_recording_trim(session, change.id, data)
 
     values = {**data, "id": change.id, "updated_at": change.updated_at, "deleted_at": None}
     if spec.owner_column:
@@ -196,24 +224,42 @@ async def _upsert(
     except IntegrityError as exc:
         return _invalid(change, f"constraint violation: {exc.orig.__class__.__name__}")
 
-    # A row the write skipped is either newer or someone else's, and only a read tells which.
-    current = written
-    if current is None:
-        current = await _fetch_owned(session, spec, change.id, user_id)
-        if current is None:
-            return _invalid(change, "id is not yours")
-        await session.refresh(current)
+    resolved = await _current_and_status(session, spec, user_id, change, written)
+    if resolved is None:
+        return _invalid(change, "id is not yours")
+    current, status = resolved
+
+    if spec.name == "recordings" and status == "applied":
+        # Queued from the row as committed by the upsert, in the same transaction as the push.
+        await ensure_trim_job(session, current)
+
     row_schema: Any = spec.row_schema
     result: Any = CHANGE_RESULTS[change.table]
-    status = (
-        "applied" if written is not None or current.updated_at == change.updated_at else "stale"
-    )
     return result(
         table=change.table,
         id=change.id,
         status=status,
         row=row_schema.model_validate(row_to_dict(current)),
     )
+
+
+async def _current_and_status(
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change, written: Any
+) -> tuple[Any, str] | None:
+    """The row now in place and whether the change applied, or None when the id isn't the caller's.
+
+    A row the write skipped is either newer or someone else's, and only a read tells which.
+    """
+    current = written
+    if current is None:
+        current = await _fetch_owned(session, spec, change.id, user_id)
+        if current is None:
+            return None
+        await session.refresh(current)
+    status = (
+        "applied" if written is not None or current.updated_at == change.updated_at else "stale"
+    )
+    return current, status
 
 
 async def _delete(

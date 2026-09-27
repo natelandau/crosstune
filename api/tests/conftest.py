@@ -94,6 +94,42 @@ def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
         )
         paths[name] = path
 
+    silence = folder / "silence.m4a"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=duration=2",
+            *FIXTURE_ENCODERS["m4a"],
+            str(silence),
+        ]
+    )
+    paths["silence"] = silence
+
+    # lavfi's sine defaults to roughly -18 dBFS; the peaks amplitude test needs a
+    # tone that actually reaches near full scale.
+    full_scale = folder / "full_scale.m4a"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=2",
+            "-af",
+            "volume=8",
+            *FIXTURE_ENCODERS["m4a"],
+            str(full_scale),
+        ]
+    )
+    paths["full_scale"] = full_scale
+
     # A leading video (cover art) stream ahead of the audio stream: an mp3 muxes
     # any mapped video as an ID3 attached picture regardless of map order, so it
     # can never sort before the audio stream, but mp4 keeps track order as mapped.
@@ -138,6 +174,35 @@ def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     )
     paths["m4a_art"] = art_path
     return paths
+
+
+@pytest.fixture(scope="session")
+def long_m4a(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A one-hour tone, built once, only for the tests that ask for it.
+
+    Args:
+        tmp_path_factory: Builds one shared temp directory for the whole session.
+
+    Returns:
+        Path: The generated file.
+    """
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed")
+    path = tmp_path_factory.mktemp("media-long") / "long.m4a"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=3600",
+            *FIXTURE_ENCODERS["m4a"],
+            str(path),
+        ]
+    )
+    return path
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -40,7 +40,7 @@ class Probe:
     duration_ms: int
 
 
-async def _run(*argv: str) -> bytes:
+async def run_media_tool(*argv: str) -> bytes:
     """Run an ffmpeg-family binary and return its stdout.
 
     Args:
@@ -82,7 +82,7 @@ async def probe(path: Path) -> Probe:
     Raises:
         MediaError: ffprobe failed, or the file has no audio stream or no duration.
     """
-    raw = await _run(
+    raw = await run_media_tool(
         "ffprobe",
         "-v",
         "error",
@@ -133,14 +133,30 @@ def needs_encode(info: Probe) -> bool:
     )
 
 
-async def _to_mp4(source: Path, target: Path, *codec_args: str) -> None:
-    """Write the audio of `source` to an MP4 with the index at the front, so playback starts at once."""
-    await _run(
+# Shared by encode and cut, so a change to the playback profile applies to every path
+# that produces a playback file.
+_PLAYBACK_CODEC_ARGS = ("-c:a", "aac", "-b:a", str(PLAYBACK_BITRATE))
+
+
+async def _to_mp4(
+    source: Path, target: Path, *codec_args: str, pre_input_args: tuple[str, ...] = ()
+) -> None:
+    """Write the audio of `source` to an MP4 with the index at the front, so playback starts at once.
+
+    Args:
+        source: The file to read.
+        target: The MP4 file to write.
+        codec_args: ffmpeg output codec options, placed after `-vn`.
+        pre_input_args: ffmpeg options that must precede `-i` to take effect, such as
+            a demuxer-level seek.
+    """
+    await run_media_tool(
         "ffmpeg",
         "-v",
         "error",
         "-y",
         *INPUT_GUARD,
+        *pre_input_args,
         "-i",
         str(source),
         "-vn",
@@ -176,4 +192,28 @@ async def encode(source: Path, target: Path) -> None:
     Raises:
         MediaError: ffmpeg failed, most often because the file cannot be decoded.
     """
-    await _to_mp4(source, target, "-c:a", "aac", "-b:a", str(PLAYBACK_BITRATE))
+    await _to_mp4(source, target, *_PLAYBACK_CODEC_ARGS)
+
+
+async def cut(source: Path, target: Path, start_ms: int, end_ms: int) -> None:
+    """Re-encode the `start_ms` to `end_ms` range of `source` to a playback MP4.
+
+    Always re-encodes from the original, even when it is already AAC: `-ss`/`-to`
+    placed before `-i` seek the demuxer to the nearest keyframe, which a
+    stream copy could not trim to an exact sample.
+
+    Args:
+        source: The file to read.
+        target: The MP4 file to write.
+        start_ms: Where the kept range starts, in milliseconds.
+        end_ms: Where the kept range ends, in milliseconds.
+
+    Raises:
+        MediaError: ffmpeg failed, most often because the file cannot be decoded.
+    """
+    await _to_mp4(
+        source,
+        target,
+        *_PLAYBACK_CODEC_ARGS,
+        pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
+    )

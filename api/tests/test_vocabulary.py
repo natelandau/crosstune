@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import ARRAY, CheckConstraint, String
 
 from crosstune import vocabulary
-from crosstune.models import Recording, RecordingLink, Tune, UserSettings, UserTune
-from crosstune.models._checks import in_list, within_list
+from crosstune.models import Job, Recording, RecordingLink, Tune, UserSettings, UserTune
+from crosstune.models._checks import between, in_list, within_list
 from crosstune.schemas.rows import DATA_SCHEMAS, RecordingRow, TuneData, UserSettingsData
 from crosstune.sync.tables import TABLES
 
@@ -24,6 +24,21 @@ CHECKS = {
         vocabulary.AudioQuality,
         False,
     ),
+    (Job, "ck_jobs_kind"): ("kind", vocabulary.JobKind, False),
+}
+
+# Every check constraint that restricts a column to an inclusive numeric range.
+RANGE_CHECKS = {
+    (Recording, "ck_recordings_speed_percent"): (
+        "speed_percent",
+        vocabulary.SPEED_PERCENT_MIN,
+        vocabulary.SPEED_PERCENT_MAX,
+    ),
+    (Recording, "ck_recordings_pitch_cents"): (
+        "pitch_cents",
+        vocabulary.PITCH_CENTS_MIN,
+        vocabulary.PITCH_CENTS_MAX,
+    ),
 }
 
 
@@ -35,6 +50,17 @@ def test_every_listed_check_constraint_matches_its_enum() -> None:
     for (model, name), (column, enum, nullable) in CHECKS.items():
         expected = in_list(column, tuple(enum), nullable=nullable)
         assert str(_constraint(model, name).sqltext) == expected, name
+
+
+def test_every_listed_check_constraint_matches_its_range() -> None:
+    for (model, name), (column, low, high) in RANGE_CHECKS.items():
+        assert str(_constraint(model, name).sqltext) == between(column, low, high), name
+
+
+def test_trim_start_ms_check_constraint_matches_its_sql() -> None:
+    assert str(_constraint(Recording, "ck_recordings_trim_start_ms").sqltext) == (
+        "trim_start_ms >= 0"
+    )
 
 
 def test_modes_check_lists_every_mode_and_the_cap() -> None:
@@ -111,6 +137,11 @@ def test_pulled_rows_store_validated_values_as_plain_strings() -> None:
         playback_mime=None,
         playback_bytes=None,
         error=None,
+        source_duration_ms=None,
+        playback_start_ms=None,
+        playback_end_ms=None,
+        playback_rev=None,
+        peaks_rev=None,
     )
     assert type(row.model_dump()["state"]) is str
     assert type(row.model_dump()["source"]) is str

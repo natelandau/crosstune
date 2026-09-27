@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select, update
 
-from crosstune.models import Recording
+from crosstune.models import Job, Recording
 from tests.test_pull import pull
 from tests.test_push import T0, T1, change, push, uid
 
@@ -54,7 +54,88 @@ async def test_push_cannot_write_server_owned_columns(client, auth_headers) -> N
     assert "invalid fields" in result["reason"]
 
 
-async def test_client_upsert_keeps_server_owned_columns(
+async def test_push_keeps_server_columns(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(
+            state="ready",
+            playback_key="k",
+            playback_bytes=1234,
+            duration_ms=61000,
+            source_duration_ms=61000,
+            playback_start_ms=0,
+            playback_end_ms=61000,
+            playback_rev="abcd1234",
+            peaks_key="peaks/k.bin",
+            peaks_rev="efgh5678",
+            peaks_bytes=999,
+        )
+    )
+    await verify_session.commit()
+    [result] = await push(client, auth_headers("user_a"), recording(rec, T1, label="Renamed"))
+    assert result["status"] == "applied"
+    row = result["row"]
+    assert row["label"] == "Renamed"
+    assert row["state"] == "ready"
+    assert row["playback_bytes"] == 1234
+    assert row["duration_ms"] == 61000
+    assert row["source_duration_ms"] == 61000
+    assert row["playback_start_ms"] == 0
+    assert row["playback_end_ms"] == 61000
+    assert row["playback_rev"] == "abcd1234"
+    assert row["peaks_rev"] == "efgh5678"
+    # No trim change is implied, so the row keeps matching its playback file.
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
+
+
+async def test_push_speed_out_of_range_is_invalid(client, auth_headers) -> None:
+    rec = uid()
+    [result] = await push(client, auth_headers("user_a"), recording(rec, speed_percent=40))
+    assert result["status"] == "invalid"
+
+
+async def test_push_clamps_trim_to_playback_range(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="ready", playback_start_ms=500, playback_end_ms=1500)
+    )
+    await verify_session.commit()
+    [result] = await push(
+        client, auth_headers("user_a"), recording(rec, T1, trim_start_ms=0, trim_end_ms=3000)
+    )
+    assert result["status"] == "applied"
+    assert (result["row"]["trim_start_ms"], result["row"]["trim_end_ms"]) == (500, 1500)
+    # The clamped trim already matches the playback file, so no trim job is needed.
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
+
+
+async def test_push_clamps_a_null_trim_end_to_a_narrower_playback_file(
+    client, auth_headers, verify_session
+) -> None:
+    """A null end means the source end, which a trimmed playback file no longer reaches."""
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="ready", playback_start_ms=500, playback_end_ms=1500, source_duration_ms=2000)
+    )
+    await verify_session.commit()
+    [result] = await push(
+        client, auth_headers("user_a"), recording(rec, T1, trim_start_ms=500, trim_end_ms=None)
+    )
+    assert result["status"] == "applied"
+    assert (result["row"]["trim_start_ms"], result["row"]["trim_end_ms"]) == (500, 1500)
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
+
+
+async def test_push_keeps_a_null_trim_end_when_the_playback_file_reaches_the_source_end(
     client, auth_headers, verify_session
 ) -> None:
     rec = uid()
@@ -62,15 +143,38 @@ async def test_client_upsert_keeps_server_owned_columns(
     await verify_session.execute(
         update(Recording)
         .where(Recording.id == rec)
-        .values(state="ready", playback_key="k", playback_bytes=1234, duration_ms=61000)
+        .values(state="ready", playback_start_ms=500, playback_end_ms=2000, source_duration_ms=2000)
     )
     await verify_session.commit()
-    [result] = await push(client, auth_headers("user_a"), recording(rec, T1, label="Renamed"))
+    [result] = await push(
+        client, auth_headers("user_a"), recording(rec, T1, trim_start_ms=500, trim_end_ms=None)
+    )
     assert result["status"] == "applied"
-    assert result["row"]["label"] == "Renamed"
-    assert result["row"]["state"] == "ready"
-    assert result["row"]["playback_bytes"] == 1234
-    assert result["row"]["duration_ms"] == 61000
+    assert (result["row"]["trim_start_ms"], result["row"]["trim_end_ms"]) == (500, None)
+
+
+async def test_push_trim_queues_job(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="ready", playback_start_ms=0, playback_end_ms=5000, source_duration_ms=5000)
+    )
+    await verify_session.commit()
+    [result] = await push(
+        client, auth_headers("user_a"), recording(rec, T1, trim_start_ms=500, trim_end_ms=1500)
+    )
+    assert result["status"] == "applied"
+    assert (result["row"]["trim_start_ms"], result["row"]["trim_end_ms"]) == (500, 1500)
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == rec))).all()
+    assert [job.kind for job in jobs] == ["trim"]
+
+
+async def test_push_trim_before_upload_queues_nothing(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec, trim_start_ms=500, trim_end_ms=1500))
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
 
 
 async def test_pull_returns_recordings(client, auth_headers) -> None:

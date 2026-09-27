@@ -67,6 +67,36 @@
         "title": "Change",
         "type": "object"
       },
+      "DownloadUrl": {
+        "description": "A presigned GET for the playback file, tagged with the revision and start it was signed for.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "playback_rev": {
+            "title": "Playback Rev",
+            "type": "string"
+          },
+          "playback_start_ms": {
+            "title": "Playback Start Ms",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at",
+          "playback_rev",
+          "playback_start_ms"
+        ],
+        "title": "DownloadUrl",
+        "type": "object"
+      },
       "FrettedTuning": {
         "additionalProperties": false,
         "description": "A fretted instrument's tuning, with the fret its capo sits at.",
@@ -456,6 +486,31 @@
         "title": "Mode",
         "type": "string"
       },
+      "PeaksUrl": {
+        "description": "A presigned GET for the waveform file, tagged with the revision it was signed for.",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "peaks_rev": {
+            "title": "Peaks Rev",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at",
+          "peaks_rev"
+        ],
+        "title": "PeaksUrl",
+        "type": "object"
+      },
       "Problem": {
         "description": "An RFC 9457 problem details body, the shape of every error this API returns.",
         "properties": {
@@ -696,6 +751,96 @@
           "table"
         ],
         "title": "RecordingChangeResult",
+        "type": "object"
+      },
+      "RecordingData": {
+        "additionalProperties": false,
+        "description": "Client-editable fields of a recording. The file columns are server-owned.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "pitch_cents": {
+            "default": 0,
+            "maximum": 1200,
+            "minimum": -1200,
+            "title": "Pitch Cents",
+            "type": "integer"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RecordingSource"
+          },
+          "speed_percent": {
+            "default": 100,
+            "maximum": 150,
+            "minimum": 50,
+            "title": "Speed Percent",
+            "type": "integer"
+          },
+          "trim_end_ms": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Trim End Ms"
+          },
+          "trim_start_ms": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Trim Start Ms",
+            "type": "integer"
+          },
+          "tune_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tune Id"
+          }
+        },
+        "required": [
+          "created_at",
+          "source",
+          "recorded_at"
+        ],
+        "title": "RecordingData",
         "type": "object"
       },
       "RecordingLinkChangeResult": {
@@ -968,6 +1113,24 @@
             ],
             "title": "Label"
           },
+          "peaks_rev": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peaks Rev"
+          },
+          "pitch_cents": {
+            "default": 0,
+            "maximum": 1200.0,
+            "minimum": -1200.0,
+            "title": "Pitch Cents",
+            "type": "integer"
+          },
           "playback_bytes": {
             "anyOf": [
               {
@@ -979,6 +1142,17 @@
             ],
             "title": "Playback Bytes"
           },
+          "playback_end_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playback End Ms"
+          },
           "playback_mime": {
             "anyOf": [
               {
@@ -989,6 +1163,28 @@
               }
             ],
             "title": "Playback Mime"
+          },
+          "playback_rev": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playback Rev"
+          },
+          "playback_start_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playback Start Ms"
           },
           "position": {
             "default": 0,
@@ -1007,8 +1203,44 @@
           "source": {
             "$ref": "#/components/schemas/RecordingSource"
           },
+          "source_duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Duration Ms"
+          },
+          "speed_percent": {
+            "default": 100,
+            "maximum": 150.0,
+            "minimum": 50.0,
+            "title": "Speed Percent",
+            "type": "integer"
+          },
           "state": {
             "$ref": "#/components/schemas/RecordingState"
+          },
+          "trim_end_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim End Ms"
+          },
+          "trim_start_ms": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Trim Start Ms",
+            "type": "integer"
           },
           "tune_id": {
             "anyOf": [
@@ -1046,7 +1278,12 @@
           "duration_ms",
           "playback_mime",
           "playback_bytes",
-          "error"
+          "error",
+          "source_duration_ms",
+          "playback_start_ms",
+          "playback_end_ms",
+          "playback_rev",
+          "peaks_rev"
         ],
         "title": "RecordingRow",
         "type": "object"
@@ -2009,7 +2246,7 @@
     },
     "/v1/recordings/{recording_id}/download": {
       "get": {
-        "description": "A presigned GET for the playback file of a ready recording.",
+        "description": "A presigned GET for the playback file of a ready recording.\n\nCarries the revision and start the signature was issued for, read from the same row\nas the key: a trim landing between this response and the client's GET changes the\nrow, but never what this response already promised.",
         "operationId": "download_v1_recordings__recording_id__download_get",
         "parameters": [
           {
@@ -2028,7 +2265,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignedUrl"
+                  "$ref": "#/components/schemas/DownloadUrl"
                 }
               }
             },
@@ -2076,6 +2313,80 @@
           }
         },
         "summary": "Download",
+        "tags": [
+          "recordings"
+        ]
+      }
+    },
+    "/v1/recordings/{recording_id}/peaks": {
+      "get": {
+        "description": "A presigned GET for the waveform peaks file of a recording.\n\nCarries the revision the signature was issued for, read from the same row as the key.",
+        "operationId": "peaks_v1_recordings__recording_id__peaks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recording Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeaksUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Peaks",
         "tags": [
           "recordings"
         ]

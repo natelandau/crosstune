@@ -1,6 +1,7 @@
 """Migrations produce the expected schema."""
 
 import importlib.util
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -1107,6 +1108,252 @@ async def test_tunes_no_longer_carry_feel_or_a_single_mode(session: AsyncSession
         text("select column_name from information_schema.columns where table_name = 'tunes'")
     )
     assert not {"feel", "mode"} & {row[0] for row in result}
+
+
+async def test_0017_queues_peaks_backfill(engine, database_url: str, truncate_all: None) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    live_ready = "018f0000-0000-7000-8000-000000000021"
+    deleted_ready = "018f0000-0000-7000-8000-000000000022"
+    failed = "018f0000-0000-7000-8000-000000000023"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0016")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, recorded_at, state, "
+                    "created_at, updated_at, deleted_at) values "
+                    "(:live_ready, :user, 'microphone', now(), 'ready', now(), now(), null), "
+                    "(:deleted_ready, :user, 'microphone', now(), 'ready', now(), now(), now()), "
+                    "(:failed, :user, 'microphone', now(), 'failed', now(), now(), null)"
+                ),
+                {
+                    "live_ready": live_ready,
+                    "deleted_ready": deleted_ready,
+                    "failed": failed,
+                    "user": user,
+                },
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        jobs = {
+            row[0]: row[1:]
+            for row in (
+                await conn.execute(
+                    text(
+                        "select recording_id::text, kind, "
+                        "locked_until > now() + interval '14 minutes' from jobs"
+                    )
+                )
+            ).tuples()
+        }
+    # Held past the deploy overlap, so only a runner that knows the kind claims it.
+    assert jobs[live_ready] == ("peaks", True)
+    assert deleted_ready not in jobs
+    assert failed not in jobs
+
+
+async def test_0017_gives_ready_recordings_their_full_playback_range(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    ready = "018f0000-0000-7000-8000-000000000031"
+    pending = "018f0000-0000-7000-8000-000000000032"
+    unmeasured = "018f0000-0000-7000-8000-000000000033"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0016")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, recorded_at, state, "
+                    "duration_ms, created_at, updated_at) values "
+                    "(:ready, :user, 'microphone', now(), 'ready', 2000, now(), now()), "
+                    "(:pending, :user, 'microphone', now(), 'pending_upload', null, now(), now()), "
+                    "(:unmeasured, :user, 'microphone', now(), 'ready', null, now(), now())"
+                ),
+                {"ready": ready, "pending": pending, "unmeasured": unmeasured, "user": user},
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row[0]: row[1:]
+            for row in (
+                await conn.execute(
+                    text(
+                        "select id::text, source_duration_ms, playback_start_ms, "
+                        "playback_end_ms, playback_rev from recordings"
+                    )
+                )
+            ).tuples()
+        }
+    assert rows[ready][:3] == (2000, 0, 2000)
+    assert re.fullmatch(r"[0-9a-f]{8}", rows[ready][3])
+    assert rows[pending] == (None, None, None, None)
+    # No length means no range to trim within, but the file still plays from its start.
+    assert rows[unmeasured][:3] == (None, 0, None)
+    assert re.fullmatch(r"[0-9a-f]{8}", rows[unmeasured][3])
+
+
+async def test_0017_leaves_a_ready_recording_downloadable(
+    engine, database_url: str, client, auth_headers
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    ready = "018f0000-0000-7000-8000-000000000041"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0016")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, recorded_at, state, "
+                    "duration_ms, playback_key, playback_bytes, created_at, updated_at) values "
+                    "(:ready, :user, 'microphone', now(), 'ready', 2000, :key, 10, now(), now())"
+                ),
+                {"ready": ready, "user": user, "key": f"{user}/{ready}/playback.m4a"},
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    response = await client.get(f"/v1/recordings/{ready}/download", headers=auth_headers("user_a"))
+    assert response.status_code == 200
+    body = response.json()
+    assert re.fullmatch(r"[0-9a-f]{8}", body["playback_rev"])
+    assert body["playback_start_ms"] == 0
+    # The backfilled peaks job has not run, so there is no waveform yet, only a 409.
+    peaks = await client.get(f"/v1/recordings/{ready}/peaks", headers=auth_headers("user_a"))
+    assert peaks.status_code == 409
+
+
+RECORDING_0017_COLUMNS = {
+    "trim_start_ms",
+    "trim_end_ms",
+    "speed_percent",
+    "pitch_cents",
+    "source_duration_ms",
+    "playback_start_ms",
+    "playback_end_ms",
+    "playback_rev",
+    "peaks_key",
+    "peaks_rev",
+    "peaks_bytes",
+}
+
+
+async def test_downgrade_to_0016_drops_the_new_columns_and_non_transcode_jobs(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    recording = "018f0000-0000-7000-8000-000000000021"
+    transcode_job = "018f0000-0000-7000-8000-000000000031"
+    peaks_job = "018f0000-0000-7000-8000-000000000032"
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_a', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into recordings (id, user_id, source, recorded_at, state, "
+                "created_at, updated_at) values "
+                "(:id, :user, 'microphone', now(), 'ready', now(), now())"
+            ),
+            {"id": recording, "user": user},
+        )
+        await conn.execute(
+            text(
+                "insert into jobs (id, recording_id, user_id, kind, attempts, created_at) "
+                "values (:transcode, :recording, :user, 'transcode', 0, now()), "
+                "(:peaks, :recording, :user, 'peaks', 0, now())"
+            ),
+            {
+                "transcode": transcode_job,
+                "peaks": peaks_job,
+                "recording": recording,
+                "user": user,
+            },
+        )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0016")
+        async with engine.connect() as conn:
+            recording_columns = {
+                row[0]
+                for row in await conn.execute(
+                    text(
+                        "select column_name from information_schema.columns "
+                        "where table_name = 'recordings'"
+                    )
+                )
+            }
+            job_columns = {
+                row[0]
+                for row in await conn.execute(
+                    text(
+                        "select column_name from information_schema.columns "
+                        "where table_name = 'jobs'"
+                    )
+                )
+            }
+            remaining_jobs = {
+                row[0] for row in await conn.execute(text("select id::text from jobs"))
+            }
+        assert not RECORDING_0017_COLUMNS & recording_columns
+        assert "kind" not in job_columns
+        assert remaining_jobs == {transcode_job}
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        recording_columns = {
+            row[0]
+            for row in await conn.execute(
+                text(
+                    "select column_name from information_schema.columns "
+                    "where table_name = 'recordings'"
+                )
+            )
+        }
+        job_columns = {
+            row[0]
+            for row in await conn.execute(
+                text("select column_name from information_schema.columns where table_name = 'jobs'")
+            )
+        }
+    assert recording_columns >= RECORDING_0017_COLUMNS
+    assert "kind" in job_columns
 
 
 async def test_downgrade_to_0014_restores_feel_and_mode_from_type_and_first_mode(
