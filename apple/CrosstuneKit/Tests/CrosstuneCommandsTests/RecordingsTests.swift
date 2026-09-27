@@ -108,6 +108,36 @@ import Testing
         #expect(try await store.read { db in try Recording.fetchOne(db, key: "r1") } == before)
     }
 
+    @Test func updatingSpeedAndPitchQueuesOneChangeWithoutServerFields() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await store.write { writer in
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now))
+        }
+
+        try await commands.updateRecording(
+            "r1", trimStartMs: .value(500), trimEndMs: .value(9000), speedPercent: .value(120),
+            pitchCents: .value(-200))
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.trimStartMs == 500)
+        #expect(row.trimEndMs == 9000)
+        #expect(row.speedPercent == 120)
+        #expect(row.pitchCents == -200)
+        #expect(try await store.pendingChangeCount() == 1)
+        let data = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == "r1" }?.data)
+        #expect(data["trim_start_ms"] == .integer(500))
+        #expect(data["trim_end_ms"] == .integer(9000))
+        #expect(data["speed_percent"] == .integer(120))
+        #expect(data["pitch_cents"] == .integer(-200))
+        #expect(!data.keys.contains("source_duration_ms"))
+        #expect(!data.keys.contains("playback_start_ms"))
+        #expect(!data.keys.contains("playback_end_ms"))
+        #expect(!data.keys.contains("playback_rev"))
+        #expect(!data.keys.contains("peaks_rev"))
+    }
+
     @Test func rejectsAMissingOrDeletedRecording() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -217,6 +247,21 @@ import Testing
         #expect(file.uploadAttempts == 0)
     }
 
+    @Test func aNewCaptureDefaultsTrimSpeedAndPitch() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+
+        try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1, durationMs: 1000)
+
+        let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        #expect(row.trimStartMs == 0)
+        #expect(row.trimEndMs == nil)
+        #expect(row.speedPercent == 100)
+        #expect(row.pitchCents == 0)
+    }
+
     @Test func aRepeatedFinishOrOneAfterCancelDoesNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -271,6 +316,20 @@ import Testing
         let audio = store.audioFolder.appending(path: "r1.m4a")
         try Data([1, 2, 3]).write(to: audio)
         return audio
+    }
+
+    @Test func deletingARecordingDeletesItsPeaksFileToo() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+        try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 3, durationMs: 1, peaksFileName: "r1.peaks")
+        let peaks = store.audioFolder.appending(path: "r1.peaks")
+        try Data([1, 0, 50]).write(to: peaks)
+
+        try await commands.deleteRecording("r1")
+
+        #expect(!FileManager.default.fileExists(atPath: peaks.path()))
     }
 
     @Test func deletingARecordingDeletesItsAudio() async throws {

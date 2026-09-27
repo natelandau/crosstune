@@ -15,8 +15,12 @@ public protocol SyncAPI: Sendable {
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL
     /// Confirms the file landed, so the server transcodes it.
     func uploadFinished(recordingID: String) async throws
-    /// A signed URL to GET a ready recording's playback file from.
-    func downloadURL(recordingID: String) async throws -> URL
+    /// A signed URL to GET a ready recording's playback file from, tagged with the revision and
+    /// start the server actually signed it for.
+    func downloadURL(recordingID: String) async throws -> DownloadURL
+    /// A signed URL to GET a ready recording's waveform from, tagged with the revision the
+    /// server actually signed it for.
+    func peaksURL(recordingID: String) async throws -> PeaksURL
     /// Asks the server to transcode a failed recording's upload again.
     func retryRecording(recordingID: String) async throws
     /// PUTs a file to a signed URL. The signature is the credential, so no session token goes
@@ -88,6 +92,33 @@ public struct ResolvedLink: Hashable, Sendable {
         self.providerRef = providerRef
         self.title = title
         self.artworkURL = artworkURL
+    }
+}
+
+/// A signed GET for the playback file, tagged with what the server actually signed. A pull that
+/// lands mid-download can leave the row's own `playbackRev` behind this by the time the
+/// download finishes, so the downloaded bytes are tagged with this, not the row's.
+public struct DownloadURL: Hashable, Sendable {
+    public var url: URL
+    public var playbackRev: String
+    public var playbackStartMs: Int64
+
+    public init(url: URL, playbackRev: String, playbackStartMs: Int64) {
+        self.url = url
+        self.playbackRev = playbackRev
+        self.playbackStartMs = playbackStartMs
+    }
+}
+
+/// A signed GET for the waveform file, tagged with what the server actually signed, for the same
+/// reason ``DownloadURL`` is.
+public struct PeaksURL: Hashable, Sendable {
+    public var url: URL
+    public var peaksRev: String
+
+    public init(url: URL, peaksRev: String) {
+        self.url = url
+        self.peaksRev = peaksRev
     }
 }
 

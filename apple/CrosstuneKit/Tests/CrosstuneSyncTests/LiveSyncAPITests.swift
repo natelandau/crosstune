@@ -232,7 +232,10 @@ private func json(_ data: Data?) throws -> JSONObject {
 
     @Test func resolvesARelativeSignedURLAgainstTheStorageOrigin() async throws {
         let transport = RecordingTransport(
-            body: #"{"url": "/storage/crosstune-local/r1?sig=z", "expires_at": "2026-09-25T13:00:00Z"}"#)
+            body: #"""
+                {"url": "/storage/crosstune-local/r1?sig=z", "expires_at": "2026-09-25T13:00:00Z",
+                 "playback_rev": "abc12345", "playback_start_ms": 0}
+                """#)
         let origin = URL(string: "http://localhost:5173")!
 
         let put = try await api(transport, storageOrigin: origin)
@@ -240,12 +243,15 @@ private func json(_ data: Data?) throws -> JSONObject {
         let get = try await api(transport, storageOrigin: origin).downloadURL(recordingID: "r1")
 
         #expect(put.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
-        #expect(get.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
+        #expect(get.url.absoluteString == "http://localhost:5173/storage/crosstune-local/r1?sig=z")
     }
 
     @Test func refusesARelativeSignedURLWithNoStorageOrigin() async throws {
         let transport = RecordingTransport(
-            body: #"{"url": "/storage/crosstune-local/r1?sig=z", "expires_at": "2026-09-25T13:00:00Z"}"#)
+            body: #"""
+                {"url": "/storage/crosstune-local/r1?sig=z", "expires_at": "2026-09-25T13:00:00Z",
+                 "playback_rev": "abc12345", "playback_start_ms": 0}
+                """#)
 
         await #expect(throws: LiveSyncAPI.InvalidSignedURL.self) {
             try await api(transport).downloadURL(recordingID: "r1")
@@ -254,12 +260,31 @@ private func json(_ data: Data?) throws -> JSONObject {
 
     @Test func readsADownloadURL() async throws {
         let transport = RecordingTransport(
-            body: #"{"url": "https://bucket.test/get/r1?sig=y", "expires_at": "2026-09-25T13:00:00Z"}"#)
+            body: #"""
+                {"url": "https://bucket.test/get/r1?sig=y", "expires_at": "2026-09-25T13:00:00Z",
+                 "playback_rev": "abc12345", "playback_start_ms": 250}
+                """#)
 
-        let url = try await api(transport).downloadURL(recordingID: "r1")
+        let signed = try await api(transport).downloadURL(recordingID: "r1")
 
-        #expect(url.absoluteString == "https://bucket.test/get/r1?sig=y")
+        #expect(signed.url.absoluteString == "https://bucket.test/get/r1?sig=y")
+        #expect(signed.playbackRev == "abc12345")
+        #expect(signed.playbackStartMs == 250)
         #expect(transport.requests.first?.request.path == "/v1/recordings/r1/download")
+    }
+
+    @Test func readsAPeaksURL() async throws {
+        let transport = RecordingTransport(
+            body: #"""
+                {"url": "https://bucket.test/peaks/r1?sig=y", "expires_at": "2026-09-25T13:00:00Z",
+                 "peaks_rev": "abc12345"}
+                """#)
+
+        let signed = try await api(transport).peaksURL(recordingID: "r1")
+
+        #expect(signed.url.absoluteString == "https://bucket.test/peaks/r1?sig=y")
+        #expect(signed.peaksRev == "abc12345")
+        #expect(transport.requests.first?.request.path == "/v1/recordings/r1/peaks")
     }
 }
 

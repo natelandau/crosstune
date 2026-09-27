@@ -1,4 +1,3 @@
-import AVKit
 import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -16,6 +15,7 @@ final class FakeAudio: AudioPlayback {
     var hasFailed = false
     private(set) var loaded: URL?
     private(set) var nowPlaying: NowPlaying?
+    private(set) var window: PlaybackWindow?
     private(set) var calls: [String] = []
 
     func load(_ url: URL, nowPlaying: NowPlaying) {
@@ -44,7 +44,18 @@ final class FakeAudio: AudioPlayback {
         calls.append("seek")
     }
 
-    func showRoutes(in picker: AVRoutePickerView) {}
+    func setWindow(_ window: PlaybackWindow?) {
+        self.window = window
+        calls.append("setWindow")
+    }
+
+    func setRate(_ percent: Int) {
+        calls.append("setRate(\(percent))")
+    }
+
+    func setPitch(cents: Int) {
+        calls.append("setPitch(\(cents))")
+    }
 
     func unload() {
         loaded = nil
@@ -57,16 +68,16 @@ final class FakeAudio: AudioPlayback {
 /// Answers each fetch when the test says, so a test can hold one in flight.
 @MainActor
 private final class HeldSource {
-    private var waiting: [String: CheckedContinuation<URL?, Never>] = [:]
+    private var waiting: [String: CheckedContinuation<RecordingAudioFile?, Never>] = [:]
     private(set) var asked: [String] = []
 
-    func fetch(_ recordingID: String) async -> URL? {
+    func fetch(_ recordingID: String) async -> RecordingAudioFile? {
         asked.append(recordingID)
         return await withCheckedContinuation { waiting[recordingID] = $0 }
     }
 
     func answer(_ recordingID: String, with url: URL?) {
-        waiting.removeValue(forKey: recordingID)?.resume(returning: url)
+        waiting.removeValue(forKey: recordingID)?.resume(returning: url.map(playable))
     }
 }
 
@@ -77,6 +88,13 @@ private func eventually(_ condition: () -> Bool) async throws {
 }
 
 private let audioURL = URL(filePath: "/tmp/r1.m4a")
+
+private func playable(_ url: URL = audioURL) -> RecordingAudioFile {
+    RecordingAudioFile(url: url, file: RecordingFile(id: "r1", localState: .downloaded))
+}
+
+/// What the player asks of the audio to load a recording at its row's defaults and start it.
+private let loadAndPlay = ["load", "setWindow", "setRate(100)", "setPitch(0)", "play"]
 
 private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") -> Recording {
     Recording(id: id, tuneID: "t1", source: "microphone", recordedAt: noon, label: label, state: "ready")
@@ -99,7 +117,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         try await eventually { player.recordingAudio == .loaded }
         #expect(audio.loaded == audioURL)
         #expect(audio.nowPlaying == NowPlaying(title: "Jam at Mike's", tuneTitle: "Kitchen Girl"))
-        #expect(audio.calls == ["load", "play"])
+        #expect(audio.calls == loadAndPlay)
         #expect(audio.isPlaying)
     }
 
@@ -128,9 +146,9 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         player.play(.recording(recording(), tuneTitle: nil))
         try await eventually { player.recordingAudio == .unavailable }
 
-        player.audioSource = { _ in audioURL }
+        player.audioSource = { _ in playable() }
         try await eventually { player.recordingAudio == .loaded }
-        #expect(audio.calls == ["load", "play"])
+        #expect(audio.calls == loadAndPlay)
     }
 
     @Test func dropsAFetchForARecordingNoLongerLoaded() async throws {
@@ -156,7 +174,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
     @Test func playsOneThingAtATime() async throws {
         let audio = FakeAudio()
         let player = PlayerModel(audio: audio)
-        player.audioSource = { _ in audioURL }
+        player.audioSource = { _ in playable() }
         player.play(.recording(recording(), tuneTitle: nil))
         try await eventually { player.recordingAudio == .loaded }
 
@@ -179,7 +197,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
     @Test func refusesToPlayAnythingWhileATakeIsRecorded() async throws {
         let audio = FakeAudio()
         let player = PlayerModel(audio: audio)
-        player.audioSource = { _ in audioURL }
+        player.audioSource = { _ in playable() }
         var capturing = true
         player.isCapturing = { capturing }
 
@@ -193,7 +211,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         capturing = false
         #expect(player.play(.recording(recording(), tuneTitle: nil)))
         try await eventually { player.recordingAudio == .loaded }
-        #expect(audio.calls == ["load", "play"])
+        #expect(audio.calls == loadAndPlay)
     }
 
     @Test func holdsFetchedAudioSilentWhenATakeStartsMeanwhile() async throws {
@@ -208,29 +226,30 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         capturing = true
         source.answer("r1", with: audioURL)
         try await eventually { player.recordingAudio == .loaded }
-        #expect(audio.calls == ["load"])
+        #expect(audio.calls == Array(loadAndPlay.dropLast()))
         #expect(!audio.isPlaying)
     }
 
     @Test func followsTheLoadedRecordingsRowAndClosesOnceItIsDeleted() async throws {
         let audio = FakeAudio()
         let player = PlayerModel(audio: audio)
-        player.audioSource = { _ in audioURL }
+        player.audioSource = { _ in playable() }
         player.play(.recording(recording(), tuneTitle: "Kitchen Girl"))
         try await eventually { player.recordingAudio == .loaded }
 
-        player.recordingChanged(id: "r1", to: recording(label: "Take 2"), tuneTitle: "Kitchen Girl")
+        player.recordingChanged(
+            id: "r1", to: recording(label: "Take 2"), audioFile: playable(), tuneTitle: "Kitchen Girl")
         #expect(player.title == "Take 2")
         #expect(audio.nowPlaying == NowPlaying(title: "Take 2", tuneTitle: "Kitchen Girl"))
         #expect(audio.isPlaying)
 
         // Another recording changing leaves the loaded one alone.
-        player.recordingChanged(id: "r2", to: nil, tuneTitle: nil)
+        player.recordingChanged(id: "r2", to: nil, audioFile: nil, tuneTitle: nil)
         #expect(player.isLoaded)
 
         var deleted = recording(label: "Take 2")
         deleted.deletedAt = .now
-        player.recordingChanged(id: "r1", to: deleted, tuneTitle: nil)
+        player.recordingChanged(id: "r1", to: deleted, audioFile: nil, tuneTitle: nil)
         #expect(!player.isLoaded)
         #expect(audio.calls.last == "unload")
     }

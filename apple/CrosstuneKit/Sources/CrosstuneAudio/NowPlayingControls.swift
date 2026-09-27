@@ -25,15 +25,18 @@ final class NowPlayingControls {
         }
     }
 
-    /// Shows `nowPlaying` with where playback stands. The system moves the elapsed time on by
-    /// itself from the rate, so this runs only when something changes, never on a timer.
-    func publish(_ nowPlaying: NowPlaying, duration: TimeInterval?, elapsed: TimeInterval, isPlaying: Bool) {
+    /// Shows `nowPlaying` with where playback stands on the trimmed timeline. The system moves
+    /// the elapsed time on by itself from `rate`, the chosen speed, so this runs only when
+    /// something changes, never on a timer.
+    func publish(
+        _ nowPlaying: NowPlaying, duration: TimeInterval?, elapsed: TimeInterval, isPlaying: Bool, rate: Float
+    ) {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: nowPlaying.title,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: elapsed,
-            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
-            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? Double(rate) : 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: Double(rate),
         ]
         // The line under the title names the tune, unless the title already does.
         if let tune = nowPlaying.tuneTitle, tune != nowPlaying.title {

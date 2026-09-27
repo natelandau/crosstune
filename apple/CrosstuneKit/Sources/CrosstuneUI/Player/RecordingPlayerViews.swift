@@ -163,13 +163,33 @@ struct RecordingPlayerBody: View {
     @Environment(AccountSession.self) private var session: AccountSession?
 
     var body: some View {
-        if let message = RecordingPlayerText.status(
-            player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
-        {
-            RecordingPlayerStatus(player: player, message: message)
-        } else {
-            PlaybackScrubber(audio: player.audio)
+        VStack(alignment: .leading, spacing: 4) {
+            if let failure = player.failure {
+                PlayerFailureText(failure)
+            }
+            if let message = RecordingPlayerText.status(
+                player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
+            {
+                RecordingPlayerStatus(player: player, message: message)
+            } else {
+                PlaybackScrubber(audio: player.audio)
+            }
         }
+    }
+}
+
+/// Why the last change to the loaded recording did not land, in red.
+struct PlayerFailureText: View {
+    let failure: String
+
+    init(_ failure: String) {
+        self.failure = failure
+    }
+
+    var body: some View {
+        Text(failure)
+            .font(.footnote)
+            .foregroundStyle(.red)
     }
 }
 
@@ -203,72 +223,25 @@ struct RecordingTransport: View {
     }
 }
 
-/// The system's control for choosing where audio plays: AirPlay speakers, headphones, or this
-/// device.
-struct AudioRoutePicker: View {
-    let audio: any AudioPlayback
-
-    var body: some View {
-        RoutePickerRepresentable(audio: audio)
-            .frame(width: 44, height: 44)
-    }
-}
-
 #if os(iOS)
-    private struct RoutePickerRepresentable: UIViewRepresentable {
-        let audio: any AudioPlayback
+    /// The system's control for choosing where audio plays: AirPlay speakers, headphones, or
+    /// this device. It routes the whole audio session, which the player's engine plays into.
+    /// The Mac has none: its picker routes only an `AVPlayer`, and the engine follows the output
+    /// chosen in the menu bar's Sound control.
+    struct AudioRoutePicker: View {
+        var body: some View {
+            RoutePickerRepresentable()
+                .frame(width: 44, height: 44)
+        }
+    }
 
+    private struct RoutePickerRepresentable: UIViewRepresentable {
         func makeUIView(context: Context) -> AVRoutePickerView {
             let view = AVRoutePickerView()
             view.prioritizesVideoDevices = false
-            audio.showRoutes(in: view)
             return view
         }
 
-        func updateUIView(_ view: AVRoutePickerView, context: Context) {
-            audio.showRoutes(in: view)
-        }
-    }
-#else
-    private struct RoutePickerRepresentable: NSViewRepresentable {
-        let audio: any AudioPlayback
-
-        func makeNSView(context: Context) -> AVRoutePickerView {
-            let view = AVRoutePickerView()
-            view.isRoutePickerButtonBordered = false
-            audio.showRoutes(in: view)
-            return view
-        }
-
-        func updateNSView(_ view: AVRoutePickerView, context: Context) {
-            audio.showRoutes(in: view)
-        }
+        func updateUIView(_ view: AVRoutePickerView, context: Context) {}
     }
 #endif
-
-/// The iPhone's full player for a loaded recording: its name and tune, the scrubber, the
-/// transport, and where it plays.
-struct RecordingPlayerSheetContent: View {
-    let player: PlayerModel
-
-    var body: some View {
-        VStack(spacing: 20) {
-            VStack(spacing: 4) {
-                Text(player.title ?? "")
-                    .font(.title3.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                if let tune = player.item?.tuneTitle, tune != player.title {
-                    Text(tune)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .accessibilityElement(children: .combine)
-            RecordingPlayerBody(player: player)
-            RecordingTransport(player: player)
-            AudioRoutePicker(audio: player.audio)
-        }
-    }
-}

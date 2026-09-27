@@ -77,6 +77,43 @@ extension Components {
                 case updatedAt = "updated_at"
             }
         }
+        /// A presigned GET for the playback file, tagged with the revision and start it was signed for.
+        ///
+        /// - Remark: Generated from `#/components/schemas/DownloadUrl`.
+        public struct DownloadUrl: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/DownloadUrl/expires_at`.
+            public var expiresAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/DownloadUrl/playback_rev`.
+            public var playbackRev: Swift.String
+            /// - Remark: Generated from `#/components/schemas/DownloadUrl/playback_start_ms`.
+            public var playbackStartMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/DownloadUrl/url`.
+            public var url: Swift.String
+            /// Creates a new `DownloadUrl`.
+            ///
+            /// - Parameters:
+            ///   - expiresAt:
+            ///   - playbackRev:
+            ///   - playbackStartMs:
+            ///   - url:
+            public init(
+                expiresAt: Foundation.Date,
+                playbackRev: Swift.String,
+                playbackStartMs: Swift.Int,
+                url: Swift.String
+            ) {
+                self.expiresAt = expiresAt
+                self.playbackRev = playbackRev
+                self.playbackStartMs = playbackStartMs
+                self.url = url
+            }
+            public enum CodingKeys: String, CodingKey {
+                case expiresAt = "expires_at"
+                case playbackRev = "playback_rev"
+                case playbackStartMs = "playback_start_ms"
+                case url
+            }
+        }
         /// A fretted instrument's tuning, with the fret its capo sits at.
         ///
         /// - Remark: Generated from `#/components/schemas/FrettedTuning`.
@@ -616,6 +653,37 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/Mode`.
         public typealias Mode = Swift.String
+        /// A presigned GET for the waveform file, tagged with the revision it was signed for.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PeaksUrl`.
+        public struct PeaksUrl: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PeaksUrl/expires_at`.
+            public var expiresAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PeaksUrl/peaks_rev`.
+            public var peaksRev: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PeaksUrl/url`.
+            public var url: Swift.String
+            /// Creates a new `PeaksUrl`.
+            ///
+            /// - Parameters:
+            ///   - expiresAt:
+            ///   - peaksRev:
+            ///   - url:
+            public init(
+                expiresAt: Foundation.Date,
+                peaksRev: Swift.String,
+                url: Swift.String
+            ) {
+                self.expiresAt = expiresAt
+                self.peaksRev = peaksRev
+                self.url = url
+            }
+            public enum CodingKeys: String, CodingKey {
+                case expiresAt = "expires_at"
+                case peaksRev = "peaks_rev"
+                case url
+            }
+        }
         /// An RFC 9457 problem details body, the shape of every error this API returns.
         ///
         /// - Remark: Generated from `#/components/schemas/Problem`.
@@ -933,6 +1001,79 @@ extension Components {
                 case row
                 case status
                 case table
+            }
+        }
+        /// Client-editable fields of a recording. The file columns are server-owned.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RecordingData`.
+        public struct RecordingData: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RecordingData/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/RecordingData/label`.
+            public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/pitch_cents`.
+            public var pitchCents: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/position`.
+            public var position: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/recorded_at`.
+            public var recordedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/RecordingData/source`.
+            public var source: Components.Schemas.RecordingSource
+            /// - Remark: Generated from `#/components/schemas/RecordingData/speed_percent`.
+            public var speedPercent: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/trim_end_ms`.
+            public var trimEndMs: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/trim_start_ms`.
+            public var trimStartMs: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/tune_id`.
+            public var tuneId: Swift.String?
+            /// Creates a new `RecordingData`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - label:
+            ///   - pitchCents:
+            ///   - position:
+            ///   - recordedAt:
+            ///   - source:
+            ///   - speedPercent:
+            ///   - trimEndMs:
+            ///   - trimStartMs:
+            ///   - tuneId:
+            public init(
+                createdAt: Foundation.Date,
+                label: Swift.String? = nil,
+                pitchCents: Swift.Int? = nil,
+                position: Swift.Int? = nil,
+                recordedAt: Foundation.Date,
+                source: Components.Schemas.RecordingSource,
+                speedPercent: Swift.Int? = nil,
+                trimEndMs: Swift.Int? = nil,
+                trimStartMs: Swift.Int? = nil,
+                tuneId: Swift.String? = nil
+            ) {
+                self.createdAt = createdAt
+                self.label = label
+                self.pitchCents = pitchCents
+                self.position = position
+                self.recordedAt = recordedAt
+                self.source = source
+                self.speedPercent = speedPercent
+                self.trimEndMs = trimEndMs
+                self.trimStartMs = trimStartMs
+                self.tuneId = tuneId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case label
+                case pitchCents = "pitch_cents"
+                case position
+                case recordedAt = "recorded_at"
+                case source
+                case speedPercent = "speed_percent"
+                case trimEndMs = "trim_end_ms"
+                case trimStartMs = "trim_start_ms"
+                case tuneId = "tune_id"
             }
         }
         /// The outcome of one change to a recording link.
@@ -1293,10 +1434,20 @@ extension Components {
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/RecordingRow/label`.
             public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/peaks_rev`.
+            public var peaksRev: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/pitch_cents`.
+            public var pitchCents: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_bytes`.
             public var playbackBytes: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_end_ms`.
+            public var playbackEndMs: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_mime`.
             public var playbackMime: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_rev`.
+            public var playbackRev: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/playback_start_ms`.
+            public var playbackStartMs: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/position`.
             public var position: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/recorded_at`.
@@ -1305,8 +1456,16 @@ extension Components {
             public var serverSeq: Swift.Int
             /// - Remark: Generated from `#/components/schemas/RecordingRow/source`.
             public var source: Components.Schemas.RecordingSource
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/source_duration_ms`.
+            public var sourceDurationMs: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/speed_percent`.
+            public var speedPercent: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/state`.
             public var state: Components.Schemas.RecordingState
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/trim_end_ms`.
+            public var trimEndMs: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/trim_start_ms`.
+            public var trimStartMs: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/tune_id`.
             public var tuneId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/updated_at`.
@@ -1324,13 +1483,22 @@ extension Components {
             ///   - error:
             ///   - id:
             ///   - label:
+            ///   - peaksRev:
+            ///   - pitchCents:
             ///   - playbackBytes:
+            ///   - playbackEndMs:
             ///   - playbackMime:
+            ///   - playbackRev:
+            ///   - playbackStartMs:
             ///   - position:
             ///   - recordedAt:
             ///   - serverSeq:
             ///   - source:
+            ///   - sourceDurationMs:
+            ///   - speedPercent:
             ///   - state:
+            ///   - trimEndMs:
+            ///   - trimStartMs:
             ///   - tuneId:
             ///   - updatedAt:
             ///   - userId:
@@ -1342,13 +1510,22 @@ extension Components {
                 error: Swift.String? = nil,
                 id: Swift.String,
                 label: Swift.String? = nil,
+                peaksRev: Swift.String? = nil,
+                pitchCents: Swift.Int? = nil,
                 playbackBytes: Swift.Int? = nil,
+                playbackEndMs: Swift.Int? = nil,
                 playbackMime: Swift.String? = nil,
+                playbackRev: Swift.String? = nil,
+                playbackStartMs: Swift.Int? = nil,
                 position: Swift.Int? = nil,
                 recordedAt: Foundation.Date,
                 serverSeq: Swift.Int,
                 source: Components.Schemas.RecordingSource,
+                sourceDurationMs: Swift.Int? = nil,
+                speedPercent: Swift.Int? = nil,
                 state: Components.Schemas.RecordingState,
+                trimEndMs: Swift.Int? = nil,
+                trimStartMs: Swift.Int? = nil,
                 tuneId: Swift.String? = nil,
                 updatedAt: Foundation.Date,
                 userId: Swift.String,
@@ -1360,13 +1537,22 @@ extension Components {
                 self.error = error
                 self.id = id
                 self.label = label
+                self.peaksRev = peaksRev
+                self.pitchCents = pitchCents
                 self.playbackBytes = playbackBytes
+                self.playbackEndMs = playbackEndMs
                 self.playbackMime = playbackMime
+                self.playbackRev = playbackRev
+                self.playbackStartMs = playbackStartMs
                 self.position = position
                 self.recordedAt = recordedAt
                 self.serverSeq = serverSeq
                 self.source = source
+                self.sourceDurationMs = sourceDurationMs
+                self.speedPercent = speedPercent
                 self.state = state
+                self.trimEndMs = trimEndMs
+                self.trimStartMs = trimStartMs
                 self.tuneId = tuneId
                 self.updatedAt = updatedAt
                 self.userId = userId
@@ -1379,13 +1565,22 @@ extension Components {
                 case error
                 case id
                 case label
+                case peaksRev = "peaks_rev"
+                case pitchCents = "pitch_cents"
                 case playbackBytes = "playback_bytes"
+                case playbackEndMs = "playback_end_ms"
                 case playbackMime = "playback_mime"
+                case playbackRev = "playback_rev"
+                case playbackStartMs = "playback_start_ms"
                 case position
                 case recordedAt = "recorded_at"
                 case serverSeq = "server_seq"
                 case source
+                case sourceDurationMs = "source_duration_ms"
+                case speedPercent = "speed_percent"
                 case state
+                case trimEndMs = "trim_end_ms"
+                case trimStartMs = "trim_start_ms"
                 case tuneId = "tune_id"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
@@ -1416,13 +1611,33 @@ extension Components {
                     Swift.String.self,
                     forKey: .label
                 )
+                self.peaksRev = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .peaksRev
+                )
+                self.pitchCents = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .pitchCents
+                )
                 self.playbackBytes = try container.decodeIfPresent(
                     Swift.Int.self,
                     forKey: .playbackBytes
                 )
+                self.playbackEndMs = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .playbackEndMs
+                )
                 self.playbackMime = try container.decodeIfPresent(
                     Swift.String.self,
                     forKey: .playbackMime
+                )
+                self.playbackRev = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .playbackRev
+                )
+                self.playbackStartMs = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .playbackStartMs
                 )
                 self.position = try container.decodeIfPresent(
                     Swift.Int.self,
@@ -1440,9 +1655,25 @@ extension Components {
                     Components.Schemas.RecordingSource.self,
                     forKey: .source
                 )
+                self.sourceDurationMs = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .sourceDurationMs
+                )
+                self.speedPercent = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .speedPercent
+                )
                 self.state = try container.decode(
                     Components.Schemas.RecordingState.self,
                     forKey: .state
+                )
+                self.trimEndMs = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .trimEndMs
+                )
+                self.trimStartMs = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .trimStartMs
                 )
                 self.tuneId = try container.decodeIfPresent(
                     Swift.String.self,
@@ -1463,13 +1694,22 @@ extension Components {
                     "error",
                     "id",
                     "label",
+                    "peaks_rev",
+                    "pitch_cents",
                     "playback_bytes",
+                    "playback_end_ms",
                     "playback_mime",
+                    "playback_rev",
+                    "playback_start_ms",
                     "position",
                     "recorded_at",
                     "server_seq",
                     "source",
+                    "source_duration_ms",
+                    "speed_percent",
                     "state",
+                    "trim_end_ms",
+                    "trim_start_ms",
                     "tune_id",
                     "updated_at",
                     "user_id"
@@ -1502,12 +1742,32 @@ extension Components {
                     forKey: .label
                 )
                 try container.encodeIfPresent(
+                    self.peaksRev,
+                    forKey: .peaksRev
+                )
+                try container.encodeIfPresent(
+                    self.pitchCents,
+                    forKey: .pitchCents
+                )
+                try container.encodeIfPresent(
                     self.playbackBytes,
                     forKey: .playbackBytes
                 )
                 try container.encodeIfPresent(
+                    self.playbackEndMs,
+                    forKey: .playbackEndMs
+                )
+                try container.encodeIfPresent(
                     self.playbackMime,
                     forKey: .playbackMime
+                )
+                try container.encodeIfPresent(
+                    self.playbackRev,
+                    forKey: .playbackRev
+                )
+                try container.encodeIfPresent(
+                    self.playbackStartMs,
+                    forKey: .playbackStartMs
                 )
                 try container.encodeIfPresent(
                     self.position,
@@ -1525,9 +1785,25 @@ extension Components {
                     self.source,
                     forKey: .source
                 )
+                try container.encodeIfPresent(
+                    self.sourceDurationMs,
+                    forKey: .sourceDurationMs
+                )
+                try container.encodeIfPresent(
+                    self.speedPercent,
+                    forKey: .speedPercent
+                )
                 try container.encode(
                     self.state,
                     forKey: .state
+                )
+                try container.encodeIfPresent(
+                    self.trimEndMs,
+                    forKey: .trimEndMs
+                )
+                try container.encodeIfPresent(
+                    self.trimStartMs,
+                    forKey: .trimStartMs
                 )
                 try container.encodeIfPresent(
                     self.tuneId,

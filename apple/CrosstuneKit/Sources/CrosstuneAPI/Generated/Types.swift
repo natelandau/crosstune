@@ -38,9 +38,22 @@ public protocol APIProtocol: Sendable {
     ///
     /// A presigned GET for the playback file of a ready recording.
     ///
+    /// Carries the revision and start the signature was issued for, read from the same row
+    /// as the key: a trim landing between this response and the client's GET changes the
+    /// row, but never what this response already promised.
+    ///
     /// - Remark: HTTP `GET /v1/recordings/{recording_id}/download`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/download/get(download_v1_recordings__recording_id__download_get)`.
     func downloadV1RecordingsRecordingIdDownloadGet(_ input: Operations.DownloadV1RecordingsRecordingIdDownloadGet.Input) async throws -> Operations.DownloadV1RecordingsRecordingIdDownloadGet.Output
+    /// Peaks
+    ///
+    /// A presigned GET for the waveform peaks file of a recording.
+    ///
+    /// Carries the revision the signature was issued for, read from the same row as the key.
+    ///
+    /// - Remark: HTTP `GET /v1/recordings/{recording_id}/peaks`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/peaks/get(peaks_v1_recordings__recording_id__peaks_get)`.
+    func peaksV1RecordingsRecordingIdPeaksGet(_ input: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input) async throws -> Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output
     /// Retry
     ///
     /// Transcode the object already in the bucket again, for a recording that failed.
@@ -125,6 +138,10 @@ extension APIProtocol {
     ///
     /// A presigned GET for the playback file of a ready recording.
     ///
+    /// Carries the revision and start the signature was issued for, read from the same row
+    /// as the key: a trim landing between this response and the client's GET changes the
+    /// row, but never what this response already promised.
+    ///
     /// - Remark: HTTP `GET /v1/recordings/{recording_id}/download`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/download/get(download_v1_recordings__recording_id__download_get)`.
     public func downloadV1RecordingsRecordingIdDownloadGet(
@@ -132,6 +149,23 @@ extension APIProtocol {
         headers: Operations.DownloadV1RecordingsRecordingIdDownloadGet.Input.Headers = .init()
     ) async throws -> Operations.DownloadV1RecordingsRecordingIdDownloadGet.Output {
         try await downloadV1RecordingsRecordingIdDownloadGet(Operations.DownloadV1RecordingsRecordingIdDownloadGet.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Peaks
+    ///
+    /// A presigned GET for the waveform peaks file of a recording.
+    ///
+    /// Carries the revision the signature was issued for, read from the same row as the key.
+    ///
+    /// - Remark: HTTP `GET /v1/recordings/{recording_id}/peaks`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/peaks/get(peaks_v1_recordings__recording_id__peaks_get)`.
+    public func peaksV1RecordingsRecordingIdPeaksGet(
+        path: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input.Path,
+        headers: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input.Headers = .init()
+    ) async throws -> Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output {
+        try await peaksV1RecordingsRecordingIdPeaksGet(Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input(
             path: path,
             headers: headers
         ))

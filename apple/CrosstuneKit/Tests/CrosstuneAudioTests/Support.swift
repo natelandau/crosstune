@@ -23,9 +23,11 @@ func sineBuffer(
 /// Writes `seconds` of tone through a ``CaptureWriter`` in tap-sized buffers and returns it,
 /// still open unless `close` is set.
 @discardableResult
-func writeTone(to url: URL, seconds: Double, bitrate: Int = 64_000, close: Bool = true) throws -> CaptureWriter {
+func writeTone(
+    to url: URL, seconds: Double, bitrate: Int = 64_000, amplitude: Float = 0.5, close: Bool = true
+) throws -> CaptureWriter {
     let writer = try CaptureWriter(url: url, bitrate: bitrate)
-    for _ in 0..<Int(seconds * 10) { try writer.write(sineBuffer(seconds: 0.1)) }
+    for _ in 0..<Int(seconds * 10) { try writer.write(sineBuffer(seconds: 0.1, amplitude: amplitude)) }
     if close { writer.close() }
     return writer
 }

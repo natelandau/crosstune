@@ -48,11 +48,15 @@ import Testing
     }
 
     /// A recording the server has transcoded, with no audio on this device unless `file` says.
-    func ready(_ id: String, file: RecordingFile? = nil) async throws {
+    /// `playbackRev` matches `FakeSyncAPI`'s own default signed revision, so a download this test
+    /// does not otherwise configure lands as current, not stale.
+    func ready(
+        _ id: String, file: RecordingFile? = nil, playbackRev: String? = "rev1", peaksRev: String? = nil
+    ) async throws {
         try await store.write { writer in
             try Recording(
                 id: id, createdAt: noon, tuneID: nil, source: "microphone", recordedAt: noon, state: "ready",
-                playbackMime: "audio/mp4"
+                playbackMime: "audio/mp4", playbackRev: playbackRev, peaksRev: peaksRev
             ).insert(writer.db)
             try file?.insert(writer.db)
         }
@@ -332,7 +336,9 @@ import Testing
 
         await #expect(throws: RunStopped.self) { _ = try await stopped.uploadPass() }
         await #expect(throws: RunStopped.self) {
-            try await stopped.downloadPass { id in try await stopped.downloadOne(id) }
+            try await stopped.downloadPass(
+                fetch: { id in try await stopped.downloadOne(id) },
+                fetchPeaksFor: { id in try await stopped.fetchPeaks(id) })
         }
 
         #expect(api.transfers.isEmpty)
@@ -673,6 +679,191 @@ import Testing
         await stopping.value
         #expect(finished.isOn)
         _ = await download.value
+    }
+
+    // MARK: Stale files and peaks
+
+    @Test func aCapturedFileIsNeverStaleEvenAfterATrimRevisionArrives() async throws {
+        let audio = try await captured("r1", state: .uploaded, recordingState: "ready")
+        try await store.write { writer in
+            guard var row = try Recording.fetchOne(writer.db, key: "r1") else { return }
+            row.playbackRev = "trimmed1"
+            try row.update(writer.db)
+        }
+
+        let url = await engine().download("r1")
+
+        #expect(url == audio)
+        #expect(api.transfers.isEmpty)
+    }
+
+    @Test func aStaleFileIsRefetchedAndStoresTheSignedRevisionEvenWhenTheRowSaysAnother() async throws {
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .downloaded, fileName: "d1.m4a", blobRev: "old"),
+            playbackRev: "new")
+        try Data("stale audio".utf8).write(to: store.audioFolder.appending(path: "d1.m4a"))
+        // The row already shows "new", but a trim landed again after the row's own pull: the
+        // signed response, not the row, is what the downloaded bytes must be tagged with.
+        api.downloadRevs["d1"] = (rev: "newer-than-row", startMs: 750)
+
+        let url = try #require(await engine().download("d1"))
+
+        #expect(api.transfers == ["url d1", "get d1"])
+        #expect(try Data(contentsOf: url) == api.objectData)
+        let file = try #require(try await file("d1"))
+        #expect(file.blobRev == "newer-than-row")
+        #expect(file.blobStartMs == 750)
+        #expect(file.fileName == "d1-newer-than-row.m4a")
+    }
+
+    @Test func aStaleReDownloadLeavesTheOldFileUntouchedUntilTheRowSwitchesThenRemovesIt() async throws {
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .downloaded, fileName: "d1.m4a", blobRev: "old"),
+            playbackRev: "new")
+        let oldURL = store.audioFolder.appending(path: "d1.m4a")
+        try Data("stale audio".utf8).write(to: oldURL)
+        api.downloadRevs["d1"] = (rev: "new", startMs: 0)
+        api.onTransfer = { entry in
+            guard entry == "get d1" else { return }
+            // Mid-download: the old file is still at its own path, with its own bytes, since the
+            // new one is written beside it and the row has not switched yet.
+            #expect(FileManager.default.fileExists(atPath: oldURL.path(percentEncoded: false)))
+            #expect((try? Data(contentsOf: oldURL)) == Data("stale audio".utf8))
+        }
+
+        let url = try #require(await engine().download("d1"))
+
+        #expect(url.lastPathComponent == "d1-new.m4a")
+        #expect(try Data(contentsOf: url) == api.objectData)
+        #expect(!FileManager.default.fileExists(atPath: oldURL.path(percentEncoded: false)))
+        #expect(try await file("d1")?.fileName == "d1-new.m4a")
+    }
+
+    @Test func keepOfflineRefetchesAStaleFile() async throws {
+        try await store.setMeta(.keepOffline, to: true)
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .downloaded, fileName: "d1.m4a", blobRev: "old"),
+            playbackRev: "new")
+        try Data("stale audio".utf8).write(to: store.audioFolder.appending(path: "d1.m4a"))
+
+        await engine().transfer()
+
+        #expect(api.transfers == ["url d1", "get d1"])
+        let file = try #require(try await file("d1"))
+        #expect(file.blobRev == "rev1")
+        #expect(file.fileName == "d1-rev1.m4a")
+        #expect(try Data(contentsOf: store.audioFolder.appending(path: "d1-rev1.m4a")) == api.objectData)
+        let oldPath = store.audioFolder.appending(path: "d1.m4a").path(percentEncoded: false)
+        #expect(!FileManager.default.fileExists(atPath: oldPath))
+    }
+
+    @Test func aRowWithNoPeaksRevisionNeverFetchesPeaks() async throws {
+        try await store.setMeta(.keepOffline, to: true)
+        try await ready("d1", peaksRev: nil)
+
+        await engine().transfer()
+
+        #expect(!api.transfers.contains { $0.hasPrefix("peaks") })
+        #expect(try await file("d1")?.peaksRev == nil)
+    }
+
+    @Test func keepOfflineFetchesPeaksForEveryReadyRecording() async throws {
+        try await store.setMeta(.keepOffline, to: true)
+        try await ready("d1", peaksRev: "p1")
+        api.peaksRevs["d1"] = "p1"
+
+        await engine().transfer()
+
+        #expect(api.transfers.filter { $0.hasPrefix("peaks") } == ["peaks-url d1", "peaks-get d1"])
+        #expect(try await file("d1")?.peaksRev == "p1")
+        #expect(try await file("d1")?.peaksFileName == "d1-p1.peaks")
+    }
+
+    @Test func fetchesPeaksOncePerRevision() async throws {
+        try await ready("d1", peaksRev: "p1")
+        api.peaksRevs["d1"] = "p1"
+        let engine = engine()
+
+        let first = try #require(await engine.peaks("d1"))
+
+        #expect(first == api.peaksData)
+        #expect(api.transfers == ["peaks-url d1", "peaks-get d1"])
+
+        let second = await engine.peaks("d1")
+
+        #expect(second == api.peaksData)
+        // No further request: this device's copy already matches the signed revision.
+        #expect(api.transfers == ["peaks-url d1", "peaks-get d1"])
+    }
+
+    @Test func runsOneFetchForTwoPeaksRequestsOfTheSameRecording() async throws {
+        try await ready("d1", peaksRev: "p1")
+        api.peaksRevs["d1"] = "p1"
+        let engine = engine()
+        let gate = Gate()
+        api.onTransfer = { entry in
+            if entry == "peaks-get d1" { await gate.wait() }
+        }
+
+        async let first = engine.peaks("d1")
+        try await waitUntil { gate.isWaiting }
+        async let second = engine.peaks("d1")
+        await Task.yield()
+        gate.open()
+        let results = await [first, second]
+
+        #expect(results[0] != nil && results[0] == results[1])
+        #expect(api.transfers == ["peaks-url d1", "peaks-get d1"])
+    }
+
+    @Test func offlinePeaksReturnsTheLocalCopyWithoutAskingTheServer() async throws {
+        let localPeaksURL = store.audioFolder.appending(path: "d1.peaks")
+        try Data("local peaks".utf8).write(to: localPeaksURL)
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .uploaded, peaksFileName: "d1.peaks"), peaksRev: "p1")
+
+        let data = await engine(isOffline: { true }).peaks("d1")
+
+        #expect(data == Data("local peaks".utf8))
+        #expect(api.transfers.isEmpty)
+    }
+
+    @Test func localPeaksAreReplacedWhenTheServersArrive() async throws {
+        let localPeaksURL = store.audioFolder.appending(path: "d1.peaks")
+        try Data("local capture peaks".utf8).write(to: localPeaksURL)
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .uploaded, peaksFileName: "d1.peaks"), peaksRev: "p1")
+        api.peaksRevs["d1"] = "p1"
+
+        let data = await engine().peaks("d1")
+
+        #expect(data == api.peaksData)
+        #expect(!FileManager.default.fileExists(atPath: localPeaksURL.path(percentEncoded: false)))
+        let file = try #require(try await file("d1"))
+        #expect(file.peaksFileName == "d1-p1.peaks")
+        #expect(file.peaksRev == "p1")
+    }
+
+    @Test func aPeaksFailureDoesNotFailTheDownload() async throws {
+        try await ready("d1", peaksRev: "p1")
+        api.transferFailures["peaks-url d1"] = TransferError(status: 500)
+
+        let url = try #require(await engine().download("d1"))
+
+        #expect(try Data(contentsOf: url) == api.objectData)
+        #expect(try await file("d1")?.peaksRev == nil)
+    }
+
+    @Test func offlineReturnsAStaleFileAsIs() async throws {
+        try await ready(
+            "d1", file: RecordingFile(id: "d1", localState: .downloaded, fileName: "d1.m4a", blobRev: "old"),
+            playbackRev: "new")
+        try Data("stale audio".utf8).write(to: store.audioFolder.appending(path: "d1.m4a"))
+
+        let url = await engine(isOffline: { true }).download("d1")
+
+        #expect(url == store.audioFolder.appending(path: "d1.m4a"))
+        #expect(api.transfers.isEmpty)
     }
 
     // MARK: Retry

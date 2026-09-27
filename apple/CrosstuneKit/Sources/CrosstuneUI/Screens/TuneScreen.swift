@@ -161,7 +161,6 @@ private struct TuneBody: View {
     @Environment(\.tuneScreenActions) private var actions
     @Environment(\.commands) private var commands
     @Environment(PlayerModel.self) private var player: PlayerModel?
-    @State private var renaming: RecordingView?
     @State private var deleting: RecordingView?
 
     var body: some View {
@@ -172,7 +171,7 @@ private struct TuneBody: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
-            TuneMediaSection(model: model, detail: detail, renaming: $renaming, deleting: $deleting)
+            TuneMediaSection(model: model, detail: detail, deleting: $deleting)
             if detail.hasLyrics {
                 Section {
                     Button(TuneScreen.openLyrics, systemImage: "text.quote") {
@@ -208,9 +207,6 @@ private struct TuneBody: View {
         #else
             .listStyle(.inset)
         #endif
-        .sheet(item: $renaming) { view in
-            RenameRecordingSheet(view: view)
-        }
         .coversShell(deleting != nil)
         .confirmationDialog(
             RecordingsModel.deleteTitle,
@@ -320,7 +316,7 @@ private struct TuneMediaSection: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
-    @Binding var renaming: RecordingView?
+    @Environment(\.playerWindow) private var window
     @Binding var deleting: RecordingView?
 
     var body: some View {
@@ -371,7 +367,7 @@ private struct TuneMediaSection: View {
         }
         .recordingRowActions(
             filed: true,
-            onRename: { renaming = view },
+            onEdit: { player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window) },
             // Every recording here is already filed under the tune being looked at.
             onAddToTune: nil,
             onRemoveFromTune: {

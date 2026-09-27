@@ -202,9 +202,11 @@ public final class Recorder {
         let recordingID = capture.id
         state = .finishing
         await release(capture.writer)
+        // Read only after the tap is fully stopped, so every buffer it wrote is metered too.
+        let peaks = capture.writer.recordedPeaks
         defer { reset(recordingID) }
         do {
-            guard try await CaptureFinisher(store: store).finish(recordingID) else {
+            guard try await CaptureFinisher(store: store).finish(recordingID, peaks: peaks) else {
                 errorMessage = Self.nothingRecorded
                 return nil
             }

@@ -16,6 +16,7 @@ struct SplitShell: View {
 
     @Environment(\.listSheets) private var listSheets
     @Environment(\.selecting) private var selecting
+    @Environment(\.playerWindow) private var window
     /// Nil until the first read, so a list chosen before the lists load is not taken for a deleted one.
     @State private var lists: LiveQuery<[ListSummary]?>?
     @State private var deleting: ListSummary?
@@ -57,10 +58,20 @@ struct SplitShell: View {
             .environment(\.sidebarSelection, $place.sidebar)
         }
         .playerBar(player, stage: stage, height: $playerHeight)
-        // The panel always shows the player in full, so a play here must not leave the iPhone's
-        // full player waiting to open if the window turns compact.
+        .sheet(
+            isPresented: Binding {
+                player.showsExpanded(in: window) && player.item?.kind == .recording
+            } set: {
+                player.isExpanded = $0
+            }
+        ) {
+            RecordingScreen(player: player)
+                .presentationSizing(.page)
+        }
+        // The panel always shows a link's player in full, so a play here must not leave the
+        // iPhone's full player waiting to open if the window turns compact.
         .onChange(of: player.isExpanded, initial: true) {
-            if player.isExpanded { player.isExpanded = false }
+            if player.isExpanded && player.item?.link != nil { player.isExpanded = false }
         }
         .task(id: store.userID) {
             lists = LiveQuery(store, initial: nil) { try Self.sidebarLists($0) }

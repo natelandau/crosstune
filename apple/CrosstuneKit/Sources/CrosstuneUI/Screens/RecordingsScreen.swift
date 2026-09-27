@@ -60,9 +60,9 @@ private struct RecordingsContent: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.detailTune) private var detailTune
+    @Environment(\.playerWindow) private var window
     @State private var pushed: String?
     @State private var importing = false
-    @State private var renaming: RecordingView?
     @State private var filing: RecordingView?
     /// A tune the add to tune sheet asked to start, with the recording to file under it, opened
     /// once that sheet has gone.
@@ -140,9 +140,6 @@ private struct RecordingsContent: View {
         }
         .modifier(RefreshesBySync(engine: engine))
         .modifier(PushesTune(tuneID: $pushed, isPushing: detailTune == nil, zoom: zoom))
-        .sheet(item: $renaming) { view in
-            RenameRecordingSheet(view: view)
-        }
         .sheet(item: $filing, onDismiss: openCreated) { view in
             AddToTuneSheet(recordingID: view.id) { title in
                 creating = (view.id, .new(title: title))
@@ -191,7 +188,7 @@ private struct RecordingsContent: View {
         }
         .recordingRowActions(
             filed: view.tuneID != nil,
-            onRename: { renaming = view },
+            onEdit: { player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window) },
             onAddToTune: { filing = view },
             onRemoveFromTune: { Task { await model.removeFromTune(view.id) } },
             onDelete: { deleting = view })

@@ -8,7 +8,7 @@ import GRDB
 /// is a local preference and stays. Once the app has users, a schema change needs a migration
 /// that keeps the outbox instead.
 enum Schema {
-    static let version = 3
+    static let version = 4
 
     static func storedVersion(_ db: Database) throws -> Int {
         try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
@@ -110,6 +110,15 @@ enum Schema {
             t.column("playback_mime", .text)
             t.column("playback_bytes", .integer)
             t.column("error", .text)
+            t.column("source_duration_ms", .integer)
+            t.column("playback_start_ms", .integer)
+            t.column("playback_end_ms", .integer)
+            t.column("playback_rev", .text)
+            t.column("peaks_rev", .text)
+            t.column("trim_start_ms", .integer).notNull().defaults(to: 0)
+            t.column("trim_end_ms", .integer)
+            t.column("speed_percent", .integer).notNull().defaults(to: 100)
+            t.column("pitch_cents", .integer).notNull().defaults(to: 0)
         }
         try createSyncTable(db, .userSettings) { t in
             t.column("audio_quality", .text).notNull()
@@ -127,6 +136,10 @@ enum Schema {
             t.column("content_type", .text)
             t.column("bytes", .integer)
             t.column("local_duration_ms", .integer)
+            t.column("blob_rev", .text)
+            t.column("blob_start_ms", .integer).notNull().defaults(to: 0)
+            t.column("peaks_file_name", .text)
+            t.column("peaks_rev", .text)
             t.column("error", .text)
             t.column("tune_id", .text)
             t.column("recorded_at", .text)

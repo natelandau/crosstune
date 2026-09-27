@@ -146,6 +146,30 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
         "a capture, a capturing row's finished file, and a file written after open stay")
 }
 
+@Test func theSweepKeepsAPeaksFileItsRowNamesAndDropsAnOrphanOne() async throws {
+    let root = TemporaryRoot()
+    let first = try root.open()
+    let id = newID()
+    let audio = "\(id).m4a"
+    let keptPeaks = "\(id).peaks"
+    try await first.write { writer in
+        try RecordingFile(
+            id: id, localState: .captured, fileName: audio, peaksFileName: keptPeaks, updatedAt: noon
+        ).insert(writer.db)
+    }
+    let orphanPeaks = "\(newID()).peaks"
+    for name in [audio, keptPeaks, orphanPeaks] {
+        try Data([1]).write(to: first.audioFolder.appending(path: name))
+    }
+    try first.close()
+
+    let store = try root.open()
+    await store.deleteUnnamedAudio()
+
+    let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
+    #expect(Set(left) == [audio, keptPeaks], "a row's peaks file stays and an unnamed one goes")
+}
+
 @MainActor
 @Test func aLiveQueryFollowsWrites() async throws {
     let root = TemporaryRoot()

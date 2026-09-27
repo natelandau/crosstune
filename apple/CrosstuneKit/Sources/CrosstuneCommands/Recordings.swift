@@ -41,7 +41,8 @@ extension StoreWriter {
     /// exists. Returns false when the capture was already finished or cancelled.
     @discardableResult
     public func finishCapture(
-        _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, at time: Timestamp = .now
+        _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, peaksFileName: String? = nil,
+        at time: Timestamp = .now
     ) throws -> Bool {
         guard let file = try RecordingFile.fetchOne(db, key: recordingID), file.localState == .capturing else {
             return false
@@ -50,7 +51,7 @@ extension StoreWriter {
         let tuneID = try file.tuneID.flatMap { id in try Tune.fetchOne(db, key: id)?.deletedAt == nil ? id : nil }
         try RecordingFile(
             id: recordingID, localState: .captured, fileName: fileName, contentType: capturedContentType,
-            bytes: bytes, localDurationMs: durationMs, updatedAt: time
+            bytes: bytes, localDurationMs: durationMs, peaksFileName: peaksFileName, updatedAt: time
         ).update(db)
         try putNewRecording(
             recordingID, tuneID: tuneID, source: "microphone",
@@ -71,11 +72,12 @@ extension StoreWriter {
     /// Adds a recording from an audio file already copied into the user's audio folder.
     public func addUploadedFile(
         _ recordingID: String = newID(), fileName: String, contentType: String?, bytes: Int64, tuneID: String?,
-        label: String?, recordedAt: Timestamp, at time: Timestamp = .now
+        label: String?, recordedAt: Timestamp, peaksFileName: String? = nil, at time: Timestamp = .now
     ) throws -> String {
         try RecordingFile(
             id: recordingID, localState: .captured, fileName: fileName,
-            contentType: contentType ?? "application/octet-stream", bytes: bytes, updatedAt: time
+            contentType: contentType ?? "application/octet-stream", bytes: bytes, peaksFileName: peaksFileName,
+            updatedAt: time
         ).save(db)
         try putNewRecording(
             recordingID, tuneID: tuneID, source: "upload", label: label, recordedAt: recordedAt, at: time)
@@ -94,12 +96,14 @@ extension StoreWriter {
             at: time)
     }
 
-    /// Applies a label or tune change to a recording. Moving it to a different, live tune
-    /// repositions it past that tune's other recordings; clearing its tune keeps its position.
-    /// A failed upload is put back in the queue, since the edit re-pushes the row.
+    /// Applies an edit to a recording: label, tune, trim, speed, or pitch. Moving it to a
+    /// different, live tune repositions it past that tune's other recordings; clearing its tune
+    /// keeps its position. A failed upload is put back in the queue, since the edit re-pushes the
+    /// row.
     public func updateRecording(
         _ recordingID: String, label: Patch<String?> = .keep, tuneID: Patch<String?> = .keep,
-        at time: Timestamp = .now
+        trimStartMs: Patch<Int64> = .keep, trimEndMs: Patch<Int64?> = .keep, speedPercent: Patch<Int> = .keep,
+        pitchCents: Patch<Int> = .keep, at time: Timestamp = .now
     ) throws {
         guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil else {
             throw CommandError.recordingNotFound
@@ -112,6 +116,10 @@ extension StoreWriter {
         }
         recording.label = label.resolved(from: recording.label)
         recording.tuneID = tuneID.resolved(from: recording.tuneID)
+        recording.trimStartMs = trimStartMs.resolved(from: recording.trimStartMs)
+        recording.trimEndMs = trimEndMs.resolved(from: recording.trimEndMs)
+        recording.speedPercent = speedPercent.resolved(from: recording.speedPercent)
+        recording.pitchCents = pitchCents.resolved(from: recording.pitchCents)
         try put(recording, at: time)
 
         if var file = try RecordingFile.fetchOne(db, key: recordingID), file.localState == .failedUpload {
@@ -171,10 +179,13 @@ extension Commands {
 
     @discardableResult
     public func finishCapture(
-        _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, at time: Timestamp = .now
+        _ recordingID: String, fileName: String, bytes: Int64, durationMs: Int64, peaksFileName: String? = nil,
+        at time: Timestamp = .now
     ) async throws -> Bool {
         try await store.write { writer in
-            try writer.finishCapture(recordingID, fileName: fileName, bytes: bytes, durationMs: durationMs, at: time)
+            try writer.finishCapture(
+                recordingID, fileName: fileName, bytes: bytes, durationMs: durationMs, peaksFileName: peaksFileName,
+                at: time)
         }
     }
 
@@ -185,12 +196,12 @@ extension Commands {
     @discardableResult
     public func addUploadedFile(
         _ recordingID: String = newID(), fileName: String, contentType: String?, bytes: Int64, tuneID: String?,
-        label: String?, recordedAt: Timestamp, at time: Timestamp = .now
+        label: String?, recordedAt: Timestamp, peaksFileName: String? = nil, at time: Timestamp = .now
     ) async throws -> String {
         try await store.write { writer in
             try writer.addUploadedFile(
                 recordingID, fileName: fileName, contentType: contentType, bytes: bytes, tuneID: tuneID, label: label,
-                recordedAt: recordedAt, at: time)
+                recordedAt: recordedAt, peaksFileName: peaksFileName, at: time)
         }
     }
 
@@ -207,10 +218,13 @@ extension Commands {
 
     public func updateRecording(
         _ recordingID: String, label: Patch<String?> = .keep, tuneID: Patch<String?> = .keep,
-        at time: Timestamp = .now
+        trimStartMs: Patch<Int64> = .keep, trimEndMs: Patch<Int64?> = .keep, speedPercent: Patch<Int> = .keep,
+        pitchCents: Patch<Int> = .keep, at time: Timestamp = .now
     ) async throws {
         try await store.write { writer in
-            try writer.updateRecording(recordingID, label: label, tuneID: tuneID, at: time)
+            try writer.updateRecording(
+                recordingID, label: label, tuneID: tuneID, trimStartMs: trimStartMs, trimEndMs: trimEndMs,
+                speedPercent: speedPercent, pitchCents: pitchCents, at: time)
         }
     }
 

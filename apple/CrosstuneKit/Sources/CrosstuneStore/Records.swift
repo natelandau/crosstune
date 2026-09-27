@@ -74,6 +74,7 @@ let ownershipKeys: Set<String> = ["owner_user_id", "user_id", "added_by_user_id"
 let keysNotInChanges: Set<String> = ownershipKeys.union([
     "id", "updated_at", "deleted_at", "server_seq",
     "state", "duration_ms", "playback_mime", "playback_bytes", "error",
+    "source_duration_ms", "playback_start_ms", "playback_end_ms", "playback_rev", "peaks_rev",
 ])
 
 extension SyncedRecord {
@@ -372,6 +373,16 @@ public struct Recording: SyncedRecord, Hashable {
     public var playbackMime: String?
     public var playbackBytes: Int64?
     public var error: String?
+    /// The trim and re-encode pipeline's fields: read here, never sent in a change.
+    public var sourceDurationMs: Int64?
+    public var playbackStartMs: Int64?
+    public var playbackEndMs: Int64?
+    public var playbackRev: String?
+    public var peaksRev: String?
+    public var trimStartMs: Int64
+    public var trimEndMs: Int64?
+    public var speedPercent: Int
+    public var pitchCents: Int
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -387,17 +398,35 @@ public struct Recording: SyncedRecord, Hashable {
         case durationMs = "duration_ms"
         case playbackMime = "playback_mime"
         case playbackBytes = "playback_bytes"
-        case error, extra
+        case error
+        case sourceDurationMs = "source_duration_ms"
+        case playbackStartMs = "playback_start_ms"
+        case playbackEndMs = "playback_end_ms"
+        case playbackRev = "playback_rev"
+        case peaksRev = "peaks_rev"
+        case trimStartMs = "trim_start_ms"
+        case trimEndMs = "trim_end_ms"
+        case speedPercent = "speed_percent"
+        case pitchCents = "pitch_cents"
+        case extra
     }
 
-    public static var wireDefaults: JSONObject { ["position": .integer(0)] }
+    public static var wireDefaults: JSONObject {
+        [
+            "position": .integer(0), "trim_start_ms": .integer(0), "trim_end_ms": .null,
+            "speed_percent": .integer(100), "pitch_cents": .integer(0),
+        ]
+    }
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String?, source: String,
         recordedAt: Timestamp, label: String? = nil, position: Int = 0, state: String = "pending_upload",
         durationMs: Int64? = nil, playbackMime: String? = nil, playbackBytes: Int64? = nil,
-        error: String? = nil, extra: JSONObject = [:]
+        error: String? = nil, sourceDurationMs: Int64? = nil, playbackStartMs: Int64? = nil,
+        playbackEndMs: Int64? = nil, playbackRev: String? = nil, peaksRev: String? = nil,
+        trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, speedPercent: Int = 100, pitchCents: Int = 0,
+        extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -414,6 +443,15 @@ public struct Recording: SyncedRecord, Hashable {
         self.playbackMime = playbackMime
         self.playbackBytes = playbackBytes
         self.error = error
+        self.sourceDurationMs = sourceDurationMs
+        self.playbackStartMs = playbackStartMs
+        self.playbackEndMs = playbackEndMs
+        self.playbackRev = playbackRev
+        self.peaksRev = peaksRev
+        self.trimStartMs = trimStartMs
+        self.trimEndMs = trimEndMs
+        self.speedPercent = speedPercent
+        self.pitchCents = pitchCents
         self.extra = extra
     }
 }

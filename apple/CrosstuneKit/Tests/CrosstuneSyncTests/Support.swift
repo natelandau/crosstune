@@ -88,8 +88,14 @@ final class FakeSyncAPI: SyncAPI {
     var putBodies: [String: (data: Data, contentType: String)] = [:]
     /// Thrown by a transfer request, by its log entry (`slot r1`), while set.
     var transferFailures: [String: any Error] = [:]
-    /// The bytes a GET writes.
+    /// The bytes an audio GET writes.
     var objectData = Data("downloaded audio".utf8)
+    /// The bytes a peaks GET writes.
+    var peaksData = Data("downloaded peaks".utf8)
+    /// The revision and start each recording's download is signed for, `rev1`/0 unless set.
+    var downloadRevs: [String: (rev: String, startMs: Int64)] = [:]
+    /// The revision each recording's peaks are signed for, `rev1` unless set.
+    var peaksRevs: [String: String] = [:]
     /// Called with each transfer request's log entry before it is answered.
     var onTransfer: @MainActor (String) async -> Void = { _ in }
 
@@ -111,9 +117,19 @@ final class FakeSyncAPI: SyncAPI {
         try await transfer("confirm \(recordingID)")
     }
 
-    func downloadURL(recordingID: String) async throws -> URL {
+    func downloadURL(recordingID: String) async throws -> DownloadURL {
         try await transfer("url \(recordingID)")
-        return URL(string: "https://bucket.test/get/\(recordingID)")!
+        let signed = downloadRevs[recordingID] ?? (rev: "rev1", startMs: 0)
+        return DownloadURL(
+            url: URL(string: "https://bucket.test/get/\(recordingID)")!, playbackRev: signed.rev,
+            playbackStartMs: signed.startMs)
+    }
+
+    func peaksURL(recordingID: String) async throws -> PeaksURL {
+        try await transfer("peaks-url \(recordingID)")
+        return PeaksURL(
+            url: URL(string: "https://bucket.test/peaks/\(recordingID)")!,
+            peaksRev: peaksRevs[recordingID] ?? "rev1")
     }
 
     func retryRecording(recordingID: String) async throws {
@@ -127,8 +143,9 @@ final class FakeSyncAPI: SyncAPI {
     }
 
     func getObject(_ url: URL, to destination: URL) async throws {
-        try await transfer("get \(Self.recordingID(in: url))")
-        try objectData.write(to: destination)
+        let isPeaks = url.path().hasPrefix("/peaks/")
+        try await transfer(isPeaks ? "peaks-get \(Self.recordingID(in: url))" : "get \(Self.recordingID(in: url))")
+        try (isPeaks ? peaksData : objectData).write(to: destination)
     }
 
     /// The row the server stores for an upsert, as push returns it.

@@ -105,6 +105,34 @@ import Testing
     #expect(data["key"] == .string("A"))
 }
 
+@Test func aPulledRecordingsServerOnlyFieldsNeverReenterAChange() throws {
+    // These five arrive on a pull but this build does not model them yet, so they land in
+    // `extra`; a change must still never send a server-computed field back.
+    let row = try JSONDecoder().decode(
+        JSONObject.self,
+        from: Data(
+            #"""
+            {
+              "id": "recording-1", "created_at": "2026-09-20T18:04:11Z", "updated_at": "2026-09-21T02:15:40Z",
+              "deleted_at": null, "server_seq": 6, "user_id": "owner-1",
+              "tune_id": null, "source": "microphone", "recorded_at": "2026-09-20T18:04:11Z",
+              "label": null, "position": 0, "state": "ready", "duration_ms": 5000,
+              "playback_mime": "audio/mp4", "playback_bytes": 2048, "error": null,
+              "source_duration_ms": 5200, "playback_start_ms": 0, "playback_end_ms": 5000,
+              "playback_rev": "abc12345", "peaks_rev": "def67890"
+            }
+            """#.utf8))
+    let recording = try Recording(wire: row)
+
+    let data = try recording.changeData()
+
+    #expect(!data.keys.contains("source_duration_ms"))
+    #expect(!data.keys.contains("playback_start_ms"))
+    #expect(!data.keys.contains("playback_end_ms"))
+    #expect(!data.keys.contains("playback_rev"))
+    #expect(!data.keys.contains("peaks_rev"))
+}
+
 @Test func changeDataCarriesOnlyEditableFields() throws {
     let recording = Recording(
         createdAt: noon, deletedAt: noon, serverSeq: 42, tuneID: nil, source: "microphone", recordedAt: noon,
@@ -113,7 +141,12 @@ import Testing
 
     let data = try recording.changeData()
 
-    #expect(Set(data.keys) == ["created_at", "tune_id", "source", "recorded_at", "label", "position", "mood"])
+    #expect(
+        Set(data.keys)
+            == [
+                "created_at", "tune_id", "source", "recorded_at", "label", "position", "trim_start_ms",
+                "trim_end_ms", "speed_percent", "pitch_cents", "mood",
+            ])
     #expect(data["created_at"] == .string("2026-09-25T12:00:00.000Z"))
     #expect(data["tune_id"] == .null)
 }
@@ -147,6 +180,22 @@ import Testing
 
     #expect(try await store.read { db in try ListItem.fetchOne(db, key: item.id) }?.deletedAt != nil)
     #expect(try await store.pendingChangeCount() == 0)
+}
+
+@Test func aRecordingFileRoundTripsItsBlobAndPeaksFields() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let file = RecordingFile(
+        id: "r1", localState: .downloaded, fileName: "r1.m4a", blobRev: "abc12345", blobStartMs: 250,
+        peaksFileName: "r1.bin", peaksRev: "def67890")
+
+    try await store.write { writer in try file.insert(writer.db) }
+
+    let stored = try #require(try await store.read { db in try RecordingFile.fetchOne(db, key: "r1") })
+    #expect(stored.blobRev == "abc12345")
+    #expect(stored.blobStartMs == 250)
+    #expect(stored.peaksFileName == "r1.bin")
+    #expect(stored.peaksRev == "def67890")
 }
 
 @Test func everyTableRoundTrips() async throws {

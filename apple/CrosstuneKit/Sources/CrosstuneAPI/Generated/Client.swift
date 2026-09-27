@@ -350,6 +350,10 @@ public struct Client: APIProtocol {
     ///
     /// A presigned GET for the playback file of a ready recording.
     ///
+    /// Carries the revision and start the signature was issued for, read from the same row
+    /// as the key: a trim landing between this response and the client's GET changes the
+    /// row, but never what this response already promised.
+    ///
     /// - Remark: HTTP `GET /v1/recordings/{recording_id}/download`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/download/get(download_v1_recordings__recording_id__download_get)`.
     public func downloadV1RecordingsRecordingIdDownloadGet(_ input: Operations.DownloadV1RecordingsRecordingIdDownloadGet.Input) async throws -> Operations.DownloadV1RecordingsRecordingIdDownloadGet.Output {
@@ -388,7 +392,7 @@ public struct Client: APIProtocol {
                     switch chosenContentType {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
-                            Components.Schemas.SignedUrl.self,
+                            Components.Schemas.DownloadUrl.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)
@@ -467,6 +471,160 @@ public struct Client: APIProtocol {
                 case 503:
                     let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
                     let body: Operations.DownloadV1RecordingsRecordingIdDownloadGet.Output.ServiceUnavailable.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .serviceUnavailable(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Peaks
+    ///
+    /// A presigned GET for the waveform peaks file of a recording.
+    ///
+    /// Carries the revision the signature was issued for, read from the same row as the key.
+    ///
+    /// - Remark: HTTP `GET /v1/recordings/{recording_id}/peaks`.
+    /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/peaks/get(peaks_v1_recordings__recording_id__peaks_get)`.
+    public func peaksV1RecordingsRecordingIdPeaksGet(_ input: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input) async throws -> Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.PeaksV1RecordingsRecordingIdPeaksGet.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/v1/recordings/{}/peaks",
+                    parameters: [
+                        input.path.recordingId
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PeaksUrl.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 404:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output.NotFound.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .notFound(.init(body: body))
+                case 409:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output.Conflict.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .conflict(.init(body: body))
+                case 422:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output.UnprocessableContent.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/problem+json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/problem+json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.Problem.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .applicationProblemJson(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unprocessableContent(.init(body: body))
+                case 503:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output.ServiceUnavailable.Body
                     let chosenContentType = try converter.bestContentType(
                         received: contentType,
                         options: [

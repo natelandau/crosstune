@@ -18,6 +18,7 @@ public final class CaptureWriter: @unchecked Sendable {
     private var output: AVAudioPCMBuffer?
     private let url: URL
     private var secondsWritten: TimeInterval = 0
+    private var peaks: [UInt8] = []
 
     /// Creates the file at `url`, replacing any file already there.
     public init(url: URL, bitrate: Int) throws {
@@ -43,6 +44,18 @@ public final class CaptureWriter: @unchecked Sendable {
     /// The size of the file on disk so far.
     public var bytesWritten: Int64 {
         (try? CaptureFiles.size(of: url)) ?? 0
+    }
+
+    /// The waveform metered from every buffer written so far, raw and not yet fitted to a final
+    /// duration.
+    public var recordedPeaks: [UInt8] {
+        lock.withLock { peaks }
+    }
+
+    /// Appends one buffer's worth of peak bytes, metered on the tap thread from the same buffers
+    /// this writer encodes, so a gap where nothing was written also has no peaks.
+    public func appendPeaks(_ values: [UInt8]) {
+        lock.withLock { peaks.append(contentsOf: values) }
     }
 
     /// Appends a buffer. After ``close()`` this does nothing.

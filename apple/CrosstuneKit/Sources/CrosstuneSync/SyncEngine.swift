@@ -34,6 +34,7 @@ public final class SyncEngine {
 
     @ObservationIgnored private var stopped = false
     @ObservationIgnored private var inFlightDownloads: [String: Task<URL?, any Error>] = [:]
+    @ObservationIgnored private var inFlightPeaks: [String: Task<Data?, any Error>] = [:]
 
     // Lazy so their closures can capture self, which they reach only once init has finished.
     @ObservationIgnored private lazy var syncLoop = SyncLoop<SyncStatus>(
@@ -123,10 +124,13 @@ public final class SyncEngine {
         stop()
         await syncLoop.finishRunning()
         await transferLoop.finishRunning()
-        // A download that starts after this snapshot throws at its stop check before its first
-        // write, so only these can still touch the store.
+        // A download or peaks fetch that starts after this snapshot throws at its stop check
+        // before its first write, so only these can still touch the store.
         for download in inFlightDownloads.values {
             _ = try? await download.value
+        }
+        for fetch in inFlightPeaks.values {
+            _ = try? await fetch.value
         }
     }
 
@@ -142,6 +146,17 @@ public final class SyncEngine {
             return await store.localAudio(recordingID: recordingID)
         }
         return try? await fetchOne(recordingID)
+    }
+
+    /// The recording's current waveform. Fetched from the server first when this device's copy
+    /// does not match its current revision; offline, whatever is already on disk plays as is.
+    /// Only one fetch per recording runs at a time. Nil when there is nothing to show: offline
+    /// with none on disk, no waveform built yet, or the fetch failed.
+    public func peaks(_ recordingID: String) async -> Data? {
+        if isOffline() {
+            return await store.localPeaks(recordingID: recordingID)
+        }
+        return try? await fetchPeaksOnce(recordingID)
     }
 
     /// Asks the server to transcode a failed recording again, then syncs so its new state shows.
@@ -162,7 +177,9 @@ public final class SyncEngine {
         // A file's own transient upload failure is held so the download pass still runs, then
         // thrown once it has.
         let uploadError = try await transfers.uploadPass()
-        try await transfers.downloadPass { [weak self] id in try await self?.fetchOne(id) }
+        try await transfers.downloadPass(
+            fetch: { [weak self] id in try await self?.fetchOne(id) },
+            fetchPeaksFor: { [weak self] id in try await self?.fetchPeaksOnce(id) })
         if let uploadError { throw uploadError }
     }
 
@@ -176,6 +193,16 @@ public final class SyncEngine {
             inFlightDownloads[recordingID] = nil
             downloading.remove(recordingID)
         }
+        return try await task.value
+    }
+
+    /// One fetch per recording at a time, whether the download pass or a caller asks.
+    private func fetchPeaksOnce(_ recordingID: String) async throws -> Data? {
+        if let running = inFlightPeaks[recordingID] { return try await running.value }
+        let transfers = transfers
+        let task = Task { try await transfers.fetchPeaks(recordingID) }
+        inFlightPeaks[recordingID] = task
+        defer { inFlightPeaks[recordingID] = nil }
         return try await task.value
     }
 

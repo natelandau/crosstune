@@ -219,6 +219,7 @@ final class EngineRunner: @unchecked Sendable {
         onEvent: @escaping @MainActor @Sendable (AudioInputEvent) -> Void
     ) -> AVAudioNodeTapBlock {
         var meter = LevelMeter()
+        var peakMeter = PeakMeter()
         return { buffer, _ in
             do {
                 try writer.write(buffer)
@@ -228,6 +229,7 @@ final class EngineRunner: @unchecked Sendable {
             }
             let levels = meter.levels(of: buffer)
             Task { @MainActor in onLevels(levels) }
+            writer.appendPeaks(peakMeter.peaks(of: buffer))
         }
     }
 
