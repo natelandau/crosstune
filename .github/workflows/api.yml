@@ -66,7 +66,7 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just lint
-      - run: uv run shellcheck ../scripts/smoke.sh
+      - run: uv run shellcheck ../scripts/smoke.sh ../scripts/ci-media-tools.sh
       - name: prek
         working-directory: .
         run: |
@@ -97,7 +97,9 @@ jobs:
       - name: start RustFS
         working-directory: .
         run: docker compose up -d --wait rustfs
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: use the API image's ffmpeg
+        working-directory: .
+        run: scripts/ci-media-tools.sh
       - run: just test
 
   contract:

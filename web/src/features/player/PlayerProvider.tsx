@@ -1,9 +1,11 @@
 import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DbContext } from '../../db/DbProvider'
 import { visibleMain } from '../../ui/useShortcut'
+import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { PlayerContext, type Player, type PlayerItem } from './usePlayer'
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
+  const engine = usePlaybackEngine()
   const [item, setItem] = useState<PlayerItem | null>(null)
   const opener = useRef<HTMLElement | null>(null)
 
@@ -17,11 +19,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setItem(null)
   }
 
-  const play = useCallback((next: PlayerItem) => {
-    const active = document.activeElement
-    opener.current = active instanceof HTMLElement && active !== document.body ? active : null
-    setItem(next)
-  }, [])
+  const play = useCallback(
+    (next: PlayerItem) => {
+      const active = document.activeElement
+      opener.current = active instanceof HTMLElement && active !== document.body ? active : null
+      // Synchronous, inside the tap, so iOS has already granted the AudioContext by the
+      // time a pitch stage needs it.
+      if (next.kind === 'recording') engine.prime()
+      setItem(next)
+    },
+    [engine],
+  )
   const close = useCallback(() => setItem(null), [])
   const returnFocus = useCallback(() => {
     const target = opener.current?.isConnected ? opener.current : visibleMain()

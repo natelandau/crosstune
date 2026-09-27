@@ -18,6 +18,10 @@ from pydantic import (
 from crosstune.vocabulary import (
     LIMITS,
     MAX_MODES,
+    PITCH_CENTS_MAX,
+    PITCH_CENTS_MIN,
+    SPEED_PERCENT_MAX,
+    SPEED_PERCENT_MIN,
     TUNING_LENGTH,
     AudioQuality,
     Instrument,
@@ -177,6 +181,10 @@ class RecordingData(_Data):
     source: RecordingSource
     recorded_at: datetime
     position: int = 0
+    trim_start_ms: int = Field(default=0, ge=0)
+    trim_end_ms: int | None = Field(default=None, ge=0)
+    speed_percent: int = Field(default=100, ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
+    pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
 
 
 class UserSettingsData(_Data):
@@ -253,6 +261,11 @@ class RecordingRow(RecordingData, _Row):
     playback_mime: str | None
     playback_bytes: int | None
     error: str | None
+    source_duration_ms: int | None
+    playback_start_ms: int | None
+    playback_end_ms: int | None
+    playback_rev: str | None
+    peaks_rev: str | None
 
 
 class UserSettingsRow(UserSettingsData, _Row):

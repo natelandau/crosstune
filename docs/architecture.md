@@ -208,22 +208,45 @@ same triggers. A return to the foreground stands in for a visible tab.
   file can still upload.
 - Upload: the client asks the API for an upload slot (quota reserved, PUT
   signed), PUTs the file to R2, then confirms. The API queues a transcode,
-  and an in-process job runner produces the playback file. Retry reruns a
-  failed transcode.
+  and an in-process job runner produces the playback file and its waveform
+  peaks. Retry reruns a failed transcode.
 - The PUT signature covers the declared size, so the bucket refuses a file
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.
 - ffprobe and ffmpeg read an upload only as a local file, only through the
   demuxers of the audio types an upload may declare, and run with no
   environment but `PATH`.
-- Download: the API signs a GET for a ready recording. Other devices fetch on
-  play, or ahead of time when the setting to download all recordings is on.
-  A fetch ahead of time that fails waits out the same backoff as an upload
-  before the next pass retries it. The wait lives in memory, so a reload or
-  relaunch retries at once, and a play always fetches.
+- Download: the API signs a GET for a ready recording's playback file, and
+  another for its peaks file. Each carries the revision the signature
+  covers, read from the same row as the key. A client records that
+  revision against the downloaded file, never the row's own, so a race with
+  a later trim never mislabels it. Other devices fetch on play, or ahead of
+  time when the setting to download all recordings is on. A fetch ahead of
+  time that fails waits out the same backoff as an upload before the next
+  pass retries it. The wait lives in memory, so a reload or relaunch
+  retries at once, and a play always fetches.
+- A client seeks within the audio file it holds by that file's own start
+  offset, recorded when the file was downloaded, not by the recording's
+  current offset, so a file downloaded before a later trim still plays the
+  range it actually holds.
 - The Apple app excludes a downloaded recording's file from the device
   backup; a captured file is not excluded, since it is the only copy until
   it uploads.
+- The original upload is a backup. It is never modified, no endpoint serves
+  it, and it never counts against a user's quota. A trim cuts from it.
+- A saved trim is clamped on push to the recording's current playback
+  range, and to at least 1000 ms. At most one trim job is queued per
+  recording at a time; a trim saved while one runs is queued once it
+  finishes.
+- The trim job cuts the kept range from the original, never from the
+  current playback file. It uploads a new revisioned playback file and a
+  new revisioned peaks file, and deletes the superseded objects only once
+  the commit that stops pointing at them has landed. A failed trim leaves
+  the old files in place, and the recording keeps playing them.
+- The peaks file holds one linear peak-amplitude byte per 20 ms window,
+  prefixed by a version byte and a big-endian points-per-second value (50).
+  A client records its own peaks locally while capturing, until the
+  server's file is ready to fetch.
 - A local delete drops its audio files through
   `CrosstuneStore.writeDroppingAudio`. Deleting a recording, a tune, or
   several tunes, and Remove downloaded audio, each run inside it. When the

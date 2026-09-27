@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -52,14 +53,24 @@ public enum RecordingImport {
         let fileName = ext.isEmpty ? base : "\(base).\(ext)"
         let destination = store.audioFolder.appending(path: fileName)
         try await copy(url, to: destination)
+        let peaksFileName = await writePeaks(recordingID, from: destination, in: store)
         do {
             return try await Commands(store: store).addUploadedFile(
                 recordingID, fileName: fileName, contentType: mime, bytes: bytes, tuneID: tuneID,
                 label: String(url.deletingPathExtension().lastPathComponent.prefix(Vocabulary.Limits.Recording.label)),
-                recordedAt: time, at: time)
+                recordedAt: time, peaksFileName: peaksFileName, at: time)
         } catch {
-            try? FileManager.default.removeItem(at: destination)
+            cleanUpAfterFailure(fileName: fileName, peaksFileName: peaksFileName, in: store)
             throw error
+        }
+    }
+
+    /// Removes what `add` had already written to the audio folder once a later step failed, so a
+    /// refused or aborted import leaves nothing behind.
+    static func cleanUpAfterFailure(fileName: String, peaksFileName: String?, in store: CrosstuneStore) {
+        try? FileManager.default.removeItem(at: store.audioFolder.appending(path: fileName))
+        if let peaksFileName {
+            try? FileManager.default.removeItem(at: store.audioFolder.appending(path: peaksFileName))
         }
     }
 
@@ -67,5 +78,13 @@ public enum RecordingImport {
     @concurrent
     private static func copy(_ source: URL, to destination: URL) async throws {
         try FileManager.default.copyItem(at: source, to: destination)
+    }
+
+    /// Decodes the imported file's waveform and writes it beside the audio. An import with no
+    /// waveform is still a usable recording, just without one to draw, so a failure here is
+    /// swallowed rather than failing the import.
+    private static func writePeaks(_ recordingID: String, from source: URL, in store: CrosstuneStore) async -> String? {
+        guard let peaks = try? await Peaks.read(from: source) else { return nil }
+        return try? peaks.write(for: recordingID, in: store)
     }
 }

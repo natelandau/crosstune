@@ -48,6 +48,13 @@ const ROWS = {
   RecordingRow: {
     properties: { label: { anyOf: [{ type: 'string', maxLength: 200 }, { type: 'null' }] } },
   },
+  RecordingData: {
+    properties: {
+      speed_percent: { type: 'integer', minimum: 50, maximum: 150 },
+      pitch_cents: { type: 'integer', minimum: -1200, maximum: 1200 },
+      trim_start_ms: { type: 'integer', minimum: 0 },
+    },
+  },
 }
 
 describe('vocabulary generator', () => {
@@ -94,6 +101,43 @@ describe('vocabulary generator', () => {
     const { status, stderr } = generate({ ...rows, Mode: { type: 'string', enum: ['major'] } })
     expect(status).toBe(1)
     expect(stderr).toContain('RecordingRow')
+  })
+
+  it('emits a ranges object from minimum and maximum, tolerating a field with only a minimum', () => {
+    const { text } = generate({ ...ROWS, Mode: { type: 'string', enum: ['major'] } })
+    expect(text).toContain(
+      [
+        'export const RECORDING_RANGES = {',
+        '  speed_percent: { min: 50, max: 150 },',
+        '  pitch_cents: { min: -1200, max: 1200 },',
+        '  trim_start_ms: { min: 0 },',
+        '} as const',
+      ].join('\n'),
+    )
+  })
+
+  it('fails on a ranges schema the document lacks', () => {
+    const rows = Object.fromEntries(
+      Object.entries(ROWS).filter(([name]) => name !== 'RecordingData'),
+    )
+    const { status, stderr } = generate({ ...rows, Mode: { type: 'string', enum: ['major'] } })
+    expect(status).toBe(1)
+    expect(stderr).toContain('RecordingData')
+  })
+
+  it('fails on a range field with neither a minimum nor a maximum', () => {
+    const rows = {
+      ...ROWS,
+      RecordingData: {
+        properties: {
+          ...ROWS.RecordingData.properties,
+          trim_start_ms: { type: 'integer' },
+        },
+      },
+    }
+    const { status, stderr } = generate({ ...rows, Mode: { type: 'string', enum: ['major'] } })
+    expect(status).toBe(1)
+    expect(stderr).toContain('trim_start_ms')
   })
 
   it('publishes an array of enum values as its item cap', () => {

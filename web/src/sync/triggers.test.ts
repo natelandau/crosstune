@@ -23,6 +23,15 @@ function processingRecording(overrides: Partial<LocalRecording> = {}): LocalReco
     playback_mime: null,
     playback_bytes: null,
     error: null,
+    trim_start_ms: 0,
+    trim_end_ms: null,
+    speed_percent: 100,
+    pitch_cents: 0,
+    source_duration_ms: null,
+    playback_start_ms: null,
+    playback_end_ms: null,
+    playback_rev: null,
+    peaks_rev: null,
     ...overrides,
   }
 }
@@ -43,6 +52,7 @@ function fakeEngine(): SyncEngine & { calls: number } {
     subscribeTransfer: () => () => {},
     resolveLink: async () => null,
     download: async () => null,
+    peaks: async () => null,
     retry: async () => {},
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},

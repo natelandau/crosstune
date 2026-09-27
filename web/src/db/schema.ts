@@ -88,6 +88,24 @@ export class CrosstuneDb extends Dexie {
         user_songs: null,
       })
       .upgrade(startOver)
+
+    this.version(6)
+      .stores({
+        tunes: 'id, title',
+        user_tunes: 'id, tune_id',
+        recording_links: 'id, tune_id',
+        lists: 'id',
+        list_items: 'id, list_id, user_tune_id',
+        user_settings: 'id',
+        recordings: 'id, tune_id',
+        recording_files: 'id, local_state',
+        recording_chunks: '[recording_id+idx], recording_id',
+        outbox: '++seq, &[table+row_id]',
+        meta: 'key',
+        songs: null,
+        user_songs: null,
+      })
+      .upgrade(startOver)
   }
 
   // Dexie's auto-open on the first query calls this method too.

@@ -1,4 +1,5 @@
 import CrosstuneStore
+import CrosstuneSync
 import GRDB
 import SwiftUI
 
@@ -29,14 +30,16 @@ struct PlayerLinkWatch: ViewModifier {
     }
 }
 
-/// Follows the loaded recording's stored row and its tune, so a rename here or on another
-/// device reaches the player, and a recording deleted anywhere takes the player with it.
+/// Follows the loaded recording's stored row, its audio file, and its tune, so a rename, trim,
+/// speed, or pitch here or on another device reaches the player, a new revision of the audio
+/// replaces the old, and a recording deleted anywhere takes the player with it.
 struct PlayerRecordingWatch: ViewModifier {
     let store: CrosstuneStore
     let player: PlayerModel
 
     private struct Loaded: Equatable, Sendable {
         let recording: Recording?
+        let file: RecordingFile?
         let tuneTitle: String?
     }
 
@@ -46,13 +49,19 @@ struct PlayerRecordingWatch: ViewModifier {
             let rows = ValueObservation.tracking { db in
                 let recording = try Recording.fetchOne(db, key: recordingID)
                 let tune = try recording?.tuneID.flatMap { try Tune.fetchOne(db, key: $0) }
-                return Loaded(recording: recording, tuneTitle: tune?.deletedAt == nil ? tune?.title : nil)
+                return Loaded(
+                    recording: recording, file: try RecordingFile.fetchOne(db, key: recordingID),
+                    tuneTitle: tune?.deletedAt == nil ? tune?.title : nil)
             }
             .removeDuplicates()
             .values(in: store.database)
             do {
                 for try await loaded in rows {
-                    player.recordingChanged(id: recordingID, to: loaded.recording, tuneTitle: loaded.tuneTitle)
+                    let audioFile = loaded.file.flatMap { file in
+                        store.localAudio(file).map { RecordingAudioFile(url: $0, file: file) }
+                    }
+                    player.recordingChanged(
+                        id: recordingID, to: loaded.recording, audioFile: audioFile, tuneTitle: loaded.tuneTitle)
                 }
             } catch {
                 // A store that stops answering leaves the loaded player as it is.

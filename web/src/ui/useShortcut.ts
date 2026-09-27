@@ -19,6 +19,12 @@ export function isTextEntry(target: EventTarget | null): boolean {
   )
 }
 
+/** True when the keystroke lands on a control that keeps Space and the arrows for itself. */
+export function isControl(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null
+  return !!element?.closest?.('button, ion-button, a, [role="button"], [role="slider"]')
+}
+
 // The router outlet keeps a page mounted, hidden, while another page covers it, so a window
 // listener must stand down until its page is shown again.
 function useViewActive(): boolean {
@@ -31,6 +37,21 @@ function useViewActive(): boolean {
 /** True while an overlay holds the keyboard, which puts the page behind it out of reach. */
 export function overlayOpen(): boolean {
   return document.querySelector(`:is(${BLOCKING_OVERLAYS}):not(.overlay-hidden)`) !== null
+}
+
+/** True when `element` is the overlay on top, so nothing stacked over it holds the keyboard. */
+export function isTopOverlay(element: HTMLElement | null): boolean {
+  if (!element) return false
+  const shown = Array.from(
+    document.querySelectorAll<HTMLElement>(`:is(${BLOCKING_OVERLAYS}):not(.overlay-hidden)`),
+  )
+  // Ionic stacks each presented overlay above the last by its z-index.
+  const top = shown.reduce<HTMLElement | null>(
+    (best, overlay) =>
+      best === null || Number(overlay.style.zIndex) >= Number(best.style.zIndex) ? overlay : best,
+    null,
+  )
+  return top === element
 }
 
 /**

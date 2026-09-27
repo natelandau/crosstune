@@ -40,8 +40,9 @@ reopens one without new information. Add a new entry at the end.
 
 ## Python and FastAPI
 
-- Every planned audio feature (pitch correction, tempo change, transcription)
-  lives in Python.
+- Server-side audio work (transcoding, trimming, waveform peaks, and a
+  planned melody transcription) lives in Python. Speed and pitch play on
+  the device, so they need no server.
 - FastAPI emits OpenAPI, which generates the client's TypeScript types.
 - Litestar was rejected for its smaller ecosystem. Nothing depends on the
   choice.

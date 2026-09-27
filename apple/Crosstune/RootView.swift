@@ -39,9 +39,13 @@ struct RootView: View {
             session.phaseChanged()
         }
         // What played, and what the Edit menu could undo, belong to the catalog they came from.
-        .onChange(of: session.store?.userID) {
-            player.close()
+        .onChange(of: session.store?.userID) { old, _ in
+            // Only a store being left has anything to drop; the first one opening has nothing.
+            if old != nil { player.leaveStore() }
             undoManager?.removeAllActions()
+        }
+        .onAppear {
+            session.settleBeforeLeaving = { [player] in await player.finishSettings() }
         }
     }
 }

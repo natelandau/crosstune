@@ -16,6 +16,8 @@ public struct PlayerBar: View {
     private let player: PlayerModel
     private let isPanel: Bool
 
+    @Environment(\.playerWindow) private var window
+
     /// - Parameter isPanel: The bar heads the iPad and Mac panel, which shows the player in
     ///   full under it and puts the link out to the provider in the bar. The iPhone's full
     ///   player carries that link instead.
@@ -30,14 +32,17 @@ public struct PlayerBar: View {
             if isRecording {
                 RecordingPlayButton(player: player)
             }
-            if isPanel {
-                itemLabel(glyph: !isRecording)
+            // The panel shows a link's player under the bar; a recording opens its screen.
+            if isPanel && !isRecording {
+                itemLabel(glyph: true)
             } else {
-                Button(action: player.expand) {
+                Button {
+                    player.expand(in: window)
+                } label: {
                     itemLabel(glyph: !isRecording).contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(Self.show), \(player.title ?? "")")
+                .accessibilityLabel(showLabel(isRecording: isRecording))
             }
             if isPanel, let link = player.item?.link, let url = link.providerURL {
                 Link(destination: url) {
@@ -61,6 +66,15 @@ public struct PlayerBar: View {
         .padding(.trailing, 4)
     }
 
+    /// Show player and the item's name, then a recording's speed and pitch when either is
+    /// away from its default, since the button's name replaces the badge's.
+    private func showLabel(isRecording: Bool) -> String {
+        let badge =
+            isRecording
+            ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
+        return [Self.show, player.title ?? "", badge].compactMap(\.self).joined(separator: ", ")
+    }
+
     private func itemLabel(glyph: Bool) -> some View {
         HStack(spacing: 12) {
             if glyph {
@@ -68,10 +82,42 @@ public struct PlayerBar: View {
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
             }
-            Text(player.title ?? "")
-                .font(.subheadline.weight(.medium))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(player.title ?? "")
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                // The panel shows the failure in its body under the bar instead.
+                if !isPanel, let failure = player.failure {
+                    PlayerFailureText(failure).lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            if player.item?.kind == .recording {
+                SettingsBadge(speedPercent: player.speedPercent, pitchCents: player.pitchCents)
+            }
+        }
+    }
+}
+
+/// A recording's speed and pitch when either is away from its default: "75% +2".
+struct SettingsBadge: View {
+    let speedPercent: Int
+    let pitchCents: Int
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if let badge = RecordingScreenText.badge(speedPercent: speedPercent, pitchCents: pitchCents),
+            let label = RecordingScreenText.badgeLabel(speedPercent: speedPercent, pitchCents: pitchCents)
+        {
+            Text(badge)
+                .font(.caption)
+                .monospacedDigit()
+                .padding(.horizontal, 8)
+                .frame(minHeight: 22)
+                .background(neutralFill(colorScheme), in: .capsule)
+                .fixedSize()
+                .accessibilityLabel(label)
         }
     }
 }
@@ -137,22 +183,27 @@ struct PlayerPanel: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
             } else if player.item?.kind == .recording {
-                HStack(spacing: 8) {
+                #if os(iOS)
+                    HStack(spacing: 8) {
+                        RecordingPlayerBody(player: player)
+                        AudioRoutePicker()
+                    }
+                    .padding(.leading, 16)
+                    .padding(.trailing, 4)
+                    .padding(.bottom, 8)
+                #else
                     RecordingPlayerBody(player: player)
-                    AudioRoutePicker(audio: player.audio)
-                }
-                .padding(.leading, 16)
-                .padding(.trailing, 4)
-                .padding(.bottom, 8)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                #endif
             }
         }
     }
 }
 
-/// The iPhone's full player: a link's provider player and the link out to the provider, or a
-/// recording's scrubber and transport, and Close player. Pulling it down leaves the bar, still
-/// playing.
-struct PlayerSheet: View {
+/// The iPhone's full player for a loaded link: its provider's player, the link out to the
+/// provider, and Close player. Pulling it down leaves the bar, still playing.
+struct LinkPlayerSheet: View {
     let player: PlayerModel
     let stage: EmbedStage
 
@@ -176,16 +227,12 @@ struct PlayerSheet: View {
                         }
                         .buttonStyle(.bordered)
                     }
-                } else if player.item?.kind == .recording {
-                    RecordingPlayerSheetContent(player: player)
-                        .padding(.top, 12)
                 }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-            // A recording's sheet names it in large type over its controls instead.
-            .navigationTitle(player.item?.link == nil ? "" : player.title ?? "")
+            .navigationTitle(player.title ?? "")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif

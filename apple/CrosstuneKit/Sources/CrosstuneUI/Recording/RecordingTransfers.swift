@@ -53,9 +53,10 @@ public final class RecordingTransferActions {
     }
 }
 
-/// Wires recording transfers into the shell: the rows' Download and Retry, and where the
-/// player finds a recording's audio. Without an engine, as signed out, rows fetch and retry
-/// nothing, and the player plays only what is on this device.
+/// Wires recording transfers into the shell: the rows' Download and Retry, where the player
+/// finds a recording's audio, and where it writes a recording's settled speed and pitch.
+/// Without an engine, as signed out, rows fetch and retry nothing, and the player plays only
+/// what is on this device.
 struct RecordingTransfers: ViewModifier {
     let store: CrosstuneStore
     let player: PlayerModel
@@ -71,8 +72,21 @@ struct RecordingTransfers: ViewModifier {
                 let store = store
                 actions = engine.map { RecordingTransferActions(engine: $0, store: store) }
                 player.audioSource = { recordingID in
-                    if let engine { return await engine.download(recordingID) }
-                    return await store.localAudio(recordingID: recordingID)
+                    let url =
+                        if let engine { await engine.download(recordingID) } else {
+                            await store.localAudio(recordingID: recordingID)
+                        }
+                    guard url != nil else { return nil }
+                    // The row read after the fetch names the file the fetch left, with where its
+                    // audio starts in the source.
+                    let file = try? await store.read { db in try RecordingFile.fetchOne(db, key: recordingID) }
+                    guard let file = file ?? nil, let fileURL = store.localAudio(file) else { return nil }
+                    return RecordingAudioFile(url: fileURL, file: file)
+                }
+                player.saveSettings = { recordingID, change in
+                    try await CrosstuneCommands.Commands(store: store).updateRecording(
+                        recordingID, speedPercent: change.speedPercent.map(Patch.value) ?? .keep,
+                        pitchCents: change.pitchCents.map(Patch.value) ?? .keep)
                 }
             }
     }

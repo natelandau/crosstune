@@ -7,7 +7,7 @@ import { page, userEvent } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
 import { forceTouch } from '../test/pointer'
-import { useConfirm, type ConfirmOptions } from './Confirm'
+import { CANCEL, type ConfirmOptions, useConfirm } from './Confirm'
 
 type Confirm = (options: ConfirmOptions) => Promise<boolean>
 import { MORE_ACTIONS, useMenu, type MenuItem } from './Menu'
@@ -325,7 +325,7 @@ describe('useConfirm', () => {
     renderIonic(<ConfirmHost onResult={onResult} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Delete tune'))
     await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
-    await userEvent.click(screen.getByText('Cancel'))
+    await userEvent.click(screen.getByText(CANCEL))
     await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(false))
     // The alert removes itself from the DOM as it dismisses; wait for that to finish, or the
     // click below can land on its backdrop instead of the button underneath it.
@@ -352,7 +352,7 @@ describe('useConfirm', () => {
     await userEvent.click(await screen.findByText('Ask twice'))
     await userEvent.click(await screen.findByText('Remove'))
     await expect.element(await screen.findByText('Second question.')).toBeVisible()
-    await userEvent.click(screen.getByText('Cancel'))
+    await userEvent.click(screen.getByText(CANCEL))
     await waitFor(() => expect(onResult.mock.calls).toEqual([[true], [false]]))
   })
 
@@ -400,7 +400,7 @@ describe('useConfirm', () => {
       extra = ok
     })
     await waitFor(() => expect(extra).toBe(false))
-    await userEvent.click(screen.getByText('Cancel'))
+    await userEvent.click(screen.getByText(CANCEL))
     await waitFor(() => expect(results).toEqual([true, false]))
     await waitFor(() => expect(screen.queryByText('Third question.')).not.toBeInTheDocument())
   })
@@ -489,7 +489,7 @@ describe('on touch', () => {
       renderIonic(<ConfirmHost onResult={onResult} />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('Delete tune'))
       await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
-      await userEvent.click(screen.getByText('Cancel'))
+      await userEvent.click(screen.getByText(CANCEL))
       await waitFor(() => expect(onResult).toHaveBeenLastCalledWith(false))
       await waitFor(() =>
         expect(screen.queryByText('This removes 3 recordings.')).not.toBeInTheDocument(),

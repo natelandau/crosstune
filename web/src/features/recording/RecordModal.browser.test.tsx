@@ -11,6 +11,7 @@ import type * as ToastModule from '../../ui/Toast'
 import { PARTIAL_SAVE } from './recordingSession'
 import { DISCARD_TITLE, NEW_RECORDING, NOT_RECORDING, STARTING_MICROPHONE } from './RecordModal'
 import { RecordProvider, useRecord } from './useRecord'
+import { CANCEL } from '../../ui/Confirm'
 
 let toasts: string[] = []
 vi.mock('../../ui/Toast', async (importOriginal) => {
@@ -312,14 +313,14 @@ describe('RecordModal capture', () => {
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await expect.element(page.getByText(DISCARD_TITLE)).toBeVisible()
     // Both the confirmation and the modal's footer offer a Cancel, so this one is the alert's.
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: CANCEL, exact: true }).click()
     // The alert removes itself as it dismisses; the next tap must not land on its backdrop.
     await vi.waitFor(() => expect(document.querySelector('ion-alert')).toBeNull())
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await page.getByRole('button', { name: 'Discard', exact: true }).click()
     await vi.waitFor(() => expect(shown()).toBe(false))
     expect(await db.recordings.count()).toBe(0)
@@ -343,7 +344,7 @@ describe('RecordModal capture', () => {
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent(STARTING_MICROPHONE)
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(() => expect(shown()).toBe(false))
     expect(document.querySelector('ion-alert')).toBeNull()
     grant()
@@ -384,7 +385,7 @@ describe('RecordModal capture', () => {
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
-    const cancel = page.getByRole('button', { name: 'Cancel', exact: true })
+    const cancel = page.getByRole('button', { name: CANCEL, exact: true })
     await expect.element(cancel).toBeVisible()
     expect(
       (cancel.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,

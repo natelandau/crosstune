@@ -68,6 +68,23 @@ class SignedUrl(BaseModel):
     expires_at: datetime
 
 
+class DownloadUrl(BaseModel):
+    """A presigned GET for the playback file, tagged with the revision and start it was signed for."""
+
+    url: str
+    expires_at: datetime
+    playback_rev: str
+    playback_start_ms: int
+
+
+class PeaksUrl(BaseModel):
+    """A presigned GET for the waveform file, tagged with the revision it was signed for."""
+
+    url: str
+    expires_at: datetime
+    peaks_rev: str
+
+
 class StorageUnavailableError(AppError):
     """No object store is configured, so uploads and downloads cannot be served."""
 
@@ -186,7 +203,7 @@ async def upload_finished(
     recording.playback_bytes = info.size
     await session.delete(slot)
     bump_server_seq(recording)
-    enqueue_transcode(session, recording)
+    await enqueue_transcode(session, recording)
     await session.flush()
     return Response(status_code=204)
 
@@ -211,9 +228,15 @@ async def retry(
     recording.state = "uploaded"
     recording.error = None
     bump_server_seq(recording)
-    enqueue_transcode(session, recording)
+    await enqueue_transcode(session, recording)
     await session.flush()
     return Response(status_code=204)
+
+
+def _presign_get(store: ObjectStore, key: str) -> tuple[str, datetime]:
+    """A presigned GET url for an object key, with the download TTL's own expiry."""
+    url = store.presign_get(key, DOWNLOAD_URL_TTL_SECONDS)
+    return url, utc_now() + timedelta(seconds=DOWNLOAD_URL_TTL_SECONDS)
 
 
 @router.get("/{recording_id}/download", responses=problem_responses(404, 409, 503))
@@ -222,13 +245,43 @@ async def download(
     request: Request,
     user: CurrentUser,
     session: DbSession,
-) -> SignedUrl:
-    """A presigned GET for the playback file of a ready recording."""
+) -> DownloadUrl:
+    """A presigned GET for the playback file of a ready recording.
+
+    Carries the revision and start the signature was issued for, read from the same row
+    as the key: a trim landing between this response and the client's GET changes the
+    row, but never what this response already promised.
+    """
     store = require_store(request)
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, "ready")
-    if recording.playback_key is None:
+    key = recording.playback_key
+    rev = recording.playback_rev
+    start_ms = recording.playback_start_ms
+    if key is None or rev is None or start_ms is None:
         msg = "Recording has no playback file"
         raise ConflictError(msg)
-    url = store.presign_get(recording.playback_key, DOWNLOAD_URL_TTL_SECONDS)
-    return SignedUrl(url=url, expires_at=utc_now() + timedelta(seconds=DOWNLOAD_URL_TTL_SECONDS))
+    url, expires_at = _presign_get(store, key)
+    return DownloadUrl(url=url, expires_at=expires_at, playback_rev=rev, playback_start_ms=start_ms)
+
+
+@router.get("/{recording_id}/peaks", responses=problem_responses(404, 409, 503))
+async def peaks(
+    recording_id: uuid.UUID,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+) -> PeaksUrl:
+    """A presigned GET for the waveform peaks file of a recording.
+
+    Carries the revision the signature was issued for, read from the same row as the key.
+    """
+    store = require_store(request)
+    recording = await owned_recording(session, user.id, recording_id)
+    key = recording.peaks_key
+    rev = recording.peaks_rev
+    if key is None or rev is None:
+        msg = "Recording has no peaks file"
+        raise ConflictError(msg)
+    url, expires_at = _presign_get(store, key)
+    return PeaksUrl(url=url, expires_at=expires_at, peaks_rev=rev)

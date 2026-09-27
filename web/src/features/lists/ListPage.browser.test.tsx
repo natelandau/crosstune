@@ -8,7 +8,7 @@ import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
-import { DELETING } from '../../ui/Confirm'
+import { CANCEL, DELETING } from '../../ui/Confirm'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
 import { SEARCH_TUNES } from '../catalog/TuneSearch'
@@ -428,7 +428,7 @@ describe('ListPage selection', () => {
     expect(screenTitle()).toBe('Tuesday jam')
     expect(leaveSelection().elements()).toHaveLength(0)
 
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(
       () => expect(page.getByLabelText(LIST_NAME_LABEL).elements()).toHaveLength(0),
       {

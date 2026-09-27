@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTune, signIn, swipeLeft, unique } from './helpers'
+import { addTune, expectNoOverlay, signIn, swipeLeft, unique } from './helpers'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
@@ -47,6 +47,41 @@ async function addToTune(page: Page, row: Locator, title: string): Promise<Locat
   return filed
 }
 
+/**
+ * Wait until `row` settles out of the upload/transcode pipeline, nudging the sync loop from
+ * Settings along the way in case it is between passes or backing off. `restore` returns to
+ * wherever `row` is shown after that nudge; the Recordings tab by default.
+ */
+async function waitForReady(
+  page: Page,
+  row: Locator,
+  { timeout = 60_000, restore }: { timeout?: number; restore?: () => Promise<void> } = {},
+): Promise<void> {
+  const busy = /Waiting to upload|Uploading|Processing/
+  await expect
+    .poll(
+      async () => {
+        const text = (await row.textContent()) ?? ''
+        if (busy.test(text)) {
+          await page.getByRole('tab', { name: 'Settings' }).click()
+          await page.getByRole('button', { name: 'Sync now' }).click()
+          if (restore) await restore()
+          else await page.getByRole('tab', { name: 'Recordings' }).click()
+        }
+        return row.textContent()
+      },
+      { timeout, intervals: [3_000] },
+    )
+    .not.toMatch(busy)
+}
+
+/** Nudge the transfer loop from Settings, then return to the recordings list it left. */
+async function nudgeSync(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Sync now' }).click()
+  await page.getByRole('tab', { name: 'Recordings' }).click()
+}
+
 test('record, add the recording to a tune, and play it back on the device', async ({ page }) => {
   await signIn(page)
   const title = unique('Cluck Old Hen')
@@ -55,11 +90,10 @@ test('record, add the recording to a tune, and play it back on the device', asyn
   const unfiled = await recordUnfiled(page, 6)
   const row = await addToTune(page, unfiled, title)
   await row.getByRole('button', { name: /^Play / }).click()
-  const audio = page.getByRole('region', { name: 'Player' }).locator('audio')
-  await expect(audio).toBeVisible()
-  await expect
-    .poll(() => audio.evaluate((a: HTMLAudioElement) => a.src.startsWith('blob:')))
-    .toBe(true)
+  const player = page.getByRole('region', { name: 'Player' })
+  // Every recording reaches the dock from a Play tap, so it starts playing on its own.
+  await expect(player.getByRole('button', { name: 'Pause' })).toBeVisible()
+  await expect(player.getByRole('timer').first()).toHaveText(/^0:0\d$/)
 })
 
 test('uploads a recording, transcodes it, and plays it back from a second device', async ({
@@ -85,27 +119,21 @@ test('uploads a recording, transcodes it, and plays it back from a second device
   const row = page.getByRole('list', { name: 'Recordings' }).getByRole('listitem').first()
   await expect(row).toContainText(DEFAULT_LABEL)
 
-  // The transfer loop runs on its own, but nudge it through Settings' Sync now
-  // every few seconds in case it is between passes or backing off.
-  const uploading = /Waiting to upload|Uploading|Processing/
-  const deadline = Date.now() + 120_000
-  let settled = false
-  while (Date.now() < deadline) {
-    if (!uploading.test((await row.textContent()) ?? '')) {
-      settled = true
-      break
-    }
-    await page.getByRole('tab', { name: 'Settings' }).click()
-    await page.getByRole('button', { name: 'Sync now' }).click()
-    await page.waitForTimeout(3_000)
-    await page.goto(tuneUrl)
-    await expect(page.getByRole('heading', { name: title })).toBeVisible()
+  try {
+    await waitForReady(page, row, {
+      timeout: 120_000,
+      restore: async () => {
+        await page.goto(tuneUrl)
+        await expect(page.getByRole('heading', { name: title })).toBeVisible()
+      },
+    })
+  } catch (error) {
+    throw new Error(
+      `upload/processing did not finish in time; row: "${await row.textContent()}"; ` +
+        `console errors: ${JSON.stringify(consoleErrors)}`,
+      { cause: error },
+    )
   }
-  expect(
-    settled,
-    `upload/processing did not finish in time; row: "${await row.textContent()}"; ` +
-      `console errors: ${JSON.stringify(consoleErrors)}`,
-  ).toBe(true)
 
   const secondDevice = await browser.newContext()
   try {
@@ -121,17 +149,13 @@ test('uploads a recording, transcodes it, and plays it back from a second device
     // The second device holds no audio yet: the row fetches it first, then offers to play it.
     await row2.getByRole('button', { name: /^Download / }).click()
     await row2.getByRole('button', { name: /^Play / }).click({ timeout: 30_000 })
-    const audio = page2.getByRole('region', { name: 'Player' }).locator('audio')
-    await expect(audio).toBeVisible()
+    const player2 = page2.getByRole('region', { name: 'Player' })
+    await expect(player2.getByRole('button', { name: 'Pause' })).toBeVisible()
     try {
+      // The elapsed timer only advances once the decoded audio is genuinely playing.
       await expect
-        .poll(() => audio.evaluate((a: HTMLAudioElement) => a.src.startsWith('blob:')), {
-          timeout: 30_000,
-        })
-        .toBe(true)
-      await expect
-        .poll(() => audio.evaluate((a: HTMLAudioElement) => a.duration), { timeout: 30_000 })
-        .toBeGreaterThan(0)
+        .poll(async () => player2.getByRole('timer').first().textContent(), { timeout: 30_000 })
+        .not.toBe('0:00')
     } catch (error) {
       throw new Error(`playback never started; console errors: ${JSON.stringify(consoleErrors2)}`, {
         cause: error,
@@ -140,4 +164,91 @@ test('uploads a recording, transcodes it, and plays it back from a second device
   } finally {
     await secondDevice.close()
   }
+})
+
+test('trims a recording and another device sees it', async ({ page, browser }) => {
+  test.setTimeout(180_000)
+
+  const consoleErrors: string[] = []
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text())
+  })
+
+  await signIn(page)
+
+  const unfiled = await recordUnfiled(page, 6)
+  await waitForReady(page, unfiled)
+  const label = (await unfiled.locator('h3').innerText()).trim()
+  // ion-modal names its shadow dialog asynchronously and unreliably, so the modal element
+  // itself is the scope, the same way every sheet in this file is scoped.
+  const screen = page.locator('ion-modal.show-modal')
+
+  await swipeLeft(page, unfiled)
+  await unfiled
+    .locator('xpath=..')
+    .getByRole('button', { name: /^Edit / })
+    .click()
+
+  // Opening the recording starts it playing; pausing (whichever state it lands in) keeps the
+  // playhead from drifting past the range this test is about to trim.
+  const transport = screen
+    .getByRole('button', { name: 'Pause', exact: true })
+    .or(screen.getByRole('button', { name: 'Play', exact: true }))
+  await expect(transport).toBeVisible({ timeout: 15_000 })
+  if ((await transport.getAttribute('aria-label')) === 'Pause') await transport.click()
+
+  await screen.getByRole('button', { name: 'Trim', exact: true }).click()
+
+  const overview = screen.getByRole('slider', { name: 'Whole recording' })
+  await expect(screen.getByRole('button', { name: 'Set end', exact: true })).toBeEnabled()
+  const box = await overview.boundingBox()
+  if (!box) throw new Error('trim overview is not visible')
+  // Halfway across a 6-second recording lands the playhead around 3 seconds.
+  await overview.click({ position: { x: box.width / 2, y: box.height / 2 } })
+  await page.keyboard.press(']')
+  const save = screen.getByRole('button', { name: 'Save', exact: true })
+  await expect(save).toBeEnabled()
+  // Back to the start before saving, so the kept range plays from its own beginning.
+  await screen.getByRole('button', { name: 'Go to start' }).click()
+  await save.click()
+  // The confirm sheet is its own overlay, outside the recording screen's modal.
+  await page.getByRole('button', { name: 'Trim', exact: true }).click()
+  await expectNoOverlay(page)
+
+  await screen.getByRole('button', { name: 'Close', exact: true }).click()
+  const player = page.getByRole('region', { name: 'Player' })
+  await expect(player.getByRole('timer', { name: /^Remaining/ })).toHaveText('-0:03', {
+    timeout: 15_000,
+  })
+
+  const secondDevice = await browser.newContext()
+  try {
+    const page2 = await secondDevice.newPage()
+    const consoleErrors2: string[] = []
+    page2.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors2.push(msg.text())
+    })
+    await signIn(page2)
+    await page2.goto('/recordings')
+    const row2 = page2
+      .getByRole('list', { name: 'Unfiled' })
+      .getByRole('listitem')
+      .filter({ hasText: label })
+    // The server's trim job runs after the push; each poll nudges both devices so neither
+    // sits on a backed-off sync pass waiting for the other.
+    await expect
+      .poll(
+        async () => {
+          await nudgeSync(page)
+          await nudgeSync(page2)
+          return row2.textContent()
+        },
+        { timeout: 60_000, intervals: [3_000] },
+      )
+      .toMatch(/0:03/)
+    expect(consoleErrors2, JSON.stringify(consoleErrors2)).toEqual([])
+  } finally {
+    await secondDevice.close()
+  }
+  expect(consoleErrors, JSON.stringify(consoleErrors)).toEqual([])
 })

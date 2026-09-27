@@ -630,7 +630,7 @@ html.md .player-dock-frame {
   border-top: 0.55px solid
     var(--ion-tab-bar-border-color, var(--ion-border-color, rgba(0, 0, 0, 0.2)));
   background: var(--player-dock-background, var(--ion-background-color, #ffffff));
-  /* A recording plays through the browser's own audio control, which takes its face from the
+  /* A recording's progress bar is a native <progress> element, which takes its face from the
      color scheme rather than from any palette variable. */
   color-scheme: light;
 }

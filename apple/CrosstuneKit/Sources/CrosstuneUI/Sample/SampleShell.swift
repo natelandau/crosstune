@@ -68,7 +68,8 @@
             throw URLError(.notConnectedToInternet)
         }
         func uploadFinished(recordingID: String) async throws { throw URLError(.notConnectedToInternet) }
-        func downloadURL(recordingID: String) async throws -> URL { throw URLError(.notConnectedToInternet) }
+        func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.notConnectedToInternet) }
+        func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.notConnectedToInternet) }
         func retryRecording(recordingID: String) async throws { throw URLError(.notConnectedToInternet) }
         func putObject(_ url: URL, file: URL, contentType: String) async throws {
             throw URLError(.notConnectedToInternet)

@@ -204,13 +204,19 @@ public final class AccountSession {
         connectivityChanged()
     }
 
+    /// Finishes the writes the app still holds back, such as a speed change settling, before
+    /// leaving checks what is unsynced and closes the store. Set by the app.
+    public var settleBeforeLeaving: (@MainActor () async -> Void)?
+
     /// Syncs, then signs out and deletes this device's copy of the user's catalog. Refuses while
     /// any change or recording is still only on this device, since it would go with the catalog.
     public func signOut() async throws {
         let userID = try confirmedUserID()
-        try await Self.leave(userID: userID, store: store, root: storeRoot, sync: sync) {
-            try await Clerk.shared.auth.signOut()
-        }
+        try await Self.leave(
+            userID: userID, store: store, root: storeRoot, sync: sync,
+            settle: { await self.settleBeforeLeaving?() },
+            endSession: { try await Clerk.shared.auth.signOut() }
+        )
         forget()
     }
 
@@ -222,6 +228,7 @@ public final class AccountSession {
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
         let client = client
+        await settleBeforeLeaving?()
         do {
             try await Self.deleteAndLeave(
                 userID: userID, store: store, root: storeRoot, sync: sync,
@@ -240,6 +247,7 @@ public final class AccountSession {
         guard !isLeavingDeleted, case .signedIn(let userID, _) = phase else { return }
         isLeavingDeleted = true
         defer { isLeavingDeleted = false }
+        await settleBeforeLeaving?()
         await Self.forgetDeleted(userID: userID, store: store, root: storeRoot, sync: sync) {
             try await Clerk.shared.auth.signOut()
         }
@@ -273,12 +281,14 @@ public final class AccountSession {
     /// possibly shared device, so it goes with the session; if ending the session fails, it
     /// stays.
     ///
-    /// Syncs first and refuses while anything is still only on this device, since the folder
-    /// takes it along.
+    /// `settle` first finishes the writes the app holds back, so none lands after the store
+    /// closes. It then syncs and refuses while anything is still only on this device, since the
+    /// folder takes it along.
     static func leave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
-        endSession: () async throws -> Void
+        settle: () async -> Void = {}, endSession: () async throws -> Void
     ) async throws {
+        await settle()
         if let store {
             await sync?.sync()
             if try await store.pendingChangeCount() > 0 { throw LeaveError.unsyncedChanges }

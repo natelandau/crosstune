@@ -8,7 +8,9 @@ import {
 import { IonReactMemoryRouter, IonReactRouter } from '@ionic/react-router'
 import { useCallback, useContext, useEffect, useRef, type RefObject } from 'react'
 import { Dock } from '../features/player/Dock'
+import { PlaybackEngineProvider } from '../features/player/PlaybackEngineProvider'
 import { PlayerProvider } from '../features/player/PlayerProvider'
+import { RecordingScreenProvider } from '../features/recording-screen/RecordingScreenProvider'
 import { RecordProvider, useRecord } from '../features/recording/useRecord'
 import { SelectionProvider, useSelectionChrome } from '../features/selection/SelectionProvider'
 import { useFrame } from '../platform/frame'
@@ -28,18 +30,24 @@ export function Shell({ initialPath }: { initialPath?: string }) {
   const Router = initialPath ? IonReactMemoryRouter : IonReactRouter
   const routerProps = initialPath ? { initialEntries: [initialPath] } : {}
   return (
-    <PlayerProvider>
-      <Router {...routerProps}>
-        <ToastProvider>
-          {/* Inside the router, so starting a recording can also navigate. */}
-          <RecordProvider>
-            <SelectionProvider>
-              <Frames />
-            </SelectionProvider>
-          </RecordProvider>
-        </ToastProvider>
-      </Router>
-    </PlayerProvider>
+    // Outside PlayerProvider so it can reach the engine and prime it inside the tap that
+    // asks to play a recording.
+    <PlaybackEngineProvider>
+      <PlayerProvider>
+        <Router {...routerProps}>
+          <ToastProvider>
+            {/* Inside the router, so starting a recording can also navigate. */}
+            <RecordProvider>
+              <RecordingScreenProvider>
+                <SelectionProvider>
+                  <Frames />
+                </SelectionProvider>
+              </RecordingScreenProvider>
+            </RecordProvider>
+          </ToastProvider>
+        </Router>
+      </PlayerProvider>
+    </PlaybackEngineProvider>
   )
 }
 

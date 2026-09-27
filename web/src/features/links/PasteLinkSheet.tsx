@@ -10,6 +10,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { detectProvider, isProvider } from './detect'
 import { outboundUrl } from './display'
+import { CANCEL } from '../../ui/Confirm'
 
 export const PASTE_LINK = 'Paste link'
 export const ADD_LINK = 'Add link'
@@ -113,7 +114,7 @@ export function PasteLinkSheet({
       onClose={dismissed}
       start={
         <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
       end={

@@ -28,6 +28,7 @@ jobs:
     # The image with the Xcode the app is built and shipped with. The `macos-*` images
     # default to an older Xcode.
     runs-on: xcode-27
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apple
@@ -38,6 +39,7 @@ jobs:
       - run: xcodebuild -version
       - run: just lint
       - run: just test
+        timeout-minutes: 15
       - run: just build
       - run: just contract
       - name: fail if the committed Swift client or vocabulary is stale

@@ -30,6 +30,7 @@ import {
 import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
 import { catalogComposers, mostUsedGenre, orderedTypes } from './tuneTypes'
+import { CANCEL } from '../../ui/Confirm'
 
 export const TITLE_REQUIRED = 'A title is required'
 export const EDIT_TUNE_TITLE = 'Edit tune'
@@ -200,7 +201,7 @@ export function TuneFormSheet({
       onClose={dismissed}
       start={
         <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
       end={

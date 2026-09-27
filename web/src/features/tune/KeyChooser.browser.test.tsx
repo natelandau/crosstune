@@ -5,6 +5,7 @@ import { ALL_KEYS, QUICK_KEYS } from '../../constants'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { KeyChooser, MORE_KEYS, UNKNOWN_KEY } from './KeyChooser'
+import { CANCEL } from '../../ui/Confirm'
 
 function Host({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)
@@ -34,7 +35,7 @@ async function menuLabels(): Promise<string[]> {
     )
     return Array.from(sheet.shadowRoot!.querySelectorAll('.action-sheet-button'))
       .map((button) => button.textContent!.trim())
-      .filter((label) => label !== 'Cancel')
+      .filter((label) => label !== CANCEL)
   }
   const popover = open()!
   await vi.waitFor(() => expect(popover.querySelector('ion-label')).toBeTruthy())

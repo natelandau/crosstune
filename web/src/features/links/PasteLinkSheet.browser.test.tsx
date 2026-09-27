@@ -16,6 +16,7 @@ import {
   PASTE_LINK,
   PasteLinkSheet,
 } from './PasteLinkSheet'
+import { CANCEL } from '../../ui/Confirm'
 
 function Host({ tuneId, onClose = () => {} }: { tuneId: string | null; onClose?: () => void }) {
   const [current, setCurrent] = useState(tuneId)
@@ -161,7 +162,7 @@ describe('PasteLinkSheet', () => {
     const onClose = vi.fn()
     show(tuneId, { db, onClose })
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
     expect(onClose).toHaveBeenCalledOnce()
     expect(await db.recording_links.count()).toBe(0)
@@ -203,7 +204,7 @@ describe('PasteLinkSheet', () => {
 
     renderIonic(<ReopenHost />, { db })
     await expect.element(page.getByText(PASTE_LINK)).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
     await page.getByRole('button', { name: 'Reopen', exact: true }).click()
     await expect.element(page.getByText(PASTE_LINK)).toBeVisible()

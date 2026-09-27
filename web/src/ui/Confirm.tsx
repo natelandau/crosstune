@@ -1,9 +1,10 @@
 import { useIonActionSheet, useIonAlert } from '@ionic/react'
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { usePointer } from '../platform/pointer'
 
 export const DELETE = 'Delete'
 export const DELETING = 'Deleting…'
+export const CANCEL = 'Cancel'
 
 export interface ConfirmOptions {
   title: string
@@ -18,8 +19,8 @@ export interface ConfirmOptions {
  */
 export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
   const pointer = usePointer()
-  const [presentSheet] = useIonActionSheet()
-  const [presentAlert] = useIonAlert()
+  const [presentSheet, dismissSheet] = useIonActionSheet()
+  const [presentAlert, dismissAlert] = useIonAlert()
   // Ionic's present hooks silently ignore a call while their previous overlay is still
   // dismissing, which would leave that confirmation's promise pending forever. Each call waits
   // for the one before it to finish dismissing.
@@ -28,6 +29,21 @@ export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
   // answered is one impatient double press, not a second question, so it declines at once
   // rather than putting another dialog behind the one already up.
   const asking = useRef(false)
+  // A question asked by a component that has gone no longer has anything to act on, so it
+  // goes with it and answers no.
+  const dismiss = useRef(() => {})
+  useEffect(() => {
+    dismiss.current = () => {
+      void dismissSheet()
+      void dismissAlert()
+    }
+  })
+  useEffect(
+    () => () => {
+      if (asking.current) dismiss.current()
+    },
+    [],
+  )
 
   return useCallback(
     ({ title, message, action }) => {
@@ -57,7 +73,7 @@ export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
                   subHeader: message,
                   buttons: [
                     { text: action, role: 'destructive', handler: () => settle(true) },
-                    { text: 'Cancel', role: 'cancel', handler: () => settle(false) },
+                    { text: CANCEL, role: 'cancel', handler: () => settle(false) },
                   ],
                   onDidDismiss,
                 }).catch(onDidDismiss)
@@ -67,7 +83,7 @@ export function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
                 header: title,
                 message,
                 buttons: [
-                  { text: 'Cancel', role: 'cancel', handler: () => settle(false) },
+                  { text: CANCEL, role: 'cancel', handler: () => settle(false) },
                   { text: action, role: 'destructive', handler: () => settle(true) },
                 ],
                 onDidDismiss,

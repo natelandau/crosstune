@@ -139,26 +139,35 @@ enum TabSlot: Hashable {
     }
 
     /// The player in the tab bar's bottom accessory, only while something is loaded, and the
-    /// player in full in a sheet over it. Pulling the sheet down leaves the bar playing.
+    /// player in full in a sheet over it: a recording's screen at full height, or a link's
+    /// player. Pulling the sheet down leaves the bar playing.
     private struct PlayerAccessory: ViewModifier {
         let player: PlayerModel
         let stage: EmbedStage
+
+        @Environment(\.playerWindow) private var window
 
         func body(content: Content) -> some View {
             content
                 .tabViewBottomAccessory(isEnabled: player.isLoaded) {
                     PlayerBar(player: player)
                 }
-                .modifier(EmbedParking(player: player, stage: stage))
-                .sheet(
-                    isPresented: Binding {
-                        player.isExpanded && player.isLoaded
-                    } set: {
-                        player.isExpanded = $0
-                    }
-                ) {
-                    PlayerSheet(player: player, stage: stage)
+                .sheet(isPresented: expanded(.recording)) {
+                    RecordingScreen(player: player)
+                        .presentationDetents([.large])
                 }
+                .modifier(EmbedParking(player: player, stage: stage))
+                .sheet(isPresented: expanded(.link)) {
+                    LinkPlayerSheet(player: player, stage: stage)
+                }
+        }
+
+        private func expanded(_ kind: PlayerItem.Kind) -> Binding<Bool> {
+            Binding {
+                player.showsExpanded(in: window) && player.item?.kind == kind
+            } set: {
+                player.isExpanded = $0
+            }
         }
     }
 #endif

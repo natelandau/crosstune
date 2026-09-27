@@ -25,7 +25,8 @@ private struct SilentSyncAPI: SyncAPI {
         throw URLError(.badURL)
     }
     func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
-    func downloadURL(recordingID: String) async throws -> URL { throw URLError(.badURL) }
+    func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badURL) }
+    func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badURL) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
     func putObject(_ url: URL, file: URL, contentType: String) async throws { throw URLError(.badURL) }
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }

@@ -34,6 +34,13 @@ let limitNamespaces: [(name: String, rows: [String])] = [
     ("Recording", ["RecordingRow"]),
 ]
 
+/// A ranges namespace to the schema and fields it reads minimum/maximum from, in the order
+/// they are emitted. A field missing its range fails the run, so the client's own range is
+/// never silently narrower or wider than what the API actually enforces.
+let rangeNamespaces: [(name: String, schema: String, fields: [String])] = [
+    ("Recording", "RecordingData", ["pitch_cents", "speed_percent"])
+]
+
 func camelCase(_ snakeCase: String) -> String {
     let parts = snakeCase.split(separator: "_")
     guard let first = parts.first else { return snakeCase }
@@ -57,6 +64,19 @@ func limit(of property: [String: Any]) -> Int? {
         }
     }
     return nil
+}
+
+/// A number property's minimum and maximum, directly or under `anyOf`.
+func range(of property: [String: Any]) -> (min: Int, max: Int)? {
+    let anyOf = (property["anyOf"] as? [[String: Any]]) ?? []
+    var minimum: Int?
+    var maximum: Int?
+    for candidate in [property] + anyOf {
+        minimum = minimum ?? candidate["minimum"] as? Int
+        maximum = maximum ?? candidate["maximum"] as? Int
+    }
+    guard let minimum, let maximum else { return nil }
+    return (minimum, maximum)
 }
 
 func quote(_ value: String) -> String {
@@ -112,6 +132,26 @@ func render(_ document: [String: Any]) throws -> String {
         lines.append("        }")
     }
     lines.append("    }")
+
+    lines.append("")
+    lines.append("    public enum Ranges {")
+    for (namespaceName, schemaName, fields) in rangeNamespaces {
+        guard let schema = schemas[schemaName] as? [String: Any],
+            let properties = schema["properties"] as? [String: Any]
+        else {
+            throw GenerationError(description: "no schema named \(schemaName); update rangeNamespaces")
+        }
+        lines.append("        public enum \(namespaceName) {")
+        for field in fields {
+            guard let property = properties[field] as? [String: Any], let bounds = range(of: property) else {
+                throw GenerationError(description: "no range on \(schemaName).\(field); update rangeNamespaces")
+            }
+            lines.append("            public static let \(camelCase(field)) = \(bounds.min)...\(bounds.max)")
+        }
+        lines.append("        }")
+    }
+    lines.append("    }")
+
     lines.append("}")
     lines.append("")
     return lines.joined(separator: "\n")

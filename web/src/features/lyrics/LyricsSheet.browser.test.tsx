@@ -5,6 +5,7 @@ import { TUNE_LIMITS } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { LyricsSheet } from './LyricsSheet'
+import { CANCEL } from '../../ui/Confirm'
 
 function Host({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)
@@ -48,7 +49,7 @@ it('discards the draft on cancel and starts fresh from the host value on reopen'
   await expect.element(field()).toBeVisible()
   await field().clear()
   await field().fill('scratch words')
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.getByRole('button', { name: CANCEL, exact: true }).click()
   await modalDismissed()
   expect(document.querySelector('[data-testid="value"]')?.textContent).toBe('old words')
   await page.getByRole('button', { name: 'Reopen' }).click()

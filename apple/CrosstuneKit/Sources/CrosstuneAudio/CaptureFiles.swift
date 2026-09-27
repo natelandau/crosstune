@@ -11,8 +11,12 @@ public enum CaptureFiles {
     /// A finished recording, AAC in an MPEG-4 container.
     public static let finishedExtension = CrosstuneStore.finishedExtension
 
+    /// Where a recording's waveform lives, beside its audio.
+    public static let peaksExtension = "peaks"
+
     public static func captureName(_ recordingID: String) -> String { "\(recordingID).\(captureExtension)" }
     public static func finishedName(_ recordingID: String) -> String { "\(recordingID).\(finishedExtension)" }
+    public static func peaksName(_ recordingID: String) -> String { "\(recordingID).\(peaksExtension)" }
 
     /// The recording IDs of every capture file in `folder`. A file not named for a recording is
     /// left out, since its name could never become a row ID the API accepts.

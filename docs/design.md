@@ -368,6 +368,24 @@ Each follows the pointer and is implemented once.
   seconds, anchored above the frame's bottom chrome.
 - A question the app must have answered has no Cancel, waits for a clean
   sync before it asks, and never opens over another modal.
+- A destructive edit that needs more room than a confirmation opens as its
+  own screen, not a sheet, such as cutting a recording down. It carries
+  `Cancel` and a bold `Save`. Save confirms through the app's own overlay,
+  naming what the edit keeps, before it writes.
+
+## Tool strips
+
+A screen that edits more than one property of what it plays or shows puts
+each behind one tool strip: a row of buttons that scrolls sideways once it
+holds more than fit.
+
+- A tool opens its own panel below the strip. Selecting an open tool closes
+  it.
+- A tool shows its current value beside its label only when that value
+  differs from the tool's default. At the default, the tool shows only its
+  label.
+- A tool that cannot run right now stays in the strip and names the reason
+  in place of its value.
 
 ## Recording and link rows
 

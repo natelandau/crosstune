@@ -23,8 +23,11 @@ import {
 import { Storage, STORAGE_USED } from './Storage'
 import type { RecordingView } from './useRecordings'
 import { EMPTY_FILE_ERROR, NOT_AUDIO_ERROR, UPLOAD_AUDIO, UploadButton } from './UploadButton'
+import { CANCEL } from '../../ui/Confirm'
+import { measureDuration } from '../recording/measureDuration'
 
 vi.mock('../../commands/recordings', { spy: true })
+vi.mock('../recording/measureDuration', { spy: true })
 
 let db: CrosstuneDb
 
@@ -132,7 +135,7 @@ describe('RenameRecordingSheet', () => {
     const onClose = vi.fn()
     renderIonic(<Host sheet="rename" target={view()} onClose={onClose} />, { db })
     await expect.element(nameField()).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: CANCEL }).click()
     await closed()
     expect(onClose).toHaveBeenCalledOnce()
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -219,7 +222,7 @@ describe('AddToTuneSheet', () => {
   it('offers a Cancel big enough to tap that closes the sheet', async () => {
     const onClose = vi.fn()
     renderIonic(<Host sheet="add" target={view()} onClose={onClose} />, { db })
-    const cancel = page.getByRole('button', { name: 'Cancel' })
+    const cancel = page.getByRole('button', { name: CANCEL })
     await expect.element(cancel).toBeVisible()
     expect(
       (cancel.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,
@@ -323,9 +326,26 @@ describe('UploadButton', () => {
       expect(vi.mocked(addUploadedFile)).toHaveBeenCalledWith(db, file, {
         tuneId: 's1',
         label: 'jam',
+        durationMs: null,
       }),
     )
     expect(page.getByRole('alert').elements()).toHaveLength(0)
+  })
+
+  it('stores the length it measured from the file', async () => {
+    vi.mocked(measureDuration).mockResolvedValueOnce(42_000)
+    renderIonic(<UploadButton tuneId={null} />, { db })
+    await expect.element(page.getByRole('button', { name: 'Upload' })).toBeVisible()
+    const file = new File(['abc'], 'reel.m4a', { type: 'audio/mp4' })
+    await userEvent.upload(picker(), file)
+    await vi.waitFor(() =>
+      expect(vi.mocked(addUploadedFile)).toHaveBeenCalledWith(db, file, {
+        tuneId: null,
+        label: 'reel',
+        durationMs: 42_000,
+      }),
+    )
+    expect(vi.mocked(measureDuration)).toHaveBeenCalledWith(file)
   })
 
   it('hands a refusal to a caller that takes one instead of showing its own line', async () => {

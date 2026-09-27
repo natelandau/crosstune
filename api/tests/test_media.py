@@ -9,11 +9,12 @@ import pytest
 from crosstune.jobs.media import (
     MediaError,
     Probe,
-    _run,
+    cut,
     encode,
     needs_encode,
     probe,
     remux,
+    run_media_tool,
 )
 
 pytestmark = pytest.mark.anyio
@@ -62,6 +63,13 @@ async def test_encode_produces_aac_at_the_playback_bitrate(media_fixtures, tmp_p
     assert 1_900 <= info.duration_ms <= 2_100
 
 
+async def test_cut_is_accurate(media_fixtures, tmp_path) -> None:
+    target = tmp_path / "out.m4a"
+    await cut(media_fixtures["m4a"], target, start_ms=500, end_ms=1500)
+    info = await probe(target)
+    assert 970 <= info.duration_ms <= 1030
+
+
 async def test_probe_selects_the_audio_stream_even_when_it_is_not_first(media_fixtures) -> None:
     # tone_art.m4a carries a video (cover art) track mapped ahead of the audio
     # track: ffprobe lists it as stream 0, the aac stream as stream 1.
@@ -71,12 +79,12 @@ async def test_probe_selects_the_audio_stream_even_when_it_is_not_first(media_fi
 
 
 async def test_run_times_out_and_reaps_the_process(monkeypatch: pytest.MonkeyPatch) -> None:
-    # A near-zero timeout forces the kill/wait branch in `_run`. The suite's
+    # A near-zero timeout forces the kill/wait branch in `run_media_tool`. The suite's
     # filterwarnings=error already fails on an unreaped subprocess, so this test
     # passing at all is the evidence that `process.wait()` after `kill()` is enough.
     monkeypatch.setattr("crosstune.jobs.media.SUBPROCESS_TIMEOUT_SECONDS", 0.2)
     with pytest.raises(MediaError, match="timed out"):
-        await _run("sleep", "5")
+        await run_media_tool("sleep", "5")
 
 
 async def test_probe_rejects_output_that_is_not_json(
@@ -85,7 +93,7 @@ async def test_probe_rejects_output_that_is_not_json(
     async def fake_run(*_argv: str) -> bytes:
         return b"not json"
 
-    monkeypatch.setattr("crosstune.jobs.media._run", fake_run)
+    monkeypatch.setattr("crosstune.jobs.media.run_media_tool", fake_run)
     with pytest.raises(MediaError, match="no report"):
         await probe(tmp_path / "whatever")
 
@@ -97,7 +105,7 @@ async def test_probe_rejects_a_report_with_no_audio_stream(
         report = {"streams": [{"codec_type": "video", "codec_name": "mjpeg"}], "format": {}}
         return json.dumps(report).encode()
 
-    monkeypatch.setattr("crosstune.jobs.media._run", fake_run)
+    monkeypatch.setattr("crosstune.jobs.media.run_media_tool", fake_run)
     with pytest.raises(MediaError, match="No audio stream"):
         await probe(tmp_path / "whatever")
 
@@ -112,7 +120,7 @@ async def test_probe_rejects_a_report_with_no_duration(
         }
         return json.dumps(report).encode()
 
-    monkeypatch.setattr("crosstune.jobs.media._run", fake_run)
+    monkeypatch.setattr("crosstune.jobs.media.run_media_tool", fake_run)
     with pytest.raises(MediaError, match="No duration"):
         await probe(tmp_path / "whatever")
 
@@ -146,13 +154,13 @@ async def test_run_hands_the_tools_none_of_the_apis_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CROSSTUNE_STORAGE_SECRET_ACCESS_KEY", "do-not-leak")
-    output = await _run("env")
+    output = await run_media_tool("env")
     assert b"do-not-leak" not in output
 
 
 async def test_probe_refuses_audio_in_a_container_outside_the_allowlist(tmp_path) -> None:
     upload = tmp_path / "upload"
-    await _run(
+    await run_media_tool(
         "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=duration=1", "-f", "au", str(upload)
     )
     with pytest.raises(MediaError):

@@ -3,6 +3,7 @@ import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { FakeRecorder, FakeTrack, fakeStream, LAST_CHUNK } from '../../test/fakeMedia'
+import { parsePeaks } from '../waveform/peaks'
 import {
   createRecordingSession,
   PARTIAL_SAVE,
@@ -11,6 +12,38 @@ import {
   type RecordingSessionDeps,
   type RecordingSnapshot,
 } from './recordingSession'
+
+/** A clock whose `every` timers fire in order as `advance` steps its own notion of `now`. */
+function fakeTimerClock(startAt: number) {
+  let time = startAt
+  const timers: { ms: number; fn: () => void; next: number }[] = []
+  return {
+    now: () => time,
+    every: (ms: number, fn: () => void) => {
+      const timer = { ms, fn, next: time + ms }
+      timers.push(timer)
+      return () => {
+        const i = timers.indexOf(timer)
+        if (i >= 0) timers.splice(i, 1)
+      }
+    },
+    advance(ms: number) {
+      const end = time + ms
+      for (;;) {
+        const next = Math.min(...timers.map((t) => t.next))
+        if (!Number.isFinite(next) || next > end) break
+        time = next
+        for (const timer of [...timers]) {
+          if (timer.next === next) {
+            timer.next += timer.ms
+            timer.fn()
+          }
+        }
+      }
+      time = end
+    },
+  }
+}
 
 function deferred<T>() {
   let resolve: (value: T) => void = () => {}
@@ -28,6 +61,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await db.delete()
+  Reflect.deleteProperty(navigator, 'audioSession')
 })
 
 function setup(overrides: Partial<RecordingSessionDeps<MediaStreamLike>> = {}) {
@@ -149,6 +183,20 @@ describe('createRecordingSession start sequence', () => {
     })
     expect(deps.persistStorage).toHaveBeenCalledTimes(1)
   })
+
+  it('claims a play-and-record audio session before asking for the microphone', async () => {
+    const audioSession = { type: '' }
+    Object.defineProperty(navigator, 'audioSession', { value: audioSession, configurable: true })
+    let typeWhenAsked = ''
+    const { session } = setup({
+      getUserMedia: vi.fn(async () => {
+        typeWhenAsked = audioSession.type
+        return fakeStream(new FakeTrack())
+      }),
+    })
+    await session.start()
+    expect(typeWhenAsked).toBe('play-and-record')
+  })
 })
 
 describe('createRecordingSession finish and cancel', () => {
@@ -188,6 +236,24 @@ describe('createRecordingSession finish and cancel', () => {
     await session.start()
     await session.finish()
     expect(deps.suspendAudioContext).toHaveBeenCalledTimes(1)
+  })
+
+  it('resets the audio session to auto once a recording finishes', async () => {
+    const audioSession = { type: '' }
+    Object.defineProperty(navigator, 'audioSession', { value: audioSession, configurable: true })
+    const { session } = setup()
+    await session.start()
+    await session.finish()
+    expect(audioSession.type).toBe('auto')
+  })
+
+  it('resets the audio session to auto when a recording is cancelled', async () => {
+    const audioSession = { type: '' }
+    Object.defineProperty(navigator, 'audioSession', { value: audioSession, configurable: true })
+    const { session } = setup()
+    await session.start()
+    await session.cancel()
+    expect(audioSession.type).toBe('auto')
   })
 
   it('finishes and keeps a recording that is still running when disposed', async () => {
@@ -242,6 +308,72 @@ describe('createRecordingSession finish and cancel', () => {
     expect(session.snapshot()).toMatchObject({ phase: 'saved', elapsedMs: 23_000 })
     expect((await db.recording_files.get('rec_1'))?.local_duration_ms).toBe(23_000)
     expect((await db.recordings.get('rec_1'))?.recorded_at).toBe(new Date(1_000).toISOString())
+  })
+})
+
+describe('createRecordingSession peaks', () => {
+  it('records one peak per 20 ms and fits them to the duration', async () => {
+    const clock = fakeTimerClock(1_000)
+    const sample = 1
+    const analyser = {
+      fftSize: 0,
+      getFloatTimeDomainData: vi.fn((buffer: Float32Array) => buffer.fill(sample)),
+    }
+    const { session } = setup({
+      clock,
+      unlockAudioContext: () => ({
+        createAnalyser: () => analyser as unknown as AnalyserNode,
+        createMediaStreamSource: () => ({ connect: vi.fn(), disconnect: vi.fn() }),
+      }),
+    })
+    await session.start()
+    expect(analyser.fftSize).toBe(1024)
+    clock.advance(500)
+    await session.finish()
+    const file = await db.recording_files.get('rec_1')
+    expect(file?.peaks_rev).toBeNull()
+    const peaks = parsePeaks(file!.peaks!)
+    expect(peaks.pointsPerSecond).toBe(50)
+    expect(Array.from(peaks.values)).toEqual(Array.from({ length: 25 }, () => 255))
+  })
+
+  it('has no peaks when nothing was ever sampled', async () => {
+    const clock = fakeTimerClock(1_000)
+    const { session, recorders } = setup({ clock })
+    await session.start()
+    recorders[0]!.emit('early')
+    await session.finish()
+    expect((await db.recording_files.get('rec_1'))?.peaks).toBeNull()
+  })
+
+  it('flattens peaks to zero across an interruption, keeping sound before and after', async () => {
+    const clock = fakeTimerClock(1_000)
+    const analyser = {
+      fftSize: 0,
+      getFloatTimeDomainData: vi.fn((buffer: Float32Array) => buffer.fill(1)),
+    }
+    const { session, track } = setup({
+      clock,
+      unlockAudioContext: () => ({
+        createAnalyser: () => analyser as unknown as AnalyserNode,
+        createMediaStreamSource: () => ({ connect: vi.fn(), disconnect: vi.fn() }),
+      }),
+    })
+    await session.start()
+    clock.advance(200)
+    track.dispatchEvent(new Event('mute'))
+    clock.advance(200)
+    track.dispatchEvent(new Event('unmute'))
+    clock.advance(200)
+    await session.finish()
+    const file = await db.recording_files.get('rec_1')
+    const peaks = parsePeaks(file!.peaks!)
+    // 200 ms of sound, 200 ms of silence at the interruption, 200 ms of sound: 10 points each.
+    expect(Array.from(peaks.values)).toEqual([
+      ...Array<number>(10).fill(255),
+      ...Array<number>(10).fill(0),
+      ...Array<number>(10).fill(255),
+    ])
   })
 })
 

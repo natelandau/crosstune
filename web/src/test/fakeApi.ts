@@ -34,6 +34,11 @@ export function createFakeApi() {
     string,
     'pending_upload' | 'uploaded' | 'processing' | 'ready' | 'failed'
   >()
+  // What the server signs a download or peaks URL against, independent of whatever a test
+  // has put on the local db row: the real server always reads the row it just presigned a
+  // key for, which a client's own pulled copy of that row can still be behind.
+  const downloadSigned = new Map<string, { rev: string; startMs: number }>()
+  const peaksSigned = new Map<string, string>()
   let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 52_428_800 }
   let slotError: unknown = null
   let slotErrorId: string | null = null
@@ -134,9 +139,21 @@ export function createFakeApi() {
     async downloadUrl(recordingId) {
       if (failWith) throw failWith
       if (recordingStates.get(recordingId) !== 'ready') throw new ApiError(409, null)
+      const signed = downloadSigned.get(recordingId) ?? { rev: 'aaaaaaaa', startMs: 0 }
       return {
         url: `https://fake.r2/${recordingId}/playback.m4a`,
         expires_at: '2999-01-01T00:00:00Z',
+        playback_rev: signed.rev,
+        playback_start_ms: signed.startMs,
+      }
+    },
+    async peaksUrl(recordingId) {
+      if (failWith) throw failWith
+      if (recordingStates.get(recordingId) !== 'ready') throw new ApiError(409, null)
+      return {
+        url: `https://fake.r2/${recordingId}/peaks.bin`,
+        expires_at: '2999-01-01T00:00:00Z',
+        peaks_rev: peaksSigned.get(recordingId) ?? 'bbbbbbbb',
       }
     },
     async putObject(url, blob) {
@@ -185,6 +202,15 @@ export function createFakeApi() {
     failPut(error: unknown, recordingId: string | null = null) {
       putError = error
       putErrorId = recordingId
+    },
+    /** What downloadUrl signs for this recording, regardless of the local db row's own
+     * playback_rev: the real server always reads the row it just presigned a key for. */
+    signDownload(recordingId: string, rev: string, startMs = 0) {
+      downloadSigned.set(recordingId, { rev, startMs })
+    },
+    /** What peaksUrl signs for this recording, regardless of the local db row's own peaks_rev. */
+    signPeaks(recordingId: string, rev: string) {
+      peaksSigned.set(recordingId, rev)
     },
   }
 }
@@ -247,6 +273,15 @@ export function serverRecording(overrides: Partial<RecordingRow> & { id: string 
     playback_mime: null,
     playback_bytes: null,
     error: null,
+    trim_start_ms: 0,
+    trim_end_ms: null,
+    speed_percent: 100,
+    pitch_cents: 0,
+    source_duration_ms: null,
+    playback_start_ms: null,
+    playback_end_ms: null,
+    playback_rev: null,
+    peaks_rev: null,
     ...overrides,
   }
 }

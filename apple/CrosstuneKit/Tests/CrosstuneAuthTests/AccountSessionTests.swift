@@ -112,9 +112,9 @@ struct ClerkFailed: Error {}
 
     var folderExists: Bool { FileManager.default.fileExists(atPath: store.folder.path()) }
 
-    func leave(endSession: () async throws -> Void = {}) async throws {
+    func leave(endSession: () async throws -> Void = {}, settle: () async -> Void = {}) async throws {
         let log = log
-        try await AccountSession.leave(userID: "user_a", store: store, root: root.url, sync: log) {
+        try await AccountSession.leave(userID: "user_a", store: store, root: root.url, sync: log, settle: settle) {
             log.steps.append("end session")
             try await endSession()
         }
@@ -143,6 +143,19 @@ struct ClerkFailed: Error {}
         try await leave()
 
         #expect(!folderExists)
+    }
+
+    @Test func leavingFinishesHeldBackWritesBeforeCheckingTheOutbox() async throws {
+        let log = log
+        await #expect(throws: AccountSession.LeaveError.unsyncedChanges) {
+            try await leave {
+            } settle: {
+                log.steps.append("settle")
+                try? await queueChange()
+            }
+        }
+        #expect(log.steps == ["settle", "sync"])
+        #expect(folderExists)
     }
 
     @Test func signOutRefusesWhileChangesAreUnsent() async throws {
@@ -342,7 +355,8 @@ final class CountingSyncAPI: SyncAPI {
         throw URLError(.badURL)
     }
     func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
-    func downloadURL(recordingID: String) async throws -> URL { throw URLError(.badURL) }
+    func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badURL) }
+    func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badURL) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
     func putObject(_ url: URL, file: URL, contentType: String) async throws { throw URLError(.badURL) }
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }

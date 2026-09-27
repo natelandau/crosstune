@@ -44,4 +44,11 @@ public enum Vocabulary {
             public static let label = 200
         }
     }
+
+    public enum Ranges {
+        public enum Recording {
+            public static let pitchCents = -1200...1200
+            public static let speedPercent = 50...150
+        }
+    }
 }

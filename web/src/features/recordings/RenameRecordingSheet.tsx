@@ -7,6 +7,7 @@ import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import type { RecordingView } from './useRecordings'
+import { CANCEL } from '../../ui/Confirm'
 
 export const RECORDING_NAME_LABEL = 'Recording name'
 export const RECORDING_NAME_PLACEHOLDER = 'Jam at Tom’s, take 2, …'
@@ -72,7 +73,7 @@ export function RenameRecordingSheet({
       onClose={dismissed}
       start={
         <IonButton disabled={pending} onClick={() => setClosing(true)}>
-          Cancel
+          {CANCEL}
         </IonButton>
       }
       end={

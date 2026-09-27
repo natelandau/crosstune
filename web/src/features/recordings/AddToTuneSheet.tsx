@@ -11,6 +11,7 @@ import { SEARCH_TUNES, TuneSearch } from '../catalog/TuneSearch'
 import { useInstruments } from '../settings/useInstruments'
 import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
 import type { RecordingView } from './useRecordings'
+import { CANCEL } from '../../ui/Confirm'
 
 export const ADD_TO_TUNE_TITLE = 'Add to a tune'
 export const ADD_TO_TUNE_ERROR = 'The recording could not be added to this tune.'
@@ -117,7 +118,7 @@ export function AddToTuneSheet({
         onClose={dismissed}
         start={
           <IonButton disabled={pending} onClick={() => setClosing(true)}>
-            Cancel
+            {CANCEL}
           </IonButton>
         }
       >

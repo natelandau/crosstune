@@ -13,6 +13,7 @@ import {
   deleteRecording,
   finishCapture,
   setFileState,
+  storeDownloadedBlob,
   updateRecording,
 } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
@@ -20,12 +21,34 @@ import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
+import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic } from '../../test/ionic'
-import { fakeEngine } from '../../test/providers'
+import { fakeEngine, FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { Screen } from '../../ui/Screen'
 import { DOWNLOAD_FAILED } from '../recording/format'
-import { CLOSE_PLAYER, Dock } from './Dock'
+import { RecordProvider, useRecord } from '../recording/useRecord'
+import {
+  CLOSE_PLAYER,
+  Dock,
+  OPEN_RECORDING,
+  PAUSE,
+  PITCH_BADGE,
+  PITCH_LABEL,
+  PITCH_UNAVAILABLE,
+  PLAY,
+  PLAY_FAILED,
+  SPEED_BADGE,
+  SPEED_LABEL,
+} from './Dock'
+import { PlaybackEngine, type EngineClock } from './playbackEngine'
 import { usePlayer, type PlayerItem } from './usePlayer'
+
+const realClock: EngineClock = {
+  every: (ms, fn) => {
+    const id = setInterval(fn, ms)
+    return () => clearInterval(id)
+  },
+}
 
 let db: CrosstuneDb
 let tuneId: string
@@ -67,6 +90,7 @@ async function localRecording(label: string): Promise<string> {
     mime: 'audio/mp4',
     durationMs: 3000,
     recordedAt: '2026-09-14T20:00:00.000Z',
+    peaks: null,
   })
   await updateRecording(db, id, { label })
   return id
@@ -82,6 +106,7 @@ async function unfiledRecording(): Promise<string> {
     mime: 'audio/mp4',
     durationMs: 3000,
     recordedAt: '2026-09-14T20:00:00.000Z',
+    peaks: null,
   })
   // finishCapture gives every recording a default date-based label; clear it to reach the
   // title's own recorded-at fallback.
@@ -107,6 +132,16 @@ async function remoteRecording(id: string, state = 'ready'): Promise<string> {
     playback_mime: 'audio/mp4',
     playback_bytes: 3,
     error: null,
+    trim_start_ms: 0,
+    trim_end_ms: null,
+    speed_percent: 100,
+    pitch_cents: 0,
+    // A transcode always fills these in before a recording reaches 'ready'.
+    source_duration_ms: 3000,
+    playback_start_ms: 0,
+    playback_end_ms: 3000,
+    playback_rev: 'aaaaaaaa',
+    peaks_rev: null,
   })
   return id
 }
@@ -125,9 +160,23 @@ function Openers({ items }: { items: { label: string; item: PlayerItem }[] }) {
   )
 }
 
+/** Starts a recording the way the record flow does, through `useRecord().start()`. */
+function StartRecordingButton() {
+  const { start } = useRecord()
+  return (
+    <button type="button" onClick={() => start()}>
+      Start recording
+    </button>
+  )
+}
+
 function renderDock(
   items: { label: string; item: PlayerItem }[],
-  { engine, strict = false }: { engine?: SyncEngine; strict?: boolean } = {},
+  {
+    engine,
+    strict = false,
+    playbackEngine = fakePlaybackEngine(),
+  }: { engine?: SyncEngine; strict?: boolean; playbackEngine?: PlaybackEngine } = {},
 ) {
   const tree = (
     <>
@@ -135,7 +184,11 @@ function renderDock(
       <Dock />
     </>
   )
-  return renderIonic(strict ? <StrictMode>{tree}</StrictMode> : tree, { db, engine })
+  return renderIonic(strict ? <StrictMode>{tree}</StrictMode> : tree, {
+    db,
+    engine,
+    playbackEngine,
+  })
 }
 
 /** The dock where it really lives: in the tab frame, between the pages and the tab bar. */
@@ -222,19 +275,363 @@ describe('Dock', () => {
     await expect.poll(() => dockElement()).toBeNull()
   })
 
-  it('plays a held recording through an audio element named for the row', async () => {
+  it('plays a recording from its trim start, from a Play tap on the row', async () => {
     const id = await localRecording('Jam recording')
-    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }])
+    await updateRecording(db, id, { trim_start_ms: 1000 })
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
     await page.getByRole('button', { name: 'Play recording' }).click()
 
     await expect.element(dock()).toBeVisible()
-    await expect.element(page.getByText('Jam recording')).toBeVisible()
+    await expect
+      .element(dock().getByRole('button', { name: OPEN_RECORDING('Jam recording') }))
+      .toBeVisible()
     // The blob url is minted from an effect, one render after the recording itself loads.
-    await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
-    const audio = dockElement()!.querySelector('audio')!
-    expect(audio.hasAttribute('autoplay')).toBe(true)
-    expect(audio.getAttribute('aria-label')).toBe('Jam recording')
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    const [, span, settings, meta] = load.mock.calls[0]!
+    expect(span).toEqual({ fromS: 1, toS: 3, lengthMs: 2000 })
+    expect(settings).toEqual({ speedPercent: 100, pitchCents: 0 })
+    expect(meta).toEqual({ title: 'Jam recording' })
+    // Every recording reaches the dock from a Play tap, so it starts playing on its own.
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
     expect(dockElement()!.querySelector('iframe')).toBeNull()
+  })
+
+  it('shows a speed and pitch badge away from their defaults, and none at the defaults', async () => {
+    const plain = await localRecording('Plain recording')
+    const tuned = await localRecording('Tuned recording')
+    await updateRecording(db, tuned, { speed_percent: 75, pitch_cents: 230 })
+    renderDock([
+      { label: 'Play plain', item: { kind: 'recording', id: plain } },
+      { label: 'Play tuned', item: { kind: 'recording', id: tuned } },
+    ])
+
+    await page.getByRole('button', { name: 'Play plain' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    expect(dockElement()!.querySelector('[data-playback-badge]')).toBeNull()
+
+    await page.getByRole('button', { name: 'Play tuned' }).click()
+    // The visible text sits beside sr-only "Speed"/"Pitch" labels, which are part of the
+    // same element's text content.
+    await expect
+      .element(
+        dock().getByText(`${SPEED_LABEL} ${SPEED_BADGE(75)} ${PITCH_LABEL} ${PITCH_BADGE(230)}`),
+      )
+      .toBeVisible()
+  })
+
+  it('formats the pitch badge in semitones, one decimal only off a whole semitone', () => {
+    expect(PITCH_BADGE(200)).toBe('+2')
+    expect(PITCH_BADGE(-100)).toBe('-1')
+    expect(PITCH_BADGE(230)).toBe('+2.3')
+    expect(PITCH_BADGE(-150)).toBe('-1.5')
+  })
+
+  it('rounds the fractional semitone from integer cents, not the raw float', () => {
+    expect(PITCH_BADGE(201)).toBe('+2.0')
+    expect(PITCH_BADGE(205)).toBe('+2.1')
+    expect(PITCH_BADGE(-250)).toBe('-2.5')
+    expect(PITCH_BADGE(100)).toBe('+1')
+    expect(PITCH_BADGE(-1200)).toBe('-12')
+  })
+
+  it('rounds a negative magnitude the same as its positive counterpart, sign aside', () => {
+    // Math.round alone rounds halves toward +Infinity, so the magnitude is rounded before
+    // the sign is put back on.
+    expect(PITCH_BADGE(-205)).toBe('-2.1')
+  })
+
+  it('never rounds a non-zero pitch away to a bare 0.0', () => {
+    expect(PITCH_BADGE(1)).toBe('+0.1')
+    expect(PITCH_BADGE(-1)).toBe('-0.1')
+    expect(PITCH_BADGE(-4)).toBe('-0.1')
+  })
+
+  it('adjusts the engine in place, never reloading, when a trim, speed, or pitch change arrives', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    const setWindow = vi.spyOn(engine, 'setWindow')
+    const setSpeed = vi.spyOn(engine, 'setSpeed')
+    const setPitch = vi.spyOn(engine, 'setPitch')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+
+    await updateRecording(db, id, { trim_start_ms: 1000 })
+    await expect.poll(() => setWindow.mock.calls.length).toBe(1)
+    expect(setWindow.mock.calls[0]![0]).toEqual({ fromS: 1, toS: 3, lengthMs: 2000 })
+
+    await updateRecording(db, id, { speed_percent: 75, pitch_cents: -100 })
+    await expect.poll(() => setSpeed.mock.calls.length).toBe(1)
+    expect(setSpeed.mock.calls[0]![0]).toBe(75)
+    expect(setPitch.mock.calls[0]![0]).toBe(-100)
+
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a paused recording paused, at the same position, when its speed changes remotely', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    await dock().getByRole('button', { name: PAUSE }).click()
+    await expect.element(dock().getByRole('button', { name: PLAY })).toBeVisible()
+    const position = engine.getState().positionMs
+
+    await updateRecording(db, id, { speed_percent: 75 })
+    await expect.element(dock().getByText(`${SPEED_LABEL} ${SPEED_BADGE(75)}`)).toBeVisible()
+
+    expect(engine.getState().playing).toBe(false)
+    expect(engine.getState().positionMs).toBe(position)
+  })
+
+  it('does not reload when only the title changes', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    const setMetadata = vi.spyOn(engine, 'setMetadata')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+
+    await updateRecording(db, id, { label: 'Renamed recording' })
+    await expect.element(page.getByText('Renamed recording')).toBeVisible()
+    await expect.poll(() => setMetadata.mock.calls.length).toBe(1)
+    expect(setMetadata.mock.calls[0]![0]).toEqual({ title: 'Renamed recording' })
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it("mints a fresh url and reloads when a trim replaces this recording's blob in place", async () => {
+    const create = vi.spyOn(URL, 'createObjectURL')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    const setWindow = vi.spyOn(engine, 'setWindow')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    const firstSrc = create.mock.results[0]!.value as string
+
+    // A trim job regenerates the playback file in place: the same recording, a new blob at
+    // a new revision and a new offset into the source, but `hasBlob` never toggles. This also
+    // changes `span` (its window now starts at a different blob offset), on the render before
+    // the new blob even has a url: the span/settings/metadata effects must not act on it then,
+    // since it still describes the blob load() is about to replace.
+    await storeDownloadedBlob(
+      db,
+      id,
+      new Blob(['xyz'], { type: 'audio/mp4' }),
+      'audio/mp4',
+      'bbbbbbbb',
+      500,
+    )
+
+    await expect.poll(() => load.mock.calls.length).toBe(2)
+    expect(create).toHaveBeenCalledTimes(2)
+    const secondSrc = create.mock.results[1]!.value as string
+    expect(secondSrc).not.toBe(firstSrc)
+    expect(revoke).toHaveBeenCalledWith(firstSrc)
+    expect(load.mock.calls[1]![0]).toBe(secondSrc)
+    // The reload alone applies the new span; setWindow never ran against the old, superseded
+    // blob in between.
+    expect(setWindow).not.toHaveBeenCalled()
+  })
+
+  it('keeps a paused recording paused, at its place, when a trim replaces its blob', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    await dock().getByRole('button', { name: PAUSE }).click()
+    engine.seek(1500)
+
+    await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'bbbbbbbb', 0)
+    await expect.poll(() => load.mock.calls.length).toBe(2)
+    await expect.element(dock().getByRole('button', { name: PLAY })).toBeVisible()
+    expect(engine.getState()).toMatchObject({ playing: false, positionMs: 1500 })
+  })
+
+  it('keeps a playing recording playing, at its place, when a trim replaces its blob', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    engine.seek(1500)
+
+    await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'bbbbbbbb', 0)
+    await expect.poll(() => load.mock.calls.length).toBe(2)
+    expect(engine.getState()).toMatchObject({ playing: true, positionMs: 1500 })
+  })
+
+  it('plays a stale blob while fetching the current revision, then swaps it in', async () => {
+    const id = await remoteRecording('remote')
+    await db.recordings.update(id, { playback_rev: 'bbbbbbbb' })
+    await storeDownloadedBlob(db, id, new Blob(['old']), 'audio/mp4', 'aaaaaaaa', 0)
+    let release: () => void = () => {}
+    const download = vi.fn(
+      () =>
+        new Promise<Blob | null>((resolve) => {
+          release = () => {
+            const blob = new Blob(['new'], { type: 'audio/mp4' })
+            void storeDownloadedBlob(db, id, blob, 'audio/mp4', 'bbbbbbbb', 0).then(() =>
+              resolve(blob),
+            )
+          }
+        }),
+    )
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      engine: fakeEngine({ download }),
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.poll(() => load.mock.calls.length).toBe(1)
+    await vi.waitFor(() => expect(download).toHaveBeenCalledWith(id))
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    engine.seek(1000)
+
+    release()
+    await expect.poll(() => load.mock.calls.length).toBe(2)
+    expect(engine.getState()).toMatchObject({ playing: true, positionMs: 1000 })
+    expect(download).toHaveBeenCalledTimes(1)
+  })
+
+  it('unloads the engine when the dock closes', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+
+    await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
+    await expect.poll(() => dockElement()).toBeNull()
+    expect(engine.getState()).toEqual({
+      playing: false,
+      positionMs: 0,
+      lengthMs: 0,
+      failed: false,
+      pitchUnavailable: false,
+    })
+  })
+
+  it('unloads the engine when starting a recording closes the player', async () => {
+    const owned = (['mediaDevices', 'storage'] as const).map(
+      (key) => [key, Object.getOwnPropertyDescriptor(navigator, key)] as const,
+    )
+    const { getUserMedia } = stubMediaGlobals()
+    // Never resolves, so the record modal stays on its starting phase: the assertion below
+    // only needs the synchronous player.close() at the top of start(), not a real capture.
+    getUserMedia.mockImplementation(() => new Promise(() => {}))
+    try {
+      const id = await localRecording('Jam recording')
+      const engine = fakePlaybackEngine()
+      renderIonic(
+        <RecordProvider>
+          <StartRecordingButton />
+          <Openers items={[{ label: 'Play recording', item: { kind: 'recording', id } }]} />
+          <Dock />
+        </RecordProvider>,
+        { db, playbackEngine: engine },
+      )
+      await page.getByRole('button', { name: 'Play recording' }).click()
+      await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+
+      await page.getByRole('button', { name: 'Start recording' }).click()
+      await expect.poll(() => dockElement()).toBeNull()
+      expect(engine.getState().playing).toBe(false)
+    } finally {
+      for (const [key, descriptor] of owned) {
+        if (descriptor) Object.defineProperty(navigator, key, descriptor)
+        else Reflect.deleteProperty(navigator, key)
+      }
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('shows a play-failed message and lets a Play tap try again', async () => {
+    const id = await localRecording('Jam recording')
+    const element = new FakeAudioElement()
+    element.play = () => Promise.reject(new Error('blocked by autoplay policy'))
+    const engine = fakePlaybackEngine(element as unknown as HTMLAudioElement)
+    const play = vi.spyOn(engine, 'play')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+
+    await expect.element(dock().getByText(PLAY_FAILED)).toBeVisible()
+    // The play button itself is the retry: badge, timers, and progress stay hidden while
+    // failed, but Play is still there and still named Play (never started, so never paused).
+    await expect.element(dock().getByRole('button', { name: PLAY })).toBeVisible()
+    await expect.poll(() => play.mock.calls.length).toBe(1)
+
+    await dock().getByRole('button', { name: PLAY }).click()
+
+    await expect.poll(() => play.mock.calls.length).toBe(2)
+  })
+
+  it('shows a pitch-unavailable notice when the stored pitch cannot apply', async () => {
+    const id = await localRecording('Jam recording')
+    await updateRecording(db, id, { pitch_cents: 200 })
+    const failingStage = async () => {
+      throw new Error('worklet unavailable')
+    }
+    const engine = new PlaybackEngine(
+      new FakeAudioElement() as unknown as HTMLAudioElement,
+      realClock,
+      failingStage,
+    )
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+
+    await expect.element(dock().getByText(PITCH_UNAVAILABLE)).toBeVisible()
+    // Still playable: pitch just does not apply, so the transport controls stay usable.
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+  })
+
+  it('gives the elapsed and remaining timers, and the badge, their own accessible names', async () => {
+    const id = await localRecording('Jam recording')
+    await updateRecording(db, id, { speed_percent: 75, pitch_cents: 200 })
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }])
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+
+    await expect
+      .element(dock().getByRole('timer', { name: /^Elapsed /, exact: false }))
+      .toBeVisible()
+    const remaining = dock().getByRole('timer', { name: /^Remaining /, exact: false })
+    await expect.element(remaining).toBeVisible()
+    // The visible text keeps its minus sign; only the accessible name drops it.
+    expect(await remaining.element().getAttribute('aria-label')).not.toContain('-')
+    await expect.element(dock().getByText(SPEED_LABEL, { exact: false })).toBeVisible()
+    await expect.element(dock().getByText(PITCH_LABEL, { exact: false })).toBeVisible()
   })
 
   it('titles an unlabeled, unfiled recording by its date rather than a bare "Recording"', async () => {
@@ -260,10 +657,10 @@ describe('Dock', () => {
     )
 
     await page.getByRole('button', { name: 'Play first' }).click()
-    await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
     await page.getByRole('button', { name: 'Play second' }).click()
     await expect.element(page.getByText('Second recording')).toBeVisible()
-    await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
     await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
     await expect.poll(() => dockElement()).toBeNull()
 
@@ -275,37 +672,49 @@ describe('Dock', () => {
     for (const url of minted) expect(revoke).toHaveBeenCalledWith(url)
   })
 
-  it('mints one object url each for two recordings it switches between', async () => {
+  it('mints one object url each for two recordings it switches between, never loading a revoked one', async () => {
     const create = vi.spyOn(URL, 'createObjectURL')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
     const first = await localRecording('First recording')
     const second = await localRecording('Second recording')
-    renderDock([
-      { label: 'Play first', item: { kind: 'recording', id: first } },
-      { label: 'Play second', item: { kind: 'recording', id: second } },
-    ])
+    renderDock(
+      [
+        { label: 'Play first', item: { kind: 'recording', id: first } },
+        { label: 'Play second', item: { kind: 'recording', id: second } },
+      ],
+      { playbackEngine: engine },
+    )
 
     await page.getByRole('button', { name: 'Play first' }).click()
-    await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
-    const firstSrc = dockElement()!.querySelector('audio')!.src
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    const firstSrc = create.mock.results[0]!.value as string
 
     await page.getByRole('button', { name: 'Play second' }).click()
     await expect.element(page.getByText('Second recording')).toBeVisible()
-    await expect
-      .poll(() => {
-        const src = dockElement()?.querySelector('audio')?.src
-        return src !== undefined && src.startsWith('blob:') && src !== firstSrc
-      })
-      .toBe(true)
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
     expect(create).toHaveBeenCalledTimes(2)
+    const secondSrc = create.mock.results[1]!.value as string
+    expect(secondSrc).not.toBe(firstSrc)
+
+    // Keyed by recording id, RecordingBody remounts rather than being reused across the
+    // switch, so its own load never runs with a url the switch already revoked: each call's
+    // src is exactly the one minted for that recording, never the other's.
+    expect(load.mock.calls.map((call) => call[0])).toEqual([firstSrc, secondSrc])
+    expect(revoke).toHaveBeenCalledWith(firstSrc)
   })
 
   it('keeps one object url while the recording is read again', async () => {
     const create = vi.spyOn(URL, 'createObjectURL')
     const id = await localRecording('Jam recording')
-    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }])
+    const engine = fakePlaybackEngine()
+    const load = vi.spyOn(engine, 'load')
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
     await page.getByRole('button', { name: 'Play recording' }).click()
-    await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
-    const audio = dockElement()!.querySelector('audio')
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
 
     await setFileState(db, id, 'uploading')
     // The row change re-renders the dock with a freshly read but equivalent blob; give that a
@@ -314,8 +723,10 @@ describe('Dock', () => {
       .poll(() => db.recording_files.get(id).then((file) => file?.local_state))
       .toBe('uploading')
     await expect.element(page.getByText('Jam recording')).toBeVisible()
-    expect(dockElement()!.querySelector('audio')).toBe(audio)
     expect(create).toHaveBeenCalledTimes(1)
+    // Neither the recording nor the file that feeds the engine's span actually changed, so
+    // this equivalent read never reloads it.
+    expect(load).toHaveBeenCalledTimes(1)
   })
 
   it('downloads a recording it does not hold and shows the progress meanwhile', async () => {
@@ -331,8 +742,12 @@ describe('Dock', () => {
     // it shows a frame before the effect behind it asks the engine for the file.
     await expect.element(dock().getByText('Downloading')).toBeVisible()
     await vi.waitFor(() => expect(download).toHaveBeenCalled())
-    release(new Blob(['xyz'], { type: 'audio/mp4' }))
-    await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
+    const blob = new Blob(['xyz'], { type: 'audio/mp4' })
+    // A real download persists the file it fetched before handing the blob back; this
+    // fixture does the same so the row it feeds the engine's span is there when it lands.
+    await storeDownloadedBlob(db, id, blob, 'audio/mp4', 'aaaaaaaa', 0)
+    release(blob)
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
     expect(download).toHaveBeenCalledTimes(1)
   })
 
@@ -491,15 +906,15 @@ describe('Dock', () => {
     expect(surface).not.toBe('rgba(0, 0, 0, 0)')
   })
 
-  it('hands the audio control the dark face in dark mode', async () => {
+  it('hands the progress bar the dark face in dark mode', async () => {
     const id = await localRecording('Jam recording')
     document.documentElement.classList.add('ion-palette-dark')
     try {
       renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }])
       await page.getByRole('button', { name: 'Play recording' }).click()
-      await expect.poll(() => dockElement()?.querySelector('audio')?.src).toMatch(/^blob:/)
-      const audio = dockElement()!.querySelector('audio')!
-      expect(getComputedStyle(audio).colorScheme).toBe('dark')
+      await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+      const progress = dockElement()!.querySelector('progress')!
+      expect(getComputedStyle(progress).colorScheme).toBe('dark')
     } finally {
       document.documentElement.classList.remove('ion-palette-dark')
     }

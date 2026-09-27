@@ -204,11 +204,12 @@ describe('countAccountData', () => {
     await addUploadedFile(db, new File(['a'], 'a.m4a', { type: 'audio/mp4' }), {
       tuneId: null,
       label: null,
+      durationMs: null,
     })
     const goneRecording = await addUploadedFile(
       db,
       new File(['b'], 'b.m4a', { type: 'audio/mp4' }),
-      { tuneId: null, label: null },
+      { tuneId: null, label: null, durationMs: null },
     )
     await deleteRecording(db, goneRecording)
 

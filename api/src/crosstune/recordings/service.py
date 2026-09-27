@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.db.base import next_server_seq
 from crosstune.errors import ConflictError, NotFoundError
 from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
+from crosstune.recordings.trim import needs_trim
+from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
     import uuid
@@ -85,11 +88,50 @@ async def slot_for(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot
     return await session.get(UploadSlot, recording_id)
 
 
-def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
+async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
+    """Queue one job for the recording. The runner picks it up on its next poll.
+
+    A trim is deduplicated against `ux_jobs_recording_id_trim`: a recording can have
+    only one trim queued at a time, so a call while one is already pending inserts
+    nothing.
+
+    Args:
+        session: The session to write through.
+        recording: The recording the job is for.
+        kind: What work the job asks the runner to do.
+
+    Returns:
+        Job | None: The queued row, or None when `kind` is TRIM and one was already pending.
+    """
+    if kind is not JobKind.TRIM:
+        job = Job(recording_id=recording.id, user_id=recording.user_id, kind=kind.value)
+        session.add(job)
+        return job
+    stmt = (
+        insert(Job)
+        .values(recording_id=recording.id, user_id=recording.user_id, kind=kind.value)
+        .on_conflict_do_nothing(
+            index_elements=[Job.recording_id], index_where=text(f"kind = '{JobKind.TRIM.value}'")
+        )
+        .returning(Job)
+    )
+    result = await session.execute(stmt, execution_options={"populate_existing": True})
+    return result.scalar_one_or_none()
+
+
+async def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
     """Add a transcode job for the recording. The runner picks it up on its next poll."""
-    job = Job(recording_id=recording.id, user_id=recording.user_id)
-    session.add(job)
-    return job
+    # Only a TRIM insert can be skipped as a duplicate; this call always queues one.
+    return cast("Job", await enqueue_job(session, recording, JobKind.TRANSCODE))
+
+
+async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:
+    """Queue a trim job when the recording's playback file no longer matches its saved trim.
+
+    A soft-deleted recording never gets one: the purge sweep owns its files.
+    """
+    if recording.deleted_at is None and needs_trim(recording):
+        await enqueue_job(session, recording, JobKind.TRIM)
 
 
 def bump_server_seq(recording: Recording) -> None:

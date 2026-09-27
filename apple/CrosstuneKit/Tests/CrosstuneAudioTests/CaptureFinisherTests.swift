@@ -53,6 +53,23 @@ private func beginTone(
         #expect(local.bytes == (try FileManager.default.attributesOfItem(atPath: finished.path())[.size] as? Int64))
         #expect(abs((local.localDurationMs ?? 0) - 2000) < 100)
         #expect(try await store.pendingChanges(limit: 10).contains { $0.rowID == id })
+        let peaksName = try #require(local.peaksFileName)
+        let peaks = try Peaks(file: Data(contentsOf: store.audioFolder.appending(path: peaksName)))
+        #expect(!peaks.values.isEmpty)
+    }
+
+    @Test func finishingWithLiveMeteredValuesFitsThemToTheExportedDuration() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await beginTone(store, seconds: 1)
+        let finisher = CaptureFinisher(store: store)
+
+        #expect(try await finisher.finish(id, peaks: [10, 200, 30, 5]))
+
+        let local = try #require(try await file(store, id))
+        let peaksName = try #require(local.peaksFileName)
+        let peaks = try Peaks(file: Data(contentsOf: store.audioFolder.appending(path: peaksName)))
+        #expect(peaks.values.count == Int((Double(local.localDurationMs ?? 0) / 20).rounded()))
     }
 
     @Test func aTuneDeletedDuringTheTakeLeavesTheRecordingUnfiled() async throws {

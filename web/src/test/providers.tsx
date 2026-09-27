@@ -2,6 +2,11 @@ import type { ReactElement, ReactNode } from 'react'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
+import {
+  PlaybackEngine,
+  type CreateStage,
+  type EngineClock,
+} from '../features/player/playbackEngine'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
 
@@ -16,6 +21,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     subscribeTransfer: () => () => {},
     resolveLink: async () => null,
     download: async () => null,
+    peaks: async () => null,
     retry: async () => {},
     deleteAccount: async () => {},
     onAccountDeleted: () => () => {},
@@ -23,6 +29,52 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     resume: () => {},
     ...overrides,
   }
+}
+
+/** Stands in for a real `<audio>` element, which can neither decode a fake blob nor build a
+ * Web Audio graph from one, so a test drives play state through events instead. Exported so a
+ * test that needs `play()` to fail can override it on its own instance. */
+export class FakeAudioElement extends EventTarget {
+  src = ''
+  currentTime = 0
+  playbackRate = 1
+  preservesPitch = false
+  paused = true
+
+  play(): Promise<void> {
+    this.paused = false
+    this.dispatchEvent(new Event('play'))
+    return Promise.resolve()
+  }
+
+  pause(): void {
+    this.paused = true
+    this.dispatchEvent(new Event('pause'))
+  }
+}
+
+const realClock: EngineClock = {
+  every: (ms, fn) => {
+    const id = setInterval(fn, ms)
+    return () => clearInterval(id)
+  },
+}
+
+/** Skips the real Signalsmith worklet, which needs a genuine `HTMLMediaElement` to attach to. */
+const noopStage: CreateStage = async () => ({
+  start: async () => {},
+  stop: () => {},
+  setTranspose: () => {},
+  dispose: () => {},
+})
+
+/** A playback engine a test can drive and inspect without decoding real audio. Pass an
+ * element (a `FakeAudioElement` whose `play` was overridden to reject, say) to control how
+ * it behaves. */
+export function fakePlaybackEngine(
+  element: HTMLAudioElement = new FakeAudioElement() as unknown as HTMLAudioElement,
+): PlaybackEngine {
+  return new PlaybackEngine(element, realClock, noopStage)
 }
 
 /** A signed-in, online session for tests that do not care who is signed in. */

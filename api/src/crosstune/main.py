@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import sentry_sdk
 from fastapi import FastAPI
@@ -20,6 +20,7 @@ from crosstune.links.router import router as links_router
 from crosstune.logging import configure_logging
 from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
+from crosstune.schemas.rows import RecordingData
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.r2 import R2Store
 from crosstune.sync.router import router as sync_router
@@ -38,6 +39,37 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
         app.state.clerk_users = ClerkBackendUsers(
             app.state.http_client, settings.clerk_secret_key.get_secret_value()
         )
+
+
+def _publish_recording_data_schema(app: FastAPI) -> None:
+    """Add RecordingData to the document under its own name.
+
+    A push's `data` field is typed as a plain object because each table validates its
+    own shape by hand, so FastAPI's route walk never reaches RecordingData on its own;
+    the client generators still need it named and published, to read the speed and
+    pitch ranges vocabulary.py declares.
+    """
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        first_build = app.openapi_schema is None
+        schema = generate()
+        if first_build:
+            schemas = schema["components"]["schemas"]
+            model_schema = RecordingData.model_json_schema(
+                ref_template="#/components/schemas/{model}"
+            )
+            # setdefault, never overwrite: RecordingData's own schema is built in
+            # validation mode, which shapes an optional nested field differently than
+            # the serialization mode a route's response model uses, so filling in a
+            # $def the document already has would reshape a schema other rows share.
+            for name, definition in model_schema.pop("$defs", {}).items():
+                schemas.setdefault(name, definition)
+            schemas["RecordingData"] = model_schema
+        return schema
+
+    # Replacing the generator on the instance is FastAPI's documented extension point.
+    app.openapi = openapi  # ty: ignore[invalid-assignment]
 
 
 @asynccontextmanager
@@ -134,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sync_router)
     app.include_router(links_router)
     app.include_router(recordings_router)
+    _publish_recording_data_schema(app)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:

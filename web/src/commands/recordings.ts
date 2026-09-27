@@ -13,6 +13,10 @@ function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): Recordin
     local_duration_ms: null,
     local_state: 'captured',
     error: null,
+    blob_rev: null,
+    blob_start_ms: 0,
+    peaks: null,
+    peaks_rev: null,
     last_chunk_at: null,
     tune_id: null,
     recorded_at: null,
@@ -57,6 +61,15 @@ async function putRecordingRow(
     playback_mime: null,
     playback_bytes: null,
     error: null,
+    trim_start_ms: 0,
+    trim_end_ms: null,
+    speed_percent: 100,
+    pitch_cents: 0,
+    source_duration_ms: null,
+    playback_start_ms: null,
+    playback_end_ms: null,
+    playback_rev: null,
+    peaks_rev: null,
   })
 }
 
@@ -101,7 +114,15 @@ export function defaultRecordingLabel(recordedAt: string | Date): string {
 export async function finishCapture(
   db: CrosstuneDb,
   id: string,
-  fields: { tuneId: string | null; mime: string; durationMs: number; recordedAt: string },
+  fields: {
+    tuneId: string | null
+    mime: string
+    durationMs: number
+    recordedAt: string
+    /** Peaks captured live during recording; null when there is nothing to show until the
+     * server builds its own, as after recovering a capture the tab never finished. */
+    peaks: Uint8Array | null
+  },
 ): Promise<void> {
   await recordingTx(db, async () => {
     const file = await db.recording_files.get(id)
@@ -118,6 +139,7 @@ export async function finishCapture(
         mime: fields.mime,
         bytes: blob.size,
         local_duration_ms: fields.durationMs,
+        peaks: fields.peaks,
       }),
     )
     await db.recording_chunks.where('recording_id').equals(id).delete()
@@ -145,12 +167,14 @@ export async function cancelCapture(db: CrosstuneDb, id: string): Promise<void> 
 export async function addUploadedFile(
   db: CrosstuneDb,
   file: File,
-  fields: { tuneId: string | null; label: string | null },
+  fields: { tuneId: string | null; label: string | null; durationMs: number | null },
 ): Promise<string> {
   const id = newId()
   const mime = file.type || 'application/octet-stream'
   await recordingTx(db, async () => {
-    await db.recording_files.put(emptyFile(id, { blob: file, mime, bytes: file.size }))
+    await db.recording_files.put(
+      emptyFile(id, { blob: file, mime, bytes: file.size, local_duration_ms: fields.durationMs }),
+    )
     await putRecordingRow(db, id, {
       tuneId: fields.tuneId,
       source: 'upload',
@@ -164,7 +188,14 @@ export async function addUploadedFile(
 export async function updateRecording(
   db: CrosstuneDb,
   id: string,
-  patch: { label?: string | null; tune_id?: string | null },
+  patch: {
+    label?: string | null
+    tune_id?: string | null
+    trim_start_ms?: number
+    trim_end_ms?: number | null
+    speed_percent?: number
+    pitch_cents?: number
+  },
 ): Promise<void> {
   await recordingTx(db, async () => {
     const row = await db.recordings.get(id)
@@ -179,6 +210,10 @@ export async function updateRecording(
       ...row,
       label: patch.label === undefined ? row.label : patch.label,
       tune_id: patch.tune_id === undefined ? row.tune_id : patch.tune_id,
+      trim_start_ms: patch.trim_start_ms === undefined ? row.trim_start_ms : patch.trim_start_ms,
+      trim_end_ms: patch.trim_end_ms === undefined ? row.trim_end_ms : patch.trim_end_ms,
+      speed_percent: patch.speed_percent === undefined ? row.speed_percent : patch.speed_percent,
+      pitch_cents: patch.pitch_cents === undefined ? row.pitch_cents : patch.pitch_cents,
       position,
       updated_at: now(),
     })
@@ -240,6 +275,8 @@ export async function storeDownloadedBlob(
   id: string,
   blob: Blob,
   mime: string,
+  rev: string,
+  startMs: number,
 ): Promise<void> {
   await db.transaction('rw', db.recording_files, async () => {
     const file = (await db.recording_files.get(id)) ?? emptyFile(id)
@@ -250,7 +287,22 @@ export async function storeDownloadedBlob(
       bytes: blob.size,
       local_state: 'downloaded',
       error: null,
+      blob_rev: rev,
+      blob_start_ms: startMs,
     })
+  })
+}
+
+/** Store a fetched waveform against the revision it was built for. */
+export async function storePeaks(
+  db: CrosstuneDb,
+  id: string,
+  peaks: Uint8Array,
+  rev: string,
+): Promise<void> {
+  await db.transaction('rw', db.recording_files, async () => {
+    const file = (await db.recording_files.get(id)) ?? emptyFile(id)
+    await db.recording_files.put({ ...file, peaks, peaks_rev: rev })
   })
 }
 

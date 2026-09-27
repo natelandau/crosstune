@@ -260,8 +260,12 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     }
 
     @Test func namesAnUnlabeledRecordingForItsTuneEvenUnderTheTunesOwnHeading() {
-        let item = PlayerItem.recording(recording(label: nil), tuneTitle: "Soldier's Joy")
-        #expect(item == PlayerItem(kind: .recording, id: "r1", title: "Soldier's Joy", tuneTitle: "Soldier's Joy"))
+        let row = recording(label: nil)
+        let item = PlayerItem.recording(row, tuneTitle: "Soldier's Joy")
+        #expect(
+            item
+                == PlayerItem(
+                    kind: .recording, id: "r1", title: "Soldier's Joy", tuneTitle: "Soldier's Joy", recording: row))
     }
 
     @Test func prefersTheLabelThenFallsBackToTheDate() {

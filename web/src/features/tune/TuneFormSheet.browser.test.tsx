@@ -25,6 +25,7 @@ import {
 } from './TuneFormSheet'
 import { OTHER_OPTION } from './SuggestSelect'
 import { TRADITIONAL } from './tuneTypes'
+import { CANCEL } from '../../ui/Confirm'
 
 vi.mock('../../commands/tunes', { spy: true })
 
@@ -616,7 +617,7 @@ describe('TuneFormSheet', () => {
     const onClose = vi.fn()
     renderIonic(<Host initial={{ kind: 'new' }} onClose={onClose} />, { db })
     await page.getByLabelText('Title').fill('Draft')
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await sheetDismissed()
     expect(await db.tunes.count()).toBe(0)
     expect(onClose).toHaveBeenCalledOnce()
@@ -698,6 +699,7 @@ describe('TuneFormSheet', () => {
     const genre = page.getByRole('button', { name: `${DETAIL_LABELS.genre}, ${NOT_SET}` })
     const type = page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, ${NOT_SET}` })
     await expect.element(genre).toBeInTheDocument()
+    await expect.element(type).toBeInTheDocument()
     const order = genre.element().compareDocumentPosition(type.element())
     expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

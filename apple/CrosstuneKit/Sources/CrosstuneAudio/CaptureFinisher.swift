@@ -23,13 +23,21 @@ public struct CaptureFinisher: Sendable {
         store.audioFolder.appending(path: CaptureFiles.finishedName(recordingID))
     }
 
+    public func peaksURL(_ recordingID: String) -> URL {
+        store.audioFolder.appending(path: CaptureFiles.peaksName(recordingID))
+    }
+
     /// Exports a capture to `.m4a` without re-encoding, deletes the capture, and writes the
     /// recording. A capture with no audio in it is discarded instead, and this returns false.
+    ///
+    /// `peaks` is the waveform a live take metered as it recorded, fitted to the exported
+    /// duration before it is written. Recovery, with no live meter to draw on, decodes the
+    /// exported file for its waveform instead.
     ///
     /// Every step can be repeated: an export a crash cut short is redone, and a finished file
     /// whose capture is already gone is recorded as it is.
     @discardableResult
-    public func finish(_ recordingID: String) async throws -> Bool {
+    public func finish(_ recordingID: String, peaks: [UInt8]? = nil) async throws -> Bool {
         let capture = captureURL(recordingID)
         let finished = finishedURL(recordingID)
         if CaptureFiles.exists(capture) {
@@ -46,15 +54,31 @@ public struct CaptureFinisher: Sendable {
             return false
         }
         let duration = try await AVURLAsset(url: finished).load(.duration)
+        let durationMs = Int64((duration.seconds * 1000).rounded())
+        let peaksFileName = try await writePeaks(recordingID, from: peaks, durationMs: durationMs, source: finished)
         return try await Commands(store: store).finishCapture(
             recordingID, fileName: CaptureFiles.finishedName(recordingID), bytes: CaptureFiles.size(of: finished),
-            durationMs: Int64((duration.seconds * 1000).rounded()))
+            durationMs: durationMs, peaksFileName: peaksFileName)
+    }
+
+    /// Writes the recording's waveform beside its audio and returns its file name.
+    private func writePeaks(_ recordingID: String, from raw: [UInt8]?, durationMs: Int64, source: URL) async throws
+        -> String
+    {
+        let peaks: Peaks
+        if let raw {
+            peaks = Peaks(values: Peaks.fitted(raw, durationMs: durationMs))
+        } else {
+            peaks = try await Peaks.read(from: source)
+        }
+        return try peaks.write(for: recordingID, in: store)
     }
 
     /// Deletes a capture's audio and forgets it, writing no recording.
     public func discard(_ recordingID: String) async throws {
         try CaptureFiles.removeIfPresent(captureURL(recordingID))
         try CaptureFiles.removeIfPresent(finishedURL(recordingID))
+        try CaptureFiles.removeIfPresent(peaksURL(recordingID))
         try await Commands(store: store).cancelCapture(recordingID)
     }
 

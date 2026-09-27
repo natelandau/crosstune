@@ -67,7 +67,7 @@ function stubPersist() {
 /** A ready recording with a blob, the only shape clearDownloadedBlobs will drop. */
 async function seedDownload(bytes: string) {
   const at = '2026-09-14T20:00:00.000Z'
-  await storeDownloadedBlob(db, 'r1', new Blob([bytes]), 'audio/mp4')
+  await storeDownloadedBlob(db, 'r1', new Blob([bytes]), 'audio/mp4', 'seed-rev', 0)
   await db.recordings.put({
     id: 'r1',
     created_at: at,
@@ -84,6 +84,15 @@ async function seedDownload(bytes: string) {
     playback_mime: 'audio/mp4',
     playback_bytes: bytes.length,
     error: null,
+    trim_start_ms: 0,
+    trim_end_ms: null,
+    speed_percent: 100,
+    pitch_cents: 0,
+    source_duration_ms: null,
+    playback_start_ms: null,
+    playback_end_ms: null,
+    playback_rev: null,
+    peaks_rev: null,
   })
 }
 

@@ -1,4 +1,3 @@
-import AVKit
 import Foundation
 
 /// What the system's Now Playing surfaces show for the loaded audio: the lock screen, Control
@@ -19,26 +18,31 @@ public struct NowPlaying: Equatable, Sendable {
 public protocol AudioPlayback: AnyObject {
     /// Whether audio is playing now, as opposed to loaded and paused or not loaded.
     var isPlaying: Bool { get }
-    /// Seconds into the loaded audio.
+    /// Seconds into the playback window, so 0 is the trim start.
     var elapsed: TimeInterval { get }
-    /// The loaded audio's length, nil until it is known.
+    /// The playback window's length, nil until the loaded audio's length is known.
     var duration: TimeInterval? { get }
     /// True once the loaded file turns out not to play.
     var hasFailed: Bool { get }
 
-    /// Loads `url` in place of anything loaded, paused at its start.
+    /// Loads `url` in place of anything loaded, paused at its start, playing the whole file at
+    /// normal speed and pitch until told otherwise.
     func load(_ url: URL, nowPlaying: NowPlaying)
+    /// Plays only `window` of the loaded file, or all of it when nil. Keeps the place in the
+    /// file, held within the new window, and keeps playing or paused.
+    func setWindow(_ window: PlaybackWindow?)
+    /// Plays at `percent` of normal speed with the pitch held, without restarting.
+    func setRate(_ percent: Int)
+    /// Shifts the pitch by `cents` with the speed held, without restarting.
+    func setPitch(cents: Int)
     /// Renames the loaded audio on the Now Playing surfaces.
     func retitle(_ nowPlaying: NowPlaying)
     func play()
     func pause()
-    /// Moves to `seconds` into the audio, kept within its length.
+    /// Moves to `seconds` into the playback window, kept within its length.
     func seek(to seconds: TimeInterval)
     /// Stops and lets go of the loaded audio and the system's playback controls.
     func unload()
-    /// Points the system's route picker at this player, so choosing an AirPlay speaker there
-    /// sends this audio to it.
-    func showRoutes(in picker: AVRoutePickerView)
 }
 
 extension AudioPlayback {
@@ -58,4 +62,13 @@ func clampedPosition(_ seconds: TimeInterval, duration: TimeInterval?) -> TimeIn
     let floor = max(0, seconds)
     guard let duration else { return floor }
     return min(floor, duration)
+}
+
+/// One state the lock screen and Control Center are told about, on the trimmed timeline.
+struct PublishedPlayback: Equatable {
+    let nowPlaying: NowPlaying
+    let duration: TimeInterval?
+    let elapsed: TimeInterval
+    let isPlaying: Bool
+    let rate: Float
 }

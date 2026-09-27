@@ -1,19 +1,29 @@
 import { act, render, renderHook, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { fakePlaybackEngine } from '../../test/providers'
+import { PlaybackEngineContext, PlaybackEngineProvider } from './PlaybackEngineProvider'
+import type { PlaybackEngine } from './playbackEngine'
 import { PlayerProvider } from './PlayerProvider'
 import { usePlayer, type Player } from './usePlayer'
 
-function renderPlayer() {
+function renderPlayer(playbackEngine?: PlaybackEngine) {
   const seen: { current: Player | null } = { current: null }
   function Consumer() {
     const player = usePlayer()
     seen.current = player
     return <p>{player.item?.id ?? 'none'}</p>
   }
-  render(
+  const tree = (
     <PlayerProvider>
       <Consumer />
-    </PlayerProvider>,
+    </PlayerProvider>
+  )
+  render(
+    playbackEngine ? (
+      <PlaybackEngineContext.Provider value={playbackEngine}>{tree}</PlaybackEngineContext.Provider>
+    ) : (
+      <PlaybackEngineProvider>{tree}</PlaybackEngineProvider>
+    ),
   )
   const player = () => {
     if (!seen.current) throw new Error('consumer did not render')
@@ -62,5 +72,21 @@ describe('PlayerProvider', () => {
     expect(() => renderHook(() => usePlayer())).toThrow(
       'usePlayer must be used inside PlayerProvider',
     )
+  })
+
+  it('primes the playback engine synchronously when playing a recording', () => {
+    const engine = fakePlaybackEngine()
+    const prime = vi.spyOn(engine, 'prime')
+    const { player } = renderPlayer(engine)
+    act(() => player().play({ kind: 'recording', id: 'r1' }))
+    expect(prime).toHaveBeenCalledTimes(1)
+  })
+
+  it('never primes the engine for a link, which has no AudioContext to grab early', () => {
+    const engine = fakePlaybackEngine()
+    const prime = vi.spyOn(engine, 'prime')
+    const { player } = renderPlayer(engine)
+    act(() => player().play({ kind: 'link', id: 'l1' }))
+    expect(prime).not.toHaveBeenCalled()
   })
 })

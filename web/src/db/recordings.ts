@@ -57,6 +57,14 @@ export interface RecordingFile {
   local_duration_ms: number | null
   local_state: LocalFileState
   error: string | null
+  /** The playback_rev this blob was downloaded for, or null for a captured or imported original. */
+  blob_rev: string | null
+  /** Where this blob starts within the source, so a trimmed download's timeline lines up. */
+  blob_start_ms: number
+  /** A whole cached peaks file for the waveform, downloaded once per revision. */
+  peaks: Uint8Array | null
+  /** The peaks_rev this file was downloaded for, or null before any peaks are cached. */
+  peaks_rev: string | null
   /** Epoch ms of the last chunk appended while capturing; a gap past the stale-capture
    * threshold is what marks the capture abandoned rather than still in progress. */
   last_chunk_at: number | null

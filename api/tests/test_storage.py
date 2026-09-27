@@ -106,7 +106,7 @@ def test_rewrite_for_browser_preserves_the_query_exactly() -> None:
 
 def test_keys_share_the_user_prefix() -> None:
     assert upload_key("u1", "r1") == "u1/r1/upload"
-    assert playback_key("u1", "r1") == "u1/r1/playback.m4a"
+    assert playback_key("u1", "r1", "0a1b2c3d") == "u1/r1/playback-0a1b2c3d.m4a"
     assert original_key("u1", "r1", "audio/webm") == "u1/r1/original.webm"
     assert original_key("u1", "r1", "audio/x-something") == "u1/r1/original.bin"
     assert user_prefix("u1") == "u1/"

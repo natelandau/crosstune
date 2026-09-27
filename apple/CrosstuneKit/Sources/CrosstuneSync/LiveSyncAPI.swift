@@ -93,10 +93,30 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func downloadURL(recordingID: String) async throws -> URL {
+    public func downloadURL(recordingID: String) async throws -> DownloadURL {
         let input = Operations.DownloadV1RecordingsRecordingIdDownloadGet.Input(path: .init(recordingId: recordingID))
         switch try await client.downloadV1RecordingsRecordingIdDownloadGet(input) {
-        case .ok(let response): return try signedURL(try response.body.json.url)
+        case .ok(let response):
+            let signed = try response.body.json
+            return DownloadURL(
+                url: try signedURL(signed.url), playbackRev: signed.playbackRev,
+                playbackStartMs: Int64(signed.playbackStartMs))
+        case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
+        case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
+        case .unprocessableContent(let response):
+            throw Self.refusal(422, try? response.body.applicationProblemJson)
+        case .serviceUnavailable(let response):
+            throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
+    public func peaksURL(recordingID: String) async throws -> PeaksURL {
+        let input = Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input(path: .init(recordingId: recordingID))
+        switch try await client.peaksV1RecordingsRecordingIdPeaksGet(input) {
+        case .ok(let response):
+            let signed = try response.body.json
+            return PeaksURL(url: try signedURL(signed.url), peaksRev: signed.peaksRev)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
         case .unprocessableContent(let response):

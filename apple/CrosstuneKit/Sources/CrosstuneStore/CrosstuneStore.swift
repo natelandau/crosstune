@@ -78,10 +78,12 @@ public final class CrosstuneStore: Sendable {
             named = try await database.read { db in
                 let files = try String.fetchAll(
                     db, sql: "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL")
+                let peaks = try String.fetchAll(
+                    db, sql: "SELECT peaks_file_name FROM recording_files WHERE peaks_file_name IS NOT NULL")
                 let capturing = try String.fetchAll(
                     db, sql: "SELECT id FROM recording_files WHERE local_state = ?",
                     arguments: [LocalFileState.capturing.rawValue])
-                return Set(files + capturing.map { "\($0).\(Self.finishedExtension)" })
+                return Set(files + peaks + capturing.map { "\($0).\(Self.finishedExtension)" })
             }
         } catch {
             return
@@ -135,8 +137,12 @@ public final class CrosstuneStore: Sendable {
     public func writeDroppingAudio<Value: Sendable>(_ body: @escaping @Sendable (StoreWriter) throws -> Value)
         async throws -> Value
     {
+        let named =
+            """
+            SELECT file_name FROM recording_files WHERE file_name IS NOT NULL
+            UNION SELECT peaks_file_name FROM recording_files WHERE peaks_file_name IS NOT NULL
+            """
         let (value, dropped) = try await write { writer in
-            let named = "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL"
             let before = Set(try String.fetchAll(writer.db, sql: named))
             let value = try body(writer)
             let after = Set(try String.fetchAll(writer.db, sql: named))

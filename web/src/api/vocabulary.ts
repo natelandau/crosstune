@@ -88,3 +88,9 @@ export const LINK_LIMITS = {
 export const RECORDING_LIMITS = {
   label: 200,
 } as const
+
+export const RECORDING_RANGES = {
+  speed_percent: { min: 50, max: 150 },
+  pitch_cents: { min: -1200, max: 1200 },
+  trim_start_ms: { min: 0 },
+} as const

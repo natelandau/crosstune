@@ -1,3 +1,4 @@
+@preconcurrency import AVFoundation
 import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
@@ -45,7 +46,8 @@ private struct RefusingSyncAPI: SyncAPI {
         throw URLError(.badURL)
     }
     func uploadFinished(recordingID: String) async throws { throw URLError(.badURL) }
-    func downloadURL(recordingID: String) async throws -> URL { throw URLError(.badServerResponse) }
+    func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badServerResponse) }
+    func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badServerResponse) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
     func putObject(_ url: URL, file: URL, contentType: String) async throws { throw URLError(.badURL) }
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }
@@ -246,6 +248,24 @@ private struct RefusingSyncAPI: SyncAPI {
         return url
     }
 
+    /// A real, decodable tone, unlike ``write(_:bytes:in:)``'s garbage bytes, for the tests that
+    /// need an import to actually decode.
+    private func writeTone(_ name: String, seconds: Double, in root: TemporaryRoot) throws -> URL {
+        let folder = root.url.appending(path: "picked", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: name)
+        let writer = try CaptureWriter(url: url, bitrate: 64_000)
+        let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
+        let frames = AVAudioFrameCount(seconds * 48_000)
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let samples = buffer.floatChannelData![0]
+        for frame in 0..<Int(frames) { samples[frame] = 0.5 * Float(sin(2 * .pi * 440 * Double(frame) / 48_000)) }
+        try writer.write(buffer)
+        writer.close()
+        return url
+    }
+
     @Test func copiesAnAudioFileInAsAnUnfiledRecordingNamedForIt() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
@@ -265,6 +285,43 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(
             FileManager.default.fileExists(atPath: store.audioFolder.appending(path: name).path(percentEncoded: false)))
         #expect(FileManager.default.fileExists(atPath: picked.path(percentEncoded: false)))
+    }
+
+    @Test func writesTheImportedFilesWaveformBesideItsAudio() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let picked = try writeTone("Jam.m4a", seconds: 1, in: root)
+
+        let id = try await RecordingImport.add(picked, to: store, tuneID: nil, at: noon)
+
+        let file = try #require(try await store.read { db in try RecordingFile.fetchOne(db, key: id) })
+        let name = try #require(file.peaksFileName)
+        let peaks = try Peaks(file: Data(contentsOf: store.audioFolder.appending(path: name)))
+        #expect(peaks.pointsPerSecond == Peaks.pointsPerSecond)
+        #expect(!peaks.values.isEmpty)
+    }
+
+    @Test func aFailureAfterWritingBothFilesRemovesBoth() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try Data([1, 2, 3]).write(to: store.audioFolder.appending(path: "r1-import.m4a"))
+        try Data([1, 0, 50]).write(to: store.audioFolder.appending(path: "r1-import.peaks"))
+
+        RecordingImport.cleanUpAfterFailure(fileName: "r1-import.m4a", peaksFileName: "r1-import.peaks", in: store)
+
+        let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
+        #expect(left.isEmpty, "a failed import leaves neither the audio nor its peaks file behind")
+    }
+
+    @Test func aFailureWithNoPeaksFileRemovesOnlyTheAudio() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try Data([1, 2, 3]).write(to: store.audioFolder.appending(path: "r1-import.m4a"))
+
+        RecordingImport.cleanUpAfterFailure(fileName: "r1-import.m4a", peaksFileName: nil, in: store)
+
+        let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
+        #expect(left.isEmpty)
     }
 
     @Test func anImportedAACFileSurvivesRecoveryAndTheSweep() async throws {

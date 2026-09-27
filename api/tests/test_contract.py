@@ -110,6 +110,14 @@ def test_openapi_types_each_instrument_in_the_tunings_map() -> None:
     assert "capo" in resolve(tunings["properties"]["five_string_banjo"])["properties"]
 
 
+def test_openapi_publishes_recording_ranges() -> None:
+    properties = create_app().openapi()["components"]["schemas"]["RecordingData"]["properties"]
+    assert properties["speed_percent"]["minimum"] == vocabulary.SPEED_PERCENT_MIN
+    assert properties["speed_percent"]["maximum"] == vocabulary.SPEED_PERCENT_MAX
+    assert properties["pitch_cents"]["minimum"] == vocabulary.PITCH_CENTS_MIN
+    assert properties["pitch_cents"]["maximum"] == vocabulary.PITCH_CENTS_MAX
+
+
 def test_a_tune_row_always_carries_its_modes() -> None:
     row = create_app().openapi()["components"]["schemas"]["TuneRow"]
     assert "modes" in row["required"]

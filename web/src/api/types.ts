@@ -21,6 +21,8 @@ export type RecordingRow = Schemas['RecordingRow']
 export type MeResponse = Schemas['MeResponse']
 export type StorageResponse = Schemas['StorageResponse']
 export type SignedUrl = Schemas['SignedUrl']
+export type DownloadUrl = Schemas['DownloadUrl']
+export type PeaksUrl = Schemas['PeaksUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
 
 export interface SyncApi {
@@ -32,7 +34,11 @@ export interface SyncApi {
   requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>
   uploadFinished(recordingId: string): Promise<void>
   retryRecording(recordingId: string): Promise<void>
-  downloadUrl(recordingId: string): Promise<SignedUrl>
+  /** The revision and start it carries are what the server signed the URL for, which can
+   * already be newer than the row this client has pulled. */
+  downloadUrl(recordingId: string): Promise<DownloadUrl>
+  /** The revision it carries is what the server signed the URL for. */
+  peaksUrl(recordingId: string): Promise<PeaksUrl>
   /** PUT bytes to a presigned URL. No bearer token: the signature is the credential. */
   putObject(url: string, blob: Blob, contentType: string): Promise<void>
   getObject(url: string): Promise<Blob>

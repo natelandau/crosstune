@@ -14,4 +14,7 @@ extension EnvironmentValues {
     /// shows it in the detail column and a switch back pushes it again. Nil in the split view and
     /// on a screen pushed over the tab's own.
     @Entry var stackTune: Binding<String?>?
+    /// This window's identity for the shared player, so only the window that asks for the
+    /// player in full shows it. Nil outside the shell.
+    @Entry var playerWindow: UUID?
 }

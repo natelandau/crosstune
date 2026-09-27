@@ -21,6 +21,20 @@ def in_list(column: str, values: tuple[str, ...], *, nullable: bool = True) -> s
     return f"{column} in ({quoted})"
 
 
+def between(column: str, low: int, high: int) -> str:
+    """Build a CHECK clause restricting `column` to the inclusive range `low` to `high`.
+
+    Args:
+        column: The column name to constrain.
+        low: The lowest allowed value.
+        high: The highest allowed value.
+
+    Returns:
+        str: The SQL expression for the constraint.
+    """
+    return f"{column} between {low} and {high}"
+
+
 def within_list(column: str, values: tuple[str, ...], max_items: int) -> str:
     """Build a CHECK clause restricting an array `column` to `values`, at most `max_items` long.
 

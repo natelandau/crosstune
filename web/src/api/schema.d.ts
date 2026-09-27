@@ -60,8 +60,34 @@ export interface paths {
         /**
          * Download
          * @description A presigned GET for the playback file of a ready recording.
+         *
+         *     Carries the revision and start the signature was issued for, read from the same row
+         *     as the key: a trim landing between this response and the client's GET changes the
+         *     row, but never what this response already promised.
          */
         get: operations["download_v1_recordings__recording_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recordings/{recording_id}/peaks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Peaks
+         * @description A presigned GET for the waveform peaks file of a recording.
+         *
+         *     Carries the revision the signature was issued for, read from the same row as the key.
+         */
+        get: operations["peaks_v1_recordings__recording_id__peaks_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -215,6 +241,23 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * DownloadUrl
+         * @description A presigned GET for the playback file, tagged with the revision and start it was signed for.
+         */
+        DownloadUrl: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Playback Rev */
+            playback_rev: string;
+            /** Playback Start Ms */
+            playback_start_ms: number;
+            /** Url */
+            url: string;
         };
         /**
          * FrettedTuning
@@ -417,6 +460,21 @@ export interface components {
          */
         Mode: "major" | "minor" | "mixolydian" | "dorian" | "modal" | "other";
         /**
+         * PeaksUrl
+         * @description A presigned GET for the waveform file, tagged with the revision it was signed for.
+         */
+        PeaksUrl: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Peaks Rev */
+            peaks_rev: string;
+            /** Url */
+            url: string;
+        };
+        /**
          * Problem
          * @description An RFC 9457 problem details body, the shape of every error this API returns.
          */
@@ -495,6 +553,58 @@ export interface components {
              * @enum {string}
              */
             table: "recordings";
+        };
+        /**
+         * RecordingData
+         * @description Client-editable fields of a recording. The file columns are server-owned.
+         */
+        RecordingData: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Label
+             * @default null
+             */
+            label: string | null;
+            /**
+             * Pitch Cents
+             * @default 0
+             */
+            pitch_cents: number;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            source: components["schemas"]["RecordingSource"];
+            /**
+             * Speed Percent
+             * @default 100
+             */
+            speed_percent: number;
+            /**
+             * Trim End Ms
+             * @default null
+             */
+            trim_end_ms: number | null;
+            /**
+             * Trim Start Ms
+             * @default 0
+             */
+            trim_start_ms: number;
+            /**
+             * Tune Id
+             * @default null
+             */
+            tune_id: string | null;
         };
         /**
          * RecordingLinkChangeResult
@@ -618,10 +728,23 @@ export interface components {
             id: string;
             /** Label */
             label?: string | null;
+            /** Peaks Rev */
+            peaks_rev: string | null;
+            /**
+             * Pitch Cents
+             * @default 0
+             */
+            pitch_cents: number;
             /** Playback Bytes */
             playback_bytes: number | null;
+            /** Playback End Ms */
+            playback_end_ms: number | null;
             /** Playback Mime */
             playback_mime: string | null;
+            /** Playback Rev */
+            playback_rev: string | null;
+            /** Playback Start Ms */
+            playback_start_ms: number | null;
             /**
              * Position
              * @default 0
@@ -635,7 +758,21 @@ export interface components {
             /** Server Seq */
             server_seq: number;
             source: components["schemas"]["RecordingSource"];
+            /** Source Duration Ms */
+            source_duration_ms: number | null;
+            /**
+             * Speed Percent
+             * @default 100
+             */
+            speed_percent: number;
             state: components["schemas"]["RecordingState"];
+            /** Trim End Ms */
+            trim_end_ms?: number | null;
+            /**
+             * Trim Start Ms
+             * @default 0
+             */
+            trim_start_ms: number;
             /** Tune Id */
             tune_id?: string | null;
             /**
@@ -1132,7 +1269,65 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SignedUrl"];
+                    "application/json": components["schemas"]["DownloadUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    peaks_v1_recordings__recording_id__peaks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeaksUrl"];
                 };
             };
             /** @description Not Found */

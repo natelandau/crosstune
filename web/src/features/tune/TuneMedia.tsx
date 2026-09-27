@@ -13,7 +13,6 @@ import { NEW_RECORDING } from '../recording/RecordModal'
 import { useRecord } from '../recording/useRecord'
 import { retryKind } from '../recordings/recordingRow'
 import { RecordingItem } from '../recordings/RecordingItem'
-import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
 
@@ -38,12 +37,9 @@ export function TuneMedia({
   const db = useDb()
   const { start } = useRecord()
   const openMenu = useMenu()
-  const [renaming, setRenaming] = useState<RecordingView | null>(null)
   const [pasting, setPasting] = useState(false)
   // No Add to tune: every recording here is already filed under the tune being looked at.
-  const { error, run, retry, actionsFor } = useRecordingActions({
-    onRename: setRenaming,
-  })
+  const { error, run, retry, actionsFor } = useRecordingActions({})
 
   const empty = recordings.length === 0 && links.length === 0
   // On the header rather than below the card, so an empty tune still reaches it and adding stops
@@ -104,7 +100,6 @@ export function TuneMedia({
           </>
         )}
       </Group>
-      <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
       <PasteLinkSheet tuneId={pasting ? tuneId : null} onClose={() => setPasting(false)} />
     </>
   )

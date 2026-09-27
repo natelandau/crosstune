@@ -25,6 +25,7 @@ public struct AppShell: View {
     /// Bumped to bring the Recordings screen forward.
     @State private var recordingsShown = 0
     @State private var place = ShellPlace()
+    @State private var playerWindow = UUID()
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
         @SceneStorage("shell.tab") private var savedTab: Destination = .catalog
@@ -66,6 +67,7 @@ public struct AppShell: View {
             .environment(\.openSheets, openSheets)
             .environment(\.domeCover, domeCover)
             .environment(\.selecting, selecting)
+            .environment(\.playerWindow, playerWindow)
             .focusedSceneValue(\.recordAction, canRecord ? MenuAction(record) : nil)
             .focusedSceneValue(\.syncNowAction, engine.map { engine in MenuAction { Task { await engine.sync() } } })
             // Made here rather than by the catalog screen, which a Mac or iPad sidebar tears down,

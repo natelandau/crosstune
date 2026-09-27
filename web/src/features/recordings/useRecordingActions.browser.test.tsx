@@ -8,7 +8,7 @@ import { useRecordingActions } from './useRecordingActions'
 
 /** Stands in for a list of recordings: one line for every refusal, wherever the control sits. */
 function Host() {
-  const { error, setUploadError, run } = useRecordingActions({ onRename: vi.fn() })
+  const { error, setUploadError, run } = useRecordingActions({})
   return (
     <>
       <IonButton onClick={() => run(() => Promise.reject(new Error('Refused')))}>

@@ -34,6 +34,16 @@ public struct RecordingFile: Codable, Hashable, Sendable, FetchableRecord, Persi
     public var bytes: Int64?
     /// The file's own length, known before the server reports the recording's.
     public var localDurationMs: Int64?
+    /// The recording's `playbackRev` this file's audio matches; a mismatch means the trim,
+    /// speed, or pitch changed since this device last downloaded it.
+    public var blobRev: String?
+    /// Where in the source this file's audio starts, so a playback position maps back to the
+    /// source timeline.
+    public var blobStartMs: Int64
+    /// Relative to the user's `audio/` folder, nil until the peaks file exists.
+    public var peaksFileName: String?
+    /// The recording's `peaksRev` this file's waveform matches; a mismatch means it is stale.
+    public var peaksRev: String?
     public var error: String?
     /// The tune a capture was started for, so a recovered capture is filed under it.
     public var tuneID: String?
@@ -52,6 +62,10 @@ public struct RecordingFile: Codable, Hashable, Sendable, FetchableRecord, Persi
         case contentType = "content_type"
         case bytes
         case localDurationMs = "local_duration_ms"
+        case blobRev = "blob_rev"
+        case blobStartMs = "blob_start_ms"
+        case peaksFileName = "peaks_file_name"
+        case peaksRev = "peaks_rev"
         case error
         case tuneID = "tune_id"
         case recordedAt = "recorded_at"
@@ -62,7 +76,8 @@ public struct RecordingFile: Codable, Hashable, Sendable, FetchableRecord, Persi
 
     public init(
         id: String, localState: LocalFileState, fileName: String? = nil, contentType: String? = nil,
-        bytes: Int64? = nil, localDurationMs: Int64? = nil, error: String? = nil, tuneID: String? = nil,
+        bytes: Int64? = nil, localDurationMs: Int64? = nil, blobRev: String? = nil, blobStartMs: Int64 = 0,
+        peaksFileName: String? = nil, peaksRev: String? = nil, error: String? = nil, tuneID: String? = nil,
         recordedAt: Timestamp? = nil, uploadAttempts: Int = 0, nextAttemptAt: Timestamp? = nil,
         updatedAt: Timestamp = .now
     ) {
@@ -72,6 +87,10 @@ public struct RecordingFile: Codable, Hashable, Sendable, FetchableRecord, Persi
         self.contentType = contentType
         self.bytes = bytes
         self.localDurationMs = localDurationMs
+        self.blobRev = blobRev
+        self.blobStartMs = blobStartMs
+        self.peaksFileName = peaksFileName
+        self.peaksRev = peaksRev
         self.error = error
         self.tuneID = tuneID
         self.recordedAt = recordedAt

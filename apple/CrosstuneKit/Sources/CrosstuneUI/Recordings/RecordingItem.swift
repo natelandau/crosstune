@@ -44,8 +44,9 @@ struct RecordingItem: View {
     }
 }
 
-/// Words the recording row actions show.
+/// Words the recording row actions and the recording screen's menu show.
 public enum RecordingRowActions {
+    public static let edit = RecordingScreenText.edit
     public static let rename = "Rename"
     public static let addToTune = "Add to tune"
     public static let removeFromTune = "Remove from tune"
@@ -53,12 +54,12 @@ public enum RecordingRowActions {
 }
 
 extension View {
-    /// Swipe actions and a context menu for a recording row: rename it, file it under a tune or
-    /// take it out of one, and delete it. `onAddToTune` nil leaves Add to tune out, for a list
-    /// where every recording is already under the tune being looked at.
+    /// Swipe actions and a context menu for a recording row: open it in the recording screen,
+    /// file it under a tune or take it out of one, and delete it. `onAddToTune` nil leaves Add to
+    /// tune out, for a list where every recording is already under the tune being looked at.
     func recordingRowActions(
-        filed: Bool, onRename: @escaping () -> Void, onAddToTune: (() -> Void)?, onRemoveFromTune: @escaping () -> Void,
-        onDelete: @escaping () -> Void
+        filed: Bool, onEdit: @escaping () -> Void, onAddToTune: (() -> Void)?,
+        onRemoveFromTune: @escaping () -> Void, onDelete: @escaping () -> Void
     ) -> some View {
         self
             // A long swipe only reveals the actions; no swipe acts on its own.
@@ -66,11 +67,11 @@ extension View {
                 Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive, action: onDelete)
                 filing(filed: filed, onAddToTune: onAddToTune, onRemoveFromTune: onRemoveFromTune)
                     .tint(.orange)
-                Button(RecordingRowActions.rename, systemImage: "pencil", action: onRename)
+                Button(RecordingRowActions.edit, systemImage: "slider.horizontal.3", action: onEdit)
                     .tint(.gray)
             }
             .contextMenu {
-                Button(RecordingRowActions.rename, systemImage: "pencil", action: onRename)
+                Button(RecordingRowActions.edit, systemImage: "slider.horizontal.3", action: onEdit)
                 filing(filed: filed, onAddToTune: onAddToTune, onRemoveFromTune: onRemoveFromTune)
                 Divider()
                 Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive, action: onDelete)
