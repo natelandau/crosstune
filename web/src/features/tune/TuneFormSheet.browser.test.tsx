@@ -699,6 +699,7 @@ describe('TuneFormSheet', () => {
     const genre = page.getByRole('button', { name: `${DETAIL_LABELS.genre}, ${NOT_SET}` })
     const type = page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, ${NOT_SET}` })
     await expect.element(genre).toBeInTheDocument()
+    await expect.element(type).toBeInTheDocument()
     const order = genre.element().compareDocumentPosition(type.element())
     expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
