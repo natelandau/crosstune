@@ -17,11 +17,15 @@ from crosstune.jobs.peaks import (
 
 pytestmark = pytest.mark.anyio
 
+# Some ffmpeg releases, 7.1 among them, decode an AAC file's trailing encoder padding as
+# audio, which adds up to this many near-silent windows past the tone. Others trim it.
+AAC_PADDING_WINDOWS = 3
+
 
 async def test_build_peaks_rate_and_scale(media_fixtures) -> None:
     values = decode_peaks(await build_peaks(media_fixtures["full_scale"]))
-    assert 99 <= len(values) <= 101
-    assert all(v > 200 for v in values)
+    assert 99 <= len(values) <= 101 + AAC_PADDING_WINDOWS
+    assert all(v > 200 for v in values[:99])
 
 
 async def test_build_peaks_is_near_silent_for_a_silent_file(media_fixtures) -> None:
@@ -33,7 +37,7 @@ async def test_build_peaks_hour_long(long_m4a) -> None:
     start = time.monotonic()
     values = decode_peaks(await build_peaks(long_m4a))
     elapsed = time.monotonic() - start
-    assert 179_999 <= len(values) <= 180_001
+    assert 179_999 <= len(values) <= 180_001 + AAC_PADDING_WINDOWS
     assert elapsed < 20
 
 
