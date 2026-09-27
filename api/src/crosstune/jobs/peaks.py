@@ -22,10 +22,6 @@ _FULL_SCALE = 32_768  # magnitude of the most negative sample in signed 16-bit P
 async def build_peaks(source: Path) -> bytes:
     """Decode `source` to mono 8 kHz PCM and reduce it to one peak byte per 20 ms window.
 
-    Reading raw samples in pure Python, rather than ffmpeg's astats/ametadata
-    filter, is an order of magnitude faster for an hour of audio and needs no
-    extra dependency.
-
     Args:
         source: A local audio file.
 
@@ -50,6 +46,22 @@ async def build_peaks(source: Path) -> bytes:
         "s16le",
         "-",
     )
+    return encode_peaks(reduce_pcm(raw))
+
+
+def reduce_pcm(raw: bytes) -> bytes:
+    """Reduce mono 8 kHz signed 16-bit little-endian PCM to one peak byte per 20 ms window.
+
+    Reading raw samples in pure Python, rather than ffmpeg's astats/ametadata
+    filter, is an order of magnitude faster for an hour of audio and needs no
+    extra dependency.
+
+    Args:
+        raw: The PCM ffmpeg decoded.
+
+    Returns:
+        bytes: The peak bytes, without the format header.
+    """
     samples = array.array("h")
     # A stray trailing byte from an odd sample count would otherwise raise on frombytes.
     whole = len(raw) - len(raw) % samples.itemsize
@@ -59,13 +71,16 @@ async def build_peaks(source: Path) -> bytes:
         # host order, so a big-endian host must swap before treating it as PCM.
         samples.byteswap()
     windows = range(0, len(samples), _WINDOW_SAMPLES)
-    peaks = bytes(_window_peak(samples[start : start + _WINDOW_SAMPLES]) for start in windows)
-    return encode_peaks(peaks)
+    return bytes(_window_peak(samples[start : start + _WINDOW_SAMPLES]) for start in windows)
 
 
 def _window_peak(window: array.array) -> int:
     """Scale one window's largest sample magnitude to a byte."""
-    peak = max((abs(sample) for sample in window), default=0)
+    if not window:
+        return 0
+    # The builtins scan the slice in C, far faster than a per-sample generator.
+    highest, lowest = max(window), min(window)
+    peak = max(highest, -lowest)
     return round(min(peak / _FULL_SCALE, 1.0) * 255)
 
 

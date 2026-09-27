@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import array
 import time
 
 import pytest
@@ -12,6 +13,7 @@ from crosstune.jobs.peaks import (
     build_peaks,
     decode_peaks,
     encode_peaks,
+    reduce_pcm,
     slice_peaks,
 )
 
@@ -34,11 +36,19 @@ async def test_build_peaks_is_near_silent_for_a_silent_file(media_fixtures) -> N
 
 
 async def test_build_peaks_hour_long(long_m4a) -> None:
-    start = time.monotonic()
     values = decode_peaks(await build_peaks(long_m4a))
-    elapsed = time.monotonic() - start
     assert 179_999 <= len(values) <= 180_001 + AAC_PADDING_WINDOWS
-    assert elapsed < 20
+
+
+def test_reduce_pcm_keeps_up_with_an_hour() -> None:
+    # Only the reduction is timed: decoding speed belongs to ffmpeg and the machine. CPU
+    # time, not wall time, so the suite's other workers competing for cores never count.
+    hour = array.array("h", [0, 20_000, 0, -20_000] * 2_000).tobytes() * 3_600
+    start = time.process_time()
+    values = reduce_pcm(hour)
+    elapsed = time.process_time() - start
+    assert len(values) == 3_600 * PEAKS_PER_SECOND
+    assert elapsed < 10
 
 
 def test_encode_and_decode_round_trip() -> None:
