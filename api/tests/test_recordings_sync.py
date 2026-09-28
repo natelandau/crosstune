@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 
 from crosstune.models import Job, Recording
 from tests.test_pull import pull
-from tests.test_push import T0, T1, change, push, uid
+from tests.test_push import T0, T1, T2, change, push, uid
 
 pytestmark = pytest.mark.anyio
 
@@ -171,6 +171,24 @@ async def test_push_trim_queues_job(client, auth_headers, verify_session) -> Non
     assert [job.kind for job in jobs] == ["trim"]
 
 
+async def test_saving_a_trim_wakes_the_runner(
+    client, auth_headers, verify_session, fake_runner
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="ready", playback_start_ms=0, playback_end_ms=5000, source_duration_ms=5000)
+    )
+    await verify_session.commit()
+    assert fake_runner.wakes == 0
+    await push(
+        client, auth_headers("user_a"), recording(rec, T1, trim_start_ms=500, trim_end_ms=1500)
+    )
+    assert fake_runner.wakes == 1
+
+
 async def test_push_trim_before_upload_queues_nothing(client, auth_headers, verify_session) -> None:
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec, trim_start_ms=500, trim_end_ms=1500))
@@ -193,6 +211,25 @@ async def test_deleting_a_tune_soft_deletes_its_recordings(
     await push(client, auth_headers("user_a"), change("tunes", tune, T1, op="delete"))
     stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
     assert stored.deleted_at is not None
+
+
+async def test_deleting_a_tune_with_a_recording_wakes_the_runner(
+    client, auth_headers, fake_runner
+) -> None:
+    tune, rec = uid(), uid()
+    await push(client, auth_headers("user_a"), change("tunes", tune, T0, title="X"))
+    await push(client, auth_headers("user_a"), recording(rec, tune_id=tune))
+    await push(client, auth_headers("user_a"), change("tunes", tune, T1, title="Y"))
+    assert fake_runner.wakes == 0
+    await push(client, auth_headers("user_a"), change("tunes", tune, T2, op="delete"))
+    assert fake_runner.wakes == 1
+
+
+async def test_deleting_a_recording_wakes_the_runner(client, auth_headers, fake_runner) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await push(client, auth_headers("user_a"), recording(rec, T1, op="delete"))
+    assert fake_runner.wakes == 1
 
 
 async def test_user_settings_carry_audio_quality(client, auth_headers) -> None:
