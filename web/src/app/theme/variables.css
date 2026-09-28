@@ -247,6 +247,16 @@ html.ios ion-modal .lyrics-toolbar ion-title {
   padding-inline: 8px;
 }
 
+/* Ionic turns a modal into a 600px dialog from this size up, which holds only a few lines of
+   large lyrics. The text column keeps its own measure, so the extra room is height and margin. */
+@media only screen and (min-width: 768px) and (min-height: 600px) {
+  ion-modal.lyrics-modal {
+    --width: min(960px, 90vw);
+    --height: 90vh;
+    --border-radius: 12px;
+  }
+}
+
 ion-modal.sheet-dialog .sheet-dialog-body {
   flex: 1 1 auto;
   min-height: 0;

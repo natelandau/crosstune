@@ -108,7 +108,13 @@ export function LyricsModal({
     // The name says which tune, as the toolbar does, so a reader entering the dialog knows it
     // opened the right one. The prop is only the first name: a tune renamed on the screen
     // behind this one reaches the dialog through useDialogName.
-    <IonModal ref={modal} isOpen={open} aria-label={`${title} lyrics`} onDidDismiss={onClose}>
+    <IonModal
+      ref={modal}
+      isOpen={open}
+      aria-label={`${title} lyrics`}
+      onDidDismiss={onClose}
+      className="lyrics-modal"
+    >
       <IonHeader>
         <IonToolbar className="lyrics-toolbar">
           <IonTitle>{title}</IonTitle>
