@@ -1,3 +1,17 @@
+## v0.8.0 (2026-09-28)
+
+### Feat
+
+- trim recordings and play them at any speed and pitch (#69)
+- delete user accounts (#68)
+- **apple**: add the native app for iPhone, iPad, and Mac (#57)
+- **apple**: keep each user's catalog on the device (#56)
+- **apple**: sign in to the Apple app with Clerk (#55)
+
+### Perf
+
+- let the API and database sleep when idle (#70)
+
 ## v0.7.0 (2026-09-25)
 
 ### Feat
