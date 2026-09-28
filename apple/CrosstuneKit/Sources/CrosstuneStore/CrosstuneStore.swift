@@ -47,21 +47,26 @@ public final class CrosstuneStore: Sendable {
     /// Opens the user's store, creating it on first use.
     ///
     /// A store from a newer build, as after installing an older TestFlight build, is deleted
-    /// with its folder and the next sync pulls everything again. One from an older build
-    /// starts over, as ``Schema`` describes.
+    /// with its folder and the next sync pulls everything again. One from an older build is
+    /// migrated in place, as ``Schema`` describes.
     public static func open(userID: String, root: URL = defaultRoot) throws -> CrosstuneStore {
-        try open(userID: userID, root: root, schemaVersion: Schema.version)
+        try open(userID: userID, root: root, migrator: Schema.migrator)
     }
 
-    static func open(userID: String, root: URL, schemaVersion: Int) throws -> CrosstuneStore {
+    static func open(userID: String, root: URL, migrator: DatabaseMigrator) throws -> CrosstuneStore {
         let folder = try folder(for: userID, in: root)
         var database = try openDatabase(in: folder)
-        if try database.read(Schema.storedVersion) > schemaVersion {
-            try database.close()
-            try FileManager.default.removeItem(at: folder)
-            database = try openDatabase(in: folder)
+        do {
+            if try database.read(migrator.hasBeenSuperseded) {
+                try database.close()
+                try FileManager.default.removeItem(at: folder)
+                database = try openDatabase(in: folder)
+            }
+            try migrator.migrate(database)
+        } catch {
+            try? database.close()
+            throw error
         }
-        try database.write { db in try Schema.prepare(db, version: schemaVersion) }
         return CrosstuneStore(userID: userID, folder: folder, database: database)
     }
 
@@ -180,7 +185,7 @@ public final class CrosstuneStore: Sendable {
         try await database.write { db in try Meta.set(db, key, to: value) }
     }
 
-    private static func folder(for userID: String, in root: URL) throws -> URL {
+    static func folder(for userID: String, in root: URL) throws -> URL {
         // Clerk IDs are letters, digits, and underscores; anything else could leave the root.
         guard !userID.isEmpty, userID.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") })
         else { throw StoreError.invalidUserID(userID) }

@@ -22,10 +22,10 @@ public final class TemporaryRoot {
         try CrosstuneStore.open(userID: userID, root: url)
     }
 
-    /// Opens a store as though it were last closed at `schemaVersion`, for tests of the
-    /// start-over behavior a version mismatch triggers.
-    public func open(_ userID: String = "user_a", schemaVersion: Int) throws -> CrosstuneStore {
-        try CrosstuneStore.open(userID: userID, root: url, schemaVersion: schemaVersion)
+    /// Opens a store with `migrator` in place of the app's, for tests that simulate a newer or
+    /// failing build.
+    public func open(_ userID: String = "user_a", migrator: DatabaseMigrator) throws -> CrosstuneStore {
+        try CrosstuneStore.open(userID: userID, root: url, migrator: migrator)
     }
 }
 

@@ -1,43 +1,33 @@
 import GRDB
 
-/// The store's tables, versioned by SQLite's `user_version`.
+/// The store's tables, built by migrations recorded in GRDB's `grdb_migrations` table.
 ///
-/// A store from an older build starts over: the synced tables, the outbox, and the recording
-/// files are rebuilt empty and the pull cursor and refused-change count reset, so the next sync
-/// pulls every row in this version's shape. Unsent edits and unuploaded recordings are lost. Every other `meta` entry
-/// is a local preference and stays. Once the app has users, a schema change needs a migration
-/// that keeps the outbox instead.
+/// A merged migration never changes: GRDB treats a store whose schema differs from what its
+/// applied migrations build as written by a newer build, and ``CrosstuneStore`` deletes it. A
+/// schema change appends a migration that keeps every row, every queued change, and every
+/// recording the server does not have yet with its audio. It rewrites queued changes' `data`
+/// into the new shape, and calls ``repull(_:)`` when a new column holds values only the server
+/// knows.
 enum Schema {
-    static let version = 4
-
-    static func storedVersion(_ db: Database) throws -> Int {
-        try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
-    }
-
-    /// Brings a store at an older version, or a new empty file, to `version`.
-    static func prepare(_ db: Database, version: Int = version) throws {
-        let stored = try storedVersion(db)
-        guard stored < version else { return }
-        if stored > 0 {
-            for table in SyncTable.allCases {
-                try db.execute(sql: "DROP TABLE IF EXISTS \(table.rawValue)")
-            }
-            try db.execute(sql: "DROP TABLE IF EXISTS outbox")
-            try db.execute(sql: "DROP TABLE IF EXISTS recording_files")
-            // The count of refused changes belongs to the outbox dropped above.
-            for key in [MetaKey.pullCursor, .invalidChanges] {
-                try db.execute(sql: "DELETE FROM meta WHERE key = ?", arguments: [key.rawValue])
-            }
+    static let migrator: DatabaseMigrator = {
+        var migrator = DatabaseMigrator()
+        migrator.registerMigration("v4") { db in
+            try createMeta(db)
+            try createSyncTables(db)
+            try createOutbox(db)
+            try createRecordingFiles(db)
         }
-        try createMeta(db)
-        try createSyncTables(db)
-        try createOutbox(db)
-        try createRecordingFiles(db)
-        try db.execute(sql: "PRAGMA user_version = \(version)")
+        return migrator
+    }()
+
+    /// Makes the next pull fetch every row again. Queued changes stay and win over pulled rows
+    /// that are older, as they always do.
+    static func repull(_ db: Database) throws {
+        try db.execute(sql: "DELETE FROM meta WHERE key = ?", arguments: [MetaKey.pullCursor.rawValue])
     }
 
     private static func createMeta(_ db: Database) throws {
-        try db.create(table: "meta", options: .ifNotExists) { t in
+        try db.create(table: "meta") { t in
             t.primaryKey("key", .text)
             t.column("value", .jsonText).notNull()
         }
