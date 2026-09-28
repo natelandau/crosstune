@@ -110,7 +110,7 @@ async def test_lifespan_leaves_an_injected_object_store_in_place(database_url: s
 
 async def test_lifespan_runs_and_stops_the_runner_with_an_injected_store(database_url: str) -> None:
     """A store present at startup gets a runner that starts before yield and stops after."""
-    app = create_app(Settings(database_url=database_url, job_poll_seconds=0.01))
+    app = create_app(Settings(database_url=database_url))
     app.state.object_store = FakeObjectStore()
     async with app.router.lifespan_context(app):
         assert app.state.job_runner is not None

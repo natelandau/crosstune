@@ -290,7 +290,7 @@ class _DeleteFailsStore(FakeObjectStore):
 @pytest.fixture
 def runner(engine, tmp_path) -> tuple[JobRunner, FakeObjectStore]:
     store = FakeObjectStore()
-    return JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01, work_root=tmp_path), store
+    return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path), store
 
 
 async def seed(verify_session, store: FakeObjectStore, path, content_type: str) -> Recording:
@@ -426,7 +426,7 @@ async def test_run_once_leaves_a_recording_ready_when_deleting_the_upload_fails(
     engine, verify_session, media_fixtures, tmp_path
 ) -> None:
     store = _DeleteFailsStore()
-    job_runner = JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01, work_root=tmp_path)
+    job_runner = JobRunner(make_sessionmaker(engine), store, work_root=tmp_path)
     rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
@@ -890,9 +890,7 @@ async def test_sweep_orphans_removes_prefixes_with_no_user(runner, verify_sessio
 
 async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> None:
     store = FakeObjectStore()
-    hourly = JobRunner(
-        make_sessionmaker(engine), store, poll_seconds=0.01, orphan_sweep_seconds=3600
-    )
+    hourly = JobRunner(make_sessionmaker(engine), store, orphan_sweep_seconds=3600)
     first = new_uuid7()
     store.put_bytes(playback_key(first, "r1", REV), b"a", "audio/mp4")
     assert await hourly.run_once() == 1
@@ -900,7 +898,7 @@ async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> No
     store.put_bytes(playback_key(second, "r1", REV), b"b", "audio/mp4")
     assert await hourly.run_once() == 0
     assert store.keys() == [playback_key(second, "r1", REV)]
-    always = JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01, orphan_sweep_seconds=0)
+    always = JobRunner(make_sessionmaker(engine), store, orphan_sweep_seconds=0)
     assert await always.run_once() == 1
     assert store.keys() == []
 
@@ -978,9 +976,7 @@ async def test_sweep_through_a_prefix_leaves_other_environments_alone(
     ]
     for key in a_keys + others:
         bucket.put_bytes(key, b"a", "audio/mp4")
-    job_runner = JobRunner(
-        make_sessionmaker(engine), PrefixedStore(bucket, "pr-6/"), poll_seconds=0.01
-    )
+    job_runner = JobRunner(make_sessionmaker(engine), PrefixedStore(bucket, "pr-6/"))
     assert await job_runner.sweep_orphans() == 0
     assert bucket.keys() == sorted(a_keys + others)
     stray = f"pr-6/{playback_key(new_uuid7(), new_uuid7(), REV)}"
@@ -1013,7 +1009,7 @@ async def test_sweep_handles_more_ids_than_postgres_bind_parameters(engine, veri
         store.put_bytes(playback_key(user.id, stray, REV), b"b", "audio/mp4")
         store.put_bytes(playback_key(gone, new_uuid7(), REV), b"c", "audio/mp4")
         expected += [f"{user.id}/{stray}/", f"{gone}/"]
-    job_runner = JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01)
+    job_runner = JobRunner(make_sessionmaker(engine), store)
     assert await job_runner.sweep_orphans() == len(expected)
     assert sorted(store.deleted) == sorted(expected)
 
@@ -1053,24 +1049,159 @@ async def test_stop_gives_up_on_a_job_that_will_not_finish(runner, monkeypatch) 
     assert task.done()
 
 
-async def test_run_forever_survives_a_crash_and_sleeps_only_when_idle(runner) -> None:
+async def test_run_forever_survives_a_crash_and_sleeps_only_when_idle(runner, monkeypatch) -> None:
     job_runner, _ = runner
-    mock_run_once = AsyncMock(side_effect=[RuntimeError("boom"), 0, 0])
-    reached_three_calls = asyncio.Event()
+    monkeypatch.setattr("crosstune.jobs.runner.ERROR_RETRY_SECONDS", 0.01)
+    mock_run_once = AsyncMock(side_effect=[RuntimeError("boom"), 1, 0, 0])
+    job_runner.next_due = AsyncMock(return_value=utc_now() + timedelta(hours=1))
+    idle = asyncio.Event()
 
     async def _run_once() -> int:
-        try:
-            return await mock_run_once()
-        finally:
-            if mock_run_once.await_count >= 3:
-                reached_three_calls.set()
+        worked = await mock_run_once()
+        if worked == 0:
+            idle.set()
+        return worked
 
     job_runner.run_once = _run_once
     task = job_runner.start()
-    await asyncio.wait_for(reached_three_calls.wait(), timeout=2)
+    await asyncio.wait_for(idle.wait(), timeout=2)
+    await asyncio.sleep(0.05)
+    assert mock_run_once.await_count == 3
     await job_runner.stop()
     assert task.done()
-    assert mock_run_once.await_count == 3
+
+
+async def _idle_runner(job_runner: JobRunner) -> None:
+    """Start the loop and wait until its first idle wait has begun."""
+    idle = asyncio.Event()
+    real_next_due = job_runner.next_due
+
+    async def _next_due() -> datetime:
+        due = await real_next_due()
+        idle.set()
+        return due
+
+    job_runner.next_due = _next_due
+    job_runner.start()
+    await asyncio.wait_for(idle.wait(), timeout=5)
+
+
+async def test_next_due_is_the_orphan_sweep_when_nothing_is_pending(runner) -> None:
+    job_runner, _ = runner
+    await job_runner.run_once()
+    due = await job_runner.next_due()
+    assert abs(due - (utc_now() + timedelta(hours=1))) < timedelta(seconds=1)
+
+
+async def test_next_due_is_a_backed_off_job(runner, verify_session) -> None:
+    job_runner, _ = runner
+    await job_runner.run_once()
+    user = await make_user(verify_session)
+    rec = await add_recording(verify_session, user, "uploaded")
+    locked_until = utc_now() + timedelta(seconds=45)
+    verify_session.add(Job(recording_id=rec.id, user_id=user.id, locked_until=locked_until))
+    await verify_session.commit()
+    assert await job_runner.next_due() == locked_until
+
+
+async def test_next_due_is_an_abandoned_slot_past_grace(runner, verify_session) -> None:
+    job_runner, _ = runner
+    await job_runner.run_once()
+    # Past expiry but inside the grace, so it comes due before the hourly sweep.
+    rec = await _pending_with_slot(verify_session, expired_for=timedelta(seconds=10))
+    slot = await verify_session.get(UploadSlot, rec.id)
+    deleted = await _pending_with_slot(verify_session, expired_for=timedelta(seconds=20))
+    deleted.deleted_at = utc_now()
+    await verify_session.commit()
+    assert await job_runner.next_due() == slot.expires_at + ABANDONED_SLOT_GRACE
+
+
+async def test_wake_runs_work_that_arrived_while_idle(runner, verify_session) -> None:
+    job_runner, store = runner
+    await _idle_runner(job_runner)
+    user = await make_user(verify_session)
+    rec_id = uuid.uuid4()
+    rec = Recording(
+        id=rec_id,
+        user_id=user.id,
+        source="microphone",
+        recorded_at=utc_now(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
+        deleted_at=utc_now(),
+        state="ready",
+        playback_key=playback_key(user.id, rec_id, new_rev()),
+        playback_bytes=3,
+    )
+    verify_session.add(rec)
+    await verify_session.commit()
+    store.put_bytes(rec.playback_key, b"abc", "audio/mp4")
+    purged = asyncio.Event()
+    real_run_once = job_runner.run_once
+
+    async def _run_once() -> int:
+        worked = await real_run_once()
+        if worked:
+            purged.set()
+        return worked
+
+    job_runner.run_once = _run_once
+    job_runner.wake()
+    await asyncio.wait_for(purged.wait(), timeout=5)
+    assert store.keys() == []
+    await verify_session.refresh(rec)
+    assert rec.playback_key is None
+    await job_runner.stop()
+
+
+async def test_wake_during_a_pass_is_not_lost(runner) -> None:
+    job_runner, _ = runner
+    calls = 0
+    second_pass = asyncio.Event()
+
+    async def _run_once() -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            job_runner.wake()
+        else:
+            second_pass.set()
+        return 0
+
+    job_runner.run_once = _run_once
+    job_runner.start()
+    await asyncio.wait_for(second_pass.wait(), timeout=2)
+    await job_runner.stop()
+
+
+async def test_stop_interrupts_a_long_sleep(runner) -> None:
+    job_runner, _ = runner
+    await _idle_runner(job_runner)
+    task = job_runner.task
+    await asyncio.wait_for(job_runner.stop(), timeout=1)
+    assert task.done()
+
+
+async def test_next_due_failure_waits_and_continues(runner, monkeypatch) -> None:
+    job_runner, _ = runner
+    monkeypatch.setattr("crosstune.jobs.runner.ERROR_RETRY_SECONDS", 0.05)
+    calls = 0
+    second_call = asyncio.Event()
+
+    async def _next_due() -> datetime:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            msg = "database down"
+            raise RuntimeError(msg)
+        second_call.set()
+        return utc_now() + timedelta(hours=1)
+
+    job_runner.next_due = _next_due
+    task = job_runner.start()
+    await asyncio.wait_for(second_call.wait(), timeout=2)
+    assert not task.done()
+    await job_runner.stop()
 
 
 class _WriteTrackingStore(FakeObjectStore):
@@ -1096,7 +1227,7 @@ class _WriteTrackingStore(FakeObjectStore):
 @pytest.fixture
 def trim_runner(engine, tmp_path) -> tuple[JobRunner, _WriteTrackingStore]:
     store = _WriteTrackingStore()
-    return JobRunner(make_sessionmaker(engine), store, poll_seconds=0.01, work_root=tmp_path), store
+    return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path), store
 
 
 async def seed_ready(verify_session, store: FakeObjectStore, path, content_type, tmp_path):
