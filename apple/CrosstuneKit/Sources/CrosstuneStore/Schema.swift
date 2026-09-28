@@ -2,9 +2,12 @@ import GRDB
 
 /// The store's tables, built by migrations recorded in GRDB's `grdb_migrations` table.
 ///
-/// A merged migration never changes: GRDB treats a store whose schema differs from what its
-/// applied migrations build as written by a newer build, and ``CrosstuneStore`` deletes it. A
-/// schema change appends a migration that keeps every row, every queued change, and every
+/// A merged migration never changes: a store that applied it never runs it again, so an edit
+/// reaches only new installs and leaves every other store in the old shape. Its identifier never
+/// changes either: a store holding an identifier this build does not register reads as written
+/// by a newer build, and ``CrosstuneStore`` deletes it.
+///
+/// A schema change appends a migration that keeps every row, every queued change, and every
 /// recording the server does not have yet with its audio. It rewrites queued changes' `data`
 /// into the new shape, and calls ``repull(_:)`` when a new column holds values only the server
 /// knows.

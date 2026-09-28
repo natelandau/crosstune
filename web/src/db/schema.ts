@@ -28,11 +28,11 @@ export async function repull(tx: Transaction): Promise<void> {
 }
 
 /**
- * Empty a database from before version 7 and reset its pull cursor, so the next sync pulls
+ * Empty a database from before version 6 and reset its pull cursor, so the next sync pulls
  * every row again in this version's shape. Unsynced edits and unuploaded recordings are
  * dropped. Every other meta entry is a local preference and stays.
  *
- * Versions 5 and 6 only. From version 7 each version's upgrader reshapes rows in place,
+ * The upgrader of versions 5 and 6 only. From version 7 each version's upgrader reshapes rows in place,
  * rewrites queued changes' data into the new shape, keeps every unuploaded recording and its
  * chunks, and calls repull when a new field holds values only the server knows.
  */

@@ -107,7 +107,7 @@ Pull:
   does not have yet, with its audio. A migration that adds a field only
   the server can fill resets the pull cursor, so the next pull fetches
   every row again and unsent edits win as usual.
-- A web database from before version 7 starts over instead: it clears
+- A web database from before version 6 starts over instead: it clears
   every synced store, the outbox, and unuploaded recording files and
   chunks, and resets the pull cursor. Other meta, such as filters, stays.
 - A client that finds a local database written by a newer client, as after

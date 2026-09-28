@@ -98,183 +98,158 @@ private struct V4Fixture {
     #expect(try await store.meta(.keepOffline, as: Bool.self) == true)
 }
 
-/// A merged migration never changes: GRDB treats a store whose schema differs from what its
-/// applied migrations build as written by a newer build, and opening it deletes the store.
+/// A merged migration never changes: a store that already applied it never runs it again, so
+/// an edit reaches only new installs and leaves every other store in the old shape.
 @Test func theV4SchemaNeverChanges() throws {
     let queue = try DatabaseQueue()
     try Schema.migrator.migrate(queue, upTo: "v4")
-    let schema = try queue.read(describeSchema)
+    let schema = try queue.read { db in
+        try Row.fetchAll(
+            db,
+            sql: """
+                SELECT type, name, sql FROM sqlite_master
+                WHERE name NOT LIKE 'sqlite_%' AND name != 'grdb_migrations' AND sql IS NOT NULL
+                ORDER BY name
+                """
+        )
+        .map { row -> String in
+            let type: String = row["type"]
+            let name: String = row["name"]
+            let sql: String = row["sql"]
+            // One clause per line keeps the pinned text under the line limit.
+            return "\(type) \(name): \(sql.replacingOccurrences(of: ", ", with: ",\n  "))"
+        }
+        .joined(separator: "\n")
+    }
     #expect(schema == v4Schema)
 }
 
-private func describeSchema(_ db: Database) throws -> String {
-    let tables = try String.fetchAll(
-        db,
-        sql: """
-            SELECT name FROM sqlite_master
-            WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'grdb_migrations'
-            ORDER BY name
-            """)
-    var lines: [String] = []
-    for table in tables {
-        for column in try Row.fetchAll(db, sql: "PRAGMA table_info(\(table.quotedDatabaseIdentifier))")
-            .sorted(by: { ($0["name"] as String) < ($1["name"] as String) })
-        {
-            let name: String = column["name"]
-            let type: String = column["type"]
-            let notNull: Int = column["notnull"]
-            let defaultValue: String? = column["dflt_value"]
-            let primaryKey: Int = column["pk"]
-            lines.append(
-                "\(table).\(name) \(type) notnull=\(notNull) default=\(defaultValue ?? "NULL") pk=\(primaryKey)")
-        }
-        for index in try Row.fetchAll(db, sql: "PRAGMA index_list(\(table.quotedDatabaseIdentifier))")
-            .sorted(by: { ($0["name"] as String) < ($1["name"] as String) })
-        {
-            let name: String = index["name"]
-            let unique: Int = index["unique"]
-            let columns = try String.fetchAll(
-                db, sql: "SELECT name FROM pragma_index_info(?) ORDER BY seqno", arguments: [name])
-            lines.append("\(table) index \(name) unique=\(unique) (\(columns.joined(separator: ", ")))")
-        }
-    }
-    return lines.joined(separator: "\n")
-}
-
 private let v4Schema = """
-    list_items.created_at TEXT notnull=1 default=NULL pk=0
-    list_items.deleted_at TEXT notnull=0 default=NULL pk=0
-    list_items.extra TEXT notnull=1 default=NULL pk=0
-    list_items.id TEXT notnull=1 default=NULL pk=1
-    list_items.list_id TEXT notnull=1 default=NULL pk=0
-    list_items.position INTEGER notnull=1 default=NULL pk=0
-    list_items.server_seq INTEGER notnull=1 default=NULL pk=0
-    list_items.updated_at TEXT notnull=1 default=NULL pk=0
-    list_items.user_tune_id TEXT notnull=1 default=NULL pk=0
-    list_items index list_items_on_list_id unique=0 (list_id)
-    list_items index list_items_on_user_tune_id unique=0 (user_tune_id)
-    list_items index sqlite_autoindex_list_items_1 unique=1 (id)
-    lists.created_at TEXT notnull=1 default=NULL pk=0
-    lists.deleted_at TEXT notnull=0 default=NULL pk=0
-    lists.extra TEXT notnull=1 default=NULL pk=0
-    lists.id TEXT notnull=1 default=NULL pk=1
-    lists.name TEXT notnull=1 default=NULL pk=0
-    lists.position INTEGER notnull=1 default=NULL pk=0
-    lists.server_seq INTEGER notnull=1 default=NULL pk=0
-    lists.updated_at TEXT notnull=1 default=NULL pk=0
-    lists index sqlite_autoindex_lists_1 unique=1 (id)
-    meta.key TEXT notnull=1 default=NULL pk=1
-    meta.value TEXT notnull=1 default=NULL pk=0
-    meta index sqlite_autoindex_meta_1 unique=1 (key)
-    outbox.data TEXT notnull=0 default=NULL pk=0
-    outbox.op TEXT notnull=1 default=NULL pk=0
-    outbox.row_id TEXT notnull=1 default=NULL pk=0
-    outbox.seq INTEGER notnull=0 default=NULL pk=1
-    outbox.table_name TEXT notnull=1 default=NULL pk=0
-    outbox.updated_at TEXT notnull=1 default=NULL pk=0
-    outbox index sqlite_autoindex_outbox_1 unique=1 (table_name, row_id)
-    recording_files.blob_rev TEXT notnull=0 default=NULL pk=0
-    recording_files.blob_start_ms INTEGER notnull=1 default=0 pk=0
-    recording_files.bytes INTEGER notnull=0 default=NULL pk=0
-    recording_files.content_type TEXT notnull=0 default=NULL pk=0
-    recording_files.error TEXT notnull=0 default=NULL pk=0
-    recording_files.file_name TEXT notnull=0 default=NULL pk=0
-    recording_files.id TEXT notnull=1 default=NULL pk=1
-    recording_files.local_duration_ms INTEGER notnull=0 default=NULL pk=0
-    recording_files.local_state TEXT notnull=1 default=NULL pk=0
-    recording_files.next_attempt_at TEXT notnull=0 default=NULL pk=0
-    recording_files.peaks_file_name TEXT notnull=0 default=NULL pk=0
-    recording_files.peaks_rev TEXT notnull=0 default=NULL pk=0
-    recording_files.recorded_at TEXT notnull=0 default=NULL pk=0
-    recording_files.tune_id TEXT notnull=0 default=NULL pk=0
-    recording_files.updated_at TEXT notnull=1 default=NULL pk=0
-    recording_files.upload_attempts INTEGER notnull=1 default=0 pk=0
-    recording_files index recording_files_on_local_state unique=0 (local_state)
-    recording_files index sqlite_autoindex_recording_files_1 unique=1 (id)
-    recording_links.artwork_url TEXT notnull=0 default=NULL pk=0
-    recording_links.created_at TEXT notnull=1 default=NULL pk=0
-    recording_links.deleted_at TEXT notnull=0 default=NULL pk=0
-    recording_links.extra TEXT notnull=1 default=NULL pk=0
-    recording_links.id TEXT notnull=1 default=NULL pk=1
-    recording_links.label TEXT notnull=0 default=NULL pk=0
-    recording_links.position INTEGER notnull=1 default=NULL pk=0
-    recording_links.provider TEXT notnull=1 default=NULL pk=0
-    recording_links.provider_ref TEXT notnull=0 default=NULL pk=0
-    recording_links.server_seq INTEGER notnull=1 default=NULL pk=0
-    recording_links.title TEXT notnull=0 default=NULL pk=0
-    recording_links.tune_id TEXT notnull=1 default=NULL pk=0
-    recording_links.updated_at TEXT notnull=1 default=NULL pk=0
-    recording_links.url TEXT notnull=1 default=NULL pk=0
-    recording_links index recording_links_on_tune_id unique=0 (tune_id)
-    recording_links index sqlite_autoindex_recording_links_1 unique=1 (id)
-    recordings.created_at TEXT notnull=1 default=NULL pk=0
-    recordings.deleted_at TEXT notnull=0 default=NULL pk=0
-    recordings.duration_ms INTEGER notnull=0 default=NULL pk=0
-    recordings.error TEXT notnull=0 default=NULL pk=0
-    recordings.extra TEXT notnull=1 default=NULL pk=0
-    recordings.id TEXT notnull=1 default=NULL pk=1
-    recordings.label TEXT notnull=0 default=NULL pk=0
-    recordings.peaks_rev TEXT notnull=0 default=NULL pk=0
-    recordings.pitch_cents INTEGER notnull=1 default=0 pk=0
-    recordings.playback_bytes INTEGER notnull=0 default=NULL pk=0
-    recordings.playback_end_ms INTEGER notnull=0 default=NULL pk=0
-    recordings.playback_mime TEXT notnull=0 default=NULL pk=0
-    recordings.playback_rev TEXT notnull=0 default=NULL pk=0
-    recordings.playback_start_ms INTEGER notnull=0 default=NULL pk=0
-    recordings.position INTEGER notnull=1 default=NULL pk=0
-    recordings.recorded_at TEXT notnull=1 default=NULL pk=0
-    recordings.server_seq INTEGER notnull=1 default=NULL pk=0
-    recordings.source TEXT notnull=1 default=NULL pk=0
-    recordings.source_duration_ms INTEGER notnull=0 default=NULL pk=0
-    recordings.speed_percent INTEGER notnull=1 default=100 pk=0
-    recordings.state TEXT notnull=1 default=NULL pk=0
-    recordings.trim_end_ms INTEGER notnull=0 default=NULL pk=0
-    recordings.trim_start_ms INTEGER notnull=1 default=0 pk=0
-    recordings.tune_id TEXT notnull=0 default=NULL pk=0
-    recordings.updated_at TEXT notnull=1 default=NULL pk=0
-    recordings index recordings_on_tune_id unique=0 (tune_id)
-    recordings index sqlite_autoindex_recordings_1 unique=1 (id)
-    tunes.alternate_titles TEXT notnull=1 default=NULL pk=0
-    tunes.composer TEXT notnull=0 default=NULL pk=0
-    tunes.created_at TEXT notnull=1 default=NULL pk=0
-    tunes.deleted_at TEXT notnull=0 default=NULL pk=0
-    tunes.extra TEXT notnull=1 default=NULL pk=0
-    tunes.genre TEXT notnull=0 default=NULL pk=0
-    tunes.id TEXT notnull=1 default=NULL pk=1
-    tunes.is_crooked BOOLEAN notnull=1 default=NULL pk=0
-    tunes.key TEXT notnull=0 default=NULL pk=0
-    tunes.lyrics TEXT notnull=0 default=NULL pk=0
-    tunes.modes TEXT notnull=1 default=NULL pk=0
-    tunes.part_structure TEXT notnull=0 default=NULL pk=0
-    tunes.server_seq INTEGER notnull=1 default=NULL pk=0
-    tunes.time_signature TEXT notnull=0 default=NULL pk=0
-    tunes.title TEXT notnull=1 default=NULL pk=0
-    tunes.tune_type TEXT notnull=0 default=NULL pk=0
-    tunes.tunings TEXT notnull=1 default=NULL pk=0
-    tunes.updated_at TEXT notnull=1 default=NULL pk=0
-    tunes index sqlite_autoindex_tunes_1 unique=1 (id)
-    tunes index tunes_on_title unique=0 (title)
-    user_settings.audio_quality TEXT notnull=1 default=NULL pk=0
-    user_settings.created_at TEXT notnull=1 default=NULL pk=0
-    user_settings.deleted_at TEXT notnull=0 default=NULL pk=0
-    user_settings.extra TEXT notnull=1 default=NULL pk=0
-    user_settings.id TEXT notnull=1 default=NULL pk=1
-    user_settings.instruments TEXT notnull=1 default=NULL pk=0
-    user_settings.server_seq INTEGER notnull=1 default=NULL pk=0
-    user_settings.updated_at TEXT notnull=1 default=NULL pk=0
-    user_settings index sqlite_autoindex_user_settings_1 unique=1 (id)
-    user_tunes.archived_at TEXT notnull=0 default=NULL pk=0
-    user_tunes.created_at TEXT notnull=1 default=NULL pk=0
-    user_tunes.deleted_at TEXT notnull=0 default=NULL pk=0
-    user_tunes.extra TEXT notnull=1 default=NULL pk=0
-    user_tunes.id TEXT notnull=1 default=NULL pk=1
-    user_tunes.learned_from TEXT notnull=0 default=NULL pk=0
-    user_tunes.learned_on TEXT notnull=0 default=NULL pk=0
-    user_tunes.notes TEXT notnull=0 default=NULL pk=0
-    user_tunes.server_seq INTEGER notnull=1 default=NULL pk=0
-    user_tunes.status TEXT notnull=1 default=NULL pk=0
-    user_tunes.tune_id TEXT notnull=1 default=NULL pk=0
-    user_tunes.updated_at TEXT notnull=1 default=NULL pk=0
-    user_tunes index sqlite_autoindex_user_tunes_1 unique=1 (id)
-    user_tunes index user_tunes_on_tune_id unique=0 (tune_id)
+    table list_items: CREATE TABLE "list_items" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "list_id" TEXT NOT NULL,
+      "user_tune_id" TEXT NOT NULL,
+      "position" INTEGER NOT NULL,
+      "extra" TEXT NOT NULL)
+    index list_items_on_list_id: CREATE INDEX "list_items_on_list_id" ON "list_items"("list_id")
+    index list_items_on_user_tune_id: CREATE INDEX "list_items_on_user_tune_id" ON "list_items"("user_tune_id")
+    table lists: CREATE TABLE "lists" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "name" TEXT NOT NULL,
+      "position" INTEGER NOT NULL,
+      "extra" TEXT NOT NULL)
+    table meta: CREATE TABLE "meta" ("key" TEXT PRIMARY KEY NOT NULL,
+      "value" TEXT NOT NULL)
+    table outbox: CREATE TABLE "outbox" ("seq" INTEGER PRIMARY KEY AUTOINCREMENT,
+      "table_name" TEXT NOT NULL,
+      "row_id" TEXT NOT NULL,
+      "op" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "data" TEXT,
+      UNIQUE ("table_name",
+      "row_id"))
+    table recording_files: CREATE TABLE "recording_files" ("id" TEXT PRIMARY KEY NOT NULL,
+      "local_state" TEXT NOT NULL,
+      "file_name" TEXT,
+      "content_type" TEXT,
+      "bytes" INTEGER,
+      "local_duration_ms" INTEGER,
+      "blob_rev" TEXT,
+      "blob_start_ms" INTEGER NOT NULL DEFAULT 0,
+      "peaks_file_name" TEXT,
+      "peaks_rev" TEXT,
+      "error" TEXT,
+      "tune_id" TEXT,
+      "recorded_at" TEXT,
+      "upload_attempts" INTEGER NOT NULL DEFAULT 0,
+      "next_attempt_at" TEXT,
+      "updated_at" TEXT NOT NULL)
+    index recording_files_on_local_state: CREATE INDEX "recording_files_on_local_state" ON "recording_files"("local_state")
+    table recording_links: CREATE TABLE "recording_links" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "tune_id" TEXT NOT NULL,
+      "url" TEXT NOT NULL,
+      "provider" TEXT NOT NULL,
+      "provider_ref" TEXT,
+      "title" TEXT,
+      "label" TEXT,
+      "artwork_url" TEXT,
+      "position" INTEGER NOT NULL,
+      "extra" TEXT NOT NULL)
+    index recording_links_on_tune_id: CREATE INDEX "recording_links_on_tune_id" ON "recording_links"("tune_id")
+    table recordings: CREATE TABLE "recordings" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "tune_id" TEXT,
+      "source" TEXT NOT NULL,
+      "recorded_at" TEXT NOT NULL,
+      "label" TEXT,
+      "position" INTEGER NOT NULL,
+      "state" TEXT NOT NULL,
+      "duration_ms" INTEGER,
+      "playback_mime" TEXT,
+      "playback_bytes" INTEGER,
+      "error" TEXT,
+      "source_duration_ms" INTEGER,
+      "playback_start_ms" INTEGER,
+      "playback_end_ms" INTEGER,
+      "playback_rev" TEXT,
+      "peaks_rev" TEXT,
+      "trim_start_ms" INTEGER NOT NULL DEFAULT 0,
+      "trim_end_ms" INTEGER,
+      "speed_percent" INTEGER NOT NULL DEFAULT 100,
+      "pitch_cents" INTEGER NOT NULL DEFAULT 0,
+      "extra" TEXT NOT NULL)
+    index recordings_on_tune_id: CREATE INDEX "recordings_on_tune_id" ON "recordings"("tune_id")
+    table tunes: CREATE TABLE "tunes" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "title" TEXT NOT NULL,
+      "alternate_titles" TEXT NOT NULL,
+      "composer" TEXT,
+      "genre" TEXT,
+      "tune_type" TEXT,
+      "key" TEXT,
+      "modes" TEXT NOT NULL,
+      "time_signature" TEXT,
+      "part_structure" TEXT,
+      "is_crooked" BOOLEAN NOT NULL,
+      "lyrics" TEXT,
+      "tunings" TEXT NOT NULL,
+      "extra" TEXT NOT NULL)
+    index tunes_on_title: CREATE INDEX "tunes_on_title" ON "tunes"("title")
+    table user_settings: CREATE TABLE "user_settings" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "audio_quality" TEXT NOT NULL,
+      "instruments" TEXT NOT NULL,
+      "extra" TEXT NOT NULL)
+    table user_tunes: CREATE TABLE "user_tunes" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "tune_id" TEXT NOT NULL,
+      "status" TEXT NOT NULL,
+      "learned_from" TEXT,
+      "learned_on" TEXT,
+      "notes" TEXT,
+      "archived_at" TEXT,
+      "extra" TEXT NOT NULL)
+    index user_tunes_on_tune_id: CREATE INDEX "user_tunes_on_tune_id" ON "user_tunes"("tune_id")
     """

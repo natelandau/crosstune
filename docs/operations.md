@@ -227,9 +227,10 @@ A change to the shape of a synced row:
 - A local shape change adds a Dexie version with an upgrader on the web
   and appends a migration to `Schema.migrator` on Apple, and extends that
   client's migration test. Neither may drop unsent edits or unuploaded
-  recordings. A merged Apple migration is never edited: GRDB reads a
-  store whose schema differs from its migrations as one a newer build
-  wrote, and the app deletes it.
+  recordings. A merged Apple migration is never edited, since a store
+  that applied it never runs it again, and never renamed, since a store
+  holding an identifier the build does not know reads as one a newer
+  build wrote and the app deletes it.
 
 Rollback:
 

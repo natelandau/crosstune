@@ -117,6 +117,8 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     let root = TemporaryRoot()
     let old = try root.open()
     try await old.write { writer in try writer.put(Tune(title: "Sally Goodin")) }
+    let audio = "\(newID()).m4a"
+    try Data([1]).write(to: old.audioFolder.appending(path: audio))
     try old.close()
 
     #expect(throws: Refused.self) {
@@ -130,6 +132,9 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     let store = try root.open()
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
     #expect(try await store.pendingChangeCount() == 1)
+    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4"])
+    #expect(try await store.read { db in try db.columns(in: "tunes").map(\.name) }.contains("nickname") == false)
+    #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: audio).path()))
 }
 
 @Test func repullForgetsOnlyThePullCursor() async throws {
