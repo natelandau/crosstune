@@ -42,12 +42,11 @@ pytest_plugins = ("pytest_databases.docker.postgres",)
 
 FIXTURE_ENCODERS: dict[str, list[str]] = {
     "m4a": ["-c:a", "aac", "-b:a", "64k", "-f", "mp4"],
-    # Stereo, because the native AAC encoder undershoots -b:a for a mono sine tone
-    # and would land back inside the passthrough range.
-    "m4a_high": ["-ac", "2", "-c:a", "aac", "-b:a", "256k", "-f", "mp4"],
+    "m4a_stereo": ["-ac", "2", "-c:a", "aac", "-b:a", "256k", "-f", "mp4"],
     "webm": ["-c:a", "libopus", "-b:a", "64k", "-f", "webm"],
     "wav": ["-c:a", "pcm_s16le", "-f", "wav"],
     "mp3": ["-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"],
+    "wav_surround": ["-ac", "6", "-c:a", "pcm_s16le", "-f", "wav"],
 }
 
 
@@ -88,6 +87,28 @@ def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
                 "lavfi",
                 "-i",
                 "sine=frequency=440:duration=2",
+                *args,
+                str(path),
+            ]
+        )
+        paths[name] = path
+
+    # Noise, not a sine: the native AAC encoder undershoots -b:a on a sine, which would
+    # land these files back inside the passthrough range or under the stereo encode target.
+    for name, args in {
+        "m4a_high": ["-ac", "1", "-c:a", "aac", "-b:a", "256k", "-f", "mp4"],
+        "wav_stereo": ["-ac", "2", "-c:a", "pcm_s16le", "-f", "wav"],
+    }.items():
+        path = folder / f"noise.{name}"
+        _run_ffmpeg(
+            [
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "anoisesrc=duration=2:amplitude=0.3",
                 *args,
                 str(path),
             ]

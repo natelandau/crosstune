@@ -28,6 +28,12 @@ async def test_probe_reads_codec_container_bitrate_and_duration(media_fixtures) 
     assert 1_900 <= info.duration_ms <= 2_100
 
 
+async def test_probe_reads_the_channel_count(media_fixtures) -> None:
+    assert (await probe(media_fixtures["m4a"])).channels == 1
+    assert (await probe(media_fixtures["m4a_stereo"])).channels == 2
+    assert (await probe(media_fixtures["wav_surround"])).channels == 6
+
+
 async def test_probe_rejects_a_file_that_is_not_audio(tmp_path) -> None:
     junk = tmp_path / "junk"
     junk.write_bytes(b"not audio at all")
@@ -37,10 +43,35 @@ async def test_probe_rejects_a_file_that_is_not_audio(tmp_path) -> None:
 
 async def test_needs_encode_only_for_files_outside_the_playback_profile(media_fixtures) -> None:
     assert needs_encode(await probe(media_fixtures["m4a"])) is False
+    assert needs_encode(await probe(media_fixtures["m4a_stereo"])) is False
     assert needs_encode(await probe(media_fixtures["m4a_high"])) is True
     assert needs_encode(await probe(media_fixtures["webm"])) is True
     assert needs_encode(await probe(media_fixtures["wav"])) is True
     assert needs_encode(await probe(media_fixtures["mp3"])) is True
+
+
+@pytest.mark.parametrize(
+    ("channels", "bit_rate", "outcome"),
+    [
+        (1, 192_000, "passthrough"),
+        (1, 192_001, "encode"),
+        (2, 320_000, "passthrough"),
+        (2, 320_001, "encode"),
+        (6, 320_000, "encode"),
+        (2, None, "encode"),
+    ],
+)
+def test_needs_encode_limits_scale_with_channels(
+    channels: int, bit_rate: int | None, outcome: str
+) -> None:
+    info = Probe(
+        codec="aac",
+        format_names=frozenset({"mp4"}),
+        bit_rate=bit_rate,
+        duration_ms=1_000,
+        channels=channels,
+    )
+    assert needs_encode(info) is (outcome == "encode")
 
 
 async def test_remux_keeps_the_codec_and_writes_a_playable_mp4(media_fixtures, tmp_path) -> None:
@@ -59,14 +90,35 @@ async def test_encode_produces_aac_at_the_playback_bitrate(media_fixtures, tmp_p
     info = await probe(target)
     assert info.codec == "aac"
     assert "mp4" in info.format_names
+    assert info.channels == 1
     assert 70_000 <= (info.bit_rate or 0) <= 130_000
     assert 1_900 <= info.duration_ms <= 2_100
+
+
+@pytest.mark.parametrize("name", ["wav_stereo", "wav_surround"])
+async def test_encode_gives_stereo_the_stereo_rate(media_fixtures, tmp_path, name) -> None:
+    target = tmp_path / "out.m4a"
+    await encode(media_fixtures[name], target)
+    info = await probe(target)
+    assert info.codec == "aac"
+    assert info.channels == 2
+    # A sine undershoots the encode target, so only the noise fixture pins the rate.
+    if name == "wav_stereo":
+        assert 150_000 <= (info.bit_rate or 0) <= 230_000
 
 
 async def test_cut_is_accurate(media_fixtures, tmp_path) -> None:
     target = tmp_path / "out.m4a"
     await cut(media_fixtures["m4a"], target, start_ms=500, end_ms=1500)
     info = await probe(target)
+    assert 970 <= info.duration_ms <= 1030
+
+
+async def test_cut_keeps_a_stereo_original_stereo(media_fixtures, tmp_path) -> None:
+    target = tmp_path / "out.m4a"
+    await cut(media_fixtures["wav_stereo"], target, start_ms=500, end_ms=1500)
+    info = await probe(target)
+    assert info.channels == 2
     assert 970 <= info.duration_ms <= 1030
 
 
@@ -126,7 +178,13 @@ async def test_probe_rejects_a_report_with_no_duration(
 
 
 def test_needs_encode_treats_an_unknown_bit_rate_as_needing_encode() -> None:
-    info = Probe(codec="aac", format_names=frozenset({"mp4"}), bit_rate=None, duration_ms=1_000)
+    info = Probe(
+        codec="aac",
+        format_names=frozenset({"mp4"}),
+        bit_rate=None,
+        duration_ms=1_000,
+        channels=1,
+    )
     assert needs_encode(info) is True
 
 

@@ -212,7 +212,10 @@ same triggers. A return to the foreground stands in for a visible tab.
 - Upload: the client asks the API for an upload slot (quota reserved, PUT
   signed), PUTs the file to R2, then confirms. The API queues a transcode,
   and an in-process job runner produces the playback file and its waveform
-  peaks. Retry reruns a failed transcode.
+  peaks. Retry reruns a failed transcode. The playback file keeps the
+  upload's channel count, mono or stereo, and anything with more than two
+  channels is mixed down to stereo; stereo gets double the mono bit rate for
+  both passthrough and re-encoding.
 - The PUT signature covers the declared size, so the bucket refuses a file
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.

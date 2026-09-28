@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-PLAYBACK_BITRATE = 96_000
-# AAC in MP4 at or below this rate is served as uploaded; re-encoding it would only lose quality.
-PASSTHROUGH_MAX_BITRATE = 192_000
+MAX_PLAYBACK_CHANNELS = 2
 SUBPROCESS_TIMEOUT_SECONDS = 300.0
 # Every file these tools open is an upload someone else chose. Reading only local files,
 # and only through the demuxers of the audio types an upload may declare, keeps a
@@ -38,6 +36,33 @@ class Probe:
     format_names: frozenset[str]
     bit_rate: int | None
     duration_ms: int
+    channels: int
+
+
+def passthrough_max_bitrate(channels: int) -> int:
+    """Return the highest AAC bit rate that is served as uploaded.
+
+    Re-encoding a file at or below this rate would only lose quality.
+
+    Args:
+        channels: The channel count of the file.
+
+    Returns:
+        int: Bits per second, doubled for stereo and above.
+    """
+    return 192_000 if channels <= 1 else 320_000
+
+
+def playback_bitrate(channels: int) -> int:
+    """Return the AAC bit rate of a re-encoded playback file.
+
+    Args:
+        channels: The channel count of the source.
+
+    Returns:
+        int: Bits per second, doubled for stereo and above.
+    """
+    return 96_000 if channels <= 1 else 192_000
 
 
 async def run_media_tool(*argv: str) -> bytes:
@@ -113,6 +138,7 @@ async def probe(path: Path) -> Probe:
         format_names=frozenset(str(fmt.get("format_name", "")).split(",")),
         bit_rate=int(float(bit_rate)) if bit_rate else None,
         duration_ms=round(float(duration) * 1000),
+        channels=int(audio.get("channels") or 1),
     )
 
 
@@ -123,19 +149,36 @@ def needs_encode(info: Probe) -> bool:
         info: The result of `probe`.
 
     Returns:
-        bool: True unless the file is already AAC in MP4 at or below the passthrough rate.
+        bool: True when the file has more than two channels, or is not already
+            AAC in MP4 at or below the passthrough rate for its channel count.
     """
-    return not (
+    return info.channels > MAX_PLAYBACK_CHANNELS or not (
         info.codec == "aac"
         and "mp4" in info.format_names
         and info.bit_rate is not None
-        and info.bit_rate <= PASSTHROUGH_MAX_BITRATE
+        and info.bit_rate <= passthrough_max_bitrate(info.channels)
     )
 
 
 # Shared by encode and cut, so a change to the playback profile applies to every path
 # that produces a playback file.
-_PLAYBACK_CODEC_ARGS = ("-c:a", "aac", "-b:a", str(PLAYBACK_BITRATE))
+def _playback_codec_args(channels: int) -> tuple[str, ...]:
+    """Build the ffmpeg codec options: mono stays mono, anything wider mixes down to stereo.
+
+    Args:
+        channels: The channel count of the source.
+
+    Returns:
+        tuple[str, ...]: The channel, codec, and bit rate options.
+    """
+    return (
+        "-ac",
+        "1" if channels <= 1 else "2",
+        "-c:a",
+        "aac",
+        "-b:a",
+        str(playback_bitrate(channels)),
+    )
 
 
 async def _to_mp4(
@@ -183,16 +226,17 @@ async def remux(source: Path, target: Path) -> None:
 
 
 async def encode(source: Path, target: Path) -> None:
-    """Encode to AAC-LC in MP4 at the playback bit rate.
+    """Encode to AAC-LC in MP4 at the playback bit rate for the source's channel count.
 
     Args:
         source: The file to read.
         target: The MP4 file to write.
 
     Raises:
-        MediaError: ffmpeg failed, most often because the file cannot be decoded.
+        MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
-    await _to_mp4(source, target, *_PLAYBACK_CODEC_ARGS)
+    info = await probe(source)
+    await _to_mp4(source, target, *_playback_codec_args(info.channels))
 
 
 async def cut(source: Path, target: Path, start_ms: int, end_ms: int) -> None:
@@ -209,11 +253,12 @@ async def cut(source: Path, target: Path, start_ms: int, end_ms: int) -> None:
         end_ms: Where the kept range ends, in milliseconds.
 
     Raises:
-        MediaError: ffmpeg failed, most often because the file cannot be decoded.
+        MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
+    info = await probe(source)
     await _to_mp4(
         source,
         target,
-        *_PLAYBACK_CODEC_ARGS,
+        *_playback_codec_args(info.channels),
         pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
     )
