@@ -123,6 +123,8 @@ private final class ToneInput: AudioInput {
 
     func requestPermission() async -> Bool { permission }
 
+    func prepare(preferring channels: CaptureChannels) -> Int { 1 }
+
     func start(
         writer: CaptureWriter, onLevels: @escaping @MainActor @Sendable ([Float]) -> Void,
         onEvent: @escaping @MainActor @Sendable (AudioInputEvent) -> Void
@@ -164,7 +166,7 @@ private final class ToneInput: AudioInput {
 
     init() throws {
         store = try root.open()
-        recorder = Recorder(store: store, input: input)
+        recorder = Recorder(store: store, input: input, channels: { .mono })
     }
 
     private func recordings() async throws -> [Recording] {

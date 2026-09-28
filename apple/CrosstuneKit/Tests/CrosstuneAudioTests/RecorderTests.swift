@@ -1,3 +1,4 @@
+@preconcurrency import AVFoundation
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -7,16 +8,27 @@ import Testing
 
 @testable import CrosstuneAudio
 
+/// The device's channel setting as a test sets it.
+@MainActor
+final class ChannelSetting {
+    var value = CaptureChannels.mono
+}
+
 @MainActor
 @Suite struct RecorderTests {
     let root = TemporaryRoot()
     let store: CrosstuneStore
     let input = FakeInput()
+    let setting = ChannelSetting()
     let recorder: Recorder
 
     init() throws {
         store = try root.open()
-        recorder = Recorder(store: store, input: input)
+        recorder = Recorder(store: store, input: input, channels: { [setting] in setting.value })
+    }
+
+    private func channelCount(of recordingID: String) throws -> AVAudioChannelCount {
+        try AVAudioFile(forReading: CaptureFinisher(store: store).finishedURL(recordingID)).fileFormat.channelCount
     }
 
     private var captureID: String? {
@@ -102,8 +114,68 @@ import Testing
 
         #expect(recorder.state == .idle)
         #expect(input.stopped)
+        #expect(input.started == 0)
         #expect(try await captureID == nil)
         #expect(try await store.read { db in try Recording.fetchCount(db) } == 0)
+    }
+
+    @Test func discardingWhileTheMicrophoneStartsBacksTheStartOut() async throws {
+        input.holdsStart = true
+        let start = Task { await recorder.start(tuneID: nil) }
+        await input.startIsHeld()
+        await recorder.discard()
+        await input.finishStarting()
+        await start.value
+
+        #expect(recorder.state == .idle)
+        #expect(input.stopped)
+        #expect(input.started == 0)
+        #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
+    }
+
+    @Test func recordsStereoWhenTheSettingAndTheInputAllowIt() async throws {
+        setting.value = .stereo
+        input.inputChannels = 2
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+
+        let saved = try #require(await recorder.stop())
+
+        #expect(try channelCount(of: saved) == 2)
+        #expect(input.preferred == .stereo)
+    }
+
+    @Test func recordsMonoFromAMonoInputEvenWhenStereoIsChosen() async throws {
+        setting.value = .stereo
+        input.inputChannels = 1
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+
+        let saved = try #require(await recorder.stop())
+
+        #expect(try channelCount(of: saved) == 1)
+        #expect(input.writer?.bitrate == 64_000)
+    }
+
+    @Test func recordsMonoByDefault() async throws {
+        input.inputChannels = 2
+        await recorder.start(tuneID: nil)
+        try input.play(seconds: 1)
+
+        let saved = try #require(await recorder.stop())
+
+        #expect(try channelCount(of: saved) == 1)
+        #expect(input.preferred == .mono)
+    }
+
+    @Test func stereoDoublesTheQualitysRate() async throws {
+        try await Commands(store: store).setAudioQuality(clerkUserID: store.userID, quality: "high")
+        setting.value = .stereo
+
+        await recorder.start(tuneID: nil)
+
+        #expect(input.writer?.bitrate == 256_000)
+        await recorder.discard()
     }
 
     @Test func stoppingWhileTheMicrophoneResumesKeepsTheTakeStopped() async throws {
@@ -270,6 +342,20 @@ import Testing
         #expect(files.isEmpty)
     }
 
+    @Test func aMicrophoneThatPreparesButWillNotStartLeavesNothingBehind() async throws {
+        input.failsToStartEngine = true
+
+        await recorder.start(tuneID: nil)
+
+        #expect(recorder.state == .idle)
+        #expect(recorder.errorMessage == Recorder.microphoneFailed)
+        #expect(input.preferred != nil)
+        #expect(input.stopped)
+        #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
+        let files = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path())
+        #expect(files.isEmpty)
+    }
+
     @Test func launchRecoveryLeavesTheLiveTakeAlone() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)
@@ -286,7 +372,7 @@ import Testing
     @Test func aSecondStartWhileTheFirstIsUnderWayBeginsNoSecondTake() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let recorder = Recorder(store: store, input: FakeInput())
+        let recorder = Recorder(store: store, input: FakeInput(), channels: { .mono })
 
         async let first: Void = recorder.start(tuneID: nil)
         async let second: Void = recorder.start(tuneID: nil)
