@@ -115,7 +115,8 @@ Three axes decide the chrome. No screen asks which device it is on;
   drop below 16px, so iOS does not zoom on focus. iOS Dynamic Type is off.
 - A measurement that lines up with an Ionic edge is in pixels, because
   Ionic's paddings are pixels.
-- Appearance and text size are per device. Sign-out leaves them alone.
+- Appearance, text size, and recording channels are per device. Sign-out
+  leaves them alone.
 - Every tap target is at least 44px. Ionic injects a smaller unlayered
   minimum, so toolbar controls, row actions, and capsules each carry a rule
   that outranks it. Measure the control rather than trusting its class.
