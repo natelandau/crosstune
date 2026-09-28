@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ApiError, createApiClient, NetworkError, NoTokenError, TransferError } from './client'
+import {
+  ApiError,
+  createApiClient,
+  GATEWAY_RETRY_DELAYS_MS,
+  NetworkError,
+  NoTokenError,
+  TransferError,
+} from './client'
+import type { Change } from './types'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -120,10 +128,12 @@ describe('createApiClient', () => {
       getToken: async () => 'tok',
       clientVersion: '1',
       fetch: fetchMock as unknown as typeof fetch,
+      gatewayRetryDelaysMs: [],
     })
     const error = await api.deleteAccount().catch((e: unknown) => e)
     expect(error).toBeInstanceOf(ApiError)
     expect((error as ApiError).status).toBe(502)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('requests an upload slot and reports the problem type on refusal', async () => {
@@ -309,5 +319,96 @@ describe('createApiClient', () => {
       getTimeoutMs: 5,
     })
     await expect(api.getObject('https://r2/get')).rejects.toBeInstanceOf(NetworkError)
+  })
+})
+
+describe('gateway retries', () => {
+  const NO_WAIT = [0, 0, 0, 0, 0]
+
+  function statusResponse(status: number) {
+    return jsonResponse(
+      { type: 'about:blank', title: 'Gateway', status, detail: 'cold start' },
+      { status, headers: { 'content-type': 'application/problem+json' } },
+    )
+  }
+
+  function clientWith(fetchMock: (input: Request) => Promise<Response>) {
+    return createApiClient({
+      baseUrl: 'http://api.test',
+      getToken: async () => 'tok',
+      clientVersion: '1',
+      fetch: fetchMock as unknown as typeof fetch,
+      gatewayRetryDelaysMs: NO_WAIT,
+    })
+  }
+
+  it('retries a 502 and resolves', async () => {
+    const fetchMock = vi
+      .fn<(input: Request) => Promise<Response>>()
+      .mockImplementationOnce(async () => statusResponse(502))
+      .mockImplementationOnce(async () => statusResponse(504))
+      .mockImplementationOnce(async () =>
+        jsonResponse({ rows: [], next_since: 3, has_more: false }),
+      )
+    const page = await clientWith(fetchMock).pull(0)
+    expect(page.next_since).toBe(3)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('gives up after five retries', async () => {
+    const fetchMock = vi.fn<(input: Request) => Promise<Response>>(async () => statusResponse(502))
+    const error = await clientWith(fetchMock)
+      .pull(0)
+      .catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(502)
+    expect(fetchMock).toHaveBeenCalledTimes(6)
+  })
+
+  it('does not retry a 503', async () => {
+    const fetchMock = vi.fn<(input: Request) => Promise<Response>>(async () => statusResponse(503))
+    await expect(clientWith(fetchMock).pull(0)).rejects.toMatchObject({ status: 503 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('resends the body on a retry', async () => {
+    const bodies: string[] = []
+    const fetchMock = vi
+      .fn<(input: Request) => Promise<Response>>()
+      .mockImplementationOnce(async (input) => {
+        bodies.push(await input.text())
+        return statusResponse(502)
+      })
+      .mockImplementationOnce(async (input) => {
+        bodies.push(await input.text())
+        return jsonResponse({ results: [] })
+      })
+    const change = { table: 'tunes', row: { id: 't1' } } as unknown as Change
+    await clientWith(fetchMock).push([change])
+    expect(bodies).toHaveLength(2)
+    expect(bodies[0]).not.toBe('')
+    expect(bodies[1]).toBe(bodies[0])
+  })
+
+  it('does not retry a presigned transfer', async () => {
+    // See the "puts and gets objects" test above for why the global Request needs swapping.
+    vi.stubGlobal('Request', Object.getPrototypeOf(Request) as typeof Request)
+    try {
+      const fetchMock = vi.fn<(input: Request) => Promise<Response>>(
+        async () => new Response(null, { status: 502 }),
+      )
+      const error = await clientWith(fetchMock)
+        .putObject('https://r2/put', new Blob(['abc']), 'audio/mp4')
+        .catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(TransferError)
+      expect((error as TransferError).status).toBe(502)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('uses the default schedule', () => {
+    expect(GATEWAY_RETRY_DELAYS_MS).toEqual([500, 1000, 2000, 4000, 8000])
   })
 })

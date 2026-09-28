@@ -53,6 +53,11 @@ const PUT_BASE_TIMEOUT_MS = 60_000
 const PUT_BYTES_PER_MS = 50
 const GET_TIMEOUT_MS = 120_000
 
+/** Waits between attempts after a 502 or 504, about 15 s in all: enough for a sleeping API to wake. */
+export const GATEWAY_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000]
+// 503 is left out on purpose: the API sends it when a feature is not configured, which a retry cannot fix.
+const GATEWAY_STATUSES = new Set([502, 504])
+
 export interface ApiClientOptions {
   baseUrl: string
   getToken: () => Promise<string | null>
@@ -62,6 +67,8 @@ export interface ApiClientOptions {
   putTimeoutMs?: (bytes: number) => number
   /** Override the fixed GET timeout in ms. Tests only. */
   getTimeoutMs?: number
+  /** Override the waits between gateway retries in ms. Tests only. */
+  gatewayRetryDelaysMs?: number[]
 }
 
 export function createApiClient(options: ApiClientOptions): SyncApi {
@@ -70,6 +77,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     options.putTimeoutMs ??
     ((bytes: number) => Math.ceil(PUT_BASE_TIMEOUT_MS + bytes / PUT_BYTES_PER_MS))
   const getTimeoutMs = options.getTimeoutMs ?? GET_TIMEOUT_MS
+  const gatewayRetryDelaysMs = options.gatewayRetryDelaysMs ?? GATEWAY_RETRY_DELAYS_MS
   const auth: Middleware = {
     async onRequest({ request }) {
       const token = await options.getToken()
@@ -94,13 +102,23 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     }
   }
 
+  // fetch consumes a request's body, so each attempt sends a clone to resend the body intact.
+  async function withGatewayRetries(input: Request): Promise<Response> {
+    for (const delayMs of gatewayRetryDelaysMs) {
+      const response = await baseFetch(input.clone())
+      if (!GATEWAY_STATUSES.has(response.status)) return response
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+    return baseFetch(input)
+  }
+
   const client = createClient<paths>({
     // Unless a build supplies an origin, the client calls /v1 on its own: the
     // Vite proxy locally, the Worker when hosted. A browser resolves an empty
     // baseUrl against the page location on its own, but the fetch client needs
     // an absolute URL, so mirror that resolution.
     baseUrl: options.baseUrl || globalThis.location?.origin || '',
-    fetch: (input) => withNetworkErrors(() => baseFetch(input)),
+    fetch: (input) => withNetworkErrors(() => withGatewayRetries(input)),
   })
   client.use(auth)
 
