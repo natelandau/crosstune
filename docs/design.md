@@ -400,8 +400,8 @@ Recordings and links share one row shape.
 - The second line joins metadata with middle dots, or on a link is the link
   out. A red third line carries a transfer error and a Retry, which retries
   at once.
-- A state that needs nothing shows the creation date. Words are reserved for
-  what needs attention.
+- A state that needs nothing shows the creation date, unless the title is
+  already composed from it. Words are reserved for what needs attention.
 - Sizes truncate rather than round. Durations read `m:ss`. The provider is
   named once per row.
 - Rows that answer one question share one list under one header, the

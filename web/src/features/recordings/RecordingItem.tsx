@@ -12,7 +12,7 @@ import { CLOSE_PLAYER } from '../player/Dock'
 import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, formatDuration } from '../recording/format'
-import { recordingMeta, recordingTitle, retryKind, rowControl } from './recordingRow'
+import { recordingMeta, recordingTitle, retryKind, rowControl, titleIsDate } from './recordingRow'
 import type { RecordingView } from './useRecordings'
 
 /**
@@ -65,7 +65,7 @@ export function RecordingItem({
     ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), OFFLINE].filter(
         (part): part is string => Boolean(part),
       )
-    : recordingMeta(view, storage ?? null)
+    : recordingMeta(view, storage ?? null, { dateInTitle: titleIsDate(view, { tuneNamedAbove }) })
   const meta = metaParts.join(' · ')
 
   const download = () => {

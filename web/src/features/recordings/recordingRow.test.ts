@@ -5,7 +5,7 @@ import type { LocalRecording } from '../../db/types'
 import { recordingFile, recordingRow } from '../../test/rows'
 import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import type { RecordingView } from './useRecordings'
-import { recordingMeta, recordingTitle, retryKind, rowControl } from './recordingRow'
+import { recordingMeta, recordingTitle, retryKind, rowControl, titleIsDate } from './recordingRow'
 
 function view(
   overrides: {
@@ -65,7 +65,38 @@ describe('recordingTitle', () => {
   })
 })
 
+describe('titleIsDate', () => {
+  it('is true only when the title falls through to the date', () => {
+    expect(titleIsDate(view({ recording: { label: null } }))).toBe(true)
+    expect(titleIsDate(view({ recording: { label: null }, tuneTitle: 'Cluck Old Hen' }))).toBe(
+      false,
+    )
+    expect(
+      titleIsDate(view({ recording: { label: null }, tuneTitle: 'Cluck Old Hen' }), {
+        tuneNamedAbove: true,
+      }),
+    ).toBe(true)
+    expect(titleIsDate(view({ recording: { label: 'Jam recording' } }))).toBe(false)
+  })
+})
+
 describe('recordingMeta', () => {
+  it('leaves the date out when the title already carries it', () => {
+    const result = recordingMeta(
+      view({ recording: { duration_ms: 42_000, state: 'ready' } }),
+      null,
+      { dateInTitle: true },
+    )
+    expect(result).toEqual(['0:42'])
+  })
+
+  it('keeps a status when the title carries the date', () => {
+    const result = recordingMeta(view({ recording: { state: 'processing' } }), null, {
+      dateInTitle: true,
+    })
+    expect(result).toContain('Processing')
+  })
+
   it('orders duration then the date for a ready recording with nothing else to say', () => {
     const recordedAt = '2026-03-14T20:05:00.000Z'
     const result = recordingMeta(

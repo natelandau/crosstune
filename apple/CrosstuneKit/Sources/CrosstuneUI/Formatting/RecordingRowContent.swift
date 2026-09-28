@@ -50,7 +50,9 @@ public struct RecordingRowContent: Hashable, Sendable {
         control = RecordingText.control(recording, file: file, loaded: loaded, downloading: downloading)
         let offlineDownload = control == .download && offline
         meta = RecordingText.meta(
-            recording, file: file, storage: storage, offline: offlineDownload, locale: locale, timeZone: timeZone
+            recording, file: file, storage: storage, offline: offlineDownload,
+            dateInTitle: RecordingText.titleIsDate(recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove),
+            locale: locale, timeZone: timeZone
         ).joined(separator: " · ")
         let blockedPlay = playBlocked && control == .play
         isDimmed = offlineDownload || blockedPlay

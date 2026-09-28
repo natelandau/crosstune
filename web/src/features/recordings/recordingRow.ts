@@ -30,8 +30,20 @@ export function recordingTitle(
   return view.recording.label ?? (tuneNamedAbove ? recordedAt : (view.tuneTitle ?? recordedAt))
 }
 
+/** True when `recordingTitle` falls through to the date, which the meta line then leaves out. */
+export function titleIsDate(
+  view: RecordingView,
+  { tuneNamedAbove = false }: { tuneNamedAbove?: boolean } = {},
+): boolean {
+  return view.recording.label == null && (tuneNamedAbove || view.tuneTitle == null)
+}
+
 /** The meta parts in order, already worded; the row joins them with " · ". */
-export function recordingMeta(view: RecordingView, storage: StorageFigures | null): string[] {
+export function recordingMeta(
+  view: RecordingView,
+  storage: StorageFigures | null,
+  { dateInTitle = false }: { dateInTitle?: boolean } = {},
+): string[] {
   const { recording, file } = view
   const status = fileStateLabel(recording, file)
   const duration = formatDuration(recording.duration_ms ?? file?.local_duration_ms)
@@ -43,9 +55,11 @@ export function recordingMeta(view: RecordingView, storage: StorageFigures | nul
     blockedQuota && storage
       ? `${formatBytes(storage.used_bytes)} of ${formatBytes(storage.quota_bytes)} used`
       : null
-  // A recording that needs nothing from the musician shows when it was made instead of a status.
-  return [duration, status || recordedAtLabel(recording.recorded_at), tries, storageLabel].filter(
-    (part): part is string => Boolean(part),
+  // A recording that needs nothing from the musician shows when it was made instead of a status,
+  // unless its title already says so.
+  const date = dateInTitle ? null : recordedAtLabel(recording.recorded_at)
+  return [duration, status || date, tries, storageLabel].filter((part): part is string =>
+    Boolean(part),
   )
 }
 

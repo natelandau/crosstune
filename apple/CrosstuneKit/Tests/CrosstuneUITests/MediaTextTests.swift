@@ -58,12 +58,25 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
                 == "Recording, \(recordedAtText)")
         #expect(RecordingText.title(recording(label: "Jam"), tuneTitle: "Cluck Old Hen", tuneNamedAbove: true) == "Jam")
     }
+
+    @Test func isADateOnlyWhenItFallsThroughToOne() {
+        #expect(RecordingText.titleIsDate(recording(), tuneTitle: nil))
+        #expect(!RecordingText.titleIsDate(recording(), tuneTitle: "Cluck Old Hen"))
+        #expect(RecordingText.titleIsDate(recording(), tuneTitle: "Cluck Old Hen", tuneNamedAbove: true))
+        #expect(!RecordingText.titleIsDate(recording(label: "Jam"), tuneTitle: nil))
+    }
 }
 
 @Suite struct RecordingMetaTests {
     @Test func showsTheDateWhenNothingNeedsAttention() {
         let meta = RecordingText.meta(recording(), file: file(.downloaded), locale: locale, timeZone: utc)
         #expect(meta == ["0:42", recordedAtText])
+    }
+
+    @Test func leavesTheDateOutWhenTheTitleCarriesIt() {
+        #expect(RecordingText.meta(recording(), file: file(.downloaded), dateInTitle: true) == ["0:42"])
+        #expect(
+            RecordingText.meta(recording(state: "processing"), file: nil, dateInTitle: true) == ["0:42", "Processing"])
     }
 
     @Test func showsAStatusInPlaceOfTheDate() {
@@ -191,6 +204,13 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(row.error == "Refused")
         #expect(row.retryName == "Retry uploading Jam")
         #expect(row.meta == "0:42 · Upload failed")
+    }
+
+    @Test func showsTheDateOnceForAnUnlabeledRecording() {
+        let row = RecordingRowContent(
+            recording: recording(), file: file(.downloaded), tuneTitle: nil, locale: locale, timeZone: utc)
+        #expect(row.title == "Recording, \(recordedAtText)")
+        #expect(row.meta == "0:42")
     }
 
     @Test func dimsADownloadOffline() {
