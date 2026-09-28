@@ -110,7 +110,8 @@ export interface paths {
          * @description Transcode the object already in the bucket again, for a recording that failed.
          *
          *     A recording whose uploaded object is gone is uploaded again through a new
-         *     slot instead; this route only re-runs the transcode.
+         *     slot instead; this route only re-runs the transcode. Repeating the call changes
+         *     nothing.
          */
         post: operations["retry_v1_recordings__recording_id__retry_post"];
         delete?: never;

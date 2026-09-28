@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
+from crosstune.db.session import request_runner_wake
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.models import List, ListItem, Recording, RecordingLink, UserTune
 from crosstune.recordings.service import ensure_trim_job
@@ -294,6 +295,10 @@ async def _delete(
         )
     )
     await _cascade(session, spec.name, change.id, change.updated_at, user_id)
+    if spec.name in ("recordings", "tunes"):
+        # A deleted recording, or one a tune delete cascades to, has files only the
+        # runner's purge removes, and a purge has no due time to wake it.
+        request_runner_wake(session)
     await session.refresh(current)
     return result(
         table=change.table,

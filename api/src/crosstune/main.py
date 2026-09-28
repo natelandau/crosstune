@@ -12,7 +12,7 @@ from crosstune import __version__
 from crosstune.auth.jwks import JwksCache
 from crosstune.body import BodyAdmission
 from crosstune.config import Settings, get_settings
-from crosstune.db.engine import make_engine, make_sessionmaker
+from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
 from crosstune.errors import install_error_handlers
 from crosstune.http import public_only_client
 from crosstune.jobs.runner import JobRunner
@@ -39,6 +39,22 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
         app.state.clerk_users = ClerkBackendUsers(
             app.state.http_client, settings.clerk_secret_key.get_secret_value()
         )
+
+
+def _build_object_store(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.object_store when storage is configured and nothing built it yet."""
+    if app.state.object_store is not None or not settings.storage_configured:
+        return
+    store: ObjectStore = R2Store(
+        endpoint_url=settings.storage_endpoint,
+        bucket=settings.storage_bucket,
+        access_key_id=settings.storage_access_key_id,
+        secret_access_key=settings.storage_secret_access_key.get_secret_value(),
+        browser_endpoint_url=settings.local_storage_browser_endpoint_url,
+    )
+    if settings.storage_prefix:
+        store = PrefixedStore(store, settings.storage_prefix)
+    app.state.object_store = store
 
 
 def _publish_recording_data_schema(app: FastAPI) -> None:
@@ -81,32 +97,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if built_engine:
         app.state.engine = make_engine(settings.database_url)
         app.state.sessionmaker = make_sessionmaker(app.state.engine)
+        app.state.pool_closer = IdlePoolCloser(app.state.engine)
     built_http_client = app.state.http_client is None
     if built_http_client:
         app.state.http_client = public_only_client(settings.link_resolve_timeout_seconds)
     if app.state.jwks is None:
         app.state.jwks = JwksCache(settings.clerk_jwks_url, app.state.http_client)
     _build_clerk_users(app, settings)
-    if app.state.object_store is None and settings.storage_configured:
-        store: ObjectStore = R2Store(
-            endpoint_url=settings.storage_endpoint,
-            bucket=settings.storage_bucket,
-            access_key_id=settings.storage_access_key_id,
-            secret_access_key=settings.storage_secret_access_key.get_secret_value(),
-            browser_endpoint_url=settings.local_storage_browser_endpoint_url,
-        )
-        if settings.storage_prefix:
-            store = PrefixedStore(store, settings.storage_prefix)
-        app.state.object_store = store
+    _build_object_store(app, settings)
     built_runner = app.state.job_runner is None and app.state.object_store is not None
     if built_runner:
         app.state.job_runner = JobRunner(
             app.state.sessionmaker,
             app.state.object_store,
-            poll_seconds=settings.job_poll_seconds,
             orphan_sweep_seconds=settings.orphan_sweep_seconds,
         )
         app.state.job_runner.start()
+    if built_engine:
+        app.state.pool_closer.start()
     try:
         yield
     finally:
@@ -122,7 +130,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                     await app.state.http_client.aclose()
             finally:
                 if built_engine:
-                    await app.state.engine.dispose()
+                    try:
+                        await app.state.pool_closer.stop()
+                    finally:
+                        await app.state.engine.dispose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -156,6 +167,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.clerk_users = None
     app.state.object_store = None
     app.state.job_runner = None
+    app.state.pool_closer = None
     app.state.link_resolve_limiter = RateLimiter(
         limit=settings.link_resolves_per_minute, window_seconds=60.0
     )

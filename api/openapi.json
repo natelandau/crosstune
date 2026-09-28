@@ -2394,7 +2394,7 @@
     },
     "/v1/recordings/{recording_id}/retry": {
       "post": {
-        "description": "Transcode the object already in the bucket again, for a recording that failed.\n\nA recording whose uploaded object is gone is uploaded again through a new\nslot instead; this route only re-runs the transcode.",
+        "description": "Transcode the object already in the bucket again, for a recording that failed.\n\nA recording whose uploaded object is gone is uploaded again through a new\nslot instead; this route only re-runs the transcode. Repeating the call changes\nnothing.",
         "operationId": "retry_v1_recordings__recording_id__retry_post",
         "parameters": [
           {

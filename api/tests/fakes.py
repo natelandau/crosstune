@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from crosstune.storage.store import ObjectInfo
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -92,3 +93,16 @@ class FakeObjectStore:
     async def list_keys(self, prefix: str = "") -> list[str]:
         """Every key under `prefix`, each in full, or every key in the bucket."""
         return sorted(key for key in self._objects if key.startswith(prefix))
+
+
+class FakeRunner:
+    """Counts wakes in place of a job runner, optionally checking state at each one."""
+
+    def __init__(self, on_wake: Callable[[], None] | None = None) -> None:
+        self.wakes = 0
+        self._on_wake = on_wake
+
+    def wake(self) -> None:
+        self.wakes += 1
+        if self._on_wake is not None:
+            self._on_wake()

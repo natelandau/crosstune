@@ -30,6 +30,14 @@ async def test_lifespan_builds_and_disposes_its_own_engine(database_url: str) ->
     assert built_engine.pool is not pool_during_lifespan
 
 
+async def test_lifespan_starts_and_stops_the_pool_closer(database_url: str) -> None:
+    app = create_app(Settings(database_url=database_url))
+    async with app.router.lifespan_context(app):
+        task = app.state.pool_closer.task
+        assert not task.done()
+    assert task.done()
+
+
 async def test_lifespan_leaves_an_injected_engine_undisposed(database_url: str, engine) -> None:
     """An engine injected before startup outlives the lifespan, for its owner to dispose."""
     app = create_app(Settings(database_url=database_url))
@@ -38,7 +46,7 @@ async def test_lifespan_leaves_an_injected_engine_undisposed(database_url: str, 
 
     pool_before = engine.pool
     async with app.router.lifespan_context(app):
-        pass
+        assert app.state.pool_closer is None
 
     assert engine.pool is pool_before
     async with engine.connect() as conn:
@@ -110,7 +118,7 @@ async def test_lifespan_leaves_an_injected_object_store_in_place(database_url: s
 
 async def test_lifespan_runs_and_stops_the_runner_with_an_injected_store(database_url: str) -> None:
     """A store present at startup gets a runner that starts before yield and stops after."""
-    app = create_app(Settings(database_url=database_url, job_poll_seconds=0.01))
+    app = create_app(Settings(database_url=database_url))
     app.state.object_store = FakeObjectStore()
     async with app.router.lifespan_context(app):
         assert app.state.job_runner is not None

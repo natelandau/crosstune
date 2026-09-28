@@ -8,6 +8,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.db.base import next_server_seq
+from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
 from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
@@ -89,7 +90,7 @@ async def slot_for(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot
 
 
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
-    """Queue one job for the recording. The runner picks it up on its next poll.
+    """Queue one job for the recording and wake the runner once the request commits.
 
     A trim is deduplicated against `ux_jobs_recording_id_trim`: a recording can have
     only one trim queued at a time, so a call while one is already pending inserts
@@ -103,6 +104,7 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
     Returns:
         Job | None: The queued row, or None when `kind` is TRIM and one was already pending.
     """
+    request_runner_wake(session)
     if kind is not JobKind.TRIM:
         job = Job(recording_id=recording.id, user_id=recording.user_id, kind=kind.value)
         session.add(job)
@@ -120,7 +122,7 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
 
 
 async def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
-    """Add a transcode job for the recording. The runner picks it up on its next poll."""
+    """Add a transcode job for the recording and wake the runner once the request commits."""
     # Only a TRIM insert can be skipped as a duplicate; this call always queues one.
     return cast("Job", await enqueue_job(session, recording, JobKind.TRANSCODE))
 

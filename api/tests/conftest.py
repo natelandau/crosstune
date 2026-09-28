@@ -28,7 +28,7 @@ from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
 from crosstune.ops import local_storage
-from tests.fakes import FakeClerkUsers, FakeObjectStore
+from tests.fakes import FakeClerkUsers, FakeObjectStore, FakeRunner
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -446,6 +446,12 @@ def app(settings: Settings, engine, mock_http: MockHttp, object_store: FakeObjec
     app.state.clerk_users = FakeClerkUsers()
     app.state.object_store = object_store
     return app
+
+
+@pytest.fixture
+def fake_runner(app: FastAPI) -> FakeRunner:
+    app.state.job_runner = FakeRunner()
+    return app.state.job_runner
 
 
 @pytest.fixture

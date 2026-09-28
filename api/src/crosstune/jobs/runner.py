@@ -7,12 +7,12 @@ import contextlib
 import logging
 import tempfile
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeGuard
 
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import ARRAY, Uuid, any_, delete, exists, literal, or_, select
+from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, func, literal, or_, select
 
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import MediaError
@@ -48,6 +48,8 @@ PURGE_BATCH = 20
 # A PUT signed just before its slot expired can still be arriving; past this it is abandoned.
 ABANDONED_SLOT_GRACE = timedelta(hours=1)
 STOP_TIMEOUT_SECONDS = 10.0
+# How long to wait after a pass or a due-time read fails, unless a wake comes first.
+ERROR_RETRY_SECONDS = 60.0
 
 _STORAGE_ERRORS = (BotoCoreError, ClientError)
 
@@ -55,6 +57,20 @@ _STORAGE_ERRORS = (BotoCoreError, ClientError)
 def _any_uuid(ids: Iterable[uuid.UUID]) -> ColumnElement[Any]:
     """Match against a whole id set bound as one array, since asyncpg caps bind parameters."""
     return any_(literal(list(ids), ARRAY(Uuid())))
+
+
+def _dispatchable() -> ColumnElement[bool]:
+    """Match the jobs whose kind `_run_job` knows, claimable now or later."""
+    return Job.kind.in_([kind.value for kind in JobKind])
+
+
+def _claimable(now: datetime) -> ColumnElement[bool]:
+    return and_(_dispatchable(), or_(Job.locked_until.is_(None), Job.locked_until < now))
+
+
+def _live_pending_slot() -> ColumnElement[bool]:
+    """Match the slots of live recordings still waiting on their upload."""
+    return and_(Recording.deleted_at.is_(None), Recording.state == "pending_upload")
 
 
 def _as_uuid(segment: str) -> uuid.UUID | None:
@@ -146,17 +162,16 @@ class JobRunner:
         sessionmaker: async_sessionmaker[AsyncSession],
         store: ObjectStore,
         *,
-        poll_seconds: float,
         orphan_sweep_seconds: float = 3600.0,
         work_root: Path | None = None,
     ) -> None:
         self._sessionmaker = sessionmaker
         self._store = store
-        self._poll_seconds = poll_seconds
         self._orphan_sweep_seconds = orphan_sweep_seconds
         self._next_orphan_sweep = utc_now()
         self._work_root = work_root
         self._stopping = asyncio.Event()
+        self._wake = asyncio.Event()
         self.task: asyncio.Task[None] | None = None
 
     def start(self) -> asyncio.Task[None]:
@@ -171,6 +186,7 @@ class JobRunner:
         the job still locked; the lock expiry is what puts it back in the queue.
         """
         self._stopping.set()
+        self._wake.set()
         if self.task is None:
             return
         try:
@@ -180,20 +196,75 @@ class JobRunner:
             with contextlib.suppress(asyncio.CancelledError):
                 await self.task
 
+    def wake(self) -> None:
+        """Start a pass now, for work a request has just committed."""
+        self._wake.set()
+
     async def run_forever(self) -> None:
-        """Poll until stopped. A crash in one pass is logged and the loop continues."""
+        """Run passes until one finds nothing, then sleep until woken or the next due time.
+
+        No timer fires while idle, so the database and the host can both suspend. A
+        crash in one pass is logged and the loop continues.
+        """
+        while not self._stopping.is_set():
+            # Cleared before the passes, so a wake that lands during one is kept.
+            self._wake.clear()
+            timeout = await self._drain()
+            if self._stopping.is_set():
+                return
+            if timeout is None:
+                try:
+                    timeout = max(0.0, (await self.next_due() - utc_now()).total_seconds())
+                except Exception:
+                    log.exception("job runner could not read its next due time")
+                    timeout = ERROR_RETRY_SECONDS
+            with contextlib.suppress(TimeoutError):
+                async with asyncio.timeout(timeout):
+                    await self._wake.wait()
+
+    async def _drain(self) -> float | None:
+        """Run passes until one does no work.
+
+        Returns:
+            float | None: ERROR_RETRY_SECONDS when a pass raised, so a failing database
+            is not retried in a tight loop, or None when the work simply ran out.
+        """
         while not self._stopping.is_set():
             try:
                 worked = await self.run_once()
             except Exception:
                 log.exception("job runner pass failed")
-                worked = 0
+                return ERROR_RETRY_SECONDS
             if worked == 0:
-                try:
-                    async with asyncio.timeout(self._poll_seconds):
-                        await self._stopping.wait()
-                except TimeoutError:
-                    pass
+                return None
+        return None
+
+    async def next_due(self) -> datetime:
+        """The earliest time a pass could find work that no wake announces.
+
+        That is a backed-off or expired job lock, an upload slot passing its
+        abandonment grace, or the next orphan sweep, which bounds the sleep to
+        `orphan_sweep_seconds`. Purges have no due time; the delete that makes one
+        wakes the runner.
+
+        Returns:
+            datetime: When the idle loop should run its next pass.
+        """
+        async with self._sessionmaker() as session:
+            job_due = await session.scalar(
+                select(func.min(Job.locked_until)).where(_dispatchable())
+            )
+            slot_expiry = await session.scalar(
+                select(func.min(UploadSlot.expires_at))
+                .join(Recording, UploadSlot.recording_id == Recording.id)
+                .where(_live_pending_slot())
+            )
+        candidates = [self._next_orphan_sweep]
+        if job_due is not None:
+            candidates.append(job_due)
+        if slot_expiry is not None:
+            candidates.append(slot_expiry + ABANDONED_SLOT_GRACE)
+        return min(candidates)
 
     async def run_once(self) -> int:
         """Run one job, purge a batch of deleted recordings, and sweep orphans when due.
@@ -252,10 +323,7 @@ class JobRunner:
         async with self._sessionmaker() as session, session.begin():
             stmt = (
                 select(Job)
-                .where(
-                    Job.kind.in_([kind.value for kind in JobKind]),
-                    or_(Job.locked_until.is_(None), Job.locked_until < now),
-                )
+                .where(_claimable(now))
                 .order_by(Job.created_at)
                 .limit(1)
                 .with_for_update(skip_locked=True)
@@ -615,11 +683,7 @@ class JobRunner:
         stmt = (
             select(Recording)
             .join(UploadSlot, UploadSlot.recording_id == Recording.id)
-            .where(
-                UploadSlot.expires_at < cutoff,
-                Recording.deleted_at.is_(None),
-                Recording.state == "pending_upload",
-            )
+            .where(UploadSlot.expires_at < cutoff, _live_pending_slot())
             .limit(PURGE_BATCH)
         )
         async with self._sessionmaker() as session:

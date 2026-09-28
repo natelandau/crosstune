@@ -181,7 +181,8 @@ jobs:
             done
             railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
               "${var_flags[@]}" \
-              --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF"
+              --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF" \
+              --service-config "$RAILWAY_API_SERVICE_ID" deploy.sleepApplication true
           fi
 
       - name: read the API hostname

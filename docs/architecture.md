@@ -307,6 +307,7 @@ API.
 | Cloudflare           | An installed app loads, but sync fails because `/v1` goes through the Worker. A first visit fails. |
 | Clerk                | A remembered user is admitted after 5 seconds. Sync waits. New sign-ins fail.                      |
 | API on Railway       | Reads and writes work. The outbox grows and the engine retries with backoff.                       |
+| API asleep           | The first request boots it. Clients retry a 502 or 504 for about 15 s before treating it as down.  |
 | R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
 | Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
 | A streaming provider | New links save untitled. Embeds from that provider fail.                                           |
