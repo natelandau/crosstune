@@ -169,6 +169,10 @@ and fails instead in CI, where the `API` workflow always starts it.
   `packageManager` in `web/package.json`: it needs the pnpm step below.
 - A development deploy waits for CI (Railway's Wait for CI). Production has
   no host-side gate; the `Release` workflow is the gate.
+- An idle Railway environment should show the API as sleeping within 10
+  minutes. If it never does, something sends outbound traffic: an open
+  connection, a timer, or telemetry. `railway logs --network` shows the
+  connections.
 
 ## Release
 

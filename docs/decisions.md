@@ -87,6 +87,12 @@ reopens one without new information. Add a new entry at the end.
   container with a volume and snapshot backups only). Supabase was rejected
   (its value is a bundle of auth, storage, and client SDKs that an API-first
   design does not use, and its free tier pauses idle projects).
+- The API and its database sleep when idle, in every environment. Cost
+  outweighs the first request's latency, and the local-first clients render
+  from their own store while the API wakes. An always-on production was
+  rejected: it pays for idle compute, and it would be the one environment
+  that behaves differently from what is tested. A job runner that polls on
+  a fixed interval was rejected: any timer keeps the host awake.
 - Web client on a Cloudflare Worker with static assets. The Worker proxies
   `/v1`, so the client is always same-origin and the API needs no CORS.
   Cloudflare labels Pages legacy, and only a Worker runs code in front of
