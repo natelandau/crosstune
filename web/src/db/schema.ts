@@ -20,13 +20,25 @@ import {
 const STARTED_OVER = [...TABLE_NAMES, 'recording_files', 'recording_chunks', 'outbox'] as const
 
 /**
- * Empty a database from before version 5 and reset its pull cursor, so the next sync pulls
+ * Make the next pull fetch every row again. Queued changes stay and win over pulled rows that
+ * are older, as they always do.
+ */
+export async function repull(tx: Transaction): Promise<void> {
+  await tx.table('meta').delete(META_PULL_CURSOR)
+}
+
+/**
+ * Empty a database from before version 6 and reset its pull cursor, so the next sync pulls
  * every row again in this version's shape. Unsynced edits and unuploaded recordings are
  * dropped. Every other meta entry is a local preference and stays.
+ *
+ * The upgrader of versions 5 and 6 only. From version 7 each version's upgrader reshapes rows in place,
+ * rewrites queued changes' data into the new shape, keeps every unuploaded recording and its
+ * chunks, and calls repull when a new field holds values only the server knows.
  */
 async function startOver(tx: Transaction): Promise<void> {
   await Promise.all(STARTED_OVER.map((store) => tx.table(store).clear()))
-  await tx.table('meta').delete(META_PULL_CURSOR)
+  await repull(tx)
 }
 
 /**

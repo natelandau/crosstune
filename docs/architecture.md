@@ -102,15 +102,18 @@ Pull:
 
 - Rows with `server_seq` above the cursor, every table, oldest first, 500
   per page. A fresh install pulls from zero.
-- A local database shape change starts the local database over. It clears
+- A local database shape change migrates the device's database in place.
+  It keeps every row, every unsent edit, and every recording the server
+  does not have yet, with its audio. A migration that adds a field only
+  the server can fill resets the pull cursor, so the next pull fetches
+  every row again and unsent edits win as usual.
+- A web database from before version 6 starts over instead: it clears
   every synced store, the outbox, and unuploaded recording files and
   chunks, and resets the pull cursor. Other meta, such as filters, stays.
-  The next pull fetches every row again. Unsent edits and unuploaded
-  recordings on that device are lost.
 - A client that finds a local database written by a newer client, as after
-  a web rollback, deletes the whole database and pulls from zero. It loses
-  what a start-over loses and also the meta a start-over keeps, such as
-  catalog filters and keep offline.
+  a web rollback or an older TestFlight build, deletes the whole database
+  and pulls from zero. It loses unsent edits, unuploaded recordings, and
+  local preferences such as catalog filters and keep offline.
 - Where `indexedDB.databases()` is missing, as in Firefox before 126, the
   client cannot see the newer version and opens that database as it is.
 - A pulled row that is also in the outbox with a newer local timestamp keeps

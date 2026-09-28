@@ -554,6 +554,8 @@ describe('RecordingScreen', () => {
     await localRecording('Jam recording')
     const { engine, load } = await openFromRows('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
+    // The screen takes keys only once its modal is presented, which can lag the load.
+    await dialog()
     engine.seek(10_000)
     press('ArrowRight')
     expect(engine.getState().positionMs).toBe(10_000 + SKIP_MS)
@@ -571,6 +573,7 @@ describe('RecordingScreen', () => {
     const { engine, load } = await openFromRows('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(true)
+    await dialog()
     press(' ', { repeat: true })
     expect(engine.getState().playing).toBe(true)
     await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()

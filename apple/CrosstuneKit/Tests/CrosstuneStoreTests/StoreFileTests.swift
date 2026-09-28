@@ -64,43 +64,94 @@ func refusesAUserIDThatIsNotAPlainName(_ userID: String) {
     #expect(!FileManager.default.fileExists(atPath: stale.folder.path()))
 }
 
-@Test func anOlderStoreStartsOverAndKeepsPreferences() async throws {
-    let root = TemporaryRoot()
-    let old = try root.open(schemaVersion: 1)
-    try await old.write { writer in
-        try writer.put(Tune(title: "Arkansas Traveler"))
-        try RecordingFile(id: newID(), localState: .captured, updatedAt: noon).insert(writer.db)
-        try writer.setMeta(.pullCursor, to: 99)
-        try writer.setMeta(.invalidChanges, to: 3)
-        try writer.setMeta(.keepOffline, to: true)
-    }
-    try old.close()
-
-    let store = try root.open(schemaVersion: 2)
-    #expect(try await store.meta(.invalidChanges, as: Int.self) == nil)
-
-    #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
-    #expect(try await store.read { db in try RecordingFile.fetchCount(db) } == 0)
-    #expect(try await store.pendingChangeCount() == 0)
-    #expect(try await store.meta(.pullCursor, as: Int.self) == nil)
-    #expect(try await store.meta(.keepOffline, as: Bool.self) == true)
-    #expect(try await store.read(Schema.storedVersion) == 2)
+private func migrator(plus identifier: String, _ body: @escaping @Sendable (Database) throws -> Void)
+    -> DatabaseMigrator
+{
+    var migrator = Schema.migrator
+    migrator.registerMigration(identifier, migrate: body)
+    return migrator
 }
 
 @Test func aNewerStoreIsDeleted() async throws {
     let root = TemporaryRoot()
-    let newer = try root.open(schemaVersion: 2)
+    let newer = try root.open(
+        migrator: migrator(plus: "future") { db in
+            try db.execute(sql: "CREATE TABLE future (id TEXT PRIMARY KEY)")
+        })
     try await newer.write { writer in
         try writer.put(Tune(title: "Billy in the Lowground"))
         try writer.setMeta(.keepOffline, to: true)
     }
     try newer.close()
 
-    let store = try root.open(schemaVersion: 1)
+    let store = try root.open()
 
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
     #expect(try await store.meta(.keepOffline, as: Bool.self) == nil)
-    #expect(try await store.read(Schema.storedVersion) == 1)
+    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4"])
+}
+
+@Test func aNewMigrationKeepsRowsOutboxAndPreferences() async throws {
+    let root = TemporaryRoot()
+    let old = try root.open()
+    try await old.write { writer in
+        try writer.put(Tune(title: "Arkansas Traveler"))
+        try writer.setMeta(.pullCursor, to: 99)
+        try writer.setMeta(.keepOffline, to: true)
+    }
+    try old.close()
+
+    let store = try root.open(
+        migrator: migrator(plus: "next") { db in
+            try db.alter(table: "tunes") { t in t.add(column: "nickname", .text) }
+        })
+
+    #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
+    #expect(try await store.pendingChangeCount() == 1)
+    #expect(try await store.meta(.pullCursor, as: Int.self) == 99)
+    #expect(try await store.meta(.keepOffline, as: Bool.self) == true)
+}
+
+@Test func aFailingMigrationKeepsTheStore() async throws {
+    struct Refused: Error {}
+    let root = TemporaryRoot()
+    let old = try root.open()
+    try await old.write { writer in try writer.put(Tune(title: "Sally Goodin")) }
+    let audio = "\(newID()).m4a"
+    try Data([1]).write(to: old.audioFolder.appending(path: audio))
+    try old.close()
+
+    #expect(throws: Refused.self) {
+        try root.open(
+            migrator: migrator(plus: "broken") { db in
+                try db.alter(table: "tunes") { t in t.add(column: "nickname", .text) }
+                throw Refused()
+            })
+    }
+
+    let store = try root.open()
+    #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
+    #expect(try await store.pendingChangeCount() == 1)
+    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4"])
+    #expect(try await store.read { db in try db.columns(in: "tunes").map(\.name) }.contains("nickname") == false)
+    #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: audio).path()))
+}
+
+@Test func repullForgetsOnlyThePullCursor() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    try await store.write { writer in
+        try writer.put(Tune(title: "Forked Deer"))
+        try writer.setMeta(.pullCursor, to: 12)
+        try writer.setMeta(.invalidChanges, to: 2)
+    }
+
+    try await store.database.write { db in try Schema.repull(db) }
+
+    #expect(try await store.meta(.pullCursor, as: Int.self) == nil)
+    #expect(try await store.meta(.invalidChanges, as: Int.self) == 2)
+    #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
+    #expect(try await store.pendingChangeCount() == 1)
 }
 
 @Test func reopeningTheCurrentVersionKeepsEverything() async throws {

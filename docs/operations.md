@@ -212,8 +212,8 @@ A change to the shape of a synced row:
   API release that drops the old field.
 - While the app is pre-release, a clean break ships in one tag. An edit
   made while the two sides disagree is lost. After both hosts deploy,
-  reload the app: the service worker updates and the local database starts
-  over.
+  reload the app: the service worker updates and the local database
+  migrates.
 - A migration renaming or dropping a table or column breaks the running API
   between the pre-deploy migration and the new API passing its healthcheck.
   Sync requests that touch the changed table fail with a retryable 5xx and
@@ -224,9 +224,13 @@ A change to the shape of a synced row:
 - A value added to a validated vocabulary is recognized by the client in
   one release and offered in the next, once the API that accepts it is
   live on both hosts, because one tag deploys both sides in either order.
-- A local shape change bumps the Dexie version with the start-over
-  upgrader while the app is pre-release. Each device loses its unsent
-  edits and unuploaded recordings, then pulls every row again.
+- A local shape change adds a Dexie version with an upgrader on the web
+  and appends a migration to `Schema.migrator` on Apple, and extends that
+  client's migration test. Neither may drop unsent edits or unuploaded
+  recordings. A merged Apple migration is never edited, since a store
+  that applied it never runs it again, and never renamed, since a store
+  holding an identifier the build does not know reads as one a newer
+  build wrote and the app deletes it.
 
 Rollback:
 
@@ -236,9 +240,10 @@ Rollback:
 - A rollback across a migration fails the pre-deploy command. Roll forward,
   or downgrade the schema first.
 - A client outage loses no edits. The outbox holds them.
-- A web rollback past a release that bumped the local database version
-  deletes the local database on every device and pulls again, losing
-  unsent edits and unuploaded recordings.
+- A rollback past a release that changed a local database, a web
+  rollback or an older TestFlight build, deletes that local database on
+  every device and pulls again, losing unsent edits and unuploaded
+  recordings. Roll forward instead.
 
 ## Smoke check
 
