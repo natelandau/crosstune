@@ -18,6 +18,7 @@ import {
   databaseName,
   deleteDatabase,
   openDatabase,
+  repull,
   rowsTable,
   syncTables,
 } from './schema'
@@ -191,6 +192,92 @@ describe('schema', () => {
     } finally {
       await upgraded.delete()
     }
+  })
+
+  it('keeps unsent changes and unuploaded recordings when a version 6 database opens', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v6 = new Dexie(name)
+    v6.version(6).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    await v6
+      .table('recordings')
+      .bulkPut([recordingRow('rec-captured'), recordingRow('rec-uploading')])
+    await v6.table('recording_files').bulkPut([
+      { id: 'rec-captured', local_state: 'captured' },
+      { id: 'rec-uploading', local_state: 'uploading' },
+    ])
+    await v6.table('recording_chunks').bulkPut([
+      { recording_id: 'rec-uploading', idx: 0, blob: 'chunk-0' },
+      { recording_id: 'rec-uploading', idx: 1, blob: 'chunk-1' },
+    ])
+    for (const [table, rowId] of [
+      ['recordings', 'rec-captured'],
+      ['tunes', tune.id],
+    ]) {
+      await v6.table('outbox').add({
+        table,
+        row_id: rowId,
+        op: 'upsert',
+        updated_at: tune.updated_at,
+        data: {},
+      })
+    }
+    await v6.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v6.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect((await opened.recordings.toArray()).map((r) => r.id).sort()).toEqual([
+        'rec-captured',
+        'rec-uploading',
+      ])
+      expect((await opened.recording_files.toArray()).map((f) => f.id).sort()).toEqual([
+        'rec-captured',
+        'rec-uploading',
+      ])
+      expect(
+        await opened.recording_chunks.where('recording_id').equals('rec-uploading').count(),
+      ).toBe(2)
+      expect((await opened.outbox.orderBy('seq').toArray()).map((e) => e.row_id)).toEqual([
+        'rec-captured',
+        tune.id,
+      ])
+      expect(await getPullCursor(opened)).toBe(42)
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('repull forgets only the pull cursor', async () => {
+    await db.tunes.put(tune)
+    await enqueue(db, {
+      table: 'tunes',
+      row_id: tune.id,
+      op: 'upsert',
+      updated_at: tune.updated_at,
+      data: toChangeData(tune),
+    })
+    await setPullCursor(db, 9)
+    await setMeta(db, META_KEEP_OFFLINE, true)
+
+    await db.transaction('rw', db.meta, (tx) => repull(tx))
+
+    expect(await getPullCursor(db)).toBe(0)
+    expect(await getKeepOffline(db)).toBe(true)
+    expect(await db.tunes.count()).toBe(1)
+    expect(await db.outbox.count()).toBe(1)
   })
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
