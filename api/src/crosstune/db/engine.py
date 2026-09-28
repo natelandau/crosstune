@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +18,8 @@ from sqlalchemy.ext.asyncio import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+log = logging.getLogger(__name__)
 
 # Well under Railway's 5 minutes without outbound packets, after which a service sleeps.
 IDLE_POOL_SECONDS = 120.0
@@ -97,4 +100,8 @@ class IdlePoolCloser:
                     await self._stopping.wait()
             if self._stopping.is_set():
                 return
-            await self.check()
+            # A failed check must not end the task, or the pool stays open and the host never sleeps.
+            try:
+                await self.check()
+            except Exception:
+                log.exception("idle pool closer could not close the pool")

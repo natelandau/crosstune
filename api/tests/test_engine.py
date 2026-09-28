@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
@@ -106,3 +107,24 @@ async def test_start_and_stop(own_engine) -> None:
     task = closer.start()
     await closer.stop()
     assert task.done()
+
+
+async def test_a_failed_check_does_not_end_the_task(own_engine, monkeypatch) -> None:
+    closer = IdlePoolCloser(own_engine, check_seconds=0.01)
+    calls = 0
+    second_call = asyncio.Event()
+
+    async def failing_check() -> bool:
+        nonlocal calls
+        calls += 1
+        if calls >= 2:
+            second_call.set()
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(closer, "check", failing_check)
+    task = closer.start()
+    async with asyncio.timeout(5):
+        await second_call.wait()
+    assert not task.done()
+    await closer.stop()
