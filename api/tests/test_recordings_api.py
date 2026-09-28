@@ -420,6 +420,44 @@ async def test_retry_requeues_a_failed_recording(client, auth_headers, verify_se
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is not None
 
 
+async def test_retry_twice_answers_204_and_queues_one_job(
+    client, auth_headers, verify_session
+) -> None:
+    """A client that replays a retry after a gateway error must not see a conflict."""
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(
+        update(Recording).where(Recording.id == rec).values(state="failed", error="boom")
+    )
+    await verify_session.commit()
+    url = f"/v1/recordings/{rec}/retry"
+    assert (await client.post(url, headers=auth_headers("user_a"))).status_code == 204
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    seq_after_first = stored.server_seq
+    assert (await client.post(url, headers=auth_headers("user_a"))).status_code == 204
+    await verify_session.refresh(stored)
+    assert stored.server_seq == seq_after_first
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == rec))).all()
+    assert len(jobs) == 1
+
+
+async def test_retry_of_a_ready_recording_answers_204(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await verify_session.execute(update(Recording).where(Recording.id == rec).values(state="ready"))
+    await verify_session.commit()
+    response = await client.post(f"/v1/recordings/{rec}/retry", headers=auth_headers("user_a"))
+    assert response.status_code == 204
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
+
+
+async def test_retry_of_a_pending_upload_is_a_conflict(client, auth_headers) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    response = await client.post(f"/v1/recordings/{rec}/retry", headers=auth_headers("user_a"))
+    assert response.status_code == 409
+
+
 async def test_retry_wakes_the_runner(client, auth_headers, verify_session, fake_runner) -> None:
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec))

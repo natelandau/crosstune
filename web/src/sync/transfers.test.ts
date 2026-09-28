@@ -988,9 +988,15 @@ describe('engine.peaks', () => {
 })
 
 describe('fakeApi retryRecording', () => {
-  it('answers 409 for a recording that is not failed, matching the real route', async () => {
-    fake.recordingStates.set('r1', 'uploaded')
+  it('answers 409 for a recording that was never uploaded, matching the real route', async () => {
+    fake.recordingStates.set('r1', 'pending_upload')
     await expect(fake.api.retryRecording('r1')).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('succeeds without change for a recording already retried, matching the real route', async () => {
+    fake.recordingStates.set('r1', 'uploaded')
+    await expect(fake.api.retryRecording('r1')).resolves.toBeUndefined()
+    expect(fake.recordingStates.get('r1')).toBe('uploaded')
   })
 
   it('retries a failed recording', async () => {

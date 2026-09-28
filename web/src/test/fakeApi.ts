@@ -133,7 +133,9 @@ export function createFakeApi() {
     },
     async retryRecording(recordingId) {
       if (failWith) throw failWith
-      if (recordingStates.get(recordingId) !== 'failed') throw new ApiError(409, null)
+      const state = recordingStates.get(recordingId)
+      if (state === 'uploaded' || state === 'processing' || state === 'ready') return
+      if (state !== 'failed') throw new ApiError(409, null)
       recordingStates.set(recordingId, 'uploaded')
     },
     async downloadUrl(recordingId) {

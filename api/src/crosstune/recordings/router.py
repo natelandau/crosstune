@@ -218,12 +218,16 @@ async def retry(
     """Transcode the object already in the bucket again, for a recording that failed.
 
     A recording whose uploaded object is gone is uploaded again through a new
-    slot instead; this route only re-runs the transcode.
+    slot instead; this route only re-runs the transcode. Repeating the call changes
+    nothing.
     """
     # Without a store there is no runner either, so a queued job would never be claimed.
     require_store(request)
     await lock_user(session, user.id)
     recording = await owned_recording(session, user.id, recording_id)
+    if recording.state in CONFIRMED_STATES:
+        # A retried call after a lost response: the first one already queued the job.
+        return Response(status_code=204)
     require_state(recording, "failed")
     recording.state = "uploaded"
     recording.error = None
