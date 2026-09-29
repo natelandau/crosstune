@@ -186,8 +186,7 @@ On `main` with a clean tree:
 ```bash
 git switch main && git pull
 just bump
-git push origin main
-git push origin v<version>
+git push --follow-tags origin main
 ```
 
 - `just bump` runs commitizen. It picks the increment from the commits,
@@ -195,8 +194,6 @@ git push origin v<version>
   app's `apple/Config/Version.xcconfig`, and `.cz.toml`,
   refreshes `api/uv.lock`, updates `CHANGELOG.md`, commits, and tags
   `v<version>`. `just bump --dry-run` shows the plan.
-- The tag is lightweight, and `git push --follow-tags` skips a lightweight
-  tag. Push it by name, after `main`.
 - Bump on `main` only. A tag on a PR branch points at a commit the squash
   merge never lands, and the workflow refuses it.
 - The tag push runs the `API` and `Web` workflows on the tagged commit,
