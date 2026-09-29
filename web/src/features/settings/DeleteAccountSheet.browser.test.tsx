@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { ApiError, NetworkError } from '../../api/client'
 import { createList } from '../../commands/lists'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -17,6 +18,7 @@ import {
   DELETE_ACCOUNT_TITLE,
   DELETE_CONFIRMATION_TEXT,
   DELETE_FAILED,
+  DELETE_UNCONFIRMED,
   DELETING,
   SETTINGS_LINE,
   UNSYNCED_LINE,
@@ -185,12 +187,21 @@ describe('DeleteAccountSheet', () => {
     await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
-  it('shows the failure and keeps the text', async () => {
-    vi.mocked(deleteAccountAndForget).mockRejectedValueOnce(new Error('server unreachable'))
+  it('says nothing changed when the API refuses, and keeps the text', async () => {
+    vi.mocked(deleteAccountAndForget).mockRejectedValueOnce(new ApiError(403, null))
     show()
     await confirmField().fill('DELETE')
     await deleteButton().click()
     await expect.element(page.getByText(DELETE_FAILED)).toBeVisible()
     await expect.element(confirmField()).toHaveValue('DELETE')
+  })
+
+  it('says the delete may have gone through when no answer came back', async () => {
+    vi.mocked(deleteAccountAndForget).mockRejectedValueOnce(new NetworkError(new TypeError()))
+    show()
+    await confirmField().fill('DELETE')
+    await deleteButton().click()
+    await expect.element(page.getByText(DELETE_UNCONFIRMED)).toBeVisible()
+    await expect.element(page.getByText(DELETE_FAILED)).not.toBeInTheDocument()
   })
 })

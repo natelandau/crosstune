@@ -101,8 +101,9 @@ let package = Package(
         .testTarget(
             name: "CrosstuneAuthTests",
             dependencies: [
-                "CrosstuneAuth", "CrosstuneStore", "CrosstuneTestSupport",
+                "CrosstuneAPI", "CrosstuneAuth", "CrosstuneStore", "CrosstuneTestSupport",
                 .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
             ]
         ),
         .testTarget(

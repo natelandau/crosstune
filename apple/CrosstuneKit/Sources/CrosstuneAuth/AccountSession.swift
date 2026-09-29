@@ -35,12 +35,16 @@ public final class AccountSession {
         case unuploadedRecordings
         /// Deleting the account failed before the API confirmed it, so nothing changed.
         case deleteFailed
+        /// No answer from the API says whether the delete went through.
+        case deleteUnconfirmed
 
         public static let offlineMessage = "This needs a connection."
         public static let unsyncedChangesMessage = "Some changes have not synced yet. Try again once they have."
         public static let unuploadedRecordingsMessage =
             "Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload."
         public static let deleteFailedMessage = "Your account was not deleted. Nothing was changed. Try again."
+        public static let deleteUnconfirmedMessage =
+            "The delete could not be confirmed, so your account may already be deleted. Check your connection and try again."
 
         public var errorDescription: String? {
             switch self {
@@ -48,6 +52,7 @@ public final class AccountSession {
             case .unsyncedChanges: Self.unsyncedChangesMessage
             case .unuploadedRecordings: Self.unuploadedRecordingsMessage
             case .deleteFailed: Self.deleteFailedMessage
+            case .deleteUnconfirmed: Self.deleteUnconfirmedMessage
             }
         }
     }
@@ -221,8 +226,8 @@ public final class AccountSession {
     }
 
     /// Deletes the account on the API, then this device's copy of it. Unsent changes are lost
-    /// with the account. Every failure before the API confirms the delete throws
-    /// ``LeaveError/deleteFailed``: the musician only needs to know nothing changed.
+    /// with the account. A failure throws ``LeaveError/deleteFailed`` when the API's answer
+    /// proves nothing changed, and ``LeaveError/deleteUnconfirmed`` when no such answer came.
     public func deleteAccount() async throws {
         guard let userID = try? confirmedUserID() else { throw LeaveError.deleteFailed }
         isLeavingDeleted = true
@@ -232,9 +237,11 @@ public final class AccountSession {
         do {
             try await Self.deleteAndLeave(
                 userID: userID, store: store, root: storeRoot, sync: sync,
-                deleteRemote: { try await Self.deleteRemote(client: client) },
+                deleteRemote: { try await Self.deleteRemote { try await client.deleteMeV1MeDelete() } },
                 endSession: { try await Clerk.shared.auth.signOut() }
             )
+        } catch LeaveError.deleteUnconfirmed {
+            throw LeaveError.deleteUnconfirmed
         } catch {
             throw LeaveError.deleteFailed
         }
@@ -262,9 +269,17 @@ public final class AccountSession {
     }
 
     /// Only the status distinguishes a refusal here; the problem body has nothing the musician
-    /// needs to see.
-    private static func deleteRemote(client: CrosstuneAPI.Client) async throws {
-        switch try await client.deleteMeV1MeDelete() {
+    /// needs to see. A documented answer is the API's own, raised before anything committed. A
+    /// thrown request, or an undocumented server error such as a gateway's or a 500 that may
+    /// follow Clerk's delete, leaves the outcome unknown.
+    static func deleteRemote(_ send: () async throws -> Operations.DeleteMeV1MeDelete.Output) async throws {
+        let response: Operations.DeleteMeV1MeDelete.Output
+        do {
+            response = try await send()
+        } catch {
+            throw LeaveError.deleteUnconfirmed
+        }
+        switch response {
         case .noContent: return
         case .unauthorized(let refused):
             // Another device deleted it first, which is the outcome this request asked for.
@@ -273,7 +288,9 @@ public final class AccountSession {
         case .unprocessableContent: throw APIStatusError(status: 422)
         case .badGateway: throw APIStatusError(status: 502)
         case .serviceUnavailable: throw APIStatusError(status: 503)
-        case .undocumented(let status, _): throw APIStatusError(status: status)
+        case .undocumented(let status, _):
+            if status >= 500 { throw LeaveError.deleteUnconfirmed }
+            throw APIStatusError(status: status)
         }
     }
 
