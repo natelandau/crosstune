@@ -1,8 +1,10 @@
+import CrosstuneAPI
 import CrosstuneStore
 import CrosstuneSync
 import CrosstuneTestSupport
 import Foundation
 import GRDB
+import OpenAPIRuntime
 import Testing
 
 @testable import CrosstuneAuth
@@ -48,6 +50,41 @@ import Testing
 
 @Test func aFailedDeleteReadsAsNothingChanged() {
     #expect(AccountSession.LeaveError.deleteFailed.errorDescription == AccountSession.LeaveError.deleteFailedMessage)
+}
+
+@Test func anUnconfirmedDeleteSaysTheAccountMayBeGone() {
+    #expect(
+        AccountSession.LeaveError.deleteUnconfirmed.errorDescription
+            == AccountSession.LeaveError.deleteUnconfirmedMessage)
+}
+
+private typealias DeleteOutput = Operations.DeleteMeV1MeDelete.Output
+
+private func problem(_ status: Int) -> Components.Schemas.Problem {
+    .init(detail: "", status: status, title: "Error")
+}
+
+@Test func aDeleteTheAPIRefusedChangedNothing() async {
+    await #expect(throws: APIStatusError(status: 502)) {
+        try await AccountSession.deleteRemote {
+            DeleteOutput.badGateway(.init(body: .applicationProblemJson(problem(502))))
+        }
+    }
+    await #expect(throws: APIStatusError(status: 403)) {
+        try await AccountSession.deleteRemote { DeleteOutput.undocumented(statusCode: 403, .init()) }
+    }
+}
+
+@Test func aDeleteWithNoAnswerFromTheAPIIsUnconfirmed() async {
+    await #expect(throws: AccountSession.LeaveError.deleteUnconfirmed) {
+        try await AccountSession.deleteRemote { throw URLError(.networkConnectionLost) }
+    }
+    await #expect(throws: AccountSession.LeaveError.deleteUnconfirmed) {
+        try await AccountSession.deleteRemote { DeleteOutput.undocumented(statusCode: 504, .init()) }
+    }
+    await #expect(throws: AccountSession.LeaveError.deleteUnconfirmed) {
+        try await AccountSession.deleteRemote { DeleteOutput.undocumented(statusCode: 500, .init()) }
+    }
 }
 
 @Test func aDeletedUserIsSignedOutEvenWhileClerkStillHoldsTheirSession() {

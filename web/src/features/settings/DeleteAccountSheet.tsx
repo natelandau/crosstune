@@ -9,7 +9,12 @@ import { useSyncEngine } from '../../sync/SyncProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
-import { confirmMatches, countAccountData, deleteAccountAndForget } from './deleteAccount'
+import {
+  confirmMatches,
+  countAccountData,
+  deleteAccountAndForget,
+  deleteOutcomeUnknown,
+} from './deleteAccount'
 import {
   CANNOT_UNDO,
   CONFIRM_LABEL,
@@ -17,6 +22,7 @@ import {
   DELETE_ACCOUNT_LEAD,
   DELETE_ACCOUNT_TITLE,
   DELETE_FAILED,
+  DELETE_UNCONFIRMED,
   DELETING,
   NO_RECOVERY,
   SETTINGS_LINE,
@@ -74,7 +80,14 @@ export function DeleteAccountSheet({ open, onClose }: { open: boolean; onClose: 
   const runDelete = () => {
     if (!confirmed || pending || loading) return
     runThen(
-      () => deleteAccountAndForget({ db, userId, engine, signOut: () => signOut() }),
+      () =>
+        deleteAccountAndForget({ db, userId, engine, signOut: () => signOut() }).catch(
+          (cause: unknown) => {
+            throw new Error(deleteOutcomeUnknown(cause) ? DELETE_UNCONFIRMED : DELETE_FAILED, {
+              cause,
+            })
+          },
+        ),
       () => setClosing(true),
     )
   }
@@ -119,7 +132,7 @@ export function DeleteAccountSheet({ open, onClose }: { open: boolean; onClose: 
         {NO_RECOVERY}
       </p>
       <div className="pt-(--form-section-gap)">
-        <Group error={error ? DELETE_FAILED : null}>
+        <Group error={error}>
           <IonItem>
             <IonInput
               aria-label={CONFIRM_LABEL}

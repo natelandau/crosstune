@@ -23,6 +23,8 @@ and put new knowledge only in the page whose contract it fits.
 - Write short sentences, bullets, steps, and tables. Never a paragraph that
   has to be parsed to find the fact.
 - No history. State what holds now. The commit message holds why it changed.
+- Nothing about one release. A note for a single release goes in its pull
+  request description.
 
 ## Design records
 

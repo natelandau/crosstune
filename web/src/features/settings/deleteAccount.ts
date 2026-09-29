@@ -1,3 +1,4 @@
+import { ApiError } from '../../api/client'
 import type { CrosstuneDb } from '../../db/schema'
 import { isAccountDeleted } from '../../sync/errors'
 import type { SyncEngine } from '../../sync/types'
@@ -8,6 +9,18 @@ import { forgetLocalData } from './signOut'
 
 export function confirmMatches(text: string): boolean {
   return text.trim().toUpperCase() === DELETE_CONFIRMATION_TEXT
+}
+
+/**
+ * True when a failed delete may still have gone through. Only an answer from the API itself
+ * proves the transaction rolled back: a refusal, or a problem-bearing 502 or 503 raised before
+ * anything committed. A dropped connection, a gateway's bare 502 or 504, or a 500 that may
+ * follow Clerk's delete leaves the outcome unknown.
+ */
+export function deleteOutcomeUnknown(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true
+  if (error.status < 500) return false
+  return !(error.problem && (error.status === 502 || error.status === 503))
 }
 
 export async function countAccountData(

@@ -71,6 +71,11 @@ public enum RecordingText {
         return "\(Self.recording), \(recordedAt(recording.recordedAt, locale: locale, timeZone: timeZone))"
     }
 
+    /// True when `title` falls through to the date, which the second line then leaves out.
+    public static func titleIsDate(_ recording: Recording, tuneTitle: String?, tuneNamedAbove: Bool = false) -> Bool {
+        recording.label == nil && (tuneNamedAbove || tuneTitle == nil)
+    }
+
     /// What to tell the musician about a recording that is not simply playable. Nil when it is.
     public static func fileState(_ recording: Recording, file: RecordingFile?) -> String? {
         switch file?.localState {
@@ -90,18 +95,19 @@ public enum RecordingText {
     }
 
     /// The parts of the row's second line, in order, for joining with middle dots. A recording
-    /// that needs nothing shows when it was made in place of a status. `offline` marks a
+    /// that needs nothing shows when it was made in place of a status, unless `dateInTitle`
+    /// says its title already does. `offline` marks a
     /// download that cannot start, and replaces the status. The file's own length stands in
     /// until the server reports the recording's.
     public static func meta(
         _ recording: Recording, file: RecordingFile?, storage: StorageFigures? = nil, offline: Bool = false,
-        locale: Locale = .current, timeZone: TimeZone = .current
+        dateInTitle: Bool = false, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> [String] {
         let length = duration(milliseconds: recording.durationMs ?? file?.localDurationMs)
         if offline { return [length, SyncStatus.offlineLabel].compactMap { $0 } }
         let status =
             fileState(recording, file: file)
-            ?? recordedAt(recording.recordedAt, locale: locale, timeZone: timeZone)
+            ?? (dateInTitle ? nil : recordedAt(recording.recordedAt, locale: locale, timeZone: timeZone))
         let waiting = file?.localState == .captured || file?.localState == .uploading
         let attempts = file?.uploadAttempts ?? 0
         let tries = waiting && attempts > 0 ? failedTries(attempts) : nil

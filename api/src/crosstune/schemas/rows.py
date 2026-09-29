@@ -138,6 +138,8 @@ class _RecordingLinkFields(_Data):
     provider: Provider
     provider_ref: str | None = Field(default=None, max_length=LINK["provider_ref"])
     title: str | None = Field(default=None, max_length=LINK["title"])
+    # Only its length is checked: it holds whatever image URL the provider returned, which a
+    # stricter type could refuse, failing the push of a link the resolver itself filled in.
     artwork_url: str | None = Field(default=None, max_length=LINK["artwork_url"])
     label: str | None = Field(default=None, max_length=LINK["label"])
     position: int = 0

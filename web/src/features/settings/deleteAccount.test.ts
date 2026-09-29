@@ -7,7 +7,7 @@ import {
   locallySignedOutUser,
   rememberUser,
 } from '../../auth/session'
-import { ApiError } from '../../api/client'
+import { ApiError, NetworkError, NoTokenError } from '../../api/client'
 import { ACCOUNT_DELETED_PROBLEM } from '../../sync/errors'
 import { addUploadedFile, deleteRecording } from '../../commands/recordings'
 import { createList, deleteList } from '../../commands/lists'
@@ -18,6 +18,7 @@ import {
   confirmMatches,
   countAccountData,
   deleteAccountAndForget,
+  deleteOutcomeUnknown,
   forgetDeletedAccount,
 } from './deleteAccount'
 import { DELETE_CONFIRMATION_TEXT } from './deleteAccountCopy'
@@ -215,5 +216,27 @@ describe('countAccountData', () => {
 
     expect(await countAccountData(db)).toEqual({ tunes: 1, lists: 1, recordings: 1 })
     await db.delete()
+  })
+})
+
+describe('deleteOutcomeUnknown', () => {
+  const problem = (status: number) => ({ type: 'about:blank', title: 'Error', status, detail: '' })
+
+  it('knows nothing changed when the API itself refused the delete', () => {
+    expect(deleteOutcomeUnknown(new ApiError(401, problem(401)))).toBe(false)
+    expect(deleteOutcomeUnknown(new ApiError(422, null))).toBe(false)
+    expect(deleteOutcomeUnknown(new ApiError(502, problem(502)))).toBe(false)
+    expect(deleteOutcomeUnknown(new ApiError(503, problem(503)))).toBe(false)
+  })
+
+  it('cannot tell when no answer from the API came back', () => {
+    expect(deleteOutcomeUnknown(new NetworkError(new TypeError()))).toBe(true)
+    expect(deleteOutcomeUnknown(new NoTokenError())).toBe(true)
+    expect(deleteOutcomeUnknown(new ApiError(502, null))).toBe(true)
+    expect(deleteOutcomeUnknown(new ApiError(504, null))).toBe(true)
+  })
+
+  it('cannot tell after a server error that may follow the Clerk delete', () => {
+    expect(deleteOutcomeUnknown(new ApiError(500, problem(500)))).toBe(true)
   })
 })

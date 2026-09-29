@@ -95,6 +95,9 @@ The end-to-end suite:
   limits. It needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAIL` in
   `web/.env`, and the same development key as `CROSSTUNE_CLERK_SECRET_KEY`
   in `api/.env`.
+- Signs in as that one user in every spec. A spec that deletes or changes
+  the account makes its own user with `createThrowawayUser` and removes it
+  with `removeClerkUser`, both in `web/e2e/helpers.ts`.
 - Serves the API on 8001 against `crosstune_e2e`, created for the run and
   dropped afterwards, so it runs beside `just dev` and starts empty.
 - To keep the database after a failure, run `just api::run-e2e`, then
@@ -167,6 +170,8 @@ and fails instead in CI, where the `API` workflow always starts it.
   in `.github/dependabot.yml`, and skips a release until it is seven days
   old. Its PR title is the squashed commit's subject. Check a PR that bumps
   `packageManager` in `web/package.json`: it needs the pnpm step below.
+- A change to `.github/dependabot.yml` makes Dependabot close every grouped
+  PR the old config built. Merge the open ones before you push the change.
 - A development deploy waits for CI (Railway's Wait for CI). Production has
   no host-side gate; the `Release` workflow is the gate.
 - An idle Railway environment should show the API as sleeping within 10
