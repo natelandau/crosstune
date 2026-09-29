@@ -18,11 +18,31 @@ public final class EngineInput: AudioInput {
     private var onEvent: (@MainActor @Sendable (AudioInputEvent) -> Void)?
     private var sessionObservers: [NSObjectProtocol] = []
     private var interrupted = false
+    /// Set from a prepare until the next stop, so a prepare can tell a stop arrived meanwhile.
+    private var preparing = false
+    /// Fixed for the take, so a resume never swaps left and right partway through.
+    private var stereo: EngineRunner.StereoRequest?
 
     public init() {}
 
     public func requestPermission() async -> Bool {
         await AVAudioApplication.requestRecordPermission()
+    }
+
+    public func prepare(preferring channels: CaptureChannels) async throws -> Int {
+        preparing = true
+        interrupted = false
+        stereo = channels == .stereo ? Self.stereoRequest() : nil
+        do {
+            try await runner.activateSession(stereo: stereo)
+            // A stop while the session activated has already let go of the take.
+            guard preparing else { throw CancellationError() }
+            observeSession()
+            return await runner.inputChannelCount()
+        } catch {
+            await stop()
+            throw error
+        }
     }
 
     public func start(
@@ -32,12 +52,9 @@ public final class EngineInput: AudioInput {
         self.writer = writer
         self.onLevels = onLevels
         self.onEvent = onEvent
-        interrupted = false
         do {
-            try await runner.activateSession()
-            // A stop while the session activated has already let go of the take.
-            guard self.writer != nil else { throw CancellationError() }
-            observeSession()
+            // An interruption since prepare went unreported, as nothing listened yet.
+            if interrupted { throw CancellationError() }
             try await startEngine()
         } catch {
             await stop()
@@ -47,13 +64,15 @@ public final class EngineInput: AudioInput {
 
     public func resume() async throws {
         interrupted = false
-        try await runner.activateSession()
+        try await runner.activateSession(stereo: stereo)
         try await startEngine()
     }
 
     public func stop() async {
         for observer in sessionObservers { NotificationCenter.default.removeObserver(observer) }
         sessionObservers = []
+        preparing = false
+        stereo = nil
         writer = nil
         onLevels = nil
         onEvent = nil
@@ -81,6 +100,22 @@ public final class EngineInput: AudioInput {
     }
 
     #if os(iOS)
+        /// Stereo from the built-in microphone, with left and right as the screen shows them
+        /// when the take starts.
+        private static func stereoRequest() -> EngineRunner.StereoRequest {
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.keyWindow != nil }
+            let orientation: AVAudioSession.StereoOrientation =
+                switch scene?.effectiveGeometry.interfaceOrientation {
+                case .portraitUpsideDown: .portraitUpsideDown
+                case .landscapeLeft: .landscapeLeft
+                case .landscapeRight: .landscapeRight
+                default: .portrait
+                }
+            return EngineRunner.StereoRequest(orientation: orientation)
+        }
+
         private func observeSession() {
             let center = NotificationCenter.default
             let session = AVAudioSession.sharedInstance()
@@ -143,6 +178,10 @@ public final class EngineInput: AudioInput {
             onEvent?(.failed)
         }
     #else
+        private static func stereoRequest() -> EngineRunner.StereoRequest {
+            EngineRunner.StereoRequest()
+        }
+
         private func observeSession() {}
     #endif
 }
@@ -252,7 +291,12 @@ final class EngineRunner: @unchecked Sendable {
     }
 
     #if os(iOS)
-        nonisolated(nonsending) func activateSession() async throws {
+        /// Asks the session for stereo capture, aimed for the interface orientation given.
+        struct StereoRequest: Sendable {
+            let orientation: AVAudioSession.StereoOrientation
+        }
+
+        nonisolated(nonsending) func activateSession(stereo: StereoRequest?) async throws {
             try await run("activate") {
                 let session = AVAudioSession.sharedInstance()
                 // Full-bandwidth Bluetooth recording where the headset supports it, such as recent
@@ -262,7 +306,41 @@ final class EngineRunner: @unchecked Sendable {
                     options: [.bluetoothHighQualityRecording, .allowBluetoothHFP, .defaultToSpeaker])
                 try? session.setPreferredSampleRate(CaptureWriter.sampleRate)
                 try session.setActive(true)
+                if let stereo { Self.configureStereo(session, stereo) } else { Self.resetStereo(session) }
             }
+        }
+
+        /// Every step may fail on a device without stereo, which then records mono.
+        private static func configureStereo(_ session: AVAudioSession, _ request: StereoRequest) {
+            if let port = session.currentRoute.inputs.first, port.portType == .builtInMic,
+                let source = port.dataSources?.first(where: {
+                    $0.orientation == .front && $0.supportedPolarPatterns?.contains(.stereo) == true
+                })
+            {
+                try? source.setPreferredPolarPattern(.stereo)
+                try? port.setPreferredDataSource(source)
+                try? session.setPreferredInputOrientation(request.orientation)
+            }
+            // Last, since the built-in microphone reports one channel until its stereo pattern
+            // is chosen.
+            try? session.setPreferredInputNumberOfChannels(min(2, session.maximumInputNumberOfChannels))
+        }
+
+        /// The session and the built-in port keep a stereo setup for the life of the process, so
+        /// a mono take clears it to record from the default microphone. Any other input keeps
+        /// both its channels, which the capture file mixes down rather than dropping the second.
+        private static func resetStereo(_ session: AVAudioSession) {
+            if let port = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+                for source in port.dataSources ?? [] { try? source.setPreferredPolarPattern(nil) }
+                try? port.setPreferredDataSource(nil)
+            }
+            let builtIn = session.currentRoute.inputs.first?.portType == .builtInMic
+            try? session.setPreferredInputNumberOfChannels(
+                builtIn ? 1 : min(2, session.maximumInputNumberOfChannels))
+        }
+
+        nonisolated(nonsending) func inputChannelCount() async -> Int {
+            (try? await run("channels") { AVAudioSession.sharedInstance().inputNumberOfChannels }) ?? 1
         }
 
         nonisolated(nonsending) func deactivateSession() async {
@@ -271,9 +349,16 @@ final class EngineRunner: @unchecked Sendable {
             }
         }
     #else
+        /// macOS has no session setting for stereo; the input's own channels decide.
+        struct StereoRequest: Sendable {}
+
         // No session on macOS, but the steps still take their place in line.
-        nonisolated(nonsending) func activateSession() async throws {
+        nonisolated(nonsending) func activateSession(stereo: StereoRequest?) async throws {
             try await run("activate") {}
+        }
+
+        nonisolated(nonsending) func inputChannelCount() async -> Int {
+            (try? await run("channels") { Int(AVAudioEngine().inputNode.outputFormat(forBus: 0).channelCount) }) ?? 1
         }
 
         nonisolated(nonsending) func deactivateSession() async {

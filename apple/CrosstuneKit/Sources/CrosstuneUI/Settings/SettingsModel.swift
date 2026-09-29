@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -43,6 +44,9 @@ public final class SettingsModel {
     nonisolated public static let recording = "Recording"
     nonisolated public static let quality = "Quality"
     nonisolated public static let qualityFooter = "Higher quality makes larger files."
+    nonisolated public static let channelsTitle = "Channels"
+    nonisolated public static let channelsFooter =
+        "Stereo needs a stereo microphone or interface, and makes files twice the size."
     nonisolated public static let keepOffline = "Download all recordings to this device"
     nonisolated public static let keepOfflineFooter =
         "Your recordings are always saved to your account and show up on every device you sign in on. A recording is kept on this device once you play it here. Turn this on to download every recording ahead of time, so all of them play even with no signal."
@@ -173,10 +177,19 @@ public final class SettingsModel {
 
     /// A quality's name and the rate it records at, as `Standard, 64 kbps`. The rate is read from
     /// the preset itself, so changing one changes what the picker says.
-    nonisolated public static func qualityLabel(_ quality: String) -> String {
+    nonisolated public static func qualityLabel(_ quality: String, channels: CaptureChannels) -> String {
         let name = Vocabulary.audioQualityNames[quality] ?? quality
-        guard let bitrate = Vocabulary.audioBitrates[quality] else { return name }
+        guard let mono = Vocabulary.audioBitrates[quality] else { return name }
+        let bitrate = CaptureChannels.bitrate(mono: mono, channels: channels.count)
         return "\(name), \(bitrate / 1000) kbps"
+    }
+
+    /// A channel choice's name in the picker.
+    nonisolated public static func channelLabel(_ channels: CaptureChannels) -> String {
+        switch channels {
+        case .mono: "Mono"
+        case .stereo: "Stereo"
+        }
     }
 
     /// Whether this device downloads every recording ahead of time.

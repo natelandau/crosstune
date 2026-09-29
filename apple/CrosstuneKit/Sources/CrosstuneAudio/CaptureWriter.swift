@@ -1,7 +1,7 @@
 @preconcurrency import AVFoundation
 import Foundation
 
-/// Encodes microphone buffers to a mono 48 kHz AAC file as they arrive.
+/// Encodes microphone buffers to a mono or stereo 48 kHz AAC file as they arrive.
 ///
 /// Buffers in any input format are converted first, so a route change to a microphone with a
 /// different rate or channel count keeps writing the same file. Safe to call from the audio
@@ -17,21 +17,24 @@ public final class CaptureWriter: @unchecked Sendable {
     /// returns.
     private var output: AVAudioPCMBuffer?
     private let url: URL
+    /// The encoder's rate in bits per second.
+    let bitrate: Int
     private var secondsWritten: TimeInterval = 0
     private var peaks: [UInt8] = []
 
-    /// Creates the file at `url`, replacing any file already there.
-    public init(url: URL, bitrate: Int) throws {
+    /// Creates the file at `url`, replacing any file already there. `channels` is 1 or 2.
+    public init(url: URL, bitrate: Int, channels: Int) throws {
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
             AVSampleRateKey: Self.sampleRate,
-            AVNumberOfChannelsKey: 1,
+            AVNumberOfChannelsKey: channels,
             AVEncoderBitRateKey: bitrate,
         ]
         let file = try AVAudioFile(
             forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
         self.file = file
         self.url = url
+        self.bitrate = bitrate
         format = file.processingFormat
     }
 
@@ -82,8 +85,7 @@ public final class CaptureWriter: @unchecked Sendable {
         if buffer.format == format { return buffer }
         if converter?.inputFormat != buffer.format {
             converter = AVAudioConverter(from: buffer.format, to: format)
-            // A stereo interface records both channels into the one mono track instead of
-            // dropping the right.
+            // An input with more channels than the file mixes down instead of dropping the extras.
             converter?.downmix = true
         }
         guard let converter else { throw CaptureError.unsupportedFormat }

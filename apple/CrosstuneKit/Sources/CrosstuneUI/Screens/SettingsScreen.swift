@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneAuth
 import CrosstuneStore
 import CrosstuneSync
@@ -12,6 +13,7 @@ public struct SettingsScreen: View {
 
     private let version: String?
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = .mono
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.store) private var store
@@ -95,12 +97,21 @@ public struct SettingsScreen: View {
                 SettingsModel.quality,
                 selection: Binding(get: { model.audioQuality }, set: { model.setAudioQuality($0) })
             ) {
-                ForEach(Vocabulary.audioQualities, id: \.self) { Text(SettingsModel.qualityLabel($0)).tag($0) }
+                ForEach(Vocabulary.audioQualities, id: \.self) {
+                    Text(SettingsModel.qualityLabel($0, channels: channels)).tag($0)
+                }
             }
         } header: {
             Text(SettingsModel.recording)
         } footer: {
             SettingsFooter(help: SettingsModel.qualityFooter, failure: model.qualityFailure)
+        }
+        Section {
+            Picker(SettingsModel.channelsTitle, selection: $channels) {
+                ForEach(CaptureChannels.allCases) { Text(SettingsModel.channelLabel($0)).tag($0) }
+            }
+        } footer: {
+            SettingsFooter(help: SettingsModel.channelsFooter, failure: nil)
         }
         Section {
             Toggle(

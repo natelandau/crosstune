@@ -197,6 +197,19 @@ describe('createRecordingSession start sequence', () => {
     await session.start()
     expect(typeWhenAsked).toBe('play-and-record')
   })
+
+  it('asks the microphone for one channel with processing off', async () => {
+    const { session, deps } = setup()
+    await session.start()
+    expect(deps.getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        channelCount: 1,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    })
+  })
 })
 
 describe('createRecordingSession finish and cancel', () => {

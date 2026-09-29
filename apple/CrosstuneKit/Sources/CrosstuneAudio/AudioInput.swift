@@ -19,8 +19,13 @@ public protocol AudioInput: AnyObject {
     /// answer.
     func requestPermission() async -> Bool
 
-    /// Starts sending the microphone's audio to `writer`, reporting each buffer's levels and
-    /// every event.
+    /// Readies the microphone for a take, asking for stereo when `channels` is stereo, and
+    /// returns how many channels the input delivers. Nothing is captured until ``start``;
+    /// ``stop()`` releases a prepared input that never started.
+    func prepare(preferring channels: CaptureChannels) async throws -> Int
+
+    /// Starts sending the prepared microphone's audio to `writer`, reporting each buffer's
+    /// levels and every event.
     func start(
         writer: CaptureWriter, onLevels: @escaping @MainActor @Sendable ([Float]) -> Void,
         onEvent: @escaping @MainActor @Sendable (AudioInputEvent) -> Void

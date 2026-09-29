@@ -70,6 +70,7 @@ public final class Recorder {
 
     private let store: CrosstuneStore
     private let input: any AudioInput
+    private let channels: @MainActor () -> CaptureChannels
     private var capture: (id: String, writer: CaptureWriter)?
     private var inputLevels = InputLevels()
     /// Set by a stop or discard that arrives while a start is still under way: the start
@@ -81,9 +82,14 @@ public final class Recorder {
     private var endedEarly: String?
     private var isResuming = false
 
-    public init(store: CrosstuneStore, input: (any AudioInput)? = nil) {
+    /// - Parameter channels: The device's mono or stereo setting, read as each take starts.
+    public init(
+        store: CrosstuneStore, input: (any AudioInput)? = nil,
+        channels: @escaping @MainActor () -> CaptureChannels = { CaptureChannels.stored() }
+    ) {
         self.store = store
         self.input = input ?? EngineInput()
+        self.channels = channels
     }
 
     /// Finishes every capture an earlier run left unfinished, as after a crash, except any
@@ -143,7 +149,19 @@ public final class Recorder {
             try await commands.beginCapture(
                 recordingID, fileName: CaptureFiles.captureName(recordingID), tuneID: tuneID, recordedAt: .now)
             if abandoned { return await backOut(recordingID) }
-            let writer = try CaptureWriter(url: finisher.captureURL(recordingID), bitrate: bitrate)
+            let preferred = channels()
+            let inputChannels: Int
+            do {
+                inputChannels = try await input.prepare(preferring: preferred)
+            } catch {
+                return await microphoneDidFail(recordingID)
+            }
+            // A stop or discard can arrive while the microphone prepares.
+            if abandoned { return await backOut(recordingID) }
+            let count = CaptureChannels.resolve(preferred, inputChannels: inputChannels)
+            let writer = try CaptureWriter(
+                url: finisher.captureURL(recordingID), bitrate: CaptureChannels.bitrate(mono: bitrate, channels: count),
+                channels: count)
             capture = (recordingID, writer)
             do {
                 try await input.start(
@@ -151,9 +169,7 @@ public final class Recorder {
                     onLevels: { [weak self] levels in self?.received(levels) },
                     onEvent: { [weak self] event in self?.handle(event) })
             } catch {
-                await backOut(recordingID)
-                errorMessage = Self.microphoneFailed
-                return
+                return await microphoneDidFail(recordingID)
             }
             // A stop or discard can arrive while the microphone starts.
             if abandoned { return await backOut(recordingID) }
@@ -246,6 +262,11 @@ public final class Recorder {
         capture = nil
         try? await CaptureFinisher(store: store).discard(recordingID)
         Self.active.remove(recordingID)
+    }
+
+    private func microphoneDidFail(_ recordingID: String) async {
+        await backOut(recordingID)
+        errorMessage = Self.microphoneFailed
     }
 
     private func release(_ writer: CaptureWriter) async {

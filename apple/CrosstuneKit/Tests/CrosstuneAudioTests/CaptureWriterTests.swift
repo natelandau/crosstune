@@ -22,15 +22,59 @@ import Testing
         #expect(abs(try await duration(of: url) - 1) < 0.1)
     }
 
-    @Test(arguments: [48_000, 64_000, 128_000])
-    func writesAtEveryQualitysBitrate(bitrate: Int) async throws {
+    @Test(arguments: [(1, 48_000), (1, 64_000), (1, 128_000), (2, 96_000), (2, 128_000), (2, 256_000)])
+    func writesAtEveryQualitysBitrate(channels: Int, bitrate: Int) async throws {
         let root = TemporaryRoot()
         let folder = try root.open().audioFolder
         let url = folder.appending(path: CaptureFiles.captureName(newID()))
 
-        try writeTone(to: url, seconds: 0.5, bitrate: bitrate)
+        try writeTone(to: url, seconds: 0.5, bitrate: bitrate, channels: channels)
 
         #expect(try await duration(of: url) > 0.4)
+    }
+
+    @Test func writesAStereoFileFromAStereoInput() throws {
+        let root = TemporaryRoot()
+        let folder = try root.open().audioFolder
+        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+
+        try writeTone(to: url, seconds: 1, bitrate: 256_000, channels: 2)
+
+        let file = try AVAudioFile(forReading: url)
+        #expect(file.fileFormat.channelCount == 2)
+        #expect(file.fileFormat.sampleRate == 48_000)
+        #expect(file.fileFormat.streamDescription.pointee.mFormatID == kAudioFormatMPEG4AAC)
+    }
+
+    @Test func fillsBothChannelsWhenAMonoInputFeedsAStereoFile() throws {
+        let root = TemporaryRoot()
+        let folder = try root.open().audioFolder
+        let url = folder.appending(path: CaptureFiles.captureName(newID()))
+        let writer = try CaptureWriter(url: url, bitrate: 256_000, channels: 2)
+
+        for _ in 0..<10 { try writer.write(sineBuffer(seconds: 0.1, channels: 1)) }
+        writer.close()
+
+        let file = try AVAudioFile(forReading: url)
+        let buffer = try #require(
+            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+        try file.read(into: buffer)
+        // Skips the encoder's priming, which leaves the start quiet.
+        let start = 4_800
+        func rms(_ channel: Int) throws -> Float {
+            let data = try #require(buffer.floatChannelData)
+            try #require(Int(buffer.frameLength) > start)
+            let samples = data[channel]
+            let count = Int(buffer.frameLength) - start
+            var sum: Float = 0
+            for frame in start..<Int(buffer.frameLength) { sum += samples[frame] * samples[frame] }
+            return (sum / Float(count)).squareRoot()
+        }
+        #expect(buffer.format.channelCount == 2)
+        let left = try rms(0)
+        let right = try rms(1)
+        #expect(left > 0.1)
+        #expect(abs(right - left) < left * 0.1)
     }
 
     @Test func aCaptureNeverClosedStillPlays() async throws {
@@ -51,7 +95,7 @@ import Testing
         let root = TemporaryRoot()
         let folder = try root.open().audioFolder
         let url = folder.appending(path: CaptureFiles.captureName(newID()))
-        let writer = try CaptureWriter(url: url, bitrate: 64_000)
+        let writer = try CaptureWriter(url: url, bitrate: 64_000, channels: 1)
 
         for _ in 0..<10 { try writer.write(sineBuffer(seconds: 0.1, sampleRate: 44_100, channels: 2)) }
         for _ in 0..<10 { try writer.write(sineBuffer(seconds: 0.1, sampleRate: 16_000, channels: 1)) }

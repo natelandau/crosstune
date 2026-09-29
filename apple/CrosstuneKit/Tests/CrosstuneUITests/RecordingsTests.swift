@@ -254,7 +254,7 @@ private struct RefusingSyncAPI: SyncAPI {
         let folder = root.url.appending(path: "picked", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let url = folder.appending(path: name)
-        let writer = try CaptureWriter(url: url, bitrate: 64_000)
+        let writer = try CaptureWriter(url: url, bitrate: 64_000, channels: 1)
         let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1)!
         let frames = AVAudioFrameCount(seconds * 48_000)
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!

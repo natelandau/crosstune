@@ -24,9 +24,10 @@ func sineBuffer(
 /// still open unless `close` is set.
 @discardableResult
 func writeTone(
-    to url: URL, seconds: Double, bitrate: Int = 64_000, amplitude: Float = 0.5, close: Bool = true
+    to url: URL, seconds: Double, bitrate: Int = 64_000, channels: Int = 1, amplitude: Float = 0.5,
+    close: Bool = true
 ) throws -> CaptureWriter {
-    let writer = try CaptureWriter(url: url, bitrate: bitrate)
+    let writer = try CaptureWriter(url: url, bitrate: bitrate, channels: channels)
     for _ in 0..<Int(seconds * 10) { try writer.write(sineBuffer(seconds: 0.1, amplitude: amplitude)) }
     if close { writer.close() }
     return writer
@@ -47,12 +48,18 @@ final class FakeInput: AudioInput {
     /// While set, a permission request waits until ``answerPermission()``, as the system
     /// prompt does.
     var holdsPermission = false
+    /// Fails the prepare step.
     var failsToStart = false
+    /// Fails the start that follows a successful prepare.
+    var failsToStartEngine = false
     var failsToResume = false
+    /// The channel count ``prepare(preferring:)`` reports.
+    var inputChannels = 2
+    private(set) var preferred: CaptureChannels?
     private(set) var started = 0
     private var meter = LevelMeter()
     private var pendingPermission: CheckedContinuation<Bool, Never>?
-    /// While set, starting and resuming wait until ``finishStarting()``, as a slow session
+    /// While set, preparing and resuming wait until ``finishStarting()``, as a slow session
     /// activation does.
     var holdsStart = false
     private var pendingStart: CheckedContinuation<Void, Never>?
@@ -74,12 +81,18 @@ final class FakeInput: AudioInput {
         pendingPermission = nil
     }
 
+    func prepare(preferring channels: CaptureChannels) async throws -> Int {
+        preferred = channels
+        if holdsStart { await withCheckedContinuation { pendingStart = $0 } }
+        if failsToStart { throw CaptureError.unsupportedFormat }
+        return inputChannels
+    }
+
     func start(
         writer: CaptureWriter, onLevels: @escaping @MainActor @Sendable ([Float]) -> Void,
         onEvent: @escaping @MainActor @Sendable (AudioInputEvent) -> Void
     ) async throws {
-        if holdsStart { await withCheckedContinuation { pendingStart = $0 } }
-        if failsToStart { throw CaptureError.unsupportedFormat }
+        if failsToStartEngine { throw CaptureError.unsupportedFormat }
         started += 1
         self.writer = writer
         self.onLevels = onLevels
@@ -92,12 +105,12 @@ final class FakeInput: AudioInput {
         resumed += 1
     }
 
-    /// Waits until a start or resume is held.
+    /// Waits until a prepare or resume is held.
     func startIsHeld() async {
         while pendingStart == nil { await Task.yield() }
     }
 
-    /// Lets a held start or resume finish.
+    /// Lets a held prepare or resume finish.
     func finishStarting() async {
         await startIsHeld()
         pendingStart?.resume()

@@ -250,7 +250,12 @@ export function createRecordingSession<S extends MediaStreamLike>(
       // block the microphone from opening here.
       setAudioSessionType('play-and-record')
       stream = await deps.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        audio: {
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
       })
       media = stream
     } catch (err) {

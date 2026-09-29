@@ -13,7 +13,7 @@ import Testing
         queue.suspend()
         let runner = EngineRunner(queue: queue, onEnqueue: { name in log.withLock { $0.append(name) } })
 
-        let activate = Task { try? await runner.activateSession() }
+        let activate = Task { try? await runner.activateSession(stereo: nil) }
         let stop = Task { await runner.stopEngine() }
         let deactivate = Task { await runner.deactivateSession() }
         while log.withLock({ $0.count }) < 3 { await Task.yield() }
