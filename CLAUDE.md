@@ -28,7 +28,8 @@ every label. The glossary in `docs/product.md` has the reasons.
 - [just](https://just.systems), root plus modules. From the root:
   `just api::test`, `just web::lint`. Inside `api/`, `web/`, or `apple/`,
   `just test` resolves to that module. `just --list` shows everything.
-  The `apple` module needs Xcode.
+  The `apple` module needs Xcode. Xcode 27 has no Simulator.app; its
+  simulators run in DeviceHub (`open -a DeviceHub`).
 - `just dev` runs Postgres, migrations, the API, and the web client
   together. Every checkout and worktree shares one Postgres container and
   database.
