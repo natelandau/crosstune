@@ -1,0 +1,22 @@
+{
+  "fill" : {
+    "solid" : "extended-srgb:0.17647,0.19216,0.25882,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "T.svg",
+          "name" : "T"
+        },
+        {
+          "image-name" : "C.svg",
+          "name" : "C"
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

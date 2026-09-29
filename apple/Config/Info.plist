@@ -8,6 +8,8 @@
 	<string>$(CROSSTUNE_API_ORIGIN)</string>
 	<key>CrosstuneStorageOrigin</key>
 	<string>$(CROSSTUNE_STORAGE_ORIGIN)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Crosstune records tunes you play.</string>
 	<key>UIBackgroundModes</key>

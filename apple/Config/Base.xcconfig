@@ -18,8 +18,11 @@ SWIFT_VERSION = 6.0
 GENERATE_INFOPLIST_FILE = YES
 INFOPLIST_KEY_CFBundleDisplayName = Crosstune
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
-INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+// App Store Connect rejects an iPad app that supports multitasking without all four.
+INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.music
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 INFOPLIST_FILE = Config/Info.plist
 CODE_SIGN_ENTITLEMENTS[sdk=iphone*] = Config/Crosstune-iOS.entitlements
 CODE_SIGN_ENTITLEMENTS[sdk=macosx*] = Config/Crosstune-macOS.entitlements
