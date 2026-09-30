@@ -7,9 +7,10 @@ on:
   push:
     branches: [main]
     paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+  workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
-# push to main, falls back to its own run ID and is never canceled.
+# push to main and a Release call, falls back to its own run ID and is never canceled.
 concurrency:
   group: apple-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -20,10 +21,11 @@ permissions:
 env:
   CI: "true"
 
-# macOS minutes cost more than Linux minutes, so one job runs every check.
+# macOS minutes cost more than Linux minutes, so one job runs every check. A bump commit on
+# `main` skips it, because the Release workflow runs it on the tag it makes.
 jobs:
   check:
-    if: ${{ !startsWith(github.event.head_commit.message, 'bump(release):') }}
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):')
     name: Apple check
     # The image with the Xcode the app is built and shipped with. The `macos-*` images
     # default to an older Xcode.
