@@ -29,12 +29,15 @@ jobs:
   web:
     name: Web
     uses: ./.github/workflows/web.yml
+  site:
+    name: Site
+    uses: ./.github/workflows/site.yml
   apple:
     name: Apple
     uses: ./.github/workflows/apple.yml
   promote:
     name: Move the production branch to the tag
-    needs: [api, web, apple]
+    needs: [api, web, site, apple]
     runs-on: ubuntu-latest
     steps:
       - name: require a version tag

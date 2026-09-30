@@ -41,6 +41,22 @@ updates:
       npm:
         patterns: ["*"]
 
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build(site)
+    # @types/node follows the Node major in site/.node-version.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm:
+        patterns: ["*"]
+
   - package-ecosystem: uv
     directory: /api
     schedule:

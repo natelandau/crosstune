@@ -12,6 +12,10 @@ on:
         description: Web origin; blank uses the WEB_ORIGIN_PRODUCTION repository variable
         required: false
         type: string
+      site_origin:
+        description: Site origin; blank uses the SITE_ORIGIN_PRODUCTION repository variable
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: scripts/smoke.sh "$API_ORIGIN" "$WEB_ORIGIN"
+      - run: scripts/smoke.sh "$API_ORIGIN" "$WEB_ORIGIN" "$SITE_ORIGIN"
         env:
           API_ORIGIN: ${{ inputs.api_origin || vars.API_ORIGIN_PRODUCTION }}
           WEB_ORIGIN: ${{ inputs.web_origin || vars.WEB_ORIGIN_PRODUCTION }}
+          SITE_ORIGIN: ${{ inputs.site_origin || vars.SITE_ORIGIN_PRODUCTION }}

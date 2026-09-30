@@ -1,0 +1,132 @@
+---
+import { Picture } from 'astro:assets'
+import campsite from '../../assets/campsite.jpg'
+import KeyPill from './KeyPill.astro'
+import Phone from './Phone.astro'
+import TuneRow from './TuneRow.astro'
+---
+
+<figure class="offline">
+  <div class="art">
+    <Picture
+      src={campsite}
+      formats={['avif', 'webp']}
+      widths={[480, 720, 1120]}
+      sizes="(min-width: 1000px) 540px, (min-width: 760px) 55vw, calc(100vw - 32px)"
+      alt="Friends around a campfire at night, with tents lit among the trees behind them."
+    />
+    <div class="phone-slot" data-fragment="offline-phone" aria-hidden="true">
+      <Phone signal="No Service">
+        <p class="title">Tunes</p>
+        <div class="group">
+          <KeyPill name="A" />
+        </div>
+        <TuneRow name="Cluck Old Hen" status="known" />
+        <TuneRow name="Breaking Up Christmas" status="learning" />
+        <TuneRow name="Sally Goodin" status="known" />
+        <div class="player">
+          <span class="pause"></span>
+          <span class="now">Porch, Sunday</span>
+          <span class="progress"></span>
+        </div>
+      </Phone>
+    </div>
+  </div>
+  <figcaption>Photo by Ivan Dimitrov on Unsplash</figcaption>
+</figure>
+
+<style>
+  .offline {
+    margin: 0;
+  }
+
+  .art {
+    position: relative;
+  }
+
+  /*
+   * The crop keeps the fire and the circle of people left and the tents behind; the phone
+   * sits over the dark trees top right, where it covers no one.
+   */
+  .art :global(img) {
+    display: block;
+    width: 100%;
+    height: 360px;
+    border-radius: 20px;
+    object-fit: cover;
+    object-position: 30% 70%;
+  }
+
+  .phone-slot {
+    position: absolute;
+    top: -36px;
+    right: 24px;
+    font-size: 11px;
+    --screen-height: 17.8em;
+  }
+
+  .title {
+    margin: 0 0 0.2em;
+    font-size: 1.45em;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .group {
+    padding: 0.4em 0 0.2em;
+  }
+
+  .player {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    margin-top: 0.9em;
+    padding: 0.6em 0.7em;
+    border-radius: 0.8em;
+    background: var(--mist);
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+
+  /* Pause bars: the recording is playing. */
+  .pause {
+    flex: none;
+    width: 0.75em;
+    height: 0.8em;
+    border-inline: 0.25em solid var(--slate);
+  }
+
+  .now {
+    white-space: nowrap;
+  }
+
+  .progress {
+    flex: 1;
+    height: 0.25em;
+    border-radius: 1em;
+    background: linear-gradient(90deg, var(--coral) 45%, var(--silver) 45%);
+  }
+
+  figcaption {
+    margin-top: 10px;
+    color: var(--slate-2);
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 760px) {
+    .offline {
+      margin-top: 24px;
+    }
+
+    .art :global(img) {
+      height: 260px;
+      object-position: 25% 70%;
+    }
+
+    .phone-slot {
+      top: -28px;
+      right: 12px;
+      font-size: 8.5px;
+    }
+  }
+</style>

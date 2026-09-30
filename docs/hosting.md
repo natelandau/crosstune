@@ -14,12 +14,14 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 | API            | `CROSSTUNE_*` environment variables, via pydantic-settings | Railway service variables. Locally `api/.env`. Names and defaults: `api/src/crosstune/config.py` |
 | Web client     | `VITE_*` variables at build time                           | Workers Builds variables through `web/scripts/hosted-build.sh`. Locally `web/.env`               |
 | Worker         | `vars` and the KV binding                                  | `web/wrangler.jsonc`, in the repository                                                          |
+| Site           | `PUBLIC_CLERK_PUBLISHABLE_KEY` at build time               | Workers Builds variables through `site/scripts/hosted-build.sh`. Locally `site/.env`             |
 | GitHub Actions | `vars.*` and `secrets.*`                                   | Repository settings                                                                              |
 
 ## Naming a variable
 
-- Every name the code reads is in `api/.env.example` or
-  `web/.env.example` with its explanation, names only a host sets included.
+- Every name the code reads is in `api/.env.example`, `web/.env.example`,
+  or `site/.env.example` with its explanation, names only a host sets
+  included.
 - `LOCAL_`, in the API `CROSSTUNE_LOCAL_`, marks a name that only local work
   and the end-to-end suite set. `E2E_` marks an end-to-end credential.
 - `STORAGE_` names a setting of any S3-compatible store. `R2_` names only a
@@ -31,23 +33,23 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 
 ## Values that cross hosts
 
-| Value                                                      | Produced by    | Consumed by                          |
-| ---------------------------------------------------------- | -------------- | ------------------------------------ |
-| Neon production and development connection strings         | Neon           | Railway                              |
-| Neon development project ID and database role              | Neon           | GitHub                               |
-| `crosstune-api` and `crosstune-web` DSNs                   | Sentry         | Railway, Workers Builds              |
-| Clerk development issuer, publishable key, and secret key  | Clerk          | Railway, Workers Builds, GitHub      |
-| Clerk production issuer, publishable key, and secret key   | Clerk          | Railway, Workers Builds              |
-| Clerk webhook signing secrets, one per instance            | Clerk          | Railway                              |
-| Railway development hostname                               | Railway        | Clerk webhooks, `web/wrangler.jsonc` |
-| Railway project, development environment, and service IDs  | Railway        | GitHub                               |
-| `workers.dev` subdomain                                    | Cloudflare     | Railway development regex            |
-| KV namespace ID                                            | Cloudflare     | `web/wrangler.jsonc`, GitHub         |
-| Cloudflare account ID                                      | Cloudflare     | GitHub, Railway                      |
-| R2 access key ID and secret access key, one pair per token | Cloudflare     | Railway, GitHub                      |
-| CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk | Cloudflare DNS                       |
-| App Store Connect API key, key ID, and issuer ID           | App Store Connect | GitHub, `apple/.env`              |
-| Apple Development certificate and its `.p12` password      | Apple Developer | GitHub                              |
+| Value                                                      | Produced by       | Consumed by                          |
+| ---------------------------------------------------------- | ----------------- | ------------------------------------ |
+| Neon production and development connection strings         | Neon              | Railway                              |
+| Neon development project ID and database role              | Neon              | GitHub                               |
+| `crosstune-api` and `crosstune-web` DSNs                   | Sentry            | Railway, Workers Builds              |
+| Clerk development issuer, publishable key, and secret key  | Clerk             | Railway, Workers Builds, GitHub      |
+| Clerk production issuer, publishable key, and secret key   | Clerk             | Railway, Workers Builds              |
+| Clerk webhook signing secrets, one per instance            | Clerk             | Railway                              |
+| Railway development hostname                               | Railway           | Clerk webhooks, `web/wrangler.jsonc` |
+| Railway project, development environment, and service IDs  | Railway           | GitHub                               |
+| `workers.dev` subdomain                                    | Cloudflare        | Railway development regex            |
+| KV namespace ID                                            | Cloudflare        | `web/wrangler.jsonc`, GitHub         |
+| Cloudflare account ID                                      | Cloudflare        | GitHub, Railway                      |
+| R2 access key ID and secret access key, one pair per token | Cloudflare        | Railway, GitHub                      |
+| CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk    | Cloudflare DNS                       |
+| App Store Connect API key, key ID, and issuer ID           | App Store Connect | GitHub, `apple/.env`                 |
+| Apple Development certificate and its `.p12` password      | Apple Developer   | GitHub                               |
 
 ## Neon
 
@@ -95,6 +97,10 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 
 - Both instances offer an emailed verification code, Google, and Apple, and
   refuse passwords and email links. Users can delete their own accounts.
+- Both instances are in Waitlist access mode. The Waitlist confirmation and
+  invitation emails carry Crosstune copy. The web client sends visitors to
+  `https://<domain>/waitlist`. The production Account Portal redirects
+  fall back to `https://my.<domain>`.
 - Both instances enable the Native API and list the Apple app on **Native
   applications**: App ID Prefix `N76T49G924`, Bundle ID
   `app.crosstune.Crosstune`. Production checks sign-in callbacks against
@@ -155,7 +161,7 @@ Variables, both environments unless noted:
 | `CROSSTUNE_DEBUG`                        | `false`                            | `false`                                                                 |
 | `CROSSTUNE_DATABASE_URL`                 | Neon production string, as printed | Neon development string, as printed                                     |
 | `CROSSTUNE_CLERK_ISSUER`                 | `https://clerk.<domain>`           | `https://<slug>.clerk.accounts.dev`                                     |
-| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["https://<domain>"]`             | `["http://localhost:5173","http://localhost:4173"]`                     |
+| `CROSSTUNE_CLERK_AUTHORIZED_PARTIES`     | `["https://my.<domain>"]`          | `["http://localhost:5173","http://localhost:4173"]`                     |
 | `CROSSTUNE_CLERK_AUTHORIZED_PARTY_REGEX` | Unset                              | `^https://[a-z0-9-]+-crosstune-web\.<workers-subdomain>\.workers\.dev$` |
 | `CROSSTUNE_CLERK_WEBHOOK_SECRET`         | Production endpoint secret         | Development endpoint secret                                             |
 | `CROSSTUNE_CLERK_SECRET_KEY`             | Production instance's secret key   | Development instance's secret key                                       |
@@ -201,7 +207,7 @@ public in DNS.
 | Root directory                       | `web`                 |
 | Build command                        | `pnpm build:hosted`   |
 | Deploy command                       | `npx wrangler deploy` |
-| Non-production branch deploy command | `pnpm deploy:preview` |
+| Preview command                      | `pnpm deploy:preview` |
 | Build watch paths                    | `web/*`               |
 | Builds for non-production branches   | On                    |
 
@@ -228,9 +234,9 @@ Build variables, shared by every branch:
   such a branch, and its alias is the development environment. Cloudflare
   keeps the newest thousand aliases.
 - On the Worker's Domains tab, the production `workers.dev` toggle is off
-  and the preview toggle is on. Previews return 404 while the preview toggle
-  is off. The custom domain `<domain>` is attached there and Cloudflare
-  manages its record and certificate.
+  and the **Version URLs** toggle is on. Previews return 404 while
+  **Version URLs** is off. The custom domain `my.<domain>` is attached there
+  and Cloudflare manages its record and certificate.
 - The KV namespace `crosstune-preview-api` maps a preview alias to a pull
   request's API origin. The `Preview` workflow writes and deletes keys; the
   Worker reads them per request. A missing key means the development API.
@@ -240,6 +246,41 @@ Build variables, shared by every branch:
   every response, `no-cache` on the service worker and manifest, a year of
   immutable caching on hashed assets.
 
+### The site Worker
+
+A second Worker, `crosstune-site`, serves `https://<domain>` from `site/`.
+It has no script: `site/wrangler.jsonc` holds the assets directory, the
+custom domain route, and the same `workers_dev` off and `preview_urls` on
+pair as `crosstune-web`. It has its own Workers Builds connection to the
+repository.
+
+| Build setting                      | Value                 |
+| ---------------------------------- | --------------------- |
+| Root directory                     | `site`                |
+| Build command                      | `pnpm build:hosted`   |
+| Deploy command                     | `npx wrangler deploy` |
+| Preview command                    | `pnpm deploy:preview` |
+| Build watch paths                  | `site/*`              |
+| Production branch                  | `production`          |
+| Builds for non-production branches | On                    |
+
+Build variables, the same names and values as `crosstune-web`:
+
+| Variable                            | Value         |
+| ----------------------------------- | ------------- |
+| `CLERK_PUBLISHABLE_KEY_PRODUCTION`  | `pk_live_...` |
+| `CLERK_PUBLISHABLE_KEY_DEVELOPMENT` | `pk_test_...` |
+| `PNPM_VERSION`                      | `12.4.1`      |
+
+- `site/scripts/hosted-build.sh` exports `PUBLIC_CLERK_PUBLISHABLE_KEY` by
+  branch, as the web build does. The site uses it for the waitlist form
+  only.
+- The Domains tab matches `crosstune-web`: the apex `<domain>` is attached
+  as a custom domain, the production `workers.dev` toggle is off, and
+  **Version URLs** is on.
+- `site/public/_headers` sets security headers on every response and
+  `no-cache` on `/sw.js`.
+
 ## Cloudflare R2
 
 Three buckets: `crosstune-recordings` for production,
@@ -248,16 +289,16 @@ Three buckets: `crosstune-recordings` for production,
 owned by one pull request. No bucket serves local work. Local recordings
 stay in the RustFS container `docker compose` starts.
 
-| Bucket setting        | Value                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Location hint         | Eastern North America (ENAM), the metro the others use                                                             |
-| Default storage class | Standard                                                                                                           |
-| Lifecycle rules       | None on production and development. Preview: delete objects 90 days after upload.                                  |
-| API token scope       | Object Read & Write, on that bucket alone, except the development read-only token below                            |
-| CORS methods          | `GET`, `PUT`, `HEAD`                                                                                               |
-| CORS headers          | Allowed `Content-Type`. Exposed `ETag`.                                                                            |
-| CORS max age          | 3600 seconds                                                                                                       |
-| CORS origins          | Production: `https://<domain>`. Development and preview: `https://*-crosstune-web.<workers-subdomain>.workers.dev` |
+| Bucket setting        | Value                                                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Location hint         | Eastern North America (ENAM), the metro the others use                                                                |
+| Default storage class | Standard                                                                                                              |
+| Lifecycle rules       | None on production and development. Preview: delete objects 90 days after upload.                                     |
+| API token scope       | Object Read & Write, on that bucket alone, except the development read-only token below                               |
+| CORS methods          | `GET`, `PUT`, `HEAD`                                                                                                  |
+| CORS headers          | Allowed `Content-Type`. Exposed `ETag`.                                                                               |
+| CORS max age          | 3600 seconds                                                                                                          |
+| CORS origins          | Production: `https://my.<domain>`. Development and preview: `https://*-crosstune-web.<workers-subdomain>.workers.dev` |
 
 - Every object stays in Standard storage. Never set Infrequent Access as a
   default, add a lifecycle rule that transitions to it, or pass a storage
@@ -281,10 +322,12 @@ stay in the RustFS container `docker compose` starts.
 - SSL/TLS: Always Use HTTPS on, encryption mode Full (strict).
 - HSTS on: max age six months, applied to subdomains, preload off, no-sniff
   on. `_headers` cannot set HSTS, which is why it is a zone setting.
-- Cloudflare injects HSTS only on proxied hostnames, which is the apex
-  alone. Browsers apply the subdomain rule from the apex visit, so
-  `api.<domain>` and the Clerk hostnames inherit it. A subdomain that drops
-  HTTPS is unreachable until the max age expires.
+- Cloudflare injects HSTS only on proxied hostnames, which are the apex
+  and `my.<domain>`. Browsers apply the subdomain rule from the apex visit,
+  so `api.<domain>` and the Clerk hostnames inherit it. A subdomain that
+  drops HTTPS is unreachable until the max age expires.
+- Email Routing forwards `support@<domain>` to the maintainer's inbox. The
+  MX and SPF/DKIM records it adds are locked to it.
 
 ## GitHub
 
@@ -293,7 +336,8 @@ Actions variables:
 | Variable                             | Value                                         |
 | ------------------------------------ | --------------------------------------------- |
 | `API_ORIGIN_PRODUCTION`              | `https://api.<domain>`                        |
-| `WEB_ORIGIN_PRODUCTION`              | `https://<domain>`                            |
+| `WEB_ORIGIN_PRODUCTION`              | `https://my.<domain>`                         |
+| `SITE_ORIGIN_PRODUCTION`             | `https://<domain>`                            |
 | `CROSSTUNE_CLERK_ISSUER`             | The development issuer                        |
 | `NEON_PROJECT_ID`                    | The `crosstune-development` project ID        |
 | `NEON_DATABASE_ROLE`                 | The role in the development connection string |
@@ -323,17 +367,18 @@ Environment `app-store`, used only by the `Release` workflow's **Upload to
 TestFlight** job. Its deployment rule admits tags matching `v*` only, and
 the maintainer is a required reviewer with **Prevent self-review** off.
 
-| Secret                           | Value                                                          |
-| -------------------------------- | -------------------------------------------------------------- |
-| `ASC_API_KEY_P8`                 | The full text of the App Store Connect API key's `.p8` file    |
-| `ASC_API_KEY_ID`                 | That key's 10-character key ID                                 |
-| `ASC_API_KEY_ISSUER_ID`          | The team's issuer ID                                           |
+| Secret                           | Value                                                           |
+| -------------------------------- | --------------------------------------------------------------- |
+| `ASC_API_KEY_P8`                 | The full text of the App Store Connect API key's `.p8` file     |
+| `ASC_API_KEY_ID`                 | That key's 10-character key ID                                  |
+| `ASC_API_KEY_ISSUER_ID`          | The team's issuer ID                                            |
 | `APPLE_DEVELOPMENT_P12`          | The Apple Development certificate and its key, as base64 `.p12` |
-| `APPLE_DEVELOPMENT_P12_PASSWORD` | The `.p12` password                                            |
+| `APPLE_DEVELOPMENT_P12_PASSWORD` | The `.p12` password                                             |
 
 - Squash merges only, with the PR title and body as the commit message.
   Head branches are deleted after merge.
-- A ruleset named `main` requires a pull request, the five workflow jobs as
+- A ruleset named `main` requires a pull request, the six workflow jobs (`API lint`,
+  `API test`, `API contract`, `Web check`, `Web contract`, `Site check`) as
   status checks, and linear history, and blocks force pushes and deletion.
   GitHub enforces rulesets on private repositories only on paid plans, so on
   the free plan it exists and does nothing.

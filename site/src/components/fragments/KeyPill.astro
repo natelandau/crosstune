@@ -1,0 +1,47 @@
+---
+// A key capsule in the app's key color, indexed by pitch class as in tokens.css.
+const PITCH_CLASS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, Bb: 10, B: 11 } as const
+
+interface Props {
+  name: keyof typeof PITCH_CLASS
+  chosen?: boolean
+  size?: 'small' | 'large'
+}
+
+const { name, chosen = false, size = 'small' } = Astro.props
+const pc = PITCH_CLASS[name]
+const label = name === 'Bb' ? 'B♭' : name
+---
+
+<span
+  class:list={['pill', size, { chosen }]}
+  style={`--bg: var(--key-${pc}-bg); --ink: var(--key-${pc}-ink)`}
+>
+  {label}
+</span>
+
+<style>
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.1em;
+    padding: 0.2em 0.7em;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+    font-weight: 600;
+    line-height: 1.3;
+    font-size: 0.75em;
+  }
+
+  .large {
+    font-size: 0.95em;
+    padding: 0.35em 0.9em;
+  }
+
+  .chosen {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+</style>
