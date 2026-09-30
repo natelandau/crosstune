@@ -211,7 +211,9 @@ public in DNS.
 | Build watch paths                    | `web/*`               |
 | Builds for non-production branches   | On                    |
 
-Build variables, shared by every branch:
+Build variables, set on both the production and the branch builds.
+Workers Builds keeps a separate set for each, and a branch build never
+sees the production set:
 
 | Variable                            | Value               |
 | ----------------------------------- | ------------------- |
@@ -264,7 +266,8 @@ repository.
 | Production branch                  | `production`          |
 | Builds for non-production branches | On                    |
 
-Build variables, the same names and values as `crosstune-web`:
+Build variables, the same names and values as `crosstune-web`, on both
+the production and the branch builds:
 
 | Variable                            | Value         |
 | ----------------------------------- | ------------- |
