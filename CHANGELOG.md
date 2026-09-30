@@ -1,3 +1,17 @@
+## v0.9.0 (2026-09-30)
+
+### Feat
+
+- add the crosstune.app site and a signed-out welcome (#80)
+- **catalog**: filter the tune list for tunes with no key (#79)
+- record in stereo on Apple devices (#72)
+
+### Fix
+
+- **apple**: keep the record button in the tab bar when typing
+- tidy recording rows, the lyrics view, and delete-account copy (#73)
+- keep unsent edits and recordings across local database upgrades (#71)
+
 ## v0.8.0 (2026-09-28)
 
 ### Feat
