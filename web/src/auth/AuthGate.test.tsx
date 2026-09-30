@@ -1,10 +1,11 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, isInaccessible, render, screen } from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readSearchQuery, writeSearchQuery } from '../features/catalog/searchSession'
 import { useAuthSession } from './AuthContext'
-import { AuthGate, CLERK_LOAD_GRACE_MS } from './AuthGate'
-import { rememberedUser, rememberUser } from './session'
+import { ACCOUNT_DELETED, AuthGate, CLERK_LOAD_GRACE_MS } from './AuthGate'
+import { SIGN_IN_HEADLINE, SIGN_IN_LINE, WAITLIST_URL } from './links'
+import { markAccountDeleted, rememberedUser, rememberUser } from './session'
 
 interface FakeAuth {
   isLoaded: boolean
@@ -122,5 +123,44 @@ describe('AuthGate', () => {
       </AuthGate>,
     )
     await expect(holder.getToken!()).resolves.toBe('live')
+  })
+})
+
+describe('the sign-in screen', () => {
+  function renderSignedOut() {
+    auth = { isLoaded: true, isSignedIn: false, userId: null, getToken: async () => null }
+    render(
+      <AuthGate>
+        <Child />
+      </AuthGate>,
+    )
+  }
+
+  it('says what Crosstune is beside the sign-in form', () => {
+    renderSignedOut()
+    expect(screen.getByRole('heading', { name: SIGN_IN_HEADLINE })).toBeInTheDocument()
+    expect(screen.getByText(SIGN_IN_LINE)).toBeInTheDocument()
+    expect(screen.getByText('Clerk sign-in form')).toBeInTheDocument()
+  })
+
+  // Clerk's own card footer links to the waitlist in Waitlist mode and turns into Sign up once
+  // sign-ups open, so a second link here would duplicate it now and contradict it later.
+  it('leaves the waitlist link to Clerk', () => {
+    renderSignedOut()
+    const links = screen.queryAllByRole('link')
+    expect(links.filter((link) => link.getAttribute('href') === WAITLIST_URL)).toEqual([])
+  })
+
+  it('still shows the account-deleted notice', () => {
+    markAccountDeleted()
+    renderSignedOut()
+    expect(screen.getByRole('status')).toHaveTextContent(ACCOUNT_DELETED)
+  })
+
+  it('keeps the picture out of the accessibility tree', () => {
+    renderSignedOut()
+    const paperLine = screen.getByText('A: Cluck Old Hen')
+    expect(paperLine.closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(isInaccessible(paperLine)).toBe(true)
   })
 })

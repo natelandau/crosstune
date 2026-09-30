@@ -5,6 +5,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import { App } from './app/App'
+import { WAITLIST_URL } from './auth/links'
 import { applyAppearance, readAppearance } from './features/settings/appearance'
 import { scrubR2Breadcrumb } from './sentryBreadcrumbs'
 import { APP_VERSION } from './version'
@@ -32,7 +33,7 @@ applyAppearance(readAppearance())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={publishableKey}>
+    <ClerkProvider publishableKey={publishableKey} waitlistUrl={WAITLIST_URL}>
       <IonApp>
         <App />
       </IonApp>

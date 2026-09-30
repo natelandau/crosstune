@@ -11,6 +11,8 @@ import {
 import { Lockup } from '../ui/Mark'
 import { clearSearchQuery } from '../features/catalog/searchSession'
 import { AuthProvider } from './AuthContext'
+import { SIGN_IN_HEADLINE, SIGN_IN_LINE } from './links'
+import { PaperEcho } from './PaperEcho'
 import {
   clearAccountDeletedNotice,
   clearLocalSignOut,
@@ -124,13 +126,22 @@ function SignInScreen({ staleSession }: { staleSession: boolean }) {
   }, [staleSession, signOut])
   return (
     <Centered>
-      <Lockup className="type-title" />
-      {deleted ? (
-        <p role="status" className="type-body">
-          {ACCOUNT_DELETED}
-        </p>
-      ) : null}
-      {staleSession ? null : <SignIn routing="hash" />}
+      <div className="flex w-full max-w-5xl flex-col items-center gap-4 min-[60rem]:flex-row min-[60rem]:justify-center min-[60rem]:gap-12">
+        <PaperEcho />
+        <div className="flex w-full max-w-100 flex-col items-start gap-4">
+          <Lockup className="type-headline" />
+          <div className="flex flex-col gap-2">
+            <h1 className="type-title m-0">{SIGN_IN_HEADLINE}</h1>
+            <p className="type-body m-0">{SIGN_IN_LINE}</p>
+          </div>
+          {deleted ? (
+            <p role="status" className="type-body m-0">
+              {ACCOUNT_DELETED}
+            </p>
+          ) : null}
+          {staleSession ? null : <SignIn routing="hash" />}
+        </div>
+      </div>
     </Centered>
   )
 }
