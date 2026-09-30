@@ -23,7 +23,7 @@ let package = Package(
         // Constraint only, reached through swift-openapi-urlsession. 1.7.0 calls
         // swift_initBorrow, which the Swift runtime in iOS 26 and macOS 26 does not have, so
         // the app fails to launch there. Lift the cap when a release gates that call.
-        .package(url: "https://github.com/apple/swift-collections", "1.6.0"..<"1.7.0"),
+        .package(url: "https://github.com/apple/swift-collections", "1.6.0"..<"2.0.0"),
     ],
     targets: [
         .target(
