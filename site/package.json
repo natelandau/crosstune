@@ -10,7 +10,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "build:hosted": "bash scripts/hosted-build.sh",
-    "deploy:preview": "slug=\"$(node ../web/scripts/branch-slug.mjs)\" && wrangler versions upload --preview-alias \"$slug\""
+    "deploy:preview": "wrangler preview"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

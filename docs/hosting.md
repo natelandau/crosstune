@@ -275,6 +275,11 @@ the production and the branch builds:
 | `CLERK_PUBLISHABLE_KEY_DEVELOPMENT` | `pk_test_...` |
 | `PNPM_VERSION`                      | `12.4.1`      |
 
+- Unlike `crosstune-web`, this Worker uses Cloudflare's Worker Previews.
+  `pnpm deploy:preview` runs `wrangler preview`, which needs the `previews`
+  block in `site/wrangler.jsonc`. Each branch gets a Preview named after it,
+  with a stable Preview URL that Workers Builds posts on the pull request.
+  `wrangler versions upload --preview-alias` fails on this Worker.
 - `site/scripts/hosted-build.sh` exports `PUBLIC_CLERK_PUBLISHABLE_KEY` by
   branch, as the web build does. The site uses it for the waitlist form
   only.
