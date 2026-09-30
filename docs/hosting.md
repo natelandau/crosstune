@@ -305,18 +305,19 @@ Actions variables:
 
 Actions secrets:
 
-| Secret                                       | Used by   | Value                                                        |
-| -------------------------------------------- | --------- | ------------------------------------------------------------ |
-| `CLERK_SECRET_KEY`                           | `E2E`     | The development instance's `sk_test_...` key                 |
-| `VITE_CLERK_PUBLISHABLE_KEY`                 | `E2E`     | The development instance's `pk_test_...` key                 |
-| `E2E_CLERK_USER_EMAIL`                       | `E2E`     | The email of a user in the development instance              |
-| `NEON_API_KEY`                               | `Preview` | A Neon API key                                               |
-| `RAILWAY_API_TOKEN`                          | `Preview` | A Railway account token, not a project token                 |
-| `CLOUDFLARE_API_TOKEN`                       | `Preview` | The KV-only token described under Cloudflare Workers         |
-| `STORAGE_ACCESS_KEY_ID_PREVIEW`              | `Preview` | The preview bucket token's access key ID                     |
-| `STORAGE_SECRET_ACCESS_KEY_PREVIEW`          | `Preview` | The preview bucket token's secret access key                 |
-| `STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT`     | `Preview` | The development bucket's read-only token's access key ID     |
-| `STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT` | `Preview` | The development bucket's read-only token's secret access key |
+| Secret                                       | Used by   | Value                                                                              |
+| -------------------------------------------- | --------- | ---------------------------------------------------------------------------------- |
+| `CLERK_SECRET_KEY`                           | `E2E`     | The development instance's `sk_test_...` key                                       |
+| `VITE_CLERK_PUBLISHABLE_KEY`                 | `E2E`     | The development instance's `pk_test_...` key                                       |
+| `E2E_CLERK_USER_EMAIL`                       | `E2E`     | The email of a user in the development instance                                    |
+| `NEON_API_KEY`                               | `Preview` | A Neon API key                                                                     |
+| `RAILWAY_API_TOKEN`                          | `Preview` | A Railway account token, not a project token                                       |
+| `CLOUDFLARE_API_TOKEN`                       | `Preview` | The KV-only token described under Cloudflare Workers                               |
+| `STORAGE_ACCESS_KEY_ID_PREVIEW`              | `Preview` | The preview bucket token's access key ID                                           |
+| `STORAGE_SECRET_ACCESS_KEY_PREVIEW`          | `Preview` | The preview bucket token's secret access key                                       |
+| `STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT`     | `Preview` | The development bucket's read-only token's access key ID                           |
+| `STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT` | `Preview` | The development bucket's read-only token's secret access key                       |
+| `ENVIRONMENTS_ADMIN_TOKEN`                   | `Preview` | A fine-grained token for this repository alone, with Administration read and write |
 
 Environment `app-store`, used only by the `Release` workflow's **Upload to
 TestFlight** job. Its deployment rule admits tags matching `v*` only, and

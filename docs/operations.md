@@ -146,8 +146,9 @@ and fails instead in CI, where the `API` workflow always starts it.
   API. Every push resets the Neon branch, so preview data is lost. Every
   push also copies into the prefix each object of the development bucket
   whose copy is missing, has a different size, or is older. Closing the
-  PR deletes the Railway environment, the Neon branch, the KV entry, and
-  the `pr-<n>/` prefix. The 90-day lifecycle rule on the preview bucket is
+  PR deletes the Railway environment, the Neon branch, the KV entry, the
+  `pr-<n>/` prefix, and the `crosstune / pr-<n>` GitHub environment that
+  Railway's deploys create. The 90-day lifecycle rule on the preview bucket is
   the backstop for a failed prefix deletion. If cleanup fails, run the
   workflow from the Actions tab with the PR number and branch name.
 - CI runs on every pull request and push to `main`. `API` lints, type
