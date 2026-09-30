@@ -51,7 +51,9 @@ import Testing
         try await store.write { writer in
             try writer.put(Tune(id: "t2", createdAt: noon, title: "Kitchen Girl"), at: later(2))
         }
-        try await eventually { titles.value == ["Kitchen Girl", "Soldier's Joy"] }
-        #expect(publications.count == 1)
+        // Publications counts on a task it schedules after the value changes, so wait on the
+        // count itself rather than the value.
+        try await eventually { publications.count == 1 }
+        #expect(titles.value == ["Kitchen Girl", "Soldier's Joy"])
     }
 }
