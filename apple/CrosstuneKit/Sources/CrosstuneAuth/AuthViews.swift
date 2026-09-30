@@ -10,9 +10,13 @@ public enum DeletedNotice {
 /// Clerk's sign-in and sign-up flow, with every method the instance enables.
 public struct SignInView: View {
     let notice: String?
+    let isDismissible: Bool
 
-    public init(notice: String? = nil) {
+    /// A dismissible view shows Clerk's close button and closes itself once someone signs in,
+    /// for a sheet; a view that fills the window has no way out but signing in.
+    public init(notice: String? = nil, isDismissible: Bool = false) {
         self.notice = notice
+        self.isDismissible = isDismissible
     }
 
     public var body: some View {
@@ -27,7 +31,7 @@ public struct SignInView: View {
                     // announced, since nothing here otherwise takes first-response focus.
                     .onAppear { AccessibilityNotification.Announcement(notice).post() }
             }
-            AuthView(isDismissible: false)
+            AuthView(isDismissible: isDismissible)
                 .environment(Clerk.shared)
         }
     }
