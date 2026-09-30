@@ -161,3 +161,25 @@ reopens one without new information. Add a new entry at the end.
   need exact control of each.
 - SQLiteData was rejected: it adds a macro query language, Point-Free's
   dependency stack, and CloudKit sync, which the app does not use.
+
+## A static site at the apex, the app at `my.`
+
+- `<domain>` serves a static Astro site in `site/`, with its own Worker,
+  pipeline, and preview aliases. The web client is at `my.<domain>`. A
+  visitor who types the address sees what Crosstune is and can join the
+  waitlist. A player signs in at `my.`.
+- `my.` shares Clerk's home domain, so a session carries across. "my
+  Crosstune" reads naturally.
+- One URL split by session was rejected: the installed service worker
+  serves the app shell at `/` offline, so the Worker and the app would both
+  steer between site and app on the most fragile path.
+- `app.<domain>` and `<domain>/app` were rejected: the word twice. A path
+  base was rejected too, since it runs through the Ionic router, the
+  service worker scope, and the PWA start URL.
+- The app at the apex with marketing elsewhere was rejected: the address
+  people share would land on a sign-in form.
+- Astro over plain HTML (shared header and footer copied across pages) and
+  over a second Vite entry in `web/` (it couples the site's deploys and
+  caching to the app, which the split exists to avoid).
+- The waitlist is Clerk's Waitlist mode, not a form of our own. Approval
+  and the invitation email are in Clerk, which already owns sign-up.

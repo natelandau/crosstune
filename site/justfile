@@ -1,0 +1,65 @@
+# Recipes for the marketing site. Loaded as the `site` module by the root justfile and run
+# from this directory: `just site::test` from anywhere in the repository.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+[private]
+default:
+    @just --list site
+
+# Lint with eslint
+[group('lint')]
+eslint:
+    pnpm eslint --max-warnings 0 .
+
+# Check formatting with prettier
+[group('lint')]
+format:
+    pnpm prettier --check .
+
+# Type check with astro check
+[group('lint')]
+tsc:
+    pnpm astro check
+
+# Spell check the site and the brand sources it is built from
+[group('lint')]
+typos:
+    uv run --project ../api typos --config ../.typos.toml . ../brand
+
+# Run all linters
+[group('lint')]
+lint: eslint format tsc typos
+
+# Fix lint and formatting where tools can
+[group('lint')]
+fix:
+    pnpm eslint --fix .
+    pnpm prettier --write .
+
+# Build the site, then run the tests against the output; extra args go to vitest
+[group('test')]
+test *args:
+    pnpm astro build
+    pnpm vitest run {{ args }}
+
+# Run the dev server
+[group('dev')]
+dev:
+    pnpm astro dev
+
+# Build for production and validate the Worker config without uploading
+[group('build')]
+build:
+    pnpm astro build
+    pnpm wrangler deploy --dry-run
+
+# Remove build artifacts and caches
+[group('maintenance')]
+clean:
+    rm -rf dist .astro node_modules/.vite .vitest
+
+# Install dependencies
+[group('maintenance')]
+setup:
+    pnpm install --frozen-lockfile

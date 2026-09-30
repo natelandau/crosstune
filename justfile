@@ -6,6 +6,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 mod api
 mod web
+mod site
 mod apple
 
 # Where the end-to-end API serves, matching e2e_port in api/justfile and e2e_api in
@@ -17,17 +18,17 @@ default:
     @just --list
 
 # Run every linter in every module, then spell check the whole repository
-lint: api::lint web::lint apple::lint typos
+lint: api::lint web::lint site::lint apple::lint typos
 
 # Spell check the whole repository, or only the given paths
 typos *paths:
     uv run --project api typos --config .typos.toml {{ paths }}
 
 # Check formatting in every module
-format: api::format web::format apple::format
+format: api::format web::format site::format apple::format
 
 # Run every unit and integration suite; the end-to-end suite is `just e2e`
-test: api::test web::test apple::test
+test: api::test web::test site::test apple::test
 
 # Run the end-to-end suite; extra args go to Playwright
 e2e *args:
@@ -64,30 +65,31 @@ e2e *args:
     just web::e2e {{ args }}
 
 # Remove build artifacts and caches everywhere
-clean: api::clean web::clean
+clean: api::clean web::clean site::clean
 
 # Regenerate the OpenAPI contract and the typed web and Apple clients from it
 contract: api::contract web::contract apple::contract
 
-# Smoke-check a deployed API origin and web origin; needs no credentials
-smoke api_origin web_origin:
-    scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}'
+# Smoke-check a deployed API origin, web origin, and optionally site origin; needs no credentials
+smoke api_origin web_origin site_origin="":
+    scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}' '{{ site_origin }}'
 
 # Install dependencies, git hooks, and start local services
-dev-setup: api::setup web::setup apple::setup
+dev-setup: api::setup web::setup site::setup apple::setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
-# Start Postgres, apply migrations, then run the API and web client together
+# Start Postgres, apply migrations, then run the API, web client, and site together
 dev:
-    scripts/dev-ports.sh 8000 5173
+    scripts/dev-ports.sh 8000 5173 4321
     docker compose up -d --wait
     just api::storage-setup
     just api::migrate
+    @echo 'Open http://localhost:4321 (site) or http://localhost:5173 (app)'
     # Ctrl-C ends the session with 130, which is the normal way out, not a failure
     uv run --project api honcho start -f Procfile.dev || [ $? -eq 130 ]
 
-# Stop Postgres; the API and web client stop with Ctrl-C in `just dev`
+# Stop Postgres; the API, web client, and site stop with Ctrl-C in `just dev`
 dev-down:
     docker compose down
 

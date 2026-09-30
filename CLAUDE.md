@@ -26,12 +26,12 @@ every label. The glossary in `docs/product.md` has the reasons.
 ## Task runner
 
 - [just](https://just.systems), root plus modules. From the root:
-  `just api::test`, `just web::lint`. Inside `api/`, `web/`, or `apple/`,
+  `just api::test`, `just web::lint`. Inside `api/`, `web/`, `site/`, or `apple/`,
   `just test` resolves to that module. `just --list` shows everything.
   The `apple` module needs Xcode. Xcode 27 has no Simulator.app; its
   simulators run in DeviceHub (`open -a DeviceHub`).
-- `just dev` runs Postgres, migrations, the API, and the web client
-  together. Every checkout and worktree shares one Postgres container and
+- `just dev` runs Postgres, migrations, the API, the web client, and the
+  site together. Every checkout and worktree shares one Postgres container and
   database.
 - `just test` never runs Playwright. `just e2e` does, beside `just dev`,
   against its own `crosstune_e2e` database. It signs in against the shared
@@ -39,7 +39,8 @@ every label. The glossary in `docs/product.md` has the reasons.
   Clerk keys in `web/.env`.
 - A renamed label, heading, or group name needs `web/e2e/` checked. Those
   specs query by accessible name and only `just e2e` catches a rename.
-- New recipes go in `api/justfile`, `web/justfile`, or `apple/justfile`,
+- New recipes go in `api/justfile`, `web/justfile`, `site/justfile`, or
+  `apple/justfile`,
   tagged with a `[group(...)]` that matches their neighbors. A root
   aggregate calls every module.
 - Spell check with `just typos [paths]`. Never run typos or any other tool

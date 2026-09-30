@@ -37,10 +37,11 @@ Migrations run every time `just dev` starts. Nothing is created by hand.
 
 | Command             | Does                                                                                                                                                                                                                                    |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000 and the web client on 5173. Ctrl-C stops both. If either port is taken, it names what holds it and offers to stop a Crosstune server left from an earlier session. |
+| `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000, the web client on 5173, and the site on 4321; start at `localhost:4321`, where Sign in leads to the app. Ctrl-C stops all three. If a port is taken, it names what holds it and offers to stop a Crosstune server left from an earlier session. |
 | `just dev-down`     | Stops Postgres and RustFS.                                                                                                                                                                                                              |
 | `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                                                                                                                                    |
 | `just web::run`     | The web client alone.                                                                                                                                                                                                                   |
+| `just site::dev`    | The site alone, on Astro's dev server.                                                                                                                                                                                                  |
 | `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                   |
 
 Open http://localhost:5173 and sign in with an email address. The API
@@ -84,6 +85,7 @@ Postgres and RustFS volumes; `just dev-down` keeps them.
 | `just test`               | API tests in their own Postgres container, web unit and browser tests, and the Swift package tests. |
 | `just api::test [args]`   | API tests. Args narrow the run and drop coverage.                                                   |
 | `just web::test [args]`   | Web tests. Args go to vitest.                                                                       |
+| `just site::test [args]`  | Builds the site, then runs its tests against the output. Args go to vitest.                         |
 | `just apple::test [args]` | Swift package tests on the Mac. Args go to `swift test`.                                            |
 | `just apple::build`       | The app for the iOS Simulator and macOS, unsigned.                                                  |
 | `just typos [paths]`      | Spell check.                                                                                        |
@@ -132,7 +134,8 @@ and fails instead in CI, where the `API` workflow always starts it.
 
 - A merge to `main` deploys development. Railway rebuilds the API when a
   file under `api/` changed. Workers Builds uploads the web client under the
-  alias `main` when a file under `web/` changed.
+  alias `main` when a file under `web/` changed. The site deploys the same
+  way from `site/`, as its own Worker.
 - A version tag deploys production. The `Release` workflow moves the
   `production` branch to the tag, and both hosts deploy from that branch.
   Nothing else writes to `production`.
@@ -154,7 +157,9 @@ and fails instead in CI, where the `API` workflow always starts it.
 - CI runs on every pull request and push to `main`. `API` lints, type
   checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
   lints, type checks, tests, builds, and checks the generated types.
-  Both are required checks, so they start on every PR and skip their jobs
+  `Site` lints, type checks, tests the built pages, and validates the
+  Worker config with a dry run.
+  All three are required checks, so they start on every PR and skip their jobs
   when it touches nothing they cover. A skipped job passes a required
   check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
@@ -215,8 +220,9 @@ git push --follow-tags origin main
 - Each version is its side's Sentry release tag.
 - A home-screen install keeps the icon it was installed with. A release that
   changes the icon says so.
-- When you bump pnpm in `web/package.json`, change `PNPM_VERSION` in the
-  Worker's build variables in the same change. Node is `web/.node-version`.
+- When you bump pnpm in `web/package.json` or `site/package.json`, change
+  `PNPM_VERSION` in that Worker's build variables in the same change. Node
+  is the module's `.node-version`.
 
 A change to the shape of a synced row:
 
@@ -269,21 +275,24 @@ Rollback:
 After a deploy, from the repository root, with no credentials:
 
 ```bash
-just smoke https://api.<domain> https://<domain>
+just smoke https://api.<domain> https://my.<domain> https://<domain>
 ```
 
 The `Smoke` workflow runs the same script. Blank inputs use the
-`API_ORIGIN_PRODUCTION` and `WEB_ORIGIN_PRODUCTION` Actions variables. It
-checks that `/healthz` answers ok, that an anonymous `/v1/me` is a 401
-problem document from the API and through the web origin, and that the web
-origin serves the app shell, the manifest, the service worker, and the
-shell for a client-side route.
+`API_ORIGIN_PRODUCTION`, `WEB_ORIGIN_PRODUCTION`, and
+`SITE_ORIGIN_PRODUCTION` Actions variables. It checks that `/healthz`
+answers ok, that an anonymous `/v1/me` is a 401 problem document from the
+API and through the web origin, and that the web origin serves the app
+shell, the manifest, the service worker, and the shell for a client-side
+route. The site origin is optional. With it, the script also checks the
+home page, `/privacy`, `/terms`, `/support`, a revalidating `/sw.js`, and
+that `/v1/me` on the site is a 404, since the site never proxies the API.
 
-For a pull request, point it at the PR's Railway hostname and preview URL.
+For a pull request, point it at the PR's Railway hostname and preview URLs.
 
 The manual phone test covers what the script cannot:
 
-1. Open `https://<domain>` and sign in.
+1. Open `https://my.<domain>` and sign in.
 2. Add a tune and paste a YouTube link.
 3. Install the app to the home screen.
 4. Turn on airplane mode and edit the tune.

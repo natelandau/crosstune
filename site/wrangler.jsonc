@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "crosstune-site",
+  "compatibility_date": "2026-09-01",
+  // Production is served only on the custom domain; non-production versions
+  // still get workers.dev preview URLs because Cloudflare treats the two
+  // switches independently.
+  "workers_dev": false,
+  "preview_urls": true,
+  "routes": [{ "pattern": "crosstune.app", "custom_domain": true }],
+  // Branch builds deploy as Worker Previews (`wrangler preview`), which needs
+  // this block even when empty.
+  "previews": {},
+  // No Worker script: every request is served from the assets directory.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    // Pages build to <page>/index.html but are linked and canonical without the
+    // slash; the default would redirect /privacy to /privacy/.
+    "html_handling": "drop-trailing-slash",
+  },
+}

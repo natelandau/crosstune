@@ -1,0 +1,145 @@
+---
+import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
+---
+
+<section id={WAITLIST_ID} class="closing" aria-labelledby="waitlist-title">
+  <div class="column">
+    <h2 id="waitlist-title">Crosstune opens to players a few at a time.</h2>
+    <p class="lede">Join the waitlist and you'll get an email when your account is ready.</p>
+    <form data-waitlist>
+      <label class="visually-hidden" for="waitlist-email">
+        Email address
+      </label>
+      <div class="fields">
+        <input
+          id="waitlist-email"
+          type="email"
+          name="email"
+          required
+          autocomplete="email"
+          placeholder="you@example.com"
+        />
+        <button class="button" type="submit">
+          {JOIN_WAITLIST}
+        </button>
+      </div>
+      <p class="status" data-waitlist-status aria-live="polite"></p>
+    </form>
+    <noscript>
+      <style>
+        form[data-waitlist] {
+          display: none;
+        }
+      </style>
+      <p class="fallback">
+        To join without JavaScript, email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+      </p>
+    </noscript>
+    <p class="platforms">
+      Coming to iPhone, iPad, and Mac. The web version works today in any browser.
+    </p>
+  </div>
+</section>
+
+<script>
+  import { loadClerk, mountWaitlist } from '../scripts/waitlist'
+
+  const form = document.querySelector<HTMLFormElement>('form[data-waitlist]')
+  if (form) mountWaitlist(form, () => loadClerk(import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY))
+</script>
+
+<style>
+  .closing {
+    padding-block: 88px;
+    background: var(--jet);
+    color: #fff;
+  }
+
+  h2 {
+    max-width: 22ch;
+    margin: 0;
+    font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.4rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    max-width: 40ch;
+    margin: 14px 0 0;
+    color: var(--alabaster);
+    font-size: 1.0625rem;
+  }
+
+  form {
+    max-width: 480px;
+    margin-top: 28px;
+  }
+
+  .fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  input {
+    flex: 1 1 220px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: #fff;
+    color: var(--jet);
+    font: inherit;
+  }
+
+  input::placeholder {
+    color: var(--slate-2);
+  }
+
+  .button {
+    flex: none;
+    background: var(--coral);
+    color: var(--jet);
+  }
+
+  .button:hover {
+    background: #f39a73;
+  }
+
+  .closing :focus-visible {
+    outline-color: var(--coral);
+  }
+
+  .status:empty {
+    display: none;
+  }
+
+  .status {
+    margin: 12px 0 0;
+    color: var(--alabaster);
+  }
+
+  .fallback {
+    margin: 16px 0 0;
+    color: var(--alabaster);
+  }
+
+  .fallback a {
+    color: #fff;
+  }
+
+  .platforms {
+    margin: 36px 0 0;
+    color: var(--silver);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 420px) {
+    .button {
+      flex: 1 1 100%;
+    }
+  }
+</style>

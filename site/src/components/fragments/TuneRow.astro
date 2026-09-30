@@ -1,0 +1,68 @@
+---
+import StatusDot from './StatusDot.astro'
+
+interface Props {
+  name: string
+  status: 'known' | 'learning' | 'unknown'
+  detail?: string
+}
+
+const { name, status, detail } = Astro.props
+---
+
+<div class="row">
+  <StatusDot status={status} />
+  <div class="text">
+    <div class="name">{name}</div>
+    {detail && <div class="detail">{detail}</div>}
+  </div>
+  <span class="play"></span>
+</div>
+
+<style>
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 0.55em;
+    padding: 0.5em 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .name {
+    overflow: hidden;
+    font-size: 0.8em;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .detail {
+    color: var(--slate-2);
+    font-size: 0.72em;
+  }
+
+  /* A recording one tap away: the row's play glyph, drawn as a CSS triangle in a ring. */
+  .play {
+    position: relative;
+    flex: none;
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 50%;
+    background: var(--mist);
+  }
+
+  .play::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 55%;
+    translate: -50% -50%;
+    border-left: 0.45em solid var(--slate);
+    border-block: 0.28em solid transparent;
+  }
+</style>

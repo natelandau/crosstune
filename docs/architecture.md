@@ -18,6 +18,11 @@ are in `hosting.md`. Deploys and releases are in `operations.md`.
 | Sentry     | Errors from both deployables.                                                                              |                                        |
 | GitHub     | Source and CI. Both hosts deploy from it.                                                                  |                                        |
 
+The apex `<domain>` is the static marketing and waitlist site, served by
+its own Worker. It never calls the API. Its one outbound call is the
+waitlist form to Clerk's Frontend API, and only after the visitor focuses
+the email field.
+
 Cloudflare also hosts the DNS zone for the product domain.
 
 ## Boundaries
@@ -297,7 +302,7 @@ same triggers. A return to the foreground stands in for a visible tab.
 | Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`                                                                   |
 | Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
 | Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
-| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `<domain>`                      | R2 bucket `crosstune-recordings`                                                                  |
+| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `my.<domain>`                   | R2 bucket `crosstune-recordings`                                                                  |
 
 Development runs the head of `main`. Production runs the commit the last
 version tag promoted. A pull request environment runs the PR branch with the

@@ -1,0 +1,53 @@
+---
+import Base from './Base.astro'
+
+interface Props {
+  frontmatter: {
+    title: string
+    description: string
+    path: string
+  }
+}
+
+const { title, description, path } = Astro.props.frontmatter
+---
+
+<Base title={`${title} | Crosstune`} description={description} path={path}>
+  <main class="column">
+    <article class="legal">
+      <slot />
+    </article>
+  </main>
+</Base>
+
+<style is:global>
+  .legal {
+    max-width: 66ch;
+    padding-bottom: 48px;
+  }
+
+  .legal h1 {
+    margin: 16px 0 8px;
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+
+  .legal h2 {
+    margin: 40px 0 8px;
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+
+  .legal p,
+  .legal ul {
+    margin: 0 0 16px;
+  }
+
+  .legal ul {
+    padding-left: 1.25rem;
+  }
+
+  .legal li + li {
+    margin-top: 6px;
+  }
+</style>

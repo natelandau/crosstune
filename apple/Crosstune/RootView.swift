@@ -2,7 +2,7 @@ import CrosstuneAuth
 import CrosstuneUI
 import SwiftUI
 
-/// Shows sign-in until someone is signed in, then the app for that user.
+/// Shows the welcome screen until someone is signed in, then the app for that user.
 struct RootView: View {
     let session: AccountSession
     let player: PlayerModel
@@ -17,7 +17,7 @@ struct RootView: View {
             case .loading:
                 ProgressView()
             case .signedOut:
-                SignInView(notice: session.showsDeletedNotice ? DeletedNotice.text : nil)
+                WelcomeView(notice: session.showsDeletedNotice ? DeletedNotice.text : nil)
             case .signedIn:
                 if let store = session.store {
                     AppShell(store: store, player: player, stage: stage, recorders: recorders)

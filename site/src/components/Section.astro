@@ -1,0 +1,58 @@
+---
+// One reason to use Crosstune: the words left, a fragment of the app right, stacked at phone width.
+interface Props {
+  id: string
+  title: string
+}
+
+const { id, title } = Astro.props
+---
+
+<div class="column">
+  <section class="feature" aria-labelledby={id}>
+    <div class="words">
+      <h2 id={id}>{title}</h2>
+      <p>
+        <slot />
+      </p>
+    </div>
+    <div class="fragment">
+      <slot name="fragment" />
+    </div>
+  </section>
+</div>
+
+<style>
+  .feature {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 48px;
+    align-items: center;
+    padding-block: 72px;
+    border-top: 1px solid var(--rule);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: clamp(1.625rem, 1.3rem + 1vw, 1.9rem);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    max-width: 38ch;
+    margin: 14px 0 0;
+    color: var(--slate);
+    font-size: 1.0625rem;
+  }
+
+  @media (max-width: 760px) {
+    .feature {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 28px;
+      padding-block: 56px;
+    }
+  }
+</style>

@@ -2,6 +2,7 @@ import { IonApp } from '@ionic/react'
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ACCOUNT_DELETED, AuthGate } from './AuthGate'
+import { SIGN_IN_HEADLINE } from './links'
 import {
   clearAccountDeletedNotice,
   clearLocalSignOut,
@@ -28,7 +29,12 @@ vi.mock('@clerk/react', () => ({
     getToken: async () => null,
     signOut: clerk.signOut,
   }),
-  SignIn: () => <div style={{ height: 2000 }}>Clerk sign-in form</div>,
+  // Clerk's card is 25rem wide and narrows to the viewport less its own margin.
+  SignIn: () => (
+    <div style={{ height: 2000, width: '25rem', maxWidth: 'calc(100vw - 2.5rem)' }}>
+      Clerk sign-in form
+    </div>
+  ),
 }))
 
 afterEach(() => {
@@ -203,5 +209,104 @@ describe('AuthGate in the Ionic app', () => {
     await screen.findByText('signed in')
     act(() => markSignedOutLocally('user_gone'))
     await vi.waitFor(() => expect(screen.queryByText('signed in')).toBeNull())
+  })
+})
+
+describe('the sign-in screen layout', () => {
+  async function renderAt(width: number, height = 800) {
+    const { page } = await import('vitest/browser')
+    await page.viewport(width, height)
+    render(
+      <IonApp>
+        <AuthGate>
+          <p>signed in</p>
+        </AuthGate>
+      </IonApp>,
+    )
+    const heading = await screen.findByRole('heading', { name: SIGN_IN_HEADLINE })
+    const picture = screen.getByText('A: Cluck Old Hen').closest('[aria-hidden="true"]')!
+    const form = screen.getByText('Clerk sign-in form')
+    const scroller = heading.closest('main')!.parentElement!
+    return { heading, picture, form, scroller }
+  }
+
+  async function expectNoSidewaysScroll(scroller: HTMLElement, form: HTMLElement) {
+    await vi.waitFor(() => {
+      expect(scroller.scrollWidth).toBeLessThanOrEqual(scroller.clientWidth)
+      expect(form.getBoundingClientRect().right).toBeLessThanOrEqual(scroller.clientWidth)
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth)
+    })
+  }
+
+  afterEach(async () => {
+    const { page } = await import('vitest/browser')
+    await page.viewport(390, 844)
+    delete document.documentElement.dataset.textSize
+  })
+
+  it('sets the picture above the heading on a phone', async () => {
+    const { heading, picture } = await renderAt(375)
+    await vi.waitFor(() => {
+      const art = picture.getBoundingClientRect()
+      expect(art.height).toBeGreaterThan(0)
+      expect(art.bottom).toBeLessThanOrEqual(heading.getBoundingClientRect().top)
+    })
+  })
+
+  it('starts the form high enough on a small phone to show its first field', async () => {
+    const { form } = await renderAt(375, 667)
+    // Leaves room on a 667px screen for Clerk's card head, social row, divider, and email
+    // field, as measured in the real app. The e2e suite checks the real card itself.
+    const FORM_TOP_BUDGET = 337
+    await vi.waitFor(() => {
+      expect(form.getBoundingClientRect().top).toBeLessThanOrEqual(FORM_TOP_BUDGET)
+    })
+  })
+
+  it('sets the picture and the form in one row on a wide screen', async () => {
+    const { picture, form } = await renderAt(1024)
+    await vi.waitFor(() => {
+      const art = picture.getBoundingClientRect()
+      const box = form.getBoundingClientRect()
+      expect(art.width).toBeGreaterThan(0)
+      expect(art.right).toBeLessThanOrEqual(box.left)
+      // Some vertical overlap: the two sit side by side, not stacked.
+      expect(art.top).toBeLessThan(box.bottom)
+      expect(box.top).toBeLessThan(art.bottom)
+    })
+  })
+
+  it.each([320, 768])('never scrolls sideways at %ipx wide', async (width) => {
+    const { scroller, form } = await renderAt(width)
+    await expectNoSidewaysScroll(scroller, form)
+  })
+
+  it('never scrolls sideways on a wide screen at the largest text size', async () => {
+    document.documentElement.dataset.textSize = 'roomy'
+    const { scroller, form } = await renderAt(1024)
+    await expectNoSidewaysScroll(scroller, form)
+  })
+
+  it.each([375, 1024])('keeps every paper line clear of the phone at %ipx wide', async (width) => {
+    const { picture } = await renderAt(width)
+    const phone = picture.querySelector('.paper-echo-phone')!
+    await vi.waitFor(() => {
+      const device = phone.getBoundingClientRect()
+      expect(device.width).toBeGreaterThan(0)
+      for (const line of picture.querySelectorAll('.paper-echo-paper p')) {
+        const range = document.createRange()
+        range.selectNodeContents(line)
+        // Each glyph box, not the line's rotated bounding box, which would reach under the
+        // phone even when no letter does.
+        for (const glyphs of range.getClientRects()) {
+          const overlaps =
+            glyphs.left < device.right &&
+            glyphs.right > device.left &&
+            glyphs.top < device.bottom &&
+            glyphs.bottom > device.top
+          expect(overlaps, line.textContent!).toBe(false)
+        }
+      }
+    })
   })
 })

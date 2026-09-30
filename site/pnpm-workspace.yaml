@@ -1,0 +1,11 @@
+allowBuilds:
+  # Each resolves its platform binary from optional dependencies at runtime, and the
+  # postinstall only hardlinks and checks the version, so denying it is safe.
+  esbuild: false
+  workerd: false
+  sharp: true
+  # Optional native speedups and polyfill banners; nothing needs them at build time.
+  browser-tabs-lock: false
+  bufferutil: false
+  core-js: false
+  utf-8-validate: false

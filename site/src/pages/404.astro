@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro'
+import { APP_URL } from '../components/actions'
+---
+
+<Base
+  title="Page not found | Crosstune"
+  description="This page is not here. Crosstune itself is at my.crosstune.app."
+  path="/404"
+>
+  <main class="column">
+    <h1>That page isn't here</h1>
+    <p>
+      Crosstune itself is at <a href={APP_URL}>my.crosstune.app</a>. Or go back to the
+      <a href="/">home page</a>.
+    </p>
+  </main>
+</Base>
+
+<style>
+  main {
+    padding-bottom: 96px;
+  }
+
+  h1 {
+    margin: 16px 0 8px;
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+</style>

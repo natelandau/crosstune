@@ -1,0 +1,11 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+# The retired service worker must be refetched on every visit so an installed
+# copy of the old app finds it and unregisters.
+/sw.js
+  Cache-Control: no-cache
+# Hashed assets never change, so a year is safe.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable

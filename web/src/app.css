@@ -44,3 +44,99 @@
     font-size: max(1rem, 16px);
   }
 }
+
+/* The sign-in picture. Every length is in em of the footnote role, so paper, phone, and the
+   ruled lines under the paper's text scale together. The paper's lines are 1lh apart so each
+   line of text sits on one. The phone overlaps only the paper's right margin, clear of the
+   longest line, so no line reads as cut off. */
+@layer components {
+  .paper-echo {
+    --paper: var(--ion-background-color, #ffffff);
+    --paper-edge: color-mix(in oklab, var(--ion-text-color, #000000) 16%, var(--paper));
+    --paper-rule: color-mix(in oklab, var(--ion-color-primary) 28%, var(--paper));
+    --phone: color-mix(in oklab, var(--ion-color-primary) 55%, #000000);
+    position: relative;
+    flex: none;
+    width: 22.4em;
+    height: 17em;
+    /* Small on a phone so the form's first field shows without scrolling. */
+    zoom: 0.66;
+  }
+  @media (min-width: 48rem) {
+    .paper-echo {
+      zoom: 1;
+    }
+  }
+  /* The row layout's breakpoint: the picture, the gap, and Clerk's 25rem card fit beside each
+     other here even at the largest text size. */
+  @media (min-width: 60rem) {
+    .paper-echo {
+      zoom: 1.2;
+    }
+  }
+  .ion-palette-dark .paper-echo {
+    --paper: var(--ion-background-color-step-100, #1a1a1a);
+    --paper-edge: var(--ion-background-color-step-200, #333333);
+    --phone: var(--ion-background-color-step-250, #404040);
+  }
+  .paper-echo-paper {
+    position: absolute;
+    top: 0.6em;
+    left: 0.5em;
+    width: 14.8em;
+    height: 14.6em;
+    padding: 0.9em 1em;
+    border: 1px solid var(--paper-edge);
+    background-color: var(--paper);
+    background-image: repeating-linear-gradient(
+      transparent 0 calc(1lh - 1px),
+      var(--paper-rule) calc(1lh - 1px) 1lh
+    );
+    background-origin: content-box;
+    box-shadow: 0 0.8em 1.6em -1em rgb(0 0 0 / 0.45);
+    rotate: -6deg;
+  }
+  .paper-echo-fold {
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    border-top: 1px dashed var(--paper-edge);
+  }
+  .paper-echo-strike {
+    text-decoration-color: var(--ion-color-warning);
+    text-decoration-thickness: 1.5px;
+  }
+  .paper-echo-phone {
+    position: absolute;
+    top: 4.4em;
+    left: 14.6em;
+    width: 7.6em;
+    height: 12em;
+    padding: 0.3em;
+    border-radius: 1.3em;
+    background: var(--phone);
+    box-shadow: 0 1.2em 2em -1.2em rgb(0 0 0 / 0.55);
+  }
+  .paper-echo-screen {
+    height: 100%;
+    overflow: hidden;
+    border-radius: 1em;
+    background: var(--ion-background-color, #ffffff);
+  }
+  .paper-echo-app {
+    width: 200%;
+    padding: 1.6em 0.9em 0;
+    transform-origin: top left;
+    scale: 0.5;
+  }
+  .paper-echo-row {
+    border-bottom: 1px solid var(--ion-background-color-step-150, rgba(0, 0, 0, 0.13));
+  }
+  .paper-echo-bar {
+    border-radius: 999px;
+    background: var(--fill-tertiary);
+  }
+  .paper-echo-play {
+    background: var(--fill-tertiary);
+  }
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Preflight for `just dev`: the API and web client need their ports free, and honcho
-# stops both the moment either fails to bind. A server from an earlier session that
+# Preflight for `just dev`: the API, web client, and site need their ports free, and honcho
+# stops all of them the moment one fails to bind. A server from an earlier session that
 # outlived its terminal is the usual holder, so this names it and offers to stop it.
 set -euo pipefail
 

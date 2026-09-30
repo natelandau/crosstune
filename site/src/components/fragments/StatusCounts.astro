@@ -1,0 +1,71 @@
+---
+import Panel from './Panel.astro'
+import StatusDot from './StatusDot.astro'
+
+const counts = [
+  { status: 'known', label: 'Known', count: 84 },
+  { status: 'learning', label: 'Learning', count: 12 },
+  { status: 'unknown', label: 'Unknown', count: 31 },
+] as const
+---
+
+<Panel name="status-counts">
+  <ul>
+    {counts.map(({ status, label, count }) => (
+      <li>
+        <span class="count">{count}</span>
+        <span class="label">
+          <StatusDot status={status} />
+          {label}
+        </span>
+      </li>
+    ))}
+  </ul>
+</Panel>
+
+<style>
+  ul {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    padding: 18px 16px 16px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .count {
+    display: block;
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  @media (max-width: 400px) {
+    li {
+      padding: 14px 10px 12px;
+    }
+
+    .label {
+      gap: 6px;
+      font-size: 0.8rem;
+    }
+  }
+</style>

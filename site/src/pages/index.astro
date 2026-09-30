@@ -1,0 +1,50 @@
+---
+import Closing from '../components/Closing.astro'
+import Hero from '../components/Hero.astro'
+import MakerNote from '../components/MakerNote.astro'
+import Section from '../components/Section.astro'
+import KeysAndFacets from '../components/fragments/KeysAndFacets.astro'
+import Lists from '../components/fragments/Lists.astro'
+import Offline from '../components/fragments/Offline.astro'
+import Recordings from '../components/fragments/Recordings.astro'
+import StatusCounts from '../components/fragments/StatusCounts.astro'
+import Base from '../layouts/Base.astro'
+---
+
+<Base
+  title="Crosstune"
+  description="Crosstune keeps the tunes you know and the tunes you're learning, sorted the way you play them, with a recording one tap away."
+  path="/"
+>
+  <main>
+    <Hero />
+    <Section id="record" title="Record it or find it, and learn it later.">
+      Hear a tune you want? Record it on the spot, or paste the link to a version on YouTube,
+      Spotify, Bandcamp, or the Internet Archive. Either way it's filed under the tune, ready when
+      you sit down to learn it.
+      <Recordings slot="fragment" />
+    </Section>
+    <Section id="sorted" title="Sorted the way you play.">
+      Key, mode, tuning, type, and part structure live on every tune. Filter by key and every tune
+      in A is there, cross-tuned ones included.
+      <KeysAndFacets slot="fragment" />
+    </Section>
+    <Section id="status" title="Known, learning, want to learn.">
+      One catalog replaces the two paper lists. A tune moves along as you learn it.
+      <StatusCounts slot="fragment" />
+    </Section>
+    <Section id="lists" title="Your own lists.">
+      A setlist for Saturday, the sets you play with your band, the tunes to learn by spring. A tune
+      can be in as many lists as you like, in the order you choose.
+      <Lists slot="fragment" />
+    </Section>
+    <Section id="offline" title="No signal needed.">
+      The whole catalog lives on your phone, along with the recordings you've made. At a festival
+      campsite with no reception, you can still find the tune and hear how it goes. Your changes
+      sync when you're back in range.
+      <Offline slot="fragment" />
+    </Section>
+    <MakerNote />
+    <Closing />
+  </main>
+</Base>

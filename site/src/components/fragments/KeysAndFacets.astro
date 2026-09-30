@@ -1,0 +1,72 @@
+---
+import KeyPill from './KeyPill.astro'
+import Panel from './Panel.astro'
+
+const rail = ['C', 'G', 'D', 'A', 'E', 'B', 'Bb', 'F'] as const
+---
+
+<Panel name="keys-and-facets">
+  <div class="rail">
+    {rail.map((key) => (
+      <KeyPill name={key} size="large" chosen={key === 'A'} />
+    ))}
+  </div>
+  <div class="tune">
+    <div class="name">Cluck Old Hen</div>
+    <dl>
+      <dt>Key</dt>
+      <dd>A</dd>
+      <dt>Mode</dt>
+      <dd>Mixolydian</dd>
+      <dt>Tuning</dt>
+      <dd>
+        Violin AEAE
+        <br />
+        Banjo double C
+      </dd>
+      <dt>Type</dt>
+      <dd>Reel</dd>
+      <dt>Parts</dt>
+      <dd>AABB</dd>
+    </dl>
+  </div>
+</Panel>
+
+<style>
+  .rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tune {
+    margin-top: 20px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 20px;
+    margin: 12px 0 0;
+    font-size: 0.9rem;
+  }
+
+  dt {
+    color: var(--slate-2);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 500;
+  }
+</style>

@@ -17,7 +17,7 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
-        exclude: ^web/pnpm-lock\.yaml$
+        exclude: ^(web|site)/pnpm-lock\.yaml$
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
@@ -125,6 +125,35 @@ repos:
         pass_filenames: false
         stages: [pre-push]
         files: ^(web|brand)/
+
+      - id: site-eslint
+        name: eslint
+        entry: bash -c 'cd site && pnpm eslint --max-warnings 0 .'
+        language: system
+        pass_filenames: false
+        files: ^site/.*\.(ts|js|cjs|mjs|astro)$
+
+      - id: site-prettier
+        name: prettier
+        entry: bash -c 'cd site && pnpm prettier --check .'
+        language: system
+        pass_filenames: false
+        files: ^site/
+
+      - id: site-tsc
+        name: tsc
+        entry: bash -c 'cd site && pnpm astro check'
+        language: system
+        pass_filenames: false
+        files: ^site/.*\.(ts|astro)$
+
+      - id: site-vitest
+        name: vitest
+        entry: just site::test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^(site|brand)/
 
       - id: apple-swift-format
         name: swift format

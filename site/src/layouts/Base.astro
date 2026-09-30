@@ -1,0 +1,47 @@
+---
+import Footer from '../components/Footer.astro'
+import Lockup from '../components/Lockup.astro'
+import { APP_URL, SIGN_IN } from '../components/actions'
+import '../styles/tokens.css'
+import '../styles/base.css'
+
+interface Props {
+  title: string
+  description: string
+  path: string
+}
+
+const { title, description, path } = Astro.props
+const canonical = `https://crosstune.app${path}`
+const image = 'https://crosstune.app/og.png'
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Crosstune" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+  </head>
+  <body>
+    <nav class="nav column" aria-label="Main">
+      <Lockup />
+      <a href={APP_URL}>{SIGN_IN}</a>
+    </nav>
+    <slot />
+    <Footer />
+  </body>
+</html>
