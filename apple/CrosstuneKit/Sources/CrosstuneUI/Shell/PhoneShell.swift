@@ -75,10 +75,13 @@ enum TabSlot: Hashable {
                             .accessibilityHidden(true)
                             // A smaller dome keeps its center where the full one has it.
                             .padding(.bottom, Self.domeLift + (RecordDome.diameter - domeDiameter) / 2)
-                            .ignoresSafeArea(.keyboard)
                             .transition(.opacity)
                     }
                 }
+                // The bar stays put under the keyboard, so the dome must too. The frame fills the
+                // overlay so its bottom edge meets the keyboard's safe area and can ignore it.
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .ignoresSafeArea(.keyboard)
                 .animation(reduceMotion ? nil : .default, value: isCovered)
             }
             .onGeometryChange(for: CGFloat.self) {
