@@ -68,10 +68,16 @@ public enum CatalogFacet: Hashable, Sendable {
         }
     }
 
+    /// How one of this facet's values reads as a choice. No key reads in words, as the key
+    /// chooser names its question mark.
+    public func valueLabel(_ value: String) -> String {
+        self == .key && value == CatalogFilters.noKey ? KeyChooser.unknownKey : value
+    }
+
     /// How a set filter on this facet reads on its capsule. A tuning names its instrument, since
     /// two instruments can share a tuning's name.
     public func capsuleLabel(_ value: String) -> String {
-        guard let instrument else { return value }
+        guard let instrument else { return valueLabel(value) }
         return "\(TuningText.instrumentLabel(instrument)): \(value)"
     }
 }

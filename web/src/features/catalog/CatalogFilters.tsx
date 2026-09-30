@@ -3,9 +3,11 @@ import { Capsule, PressTarget } from '../../ui/Capsule'
 import { KeyPill } from '../../ui/KeyPill'
 import { Rail } from '../../ui/Rail'
 import { tuningKeyInstrument, withInstrumentLabel } from '../settings/instruments'
+import { UNKNOWN_KEY } from '../tune/KeyChooser'
 import { StatusChooser } from '../tune/StatusChooser'
 import {
   FACET_LABELS,
+  NO_KEY,
   sheetFacets,
   type CatalogFilters as Filters,
   type Facet,
@@ -21,9 +23,11 @@ function pillLabel(facet: Facet, value: string): string {
   return instrument ? withInstrumentLabel(instrument, value) : value
 }
 
-// A set value the catalog no longer holds keeps its chip, so the rail never reads as All.
+// A set value the catalog no longer holds keeps its chip, so the rail never reads as All. No key
+// keeps its place at the front.
 function railChoices(values: readonly string[], set: string): readonly string[] {
-  return set !== 'all' && !values.includes(set) ? [...values, set] : values
+  if (set === 'all' || values.includes(set)) return values
+  return set === NO_KEY ? [set, ...values] : [...values, set]
 }
 
 export function CatalogFilters({
@@ -63,15 +67,28 @@ export function CatalogFilters({
           <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
             {ALL_KEYS_LABEL}
           </Capsule>
-          {keyChoices.map((key) => (
-            <PressTarget
-              key={key}
-              pressed={filters.key === key}
-              onPress={() => onChange({ key: filters.key === key ? 'all' : key })}
-            >
-              <KeyPill value={key} chosen={filters.key === key} />
-            </PressTarget>
-          ))}
+          {keyChoices.map((key) =>
+            key === NO_KEY ? (
+              // The same question mark the key chooser sets, named in words since it reads as
+              // nothing aloud.
+              <Capsule
+                key={key}
+                pressed={filters.key === key}
+                label={UNKNOWN_KEY}
+                onPress={() => onChange({ key: filters.key === key ? 'all' : key })}
+              >
+                ?
+              </Capsule>
+            ) : (
+              <PressTarget
+                key={key}
+                pressed={filters.key === key}
+                onPress={() => onChange({ key: filters.key === key ? 'all' : key })}
+              >
+                <KeyPill value={key} chosen={filters.key === key} />
+              </PressTarget>
+            ),
+          )}
         </Rail>
       ) : null}
 

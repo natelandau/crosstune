@@ -53,6 +53,12 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   archived: false,
 }
 
+/**
+ * The key filter for tunes with no key. Stored like any key, so it must never be a key a tune
+ * can hold, the way `all` is not.
+ */
+export const NO_KEY = 'none'
+
 export const META_CATALOG_FILTERS = 'catalog_filters'
 
 export interface CatalogEntry {
@@ -123,7 +129,12 @@ export function filterCatalog(
     if (filters.status !== 'all' && userTune.status !== filters.status) return false
     for (const facet of FACETS) {
       const values = facetValuesOf(tune, facet)
-      if (filters[facet] !== 'all' && !values.some((value) => facetMatches(filters[facet], value)))
+      if (facet === 'key' && filters.key === NO_KEY) {
+        if (values.some((value) => value?.trim())) return false
+      } else if (
+        filters[facet] !== 'all' &&
+        !values.some((value) => facetMatches(filters[facet], value))
+      )
         return false
     }
     if (!needle) return true
@@ -139,17 +150,24 @@ export function filterCatalog(
 function distinct(values: (string | null | undefined)[]): string[] {
   const seen: string[] = []
   for (const value of values) {
-    if (value && !seen.some((s) => collator.compare(s, value) === 0)) seen.push(value)
+    if (value?.trim() && !seen.some((s) => collator.compare(s, value) === 0)) seen.push(value)
   }
   return seen.sort(collator.compare)
 }
 
 export type FacetValues = Record<Facet, string[]>
 
+/**
+ * Each facet's distinct values. The key facet leads with `NO_KEY` while some tunes have a key
+ * and some do not; with no keys at all it would narrow nothing.
+ */
 export function facetValues(entries: CatalogEntry[]): FacetValues {
-  return Object.fromEntries(
+  const values = Object.fromEntries(
     FACETS.map((facet) => [facet, distinct(entries.flatMap((e) => facetValuesOf(e.tune, facet)))]),
   ) as FacetValues
+  if (values.key.length > 0 && entries.some((e) => !e.tune.key?.trim()))
+    values.key = [NO_KEY, ...values.key]
+  return values
 }
 
 /** Facets worth offering: those with values, minus tunings for instruments the user does not play. */

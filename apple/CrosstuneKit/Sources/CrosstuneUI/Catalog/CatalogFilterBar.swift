@@ -79,7 +79,11 @@ struct CatalogFilterBar: View {
             )
             if railsOnScreen, results.facets.contains(.key) {
                 facetRail(.key, all: Self.allKeys) { key, chosen in
-                    KeyPill(key, chosen: chosen)
+                    if key == CatalogFilters.noKey {
+                        ChoiceCapsuleLabel(text: "?", chosen: chosen)
+                    } else {
+                        KeyPill(key, chosen: chosen)
+                    }
                 }
             }
             if railsOnScreen, results.facets.contains(.tuneType) {
@@ -102,7 +106,7 @@ struct CatalogFilterBar: View {
     /// A facet's rail: All, then each value, the chosen one filled. Pressing the chosen value
     /// clears the filter, as an optional field does.
     private func facetRail(
-        _ facet: CatalogFacet, all: String, chip: @escaping (String, Bool) -> some View
+        _ facet: CatalogFacet, all: String, @ViewBuilder chip: @escaping (String, Bool) -> some View
     ) -> some View {
         let set = filters[facet]
         return Rail(chosen: set ?? Self.allID, inset: Self.inset) {
@@ -120,6 +124,7 @@ struct CatalogFilterBar: View {
                     chip(value, chosen)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(facet.valueLabel(value))
                 .accessibilityAddTraits(chosen ? .isSelected : [])
                 .id(value)
             }
