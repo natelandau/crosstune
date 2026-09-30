@@ -25,8 +25,8 @@ URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
 
 1. Start Docker.
 2. Run `just dev-setup`. It installs the Python and JavaScript dependencies
-   and Chromium, installs the git hooks, creates `api/.env` and `web/.env`
-   from their examples, starts Postgres and RustFS, and creates the
+   and Chromium, installs the git hooks, creates `api/.env`, `web/.env`,
+   and `apple/.env` from their examples, starts Postgres and RustFS, and creates the
    `crosstune-local` and `crosstune-e2e` buckets.
 3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL.
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key.
@@ -196,10 +196,21 @@ git push --follow-tags origin main
   `v<version>`. `just bump --dry-run` shows the plan.
 - Bump on `main` only. A tag on a PR branch points at a commit the squash
   merge never lands, and the workflow refuses it.
-- The tag push runs the `API` and `Web` workflows on the tagged commit,
-  checks that it is on `main`, and force-pushes `production`. The bump
-  commit itself skips CI on `main`, so each release runs the checks once.
-  Every release rebuilds both services.
+- The tag push runs the `API`, `Web`, and `Apple` workflows on the tagged
+  commit, checks that it is on `main`, and force-pushes `production`. The
+  bump commit itself skips CI on `main`, so each release runs the checks
+  once. Every release rebuilds both services. A failing `Apple` check holds
+  the whole release.
+- After `production` moves, the **Upload to TestFlight** job waits for your
+  approval: open the run, click **Review deployments**, select
+  **app-store**, and approve. It uploads the iOS and macOS builds with build
+  number `<run number>.<attempt>`, and the internal testers get them once
+  Apple processes them. A job that waits blocks the next `Release` run, so
+  approve or cancel it.
+- A failed upload does not undo production. Re-run the failed job, which
+  raises the attempt. The same upload runs from a Mac with
+  `just apple::testflight <build number>` and the key in `apple/.env`. Use
+  a build number higher than every uploaded build.
 - Each version is its side's Sentry release tag.
 - A home-screen install keeps the icon it was installed with. A release that
   changes the icon says so.
@@ -241,7 +252,9 @@ Rollback:
 
 - One host: redeploy an earlier build from its dashboard.
 - Both hosts: Actions tab, `Release` workflow, **Run workflow**, choose the
-  older tag under **Use workflow from**.
+  older tag under **Use workflow from**. It also uploads that version to
+  TestFlight with a new build number, so testers get the build that matches
+  the API.
 - A rollback across a migration fails the pre-deploy command. Roll forward,
   or downgrade the schema first.
 - A client outage loses no edits. The outbox holds them.

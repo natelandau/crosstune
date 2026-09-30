@@ -4,10 +4,11 @@ name: Release
 # Railway and Workers Builds deploy production from the `production` branch,
 # and neither host can trigger on a tag. Pushing a version tag moves that
 # branch to the tagged commit, so a tag is the only thing that reaches
-# production. The branch moves only after the API and Web workflows pass on
-# that commit, which gates both hosts in one place. A manual run started
-# from a tag, under "Use workflow from", moves the branch to that tag, which
-# is how an older version is put back.
+# production. The branch moves only after the API, Web, and Apple workflows
+# pass on that commit, which gates every client in one place. The Apple
+# builds then go to TestFlight. A manual run started from a tag, under "Use
+# workflow from", moves the branch to that tag and uploads that version
+# again, which is how an older version is put back.
 on:
   push:
     tags: ["v*"]
@@ -28,9 +29,12 @@ jobs:
   web:
     name: Web
     uses: ./.github/workflows/web.yml
+  apple:
+    name: Apple
+    uses: ./.github/workflows/apple.yml
   promote:
     name: Move the production branch to the tag
-    needs: [api, web]
+    needs: [api, web, apple]
     runs-on: ubuntu-latest
     steps:
       - name: require a version tag
@@ -47,3 +51,66 @@ jobs:
       - name: require the tagged commit to be on main
         run: git merge-base --is-ancestor HEAD origin/main
       - run: git push --force origin "HEAD:refs/heads/production"
+
+  # Runs after promote, so the build reaches testers only once the tag is on
+  # main and production is deploying the API it calls. The environment admits
+  # `v*` tags only and waits for a maintainer's approval.
+  testflight:
+    name: Upload to TestFlight
+    needs: [promote]
+    runs-on: xcode-27
+    environment: app-store
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+      - uses: extractions/setup-just@v4
+      # The archive needs a development identity. Without one, Xcode creates a new
+      # development certificate on the account every run, and its key dies with the
+      # runner, so the account fills with dead certificates.
+      - name: import the development certificate
+        env:
+          APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
+          APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          printf '%s' "$APPLE_DEVELOPMENT_P12" | base64 --decode > "$RUNNER_TEMP/development.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/development.p12" -P "$APPLE_DEVELOPMENT_P12_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$keychain"
+          rm -f "$RUNNER_TEMP/development.p12"
+          # Lets codesign use the key without a password prompt.
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+      - name: write the App Store Connect key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+      # The run number only rises, and a re-run raises the attempt, so no two
+      # uploads share a build number.
+      - name: archive and upload
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+        run: just testflight "$BUILD_NUMBER"
+      - name: fail if Xcode created a development certificate
+        if: always()
+        run: |
+          if security find-identity -v -p codesigning | grep -q "Created via API"; then
+            echo "::error::Xcode created a development certificate; revoke it in the developer portal"
+            exit 1
+          fi
+      - name: delete the key and the keychain
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/development.p12"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true

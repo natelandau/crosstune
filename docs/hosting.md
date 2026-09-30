@@ -46,6 +46,8 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 | Cloudflare account ID                                      | Cloudflare     | GitHub, Railway                      |
 | R2 access key ID and secret access key, one pair per token | Cloudflare     | Railway, GitHub                      |
 | CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk | Cloudflare DNS                       |
+| App Store Connect API key, key ID, and issuer ID           | App Store Connect | GitHub, `apple/.env`              |
+| Apple Development certificate and its `.p12` password      | Apple Developer | GitHub                              |
 
 ## Neon
 
@@ -316,6 +318,18 @@ Actions secrets:
 | `STORAGE_READ_ACCESS_KEY_ID_DEVELOPMENT`     | `Preview` | The development bucket's read-only token's access key ID     |
 | `STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT` | `Preview` | The development bucket's read-only token's secret access key |
 
+Environment `app-store`, used only by the `Release` workflow's **Upload to
+TestFlight** job. Its deployment rule admits tags matching `v*` only, and
+the maintainer is a required reviewer with **Prevent self-review** off.
+
+| Secret                           | Value                                                          |
+| -------------------------------- | -------------------------------------------------------------- |
+| `ASC_API_KEY_P8`                 | The full text of the App Store Connect API key's `.p8` file    |
+| `ASC_API_KEY_ID`                 | That key's 10-character key ID                                 |
+| `ASC_API_KEY_ISSUER_ID`          | The team's issuer ID                                           |
+| `APPLE_DEVELOPMENT_P12`          | The Apple Development certificate and its key, as base64 `.p12` |
+| `APPLE_DEVELOPMENT_P12_PASSWORD` | The `.p12` password                                            |
+
 - Squash merges only, with the PR title and body as the commit message.
   Head branches are deleted after merge.
 - A ruleset named `main` requires a pull request, the five workflow jobs as
@@ -327,3 +341,26 @@ Actions secrets:
 > the `pull_request` trigger in both workflows. A required check that never
 > starts blocks the merge. `Apple` stays out of the ruleset, so its filter
 > stays.
+
+## App Store Connect
+
+- One app record, `Crosstune`, bundle ID `app.crosstune.Crosstune`, SKU
+  `crosstune`, platforms iOS and macOS. The SKU and bundle ID are
+  permanent.
+- TestFlight internal group `Friends`, with automatic distribution on, so
+  every processed build reaches it. Internal testers are App Store Connect
+  users with the Marketing role and access to Crosstune only.
+- One Team Key, under **Users and Access** > **Integrations** > **App Store
+  Connect API**, with the Admin role. Cloud signing needs Admin, and a key's
+  role cannot change, so a new role means a new key.
+- Certificates, in the developer portal:
+  - The maintainer's **Development** certificate signs the archive, from a
+    Mac and from `APPLE_DEVELOPMENT_P12` in CI. It expires on 2027-06-05.
+    Renew it in Xcode (**Settings** > **Accounts** > **Manage
+    Certificates**) and export it again to the secret.
+  - **Distribution Managed** and **Mac Installer Distribution Managed** are
+    Apple's cloud signing certificates for uploads. Apple holds their keys.
+    Leave them.
+  - A **Development** certificate named **Created via API** means an
+    archive ran without the development identity. Nothing can use it.
+    Revoke it.

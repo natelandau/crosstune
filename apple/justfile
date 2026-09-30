@@ -2,6 +2,7 @@
 # from this directory: `just apple::test` from anywhere in the repository. Needs Xcode.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+set dotenv-load
 
 # Build products stay inside the module, so a clean checkout holds everything the build made.
 derived_data := ".build/DerivedData"
@@ -47,6 +48,31 @@ build:
             -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO; \
     done
 
+# Reads ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the environment or apple/.env: an
+# App Store Connect API key with the Admin role, which cloud signing needs.
+
+# Archive the Release build for iOS and macOS and upload both to App Store Connect
+[group('release')]
+testflight build_number:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
+    # A .env file does not expand `~`.
+    ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
+    auth=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH"
+        -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+    for platform in iOS macOS; do
+        archive=".build/archives/$platform.xcarchive"
+        rm -rf "$archive" ".build/export/$platform"
+        xcodebuild archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
+            -configuration Release -destination "generic/platform=$platform" \
+            -derivedDataPath {{ derived_data }} -archivePath "$archive" \
+            CURRENT_PROJECT_VERSION='{{ build_number }}' "${auth[@]}"
+        xcodebuild -exportArchive -archivePath "$archive" \
+            -exportOptionsPlist Config/ExportOptions.plist \
+            -exportPath ".build/export/$platform" "${auth[@]}"
+    done
+
 # Regenerate the Swift client and vocabulary from the committed OpenAPI contract
 [group('contract')]
 contract:
@@ -64,6 +90,11 @@ contract:
 update:
     swift package update --package-path CrosstuneKit
     swift package update --package-path Tools
+
+# Create .env from the example if absent
+[group('maintenance')]
+setup:
+    test -e .env || cp .env.example .env
 
 # Remove build artifacts and caches
 [group('maintenance')]

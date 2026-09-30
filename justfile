@@ -74,7 +74,7 @@ smoke api_origin web_origin:
     scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}'
 
 # Install dependencies, git hooks, and start local services
-dev-setup: api::setup web::setup
+dev-setup: api::setup web::setup apple::setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
