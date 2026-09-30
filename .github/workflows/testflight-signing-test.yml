@@ -1,0 +1,43 @@
+---
+name: TestFlight signing test
+
+# Temporary. Proves that a clean runner can archive, sign, and upload with the
+# App Store Connect key alone. Delete this file before the branch merges.
+on:
+  push:
+    branches: [ci/testflight-upload]
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: Upload build 3 to TestFlight
+    runs-on: xcode-27
+    environment: app-store
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+      - uses: extractions/setup-just@v4
+      - run: xcodebuild -version
+      - name: list the signing identities on the runner
+        run: security find-identity -v -p codesigning || true
+      - name: write the key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+      - name: archive and upload
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+        run: just testflight 3
+      - name: list the signing identities after the run
+        if: always()
+        run: security find-identity -v -p codesigning || true
+      - name: delete the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
