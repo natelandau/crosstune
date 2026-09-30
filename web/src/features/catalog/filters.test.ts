@@ -10,6 +10,7 @@ import {
   filterCatalog,
   hiddenResets,
   hideArchived,
+  NO_KEY,
   normalizeFilters,
   sheetFacets,
   tuneCountLabel,
@@ -276,5 +277,36 @@ describe('tuning facets', () => {
 
   it('labels a tuning facet by its instrument', () => {
     expect(FACET_LABELS['tuning:tenor_banjo']).toBe('Tenor banjo tuning')
+  })
+})
+
+describe('tunes with no key', () => {
+  const entries = catalogEntries(
+    [
+      tune('n1', 'Keyed', { key: 'D' }),
+      tune('n2', 'Null key'),
+      tune('n3', 'Blank key', { key: '  ' }),
+    ],
+    [userTune('nu1', 'n1'), userTune('nu2', 'n2'), userTune('nu3', 'n3')],
+  )
+
+  it('finds every tune with no key', () => {
+    const found = filterCatalog(entries, { ...DEFAULT_FILTERS, key: NO_KEY })
+    expect(found.map((e) => e.tune.id)).toEqual(['n3', 'n2'])
+  })
+
+  it('offers no key first, beside the keys the catalog holds', () => {
+    expect(facetValues(entries).key).toEqual([NO_KEY, 'D'])
+  })
+
+  it('offers no key only when some tune has a key, since it would narrow nothing', () => {
+    const keyless = catalogEntries([tune('n2', 'Null key')], [userTune('nu2', 'n2')])
+    expect(facetValues(keyless).key).toEqual([])
+    const keyed = catalogEntries([tune('n1', 'Keyed', { key: 'D' })], [userTune('nu1', 'n1')])
+    expect(facetValues(keyed).key).toEqual(['D'])
+  })
+
+  it('keeps no key as a stored filter', () => {
+    expect(normalizeFilters({ key: NO_KEY }).key).toBe(NO_KEY)
   })
 })

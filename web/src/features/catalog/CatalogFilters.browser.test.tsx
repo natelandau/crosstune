@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { withInstrumentLabel } from '../settings/instruments'
+import { UNKNOWN_KEY } from '../tune/KeyChooser'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
@@ -10,6 +11,7 @@ import {
   DEFAULT_FILTERS,
   FACET_LABELS,
   facetValues,
+  NO_KEY,
   type CatalogFilters as Filters,
   type Facet,
   type FacetValues,
@@ -239,6 +241,32 @@ describe('CatalogFilters', () => {
     await mandolin.click()
     await expect.poll(() => state()['tuning:mandolin']).toBe('all')
     expect(state()['tuning:violin']).toBe(standard)
+  })
+
+  it('offers tunes with no key as a question mark after All keys', async () => {
+    renderIonic(<Host keys={[NO_KEY, 'A', 'D']} />, { db: openTestDb() })
+    const unknown = page.getByRole('button', { name: UNKNOWN_KEY, exact: true })
+    await expect.element(unknown).toHaveTextContent('?')
+    const names = [...document.querySelectorAll('[aria-label="Key"] button')].map(
+      (button) => button.getAttribute('aria-label') ?? button.textContent,
+    )
+    expect(names.slice(0, 3)).toEqual([ALL_KEYS_LABEL, UNKNOWN_KEY, 'A'])
+    await unknown.click()
+    await expect.poll(() => state().key).toBe(NO_KEY)
+    await expect.element(unknown).toHaveAttribute('aria-pressed', 'true')
+    await unknown.click()
+    await expect.poll(() => state().key).toBe('all')
+  })
+
+  it('keeps a set no-key filter first when every tune has a key again', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, key: NO_KEY }} />, { db: openTestDb() })
+    await expect
+      .element(page.getByRole('button', { name: UNKNOWN_KEY, exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+    const names = [...document.querySelectorAll('[aria-label="Key"] button')].map(
+      (button) => button.getAttribute('aria-label') ?? button.textContent,
+    )
+    expect(names.slice(0, 2)).toEqual([ALL_KEYS_LABEL, UNKNOWN_KEY])
   })
 
   it('keeps a set key the catalog no longer holds as its own pressed chip', async () => {

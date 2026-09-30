@@ -21,6 +21,9 @@ public struct CatalogEntry: Hashable, Sendable, Identifiable {
 public struct CatalogFilters: Hashable, Sendable {
     /// The stored value of a filter that narrows nothing.
     nonisolated public static let any = "all"
+    /// The stored key filter for tunes with no key. It must never be a key a tune can hold, the
+    /// way `all` is not.
+    nonisolated public static let noKey = "none"
     public static let `default` = CatalogFilters()
 
     /// Nil shows every status.
@@ -148,8 +151,12 @@ public enum CatalogSearch {
         return hidingArchived(entries, shown: filters.archived).filter { entry in
             if let status = filters.status, entry.userTune.status != status { return false }
             for (facet, value) in filters.facets {
-                guard facet.values(of: entry.tune).contains(where: { $0.map { same(value, $0) } ?? false })
-                else { return false }
+                let values = facet.values(of: entry.tune)
+                if facet == .key, value == CatalogFilters.noKey {
+                    guard !values.contains(where: isHeld) else { return false }
+                } else {
+                    guard values.contains(where: { $0.map { same(value, $0) } ?? false }) else { return false }
+                }
             }
             guard !needle.isEmpty else { return true }
             let haystack = [entry.tune.title] + entry.tune.alternateTitles + [entry.tune.composer ?? ""]
@@ -157,19 +164,29 @@ public enum CatalogSearch {
         }
     }
 
+    /// Whether a facet value holds anything besides whitespace.
+    static func isHeld(_ value: String?) -> Bool {
+        !(value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// Each facet's distinct values across every entry, archived included, sorted. Spellings
-    /// that differ only by case or accents fold into one option, as matching folds them.
+    /// that differ only by case or accents fold into one option, as matching folds them. The key
+    /// leads with ``CatalogFilters/noKey`` while some tunes have a key and some do not; with no
+    /// keys at all it would narrow nothing.
     public static func facetValues(_ entries: [CatalogEntry]) -> [CatalogFacet: [String]] {
         var values: [CatalogFacet: [String]] = [:]
         for facet in CatalogFacet.all {
             var seen: [String] = []
             for entry in entries {
                 for case let value? in facet.values(of: entry.tune)
-                where !value.isEmpty && !seen.contains(where: { same($0, value) }) {
+                where isHeld(value) && !seen.contains(where: { same($0, value) }) {
                     seen.append(value)
                 }
             }
             values[facet] = seen.sorted(by: precedes)
+        }
+        if let keys = values[.key], !keys.isEmpty, entries.contains(where: { !isHeld($0.tune.key) }) {
+            values[.key] = [CatalogFilters.noKey] + keys
         }
         return values
     }
@@ -184,10 +201,10 @@ public enum CatalogSearch {
     }
 
     /// A facet's choices: the values the catalog holds, plus a set value it no longer holds, so a
-    /// stale filter never reads as Any.
+    /// stale filter never reads as Any. No key keeps its place at the front.
     public static func choices(_ values: [String], set: String?) -> [String] {
         guard let set, !values.contains(set) else { return values }
-        return values + [set]
+        return set == CatalogFilters.noKey ? [set] + values : values + [set]
     }
 
     /// "84 tunes", or "11 of 84 tunes" while narrowed: the one wording for a catalog count.

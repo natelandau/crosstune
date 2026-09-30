@@ -177,6 +177,32 @@ private func ids(_ entries: [CatalogEntry]) -> [String] { entries.map(\.tune.id)
         #expect(!removed.archived)
     }
 
+    @Test func findsTunesWithNoKey() {
+        let entries = CatalogSearch.entries(
+            tunes: [tune("n1", "Keyed", key: "D"), tune("n2", "Nil key"), tune("n3", "Blank key", key: "  ")],
+            userTunes: [userTune("nu1", "n1"), userTune("nu2", "n2"), userTune("nu3", "n3")])
+        let filters = CatalogFilters(facets: [.key: CatalogFilters.noKey])
+        #expect(ids(CatalogSearch.filter(entries, by: filters)) == ["n3", "n2"])
+        // No key leads the key choices, and a blank key is never a choice of its own.
+        #expect(CatalogSearch.facetValues(entries)[.key] == [CatalogFilters.noKey, "D"])
+    }
+
+    @Test func offersNoKeyOnlyBesideAKeyItWouldNarrow() {
+        let keyless = CatalogSearch.entries(tunes: [tune("n2", "Nil key")], userTunes: [userTune("nu2", "n2")])
+        #expect(CatalogSearch.facetValues(keyless)[.key] == [])
+        let keyed = CatalogSearch.entries(tunes: [tune("n1", "Keyed", key: "D")], userTunes: [userTune("nu1", "n1")])
+        #expect(CatalogSearch.facetValues(keyed)[.key] == ["D"])
+    }
+
+    @Test func keepsAStaleNoKeyFilterFirstAndNamesItInWords() {
+        #expect(CatalogSearch.choices(["A", "D"], set: CatalogFilters.noKey) == [CatalogFilters.noKey, "A", "D"])
+        #expect(CatalogFacet.key.valueLabel(CatalogFilters.noKey) == KeyChooser.unknownKey)
+        #expect(CatalogFacet.key.valueLabel("D") == "D")
+        let filters = CatalogFilters(facets: [.key: CatalogFilters.noKey])
+        #expect(CatalogFilterBar.setFilters(filters, railsOnScreen: false).map(\.label) == [KeyChooser.unknownKey])
+        #expect(CatalogFilters(stored: filters.stored) == filters)
+    }
+
     @Test func labelsFacetsAsTheWebDoes() {
         #expect(CatalogFacet.all.map(\.label).prefix(3) == ["Key", "Type", "Mode"])
         #expect(CatalogFacet.tuning("tenor_banjo").label == "Tenor banjo tuning")

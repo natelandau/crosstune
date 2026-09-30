@@ -37,7 +37,7 @@ struct CatalogFilterSheet: View {
                     Picker(facet.label, selection: selection(facet, results.filters)) {
                         Text(Self.any).tag(String?.none)
                         ForEach(results.choices(facet), id: \.self) { value in
-                            Text(value).tag(String?.some(value))
+                            Text(facet.valueLabel(value)).tag(String?.some(value))
                         }
                     }
                 }
