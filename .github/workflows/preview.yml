@@ -321,6 +321,25 @@ jobs:
             --namespace-id "$CLOUDFLARE_KV_NAMESPACE_ID" --remote \
             || echo "::warning::could not delete KV entry $SLUG; it may still exist"
 
+      # Railway's GitHub app records each deploy under a repository environment named
+      # "<project> / <environment>". Deleting one needs Administration write, which
+      # GITHUB_TOKEN cannot be granted.
+      - name: delete the GitHub environment
+        env:
+          GH_TOKEN: ${{ secrets.ENVIRONMENTS_ADMIN_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          name="$(jq -rn --arg n "crosstune / $PR_NAME" '$n | @uri')"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPOSITORY/environments/$name" || true)"
+          case "$status" in
+            204) echo "deleted GitHub environment crosstune / $PR_NAME" ;;
+            404) echo "no GitHub environment named crosstune / $PR_NAME" ;;
+            *) echo "::warning::could not delete GitHub environment crosstune / $PR_NAME (HTTP $status); it may still exist" ;;
+          esac
+
       - name: fail if the recordings were not deleted
         if: steps.storage-delete.outcome == 'failure'
         run: |
