@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { HOME_TITLE } from '../src/components/seo'
 import { JSDOM } from 'jsdom'
 import { readDist, readPage } from './dist'
+import { runInNewContext } from 'node:vm'
 import { APP_URL, SIGN_IN } from '../src/components/actions'
+import { JOINED_KEY, THANKS_PATH } from '../src/scripts/waitlist'
 
 describe('home page shell', () => {
   const doc = readPage('/')
@@ -45,6 +47,46 @@ describe('404 page', () => {
     const hrefs = [...doc.querySelectorAll('main a')].map((a) => a.getAttribute('href'))
     expect(hrefs).toContain(APP_URL)
     expect(hrefs).toContain('/')
+  })
+})
+
+describe('waitlist thanks page', () => {
+  const doc = readPage(THANKS_PATH)
+
+  // Runs the page's inline gate against a stand-in session store.
+  function gate(stored: string | null) {
+    const script = [...doc.head.querySelectorAll('script:not([src])')].find((s) =>
+      s.textContent?.includes('sessionStorage'),
+    )!
+    const store = new Map(stored === null ? [] : [[JOINED_KEY, stored]])
+    const sessionStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      removeItem: (k: string) => store.delete(k),
+    }
+    const location = { replace: vi.fn() }
+    runInNewContext(script.textContent!, { sessionStorage, location })
+    return { store, location }
+  }
+
+  it('stays out of search results and the sitemap', () => {
+    expect(doc.querySelector('meta[name=robots]')?.getAttribute('content')).toBe('noindex')
+    expect(readDist('/sitemap-0.xml')).not.toContain(THANKS_PATH)
+  })
+
+  it('links to the app and home', () => {
+    const hrefs = [...doc.querySelectorAll('main a')].map((a) => a.getAttribute('href'))
+    expect(hrefs).toContain(APP_URL)
+    expect(hrefs).toContain('/')
+  })
+
+  it('shows once after a join and clears the flag', () => {
+    const { store, location } = gate('1')
+    expect(location.replace).not.toHaveBeenCalled()
+    expect(store.has(JOINED_KEY)).toBe(false)
+  })
+
+  it('sends a visitor who did not just join to the home page', () => {
+    expect(gate(null).location.replace).toHaveBeenCalledWith('/')
   })
 })
 

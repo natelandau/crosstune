@@ -54,7 +54,7 @@ if [ -n "$site" ]; then
   name="site serves the home page"
   if curl -sS "$site/" | grep -q 'The tune list in your case'; then pass "$name"; else fail "$name"; fi
 
-  for page in privacy terms support; do
+  for page in privacy terms support waitlist/thanks; do
     name="site serves /$page"
     if [ "$(status_of "$site/$page")" = 200 ]; then pass "$name"; else fail "$name"; fi
   done

@@ -2,6 +2,9 @@ export const JOINED = "You're on the list. We'll email you when your account is 
 export const UNREACHABLE =
   "The waitlist can't be reached right now. Try again, or email support@crosstune.app."
 export const PENDING = 'Joining…'
+export const THANKS_PATH = '/waitlist/thanks'
+// Set on join and cleared by the thanks page, so the page shows once per join.
+export const JOINED_KEY = 'crosstune:waitlist-joined'
 
 export interface WaitlistClient {
   join(params: { emailAddress: string }): Promise<unknown>
@@ -16,7 +19,21 @@ function messageFor(error: unknown): string {
   return first?.longMessage ?? first?.message ?? UNREACHABLE
 }
 
-export function mountWaitlist(form: HTMLFormElement, load: () => Promise<WaitlistClient>): void {
+// Storage can be blocked; without the flag the thanks page would bounce the visitor home.
+function rememberJoin(): boolean {
+  try {
+    sessionStorage.setItem(JOINED_KEY, '1')
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function mountWaitlist(
+  form: HTMLFormElement,
+  load: () => Promise<WaitlistClient>,
+  navigate: (path: string) => void = (path) => location.assign(path),
+): void {
   const input = form.querySelector<HTMLInputElement>('input[type="email"]')!
   const button = form.querySelector<HTMLButtonElement>('button[type="submit"]')!
   const status = form.querySelector<HTMLElement>('[data-waitlist-status]')!
@@ -68,11 +85,13 @@ export function mountWaitlist(form: HTMLFormElement, load: () => Promise<Waitlis
     try {
       const waitlist = await ensureClient()
       await waitlist.join({ emailAddress: input.value.trim() })
-      // The status element itself becomes the confirmation so it keeps its scoped styles.
+      // The status element itself becomes the confirmation so it keeps its scoped styles. It stays
+      // for the visitor who comes back from the thanks page or whose storage is blocked.
       status.textContent = JOINED
       status.tabIndex = -1
       form.replaceWith(status)
       status.focus()
+      if (rememberJoin()) navigate(THANKS_PATH)
     } catch (error) {
       showError(messageFor(error))
       button.disabled = false
