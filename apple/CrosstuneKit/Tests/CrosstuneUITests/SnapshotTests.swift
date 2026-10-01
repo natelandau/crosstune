@@ -47,6 +47,25 @@ import Testing
         snapshot("tune-rows") { tuneRows(instruments: SampleCatalog.instruments) }
     }
 
+    @Test(arguments: [DynamicTypeSize.small, .large, .xxLarge, .accessibility2])
+    func tuneRowsAtEachSize(size: DynamicTypeSize) {
+        snapshot("tune-rows-sized", size: size) { tuneRows(instruments: SampleCatalog.instruments) }
+    }
+
+    @Test(arguments: [DynamicTypeSize.small, .large, .xxLarge, .accessibility2])
+    func railsAtEachSize(size: DynamicTypeSize) {
+        snapshot("rails", size: size) {
+            VStack(alignment: .leading, spacing: 0) {
+                StatusRail(filter: .constant("learning"))
+                Rail(chosen: "D") {
+                    ForEach(keys, id: \.self) { KeyPill($0, chosen: $0 == "D").id($0) }
+                }
+                Divider()
+                tuneRows(instruments: SampleCatalog.instruments)
+            }
+        }
+    }
+
     @Test func listRows() {
         snapshot("list-rows") {
             rows(Array(SampleCatalog.entries.prefix(5).enumerated()), id: \.element.tune.id) { index, entry in
@@ -105,9 +124,23 @@ import Testing
     private func rows<Item, ID: Hashable>(
         _ items: [Item], id: KeyPath<Item, ID>, @ViewBuilder row: @escaping (Item) -> some View
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        RowStack(items: items, id: id, row: row)
+    }
+}
+
+/// Each row inset as ``View/scaledRowInsets()`` insets it in a list, then a separator.
+private struct RowStack<Item, ID: Hashable, Row: View>: View {
+    let items: [Item]
+    let id: KeyPath<Item, ID>
+    let row: (Item) -> Row
+
+    @Environment(\.spacing) private var spacing
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
             ForEach(items, id: id) { item in
                 row(item)
+                    .padding(.vertical, spacing.rowInset)
                 Divider()
             }
         }

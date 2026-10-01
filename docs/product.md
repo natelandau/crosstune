@@ -62,7 +62,8 @@ for Android and every browser. The parts that matter:
 - Instruments. The musician records which instruments they play, from
   those with a per-tune tuning. Tuning fields and filters appear only for
   those.
-- Appearance. Light, dark, or system, and three text sizes. Per device.
+- Appearance. Light, dark, or system, and a text size: three sizes on the
+  web, the device's size shifted up or down on Apple. Per device.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
 

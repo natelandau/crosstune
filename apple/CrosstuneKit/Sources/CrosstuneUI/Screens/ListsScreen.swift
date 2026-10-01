@@ -24,6 +24,7 @@ public struct ListsScreen: View {
                 NavigationLink(value: ListRoute(id: summary.id)) {
                     ListRow(summary)
                 }
+                .scaledRowInsets()
                 .listRowActions(
                     onEdit: { listSheets?.name(.rename(listID: summary.id, name: summary.name)) },
                     onDelete: { deleting = summary })

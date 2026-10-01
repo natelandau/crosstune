@@ -91,6 +91,13 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 }
 
+@Suite struct TextSizeStepperTests {
+    @Test func theStepperBindingClampsIntoTheRange() {
+        #expect(SettingsScreen.stepperValue(offset: -9, system: .small) == -1)
+        #expect(SettingsScreen.stepperValue(offset: 2, system: .large) == 2)
+    }
+}
+
 @Suite struct SettingsTextTests {
     @Test func namesInstrumentsInVocabularyOrderOrNotSet() {
         #expect(SettingsModel.summary(["violin", "five_string_banjo"]) == "Violin, 5-string banjo")

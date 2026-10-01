@@ -24,7 +24,7 @@ struct CrosstuneApp: App {
     var body: some Scene {
         WindowGroup(id: AppCommands.mainWindow) {
             content
-                .followsAppearanceSetting()
+                .followsDisplaySettings()
         }
         .commands {
             AppCommands()
@@ -44,7 +44,7 @@ struct CrosstuneApp: App {
                 .environment(\.store, session.store)
                 .environment(session.syncEngine)
                 .environment(session)
-                .followsAppearanceSetting()
+                .followsDisplaySettings()
             }
         #endif
     }

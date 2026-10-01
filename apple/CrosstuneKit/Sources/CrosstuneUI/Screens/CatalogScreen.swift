@@ -37,6 +37,7 @@ private struct CatalogContent: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.openSheets) private var openSheets
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.spacing) private var spacing
     @State private var pushed: String?
     @State private var form: TuneFormTarget?
     @State private var showsFilters = false
@@ -58,7 +59,7 @@ private struct CatalogContent: View {
                         onSubmit: submitSearch
                     ) { showsFilters = true }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, spacing.stackGap)
                 }
             #else
                 .modifier(SystemSearch(query: $model.query, isFocused: $searchFocused, onSubmit: submitSearch))
@@ -138,14 +139,14 @@ private struct CatalogContent: View {
                     onChange: model.updateFilters
                 )
                 .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden, edges: .top)
+                .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .selectionDisabled()
             }
             if let results, results.visible.isEmpty {
                 emptyState(results)
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 48)
+                    .padding(.top, spacing(48))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .selectionDisabled()
@@ -193,6 +194,7 @@ private struct CatalogContent: View {
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
         }
+        .scaledRowInsets()
         .catalogRowActions(
             entry, instruments: instruments, isSelecting: selection.isActive,
             onEdit: { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) },

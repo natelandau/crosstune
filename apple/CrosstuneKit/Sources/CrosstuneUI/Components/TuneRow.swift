@@ -10,6 +10,7 @@ public struct TuneRow: View {
 
     @ScaledMetric(relativeTo: .subheadline) private var positionWidth: CGFloat = 24
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.spacing) private var spacing
 
     /// `instruments` are the ones the musician plays, whose tunings the row names.
     public init(tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil) {
@@ -18,7 +19,7 @@ public struct TuneRow: View {
     }
 
     public var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: spacing(12)) {
             if let position {
                 Text(position, format: .number)
                     .font(.subheadline)
@@ -26,14 +27,13 @@ public struct TuneRow: View {
                     .foregroundStyle(.secondary)
                     .frame(minWidth: positionWidth, alignment: .trailing)
             }
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(text.title)
                     .font(.headline)
                     .rowLineLimit()
                 details
             }
         }
-        .padding(.vertical, 4)
         .opacity(text.isArchived ? 0.6 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(text.accessibilityLabel(position: position))
@@ -43,7 +43,8 @@ public struct TuneRow: View {
         // The accessibility text sizes wrap the line, so the status and tunings still show.
         let layout =
             dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(FlowLayout(spacing: 12, lineSpacing: 4)) : AnyLayout(HStackLayout(spacing: 12))
+            ? AnyLayout(FlowLayout(spacing: spacing(12), lineSpacing: spacing.rowLineGap))
+            : AnyLayout(HStackLayout(spacing: spacing(12)))
         return layout {
             if let key = text.key {
                 KeyPill(key.key, suffix: key.suffix, size: .compact)

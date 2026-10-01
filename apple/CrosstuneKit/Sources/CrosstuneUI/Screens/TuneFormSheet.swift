@@ -116,12 +116,12 @@ private struct TuneFormContent: View {
             titleSection
             Section(TuneFieldLabels.status) {
                 StatusRail(status: $model.values.status)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .chipRowInsets()
                     .listRowBackground(Color.clear)
             }
             Section(TuneFieldLabels.key) {
                 KeyChooser(key: $model.values.key)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .chipRowInsets()
                     .listRowBackground(Color.clear)
             }
             if !model.tuningInstruments.isEmpty {

@@ -11,6 +11,8 @@ public struct Rail<ID: Hashable, Content: View>: View {
     private let content: Content
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.spacing) private var spacing
+    @ScaledMetric(relativeTo: .subheadline) private var chipHeight = defaultChipHeight
     /// Whether chips lie past the leading and the trailing edge.
     @State private var more = Overflow()
 
@@ -43,6 +45,9 @@ public struct Rail<ID: Hashable, Content: View>: View {
                     chips
                 }
                 .contentMargins(.horizontal, inset, for: .scrollContent)
+                // A scroll view takes no touches past its bounds, so it grows to the chips' tap
+                // targets and gives the extra back to the layout.
+                .contentMargins(.vertical, tapOutset(visibleHeight: chipHeight), for: .scrollContent)
                 .scrollIndicators(.hidden)
                 .onScrollGeometryChange(for: Overflow.self) { geometry in
                     // At rest the offset is minus the leading margin; at the far end the trailing
@@ -56,6 +61,7 @@ public struct Rail<ID: Hashable, Content: View>: View {
                     more = overflow
                 }
                 .mask { fadeMask }
+                .padding(.vertical, -tapOutset(visibleHeight: chipHeight))
                 .onAppear { proxy.scrollTo(chosen, anchor: .center) }
                 .onChange(of: chosen) { _, chosen in
                     withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(chosen, anchor: .center) }
@@ -65,7 +71,7 @@ public struct Rail<ID: Hashable, Content: View>: View {
     }
 
     private var chips: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: spacing.railGap) {
             content
         }
         .fixedSize()

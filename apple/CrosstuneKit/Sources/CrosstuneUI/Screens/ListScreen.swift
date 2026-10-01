@@ -57,6 +57,7 @@ public struct ListScreen: View {
 }
 
 private struct ListContent: View {
+    @Environment(\.spacing) private var spacing
     let model: ListModel
 
     @Environment(\.dismiss) private var dismiss
@@ -70,7 +71,7 @@ private struct ListContent: View {
             ContentUnavailableView(ListScreen.gone, systemImage: Destination.lists.systemImage)
                 .navigationTitle(ListScreen.fallbackTitle)
         case .deleting(let name):
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -79,6 +80,7 @@ private struct ListContent: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // The inset grouped list's content margin, fixed so the text lines up with it.
             .padding(20)
             .navigationTitle(name)
         case .shown(let contents):
@@ -112,6 +114,7 @@ private struct ListTunes: View {
     @State private var confirmsDelete = false
     @State private var selection = TuneSelection()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.spacing) private var spacing
     @AccessibilityFocusState private var focusedRow: String?
     @Namespace private var zoom
 
@@ -129,7 +132,7 @@ private struct ListTunes: View {
                     FailureLine(failure)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, spacing.stackGap)
                 }
             }
             .toolbar {
@@ -186,6 +189,7 @@ private struct ListTunes: View {
             List(selection: chosen) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
                     row(entry, position: index + 1, reorderable: rows.count > 1 && !selection.isActive)
+                        .scaledRowInsets()
                 }
                 .onMove(perform: reorder)
             }
@@ -230,7 +234,7 @@ private struct ListTunes: View {
             tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position)
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
-        return HStack(spacing: 4) {
+        return HStack(spacing: spacing(4)) {
             if detailTune != nil || selection.isActive {
                 // The list's selection drives the detail column, or is the selection.
                 tuneRow
@@ -288,8 +292,8 @@ private struct ListTunes: View {
             Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
                 .labelStyle(.iconOnly)
                 .foregroundStyle(isChosen ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.rect)
+                .frame(minWidth: minimumTapTarget)
+                .tapTarget()
         }
         .menuIndicator(.hidden)
         .buttonStyle(.borderless)

@@ -17,7 +17,7 @@ struct KeyChooser: View {
     var isMixed = false
 
     @Environment(\.colorScheme) private var colorScheme
-    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 32
+    @Environment(\.spacing) private var spacing
 
     /// The pills on the grid: the quick keys, then a chosen key they lack.
     nonisolated static func shown(chosen: String) -> [String] {
@@ -37,7 +37,9 @@ struct KeyChooser: View {
 
     var body: some View {
         let chosen = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        FlowLayout(spacing: 6, lineSpacing: 2) {
+        // At the default size and above, 12 between lines keeps neighboring chips' 44 point
+        // targets apart. Smaller sizes let them overlap a little rather than spread the keys out.
+        FlowLayout(spacing: spacing(6), lineSpacing: spacing(12)) {
             // A question mark is the shorthand a musician already writes on a tune list. It reads
             // as nothing aloud, so the choice is named in words.
             ChoiceCapsule(chosen: chosen.isEmpty && !isMixed) {
@@ -64,11 +66,10 @@ struct KeyChooser: View {
                 Text(Self.moreKeys)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: height)
+                    .padding(.horizontal, spacing(14))
+                    .padding(.vertical, spacing.chipVertical)
                     .background(neutralFill(colorScheme), in: .capsule)
-                    .frame(minHeight: 44)
-                    .contentShape(.rect)
+                    .tapTarget()
             }
             .menuStyle(.button)
             .buttonStyle(.plain)

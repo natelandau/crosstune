@@ -36,6 +36,7 @@ private struct SelectionMode: ViewModifier {
     @Environment(\.undoManager) private var undoManager
     /// Set in the split view, whose columns report a compact width even on a wide iPad.
     @Environment(\.detailTune) private var detailTune
+    @Environment(\.spacing) private var spacing
     @State private var bulk: BulkActions?
     @State private var editing: [CatalogEntry]?
     @State private var deleting: BulkDeleteQuestion?
@@ -61,7 +62,7 @@ private struct SelectionMode: ViewModifier {
                         .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, spacing.stackGap)
                 }
             }
             .sensoryFeedback(.selection, trigger: selection.isActive) { was, now in !was && now }

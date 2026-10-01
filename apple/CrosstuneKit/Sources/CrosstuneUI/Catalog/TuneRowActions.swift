@@ -64,9 +64,11 @@ struct TunePreview: View {
     let entry: CatalogEntry
     let instruments: Set<String>
 
+    @Environment(\.spacing) private var spacing
+
     var body: some View {
         let text = TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: spacing(12)) {
             Text(entry.tune.title)
                 .font(.title3.weight(.semibold))
             FlowLayout {

@@ -58,6 +58,7 @@ private struct TuneContent: View {
     let model: TuneModel
 
     @Environment(\.detailTune) private var detailTune
+    @Environment(\.spacing) private var spacing
     @Environment(\.dismiss) private var dismiss
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @State private var form: TuneFormTarget?
@@ -71,7 +72,7 @@ private struct TuneContent: View {
             ContentUnavailableView(TuneScreen.gone, systemImage: "music.note")
                 .navigationTitle(TuneScreen.fallbackTitle)
         case .deleting(let title):
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: spacing.stackGap) {
                 Text(DeleteTuneMessage.deleting)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -80,6 +81,7 @@ private struct TuneContent: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // The inset grouped list's content margin, fixed so the text lines up with it.
             .padding(20)
             .navigationTitle(title)
         case .shown(let detail):
@@ -162,12 +164,15 @@ private struct TuneBody: View {
     @Environment(\.commands) private var commands
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var deleting: RecordingView?
+    @Environment(\.spacing) private var spacing
 
     var body: some View {
         List {
             Section {
                 TuneHeader(model: model, detail: detail)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+                    .listRowInsets(
+                        EdgeInsets(top: spacing.rowInset, leading: 4, bottom: spacing.rowInset, trailing: 4)
+                    )
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
@@ -183,7 +188,7 @@ private struct TuneBody: View {
             TuneListsSection(model: model, detail: detail)
             if detail.notes != nil || detail.learned() != nil {
                 Section {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: spacing(6)) {
                         if let learned = detail.learned() {
                             Text(learned)
                                 .font(.footnote)
@@ -195,7 +200,7 @@ private struct TuneBody: View {
                                 .textSelection(.enabled)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, spacing(4))
                 } header: {
                     SectionTitle(TuneScreen.notesHeader)
                 }
@@ -236,10 +241,12 @@ private struct TuneHeader: View {
     let model: TuneModel
     let detail: TuneDetail
 
+    @Environment(\.spacing) private var spacing
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: spacing(12)) {
             if detail.alternateTitles != nil || detail.tune.composer != nil {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                     // Another name for the tune sits with the title rather than among the facets.
                     if let alternateTitles = detail.alternateTitles {
                         Text(alternateTitles)
@@ -277,7 +284,7 @@ private struct FacetView: View {
     let facet: TuneFacet
 
     @Environment(\.colorScheme) private var colorScheme
-    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 32
+    @Environment(\.spacing) private var spacing
 
     var body: some View {
         switch facet {
@@ -298,8 +305,8 @@ private struct FacetView: View {
             .font(.subheadline)
             .foregroundStyle(ink)
             .rowLineLimit()
-            .padding(.horizontal, 12)
-            .frame(minHeight: height)
+            .padding(.horizontal, spacing(12))
+            .padding(.vertical, spacing.chipVertical)
             .background(fill, in: .capsule)
     }
 }
@@ -330,9 +337,11 @@ private struct TuneMediaSection: View {
             }
             ForEach(detail.recordings) { recording in
                 recordingRow(recording)
+                    .scaledRowInsets()
             }
             ForEach(detail.links) { link in
                 linkRow(link)
+                    .scaledRowInsets()
             }
         } header: {
             SectionTitle(TuneScreen.recordingsHeader) {

@@ -35,8 +35,10 @@ public struct UndoBanner: View {
         self.onUndo = onUndo
     }
 
+    @Environment(\.spacing) private var spacing
+
     public var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: spacing(12)) {
             Text(message)
                 .font(.subheadline)
                 .lineLimit(2)
@@ -52,7 +54,7 @@ public struct UndoBanner: View {
         }
         .padding(.leading, 20)
         .padding(.trailing, 16)
-        .padding(.vertical, 4)
+        .padding(.vertical, spacing(4))
         .frame(maxWidth: 480)
         .modifier(GlassCapsule())
     }
@@ -92,6 +94,7 @@ private struct UndoBannerModifier: ViewModifier {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.spacing) private var spacing
 
     func body(content: Content) -> some View {
         content
@@ -102,7 +105,7 @@ private struct UndoBannerModifier: ViewModifier {
                         current.undo()
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, spacing.stackGap)
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                     // A newer offer is a new banner, so it transitions in rather than
                     // rewording the one on screen.

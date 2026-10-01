@@ -1,14 +1,14 @@
 import SwiftUI
 
 /// One choice in a rail of capsules: a neutral fill at rest, the tint when chosen, and a 44
-/// point target whatever its text size.
+/// point target whatever its text size, which takes no more room than the capsule.
 public struct ChoiceCapsule<Label: View>: View {
     private let isChosen: Bool
     private let action: () -> Void
     private let label: Label
 
     @Environment(\.colorScheme) private var colorScheme
-    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 32
+    @Environment(\.spacing) private var spacing
 
     public init(chosen: Bool, action: @escaping () -> Void, @ViewBuilder label: () -> Label) {
         isChosen = chosen
@@ -21,11 +21,10 @@ public struct ChoiceCapsule<Label: View>: View {
             label
                 .font(.subheadline)
                 .foregroundStyle(isChosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-                .padding(.horizontal, 14)
-                .frame(minHeight: height)
+                .padding(.horizontal, spacing(14))
+                .padding(.vertical, spacing.chipVertical)
                 .background(isChosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
-                .frame(minHeight: 44)
-                .contentShape(.rect)
+                .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isChosen ? .isSelected : [])

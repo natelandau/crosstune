@@ -467,8 +467,13 @@ equivalent below.
 - A screen's filters are its list's first row and scroll with it, not a
   bar pinned under the navigation bar. At accessibility text sizes only the
   status rail stays in the list. The other rails move into the filter sheet.
-- Dynamic Type replaces the web's three text size steps. The light, dark,
-  and system appearance setting carries over unchanged.
+- Text follows Dynamic Type. A Text size stepper in Settings shifts it in
+  whole Dynamic Type steps from the system's size, and reads "System" or
+  body text's size as a percentage of the system's. Spacing scales with the
+  text. System alerts and confirmation dialogs follow the system's size.
+  The Mac has no text size row, because Mac text does not scale with
+  Dynamic Type. The light, dark, and system appearance setting carries
+  over unchanged.
 - Native motion (SwiftUI transitions, symbol effects, haptics) is allowed
   beyond the record control and the waveform, but nothing animates under
   Reduce Motion.

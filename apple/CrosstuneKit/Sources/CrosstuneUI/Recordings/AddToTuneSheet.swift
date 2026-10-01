@@ -224,6 +224,7 @@ private struct AddToTuneContent: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .scaledRowInsets()
         .disabled(model.isFiling)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(AddToTuneModel.rowName(entry))

@@ -38,9 +38,11 @@ public struct RecordingsScreen: View {
 struct StorageSummary: View {
     let storage: StorageFigures
 
+    @Environment(\.spacing) private var spacing
+
     var body: some View {
         let text = SettingsModel.storageText(storage)
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: spacing(6)) {
             Text(text)
                 .font(.footnote)
                 .monospacedDigit()
@@ -60,6 +62,7 @@ private struct RecordingsContent: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.detailTune) private var detailTune
+    @Environment(\.spacing) private var spacing
     @Environment(\.playerWindow) private var window
     @State private var pushed: String?
     @State private var importing = false
@@ -121,7 +124,7 @@ private struct RecordingsContent: View {
                     .foregroundStyle(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, spacing.stackGap)
             }
         }
         .toolbar {
@@ -186,6 +189,7 @@ private struct RecordingsContent: View {
         RecordingItem(view: view, tuneNamedAbove: tuneNamedAbove, storage: model.storage) { kind in
             retry(view.id, kind)
         }
+        .scaledRowInsets()
         .recordingRowActions(
             filed: view.tuneID != nil,
             onEdit: { player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window) },
@@ -230,6 +234,7 @@ private struct RecordingsContent: View {
             glyph: .attention, title: row.title, secondLine: .text(UnfinishedCaptureRowContent.note),
             verb: row.verb, action: { discarding = capture }
         )
+        .scaledRowInsets()
         .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard }
         .contextMenu { discard }
     }

@@ -22,6 +22,7 @@ public struct DeleteAccountSheet: View {
     let counts: CountsState
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.spacing) private var spacing
     @State private var text = ""
     @State private var pending = false
     @State private var failure: String?
@@ -85,7 +86,7 @@ public struct DeleteAccountSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    VStack(spacing: 8) {
+                    VStack(spacing: spacing.stackGap) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.largeTitle)
                             .foregroundStyle(.red)
