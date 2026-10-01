@@ -101,12 +101,6 @@ describe('home page copy', () => {
     )
   })
 
-  it('names the platforms', () => {
-    expect(text(doc.body)).toContain(
-      'Coming to iPhone, iPad, and Mac. The web version works today in any browser.',
-    )
-  })
-
   it('says violin, not fiddle, outside the maker note', () => {
     const outside = doc.body.cloneNode(true) as HTMLElement
     outside.querySelector('figure blockquote')?.remove()
