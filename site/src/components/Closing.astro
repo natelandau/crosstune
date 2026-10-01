@@ -41,18 +41,10 @@ import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
   </div>
 </section>
 
-<script>
-  import { loadClerk, mountWaitlist } from '../scripts/waitlist'
-
-  const form = document.querySelector<HTMLFormElement>('form[data-waitlist]')
-  if (form) mountWaitlist(form, () => loadClerk(import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY))
-</script>
-
 <style>
   .closing {
     padding-block: 88px;
-    background: var(--jet);
-    color: #fff;
+    background: var(--mist);
   }
 
   h2 {
@@ -68,7 +60,7 @@ import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
   .lede {
     max-width: 40ch;
     margin: 14px 0 0;
-    color: var(--alabaster);
+    color: var(--slate);
     font-size: 1.0625rem;
   }
 
@@ -88,7 +80,7 @@ import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
     min-width: 0;
     min-height: 48px;
     padding: 0 14px;
-    border: 1px solid transparent;
+    border: 1px solid var(--rule);
     border-radius: 12px;
     background: #fff;
     color: var(--jet);
@@ -101,16 +93,6 @@ import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
 
   .button {
     flex: none;
-    background: var(--coral);
-    color: var(--jet);
-  }
-
-  .button:hover {
-    background: #f39a73;
-  }
-
-  .closing :focus-visible {
-    outline-color: var(--coral);
   }
 
   .status:empty {
@@ -119,21 +101,17 @@ import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
 
   .status {
     margin: 12px 0 0;
-    color: var(--alabaster);
+    color: var(--slate);
   }
 
   .fallback {
     margin: 16px 0 0;
-    color: var(--alabaster);
-  }
-
-  .fallback a {
-    color: #fff;
+    color: var(--slate);
   }
 
   .platforms {
     margin: 36px 0 0;
-    color: var(--silver);
+    color: var(--slate-2);
     font-size: 0.95rem;
   }
 

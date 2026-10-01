@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 Crosstune is run by Nathaniel Landau, an individual. This page explains what data the service holds and who handles it. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -28,6 +28,10 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 ## The waitlist
 
 The waitlist form loads Clerk when you focus the email field. Clerk sets cookies on crosstune.app. When you join the waitlist, Clerk holds your email address until we invite you or you ask us to remove it. To remove it, write to [support@crosstune.app](mailto:support@crosstune.app).
+
+## Players on the home page
+
+The home page's demo can play a tune from YouTube, Spotify, or Bandcamp. Nothing loads from those services until you pick one. When you do, that service receives your IP address and may set its own cookies under its own privacy policy. YouTube plays through its privacy-enhanced mode.
 
 ## Data on your devices
 

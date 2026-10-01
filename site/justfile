@@ -63,3 +63,35 @@ clean:
 [group('maintenance')]
 setup:
     pnpm install --frozen-lockfile
+
+# Cut the practice demo's clip and its waveform peaks from a master recording
+[group('build')]
+demo-audio source:
+    ffmpeg -hide_banner -loglevel error -y -ss 2.5 -t 30 -i "{{ source }}" -map 0:a \
+        -af "afade=t=in:d=0.3,afade=t=out:st=28.5:d=1.5" -c:a aac -b:a 96k -ar 44100 \
+        -map_metadata -1 -metadata title="Bibb County Hoedown" \
+        -metadata artist="Strung Out String Band" -movflags +faststart \
+        public/audio/bibb-county-hoedown.m4a
+    ffmpeg -hide_banner -nostats -i public/audio/bibb-county-hoedown.m4a \
+        -af "aresample=8000,asetnsamples=1600,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.Peak_level" \
+        -f null - 2>&1 \
+        | awk -F= '/Peak_level/ { v = ($2 == "-inf") ? 0 : exp($2 / 20 * log(10)); p[n++] = v; if (v > m) m = v } \
+            END { printf "["; for (i = 0; i < n; i++) printf "%s%.2f", (i ? "," : ""), p[i] / m; print "]" }' \
+        > src/demos/peaks.json
+
+# Copy the touch icon and ICO favicon the web app generates from ../brand
+[group('build')]
+icons:
+    cp ../web/public/apple-touch-icon-180x180.png ../web/public/favicon.ico public/
+
+# Rebuild the link-preview image from the home page's hero
+[group('build')]
+og:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pnpm astro build > /dev/null
+    # --ignore-lock lets this run beside a preview server someone already has open.
+    ./node_modules/.bin/astro preview --port 4398 --ignore-lock > /dev/null &
+    trap 'kill $!' EXIT
+    until curl -sf http://localhost:4398/ > /dev/null 2>&1; do sleep 0.2; done
+    node scripts/og.mjs 4398

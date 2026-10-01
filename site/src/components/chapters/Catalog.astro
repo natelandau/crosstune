@@ -1,0 +1,276 @@
+---
+// The "Your tunes" demo. The built page lists every tune; the script hides the ones a choice
+// filters out and orders a chosen list's tunes with `order`.
+import StatusDot from '../fragments/StatusDot.astro'
+import {
+  CATALOG_REST,
+  EMPTY_TITLE,
+  LISTS,
+  MAX_ROWS,
+  moreLabel,
+  RAIL,
+  SHOW_ALL,
+  STATUS_LABELS,
+  TUNES,
+  type Status,
+} from '../../demos/catalog'
+
+const PITCH_CLASS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, Bb: 10, B: 11 } as const
+const statuses = Object.keys(STATUS_LABELS) as Status[]
+const keyVars = (key: keyof typeof PITCH_CLASS) =>
+  `--bg: var(--key-${PITCH_CLASS[key]}-bg); --ink: var(--key-${PITCH_CLASS[key]}-ink)`
+const keyLabel = (key: string) => (key === 'Bb' ? 'B♭' : key)
+---
+
+<div class="catalog" data-catalog>
+  <div class="filters" data-controls hidden>
+    <div class="group" role="group" aria-label="Key">
+      {RAIL.map((key) => (
+        <button
+          type="button"
+          class="key"
+          style={keyVars(key)}
+          data-key={key}
+          aria-pressed="false"
+          aria-label={`Key of ${keyLabel(key)}`}
+        >
+          {keyLabel(key)}
+        </button>
+      ))}
+    </div>
+    <div class="group" role="group" aria-label="Status">
+      <button type="button" class="chip" data-status="" aria-pressed="true">
+        All
+      </button>
+      {statuses.map((status) => (
+        <button type="button" class="chip" data-status={status} aria-pressed="false">
+          <StatusDot status={status} />
+          {STATUS_LABELS[status]}
+        </button>
+      ))}
+    </div>
+    <div class="group" role="group" aria-label="Lists">
+      {LISTS.map((list) => (
+        <button type="button" class="chip" data-list={list.name} aria-pressed="false">
+          {list.name}
+        </button>
+      ))}
+    </div>
+  </div>
+  <div class="tunes">
+    <ul>
+      {TUNES.map((tune, index) => (
+        <li data-tune={tune.name} hidden={index >= MAX_ROWS}>
+          <StatusDot status={tune.status} />
+          <span class="text">
+            <span class="name">{tune.name}</span>
+            <span class="detail">
+              {tune.type}, {tune.tuning}
+            </span>
+          </span>
+          <span class="pill" style={keyVars(tune.key)}>
+            {keyLabel(tune.key)}
+          </span>
+        </li>
+      ))}
+    </ul>
+    <p class="more" data-more>
+      {moreLabel(TUNES.length - MAX_ROWS)}
+    </p>
+    <div class="empty" data-empty hidden>
+      <p>{EMPTY_TITLE}</p>
+      <button type="button" class="chip" data-clear>
+        {SHOW_ALL}
+      </button>
+    </div>
+  </div>
+  <p class="demo-caption" aria-live="polite" data-caption>
+    {CATALOG_REST}
+  </p>
+</div>
+
+<style>
+  .catalog {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'filters tunes'
+      'caption tunes';
+    grid-template-rows: auto 1fr;
+    gap: 0 48px;
+  }
+
+  .filters {
+    grid-area: filters;
+    display: grid;
+    gap: 28px;
+    align-content: start;
+  }
+
+  .tunes {
+    grid-area: tunes;
+    align-self: start;
+    padding: 8px 20px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow:
+      0 0 0 1px var(--rule),
+      0 24px 48px -32px rgb(45 49 66 / 0.35);
+  }
+
+  .demo-caption {
+    grid-area: caption;
+  }
+
+  .group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .key {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .key[aria-pressed='true'] {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .chip {
+    gap: 8px;
+  }
+
+  .chip :global(.dot) {
+    width: 8px;
+    height: 8px;
+  }
+
+  .chip[aria-pressed='true'] :global(.unknown) {
+    box-shadow: inset 0 0 0 1.5px #fff;
+  }
+
+  .chip[aria-pressed='true'] :global(.known) {
+    background: #fff;
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  li:last-child {
+    border-bottom: 0;
+  }
+
+  li[hidden] {
+    display: none;
+  }
+
+  .more {
+    margin: 0;
+    padding: 12px 0 6px;
+    color: var(--slate-2);
+    font-size: 0.9rem;
+  }
+
+  .more[hidden],
+  .empty[hidden] {
+    display: none;
+  }
+
+  .empty {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    padding: 20px 0 16px;
+  }
+
+  .empty p {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  li :global(.dot) {
+    width: 8px;
+    height: 8px;
+  }
+
+  .text {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .name {
+    overflow: hidden;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .detail {
+    color: var(--slate-2);
+    font-size: 0.85rem;
+  }
+
+  .pill {
+    min-width: 2.1em;
+    padding: 0.15em 0.65em;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 650;
+    text-align: center;
+  }
+
+  @media (max-width: 760px) {
+    .catalog {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'filters' 'caption' 'tunes';
+      gap: 16px;
+    }
+
+    .filters {
+      gap: 12px;
+    }
+
+    /* One sideways-scrolling row per control, so the list stays near the caption. */
+    .group {
+      flex-wrap: nowrap;
+      margin-inline: -16px;
+      padding: 6px 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .group > * {
+      flex: none;
+    }
+
+    .demo-caption {
+      margin: 0;
+    }
+  }
+</style>

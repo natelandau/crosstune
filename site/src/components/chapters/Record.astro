@@ -1,0 +1,410 @@
+---
+// The "Record it, or link it" demo: a recorder beside the recordings and links it files. Picking
+// a row plays it in the recorder's place; a link's player loads only then.
+import {
+  BACK_TO_RECORDER,
+  BAND_RECORDING,
+  LINKS,
+  RECENT_TITLE,
+  RECORD_LABEL,
+  RECORD_REST,
+  TUNE_NAME,
+  takeSource,
+  TAKE_SECONDS,
+} from '../../demos/record'
+
+const BARS = 32
+---
+
+<div class="record" data-record>
+  <div class="stage">
+    <div class="capture" data-panel="record" data-controls hidden>
+      <button type="button" class="dome" data-take aria-label={RECORD_LABEL}>
+        <span class="dot" aria-hidden="true"></span>
+      </button>
+      <div class="live" aria-hidden="true">
+        {Array.from({ length: BARS }, () => (
+          <span />
+        ))}
+      </div>
+      <span class="timer" data-timer>
+        0:00
+      </span>
+    </div>
+    <div class="playing" data-panel="play" hidden>
+      <div class="now">
+        <span class="glyph" data-now-glyph aria-hidden="true"></span>
+        <span class="text">
+          <span class="title" data-now-title></span>
+          <span class="source" data-now-source></span>
+        </span>
+      </div>
+      <div class="frame" data-frame></div>
+      <button type="button" class="chip back" data-back>
+        {BACK_TO_RECORDER}
+      </button>
+    </div>
+  </div>
+  <div class="page">
+    <p class="heading">{RECENT_TITLE}</p>
+    <ul class="rows">
+      <li data-new-take hidden>
+        <button type="button" class="row" data-row="take">
+          <span class="glyph mine" aria-hidden="true"></span>
+          <span class="text">
+            <span class="title">{TUNE_NAME}</span>
+            <span class="source">{takeSource(TAKE_SECONDS)}</span>
+          </span>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="row" data-row="band">
+          <span class="glyph mine" aria-hidden="true"></span>
+          <span class="text">
+            <span class="title">{BAND_RECORDING.tune}</span>
+            <span class="source">{BAND_RECORDING.source}</span>
+          </span>
+        </button>
+      </li>
+      {LINKS.map((link, index) => (
+        <li>
+          <a
+            class="row"
+            href={link.href}
+            target="_blank"
+            rel="noopener"
+            data-row="link"
+            data-index={index}
+          >
+            <span class:list={['glyph', link.provider]} aria-hidden="true" />
+            <span class="text">
+              <span class="title">{link.tune}</span>
+              <span class="source">{link.label}</span>
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+  <p class="demo-caption" aria-live="polite" data-caption>
+    {RECORD_REST}
+  </p>
+</div>
+
+<style>
+  .record {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-areas:
+      'capture page'
+      'caption page';
+    grid-template-rows: auto 1fr;
+    gap: 0 48px;
+  }
+
+  .stage {
+    grid-area: capture;
+  }
+
+  .capture {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: 'dome live' 'dome timer';
+    gap: 8px 24px;
+    align-items: center;
+    padding: 28px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .dome {
+    grid-area: dome;
+    display: grid;
+    place-items: center;
+    width: 88px;
+    height: 88px;
+    border: 0;
+    border-radius: 50%;
+    background: #fdeee7;
+    cursor: pointer;
+  }
+
+  .dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--coral);
+    transition:
+      border-radius 160ms ease,
+      scale 160ms ease;
+  }
+
+  .recording .dot {
+    border-radius: 8px;
+    scale: 0.7;
+  }
+
+  .live {
+    grid-area: live;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 48px;
+  }
+
+  .live span {
+    flex: 1;
+    height: 6%;
+    border-radius: 2px;
+    background: var(--silver);
+    transition: height 90ms linear;
+  }
+
+  .recording .live span {
+    background: var(--coral);
+  }
+
+  .timer {
+    grid-area: timer;
+    color: var(--slate);
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .demo-caption {
+    grid-area: caption;
+  }
+
+  .playing {
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .playing[hidden] {
+    display: none;
+  }
+
+  .now {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .frame :global(iframe) {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+  }
+
+  .frame :global(iframe.video) {
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .frame :global(audio) {
+    display: block;
+    width: 100%;
+  }
+
+  .back {
+    justify-self: start;
+  }
+
+  .page {
+    grid-area: page;
+    padding: 20px 16px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow:
+      0 0 0 1px var(--rule),
+      0 24px 48px -32px rgb(45 49 66 / 0.35);
+  }
+
+  .heading {
+    margin: 0 8px 10px;
+    font-size: 1.125rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .rows {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li[hidden] {
+    display: none;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 8px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .row:hover {
+    background: var(--mist);
+  }
+
+  .row[aria-current='true'] {
+    background: var(--mist);
+    box-shadow: inset 0 0 0 1.5px var(--slate);
+  }
+
+  [data-new-take] {
+    animation: land 320ms ease-out;
+  }
+
+  @keyframes land {
+    from {
+      opacity: 0;
+      translate: 0 -8px;
+    }
+  }
+
+  .text {
+    display: grid;
+    min-width: 0;
+  }
+
+  .title {
+    font-weight: 550;
+  }
+
+  .source {
+    color: var(--slate-2);
+    font-size: 0.85rem;
+  }
+
+  .glyph {
+    position: relative;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .glyph::before,
+  .glyph::after {
+    content: '';
+    position: absolute;
+  }
+
+  .mine {
+    background: #fdeee7;
+  }
+
+  .mine::after {
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: var(--coral);
+  }
+
+  .youtube {
+    background: #d9312b;
+  }
+
+  .youtube::after {
+    top: 50%;
+    left: 50%;
+    translate: -40% -50%;
+    border-left: 10px solid #fff;
+    border-block: 6px solid transparent;
+  }
+
+  .spotify {
+    background: #1db954;
+    border-radius: 50%;
+  }
+
+  .spotify::before,
+  .spotify::after {
+    left: 50%;
+    translate: -50% 0;
+    border-top: 2.5px solid var(--jet);
+    border-radius: 50% 50% 0 0;
+  }
+
+  .spotify::before {
+    top: 11px;
+    width: 19px;
+    height: 8px;
+  }
+
+  .spotify::after {
+    top: 17px;
+    width: 13px;
+    height: 6px;
+  }
+
+  .bandcamp {
+    background: #1da0c3;
+  }
+
+  .bandcamp::after {
+    top: 50%;
+    left: 50%;
+    width: 18px;
+    height: 10px;
+    translate: -50% -50%;
+    background: #fff;
+    clip-path: polygon(30% 0, 100% 0, 70% 100%, 0 100%);
+  }
+
+  @media (max-width: 760px) {
+    .record {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'capture' 'caption' 'page';
+      gap: 20px;
+    }
+
+    .capture {
+      padding: 20px;
+    }
+
+    .dome {
+      width: 72px;
+      height: 72px;
+    }
+
+    .demo-caption {
+      margin: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-new-take] {
+      animation: none;
+    }
+
+    .dot,
+    .live span {
+      transition: none;
+    }
+  }
+</style>

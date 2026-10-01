@@ -2,6 +2,7 @@
 import Footer from '../components/Footer.astro'
 import Lockup from '../components/Lockup.astro'
 import { APP_URL, SIGN_IN } from '../components/actions'
+import { CHAPTERS } from '../components/chapters/chapters'
 import '../styles/tokens.css'
 import '../styles/base.css'
 
@@ -9,11 +10,17 @@ interface Props {
   title: string
   description: string
   path: string
+  /** Link the home page's chapters from the nav. */
+  chapters?: boolean
+  /** Keep the page out of search results, as for the 404 page. */
+  noindex?: boolean
 }
 
-const { title, description, path } = Astro.props
+const { title, description, path, chapters = false, noindex = false } = Astro.props
 const canonical = `https://crosstune.app${path}`
 const image = 'https://crosstune.app/og.png'
+const imageAlt =
+  'The Crosstune home page: a handwritten tune list beside a phone showing the same tunes sorted by key.'
 ---
 
 <!doctype html>
@@ -23,22 +30,40 @@ const image = 'https://crosstune.app/og.png'
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Crosstune" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={imageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={image} />
+    <meta name="twitter:image:alt" content={imageAlt} />
+    <slot name="head" />
   </head>
   <body>
     <nav class="nav column" aria-label="Main">
       <Lockup />
+      {chapters && (
+        <ul class="chapters">
+          {CHAPTERS.map((c) => (
+            <li>
+              <a href={`#${c.id}`}>{c.nav}</a>
+            </li>
+          ))}
+        </ul>
+      )}
       <a href={APP_URL}>{SIGN_IN}</a>
     </nav>
     <slot />

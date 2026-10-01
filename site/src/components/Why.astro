@@ -1,0 +1,42 @@
+---
+// Opens the chapters: the page's one claim, then each use case in turn.
+---
+
+<section class="why" aria-labelledby="why">
+  <div class="column intro">
+    <h2 id="why">Why musicians love Crosstune</h2>
+    <p class="lede">
+      It's made for learning by ear: hear a tune, slow it down, and play along until it's yours.
+    </p>
+  </div>
+  <slot />
+</section>
+
+<style>
+  .intro {
+    padding-block: 80px 8px;
+    border-top: 1px solid var(--rule);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    max-width: 40ch;
+    margin: 18px 0 0;
+    color: var(--slate);
+    font-size: clamp(1.125rem, 1rem + 0.4vw, 1.3rem);
+  }
+
+  @media (max-width: 600px) {
+    .intro {
+      padding-block: 56px 0;
+    }
+  }
+</style>
