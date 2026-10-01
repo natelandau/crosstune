@@ -1,0 +1,53 @@
+---
+import Base from '../../layouts/Base.astro'
+import { APP_URL, SUPPORT_EMAIL } from '../../components/actions'
+import { JOINED_KEY, THANKS_PATH } from '../../scripts/waitlist'
+---
+
+<Base
+  title="You're on the waitlist | Crosstune"
+  description="Thanks for joining the Crosstune waitlist."
+  path={THANKS_PATH}
+  noindex
+>
+  <script slot="head" is:inline define:vars={{ key: JOINED_KEY }}>
+    // Runs before paint so a reload, bookmark, or shared link lands on the home page instead.
+    try {
+      if (sessionStorage.getItem(key) === null) location.replace('/')
+      else sessionStorage.removeItem(key)
+    } catch {
+      location.replace('/')
+    }
+  </script>
+  <main class="column">
+    <h1>You're on the waitlist</h1>
+    <p class="lede">
+      Thanks for signing up. Crosstune opens to players a few at a time. We'll email you when your
+      account is ready, and then you can sign in at <a href={APP_URL}>my.crosstune.app</a>.
+    </p>
+    <p>
+      Questions in the meantime? Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+    </p>
+    <p>
+      <a href="/">Back to the home page</a>
+    </p>
+  </main>
+</Base>
+
+<style>
+  main {
+    max-width: 66ch;
+    padding-bottom: 96px;
+  }
+
+  h1 {
+    margin: 16px 0 8px;
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+
+  .lede {
+    color: var(--slate);
+    font-size: 1.0625rem;
+  }
+</style>

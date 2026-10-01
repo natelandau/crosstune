@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { JOIN_WAITLIST } from '../src/components/actions'
 import {
   JOINED,
+  JOINED_KEY,
   PENDING,
+  THANKS_PATH,
   UNREACHABLE,
   loadClerk,
   mountWaitlist,
@@ -14,8 +16,12 @@ let form: HTMLFormElement
 let input: HTMLInputElement
 let button: HTMLButtonElement
 let status: HTMLElement
+let navigate: ReturnType<typeof vi.fn<(path: string) => void>>
 
 beforeEach(() => {
+  sessionStorage.clear()
+  vi.restoreAllMocks()
+  navigate = vi.fn()
   document.body.innerHTML = `
     <form data-waitlist>
       <input id="waitlist-email" type="email" name="email" required />
@@ -37,7 +43,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 function setup(join: WaitlistClient['join']) {
   const client: WaitlistClient = { join }
   const load = vi.fn(async () => client)
-  mountWaitlist(form, load)
+  mountWaitlist(form, load, navigate)
   return load
 }
 
@@ -80,6 +86,37 @@ describe('mountWaitlist', () => {
     expect(document.activeElement).toBe(message)
   })
 
+  it('remembers the join and goes to the thanks page', async () => {
+    setup(vi.fn(async () => ({})))
+    submit()
+    await settle()
+    expect(sessionStorage.getItem(JOINED_KEY)).toBe('1')
+    expect(navigate).toHaveBeenCalledWith(THANKS_PATH)
+  })
+
+  it('stays on the inline confirmation when storage is blocked', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    setup(vi.fn(async () => ({})))
+    submit()
+    await settle()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(status.textContent).toBe(JOINED)
+  })
+
+  it('does not leave the page when the join fails', async () => {
+    setup(
+      vi.fn(async () => {
+        throw { errors: [{ longMessage: 'Nope.' }] }
+      }),
+    )
+    submit()
+    await settle()
+    expect(navigate).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(JOINED_KEY)).toBeNull()
+  })
+
   it("shows Clerk's message, marks the input, and re-enables the button", async () => {
     setup(
       vi.fn(async () => {
@@ -101,7 +138,7 @@ describe('mountWaitlist', () => {
     const load = vi.fn(async () => {
       throw new Error('blocked')
     })
-    mountWaitlist(form, load)
+    mountWaitlist(form, load, navigate)
     submit()
     await settle()
     expect(status.textContent).toBe(UNREACHABLE)
@@ -111,7 +148,7 @@ describe('mountWaitlist', () => {
   it('loads again on a second submit after a failed load', async () => {
     const load = vi.fn<() => Promise<WaitlistClient>>().mockRejectedValueOnce(new Error('blocked'))
     load.mockResolvedValue({ join: vi.fn(async () => ({})) })
-    mountWaitlist(form, load)
+    mountWaitlist(form, load, navigate)
     submit()
     await settle()
     expect(load).toHaveBeenCalledTimes(1)
@@ -125,7 +162,7 @@ describe('mountWaitlist', () => {
     const join = vi.fn(async () => ({}))
     let resolve: (client: WaitlistClient) => void = () => {}
     const load = vi.fn(() => new Promise<WaitlistClient>((r) => (resolve = r)))
-    mountWaitlist(form, load)
+    mountWaitlist(form, load, navigate)
     input.dispatchEvent(new FocusEvent('focus'))
     submit()
     await settle()
