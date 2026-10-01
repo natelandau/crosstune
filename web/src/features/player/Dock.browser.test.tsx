@@ -424,6 +424,16 @@ describe('Dock', () => {
   it('keeps room for both Repeat targets beside a long badge on a narrow phone', async () => {
     const id = await localRecording('Jam recording')
     await updateRecording(db, id, { speed_percent: 75, pitch_cents: -150 })
+    // A real row, since the dock drops a repeating loop it can't find.
+    await db.recording_loops.put(
+      loopRow({
+        id: 'loop-1',
+        recording_id: id,
+        label: 'The long turnaround',
+        start_ms: 500,
+        end_ms: 2500,
+      }),
+    )
     const engine = fakePlaybackEngine()
     renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
       playbackEngine: engine,
@@ -450,6 +460,10 @@ describe('Dock', () => {
 
   it('turns Repeat off from the toggle beside the badge', async () => {
     const id = await localRecording('Jam recording')
+    // A real row, since the dock drops a repeating loop it can't find.
+    await db.recording_loops.put(
+      loopRow({ id: 'loop-1', recording_id: id, label: 'B part', start_ms: 500, end_ms: 2500 }),
+    )
     const engine = fakePlaybackEngine()
     renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
       playbackEngine: engine,
