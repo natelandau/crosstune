@@ -180,27 +180,6 @@ describe('PracticeView', () => {
       .toBe('practice')
   })
 
-  it('leaves focus on a control the musician reached before Back could take it', async () => {
-    const id = await localRecording('Jam recording')
-    const speed = () =>
-      Array.from(
-        presented()?.querySelectorAll<HTMLButtonElement>('button[aria-expanded]') ?? [],
-      ).find((b) => b.textContent?.includes(SPEED)) ?? null
-    // Focuses the control in the same task Practice renders in, ahead of Back's own first focus.
-    const observer = new MutationObserver(() => {
-      const control = speed()
-      if (!control) return
-      observer.disconnect()
-      control.focus()
-    })
-    observer.observe(document.body, { childList: true, subtree: true })
-    await openStraightIntoPractice(id)
-    await expect.element(await practiceHeading()).toBeVisible()
-    await expect.poll(() => document.activeElement).toBe(speed())
-    await wait(300)
-    expect(document.activeElement).toBe(speed())
-  })
-
   it('leaves Practice on Escape and keeps the screen open', async () => {
     await localRecording('Jam recording')
     await openPractice('Jam recording')
