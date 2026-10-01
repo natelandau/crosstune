@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import build_peaks
+from crosstune.models.user import utc_now
+from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import bump_server_seq
 from crosstune.recordings.trim import clamp_trim
 from crosstune.storage.store import PEAKS_MIME, delete_best_effort, new_rev, peaks_key
@@ -84,7 +86,7 @@ async def build_recording_peaks(
 
 
 async def _store_length(session: AsyncSession, recording: Recording, length_ms: int) -> None:
-    """Record the length of an uncut playback file, and clamp a saved trim to it.
+    """Record the length of an uncut playback file, and clamp a saved trim and loops to it.
 
     Reads the columns fresh under the user's lock the caller holds, so a trim pushed
     while this job ran is clamped rather than overwritten.
@@ -104,3 +106,4 @@ async def _store_length(session: AsyncSession, recording: Recording, length_ms: 
     if (start_ms, end_ms) != (recording.trim_start_ms, recording.trim_end_ms):
         recording.trim_start_ms = start_ms
         recording.trim_end_ms = end_ms
+    await reclamp_recording_loops(session, recording, utc_now())

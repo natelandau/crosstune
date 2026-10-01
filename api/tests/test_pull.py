@@ -118,6 +118,7 @@ async def test_cursor_beyond_int64_is_422(client, auth_headers) -> None:
 async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> None:
     async def seed(user: str) -> dict[str, set[str]]:
         tune, user_tune, lst, item, link = uid(), uid(), uid(), uid(), uid()
+        rec, loop = uid(), uid()
         await push(
             client,
             auth_headers(user),
@@ -134,6 +135,8 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
                 provider="other",
                 title="A take",
             ),
+            change("recordings", rec, T0, source="microphone", recorded_at=T0.isoformat()),
+            change("recording_loops", loop, T0, recording_id=rec, start_ms=0, end_ms=4000, color=0),
         )
         return {
             "tunes": {tune},
@@ -141,6 +144,8 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
             "lists": {lst},
             "list_items": {item},
             "recording_links": {link},
+            "recordings": {rec},
+            "recording_loops": {loop},
         }
 
     seeded = {user: await seed(user) for user in ("user_a", "user_b")}

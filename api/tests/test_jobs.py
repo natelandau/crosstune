@@ -24,7 +24,7 @@ from crosstune.jobs.peaks_job import build_recording_peaks
 from crosstune.jobs.runner import ABANDONED_SLOT_GRACE, MAX_ATTEMPTS, JobRunner
 from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
-from crosstune.models import Job, Recording, UploadSlot, User
+from crosstune.models import Job, Recording, RecordingLoop, UploadSlot, User
 from crosstune.models.user import new_uuid7, utc_now
 from crosstune.recordings.service import enqueue_job, ensure_trim_job
 from crosstune.storage.prefixed import PrefixedStore
@@ -1788,3 +1788,75 @@ async def test_ensure_trim_job_skips_a_deleted_recording(
     await ensure_trim_job(verify_session, rec)
     await verify_session.commit()
     assert await trim_jobs(verify_session, rec) == []
+
+
+async def add_loop(session, rec: Recording, start_ms: int, end_ms: int) -> RecordingLoop:
+    """A live loop written straight to the table, past the push-time clamp."""
+    row = RecordingLoop(
+        id=uuid.uuid4(),
+        user_id=rec.user_id,
+        recording_id=rec.id,
+        label=None,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        color=0,
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def test_transcode_reclamps_loops_to_the_measured_length(
+    session, media_fixtures, tmp_path
+) -> None:
+    store = FakeObjectStore()
+    user = await make_user(session)
+    rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
+    long, outside = (
+        await add_loop(session, rec, 500, 60_000),
+        await add_loop(session, rec, 30_000, 40_000),
+    )
+    await transcode(session, store, rec, tmp_path)
+    await session.refresh(long)
+    await session.refresh(outside)
+    assert (long.start_ms, long.end_ms) == (500, rec.source_duration_ms)
+    assert long.deleted_at is None
+    assert outside.deleted_at is not None
+
+
+async def test_peaks_job_reclamps_loops_to_the_measured_length(
+    session, media_fixtures, tmp_path
+) -> None:
+    store = FakeObjectStore()
+    user = await make_user(session)
+    rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
+    await transcode(session, store, rec, tmp_path)
+    await session.refresh(rec)
+    rec.duration_ms = None
+    rec.source_duration_ms = None
+    rec.playback_end_ms = None
+    rec.trim_end_ms = None
+    await session.flush()
+    long = await add_loop(session, rec, 500, 60_000)
+    backfill_dir = tmp_path / "backfill"
+    backfill_dir.mkdir()
+    await build_recording_peaks(session, store, rec, backfill_dir)
+    await session.refresh(long)
+    assert (long.start_ms, long.end_ms) == (500, rec.source_duration_ms)
+
+
+async def test_trim_reclamps_loops_to_the_trim_it_wrote(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
+    past_end = rec.source_duration_ms + 5000
+    long = await add_loop(verify_session, rec, 500, past_end - 1000)
+    await save_trim(verify_session, rec, 0, past_end)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    await verify_session.refresh(long)
+    assert rec.trim_end_ms == rec.source_duration_ms
+    assert (long.start_ms, long.end_ms) == (500, rec.source_duration_ms)

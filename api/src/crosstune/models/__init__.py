@@ -5,6 +5,7 @@ from crosstune.models.job import Job, UploadSlot
 from crosstune.models.list import List, ListItem
 from crosstune.models.recording import Recording
 from crosstune.models.recording_link import RecordingLink
+from crosstune.models.recording_loop import RecordingLoop
 from crosstune.models.tune import Tune
 from crosstune.models.user import User
 from crosstune.models.user_settings import UserSettings
@@ -17,6 +18,7 @@ __all__ = [
     "ListItem",
     "Recording",
     "RecordingLink",
+    "RecordingLoop",
     "Tune",
     "UploadSlot",
     "User",

@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
+from crosstune.models.user import utc_now
+from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import bump_server_seq
 from crosstune.recordings.trim import clamp_trim
 from crosstune.storage.store import (
@@ -178,5 +180,6 @@ async def transcode(
     # caller's commit releases it.
     await lock_user(session, recording.user_id)
     await _reclamp_trim(session, recording)
+    await reclamp_recording_loops(session, recording, utc_now())
     bump_server_seq(recording)
     await session.flush()

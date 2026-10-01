@@ -31,6 +31,7 @@ def test_openapi_types_every_table_row() -> None:
         "UserTuneRow",
         "RecordingLinkRow",
         "RecordingRow",
+        "RecordingLoopRow",
         "ListRow",
         "ListItemRow",
         "UserSettingsRow",
@@ -85,6 +86,7 @@ def test_openapi_publishes_every_limit_on_its_row() -> None:
         "lists": "ListRow",
         "recording_links": "RecordingLinkRow",
         "recordings": "RecordingRow",
+        "recording_loops": "RecordingLoopRow",
     }
     for table, fields in vocabulary.LIMITS.items():
         properties = schemas[rows[table]]["properties"]

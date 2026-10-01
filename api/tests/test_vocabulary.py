@@ -5,7 +5,15 @@ from datetime import UTC, datetime
 from sqlalchemy import ARRAY, CheckConstraint, String
 
 from crosstune import vocabulary
-from crosstune.models import Job, Recording, RecordingLink, Tune, UserSettings, UserTune
+from crosstune.models import (
+    Job,
+    Recording,
+    RecordingLink,
+    RecordingLoop,
+    Tune,
+    UserSettings,
+    UserTune,
+)
 from crosstune.models._checks import between, in_list, within_list
 from crosstune.schemas.rows import DATA_SCHEMAS, RecordingRow, TuneData, UserSettingsData
 from crosstune.sync.tables import TABLES
@@ -39,6 +47,11 @@ RANGE_CHECKS = {
         vocabulary.PITCH_CENTS_MIN,
         vocabulary.PITCH_CENTS_MAX,
     ),
+    (RecordingLoop, "ck_recording_loops_color"): (
+        "color",
+        0,
+        vocabulary.LOOP_COLOR_COUNT - 1,
+    ),
 }
 
 
@@ -60,6 +73,15 @@ def test_every_listed_check_constraint_matches_its_range() -> None:
 def test_trim_start_ms_check_constraint_matches_its_sql() -> None:
     assert str(_constraint(Recording, "ck_recordings_trim_start_ms").sqltext) == (
         "trim_start_ms >= 0"
+    )
+
+
+def test_loop_start_and_length_check_constraints_match_their_sql() -> None:
+    assert str(_constraint(RecordingLoop, "ck_recording_loops_start_ms").sqltext) == (
+        "start_ms >= 0"
+    )
+    assert str(_constraint(RecordingLoop, "ck_recording_loops_min_length").sqltext) == (
+        f"deleted_at IS NOT NULL OR end_ms - start_ms >= {vocabulary.MIN_LOOP_MS}"
     )
 
 
