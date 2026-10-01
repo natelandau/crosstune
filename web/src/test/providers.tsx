@@ -53,10 +53,14 @@ export class FakeAudioElement extends EventTarget {
   }
 }
 
-const realClock: EngineClock = {
+export const realClock: EngineClock = {
   every: (ms, fn) => {
     const id = setInterval(fn, ms)
     return () => clearInterval(id)
+  },
+  after: (ms, fn) => {
+    const id = setTimeout(fn, ms)
+    return () => clearTimeout(id)
   },
 }
 
@@ -70,11 +74,12 @@ const noopStage: CreateStage = async () => ({
 
 /** A playback engine a test can drive and inspect without decoding real audio. Pass an
  * element (a `FakeAudioElement` whose `play` was overridden to reject, say) to control how
- * it behaves. */
+ * it behaves, and a clock to control its ticks. */
 export function fakePlaybackEngine(
   element: HTMLAudioElement = new FakeAudioElement() as unknown as HTMLAudioElement,
+  clock: EngineClock = realClock,
 ): PlaybackEngine {
-  return new PlaybackEngine(element, realClock, noopStage)
+  return new PlaybackEngine(element, clock, noopStage)
 }
 
 /** A signed-in, online session for tests that do not care who is signed in. */

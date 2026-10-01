@@ -13,7 +13,7 @@ import { PlayerProvider } from '../features/player/PlayerProvider'
 import { RecordingScreenProvider } from '../features/recording-screen/RecordingScreenProvider'
 import { RecordProvider, useRecord } from '../features/recording/useRecord'
 import { SelectionProvider, useSelectionChrome } from '../features/selection/SelectionProvider'
-import { useFrame } from '../platform/frame'
+import { useFrame, WIDE_QUERY } from '../platform/frame'
 import { ToastProvider } from '../ui/Toast'
 import { PhoneTabBar } from './PhoneTabBar'
 import { routes } from './routes'
@@ -60,7 +60,7 @@ function Frames() {
   // stack keeps its pushed pages on both frames.
   const selectTab = useCallback((tab: string) => tabsRef.current?.selectTab(tab), [])
   return (
-    <IonSplitPane when="md" contentId={PANE_ID}>
+    <IonSplitPane when={WIDE_QUERY} contentId={PANE_ID}>
       <Sidebar contentId={PANE_ID} onSelectTab={selectTab} onRecord={() => start()} />
       <div className="ion-page" id={PANE_ID}>
         <IonTabs>

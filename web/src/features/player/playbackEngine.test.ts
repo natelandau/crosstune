@@ -58,8 +58,20 @@ function fakeElement(): FakeAudioElement {
   return new FakeAudioElement()
 }
 
-function fakeClock(): { clock: EngineClock; tick: () => void } {
+function fakeClock(): {
+  clock: EngineClock
+  tick: () => void
+  after: ReturnType<typeof vi.fn>
+  fire: () => void
+} {
   let onTick: (() => void) | null = null
+  let pending: (() => void) | null = null
+  const after = vi.fn((_ms: number, fn: () => void) => {
+    pending = fn
+    return () => {
+      pending = null
+    }
+  })
   return {
     clock: {
       every: (_ms, fn) => {
@@ -68,8 +80,11 @@ function fakeClock(): { clock: EngineClock; tick: () => void } {
           onTick = null
         }
       },
+      after,
     },
     tick: () => onTick?.(),
+    after,
+    fire: () => pending?.(),
   }
 }
 
@@ -237,6 +252,8 @@ describe('PlaybackEngine', () => {
       lengthMs: 0,
       failed: false,
       pitchUnavailable: false,
+      loop: null,
+      repeat: false,
     })
     element.currentTime = 999
     tick()
@@ -646,5 +663,306 @@ describe('PlaybackEngine', () => {
 
       expect(engine.getState().pitchUnavailable).toBe(false)
     })
+  })
+})
+
+describe('PlaybackEngine loops', () => {
+  const loop = { id: 'l1', label: 'Bridge', fromS: 2, toS: 4 }
+  const setup = () => {
+    const element = fakeElement()
+    const c = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, c.clock)
+    engine.load('blob:test', { fromS: 0, toS: 10, lengthMs: 10_000 }, settings, meta)
+    return { element, engine, ...c }
+  }
+
+  it('wraps to the loop start only when it reaches the end from inside', () => {
+    const { element, engine, tick } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 4.02
+    tick()
+    expect(element.currentTime).toBe(2)
+  })
+
+  it('reports a seek, a wrap, and the end of the range as jumps, but not playing on', () => {
+    const { element, engine, tick, fire } = setup()
+    const jumps = vi.fn()
+    const stop = engine.onJump(jumps)
+    engine.play()
+    element.currentTime = 1
+    tick()
+    expect(jumps).not.toHaveBeenCalled()
+
+    engine.seek(3000)
+    expect(jumps).toHaveBeenCalledTimes(1)
+
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    element.currentTime = 4.02
+    tick()
+    expect(jumps).toHaveBeenCalledTimes(2)
+    element.currentTime = 3.99
+    tick()
+    fire()
+    expect(jumps).toHaveBeenCalledTimes(3)
+
+    engine.setRepeat(false)
+    element.currentTime = 10
+    tick()
+    expect(jumps).toHaveBeenCalledTimes(4)
+
+    stop()
+    engine.seek(1000)
+    expect(jumps).toHaveBeenCalledTimes(4)
+  })
+
+  it('plays on past a loop it entered after the loop end', () => {
+    const { element, engine, tick } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    engine.seek(5000)
+    element.currentTime = 5.5
+    tick()
+    expect(element.currentTime).toBe(5.5)
+  })
+
+  it('plays into the loop from before it and then repeats', () => {
+    const { element, engine, tick } = setup()
+    engine.setLoop({ ...loop, fromS: 3, toS: 4 })
+    engine.setRepeat(true)
+    engine.seek(3000)
+    engine.seek(1000)
+    engine.play()
+    element.currentTime = 1.5
+    tick()
+    element.currentTime = 3.2
+    tick()
+    element.currentTime = 4.01
+    tick()
+    expect(element.currentTime).toBe(3)
+  })
+
+  it('play with Repeat on outside the loop starts at the loop start', () => {
+    const { element, engine } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    element.currentTime = 7
+    engine.play()
+    expect(element.currentTime).toBe(2)
+  })
+
+  it('setRepeat(true) outside the loop moves the playhead to its start', () => {
+    const { element, engine } = setup()
+    engine.setLoop(loop)
+    element.currentTime = 7
+    engine.setRepeat(true)
+    expect(element.currentTime).toBe(2)
+  })
+
+  it('turning Repeat or the loop off never moves the playhead', () => {
+    const { element, engine } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    element.currentTime = 3
+    engine.setRepeat(false)
+    expect(element.currentTime).toBe(3)
+    engine.setLoop(null)
+    expect(element.currentTime).toBe(3)
+  })
+
+  it('schedules the end timer scaled by speed', () => {
+    const { element, engine, tick, after, fire } = setup()
+    engine.setSpeed(50)
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 3.976
+    tick()
+    expect(after).toHaveBeenCalledTimes(1)
+    expect(after.mock.calls[0]![0]).toBeCloseTo(48)
+    element.currentTime = 4
+    fire()
+    expect(element.currentTime).toBe(2)
+  })
+
+  it('does not wrap from the end timer after Repeat is turned off', () => {
+    const { element, engine, tick, fire } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 3.97
+    tick()
+    engine.setRepeat(false)
+    element.currentTime = 4
+    fire()
+    expect(element.currentTime).toBe(4)
+  })
+
+  it('moving the loop so the playhead is outside jumps to its start', () => {
+    const { element, engine } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    element.currentTime = 3
+    engine.setLoop({ id: 'l2', label: 'Tail', fromS: 6, toS: 8 })
+    expect(element.currentTime).toBe(6)
+  })
+
+  it('resumes at the loop start when the loop ends where the media ends', () => {
+    const { element, engine, tick } = setup()
+    engine.setLoop({ ...loop, fromS: 6, toS: 10 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 9.9
+    tick()
+    element.currentTime = 10
+    element.pause()
+    element.dispatchEvent(new Event('ended'))
+    expect(element.currentTime).toBe(6)
+    expect(element.paused).toBe(false)
+    expect(engine.getState().playing).toBe(true)
+  })
+
+  it('schedules the end timer in wall-clock time at 150% speed', () => {
+    const { element, engine, tick, after } = setup()
+    engine.setSpeed(150)
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 3.93
+    tick()
+    expect(after).toHaveBeenCalledTimes(1)
+    expect(after.mock.calls[0]![0]).toBeCloseTo(46.67, 1)
+  })
+
+  it('keeps Repeat and the loop across a same-recording load but suspends wrapping', () => {
+    const { element, engine, tick } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.load('blob:two', { fromS: 0, toS: 10, lengthMs: 10_000 }, settings, meta, {
+      keepLoop: true,
+    })
+    expect(engine.getState().repeat).toBe(true)
+    expect(engine.getState().loop).toEqual({ id: 'l1', label: 'Bridge' })
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 4.5
+    tick()
+    expect(element.currentTime).toBe(4.5)
+    engine.setLoop(loop)
+    element.currentTime = 3
+    tick()
+    element.currentTime = 4.1
+    tick()
+    expect(element.currentTime).toBe(2)
+  })
+
+  it('repeats only the part of the loop inside the trim window', () => {
+    const { element, engine, tick } = setup()
+    engine.setWindow({ fromS: 1, toS: 5, lengthMs: 4000 })
+    engine.setLoop({ ...loop, fromS: 3, toS: 8 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 4
+    tick()
+    element.currentTime = 5
+    tick()
+    expect(element.currentTime).toBe(3)
+    expect(element.paused).toBe(false)
+  })
+
+  it('treats a loop wholly outside the trim window as no loop', () => {
+    const { element, engine } = setup()
+    engine.setWindow({ fromS: 1, toS: 5, lengthMs: 4000 })
+    element.currentTime = 2
+    engine.setLoop({ ...loop, fromS: 6, toS: 8 })
+    engine.setRepeat(true)
+    engine.play()
+    expect(element.currentTime).toBe(2)
+  })
+
+  it('a window change that moves the playhead drops a pending wrap', () => {
+    const { element, engine, tick, fire } = setup()
+    engine.setLoop({ ...loop, fromS: 2, toS: 6 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 5
+    tick()
+    element.currentTime = 5.97
+    tick()
+    engine.setWindow({ fromS: 0, toS: 5.5, lengthMs: 5500 })
+    expect(element.currentTime).toBe(5.5)
+    fire()
+    expect(element.currentTime).toBe(5.5)
+  })
+
+  it('re-arms the end timer instead of wrapping early when playback stalls', () => {
+    const { element, engine, tick, after, fire } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 3.96
+    tick()
+    expect(after).toHaveBeenCalledTimes(1)
+    fire()
+    expect(element.currentTime).toBe(3.96)
+    expect(after).toHaveBeenCalledTimes(2)
+  })
+
+  it('wraps and plays again when a tick finds the media ended at the loop end', () => {
+    const { element, engine, tick } = setup()
+    engine.setLoop({ ...loop, fromS: 6, toS: 10 })
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 9.9
+    tick()
+    // The element stopped at the media end without its ended event having run yet.
+    element.paused = true
+    Object.assign(element, { ended: true })
+    element.currentTime = 10
+    tick()
+    expect(element.currentTime).toBe(6)
+    expect(element.paused).toBe(false)
+  })
+
+  it('hands out a copy of the loop range', () => {
+    const { engine } = setup()
+    engine.setLoop({ ...loop })
+    // The type already forbids the write; this checks a caller that casts it away.
+    Object.assign(engine.loopRange!, { fromS: 0 })
+    expect(engine.loopRange).toEqual(loop)
+  })
+
+  it('load clears the loop and Repeat', () => {
+    const { engine } = setup()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.load('blob:two', span, settings, meta)
+    expect(engine.getState().loop).toBeNull()
+    expect(engine.getState().repeat).toBe(false)
+  })
+
+  it('state reports loop and repeat', () => {
+    const { engine } = setup()
+    expect(engine.getState().loop).toBeNull()
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    expect(engine.getState().loop).toEqual({ id: 'l1', label: 'Bridge' })
+    expect(engine.getState().repeat).toBe(true)
+    engine.setLoop({ ...loop, label: 'Renamed' })
+    expect(engine.getState().loop).toEqual({ id: 'l1', label: 'Renamed' })
   })
 })

@@ -8,8 +8,6 @@ import {
   storeDownloadedBlob,
   updateRecording,
 } from '../../commands/recordings'
-import { RECORDING_NOT_FOUND } from '../../commands/messages'
-import type * as RecordingCommands from '../../commands/recordings'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
@@ -17,7 +15,7 @@ import { OFFLINE } from '../../sync/labels'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic, renderScreen } from '../../test/ionic'
-import { fakeEngine, FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
+import { fakeEngine, fakePlaybackEngine } from '../../test/providers'
 import { CANCEL, DELETE } from '../../ui/Confirm'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { recordingRow } from '../../test/rows'
@@ -29,17 +27,12 @@ import { ADD_TO_TUNE_TITLE } from '../recordings/AddToTuneSheet'
 import { RecordingsPage } from '../recordings/RecordingsPage'
 import { RECORDING_NAME_LABEL, RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
 import { ADD_TO_TUNE, DELETE_RECORDING_TITLE, RENAME } from '../recordings/useRecordingActions'
-import {
-  CLOSE_RECORDING,
-  PITCH_NOT_SAVED,
-  SKIP_MS,
-  SPEED_NOT_SAVED,
-  TRIM_BUSY,
-  TRIM_WHILE_DOWNLOADING,
-} from './RecordingScreen'
+import { BACK, PRACTICE } from '../practice/practiceCopy'
+import { CLOSE_RECORDING, TRIM_BUSY, TRIM_WHILE_DOWNLOADING } from './RecordingScreen'
 import { SEEK_LABEL } from './Waveform'
-import { FASTER, SPEED } from './SpeedPanel'
-import { PITCH, PITCH_UP } from './PitchPanel'
+import { SPEED } from './SpeedPanel'
+import { PITCH } from './PitchPanel'
+import { SKIP_MS } from './Transport'
 import { TRIM } from './TrimView'
 import { EDIT_RECORDING } from './useRecordingScreen'
 
@@ -163,70 +156,67 @@ describe('RecordingScreen', () => {
     await expect.poll(() => document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull()
   })
 
-  it('changing speed plays faster at once and writes one outbox entry', async () => {
-    const id = await localRecording('Jam recording')
-    const element = new FakeAudioElement()
-    const engine = fakePlaybackEngine(element as unknown as HTMLAudioElement)
-    const load = vi.spyOn(engine, 'load')
-    renderScreen(<RecordingsPage />, {
-      db,
-      path: '/recordings',
-      route: '/recordings',
-      playbackEngine: engine,
-      recordingScreen: true,
-      dock: true,
-    })
-    await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
-    await expect.poll(() => load.mock.calls.length).toBe(1)
-    engine.seek(10_000)
-    const src = element.src
-
-    await (await dialog()).getByRole('button', { name: SPEED }).click()
-    await (await dialog()).getByRole('button', { name: '75%' }).click()
-    expect(element.playbackRate).toBe(0.75)
-    await (await dialog()).getByRole('button', { name: FASTER }).click()
-    await (await dialog()).getByRole('button', { name: FASTER }).click()
-    expect(element.playbackRate).toBe(0.85)
-    await expect
-      .element((await dialog()).getByRole('button', { name: `${SPEED} 85%` }))
-      .toBeVisible()
-    expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
-
-    await expect.poll(() => vi.mocked(updateRecording).mock.calls.length, { timeout: 3000 }).toBe(1)
-    expect(vi.mocked(updateRecording).mock.calls[0]!.slice(1)).toEqual([id, { speed_percent: 85 }])
-    const entries = await db.outbox.where({ table: 'recordings', row_id: id }).toArray()
-    expect(entries).toHaveLength(1)
-    expect(entries[0]!.data).toMatchObject({ speed_percent: 85 })
-
-    // The dock sees the row change and applies the same speed, which neither reloads nor moves.
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.speed_percent, { timeout: 3000 })
-      .toBe(85)
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    expect(load).toHaveBeenCalledOnce()
-    expect(element.src).toBe(src)
-    expect(element.playbackRate).toBe(0.85)
-    expect(engine.getState().positionMs).toBe(10_000)
+  it('offers Trim and Practice, and no Speed or Pitch', async () => {
+    await localRecording('Jam recording')
+    await openFromRows('Jam recording')
+    const screen = await dialog()
+    await expect.element(await trimTool()).toBeVisible()
+    await expect.element(screen.getByRole('button', { name: PRACTICE, exact: true })).toBeVisible()
+    expect(screen.getByRole('button', { name: new RegExp(`^${SPEED}`) }).elements()).toHaveLength(0)
+    expect(screen.getByRole('button', { name: new RegExp(`^${PITCH}`) }).elements()).toHaveLength(0)
+    expect(
+      screen.getByRole('button', { name: new RegExp(`^${PRACTICE},`) }).elements(),
+    ).toHaveLength(0)
   })
 
-  it('writes a pitch change still settling when the screen closes', async () => {
-    const id = await localRecording('Jam recording')
-    renderScreen(<RecordingsPage />, {
-      db,
-      path: '/recordings',
-      route: '/recordings',
-      playbackEngine: fakePlaybackEngine(),
-      recordingScreen: true,
-      dock: true,
-    })
-    await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
-    await (await dialog()).getByRole('button', { name: PITCH }).click()
-    await (await dialog()).getByRole('button', { name: PITCH_UP }).click()
-    await (await dialog()).getByRole('button', { name: CLOSE_RECORDING }).click()
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.pitch_cents, { timeout: 3000 })
-      .toBe(100)
-    expect(vi.mocked(updateRecording)).toHaveBeenCalledOnce()
+  it('shows a speed and pitch away from the default as a badge that opens Practice', async () => {
+    await localRecording('Jam recording')
+    await db.recordings.toCollection().modify({ speed_percent: 75, pitch_cents: 200 })
+    await openFromRows('Jam recording')
+    const screen = await dialog()
+    const tool = screen.getByRole('button', { name: `${PRACTICE} 75% · +2`, exact: true })
+    await expect.element(tool).toHaveAttribute('data-tool', 'practice')
+    const badge = screen.getByRole('button', { name: `${PRACTICE}, 75% · +2`, exact: true })
+    await badge.click()
+    await expect.element(screen.getByRole('heading', { name: PRACTICE })).toBeVisible()
+  })
+
+  it('shows the speed alone as the badge when only the speed is changed', async () => {
+    await localRecording('Jam recording')
+    await db.recordings.toCollection().modify({ speed_percent: 75 })
+    await openFromRows('Jam recording')
+    const screen = await dialog()
+    await screen.getByRole('button', { name: `${PRACTICE}, 75%`, exact: true }).click()
+    await expect.element(screen.getByRole('heading', { name: PRACTICE })).toBeVisible()
+  })
+
+  it('Practice waits for a recording that is still downloading, as Trim does', async () => {
+    await remoteRecording('Remote take')
+    await openFromRows('Remote take', { syncEngine: fakeEngine({ download: () => never }) })
+    const practice = (await dialog()).getByRole('button', { name: new RegExp(`^${PRACTICE}`) })
+    await expect.element(practice).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(practice).toHaveTextContent(TRIM_WHILE_DOWNLOADING)
+  })
+
+  it('Practice stays open while a trim is pending', async () => {
+    await db.recordings.put(
+      recordingRow('r1', {
+        label: 'Server take',
+        state: 'ready',
+        duration_ms: 9000,
+        source_duration_ms: 9000,
+        trim_start_ms: 2000,
+        playback_start_ms: 0,
+        playback_end_ms: 9000,
+        playback_rev: 'aaaa1111',
+      }),
+    )
+    await storeDownloadedBlob(db, 'r1', new Blob(['abc']), 'audio/mp4', 'aaaa1111', 0)
+    await openFromRows('Server take')
+    const practice = (await dialog()).getByRole('button', { name: PRACTICE, exact: true })
+    await expect.element(practice).not.toHaveAttribute('aria-disabled', 'true')
+    await practice.click()
+    await expect.element((await dialog()).getByRole('heading', { name: PRACTICE })).toBeVisible()
   })
 
   it('Trim is disabled while a trim is pending', async () => {
@@ -380,139 +370,35 @@ describe('RecordingScreen', () => {
     await expect.element((await dialog()).getByRole('button', { name: PAUSE })).toBeVisible()
 
     // Space on a focused button presses that button and leaves playback alone.
-    ;((await dialog()).getByRole('button', { name: SPEED }).element() as HTMLElement).focus()
+    ;((await dialog()).getByRole('button', { name: PRACTICE }).element() as HTMLElement).focus()
     await userEvent.keyboard(' ')
-    await expect.element((await dialog()).getByRole('button', { name: FASTER })).toBeVisible()
+    await expect.element((await dialog()).getByRole('heading', { name: PRACTICE })).toBeVisible()
     expect(engine.getState().playing).toBe(true)
     await expect.element((await dialog()).getByRole('button', { name: PAUSE })).toBeVisible()
   })
 
-  it("keeps a live pitch when the speed's write lands", async () => {
-    const id = await localRecording('Jam recording')
-    const { engine, load } = await openFromRows('Jam recording')
-    await expect.poll(() => load.mock.calls.length).toBe(1)
-    const screen = await dialog()
-    await screen.getByRole('button', { name: SPEED }).click()
-    await screen.getByRole('button', { name: '75%' }).click()
-    await wait(400)
-    await screen.getByRole('button', { name: PITCH }).click()
-    await screen.getByRole('button', { name: PITCH_UP }).click()
-    expect(engine.pitchCents).toBe(100)
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.speed_percent, { timeout: 3000 })
-      .toBe(75)
-    await wait(150)
-    expect((await db.recordings.get(id))?.pitch_cents).toBe(0)
-    expect(engine.pitchCents).toBe(100)
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.pitch_cents, { timeout: 3000 })
-      .toBe(100)
-  })
-
-  it('keeps a newer speed when the write of an older one lands', async () => {
-    const id = await localRecording('Jam recording')
-    const actual = await vi.importActual<typeof RecordingCommands>('../../commands/recordings')
-    let release!: () => void
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    vi.mocked(updateRecording).mockImplementationOnce(async (...args) => {
-      await gate
-      return actual.updateRecording(...args)
-    })
-    const element = new FakeAudioElement()
-    const { engine, load } = await openFromRows('Jam recording', {
-      engine: fakePlaybackEngine(element as unknown as HTMLAudioElement),
-    })
-    await expect.poll(() => load.mock.calls.length).toBe(1)
-    const screen = await dialog()
-    await screen.getByRole('button', { name: SPEED }).click()
-    await screen.getByRole('button', { name: '75%' }).click()
-    await expect.poll(() => vi.mocked(updateRecording).mock.calls.length, { timeout: 3000 }).toBe(1)
-    await screen.getByRole('button', { name: FASTER }).click()
-    expect(element.playbackRate).toBe(0.8)
-    const setSpeed = vi.spyOn(engine, 'setSpeed')
-    release()
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.speed_percent, { timeout: 3000 })
-      .toBe(75)
-    await wait(100)
-    // The older value landing never reaches the engine, so what plays matches what shows.
-    expect(setSpeed.mock.calls.map(([percent]) => percent)).not.toContain(75)
-    expect(element.playbackRate).toBe(0.8)
-    await expect.element(screen.getByRole('button', { name: `${SPEED} 80%` })).toBeVisible()
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.speed_percent, { timeout: 3000 })
-      .toBe(80)
-    expect(element.playbackRate).toBe(0.8)
-  })
-
-  it('adopts a speed from elsewhere that matches one it wrote before', async () => {
-    const id = await localRecording('Jam recording')
-    const actual = await vi.importActual<typeof RecordingCommands>('../../commands/recordings')
-    await openFromRows('Jam recording')
-    const screen = await dialog()
-    await screen.getByRole('button', { name: SPEED }).click()
-    await screen.getByRole('button', { name: '75%' }).click()
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.speed_percent, { timeout: 3000 })
-      .toBe(75)
-    await actual.updateRecording(db, id, { speed_percent: 90 })
-    await expect.element(screen.getByRole('button', { name: `${SPEED} 90%` })).toBeVisible()
-    await actual.updateRecording(db, id, { speed_percent: 75 })
-    await expect.element(screen.getByRole('button', { name: `${SPEED} 75%` })).toBeVisible()
-  })
-
-  it('adopts a pitch from elsewhere that matches one it wrote before', async () => {
-    const id = await localRecording('Jam recording')
-    const actual = await vi.importActual<typeof RecordingCommands>('../../commands/recordings')
-    await openFromRows('Jam recording')
-    const screen = await dialog()
-    await screen.getByRole('button', { name: PITCH }).click()
-    await screen.getByRole('button', { name: PITCH_UP }).click()
-    await expect
-      .poll(async () => (await db.recordings.get(id))?.pitch_cents, { timeout: 3000 })
-      .toBe(100)
-    await actual.updateRecording(db, id, { pitch_cents: 300 })
-    await expect.element(screen.getByRole('button', { name: `${PITCH} +3` })).toBeVisible()
-    await actual.updateRecording(db, id, { pitch_cents: 100 })
-    await expect.element(screen.getByRole('button', { name: `${PITCH} +1` })).toBeVisible()
-  })
-
-  it('reports a speed that could not be saved on the screen', async () => {
+  it('switches to Practice from its menu and still returns focus to the row on close', async () => {
     await localRecording('Jam recording')
-    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('The disk is full'))
     await openFromRows('Jam recording')
-    const screen = await dialog()
-    await screen.getByRole('button', { name: SPEED }).click()
-    await screen.getByRole('button', { name: '75%' }).click()
-    await expect
-      .element(screen.getByRole('alert'), { timeout: 3000 })
-      .toHaveTextContent(SPEED_NOT_SAVED)
+    const edit = page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` })
+    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await menuItem(PRACTICE)).click()
+    await expect.element((await dialog()).getByRole('heading', { name: PRACTICE })).toBeVisible()
+    await (await dialog()).getByRole('button', { name: BACK }).click()
+    await (await dialog()).getByRole('button', { name: CLOSE_RECORDING }).click()
+    await expect.poll(presented).toBeNull()
+    // The row's Edit is an Ionic button, which takes focus on its host.
+    const host = (edit.element().getRootNode() as ShadowRoot).host
+    await expect.poll(() => document.activeElement).toBe(host)
   })
 
-  it('reports a pitch that could not be saved after the screen closed as a toast', async () => {
-    await localRecording('Jam recording')
-    vi.mocked(updateRecording).mockRejectedValueOnce(new Error('The disk is full'))
-    await openFromRows('Jam recording')
-    const screen = await dialog()
-    await screen.getByRole('button', { name: PITCH }).click()
-    await screen.getByRole('button', { name: PITCH_UP }).click()
-    await screen.getByRole('button', { name: CLOSE_RECORDING }).click()
-    await expect.element(page.getByText(PITCH_NOT_SAVED), { timeout: 3000 }).toBeVisible()
-  })
-
-  it('says nothing when the recording is gone before its write', async () => {
-    const id = await localRecording('Jam recording')
-    vi.mocked(updateRecording).mockRejectedValueOnce(new Error(RECORDING_NOT_FOUND))
-    await openFromRows('Jam recording')
-    const screen = await dialog()
-    await screen.getByRole('button', { name: SPEED }).click()
-    await screen.getByRole('button', { name: '75%' }).click()
-    await expect.poll(() => vi.mocked(updateRecording).mock.calls.length, { timeout: 3000 }).toBe(1)
-    await wait(100)
-    expect(screen.getByRole('alert').elements()).toHaveLength(0)
-    void id
+  it('leaves Practice out of its menu while Practice cannot run', async () => {
+    await remoteRecording('Remote take')
+    await openFromRows('Remote take', { syncEngine: fakeEngine({ download: () => never }) })
+    await expect.element(await trimTool()).toHaveTextContent(TRIM_WHILE_DOWNLOADING)
+    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await menuItem(DELETE)
+    expect((await menuItem(PRACTICE)).elements()).toHaveLength(0)
   })
 
   it('renames from its menu', async () => {
@@ -562,8 +448,8 @@ describe('RecordingScreen', () => {
     press('ArrowLeft')
     press('ArrowLeft')
     expect(engine.getState().positionMs).toBe(0)
-    const speed = (await dialog()).getByRole('button', { name: SPEED }).element() as HTMLElement
-    speed.focus()
+    const trim = (await trimTool()).element() as HTMLElement
+    trim.focus()
     await userEvent.keyboard('{ArrowRight}')
     expect(engine.getState().positionMs).toBe(0)
   })

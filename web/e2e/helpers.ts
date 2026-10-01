@@ -262,3 +262,57 @@ export async function expectSettled(target: Locator): Promise<void> {
     )
     .toBe(true)
 }
+
+/** The label a new recording takes from the time it was made. */
+export const DEFAULT_LABEL = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/
+
+/** Record from the dock for at least `seconds`, landing on the recordings tab with the new row unfiled. */
+export async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('button', { name: 'Start a new recording' })
+    .click()
+  const timer = page.getByRole('timer')
+  await expect(timer).toBeVisible()
+  await expect(timer).toHaveText(new RegExp(`^0:0[${seconds}-9]$`), { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Stop' }).click()
+  await expect(page).toHaveURL(/\/recordings$/)
+  const row = page.getByRole('list', { name: 'Unfiled' }).getByRole('listitem').first()
+  await expect(row).toContainText(DEFAULT_LABEL)
+  return row
+}
+
+/**
+ * Wait until `row` settles out of the upload/transcode pipeline, nudging the sync loop from
+ * Settings along the way in case it is between passes or backing off. `restore` returns to
+ * wherever `row` is shown after that nudge; the Recordings tab by default.
+ */
+export async function waitForReady(
+  page: Page,
+  row: Locator,
+  { timeout = 60_000, restore }: { timeout?: number; restore?: () => Promise<void> } = {},
+): Promise<void> {
+  const busy = /Waiting to upload|Uploading|Processing/
+  await expect
+    .poll(
+      async () => {
+        const text = (await row.textContent()) ?? ''
+        if (busy.test(text)) {
+          await page.getByRole('tab', { name: 'Settings' }).click()
+          await page.getByRole('button', { name: 'Sync now' }).click()
+          if (restore) await restore()
+          else await page.getByRole('tab', { name: 'Recordings' }).click()
+        }
+        return row.textContent()
+      },
+      { timeout, intervals: [3_000] },
+    )
+    .not.toMatch(busy)
+}
+
+/** Nudge the transfer loop from Settings, then return to the recordings list it left. */
+export async function nudgeSync(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Sync now' }).click()
+  await page.getByRole('tab', { name: 'Recordings' }).click()
+}

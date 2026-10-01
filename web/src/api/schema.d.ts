@@ -236,7 +236,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "user_settings";
+            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "recording_loops" | "user_settings";
             /**
              * Updated At
              * Format: date-time
@@ -513,7 +513,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
+            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
         };
         /**
          * PushRequest
@@ -529,7 +529,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
+            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
         };
         /**
          * RecordingChangeResult
@@ -693,6 +693,85 @@ export interface components {
             updated_at: string;
             /** Url */
             url: string;
+        };
+        /**
+         * RecordingLoopChangeResult
+         * @description The outcome of one change to a recording loop.
+         */
+        RecordingLoopChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["RecordingLoopRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "recording_loops";
+        };
+        /**
+         * RecordingLoopPullRow
+         * @description A recording loop row in a pull page.
+         */
+        RecordingLoopPullRow: {
+            row: components["schemas"]["RecordingLoopRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "recording_loops";
+        };
+        /**
+         * RecordingLoopRow
+         * @description A stored practice loop, as push and pull return it.
+         */
+        RecordingLoopRow: {
+            /** Color */
+            color: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** End Ms */
+            end_ms: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label?: string | null;
+            /**
+             * Recording Id
+             * Format: uuid
+             */
+            recording_id: string;
+            /** Server Seq */
+            server_seq: number;
+            /** Start Ms */
+            start_ms: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
         };
         /**
          * RecordingPullRow

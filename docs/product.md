@@ -55,7 +55,8 @@ for Android and every browser. The parts that matter:
   recording is filed under a tune or waits unfiled. It plays at once, uploads
   in the background, and reaches the musician's other devices. A recording
   can be trimmed for good, and plays at a slower or faster speed and a
-  shifted pitch on every device. Free accounts hold 1 GB.
+  shifted pitch on every device. A recording keeps labeled practice
+  loops that repeat. Free accounts hold 1 GB.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.

@@ -63,8 +63,8 @@ reopens one without new information. Add a new entry at the end.
 - The app must read as native on iOS and Android and as a well-made web app
   on a desktop. Ionic supplies per-platform components, page transitions,
   swipe back, and per-tab stacks, and Capacitor is built around it.
-- Above 768px a sidebar replaces the tab bar, so a wide screen never shows
-  a phone app in a browser.
+- At 768px wide and 600px tall a sidebar replaces the tab bar, so a wide
+  screen never shows a phone app in a browser.
 - daisyUI was rejected: its screens read as a website (site header, centered
   column on a phone, outlined buttons, flat rows, no transitions).
 - A mixed interface was rejected: half Ionic and half daisyUI reads worse

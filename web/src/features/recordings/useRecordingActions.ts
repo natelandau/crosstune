@@ -1,4 +1,4 @@
-import { FolderInput, FolderOutput, Pencil, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { FolderInput, FolderOutput, Pencil, Repeat, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { useAction } from '../../ui/useAction'
@@ -7,6 +7,7 @@ import { useSyncEngine } from '../../sync/SyncProvider'
 import { DELETE, useConfirm } from '../../ui/Confirm'
 import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
+import { PRACTICE } from '../practice/practiceCopy'
 import { EDIT_RECORDING, useRecordingScreen } from '../recording-screen/useRecordingScreen'
 import { deleteRecordingMessage } from './recordingRow'
 import type { RecordingView } from './useRecordings'
@@ -26,7 +27,7 @@ export interface RecordingActions {
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
   /** A row's actions: open it in the recording screen, file or unfile it, delete it. */
   actionsFor: (view: RecordingView) => RowAction[]
-  /** The recording screen's menu: rename it, file or unfile it, delete it. */
+  /** The recording screen's menu: rename it, practice it, file or unfile it, delete it. */
   menuFor: (view: RecordingView) => RowAction[]
 }
 
@@ -36,11 +37,15 @@ export interface RecordingActions {
  */
 export function useRecordingActions({
   onRename,
+  onPractice,
   onAddToTune,
   onDeleted,
 }: {
   /** Left out where nothing offers Rename; only the recording screen's menu does. */
   onRename?: (view: RecordingView) => void
+  /** Left out where nothing offers Practice, or while Practice cannot run; only the
+   * recording screen's menu offers it, switching to Practice in place. */
+  onPractice?: () => void
   /** Runs once a confirmed delete is under way, for a screen that must go with its recording. */
   onDeleted?: () => void
   /** Left out by a list where every recording is already filed under the tune it belongs to. */
@@ -140,6 +145,9 @@ export function useRecordingActions({
     return [
       ...(onRename
         ? [{ label: RENAME, icon: Pencil, tone: 'neutral' as const, onPress: () => onRename(view) }]
+        : []),
+      ...(onPractice
+        ? [{ label: PRACTICE, icon: Repeat, tone: 'neutral' as const, onPress: onPractice }]
         : []),
       ...(file ? [file] : []),
       deleteAction(view),

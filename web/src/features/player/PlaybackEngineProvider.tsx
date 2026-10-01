@@ -6,6 +6,10 @@ const realClock: EngineClock = {
     const id = setInterval(fn, ms)
     return () => clearInterval(id)
   },
+  after: (ms, fn) => {
+    const id = setTimeout(fn, ms)
+    return () => clearTimeout(id)
+  },
 }
 
 // Exported so tests can inject an engine without going through PlaybackEngineProvider.

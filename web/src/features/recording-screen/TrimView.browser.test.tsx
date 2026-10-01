@@ -17,7 +17,7 @@ import { PlaybackEngine, type EngineClock } from '../player/playbackEngine'
 import { usePlayer } from '../player/usePlayer'
 import { RecordingsPage } from '../recordings/RecordingsPage'
 import { TRIM_CHANGED_ELSEWHERE } from './RecordingScreen'
-import { SPEED } from './SpeedPanel'
+import { PRACTICE } from '../practice/practiceCopy'
 import { END_HANDLE, START_HANDLE } from './TrimStrip'
 import {
   GO_TO_START,
@@ -90,6 +90,7 @@ function manualClock() {
       tick = fn
       return () => {}
     },
+    after: () => () => {},
   }
   return { clock, tick: () => tick() }
 }
@@ -249,7 +250,7 @@ describe('TrimView', () => {
     await expect.poll(() => element.playbackRate).toBe(0.75)
     expect(engine.pitchCents).toBe(200)
     await expect
-      .element((await dialog()).getByRole('button', { name: `${SPEED} 75%` }))
+      .element((await dialog()).getByRole('button', { name: `${PRACTICE}, 75% · +2`, exact: true }))
       .toBeVisible()
     expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
   })

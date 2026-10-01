@@ -44,6 +44,7 @@ export function Waveform({
   disabled = false,
   label = SEEK_LABEL,
   compact = false,
+  heightClass,
   decorative = false,
   onSeek,
 }: {
@@ -57,6 +58,8 @@ export function Waveform({
   label?: string
   /** A shorter strip, for an overview beside a larger waveform. */
   compact?: boolean
+  /** The bars' height, in place of the regular or compact one. */
+  heightClass?: string
   /** Pointer-only, for a waveform whose position another slider already gives the keyboard. */
   decorative?: boolean
   /** `ms` from the start of what the bars show. */
@@ -187,7 +190,7 @@ export function Waveform({
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className={`block w-full text-(--ion-color-primary) ${compact ? 'h-12' : 'h-24'}`}
+        className={`block w-full text-(--ion-color-primary) ${heightClass ?? (compact ? 'h-12' : 'h-24')}`}
       />
     </div>
   )

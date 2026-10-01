@@ -32,6 +32,7 @@ import {
   type TrimHandle,
 } from './trimModel'
 import { END_HANDLE, START_HANDLE, TrimStrip } from './TrimStrip'
+import { useEntryFocus } from './useEntryFocus'
 import { useZoomGestures } from './useZoomGestures'
 
 export const TRIM = 'Trim'
@@ -129,24 +130,7 @@ export function TrimView({
   }, [trimmedElsewhere, onTrimmedElsewhere])
 
   const cancel = useRef<HTMLIonButtonElement>(null)
-  // The control that opened this view is gone with the view it sat in, so focus starts on
-  // the way back out rather than falling to the page.
-  useEffect(() => {
-    const element = cancel.current
-    if (!element) return
-    let live = true
-    let frame = 0
-    void Promise.resolve(element.componentOnReady?.()).then(() => {
-      // One frame on, once the view that held the opener has left the page.
-      frame = requestAnimationFrame(() => {
-        if (live) element.shadowRoot?.querySelector('button')?.focus()
-      })
-    })
-    return () => {
-      live = false
-      cancelAnimationFrame(frame)
-    }
-  }, [])
+  useEntryFocus(cancel, modal)
 
   // Play selection and Preview end run up to the end handle and stop on it. The check reads
   // the handle as it stands, so moving it while playing moves where playback stops.
@@ -227,21 +211,25 @@ export function TrimView({
 
   const detailBox = useRef<HTMLDivElement>(null)
   const beforePinch = useRef({ positionMs: 0, start: trim.start, end: trim.end })
-  const pinch = useZoomGestures(detailBox, dispatch, {
-    onFirstPointer: () => {
-      beforePinch.current = {
-        positionMs: engine.getState().positionMs,
-        start: latest.current.start,
-        end: latest.current.end,
-      }
+  const pinch = useZoomGestures(
+    detailBox,
+    (zoom) => dispatch({ type: 'zoom', factor: zoom.factor }),
+    {
+      onFirstPointer: () => {
+        beforePinch.current = {
+          positionMs: engine.getState().positionMs,
+          start: latest.current.start,
+          end: latest.current.end,
+        }
+      },
+      onPinchStart: () => {
+        const { positionMs, start, end } = beforePinch.current
+        engine.seek(positionMs)
+        dispatch({ type: 'restore', start, end })
+        setHeldWindow(null)
+      },
     },
-    onPinchStart: () => {
-      const { positionMs, start, end } = beforePinch.current
-      engine.seek(positionMs)
-      dispatch({ type: 'restore', start, end })
-      setHeldWindow(null)
-    },
-  })
+  )
 
   const save = async () => {
     const answer = await confirm({

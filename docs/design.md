@@ -45,13 +45,15 @@ Three axes decide the chrome. No screen asks which device it is on;
 | Axis    | Values           | Decides                                                   | Source                               |
 | ------- | ---------------- | --------------------------------------------------------- | ------------------------------------ |
 | Mode    | `ios`, `md`      | How components look and animate                           | Ionic's own detection, never forced  |
-| Frame   | `phone`, `wide`  | Tab bar or sidebar, full width or a measured column       | Viewport width at 768px              |
+| Frame   | `phone`, `wide`  | Tab bar or sidebar, full width or a measured column       | Viewport 768px wide and 600px tall   |
 | Pointer | `touch`, `mouse` | Swipe or hover, sheet or popover, whether shortcuts exist | `(hover: hover) and (pointer: fine)` |
 
 - One router and one outlet always render. Routes are tab-scoped, so a tune
   opened from a list stays in that tab and Back returns to the list.
 - No overlay is a route. A modal or sheet opens over the current screen and
   the URL does not change.
+- The frame is decided by width and height together, never width alone, so a
+  landscape phone keeps the phone frame.
 - The phone frame has a tab bar and the wide frame a sidebar. The bar is
   hidden, not unmounted, on the wide frame, so each stack keeps its pushed
   pages.
@@ -380,8 +382,8 @@ A screen that edits more than one property of what it plays or shows puts
 each behind one tool strip: a row of buttons that scrolls sideways once it
 holds more than fit.
 
-- A tool opens its own panel below the strip. Selecting an open tool closes
-  it.
+- A tool opens its own view, such as Trim or Practice, in place of the
+  screen's content.
 - A tool shows its current value beside its label only when that value
   differs from the tool's default. At the default, the tool shows only its
   label.

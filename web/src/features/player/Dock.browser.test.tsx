@@ -7,6 +7,7 @@ import { page } from 'vitest/browser'
 import { PhoneTabBar } from '../../app/PhoneTabBar'
 import { RECORD_LABEL } from '../../app/tabs'
 import { addLink, removeLink } from '../../commands/links'
+import { removeLoop, updateLoop } from '../../commands/loops'
 import {
   appendChunk,
   beginCapture,
@@ -25,6 +26,8 @@ import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine, FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { Screen } from '../../ui/Screen'
+import { loopRow } from '../../test/rows'
+import { PRACTICE } from '../practice/practiceCopy'
 import { DOWNLOAD_FAILED } from '../recording/format'
 import { RecordProvider, useRecord } from '../recording/useRecord'
 import {
@@ -37,6 +40,8 @@ import {
   PITCH_UNAVAILABLE,
   PLAY,
   PLAY_FAILED,
+  REPEAT_LABEL,
+  REPEATING_BADGE,
   SPEED_BADGE,
   SPEED_LABEL,
 } from './Dock'
@@ -47,6 +52,10 @@ const realClock: EngineClock = {
   every: (ms, fn) => {
     const id = setInterval(fn, ms)
     return () => clearInterval(id)
+  },
+  after: (ms, fn) => {
+    const id = setTimeout(fn, ms)
+    return () => clearTimeout(id)
   },
 }
 
@@ -323,6 +332,139 @@ describe('Dock', () => {
       .toBeVisible()
   })
 
+  it('shows the loop it repeats, reopens Practice from it, and turns Repeat off beside it', async () => {
+    const id = await localRecording('Jam recording')
+    const loop = newId()
+    await db.recording_loops.put(
+      loopRow({ id: loop, recording_id: id, label: 'B part', start_ms: 500, end_ms: 2500 }),
+    )
+    const engine = fakePlaybackEngine()
+    renderIonic(
+      <Openers items={[{ label: 'Play recording', item: { kind: 'recording', id } }]} />,
+      {
+        db,
+        playbackEngine: engine,
+        recordingScreen: true,
+        dock: true,
+      },
+    )
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    expect(dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
+
+    engine.setLoop({ id: loop, label: 'B part', fromS: 0.5, toS: 2.5 })
+    // A selected loop alone, with Repeat off, shows nothing.
+    expect(dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
+    engine.setRepeat(true)
+    const badge = dock().getByRole('button', { name: REPEATING_BADGE('B part') })
+    await expect.element(badge).toBeVisible()
+    const toggle = dock().getByRole('button', { name: REPEAT_LABEL, exact: true })
+    await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
+
+    await badge.click()
+    await expect
+      .poll(() => document.querySelector('ion-modal:not(.overlay-hidden) h2')?.textContent)
+      .toBe(PRACTICE)
+    expect(engine.getState().repeat).toBe(true)
+  })
+
+  describe('with Practice closed', () => {
+    /** A playing recording repeating its B part loop, with no Practice view mounted. */
+    async function repeating() {
+      const id = await localRecording('Jam recording')
+      const loop = newId()
+      await db.recording_loops.put(
+        loopRow({ id: loop, recording_id: id, label: 'B part', start_ms: 500, end_ms: 2500 }),
+      )
+      const element = new FakeAudioElement()
+      const engine = fakePlaybackEngine(element as unknown as HTMLAudioElement)
+      renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+        playbackEngine: engine,
+      })
+      await page.getByRole('button', { name: 'Play recording' }).click()
+      await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+      engine.setLoop({ id: loop, label: 'B part', fromS: 0.5, toS: 2.5 })
+      engine.setRepeat(true)
+      return { id, loop, element, engine }
+    }
+
+    it('keeps wrapping the loop once a trim replaces the blob', async () => {
+      const { id, element, engine } = await repeating()
+      await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'bbbbbbbb', 500)
+      // The loop's source times, now in seconds into a blob that starts 500 ms in.
+      await expect.poll(() => engine.loopRange).toMatchObject({ fromS: 0, toS: 2 })
+      expect(engine.getState().repeat).toBe(true)
+      element.currentTime = 1
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      element.currentTime = 2.1
+      await expect.poll(() => element.currentTime).toBe(0)
+    })
+
+    it('turns Repeat off and drops the badge when the loop is deleted', async () => {
+      const { loop, engine } = await repeating()
+      await expect
+        .element(dock().getByRole('button', { name: REPEATING_BADGE('B part') }))
+        .toBeVisible()
+      await removeLoop(db, loop)
+      await expect.poll(() => engine.getState().repeat).toBe(false)
+      expect(engine.getState().loop).toBeNull()
+      await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
+    })
+
+    it('shows a renamed loop in the badge', async () => {
+      const { loop, engine } = await repeating()
+      await updateLoop(db, loop, { label: 'Bridge' })
+      await expect
+        .element(dock().getByRole('button', { name: REPEATING_BADGE('Bridge') }))
+        .toBeVisible()
+      expect(engine.loopRange?.label).toBe('Bridge')
+    })
+  })
+
+  it('keeps room for both Repeat targets beside a long badge on a narrow phone', async () => {
+    const id = await localRecording('Jam recording')
+    await updateRecording(db, id, { speed_percent: 75, pitch_cents: -150 })
+    const engine = fakePlaybackEngine()
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.viewport(320, 640)
+    try {
+      await page.getByRole('button', { name: 'Play recording' }).click()
+      await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+      engine.setLoop({ id: 'loop-1', label: 'The long turnaround', fromS: 0.5, toS: 2.5 })
+      engine.setRepeat(true)
+      await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).not.toBeNull()
+      const wrapper = dockElement()!.querySelector<HTMLElement>('[data-repeat-badge]')!
+      const box = wrapper.getBoundingClientRect()
+      for (const target of wrapper.querySelectorAll('button')) {
+        const rect = target.getBoundingClientRect()
+        expect(rect.width).toBeGreaterThanOrEqual(44)
+        expect(rect.left).toBeGreaterThanOrEqual(box.left - 0.5)
+        expect(rect.right).toBeLessThanOrEqual(box.right + 0.5)
+      }
+    } finally {
+      await page.viewport(390, 844)
+    }
+  })
+
+  it('turns Repeat off from the toggle beside the badge', async () => {
+    const id = await localRecording('Jam recording')
+    const engine = fakePlaybackEngine()
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      playbackEngine: engine,
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
+    engine.setLoop({ id: 'loop-1', label: 'B part', fromS: 0.5, toS: 2.5 })
+    engine.setRepeat(true)
+    await dock().getByRole('button', { name: REPEAT_LABEL, exact: true }).click()
+    await expect.poll(() => engine.getState().repeat).toBe(false)
+    await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
+    // The loop stays selected for Practice to pick up again.
+    expect(engine.getState().loop?.id).toBe('loop-1')
+  })
+
   it('formats the pitch badge in semitones, one decimal only off a whole semitone', () => {
     expect(PITCH_BADGE(200)).toBe('+2')
     expect(PITCH_BADGE(-100)).toBe('-1')
@@ -424,6 +566,8 @@ describe('Dock', () => {
     })
     await page.getByRole('button', { name: 'Play recording' }).click()
     await expect.poll(() => load.mock.calls.length).toBe(1)
+    expect(load.mock.calls[0]![4]).toEqual({ keepLoop: false })
+    engine.setRepeat(true)
     const firstSrc = create.mock.results[0]!.value as string
 
     // A trim job regenerates the playback file in place: the same recording, a new blob at
@@ -446,6 +590,8 @@ describe('Dock', () => {
     expect(secondSrc).not.toBe(firstSrc)
     expect(revoke).toHaveBeenCalledWith(firstSrc)
     expect(load.mock.calls[1]![0]).toBe(secondSrc)
+    expect(load.mock.calls[1]![4]).toEqual({ keepLoop: true })
+    expect(engine.getState().repeat).toBe(true)
     // The reload alone applies the new span; setWindow never ran against the old, superseded
     // blob in between.
     expect(setWindow).not.toHaveBeenCalled()
@@ -536,6 +682,8 @@ describe('Dock', () => {
       lengthMs: 0,
       failed: false,
       pitchUnavailable: false,
+      loop: null,
+      repeat: false,
     })
   })
 

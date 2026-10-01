@@ -20,6 +20,7 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   list_items: null,
   recording_links: 'added_by_user_id',
   recordings: 'user_id',
+  recording_loops: 'user_id',
   user_settings: 'user_id',
 }
 
