@@ -6,12 +6,12 @@
     {
       "layers" : [
         {
-          "image-name" : "T.svg",
-          "name" : "T"
-        },
-        {
           "image-name" : "C.svg",
           "name" : "C"
+        },
+        {
+          "image-name" : "T.svg",
+          "name" : "T"
         }
       ]
     }
