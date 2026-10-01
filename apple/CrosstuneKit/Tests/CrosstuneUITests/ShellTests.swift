@@ -65,6 +65,46 @@ import Testing
     }
 }
 
+@Suite struct TextSizeTests {
+    @Test func bodySizesFollowApplesTable() {
+        #expect(
+            DynamicTypeSize.allCases.map(TextSize.bodyPointSize) == [14, 15, 16, 17, 19, 21, 23, 28, 33, 40, 47, 53])
+    }
+
+    @Test func shiftsByWholeStepsAndClampsAtBothEnds() {
+        #expect(TextSize.applied(system: .large, offset: 0) == .large)
+        #expect(TextSize.applied(system: .large, offset: -2) == .small)
+        #expect(TextSize.applied(system: .large, offset: 3) == .xxxLarge)
+        #expect(TextSize.applied(system: .small, offset: -5) == .xSmall)
+        #expect(TextSize.applied(system: .accessibility4, offset: 4) == .accessibility5)
+    }
+
+    @Test func theRangeIsWhatTheSystemSizeLeaves() {
+        #expect(TextSize.offsetRange(system: .large) == -3...8)
+        #expect(TextSize.offsetRange(system: .xSmall) == 0...11)
+        #expect(TextSize.offsetRange(system: .accessibility5) == -11...0)
+    }
+
+    @Test func readsSystemAtZeroAndAPercentElsewhere() {
+        #expect(TextSize.valueLabel(system: .large, offset: 0) == "System")
+        #expect(TextSize.valueLabel(system: .large, offset: -2) == "88%")
+        #expect(TextSize.valueLabel(system: .large, offset: 1) == "112%")
+        // A stored shift the system size has since used up still names what applies.
+        #expect(TextSize.valueLabel(system: .xSmall, offset: -2) == "System")
+    }
+
+    @Test func aStoredWordReadsAsNoShift() throws {
+        let suite = "TextSizeTests.aStoredWordReadsAsNoShift"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("compact", forKey: TextSize.storageKey)
+        // Read the way the root and Settings read it.
+        let offset = AppStorage(wrappedValue: 0, TextSize.storageKey, store: defaults)
+        #expect(offset.wrappedValue == 0)
+        #expect(TextSize.storageKey == "crosstune.textSize")
+    }
+}
+
 @Suite struct TabSlotTests {
     @Test func choosingTheRecordSlotRecordsAndKeepsTheTab() {
         #expect(TabSlot.record.resolved(current: .lists) == (.lists, true))

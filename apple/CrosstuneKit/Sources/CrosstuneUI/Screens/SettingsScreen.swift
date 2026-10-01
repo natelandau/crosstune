@@ -13,6 +13,9 @@ public struct SettingsScreen: View {
 
     private let version: String?
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    @AppStorage(TextSize.storageKey) private var textSizeOffset = 0
+    @Environment(\.systemDynamicTypeSize) private var systemTextSize
+    @Environment(\.spacing) private var spacing
     @AppStorage(CaptureChannels.storageKey) private var channels: CaptureChannels = .mono
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
@@ -25,6 +28,13 @@ public struct SettingsScreen: View {
     /// - Parameter version: The app's marketing version, which the About row names.
     public init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
         self.version = version
+    }
+
+    /// The stored text size offset held to what the system size leaves, so a shift the system
+    /// has since used up steps from where the text actually is.
+    nonisolated static func stepperValue(offset: Int, system: DynamicTypeSize) -> Int {
+        let range = TextSize.offsetRange(system: system)
+        return min(max(offset, range.lowerBound), range.upperBound)
     }
 
     /// The About row, as `Crosstune 0.7.0`.
@@ -41,6 +51,22 @@ public struct SettingsScreen: View {
                 Picker(Appearance.title, selection: $appearance) {
                     ForEach(Appearance.allCases) { Text($0.label).tag($0) }
                 }
+                // Text on the Mac does not scale with Dynamic Type, so the shift would do nothing.
+                #if !os(macOS)
+                    Stepper(
+                        value: Binding {
+                            Self.stepperValue(offset: textSizeOffset, system: systemTextSize)
+                        } set: {
+                            textSizeOffset = $0
+                        },
+                        in: TextSize.offsetRange(system: systemTextSize)
+                    ) {
+                        LabeledContent(
+                            TextSize.title,
+                            value: TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
+                    }
+                    .accessibilityValue(TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
+                #endif
             } footer: {
                 Text(SettingsModel.appearanceFooter)
             }
@@ -170,14 +196,14 @@ public struct SettingsScreen: View {
         if let figures = model.storage {
             let text = SettingsModel.storageText(figures)
             Section(SettingsModel.storage) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: spacing.stackGap) {
                     Text(text)
                         .monospacedDigit()
                     ProgressView(value: SettingsModel.storageFraction(figures))
                         .accessibilityLabel(SettingsModel.storageUsed)
                         .accessibilityValue(text)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, spacing(4))
             }
         }
     }

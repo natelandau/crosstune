@@ -103,3 +103,25 @@ import Testing
         #expect(rows.contains { $0.retry == .transcode })
     }
 }
+
+@Suite struct SpacingTests {
+    @Test func tokensAreTunedAtTheDefaultSize() {
+        let spacing = Spacing(.large)
+        #expect(spacing.scale == 1)
+        #expect(spacing.rowInset == 10 && spacing.rowLineGap == 2 && spacing.chipVertical == 6)
+        #expect(spacing.railGap == 8 && spacing.filterBarPadding == 8 && spacing.filterBarBottom == 14)
+        #expect(spacing.stackGap == 8 && spacing.sectionGap == 16)
+    }
+
+    @Test func tokensScaleAsBodyTextDoes() {
+        #expect(Spacing(.small).rowInset == 9)
+        #expect(Spacing(.xLarge).rowInset == 11)
+        #expect(Spacing(.accessibility3).rowInset == 23.5)
+        #expect(Spacing(.small)(12) == 10.5)
+    }
+
+    @Test func theTapOutsetMakesUpTo44() {
+        #expect(tapOutset(visibleHeight: 28) == 8)
+        #expect(tapOutset(visibleHeight: 50) == 0)
+    }
+}

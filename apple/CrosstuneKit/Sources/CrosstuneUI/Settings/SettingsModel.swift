@@ -53,8 +53,13 @@ public final class SettingsModel {
     nonisolated public static let removeDownloads = "Remove downloaded audio"
     nonisolated public static let removeDownloadsFooter =
         "Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept."
-    nonisolated public static let appearanceFooter =
-        "This applies to this device only. System follows the device when it switches."
+    #if os(macOS)
+        nonisolated public static let appearanceFooter =
+            "This applies to this device only. System follows the device when it switches."
+    #else
+        nonisolated public static let appearanceFooter =
+            "These apply to this device only. System follows the device when it switches."
+    #endif
     nonisolated public static let sync = "Sync"
     nonisolated public static let status = "Status"
     nonisolated public static let recordings = "Recordings"

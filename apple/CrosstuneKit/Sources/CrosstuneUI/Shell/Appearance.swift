@@ -32,17 +32,23 @@ public enum Appearance: String, CaseIterable, Identifiable, Sendable {
 }
 
 extension View {
-    /// Applies this device's appearance choice. Every scene's root calls it, so a change in
-    /// Settings reaches every window at once.
-    public func followsAppearanceSetting() -> some View {
-        modifier(AppearanceModifier())
+    /// Applies this device's appearance and text size choices. Every scene's root calls it, so a
+    /// change in Settings reaches every window at once.
+    public func followsDisplaySettings() -> some View {
+        modifier(DisplaySettingsModifier())
     }
 }
 
-private struct AppearanceModifier: ViewModifier {
+private struct DisplaySettingsModifier: ViewModifier {
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
+    @AppStorage(TextSize.storageKey) private var offset = 0
+    // Read above this modifier's own override, so it is the system's size.
+    @Environment(\.dynamicTypeSize) private var system
 
     func body(content: Content) -> some View {
-        content.preferredColorScheme(appearance.colorScheme)
+        content
+            .preferredColorScheme(appearance.colorScheme)
+            .dynamicTypeSize(TextSize.applied(system: system, offset: offset))
+            .environment(\.systemDynamicTypeSize, system)
     }
 }
