@@ -4,12 +4,15 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// The catalog laid out from stand-ins, since an image renderer draws no list: the real filter
-/// bar, tune rows, hidden match note, add row, and count, stacked as the list shows them.
+/// The catalog laid out from stand-ins, since an image renderer draws no list: the real search
+/// field, filter bar, tune rows, hidden match note, add row, and count, stacked as the list shows
+/// them.
 struct CatalogStandIn: View {
     var filters = CatalogFilters(
         status: "learning", facets: [.key: "A", .genre: "Old-time", .tuning("violin"): "Cross A (AEAE)"])
     var query = ""
+
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         let entries = SampleCatalog.entries.map { CatalogEntry(tune: $0.tune, userTune: $0.userTune) }
@@ -22,10 +25,9 @@ struct CatalogStandIn: View {
             facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments), visible: visible,
             outcome: outcome, total: total, archivedCount: entries.count(where: \.isArchived))
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Spacer()
-                CatalogFiltersButton(setCount: filters.sheetCount) {}
-            }
+            CatalogSearchField(
+                query: .constant(query), isFocused: $searchFocused,
+                filterCount: filters.sheetCount, onSubmit: {}, onFilters: {})
             CatalogFilterBar(results: results, errors: [], onChange: { _ in })
                 .padding(.horizontal, -16)
             ForEach(visible) { entry in

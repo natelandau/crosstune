@@ -452,7 +452,10 @@ equivalent below.
   window falls back to the iPhone layout.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
   Undo button replaces the web's toast.
-- Native search replaces the web's toolbar search field.
+- Native search replaces the web's toolbar search field, except on the
+  catalog on iPhone and iPad. There the field is the app's own, pinned under
+  the navigation bar with the filter control at its trailing edge, because
+  the system field takes no accessory.
 - On iPhone, a top-level screen's large title shares a row with its
   toolbar buttons and stays in place on scroll, instead of sitting in its
   own row under them.

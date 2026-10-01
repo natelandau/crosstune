@@ -156,8 +156,9 @@ private struct ChoiceCapsuleLabel: View {
     }
 }
 
-/// The toolbar control that opens the filter sheet. It shows and says the count of set sheet
-/// filters, since filters persist and a stale one must announce itself.
+/// The control that opens the filter sheet, in the search field on iPhone and iPad and the
+/// toolbar on the Mac. It shows and says the count of set sheet filters, since filters persist
+/// and a stale one must announce itself.
 struct CatalogFiltersButton: View {
     nonisolated static let filters = "Filters"
     static let systemImage = "line.3.horizontal.decrease"
@@ -180,6 +181,10 @@ struct CatalogFiltersButton: View {
                         .monospacedDigit()
                 }
             }
+            #if os(iOS)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(.rect)
+            #endif
         }
         .accessibilityLabel(Self.name(setCount: setCount))
         .help(Self.name(setCount: setCount))

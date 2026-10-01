@@ -50,15 +50,31 @@ private struct CatalogContent: View {
         let results = model.results
         list(results)
             .listStyle(.plain)
-            .modifier(SystemSearch(query: $model.query, isFocused: $searchFocused, onSubmit: submitSearch))
+            #if os(iOS)
+                .safeAreaBar(edge: .top) {
+                    CatalogSearchField(
+                        query: $model.query, isFocused: $searchFocused,
+                        filterCount: selection.isActive ? nil : results.map(filterCount),
+                        onSubmit: submitSearch
+                    ) { showsFilters = true }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
+            #else
+                .modifier(SystemSearch(query: $model.query, isFocused: $searchFocused, onSubmit: submitSearch))
+            #endif
             .toolbar {
                 if !selection.isActive {
                     ToolbarItem(placement: .primaryAction) {
                         Button(CatalogScreen.addTune, systemImage: "plus") { form = model.newTune() }
                     }
-                    if let results {
-                        ToolbarItem(placement: .primaryAction) { filtersButton(results) }
-                    }
+                    #if os(macOS)
+                        if let results {
+                            ToolbarItem(placement: .primaryAction) {
+                                CatalogFiltersButton(setCount: filterCount(results)) { showsFilters = true }
+                            }
+                        }
+                    #endif
                     if results?.visible.isEmpty == false {
                         ToolbarItem(placement: .secondaryAction) {
                             Button(TuneRowActions.select) { selection.enter() }
@@ -105,10 +121,8 @@ private struct CatalogContent: View {
         AccessibilityNotification.Announcement(label).post()
     }
 
-    private func filtersButton(_ results: CatalogResults) -> some View {
-        CatalogFiltersButton(
-            setCount: results.filters.sheetCount(railsOnScreen: CatalogFilterBar.railsOnScreen(dynamicTypeSize))
-        ) { showsFilters = true }
+    private func filterCount(_ results: CatalogResults) -> Int {
+        results.filters.sheetCount(railsOnScreen: CatalogFilterBar.railsOnScreen(dynamicTypeSize))
     }
 
     private func list(_ results: CatalogResults?) -> some View {
@@ -237,8 +251,7 @@ private struct CatalogContent: View {
     }
 }
 
-/// The system search field: always shown in the navigation bar drawer on iPhone and iPad, so it
-/// is there at rest, and in the toolbar on the Mac, where it answers the system Find.
+/// The system search field in the Mac toolbar, where it answers the system Find.
 private struct SystemSearch: ViewModifier {
     @Binding var query: String
     let isFocused: FocusState<Bool>.Binding
@@ -246,17 +259,9 @@ private struct SystemSearch: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .searchable(text: $query, placement: Self.placement, prompt: CatalogScreen.searchPrompt)
+            .searchable(text: $query, placement: .toolbar, prompt: CatalogScreen.searchPrompt)
             .searchFocused(isFocused)
             .onSubmit(of: .search, onSubmit)
-    }
-
-    private static var placement: SearchFieldPlacement {
-        #if os(iOS)
-            .navigationBarDrawer(displayMode: .always)
-        #else
-            .toolbar
-        #endif
     }
 }
 
