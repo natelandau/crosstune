@@ -27,6 +27,7 @@ const LIMIT_OBJECTS = {
   LIST_LIMITS: ['ListRow'],
   LINK_LIMITS: ['RecordingLinkRow'],
   RECORDING_LIMITS: ['RecordingRow'],
+  LOOP_LIMITS: ['RecordingLoopRow'],
 }
 
 // Exported ranges object -> the schema and fields it reads minimum/maximum from. A
@@ -37,6 +38,7 @@ const RANGE_OBJECTS = {
     schema: 'RecordingData',
     fields: ['speed_percent', 'pitch_cents', 'trim_start_ms'],
   },
+  LOOP_RANGES: { schema: 'RecordingLoopRow', fields: ['start_ms', 'color'] },
 }
 
 /** A number field's minimum and/or maximum, directly or under anyOf. */

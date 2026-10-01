@@ -6,6 +6,7 @@ import {
   type LocalList,
   type LocalListItem,
   type LocalRecording,
+  type LocalRecordingLoop,
   type LocalRecordingLink,
   type LocalRows,
   type LocalTune,
@@ -16,8 +17,14 @@ import {
   type TableName,
 } from './types'
 
-// Every store the server refills, plus what could only be pushed or uploaded in an older shape.
-const STARTED_OVER = [...TABLE_NAMES, 'recording_files', 'recording_chunks', 'outbox'] as const
+// Every store the server refilled as of version 6, plus what could only be pushed or uploaded
+// in an older shape. A fixed list: the upgrade transaction holds only stores that version has.
+const STARTED_OVER = [
+  ...TABLE_NAMES.filter((name) => name !== 'recording_loops'),
+  'recording_files',
+  'recording_chunks',
+  'outbox',
+] as const
 
 /**
  * Make the next pull fetch every row again. Queued changes stay and win over pulled rows that
@@ -68,6 +75,7 @@ export class CrosstuneDb extends Dexie {
   list_items!: Table<LocalListItem, string>
   user_settings!: Table<LocalUserSettings, string>
   recordings!: Table<LocalRecording, string>
+  recording_loops!: Table<LocalRecordingLoop, string>
   recording_files!: Table<RecordingFile, string>
   recording_chunks!: Table<RecordingChunk, [string, number]>
   outbox!: EntityTable<OutboxEntry, 'seq'>
@@ -118,6 +126,24 @@ export class CrosstuneDb extends Dexie {
         user_songs: null,
       })
       .upgrade(startOver)
+
+    // A new store needs no reshaping, so rows and the outbox stay as they are.
+    this.version(7).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+      songs: null,
+      user_songs: null,
+    })
   }
 
   // Dexie's auto-open on the first query calls this method too.
@@ -173,6 +199,7 @@ export function rowsTable<T extends TableName>(
     list_items: db.list_items,
     recording_links: db.recording_links,
     recordings: db.recordings,
+    recording_loops: db.recording_loops,
     user_settings: db.user_settings,
   }
   return tables[name]

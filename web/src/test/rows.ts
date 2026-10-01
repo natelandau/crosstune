@@ -1,5 +1,11 @@
 import type { RecordingFile } from '../db/recordings'
-import type { LocalRecording, LocalRecordingLink, LocalTune, LocalUserTune } from '../db/types'
+import type {
+  LocalRecording,
+  LocalRecordingLink,
+  LocalRecordingLoop,
+  LocalTune,
+  LocalUserTune,
+} from '../db/types'
 
 export function tuneRow(id: string, title: string, extra: Partial<LocalTune> = {}): LocalTune {
   return {
@@ -117,5 +123,21 @@ export function recordingFile(id: string, extra: Partial<RecordingFile> = {}): R
     next_attempt_at: null,
     upload_attempts: 0,
     ...extra,
+  }
+}
+
+export function loopRow(overrides: Partial<LocalRecordingLoop> = {}): LocalRecordingLoop {
+  return {
+    id: 'loop-1',
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted_at: null,
+    server_seq: 0,
+    recording_id: 'rec-1',
+    label: null,
+    start_ms: 1000,
+    end_ms: 3000,
+    color: 0,
+    ...overrides,
   }
 }

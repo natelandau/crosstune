@@ -193,6 +193,9 @@ private struct RecordingsContent: View {
         .recordingRowActions(
             filed: view.tuneID != nil,
             onEdit: { player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window) },
+            onPractice: {
+                player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window, view: .practice)
+            },
             onAddToTune: { filing = view },
             onRemoveFromTune: { Task { await model.removeFromTune(view.id) } },
             onDelete: { deleting = view })

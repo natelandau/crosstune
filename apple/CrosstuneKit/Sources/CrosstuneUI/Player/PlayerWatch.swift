@@ -30,9 +30,10 @@ struct PlayerLinkWatch: ViewModifier {
     }
 }
 
-/// Follows the loaded recording's stored row, its audio file, and its tune, so a rename, trim,
-/// speed, or pitch here or on another device reaches the player, a new revision of the audio
-/// replaces the old, and a recording deleted anywhere takes the player with it.
+/// Follows the loaded recording's stored row, its audio file, its tune, and its loops, so a
+/// rename, trim, speed, pitch, or loop here or on another device reaches the player, a new
+/// revision of the audio replaces the old, and a recording deleted anywhere takes the player
+/// with it.
 struct PlayerRecordingWatch: ViewModifier {
     let store: CrosstuneStore
     let player: PlayerModel
@@ -41,6 +42,7 @@ struct PlayerRecordingWatch: ViewModifier {
         let recording: Recording?
         let file: RecordingFile?
         let tuneTitle: String?
+        let loops: [RecordingLoop]
     }
 
     func body(content: Content) -> some View {
@@ -51,7 +53,8 @@ struct PlayerRecordingWatch: ViewModifier {
                 let tune = try recording?.tuneID.flatMap { try Tune.fetchOne(db, key: $0) }
                 return Loaded(
                     recording: recording, file: try RecordingFile.fetchOne(db, key: recordingID),
-                    tuneTitle: tune?.deletedAt == nil ? tune?.title : nil)
+                    tuneTitle: tune?.deletedAt == nil ? tune?.title : nil,
+                    loops: try RecordingLoop.filter(RecordingLoop.CodingKeys.recordingID == recordingID).fetchAll(db))
             }
             .removeDuplicates()
             .values(in: store.database)
@@ -62,6 +65,7 @@ struct PlayerRecordingWatch: ViewModifier {
                     }
                     player.recordingChanged(
                         id: recordingID, to: loaded.recording, audioFile: audioFile, tuneTitle: loaded.tuneTitle)
+                    player.loopsChanged(id: recordingID, to: loaded.loops)
                 }
             } catch {
                 // A store that stops answering leaves the loaded player as it is.

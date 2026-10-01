@@ -120,6 +120,11 @@ PITCH_CENTS_MIN: Final[int] = -1200
 PITCH_CENTS_MAX: Final[int] = 1200
 MIN_TRIM_MS: Final[int] = 1000
 """The shortest kept range a trim may leave; trim only narrows, never below this."""
+MIN_LOOP_MS: Final[int] = 500
+"""The shortest range a practice loop may span."""
+MAX_LOOPS_PER_RECORDING: Final[int] = 100
+LOOP_COLOR_COUNT: Final[int] = 6
+"""How many palette colors a loop can name; a loop stores an index below this."""
 
 
 # Maximum lengths, by table then field. A column with a width takes it from here, the
@@ -151,5 +156,8 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
     },
     "recordings": {
         "label": 200,
+    },
+    "recording_loops": {
+        "label": 100,
     },
 }

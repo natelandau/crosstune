@@ -19,17 +19,23 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
   const modal = useRef<HTMLIonModalElement>(null)
   const opener = useRef<HTMLElement | null>(null)
   // The id outlives `open` through the closing animation, so the screen does not empty
-  // before it leaves.
-  const [shown, setShown] = useState<{ id: string; open: boolean } | null>(null)
+  // before it leaves. Each open counts up, so opening again starts the screen afresh in the
+  // view it asked for.
+  const [shown, setShown] = useState<{
+    id: string
+    open: boolean
+    view?: 'practice'
+    opening: number
+  } | null>(null)
 
   const open = useCallback(
-    (id: string) => {
+    (id: string, view?: 'practice') => {
       const active = document.activeElement
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null
       const item = { kind: 'recording', id } as const
       // Inside the tap, so the player primes the engine's audio while iOS still allows it.
       if (!isPlaying(player, item)) player.play(item)
-      setShown({ id, open: true })
+      setShown((current) => ({ id, open: true, view, opening: (current?.opening ?? 0) + 1 }))
     },
     [player],
   )
@@ -55,27 +61,48 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
     target?.focus()
   }
 
-  // Read by the dock inside its own effects, never rendered, so a ref rather than state.
+  // A ref map, so the dock reads a hold inside its effects without re-rendering; renders that
+  // show a hold subscribe through `useHeldSettings`.
   const heldSettings = useRef(new Map<string, HeldSettings>())
+  const listeners = useRef(new Set<() => void>())
   const held = useCallback((id: string) => heldSettings.current.get(id) ?? null, [])
   const hold = useCallback((id: string, settings: HeldSettings | null) => {
     if (settings) heldSettings.current.set(id, settings)
-    else heldSettings.current.delete(id)
+    else if (!heldSettings.current.delete(id)) return
+    for (const listener of listeners.current) listener()
+  }, [])
+  const subscribe = useCallback((listener: () => void) => {
+    listeners.current.add(listener)
+    return () => {
+      listeners.current.delete(listener)
+    }
   }, [])
 
-  const value = useMemo<Screen>(() => ({ open, close, held, hold }), [open, close, held, hold])
+  const value = useMemo<Screen>(
+    () => ({ open, close, held, hold, subscribe }),
+    [open, close, held, hold, subscribe],
+  )
 
   return (
     <RecordingScreenContext.Provider value={value}>
       {children}
       <IonModal
         ref={modal}
+        className="recording-modal"
         isOpen={shown?.open ?? false}
         // Escape and the hardware back button dismiss without passing through `close`.
         onWillDismiss={close}
         onDidDismiss={dismissed}
       >
-        {shown ? <RecordingScreen id={shown.id} modal={modal} onClose={close} /> : null}
+        {shown ? (
+          <RecordingScreen
+            key={shown.opening}
+            id={shown.id}
+            view={shown.view}
+            modal={modal}
+            onClose={close}
+          />
+        ) : null}
       </IonModal>
     </RecordingScreenContext.Provider>
   )

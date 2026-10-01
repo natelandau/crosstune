@@ -13,10 +13,12 @@ from pydantic import (
     ConfigDict,
     Field,
     field_validator,
+    model_validator,
 )
 
 from crosstune.vocabulary import (
     LIMITS,
+    LOOP_COLOR_COUNT,
     MAX_MODES,
     PITCH_CENTS_MAX,
     PITCH_CENTS_MIN,
@@ -189,6 +191,27 @@ class RecordingData(_Data):
     pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
 
 
+class _RecordingLoopFields(_Data):
+    """Loop fields shared by what a client pushes and what the server returns."""
+
+    recording_id: uuid.UUID
+    label: str | None = Field(default=None, max_length=LIMITS["recording_loops"]["label"])
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(ge=0)
+    color: int = Field(ge=0, le=LOOP_COLOR_COUNT - 1)
+
+
+class RecordingLoopData(_RecordingLoopFields):
+    """Client-editable fields of a practice loop. Positions are source-timeline milliseconds."""
+
+    @model_validator(mode="after")
+    def _end_after_start(self) -> RecordingLoopData:
+        if self.end_ms <= self.start_ms:
+            msg = "end_ms must be greater than start_ms"
+            raise ValueError(msg)
+        return self
+
+
 class UserSettingsData(_Data):
     """Client-editable fields of a user's settings."""
 
@@ -270,6 +293,14 @@ class RecordingRow(RecordingData, _Row):
     peaks_rev: str | None
 
 
+class RecordingLoopRow(_RecordingLoopFields, _Row):
+    """A stored practice loop, as push and pull return it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: uuid.UUID
+
+
 class UserSettingsRow(UserSettingsData, _Row):
     """A stored settings row, as push and pull return it."""
 
@@ -285,6 +316,7 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
     "recordings": RecordingData,
+    "recording_loops": RecordingLoopData,
     "user_settings": UserSettingsData,
 }
 
@@ -295,5 +327,6 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,
     "recordings": RecordingRow,
+    "recording_loops": RecordingLoopRow,
     "user_settings": UserSettingsRow,
 }

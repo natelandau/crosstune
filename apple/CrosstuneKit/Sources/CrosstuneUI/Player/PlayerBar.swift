@@ -44,6 +44,9 @@ public struct PlayerBar: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(showLabel(isRecording: isRecording))
             }
+            if isRecording, player.loops.isRepeating, let name = player.loops.selectedName {
+                RepeatBadge(player: player, name: name)
+            }
             if isPanel, let link = player.item?.link, let url = link.providerURL {
                 Link(destination: url) {
                     Label(Self.openIn(link.providerName), systemImage: "arrow.up.right")
@@ -104,21 +107,78 @@ struct SettingsBadge: View {
     let speedPercent: Int
     let pitchCents: Int
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
         if let badge = RecordingScreenText.badge(speedPercent: speedPercent, pitchCents: pitchCents),
             let label = RecordingScreenText.badgeLabel(speedPercent: speedPercent, pitchCents: pitchCents)
         {
-            Text(badge)
-                .font(.caption)
-                .monospacedDigit()
-                .padding(.horizontal, 8)
-                .frame(minHeight: 22)
-                .background(neutralFill(colorScheme), in: .capsule)
-                .fixedSize()
+            SettingsBadgeLabel(text: badge)
                 .accessibilityLabel(label)
         }
+    }
+}
+
+/// A small neutral capsule of figures, as "75% +2".
+struct SettingsBadgeLabel: View {
+    let text: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .monospacedDigit()
+            .padding(.horizontal, 8)
+            .frame(minHeight: 22)
+            .background(neutralFill(colorScheme), in: .capsule)
+            .fixedSize()
+    }
+}
+
+/// While a loop repeats: "Repeating B part", which opens Practice, and a Repeat toggle that
+/// turns it off.
+private struct RepeatBadge: View {
+    let player: PlayerModel
+    let name: String
+
+    /// About a third of an iPhone's bar at the default text size, so a long loop name truncates
+    /// rather than pushing the player's own controls out; it grows with the caption it holds.
+    @ScaledMetric(relativeTo: .caption) private var maxTextWidth: CGFloat = 120
+
+    @Environment(\.playerWindow) private var window
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button {
+                player.openPractice(in: window)
+            } label: {
+                Text(PracticeText.repeating(name))
+                    .font(.caption)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: maxTextWidth)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 22)
+                    .background(.tint, in: .capsule)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            Button {
+                player.loops.setRepeat(false)
+            } label: {
+                Label(PracticeText.repeatLabel, systemImage: "repeat")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(.tint)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isSelected)
+            .help(PracticeText.repeatLabel)
+        }
+        // The badge keeps its words up to its cap; the item's title beside it truncates first.
+        .layoutPriority(1)
     }
 }
 

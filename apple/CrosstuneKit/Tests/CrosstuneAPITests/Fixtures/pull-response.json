@@ -41,8 +41,24 @@
         "position": 0,
         "user_id": "5d2e8f10-7a3b-4c9d-8e6f-1a2b3c4d5e6f"
       }
+    },
+    {
+      "table": "recording_loops",
+      "row": {
+        "id": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+        "updated_at": "2026-09-22T10:00:00Z",
+        "deleted_at": null,
+        "server_seq": 43,
+        "created_at": "2026-09-22T10:00:00Z",
+        "user_id": "5d2e8f10-7a3b-4c9d-8e6f-1a2b3c4d5e6f",
+        "recording_id": "7e8f9a0b-1c2d-4e3f-8a4b-5c6d7e8f9a0b",
+        "label": "A part",
+        "start_ms": 1500,
+        "end_ms": 9000,
+        "color": 2
+      }
     }
   ],
-  "next_since": 42,
+  "next_since": 43,
   "has_more": false
 }

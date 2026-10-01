@@ -1,6 +1,6 @@
 import { IonButton } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pause, Play, X } from 'lucide-react'
+import { Pause, Play, Repeat, X } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -25,6 +25,8 @@ import {
   formatDuration,
   NOT_AVAILABLE,
 } from '../recording/format'
+import { useLoopFollow } from '../practice/useLoopFollow'
+import { useLoops } from '../practice/useLoops'
 import { recordingTitle } from '../recordings/recordingRow'
 import { useRecordingScreen } from '../recording-screen/useRecordingScreen'
 import { embedFor, type Embed } from './embed'
@@ -43,6 +45,12 @@ export const SPEED_LABEL = 'Speed'
 export const PITCH_LABEL = 'Pitch'
 export const ELAPSED_LABEL = 'Elapsed'
 export const REMAINING_LABEL = 'Remaining'
+export const REPEAT_LABEL = 'Repeat'
+
+/** `Repeating B part`, the loop the player repeats while Practice is closed. */
+export function REPEATING_BADGE(label: string): string {
+  return `Repeating ${label}`
+}
 
 /** `75%`, shown only away from the 100% default. */
 export function SPEED_BADGE(percent: number): string {
@@ -116,6 +124,10 @@ function RecordingBody({
     }
   }, [blob, syncEngine, recording.id, recording.state])
   useCurrentAudio(recording, file)
+  useLoopFollow(useLoops(recording.id), {
+    blobStartMs: file?.blob_start_ms ?? 0,
+    trimStartMs: recording.trim_start_ms,
+  })
   // A read of the same row from IndexedDB can hand back a Blob that is not the same
   // object even though its content did not change, so the effect below keys on identity
   // (the recording and whether a blob exists) and reads the current blob through this ref,
@@ -197,6 +209,7 @@ function RecordingBody({
         pitchCents: held?.pitchCents ?? settings.pitchCents,
       },
       { title },
+      { keepLoop: !!replaced },
     )
     if (replaced) engine.seek(replaced.positionMs)
     if (!replaced || replaced.playing) engine.play()
@@ -250,6 +263,7 @@ function RecordingBody({
   }, [engine])
 
   const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const playButton = useRef<HTMLIonButtonElement>(null)
 
   if (src) {
     const remainingMs = Math.max(0, state.lengthMs - state.positionMs)
@@ -259,6 +273,7 @@ function RecordingBody({
     return (
       <div className="flex h-14 items-center gap-2">
         <IonButton
+          ref={playButton}
           fill="clear"
           aria-label={state.playing ? PAUSE : PLAY}
           onClick={() => (state.playing ? engine.pause() : engine.play())}
@@ -295,8 +310,35 @@ function RecordingBody({
                 ) : null}
               </span>
             ) : null}
+            {state.repeat && state.loop ? (
+              // Never narrower than its two 44 px targets, however long the label.
+              <span data-repeat-badge className="flex min-w-22 shrink items-center">
+                <button
+                  type="button"
+                  className="flex min-h-11 min-w-11 items-center"
+                  onClick={() => recordingScreen.open(recording.id, 'practice')}
+                >
+                  <span className="type-footnote inline-flex h-6 min-w-0 items-center rounded-full bg-(--ion-color-primary) px-2 text-(--ion-color-primary-contrast)">
+                    <span className="truncate">{REPEATING_BADGE(state.loop.label)}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={REPEAT_LABEL}
+                  aria-pressed="true"
+                  className="grid size-11 shrink-0 place-items-center"
+                  onClick={() => {
+                    engine.setRepeat(false)
+                    // The toggle leaves with the badge, so focus moves to the transport beside it.
+                    playButton.current?.shadowRoot?.querySelector('button')?.focus()
+                  }}
+                >
+                  <Repeat aria-hidden="true" className="size-5 text-(--ion-color-primary)" />
+                </button>
+              </span>
+            ) : null}
             {pitchUnavailable ? (
-              <p role="status" className="type-footnote shrink-0 truncate">
+              <p role="status" className="type-footnote min-w-0 truncate">
                 {PITCH_UNAVAILABLE}
               </p>
             ) : null}

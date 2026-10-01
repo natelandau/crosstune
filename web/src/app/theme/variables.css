@@ -97,6 +97,22 @@
   --key-11-on-bg: #246954;
   --key-11-on-ink: #ffffff;
 
+  /* Practice loops, one per palette slot. Saturated and darker than the key pastels so a loop
+     never reads as a key. Each clears 3:1 against the page and carries white text at 4.5:1;
+     the tint is an unselected loop's fill, under the page's own text color. */
+  --loop-0: #1f5fd6;
+  --loop-0-tint: rgba(31, 95, 214, 0.2);
+  --loop-1: #b34700;
+  --loop-1-tint: rgba(179, 71, 0, 0.2);
+  --loop-2: #1e7a34;
+  --loop-2-tint: rgba(30, 122, 52, 0.2);
+  --loop-3: #b0247a;
+  --loop-3-tint: rgba(176, 36, 122, 0.2);
+  --loop-4: #00727a;
+  --loop-4-tint: rgba(0, 114, 122, 0.2);
+  --loop-5: #6b3fc4;
+  --loop-5-tint: rgba(107, 63, 196, 0.2);
+
   /* The content column on the wide frame, in px so the text size setting scales the type
      and not the column. About 70 characters of body text. */
   --measure: none;
@@ -105,7 +121,7 @@
   --measure-gutter: 0px;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (min-height: 600px) {
   :root {
     --measure: 640px;
     --measure-gutter: max(0px, (100% - 640px) / 2);
@@ -254,6 +270,15 @@ html.ios ion-modal .lyrics-toolbar ion-title {
     --width: min(960px, 90vw);
     --height: 90vh;
     --border-radius: 12px;
+  }
+}
+
+/* The recording screen grows past Ionic's 600px dialog so Practice can lay its lanes beside
+   the loop list. The recording's own view keeps its measured column inside it. */
+@media only screen and (min-width: 768px) and (min-height: 600px) {
+  ion-modal.recording-modal {
+    --width: min(960px, 92vw);
+    --height: min(760px, 90vh);
   }
 }
 
@@ -471,6 +496,48 @@ ion-toggle::part(label) {
   color: var(--key-11-on-ink);
 }
 
+/* A loop's palette slot, for whatever draws it to read as `--loop` and `--loop-tint`. */
+.loop-color[data-color='0'] {
+  --loop: var(--loop-0);
+  --loop-tint: var(--loop-0-tint);
+}
+.loop-color[data-color='1'] {
+  --loop: var(--loop-1);
+  --loop-tint: var(--loop-1-tint);
+}
+.loop-color[data-color='2'] {
+  --loop: var(--loop-2);
+  --loop-tint: var(--loop-2-tint);
+}
+.loop-color[data-color='3'] {
+  --loop: var(--loop-3);
+  --loop-tint: var(--loop-3-tint);
+}
+.loop-color[data-color='4'] {
+  --loop: var(--loop-4);
+  --loop-tint: var(--loop-4-tint);
+}
+.loop-color[data-color='5'] {
+  --loop: var(--loop-5);
+  --loop-tint: var(--loop-5-tint);
+}
+
+/* The zoomed waveform in Practice: shorter on a landscape phone, where height is scarce, and
+   taller on the wide frame. */
+.practice-detail {
+  height: 120px;
+}
+@media (max-height: 499px) {
+  .practice-detail {
+    height: 80px;
+  }
+}
+@media (min-width: 768px) and (min-height: 600px) {
+  .practice-detail {
+    height: 150px;
+  }
+}
+
 /* A minimal-height rule between a popover menu's items and its destructive one. */
 ion-item-divider.menu-divider {
   min-height: 1px;
@@ -573,19 +640,35 @@ ion-item.menu-danger {
   --key-11-ink: #a6e0ca;
   --key-11-on-bg: #48bc99;
   --key-11-on-ink: #052018;
+
+  /* Lighter than the light palette's to clear 3:1 on a dark page, and no lighter, so white
+     text still clears 4.5:1 on them. */
+  --loop-0: #3570dc;
+  --loop-0-tint: rgba(53, 112, 220, 0.3);
+  --loop-1: #c0560a;
+  --loop-1-tint: rgba(192, 86, 10, 0.3);
+  --loop-2: #26853c;
+  --loop-2-tint: rgba(38, 133, 60, 0.3);
+  --loop-3: #c8368c;
+  --loop-3-tint: rgba(200, 54, 140, 0.3);
+  --loop-4: #0f808a;
+  --loop-4-tint: rgba(15, 128, 138, 0.3);
+  --loop-5: #7d56d8;
+  --loop-5-tint: rgba(125, 86, 216, 0.3);
 }
 
 /* The record dome in the phone tab bar. --tab-bar-cap is how far its top rises above the bar,
    which is also the room a screen leaves under its last row so nothing ends up behind it. */
 :root {
-  --tab-bar-cap: 0px;
+  --tab-bar-cap: 1.5rem;
   --record-dome-size: 4.5rem;
   --record-dome-ring: 3px;
 }
 
-@media (max-width: 767px) {
+/* The wide frame has a sidebar and no dome. */
+@media (min-width: 768px) and (min-height: 600px) {
   :root {
-    --tab-bar-cap: 1.5rem;
+    --tab-bar-cap: 0px;
   }
 }
 

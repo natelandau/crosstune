@@ -24,13 +24,23 @@ public protocol AudioPlayback: AnyObject {
     var duration: TimeInterval? { get }
     /// True once the loaded file turns out not to play.
     var hasFailed: Bool { get }
+    /// Whether reaching the loop end from inside the loop goes back to its start.
+    var isRepeating: Bool { get }
 
     /// Loads `url` in place of anything loaded, paused at its start, playing the whole file at
-    /// normal speed and pitch until told otherwise.
-    func load(_ url: URL, nowPlaying: NowPlaying)
+    /// normal speed and pitch with no loop until told otherwise. `keepLoop`, for a new file of
+    /// the same recording, keeps Repeat on but sets the loop aside until ``setLoop(_:)`` gives
+    /// its range in the new file.
+    func load(_ url: URL, nowPlaying: NowPlaying, keepLoop: Bool)
     /// Plays only `window` of the loaded file, or all of it when nil. Keeps the place in the
     /// file, held within the new window, and keeps playing or paused.
     func setWindow(_ window: PlaybackWindow?)
+    /// The loop Repeat plays, in seconds into the playback window, or none. With Repeat on, a
+    /// position outside the new loop moves to its start; otherwise the position stays.
+    func setLoop(_ loop: PlaybackWindow?)
+    /// Turns Repeat on or off. On with the position outside the loop moves it to the loop
+    /// start; off never moves it.
+    func setRepeat(_ on: Bool)
     /// Plays at `percent` of normal speed with the pitch held, without restarting.
     func setRate(_ percent: Int)
     /// Shifts the pitch by `cents` with the speed held, without restarting.
@@ -46,6 +56,10 @@ public protocol AudioPlayback: AnyObject {
 }
 
 extension AudioPlayback {
+    public func load(_ url: URL, nowPlaying: NowPlaying) {
+        load(url, nowPlaying: nowPlaying, keepLoop: false)
+    }
+
     public func toggle() {
         if isPlaying { pause() } else { play() }
     }

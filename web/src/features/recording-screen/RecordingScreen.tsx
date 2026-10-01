@@ -1,9 +1,8 @@
 import { IonButton, IonButtons, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Ellipsis, Pause, Play, RotateCcw, RotateCw, X } from 'lucide-react'
+import { Ellipsis, X } from 'lucide-react'
 import {
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -11,8 +10,6 @@ import {
   useSyncExternalStore,
   type RefObject,
 } from 'react'
-import { RECORDING_NOT_FOUND } from '../../commands/messages'
-import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import { liveTune } from '../../db/tunes'
@@ -22,16 +19,8 @@ import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { useDialogName } from '../../ui/dialogName'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
-import { useToast } from '../../ui/Toast'
 import { isControl, isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import {
-  ELAPSED_LABEL,
-  PAUSE,
-  PITCH_BADGE,
-  PLAY,
-  REMAINING_LABEL,
-  SPEED_BADGE,
-} from '../player/Dock'
+import { ELAPSED_LABEL, REMAINING_LABEL } from '../player/Dock'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { useCurrentAudio } from '../player/useCurrentAudio'
@@ -42,32 +31,25 @@ import {
   formatDuration,
   NOT_AVAILABLE,
 } from '../recording/format'
+import { PRACTICE_BADGE, PRACTICE_BADGE_LABEL, PracticeView } from '../practice/PracticeView'
+import { PRACTICE } from '../practice/practiceCopy'
 import { AddToTuneSheet } from '../recordings/AddToTuneSheet'
 import { recordedAtLabel, recordingTitle } from '../recordings/recordingRow'
 import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
-import { PITCH, PitchPanel } from './PitchPanel'
 import { shownPeaks, trimmedLengthMs, trimPending } from './recordingRange'
-import { SPEED, SpeedPanel } from './SpeedPanel'
 import { ToolStrip, type Tool, type ToolId } from './ToolStrip'
+import { SKIP_MS, Transport } from './Transport'
 import { TRIM, TrimView } from './TrimView'
-import { useSettledWrite } from './useSettledWrite'
-import { useRecordingScreen } from './useRecordingScreen'
+import { useHeldSettings, useRecordingScreen } from './useRecordingScreen'
 import { Waveform } from './Waveform'
 
 export const CLOSE_RECORDING = 'Close'
-export const SKIP_BACK = 'Skip back 15 seconds'
-export const SKIP_FORWARD = 'Skip forward 15 seconds'
 export const TRIM_BUSY = 'Trimming…'
 export const TRIM_CHANGED_ELSEWHERE = "This recording's trim changed elsewhere."
 export const TRIM_WHILE_RECORDING = 'Still recording'
 export const TRIM_WHILE_DOWNLOADING = DOWNLOADING
-export const SPEED_NOT_SAVED = 'The speed could not be saved.'
-export const PITCH_NOT_SAVED = 'The pitch could not be saved.'
-
-/** The same interval the Apple player skips by. */
-export const SKIP_MS = 15_000
 
 /** Where fetching the audio stands, for a recording this device does not hold yet.
  * `unavailable` is one the server has no playback file for yet, so there is nothing to fetch. */
@@ -88,6 +70,13 @@ function trimBlocker(
   // An imported file whose length the browser could not read has no range to trim until the
   // server measures it.
   if (trimmedLengthMs(recording, file) === null) return NOT_AVAILABLE
+  return undefined
+}
+
+/** Why Practice cannot be used right now, or undefined when it can. */
+function practiceBlocker(file: RecordingFile | undefined, audio: AudioFetch): string | undefined {
+  if (file?.local_state === 'capturing') return TRIM_WHILE_RECORDING
+  if (audio === 'downloading') return TRIM_WHILE_DOWNLOADING
   return undefined
 }
 
@@ -157,10 +146,13 @@ function useAudioFetch(recording: LocalRecording, file: RecordingFile | undefine
  */
 export function RecordingScreen({
   id,
+  view: initialView,
   modal,
   onClose,
 }: {
   id: string
+  /** The view to open in rather than the recording's own. */
+  view?: 'practice'
   modal: RefObject<HTMLIonModalElement | null>
   onClose: () => void
 }) {
@@ -195,93 +187,115 @@ export function RecordingScreen({
   // Silent until the row is read, like every screen.
   if (!view) return null
   return (
-    <Loaded key={view.recording.id} view={view} title={title} modal={modal} onClose={onClose} />
+    <Loaded
+      key={view.recording.id}
+      view={view}
+      initialView={initialView}
+      title={title}
+      modal={modal}
+      onClose={onClose}
+    />
   )
 }
 
+// Above Ionic's overlays (100), so the phone's Back leaves a view inside the screen before it
+// closes the screen itself.
+const VIEW_BACK_PRIORITY = 101
+
+interface BackButtonDetail {
+  register: (priority: number, handler: (next?: () => void) => void) => void
+}
+
+/**
+ * Escape and the phone's Back leave a view inside the screen for the recording's own view,
+ * rather than closing the whole screen, while nothing is stacked over it. The view gets each
+ * Escape first through `escapeRef`, and one it uses for itself leaves nothing.
+ */
+function useLeaveView(
+  modal: RefObject<HTMLIonModalElement | null>,
+  enabled: boolean,
+  leave: () => void,
+  escapeRef?: RefObject<(() => boolean) | null>,
+): void {
+  const latest = useRef(leave)
+  useLayoutEffect(() => {
+    latest.current = leave
+  })
+  useEffect(() => {
+    if (!enabled) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !isTopOverlay(modal.current)) return
+      // Ionic dismisses the top overlay from a listener on the document, which this one,
+      // capturing on the window, runs ahead of.
+      event.preventDefault()
+      event.stopPropagation()
+      if (escapeRef?.current?.()) return
+      latest.current()
+    }
+    const onBack = (event: Event) => {
+      if (!isTopOverlay(modal.current)) return
+      const { detail } = event as CustomEvent<BackButtonDetail>
+      detail.register(VIEW_BACK_PRIORITY, () => latest.current())
+    }
+    window.addEventListener('keydown', onKey, true)
+    document.addEventListener('ionBackButton', onBack)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      document.removeEventListener('ionBackButton', onBack)
+    }
+  }, [modal, enabled, escapeRef])
+}
+
+type View = 'main' | 'trim' | 'practice'
+
 function Loaded({
   view,
+  initialView,
   title,
   modal,
   onClose,
 }: {
   view: RecordingView
+  initialView: 'practice' | undefined
   title: string
   modal: RefObject<HTMLIonModalElement | null>
   onClose: () => void
 }) {
   const { recording, file } = view
-  const db = useDb()
   const syncEngine = useSyncEngine()
   const engine = usePlaybackEngine()
-  const toast = useToast()
   const openMenu = useMenu()
   const state = useSyncExternalStore(engine.subscribe, engine.getState)
-  const panelId = useId()
-  const [screen, setScreen] = useState<'main' | 'trim'>('main')
-  const [tool, setTool] = useState<ToolId | null>(null)
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   const [filing, setFiling] = useState<RecordingView | null>(null)
-  const [writeError, setWriteError] = useState<string | null>(null)
   const [trimNotice, setTrimNotice] = useState<string | null>(null)
+  const audio = useAudioFetch(recording, file)
+  const practiceDisabled = practiceBlocker(file, audio)
+  // Switching views in place keeps the screen, and the control that opened it, as they are.
   const actions = useRecordingActions({
     onRename: setRenaming,
+    onPractice: practiceDisabled ? undefined : () => select('practice'),
     onAddToTune: setFiling,
     onDeleted: onClose,
   })
-  const audio = useAudioFetch(recording, file)
-  useTransportKeys(engine, modal, screen === 'main')
-
-  // What the controls show runs ahead of the row while a change settles, and follows the row
-  // when it changes while nothing is settling. `sent` is the last value this screen wrote or
-  // took from the row: a control that differs from it holds a change of the musician's own,
-  // which a row value landing meanwhile (such as this screen's own earlier write) never undoes.
-  const [speed, setSpeed] = useState(recording.speed_percent)
-  const [pitch, setPitch] = useState(recording.pitch_cents)
-  const [sent, setSent] = useState({ speed: recording.speed_percent, pitch: recording.pitch_cents })
-  const [rowSettings, setRowSettings] = useState({
-    speed: recording.speed_percent,
-    pitch: recording.pitch_cents,
-  })
-  const rowSpeed = recording.speed_percent
-  const rowPitch = recording.pitch_cents
-  if (rowSettings.speed !== rowSpeed || rowSettings.pitch !== rowPitch) {
-    setRowSettings({ speed: rowSpeed, pitch: rowPitch })
-    const adoptSpeed = rowSettings.speed !== rowSpeed && speed === sent.speed
-    const adoptPitch = rowSettings.pitch !== rowPitch && pitch === sent.pitch
-    if (adoptSpeed) setSpeed(rowSpeed)
-    if (adoptPitch) setPitch(rowPitch)
-    if (adoptSpeed || adoptPitch) {
-      setSent({
-        speed: adoptSpeed ? rowSpeed : sent.speed,
-        pitch: adoptPitch ? rowPitch : sent.pitch,
-      })
-    }
-  }
+  // A Practice that cannot run yet opens on the recording's own view, which says why.
+  const [screen, setScreen] = useState<View>(() =>
+    initialView === 'practice' && !practiceDisabled ? 'practice' : 'main',
+  )
+  useTransportKeys(engine, modal, screen !== 'trim')
 
   // The trim view plays at 100% and no pitch shift, so what is heard is exactly what is cut.
   const trimming = screen === 'trim'
   const recordingScreen = useRecordingScreen()
   const recordingId = recording.id
-  // Tells the dock what plays ahead of the row, so a stored value landing late re-applies
-  // this screen's value rather than the older one.
   useLayoutEffect(() => {
-    recordingScreen.hold(
-      recordingId,
-      trimming
-        ? { speedPercent: 100, pitchCents: 0 }
-        : speed === rowSpeed && pitch === rowPitch
-          ? null
-          : {
-              speedPercent: speed === rowSpeed ? null : speed,
-              pitchCents: pitch === rowPitch ? null : pitch,
-            },
-    )
-  }, [recordingScreen, recordingId, trimming, speed, pitch, rowSpeed, rowPitch])
-  useEffect(() => () => recordingScreen.hold(recordingId, null), [recordingScreen, recordingId])
-  const settings = useRef({ speed, pitch })
+    if (!trimming) return
+    recordingScreen.hold(recordingId, { speedPercent: 100, pitchCents: 0, shown: false })
+    return () => recordingScreen.hold(recordingId, null)
+  }, [recordingScreen, recordingId, trimming])
+  const settings = useRef({ speed: recording.speed_percent, pitch: recording.pitch_cents })
   useLayoutEffect(() => {
-    settings.current = { speed, pitch }
+    settings.current = { speed: recording.speed_percent, pitch: recording.pitch_cents }
   })
   useEffect(() => {
     if (!trimming) return
@@ -293,36 +307,6 @@ function Loaded({
       engine.setPitch(settings.current.pitch)
     }
   }, [trimming, engine])
-
-  const row = useRef(recording)
-  const mounted = useRef(true)
-  useLayoutEffect(() => {
-    row.current = recording
-  })
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
-  }, [])
-  // A write refused because the row is gone needs no word: the screen goes with the row. Any
-  // other refusal shows on the screen, or as a toast once the screen has closed.
-  const report = (message: string) => (error: unknown) => {
-    if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
-    if (mounted.current) setWriteError(message)
-    else toast({ message })
-  }
-  // A value the row already holds, such as one adopted from another device, is not written back.
-  useSettledWrite(speed, (value) => {
-    setSent((current) => ({ ...current, speed: value }))
-    if (value === row.current.speed_percent) return
-    updateRecording(db, row.current.id, { speed_percent: value }).catch(report(SPEED_NOT_SAVED))
-  })
-  useSettledWrite(pitch, (value) => {
-    setSent((current) => ({ ...current, pitch: value }))
-    if (value === row.current.pitch_cents) return
-    updateRecording(db, row.current.id, { pitch_cents: value }).catch(report(PITCH_NOT_SAVED))
-  })
 
   const peaksRev = recording.peaks_rev
   const filePeaks = file?.peaks ?? null
@@ -358,54 +342,42 @@ function Loaded({
   const positionMs = loadedAudio ? state.positionMs : 0
   const remainingMs = Math.max(0, lengthMs - positionMs)
 
-  const changeSpeed = (percent: number) => {
-    setSpeed(percent)
-    setWriteError(null)
-    engine.setSpeed(percent)
-  }
-  const changePitch = (cents: number) => {
-    setPitch(cents)
-    setWriteError(null)
-    // Inside the tap that changed it, so iOS grants the audio context a pitch stage needs.
-    engine.setPitch(cents)
-  }
-
+  // Practice's last speed and pitch show while their writes land, so leaving it never flashes
+  // the row's older values.
+  const pending = useHeldSettings(recordingId)
+  const shownHold = pending?.shown ? pending : null
+  const badge = PRACTICE_BADGE(
+    shownHold?.speedPercent ?? recording.speed_percent,
+    shownHold?.pitchCents ?? recording.pitch_cents,
+  )
   const tools: Tool[] = [
     { id: 'trim', label: TRIM, disabled: trimBlocker(recording, file, audio) },
-    {
-      id: 'speed',
-      label: SPEED,
-      value: speed !== 100 ? SPEED_BADGE(speed) : undefined,
-      controls: panelId,
-    },
-    {
-      id: 'pitch',
-      label: PITCH,
-      value: pitch !== 0 ? PITCH_BADGE(pitch) : undefined,
-      controls: panelId,
-    },
+    { id: 'practice', label: PRACTICE, value: badge ?? undefined, disabled: practiceDisabled },
   ]
-  const select = (id: ToolId) => {
-    if (id === 'trim') {
-      setTrimNotice(null)
-      setScreen('trim')
-      return
-    }
-    setTool((current) => (current === id ? null : id))
-  }
 
-  // Coming back from the trim view puts focus back on the tool that opened it.
+  // Coming back from a view puts focus back on the tool that opened it.
   const content = useRef<HTMLDivElement>(null)
-  const backFromTrim = useRef(false)
+  const returnTo = useRef<ToolId | null>(null)
   useEffect(() => {
-    if (screen !== 'main' || !backFromTrim.current) return
-    // One frame on, once the trim view's Cancel has left the page and let go of focus.
+    if (screen !== 'main' || !returnTo.current) return
+    const tool = returnTo.current
+    // One frame on, once the view's own controls have left the page and let go of focus.
     const frame = requestAnimationFrame(() => {
-      backFromTrim.current = false
-      content.current?.querySelector<HTMLElement>('[data-tool="trim"]')?.focus()
+      returnTo.current = null
+      content.current?.querySelector<HTMLElement>(`[data-tool="${tool}"]`)?.focus()
     })
     return () => cancelAnimationFrame(frame)
   }, [screen])
+  const leave = (from: ToolId) => {
+    returnTo.current = from
+    setScreen('main')
+  }
+  const select = (id: ToolId) => {
+    if (id === 'trim') setTrimNotice(null)
+    setScreen(id)
+  }
+  const practiceEscape = useRef<(() => boolean) | null>(null)
+  useLeaveView(modal, screen === 'practice', () => leave('practice'), practiceEscape)
 
   const sheets = (
     <>
@@ -422,14 +394,10 @@ function Loaded({
           file={file}
           shown={shown}
           modal={modal}
-          onDone={() => {
-            backFromTrim.current = true
-            setScreen('main')
-          }}
+          onDone={() => leave('trim')}
           onTrimmedElsewhere={() => {
-            backFromTrim.current = true
             setTrimNotice(TRIM_CHANGED_ELSEWHERE)
-            setScreen('main')
+            leave('trim')
           }}
         />
         {sheets}
@@ -437,7 +405,22 @@ function Loaded({
     )
   }
 
-  const error = writeError ?? actions.error
+  if (screen === 'practice') {
+    return (
+      <>
+        <PracticeView
+          view={view}
+          shown={shown}
+          modal={modal}
+          escapeRef={practiceEscape}
+          onBack={() => leave('practice')}
+        />
+        {sheets}
+      </>
+    )
+  }
+
+  const error = actions.error
   return (
     <>
       <IonHeader>
@@ -464,9 +447,21 @@ function Loaded({
           ref={content}
           className="mx-auto flex w-full max-w-(--measure) flex-col gap-5 px-4 py-4"
         >
-          <p className="type-footnote text-center text-(--ion-color-medium)">
-            {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="type-footnote text-center text-(--ion-color-medium)">
+              {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
+            </p>
+            {badge && !practiceDisabled ? (
+              <button
+                type="button"
+                aria-label={PRACTICE_BADGE_LABEL(badge)}
+                className="type-footnote min-h-11 rounded-full bg-(--fill-tertiary) px-4 tabular-nums"
+                onClick={() => select('practice')}
+              >
+                {badge}
+              </button>
+            ) : null}
+          </div>
           {error ? <InlineError className="text-center">{error}</InlineError> : null}
           {trimNotice ? (
             <p role="status" className="type-footnote text-center">
@@ -499,50 +494,8 @@ function Loaded({
               </p>
             </div>
           </div>
-          <div className="flex items-center justify-center gap-6">
-            <IonButton
-              fill="clear"
-              aria-label={SKIP_BACK}
-              disabled={!loadedAudio}
-              onClick={() => engine.seek(engine.getState().positionMs - SKIP_MS)}
-            >
-              <RotateCcw aria-hidden="true" className="size-7" />
-            </IonButton>
-            <IonButton
-              shape="round"
-              className="size-16"
-              aria-label={state.playing ? PAUSE : PLAY}
-              disabled={!loadedAudio}
-              onClick={() => (state.playing ? engine.pause() : engine.play())}
-            >
-              {state.playing ? (
-                <Pause aria-hidden="true" fill="currentColor" className="size-7" />
-              ) : (
-                <Play aria-hidden="true" fill="currentColor" className="ml-0.5 size-7" />
-              )}
-            </IonButton>
-            <IonButton
-              fill="clear"
-              aria-label={SKIP_FORWARD}
-              disabled={!loadedAudio}
-              onClick={() => engine.seek(engine.getState().positionMs + SKIP_MS)}
-            >
-              <RotateCw aria-hidden="true" className="size-7" />
-            </IonButton>
-          </div>
-          <ToolStrip tools={tools} selected={tool} onSelect={select} />
-          {tool ? (
-            <div id={panelId}>
-              {tool === 'speed' ? <SpeedPanel value={speed} onChange={changeSpeed} /> : null}
-              {tool === 'pitch' ? (
-                <PitchPanel
-                  value={pitch}
-                  onChange={changePitch}
-                  unavailable={state.pitchUnavailable}
-                />
-              ) : null}
-            </div>
-          ) : null}
+          <Transport />
+          <ToolStrip tools={tools} onSelect={select} />
         </div>
       </IonContent>
       {sheets}

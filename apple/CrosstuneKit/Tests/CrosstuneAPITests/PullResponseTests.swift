@@ -36,9 +36,9 @@ func fixture(_ name: String) throws -> Data {
 
     let page = try await client.pullV1SyncPullGet(.init(query: .init(since: 0))).ok.body.json
 
-    #expect(page.nextSince == 42)
+    #expect(page.nextSince == 43)
     #expect(page.hasMore == false)
-    #expect(page.rows.count == 2)
+    #expect(page.rows.count == 3)
 
     guard case .tunes(let tune) = page.rows[0] else {
         Issue.record("first row is not a tune: \(page.rows[0])")
@@ -52,6 +52,14 @@ func fixture(_ name: String) throws -> Data {
         return
     }
     #expect(list.row.name == "Thursday jam")
+
+    guard case .recordingLoops(let loop) = page.rows[2] else {
+        Issue.record("third row is not a loop: \(page.rows[2])")
+        return
+    }
+    #expect(loop.row.label == "A part")
+    #expect(loop.row.startMs == 1500)
+    #expect(loop.row.color == 2)
 }
 
 @Test func decodesARowFromANewerServer() async throws {

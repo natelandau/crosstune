@@ -48,6 +48,13 @@ const ROWS = {
   RecordingRow: {
     properties: { label: { anyOf: [{ type: 'string', maxLength: 200 }, { type: 'null' }] } },
   },
+  RecordingLoopRow: {
+    properties: {
+      label: { anyOf: [{ type: 'string', maxLength: 100 }, { type: 'null' }] },
+      start_ms: { type: 'integer', minimum: 0 },
+      color: { type: 'integer', minimum: 0, maximum: 5 },
+    },
+  },
   RecordingData: {
     properties: {
       speed_percent: { type: 'integer', minimum: 50, maximum: 150 },
@@ -84,6 +91,7 @@ describe('vocabulary generator', () => {
     expect(text).toContain('export const LIST_LIMITS = {\n  name: 200,\n} as const')
     expect(text).toContain('export const LINK_LIMITS = {\n  url: 2048,\n} as const')
     expect(text).toContain('export const RECORDING_LIMITS = {\n  label: 200,\n} as const')
+    expect(text).toContain('export const LOOP_LIMITS = {\n  label: 100,\n} as const')
     expect(text).not.toContain('is_crooked')
     expect(text).not.toContain('mode:')
   })
@@ -103,6 +111,15 @@ describe('vocabulary generator', () => {
     expect(stderr).toContain('RecordingRow')
   })
 
+  it('fails on a loop schema the document lacks', () => {
+    const rows = Object.fromEntries(
+      Object.entries(ROWS).filter(([name]) => name !== 'RecordingLoopRow'),
+    )
+    const { status, stderr } = generate({ ...rows, Mode: { type: 'string', enum: ['major'] } })
+    expect(status).toBe(1)
+    expect(stderr).toContain('RecordingLoopRow')
+  })
+
   it('emits a ranges object from minimum and maximum, tolerating a field with only a minimum', () => {
     const { text } = generate({ ...ROWS, Mode: { type: 'string', enum: ['major'] } })
     expect(text).toContain(
@@ -113,6 +130,9 @@ describe('vocabulary generator', () => {
         '  trim_start_ms: { min: 0 },',
         '} as const',
       ].join('\n'),
+    )
+    expect(text).toContain(
+      'export const LOOP_RANGES = {\n  start_ms: { min: 0 },\n  color: { min: 0, max: 5 },\n} as const',
     )
   })
 

@@ -2,13 +2,12 @@ import { Minus, Plus } from 'lucide-react'
 import { useId } from 'react'
 import { RECORDING_RANGES } from '../../api/vocabulary'
 import { SPEED_BADGE, SPEED_LABEL } from '../player/Dock'
-import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
+import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET, SPEED_STEP, stepSpeed } from './panel'
 
 export const SPEED = SPEED_LABEL
 export const SLOWER = 'Slower'
 export const FASTER = 'Faster'
 
-const STEP = 5
 const PRESETS = [50, 75, 100] as const
 const DEFAULT_SPEED = 100
 
@@ -27,8 +26,7 @@ export function SpeedPanel({
 }) {
   const id = useId()
   const { min, max } = RECORDING_RANGES.speed_percent
-  // A stored speed off the 5% grid steps onto it rather than keeping its odd offset.
-  const step = (by: number) => onChange(clampSpeed(Math.round(value / STEP) * STEP + by))
+  const step = (by: number) => onChange(stepSpeed(value, by))
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -43,7 +41,7 @@ export function SpeedPanel({
           aria-label={SLOWER}
           className={PANEL_ICON_BUTTON}
           disabled={value <= min}
-          onClick={() => step(-STEP)}
+          onClick={() => step(-SPEED_STEP)}
         >
           <Minus aria-hidden="true" className="size-5" />
         </button>
@@ -52,7 +50,7 @@ export function SpeedPanel({
           type="range"
           min={min}
           max={max}
-          step={STEP}
+          step={SPEED_STEP}
           value={value}
           aria-valuetext={SPEED_BADGE(value)}
           className="h-11 min-w-0 flex-1 accent-(--ion-color-primary)"
@@ -63,7 +61,7 @@ export function SpeedPanel({
           aria-label={FASTER}
           className={PANEL_ICON_BUTTON}
           disabled={value >= max}
-          onClick={() => step(STEP)}
+          onClick={() => step(SPEED_STEP)}
         >
           <Plus aria-hidden="true" className="size-5" />
         </button>

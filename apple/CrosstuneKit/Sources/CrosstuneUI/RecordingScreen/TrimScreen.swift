@@ -61,7 +61,7 @@ struct TrimScreen: View {
                     including: ready ? .all : .none
                 )
                 #if os(macOS)
-                    .background { ControlScrollZoom(isEnabled: ready) { model.zoom(by: $0) } }
+                    .background { ControlScrollZoom(isEnabled: ready) { factor, _ in model.zoom(by: factor) } }
                 #endif
                 zoomAndReadouts
                 HStack(spacing: 12) {
@@ -466,11 +466,12 @@ private struct HandleMark: View {
 #if os(macOS)
     /// Zooms by Control and the scroll wheel over the view it backs, as maps and editors do on
     /// a Mac. SwiftUI has no scroll wheel event, so this watches the window's own.
-    private struct ControlScrollZoom: NSViewRepresentable {
+    struct ControlScrollZoom: NSViewRepresentable {
         /// The monitor sees events whatever SwiftUI has disabled, so it is told directly.
         let isEnabled: Bool
-        /// Takes how many times to zoom in; under 1 zooms out.
-        let onZoom: @MainActor (Double) -> Void
+        /// Takes how many times to zoom in (under 1 zooms out) and the pointer's x from the
+        /// view's leading edge.
+        let onZoom: @MainActor (Double, Double) -> Void
 
         func makeNSView(context: Context) -> ScrollZoomView {
             let view = ScrollZoomView()
@@ -490,7 +491,7 @@ private struct HandleMark: View {
     }
 
     final class ScrollZoomView: NSView {
-        var onZoom: (@MainActor (Double) -> Void)?
+        var onZoom: (@MainActor (Double, Double) -> Void)?
         var isEnabled = false
         private var monitor: Any?
         /// How far one point of scrolling zooms; a trackpad reports many small points.
@@ -517,7 +518,7 @@ private struct HandleMark: View {
             else { return false }
             // A mouse wheel reports lines rather than points.
             let points = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 10
-            onZoom(exp(Double(points) * Self.rate))
+            onZoom(exp(Double(points) * Self.rate), Double(convert(event.locationInWindow, from: nil).x))
             return true
         }
     }

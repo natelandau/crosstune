@@ -2,6 +2,7 @@ import type {
   ListItemRow,
   ListRow,
   RecordingLinkRow,
+  RecordingLoopRow,
   RecordingRow,
   TuneRow,
   TableName,
@@ -19,6 +20,7 @@ export const TABLE_NAMES = [
   'list_items',
   'recording_links',
   'recordings',
+  'recording_loops',
   'user_settings',
 ] as const satisfies readonly TableName[]
 
@@ -47,6 +49,7 @@ export type LocalList = Local<ListRow>
 export type LocalListItem = Local<ListItemRow>
 export type LocalUserSettings = Local<UserSettingsRow>
 export type LocalRecording = Local<RecordingRow>
+export type LocalRecordingLoop = Local<RecordingLoopRow>
 
 /** The instruments a settings row holds, or null when there is no usable row. */
 export function storedInstruments(
@@ -63,6 +66,7 @@ export interface LocalRows {
   list_items: LocalListItem
   recording_links: LocalRecordingLink
   recordings: LocalRecording
+  recording_loops: LocalRecordingLoop
   user_settings: LocalUserSettings
 }
 export type LocalRow = LocalRows[TableName]

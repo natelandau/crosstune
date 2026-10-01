@@ -12,6 +12,7 @@ from crosstune.schemas.rows import (
     ListItemRow,
     ListRow,
     RecordingLinkRow,
+    RecordingLoopRow,
     RecordingRow,
     TuneRow,
     UserSettingsRow,
@@ -25,6 +26,7 @@ TableName = Literal[
     "list_items",
     "recording_links",
     "recordings",
+    "recording_loops",
     "user_settings",
 ]
 Op = Literal["upsert", "delete"]
@@ -93,6 +95,13 @@ class RecordingChangeResult(_ChangeResult):
     row: RecordingRow | None = None
 
 
+class RecordingLoopChangeResult(_ChangeResult):
+    """The outcome of one change to a recording loop."""
+
+    table: Literal["recording_loops"]
+    row: RecordingLoopRow | None = None
+
+
 class UserSettingsChangeResult(_ChangeResult):
     """The outcome of one change to a user's settings."""
 
@@ -107,6 +116,7 @@ ChangeResult = Annotated[
     | ListItemChangeResult
     | RecordingLinkChangeResult
     | RecordingChangeResult
+    | RecordingLoopChangeResult
     | UserSettingsChangeResult,
     Field(discriminator="table"),
 ]
@@ -118,6 +128,7 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
     "recordings": RecordingChangeResult,
+    "recording_loops": RecordingLoopChangeResult,
     "user_settings": UserSettingsChangeResult,
 }
 
@@ -164,6 +175,13 @@ class RecordingPullRow(BaseModel):
     row: RecordingRow
 
 
+class RecordingLoopPullRow(BaseModel):
+    """A recording loop row in a pull page."""
+
+    table: Literal["recording_loops"]
+    row: RecordingLoopRow
+
+
 class UserSettingsPullRow(BaseModel):
     """A settings row in a pull page."""
 
@@ -178,6 +196,7 @@ PullRow = Annotated[
     | ListItemPullRow
     | RecordingLinkPullRow
     | RecordingPullRow
+    | RecordingLoopPullRow
     | UserSettingsPullRow,
     Field(discriminator="table"),
 ]
@@ -189,6 +208,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,
     "recordings": RecordingPullRow,
+    "recording_loops": RecordingLoopPullRow,
     "user_settings": UserSettingsPullRow,
 }
 

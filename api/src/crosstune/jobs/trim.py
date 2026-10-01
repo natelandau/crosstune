@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import cut, probe
 from crosstune.jobs.peaks import build_peaks, slice_peaks
+from crosstune.models.user import utc_now
+from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import bump_server_seq
 from crosstune.recordings.trim import clamp_trim, effective_end
 from crosstune.storage.store import (
@@ -293,6 +295,7 @@ async def trim(
             )
         else:
             _write_clamped_trim(recording, start_ms, end_ms)
+            await reclamp_recording_loops(session, recording, utc_now())
             if result is not None:
                 superseded = _apply(recording, result, start_ms, end_ms)
         bump_server_seq(recording)

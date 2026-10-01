@@ -118,6 +118,21 @@ private func wire(_ json: String) throws -> JSONObject {
     #expect(link.url == "https://example.com")
     #expect(link.artworkURL == "a")
 
+    let loop = try RecordingLoop(
+        wire: wire(
+            #"""
+            {
+              "id": "loop-1", "created_at": "2026-09-20T18:04:11Z", "updated_at": "2026-09-21T02:15:40Z",
+              "deleted_at": null, "server_seq": 7, "user_id": "owner-1",
+              "recording_id": "recording-1", "label": null, "start_ms": 1500, "end_ms": 9000, "color": 3
+            }
+            """#))
+    #expect(loop.recordingID == "recording-1")
+    #expect(loop.label == nil)
+    #expect(loop.startMs == 1500)
+    #expect(loop.endMs == 9000)
+    #expect(loop.color == 3)
+
     let recording = try Recording(
         wire: wire(
             #"""
@@ -144,7 +159,9 @@ private func wire(_ json: String) throws -> JSONObject {
     #expect(settings.audioQuality == "high")
     #expect(settings.instruments == ["violin", "banjo"])
 
-    for record in [tune.extra, userTune.extra, list.extra, item.extra, link.extra, recording.extra, settings.extra] {
+    for record in [
+        tune.extra, userTune.extra, list.extra, item.extra, link.extra, recording.extra, loop.extra, settings.extra,
+    ] {
         #expect(record == [:])
     }
 }

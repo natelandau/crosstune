@@ -58,6 +58,7 @@ export function Row({
   disabled = false,
   dimmed = false,
   selected,
+  current,
   openId,
   onLongPress,
   start,
@@ -87,6 +88,12 @@ export function Row({
    * keeps its button role.
    */
   selected?: boolean
+  /**
+   * Present on a row in a list that holds one current item, such as the selected loop: the open
+   * control carries `aria-current` while it is true. It opens through its own button on both
+   * pointers, since ion-item's native button takes no attribute but its name.
+   */
+  current?: boolean
   /**
    * The id put on the open control, so something outside the row can move focus to it. Nothing
    * else in the row takes it: the open control is what carries the row's role and its state.
@@ -124,7 +131,8 @@ export function Row({
   // its own. A mouse always opens this way, since it needs a button separate from the actions
   // that only show on hover. Selecting opens this way too: the check mark and the open control
   // have to be siblings in the start slot.
-  const useOverlay = Boolean(onOpen) && (pointer === 'mouse' || named || selecting)
+  const useOverlay =
+    Boolean(onOpen) && (pointer === 'mouse' || named || selecting || current !== undefined)
   // The row-link hooks apply the CSS this open control's focus ring and hover surface draw on;
   // without it, ion-item and its shadow content clip the overlay button's own outline.
   const itemClassName = useOverlay
@@ -163,6 +171,7 @@ export function Row({
       aria-labelledby={named ? `${verbId} ${contentId}` : contentId}
       role={selecting ? 'checkbox' : undefined}
       aria-checked={selecting ? selected : undefined}
+      aria-current={current ? 'true' : undefined}
       className={pressable ? 'row-open ion-activatable' : 'row-open'}
       onClick={onOpen}
     >

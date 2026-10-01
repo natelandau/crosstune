@@ -47,6 +47,7 @@
               "list_items",
               "recording_links",
               "recordings",
+              "recording_loops",
               "user_settings"
             ],
             "title": "Table",
@@ -589,6 +590,7 @@
                   "list_items": "#/components/schemas/ListItemPullRow",
                   "lists": "#/components/schemas/ListPullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
+                  "recording_loops": "#/components/schemas/RecordingLoopPullRow",
                   "recordings": "#/components/schemas/RecordingPullRow",
                   "tunes": "#/components/schemas/TunePullRow",
                   "user_settings": "#/components/schemas/UserSettingsPullRow",
@@ -614,6 +616,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/RecordingLoopPullRow"
                 },
                 {
                   "$ref": "#/components/schemas/UserSettingsPullRow"
@@ -660,6 +665,7 @@
                   "list_items": "#/components/schemas/ListItemChangeResult",
                   "lists": "#/components/schemas/ListChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
+                  "recording_loops": "#/components/schemas/RecordingLoopChangeResult",
                   "recordings": "#/components/schemas/RecordingChangeResult",
                   "tunes": "#/components/schemas/TuneChangeResult",
                   "user_settings": "#/components/schemas/UserSettingsChangeResult",
@@ -685,6 +691,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/RecordingLoopChangeResult"
                 },
                 {
                   "$ref": "#/components/schemas/UserSettingsChangeResult"
@@ -1033,6 +1042,165 @@
           "added_by_user_id"
         ],
         "title": "RecordingLinkRow",
+        "type": "object"
+      },
+      "RecordingLoopChangeResult": {
+        "description": "The outcome of one change to a recording loop.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordingLoopRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "recording_loops",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "RecordingLoopChangeResult",
+        "type": "object"
+      },
+      "RecordingLoopPullRow": {
+        "description": "A recording loop row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/RecordingLoopRow"
+          },
+          "table": {
+            "const": "recording_loops",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "RecordingLoopPullRow",
+        "type": "object"
+      },
+      "RecordingLoopRow": {
+        "description": "A stored practice loop, as push and pull return it.",
+        "properties": {
+          "color": {
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Color",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "end_ms": {
+            "minimum": 0.0,
+            "title": "End Ms",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "recording_id": {
+            "format": "uuid",
+            "title": "Recording Id",
+            "type": "string"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "start_ms": {
+            "minimum": 0.0,
+            "title": "Start Ms",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "recording_id",
+          "start_ms",
+          "end_ms",
+          "color",
+          "user_id"
+        ],
+        "title": "RecordingLoopRow",
         "type": "object"
       },
       "RecordingPullRow": {

@@ -72,7 +72,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                           |
 | Who owns a row           | The token.                                                                                                                                                                                                                                                                                          |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                 |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                                                                                                                                    |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                                      |
 | Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file and audio in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes. A shape change starts it over (see Pull). |
 | Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                             |
 | Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                      |
@@ -250,6 +250,12 @@ same triggers. A return to the foreground stands in for a visible tab.
   range, and to at least 1000 ms. At most one trim job is queued per
   recording at a time; a trim saved while one runs is queued once it
   finishes.
+- Loops sit on the source timeline, so a trim does not move them. A trim
+  push, and any job that writes a trim or a measured length, re-clamps each
+  loop to the new range and tombstones any loop left outside it. Deleting a
+  recording tombstones its loops, and a loop pushed for a deleted recording
+  is stored deleted rather than refused. Loop selection and Repeat are
+  device state and never sync.
 - The trim job cuts the kept range from the original, never from the
   current playback file. It uploads a new revisioned playback file and a
   new revisioned peaks file, and deletes the superseded objects only once

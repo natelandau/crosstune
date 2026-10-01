@@ -32,13 +32,15 @@ let limitNamespaces: [(name: String, rows: [String])] = [
     ("List", ["ListRow"]),
     ("Link", ["RecordingLinkRow"]),
     ("Recording", ["RecordingRow"]),
+    ("RecordingLoop", ["RecordingLoopRow"]),
 ]
 
 /// A ranges namespace to the schema and fields it reads minimum/maximum from, in the order
 /// they are emitted. A field missing its range fails the run, so the client's own range is
 /// never silently narrower or wider than what the API actually enforces.
 let rangeNamespaces: [(name: String, schema: String, fields: [String])] = [
-    ("Recording", "RecordingData", ["pitch_cents", "speed_percent"])
+    ("Recording", "RecordingData", ["pitch_cents", "speed_percent"]),
+    ("RecordingLoop", "RecordingLoopRow", ["color"]),
 ]
 
 func camelCase(_ snakeCase: String) -> String {

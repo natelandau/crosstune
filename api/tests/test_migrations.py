@@ -1392,3 +1392,19 @@ async def test_downgrade_to_0014_restores_feel_and_mode_from_type_and_first_mode
         assert (rows[plain].feel, rows[plain].mode) == (None, None)
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+async def test_downgrade_to_0017_drops_recording_loops_and_upgrade_restores_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text("select to_regclass('public.recording_loops') is not null")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0017")
+        async with engine.connect() as conn:
+            assert not (await conn.execute(query)).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        assert (await conn.execute(query)).scalar_one()

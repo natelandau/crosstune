@@ -3,22 +3,19 @@ import SwiftUI
 /// A tool on the recording screen's strip.
 enum RecordingTool: Hashable, CaseIterable {
     case trim
-    case speed
-    case pitch
+    case practice
 
     var label: String {
         switch self {
         case .trim: RecordingScreenText.trim
-        case .speed: RecordingScreenText.speed
-        case .pitch: RecordingScreenText.pitch
+        case .practice: PracticeText.practice
         }
     }
 
     var systemImage: String {
         switch self {
         case .trim: "scissors"
-        case .speed: "gauge.with.dots.needle.50percent"
-        case .pitch: "music.note"
+        case .practice: "repeat"
         }
     }
 }
@@ -26,17 +23,30 @@ enum RecordingTool: Hashable, CaseIterable {
 /// One tool as the strip shows it.
 struct ToolStripItem: Hashable {
     let tool: RecordingTool
-    /// Shown only away from the tool's default, as "75%" under Speed.
+    /// Shown only away from the tool's default, as "75% · +2" under Practice.
     var value: String?
     /// Why the tool cannot be used now; the tool stays in reach and shows this.
     var blocker: String?
+
+    /// The recording screen's tools: Trim, and Practice with the speed and pitch away from
+    /// their defaults.
+    static func recordingScreen(
+        trimBlocker: String?, practiceBlocker: String?, speedPercent: Int, pitchCents: Int
+    ) -> [ToolStripItem] {
+        [
+            ToolStripItem(tool: .trim, blocker: trimBlocker),
+            ToolStripItem(
+                tool: .practice,
+                value: RecordingScreenText.practiceBadge(speedPercent: speedPercent, pitchCents: pitchCents),
+                blocker: practiceBlocker),
+        ]
+    }
 }
 
 /// The recording screen's tools in one row that scrolls sideways once more tools than fit are
-/// added. A tool that opens a panel shows whether it is open.
+/// added. Each opens its own screen.
 struct ToolStrip: View {
     let items: [ToolStripItem]
-    let selected: RecordingTool?
     let onSelect: (RecordingTool) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -55,7 +65,6 @@ struct ToolStrip: View {
     }
 
     private func button(_ item: ToolStripItem) -> some View {
-        let chosen = selected == item.tool
         let detail = item.blocker ?? item.value
         return Button {
             onSelect(item.tool)
@@ -69,16 +78,15 @@ struct ToolStrip: View {
                         .monospacedDigit()
                 }
             }
-            .foregroundStyle(chosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .frame(minWidth: 88, minHeight: 56)
-            .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .rect(cornerRadius: 12))
+            .background(neutralFill(colorScheme), in: .rect(cornerRadius: 12))
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .disabled(item.blocker != nil)
         .opacity(item.blocker != nil ? 0.5 : 1)
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(chosen ? .isSelected : [])
     }
 }

@@ -65,6 +65,7 @@ describe('schema', () => {
       'recording_chunks',
       'recording_files',
       'recording_links',
+      'recording_loops',
       'recordings',
       'tunes',
       'user_settings',
@@ -88,7 +89,7 @@ describe('schema', () => {
       expect(db.tables.map((t) => t.name)).toEqual(
         expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
       )
-      expect(db.verno).toBe(6)
+      expect(db.verno).toBe(7)
     } finally {
       await db.delete()
     }
@@ -102,6 +103,7 @@ describe('schema', () => {
     'recording_chunks',
     'recording_files',
     'recording_links',
+    'recording_loops',
     'recordings',
     'tunes',
     'user_settings',
@@ -154,7 +156,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(6)
+      expect(upgraded.verno).toBe(7)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -194,7 +196,7 @@ describe('schema', () => {
     }
   })
 
-  it('keeps unsent changes and unuploaded recordings when a version 6 database opens', async () => {
+  it('keeps unsent changes and unuploaded recordings when a version 6 database opens at version 7', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
     const v6 = new Dexie(name)
     v6.version(6).stores({
@@ -255,6 +257,8 @@ describe('schema', () => {
         tune.id,
       ])
       expect(await getPullCursor(opened)).toBe(42)
+      expect(await opened.recording_loops.count()).toBe(0)
+      expect(opened.verno).toBe(7)
     } finally {
       await opened.delete()
     }
@@ -282,17 +286,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v7 = new Dexie(name)
-    v7.version(7).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v7.table('tunes').put({ id: tune.id, title: tune.title })
-    await v7.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v7.close()
+    const v8 = new Dexie(name)
+    v8.version(8).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v8.table('tunes').put({ id: tune.id, title: tune.title })
+    await v8.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v8.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(60)
+      expect(older.backendDB().version).toBe(70)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {
@@ -418,6 +422,7 @@ describe('table helpers', () => {
       'list_items',
       'recording_links',
       'recordings',
+      'recording_loops',
       'user_settings',
     ])
   })

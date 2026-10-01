@@ -71,11 +71,12 @@ describe('useReducedMotion', () => {
 })
 
 describe('useFrame', () => {
-  it('is wide from 768px and phone below it', () => {
-    const flip = installMatchMedia({ '(min-width: 768px)': false })
+  it('is wide from 768px by 600px and phone below either', () => {
+    const query = '(min-width: 768px) and (min-height: 600px)'
+    const flip = installMatchMedia({ [query]: false })
     const { result } = renderHook(() => useFrame())
     expect(result.current).toBe('phone')
-    act(() => flip('(min-width: 768px)', true))
+    act(() => flip(query, true))
     expect(result.current).toBe('wide')
   })
 })

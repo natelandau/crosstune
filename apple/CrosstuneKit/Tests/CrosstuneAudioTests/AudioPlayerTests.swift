@@ -218,6 +218,186 @@ private func eventually(_ condition: () -> Bool) async throws {
         player.unload()
     }
 
+    /// Renders `seconds` in short steps, letting each step's segment completions land.
+    private func renderInSteps(_ player: AudioPlayer, seconds: TimeInterval) async throws {
+        var left = seconds
+        while left > 0 {
+            try player.render(seconds: min(left, 0.25))
+            left -= 0.25
+            for _ in 0..<20 { await Task.yield() }
+        }
+    }
+
+    @Test func aRepeatingLoopWrapsBackInsideItAndNeverStops() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let loop = PlaybackWindow(from: 1, to: 2)
+        player.setLoop(loop)
+        player.setRepeat(true)
+        #expect(player.isRepeating)
+        player.seek(to: 1.5)
+        player.play()
+        // Half a second to the loop end, then three times round the loop and more.
+        for _ in 0..<13 {
+            try await renderInSteps(player, seconds: 0.25)
+            #expect(player.isPlaying)
+            #expect(player.elapsed >= loop.from && player.elapsed <= loop.to)
+        }
+        #expect(player.elapsed > 1.6 && player.elapsed < 2)
+        player.unload()
+    }
+
+    @Test func playWithRepeatFromOutsideTheLoopStartsAtItsStart() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        player.setRepeat(true)
+        player.setLoop(PlaybackWindow(from: 2, to: 3))
+        #expect(player.elapsed == 2)
+        player.seek(to: 0.5)
+        #expect(player.elapsed == 0.5)
+        player.play()
+        #expect(player.elapsed == 2)
+        try player.render(seconds: 0.4)
+        #expect(player.elapsed > 2.1 && player.elapsed < 2.7)
+        player.unload()
+    }
+
+    @Test func aLoopMovedAwayFromTheRepeatingPlayheadTakesItToTheNewStart() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        player.setLoop(PlaybackWindow(from: 1, to: 2))
+        player.setRepeat(true)
+        player.seek(to: 1.5)
+        player.play()
+        try player.render(seconds: 0.2)
+        player.setLoop(PlaybackWindow(from: 2.5, to: 3.5))
+        #expect(player.elapsed == 2.5)
+        #expect(player.isPlaying)
+        try await renderInSteps(player, seconds: 1.5)
+        #expect(player.isPlaying)
+        #expect(player.elapsed > 2.6 && player.elapsed < 3.5)
+        player.unload()
+    }
+
+    @Test func repeatOffOrNoLoopNeverMovesThePlayheadAndPlaysOnPastTheLoop() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        player.setLoop(PlaybackWindow(from: 1, to: 1.5))
+        player.setRepeat(true)
+        player.seek(to: 1.2)
+        player.play()
+        player.setRepeat(false)
+        #expect(!player.isRepeating)
+        #expect(abs(player.elapsed - 1.2) < 0.05)
+        try await renderInSteps(player, seconds: 1)
+        #expect(player.elapsed > 1.9)
+
+        // On from past the loop enters it; taking the loop away then leaves the playhead there.
+        player.setRepeat(true)
+        #expect(player.elapsed == 1)
+        let entered = player.elapsed
+        player.setLoop(nil)
+        #expect(abs(player.elapsed - entered) < 0.05, "\(player.elapsed) vs \(entered)")
+        player.unload()
+    }
+
+    @Test func aRepeatingLoopAtOneAndAHalfSpeedStaysInsideIt() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let loop = PlaybackWindow(from: 1, to: 2)
+        player.setRate(150)
+        player.setLoop(loop)
+        player.setRepeat(true)
+        player.play()
+        // 2.5 s of output is 3.75 s of audio: nearly four passes of the loop.
+        for _ in 0..<10 {
+            try await renderInSteps(player, seconds: 0.25)
+            #expect(player.isPlaying)
+            #expect(player.elapsed >= loop.from && player.elapsed <= loop.to)
+        }
+        #expect(player.timePitch.rate == 1.5)
+        player.unload()
+    }
+
+    @Test func aConfigurationChangeMidLoopKeepsRepeatingInsideIt() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let loop = PlaybackWindow(from: 1, to: 2)
+        player.setLoop(loop)
+        player.setRepeat(true)
+        player.seek(to: 1.5)
+        player.play()
+        try await renderInSteps(player, seconds: 0.75)
+        let before = player.elapsed
+        #expect(before >= loop.from && before <= loop.to)
+        NotificationCenter.default.post(name: .AVAudioEngineConfigurationChange, object: player.engine)
+        try await eventually { player.isPlaying && player.engine.isRunning }
+        #expect(abs(player.elapsed - before) < 0.001)
+        for _ in 0..<8 {
+            try await renderInSteps(player, seconds: 0.25)
+            #expect(player.isPlaying)
+            #expect(player.elapsed >= loop.from && player.elapsed <= loop.to)
+        }
+        player.unload()
+    }
+
+    @Test func aKeptLoadThatFailsTurnsRepeatOff() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        player.setLoop(PlaybackWindow(from: 1, to: 2))
+        player.setRepeat(true)
+        let broken = root.url.appending(path: "broken.m4a")
+        try Data("not audio".utf8).write(to: broken)
+        player.load(broken, nowPlaying: NowPlaying(title: "Broken", tuneTitle: nil), keepLoop: true)
+        #expect(player.hasFailed)
+        #expect(!player.isRepeating)
+        player.unload()
+    }
+
+    @Test func aNewFileClearsTheLoopAndRepeatUnlessItKeepsThem() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let url = root.url.appending(path: "tone.aac")
+        player.setLoop(PlaybackWindow(from: 1, to: 1.5))
+        player.setRepeat(true)
+        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        #expect(!player.isRepeating)
+        player.play()
+        try await renderInSteps(player, seconds: 2)
+        #expect(player.elapsed > 1.7)
+
+        // Kept: Repeat stays on, but the old range waits for a new one before it wraps.
+        player.setLoop(PlaybackWindow(from: 1, to: 1.5))
+        player.setRepeat(true)
+        player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil), keepLoop: true)
+        #expect(player.isRepeating)
+        #expect(player.elapsed == 0)
+        player.play()
+        #expect(player.elapsed == 0)
+        try await renderInSteps(player, seconds: 2)
+        #expect(player.elapsed > 1.7)
+        player.setLoop(PlaybackWindow(from: 1, to: 1.5))
+        #expect(player.elapsed == 1)
+        player.unload()
+    }
+
+    @Test func eachWrapTellsNowPlayingTheNewPosition() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        var published: [PublishedPlayback] = []
+        player.publishes = { published.append($0) }
+        let loop = PlaybackWindow(from: 1, to: 1.5)
+        player.setLoop(loop)
+        player.setRepeat(true)
+        player.play()
+        published = []
+        // Three wraps of a half-second loop played from its start.
+        try await renderInSteps(player, seconds: 1.6)
+        #expect(published.count >= 3)
+        #expect(published.allSatisfy { $0.isPlaying && $0.elapsed >= loop.from && $0.elapsed <= loop.to })
+        player.unload()
+    }
+
     @Test func staysSilentWhileATakeIsRecorded() async throws {
         let root = TemporaryRoot()
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)

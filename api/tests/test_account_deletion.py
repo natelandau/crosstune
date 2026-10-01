@@ -20,6 +20,7 @@ from crosstune.models import (
     ListItem,
     Recording,
     RecordingLink,
+    RecordingLoop,
     Tune,
     UploadSlot,
     User,
@@ -61,6 +62,16 @@ async def _seed(
         ),
         change("user_settings", uid(), T0, instruments=["violin"]),
         recording_change(rec),
+        change(
+            "recording_loops",
+            uid(),
+            T0,
+            recording_id=rec,
+            label="A part",
+            start_ms=0,
+            end_ms=4000,
+            color=1,
+        ),
     )
     # Jobs and upload slots are server bookkeeping that no push creates directly.
     user_id = uuid.UUID(me["id"])
@@ -93,6 +104,7 @@ async def test_delete_me_removes_everything_and_the_clerk_user(
         ListItem,
         Recording,
         RecordingLink,
+        RecordingLoop,
         Job,
         UploadSlot,
     )

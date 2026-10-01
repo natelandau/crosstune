@@ -64,6 +64,20 @@ describe('Shell', () => {
       .not.toBeVisible()
   })
 
+  it('keeps the phone frame on a landscape phone', async () => {
+    await page.viewport(844, 390)
+    try {
+      renderIonic(<Shell initialPath="/" />, { db: openTestDb() })
+      await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
+      await expect.element(page.getByRole('navigation', { name: 'Primary' })).toBeVisible()
+      await expect
+        .element(page.getByRole('navigation', { name: 'Sidebar', includeHidden: true }))
+        .not.toBeVisible()
+    } finally {
+      await page.viewport(390, 844)
+    }
+  })
+
   it('shows a sidebar instead of the tab bar on the wide frame', async () => {
     await page.viewport(1024, 768)
     try {
@@ -246,6 +260,19 @@ describe('Shell', () => {
     const cap = getComputedStyle(document.documentElement).getPropertyValue('--tab-bar-cap').trim()
     expect(cap).not.toBe('')
     expect(cap).not.toBe('0px')
+  })
+
+  it('keeps the record button clearance on a landscape phone and drops it on the wide frame', async () => {
+    const readCap = () =>
+      getComputedStyle(document.documentElement).getPropertyValue('--tab-bar-cap').trim()
+    await page.viewport(844, 390)
+    try {
+      expect(readCap()).not.toBe('0px')
+      await page.viewport(1024, 768)
+      expect(readCap()).toBe('0px')
+    } finally {
+      await page.viewport(390, 844)
+    }
   })
 
   it('points Back at the parent of a pushed screen', async () => {

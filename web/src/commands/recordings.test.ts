@@ -3,6 +3,7 @@ import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
+import { loopRow } from '../test/rows'
 import { TUNE_NOT_FOUND } from './messages'
 import {
   addUploadedFile,
@@ -265,6 +266,23 @@ describe('uploads and edits', () => {
     expect((await db.recordings.get(id))?.deleted_at).not.toBeNull()
     expect((await pendingFor(db, 'recordings', id))?.op).toBe('delete')
     expect(await db.recording_files.get(id)).toBeUndefined()
+  })
+
+  it('deleting a recording tombstones its loops without enqueueing their deletes', async () => {
+    const id = await captured()
+    await db.recording_loops.put(loopRow({ id: 'lp', recording_id: id }))
+    await deleteRecording(db, id)
+    expect((await db.recording_loops.get('lp'))?.deleted_at).not.toBeNull()
+    expect(await pendingFor(db, 'recording_loops', 'lp')).toBeUndefined()
+  })
+
+  it('deleting a tune tombstones its recordings loops without enqueueing their deletes', async () => {
+    const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    const id = await captured(tuneId)
+    await db.recording_loops.put(loopRow({ id: 'lp', recording_id: id }))
+    await deleteTune(db, tuneId)
+    expect((await db.recording_loops.get('lp'))?.deleted_at).not.toBeNull()
+    expect(await pendingFor(db, 'recording_loops', 'lp')).toBeUndefined()
   })
 
   it('deleting a tune tombstones its recordings without a second delete change', async () => {

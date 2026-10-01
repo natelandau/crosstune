@@ -1,8 +1,18 @@
-import { useEffect, useRef, type ActionDispatch, type PointerEvent, type RefObject } from 'react'
-import type { TrimAction } from './trimModel'
+import { useEffect, useRef, type PointerEvent, type RefObject } from 'react'
+
+/** Zoom by `factor`, around `centerMs` when the gesture says where it happened. */
+export type ZoomAction = { type: 'zoom'; factor: number; centerMs?: number }
 
 /** How far one unit of a ctrl-scroll zooms; a trackpad pinch reports many small units. */
 const WHEEL_ZOOM_RATE = 0.01
+
+function emit(
+  { onZoom, msAt }: { onZoom: (action: ZoomAction) => void; msAt?: (clientX: number) => number },
+  factor: number,
+  clientX: number,
+) {
+  onZoom(msAt ? { type: 'zoom', factor, centerMs: msAt(clientX) } : { type: 'zoom', factor })
+}
 
 /**
  * Two-finger pinch and ctrl-scroll (which is also how a trackpad pinch arrives) zoom the
@@ -12,23 +22,38 @@ const WHEEL_ZOOM_RATE = 0.01
  * A pinch starts with one finger, which has already begun a seek or a handle drag by the time
  * the second lands. From then until every finger lifts the pointers' moves stop here, and
  * `onPinchStart` puts back whatever the first finger changed, which `onFirstPointer` saves.
+ * With `msAt`, each zoom carries the time under the wheel or between the fingers.
  */
 export function useZoomGestures(
   element: RefObject<HTMLDivElement | null>,
-  dispatch: ActionDispatch<[TrimAction]>,
-  { onFirstPointer, onPinchStart }: { onFirstPointer: () => void; onPinchStart: () => void },
+  onZoom: (action: ZoomAction) => void,
+  {
+    onFirstPointer,
+    onPinchStart,
+    msAt,
+  }: {
+    onFirstPointer: () => void
+    onPinchStart: () => void
+    msAt?: (clientX: number) => number
+  },
 ) {
+  // The wheel listener is attached once, so it reaches the latest callbacks through a ref.
+  const latest = useRef({ onZoom, msAt })
+  useEffect(() => {
+    latest.current = { onZoom, msAt }
+  })
+
   useEffect(() => {
     const target = element.current
     if (!target) return
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return
       event.preventDefault()
-      dispatch({ type: 'zoom', factor: Math.exp(-event.deltaY * WHEEL_ZOOM_RATE) })
+      emit(latest.current, Math.exp(-event.deltaY * WHEEL_ZOOM_RATE), event.clientX)
     }
     target.addEventListener('wheel', onWheel, { passive: false })
     return () => target.removeEventListener('wheel', onWheel)
-  }, [element, dispatch])
+  }, [element])
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const spread = useRef<number | null>(null)
@@ -65,7 +90,10 @@ export function useZoomGestures(
       event.stopPropagation()
       pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
       const now = distance()
-      if (now && spread.current) dispatch({ type: 'zoom', factor: now / spread.current })
+      const [a, b] = Array.from(pointers.current.values())
+      if (now && spread.current && a && b) {
+        emit(latest.current, now / spread.current, (a.x + b.x) / 2)
+      }
       spread.current = now
     },
     onPointerUpCapture: release,

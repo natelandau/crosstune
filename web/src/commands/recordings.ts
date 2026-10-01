@@ -239,9 +239,19 @@ export async function retryUpload(db: CrosstuneDb, id: string): Promise<void> {
   })
 }
 
+/** A recording's loops go with it; the server cascades them, so no delete change is queued. */
+async function tombstoneLoops(db: CrosstuneDb, recordingId: string, at: string): Promise<void> {
+  const loops = await db.recording_loops.where('recording_id').equals(recordingId).toArray()
+  for (const loop of loops) {
+    await tombstone(db, 'recording_loops', loop.id, at, { enqueueDelete: false })
+  }
+}
+
 export async function deleteRecording(db: CrosstuneDb, id: string): Promise<void> {
   await recordingTx(db, async () => {
-    await tombstone(db, 'recordings', id, now())
+    const at = now()
+    await tombstone(db, 'recordings', id, at)
+    await tombstoneLoops(db, id, at)
     await db.recording_files.delete(id)
     await db.recording_chunks.where('recording_id').equals(id).delete()
   })
@@ -256,6 +266,7 @@ export async function tombstoneTuneRecordings(
   const rows = await db.recordings.where('tune_id').equals(tuneId).toArray()
   for (const row of rows) {
     await tombstone(db, 'recordings', row.id, at, { enqueueDelete: false })
+    await tombstoneLoops(db, row.id, at)
     await db.recording_files.delete(row.id)
     await db.recording_chunks.where('recording_id').equals(row.id).delete()
   }

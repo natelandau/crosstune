@@ -220,6 +220,25 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
 }
 
 @Suite struct ApplyPullPageTests {
+    @Test func keepsALoopFieldThisBuildDoesNotKnow() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let loop: JSONObject = [
+            "id": .string("loop-1"), "created_at": .string(noon.iso), "updated_at": .string(noon.iso),
+            "deleted_at": .null, "server_seq": .integer(9), "user_id": .string("server-user"),
+            "recording_id": .string("recording-1"), "label": .string("B part"), "start_ms": .integer(1500),
+            "end_ms": .integer(9000), "color": .integer(2), "tempo": .integer(96),
+        ]
+
+        try await store.write { writer in
+            try writer.applyPullPage(rows: [(.recordingLoops, loop)], nextSince: 9)
+        }
+
+        let stored = try #require(try await store.read { db in try RecordingLoop.fetchOne(db, key: "loop-1") })
+        #expect(stored.label == "B part")
+        #expect(stored.extra == ["tempo": .integer(96)])
+    }
+
     @Test func storesRowsWithoutOwnershipDropsOlderPendingEntriesAndAdvancesTheCursor() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

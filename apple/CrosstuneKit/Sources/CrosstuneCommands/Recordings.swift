@@ -164,6 +164,7 @@ extension StoreWriter {
     /// Tombstones a recording and drops its local audio file entry.
     public func deleteRecording(_ recordingID: String, at time: Timestamp = .now) throws {
         try tombstone(Recording.self, id: recordingID, at: time)
+        try tombstoneLoops(recordingID: recordingID, at: time, enqueueDelete: false)
         try RecordingFile.deleteOne(db, key: recordingID)
     }
 }

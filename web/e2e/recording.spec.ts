@@ -1,27 +1,19 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { addTune, expectNoOverlay, signIn, swipeLeft, unique } from './helpers'
+import {
+  addTune,
+  DEFAULT_LABEL,
+  expectNoOverlay,
+  nudgeSync,
+  recordUnfiled,
+  signIn,
+  swipeLeft,
+  unique,
+  waitForReady,
+} from './helpers'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
 test.use({ reducedMotion: 'reduce' })
-
-const DEFAULT_LABEL = /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/
-
-/** Record from the dock for at least `seconds`, landing on the recordings tab with the new row unfiled. */
-async function recordUnfiled(page: Page, seconds: number): Promise<Locator> {
-  await page
-    .getByRole('navigation', { name: 'Primary' })
-    .getByRole('button', { name: 'Start a new recording' })
-    .click()
-  const timer = page.getByRole('timer')
-  await expect(timer).toBeVisible()
-  await expect(timer).toHaveText(new RegExp(`^0:0[${seconds}-9]$`), { timeout: 15_000 })
-  await page.getByRole('button', { name: 'Stop' }).click()
-  await expect(page).toHaveURL(/\/recordings$/)
-  const row = page.getByRole('list', { name: 'Unfiled' }).getByRole('listitem').first()
-  await expect(row).toContainText(DEFAULT_LABEL)
-  return row
-}
 
 /** File an unfiled row under `title` from its swipe action, and return its row under that tune. */
 async function addToTune(page: Page, row: Locator, title: string): Promise<Locator> {
@@ -45,41 +37,6 @@ async function addToTune(page: Page, row: Locator, title: string): Promise<Locat
     .first()
   await expect(filed).toContainText(DEFAULT_LABEL)
   return filed
-}
-
-/**
- * Wait until `row` settles out of the upload/transcode pipeline, nudging the sync loop from
- * Settings along the way in case it is between passes or backing off. `restore` returns to
- * wherever `row` is shown after that nudge; the Recordings tab by default.
- */
-async function waitForReady(
-  page: Page,
-  row: Locator,
-  { timeout = 60_000, restore }: { timeout?: number; restore?: () => Promise<void> } = {},
-): Promise<void> {
-  const busy = /Waiting to upload|Uploading|Processing/
-  await expect
-    .poll(
-      async () => {
-        const text = (await row.textContent()) ?? ''
-        if (busy.test(text)) {
-          await page.getByRole('tab', { name: 'Settings' }).click()
-          await page.getByRole('button', { name: 'Sync now' }).click()
-          if (restore) await restore()
-          else await page.getByRole('tab', { name: 'Recordings' }).click()
-        }
-        return row.textContent()
-      },
-      { timeout, intervals: [3_000] },
-    )
-    .not.toMatch(busy)
-}
-
-/** Nudge the transfer loop from Settings, then return to the recordings list it left. */
-async function nudgeSync(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: 'Settings' }).click()
-  await page.getByRole('button', { name: 'Sync now' }).click()
-  await page.getByRole('tab', { name: 'Recordings' }).click()
 }
 
 test('record, add the recording to a tune, and play it back on the device', async ({ page }) => {
