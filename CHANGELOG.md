@@ -1,3 +1,17 @@
+## v0.10.0 (2026-10-01)
+
+### Feat
+
+- add a Practice view with repeating loops (#90)
+- **site**: show a thanks page after joining the waitlist (#89)
+- **site**: rebuild the home page around hands-on demos (#88)
+- **apple**: add an in-app text size and scale the UI with it (#87)
+- **apple**: put the catalog filter button in the iOS search field
+
+### Fix
+
+- **apple**: fix the app icon
+
 ## v0.9.0 (2026-09-30)
 
 ### Feat
