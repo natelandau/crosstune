@@ -7,7 +7,7 @@ import SwiftUI
 public struct KeyPill: View {
     /// The two sizes a pill comes in.
     public enum Size: Sendable {
-        /// Fills a 44 point target, for a pill the musician presses or reads on its own.
+        /// Takes taps across 44 points, for a pill the musician presses or reads on its own.
         case full
         /// Sits inside a line of row metadata without setting the line's height.
         case compact
@@ -19,7 +19,7 @@ public struct KeyPill: View {
     private let isChosen: Bool
 
     @Environment(\.colorScheme) private var colorScheme
-    @ScaledMetric(relativeTo: .subheadline) private var fullHeight: CGFloat = 32
+    @Environment(\.spacing) private var spacing
     @ScaledMetric(relativeTo: .footnote) private var compactHeight: CGFloat = 22
 
     /// `suffix` follows the key, such as a mode abbreviation; the hue still comes from the key
@@ -32,20 +32,27 @@ public struct KeyPill: View {
     }
 
     public var body: some View {
-        if !key.isEmpty {
-            Text(key + suffix)
-                .font(size == .full ? .subheadline : .footnote)
-                .fontWeight(.medium)
-                .monospacedDigit()
-                .lineLimit(1)
-                .fixedSize()
-                .foregroundStyle(ink)
-                .padding(.horizontal, size == .full ? 12 : 8)
-                .frame(minHeight: size == .full ? fullHeight : compactHeight)
+        if !key.isEmpty, size == .full {
+            label
+                .padding(.vertical, spacing.chipVertical)
                 .background(fill, in: .capsule)
-                .frame(minHeight: size == .full ? 44 : nil)
-                .contentShape(.rect)
+                .tapTarget()
+        } else if !key.isEmpty {
+            label
+                .frame(minHeight: compactHeight)
+                .background(fill, in: .capsule)
         }
+    }
+
+    private var label: some View {
+        Text(key + suffix)
+            .font(size == .full ? .subheadline : .footnote)
+            .fontWeight(.medium)
+            .monospacedDigit()
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(ink)
+            .padding(.horizontal, spacing(size == .full ? 12 : 8))
     }
 
     private var swatch: KeyColor.Swatch? {

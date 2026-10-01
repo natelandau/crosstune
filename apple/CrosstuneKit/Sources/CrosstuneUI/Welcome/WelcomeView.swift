@@ -10,6 +10,7 @@ public struct WelcomeView: View {
     @State private var showsSignIn = false
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.spacing) private var spacing
 
     /// `notice` shows above the buttons and is announced to VoiceOver.
     public init(notice: String?) {
@@ -45,13 +46,13 @@ public struct WelcomeView: View {
                     if WelcomeLayout.showsPicture(dynamicTypeSize) {
                         PaperEcho()
                             .frame(maxWidth: .infinity)
-                            .padding(.bottom, 20)
+                            .padding(.bottom, spacing(20))
                     }
                     words(for: WelcomeDevice.current)
                 }
                 .frame(maxWidth: 480)
                 .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+                .padding(.vertical, spacing(16))
                 .frame(maxWidth: .infinity)
             }
         #endif
@@ -63,27 +64,27 @@ public struct WelcomeView: View {
             Text(WelcomeCopy.headline(for: device))
                 .font(device == .mac ? .title.bold() : .title2.bold())
                 .accessibilityAddTraits(.isHeader)
-                .padding(.top, 14)
+                .padding(.top, spacing(14))
             Text(WelcomeCopy.line)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .padding(.top, 8)
+                .padding(.top, spacing.stackGap)
             if let notice {
                 Text(notice)
                     .font(.subheadline)
-                    .padding(.top, 20)
+                    .padding(.top, spacing(20))
                     // Nothing here takes first-responder focus, so VoiceOver would not reach the
                     // notice on its own the way a sighted reader does.
                     .onAppear { AccessibilityNotification.Announcement(notice).post() }
             }
-            Spacer(minLength: 32)
+            Spacer(minLength: spacing(32))
             buttons
         }
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var buttons: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: spacing(4)) {
             Button {
                 showsSignIn = true
             } label: {
@@ -98,7 +99,7 @@ public struct WelcomeView: View {
                     // A borderless button on the Mac draws in the label color, not the tint.
                     .foregroundStyle(.tint)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, spacing.stackGap)
             }
             .buttonStyle(.borderless)
         }

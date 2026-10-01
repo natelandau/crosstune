@@ -58,6 +58,7 @@ private struct TunePickerContent: View {
     let onCreate: (_ title: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.spacing) private var spacing
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -75,11 +76,14 @@ private struct TunePickerContent: View {
             }
             if let results = model.results {
                 ForEach(results.rows) { row in
-                    if row.isTaken {
-                        taken(row)
-                    } else {
-                        offered(row)
+                    Group {
+                        if row.isTaken {
+                            taken(row)
+                        } else {
+                            offered(row)
+                        }
                     }
+                    .scaledRowInsets()
                 }
                 if let note = results.noTuneCalled {
                     Text(note)
@@ -130,7 +134,7 @@ private struct TunePickerContent: View {
             searchFocused = true
             Task { await model.pick(row.entry) }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: spacing(12)) {
                 Image(systemName: "plus.circle.fill")
                     .font(.title3)
                     .foregroundStyle(.tint)
@@ -147,7 +151,7 @@ private struct TunePickerContent: View {
     }
 
     private func taken(_ row: TunePickerModel.Row) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: spacing(12)) {
             // Holds the add glyph's width, so every title in the results starts on one line.
             Image(systemName: "plus.circle.fill")
                 .font(.title3)

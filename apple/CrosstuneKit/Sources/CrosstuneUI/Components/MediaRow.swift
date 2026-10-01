@@ -35,6 +35,7 @@ public struct MediaRow: View {
     private let isDimmed: Bool
 
     @ScaledMetric(relativeTo: .headline) private var slot: CGFloat = 44
+    @Environment(\.spacing) private var spacing
 
     /// `verb` names what the row does or would do, "Play" or "Downloading"; with no `action` the
     /// row is inert. `dimmed` marks a row whose control cannot act right now, such as a download
@@ -62,14 +63,14 @@ public struct MediaRow: View {
     }
 
     public var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: spacing(4)) {
             glyphView
                 // Past this the slot takes the width the title needs to wrap into.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 .frame(width: min(slot, 64), height: min(slot, 64))
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(title)
                     .font(.headline)
                     .rowLineLimit()
@@ -104,7 +105,6 @@ public struct MediaRow: View {
                         .accessibilityHidden(true)
                 }
             }
-            .padding(.vertical, 4)
             Spacer(minLength: 0)
             if let retry {
                 retryButton(retry)

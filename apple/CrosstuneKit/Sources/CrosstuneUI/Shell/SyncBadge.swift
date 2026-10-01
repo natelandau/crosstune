@@ -30,13 +30,14 @@ public struct SyncBadge: View {
         Text(status.label)
             .font(.footnote.weight(.semibold))
             .foregroundStyle(swatch.ink.color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, spacing(10))
+            .padding(.vertical, spacing(4))
             .background(swatch.background.color, in: .capsule)
             .fixedSize()
     }
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.spacing) private var spacing
 
     /// A warning while offline, which fixes itself; danger when the musician has to act. The
     /// text is a deep shade on a pale fill in light mode and the reverse in dark mode, so it

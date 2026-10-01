@@ -36,7 +36,7 @@ struct BulkEditSheet: View {
                 }
                 Section {
                     KeyChooser(key: text(.key), isMixed: form.isMixed(.key))
-                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                        .chipRowInsets()
                         .listRowBackground(Color.clear)
                 } header: {
                     Text(TuneFieldLabels.key)

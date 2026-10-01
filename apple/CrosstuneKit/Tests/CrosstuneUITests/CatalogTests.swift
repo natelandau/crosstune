@@ -146,6 +146,11 @@ private func ids(_ entries: [CatalogEntry]) -> [String] { entries.map(\.tune.id)
         #expect(CatalogFacet.tuning("violin").isInSheet && CatalogFacet.mode.isInSheet && CatalogFacet.genre.isInSheet)
     }
 
+    @Test func theBarsSpacingStopsWhereItsChipsStopGrowing() {
+        #expect(CatalogFilterBar.barSpacing(.accessibility5) == Spacing(.accessibility1))
+        #expect(CatalogFilterBar.barSpacing(.small) == Spacing(.small))
+    }
+
     @Test func movesKeyAndTypeIntoTheSheetAtTheAccessibilityTextSizes() {
         #expect(CatalogFilterBar.railsOnScreen(.xxxLarge))
         #expect(!CatalogFilterBar.railsOnScreen(.accessibility1))

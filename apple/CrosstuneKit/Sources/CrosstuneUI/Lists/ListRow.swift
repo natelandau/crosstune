@@ -7,12 +7,14 @@ import SwiftUI
 public struct ListRow: View {
     private let summary: ListSummary
 
+    @Environment(\.spacing) private var spacing
+
     public init(_ summary: ListSummary) {
         self.summary = summary
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: spacing.rowLineGap) {
             Text(summary.name)
                 .font(.headline)
                 .rowLineLimit()
@@ -22,7 +24,6 @@ public struct ListRow: View {
                 .foregroundStyle(.secondary)
                 .rowLineLimit()
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
     }
 }

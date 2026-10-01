@@ -41,20 +41,22 @@ struct CatalogFilterBar: View {
     private static let inset: CGFloat = 16
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .subheadline) private var chipHeight = defaultChipHeight
 
     private var filters: CatalogFilters { results.filters }
 
     /// Whether the key and type rails show here. At the accessibility text sizes they move into
-    /// the filter sheet, since the bar stays put while the tunes scroll under it.
+    /// the filter sheet, since the rails would push the tunes off the first screen.
     static func railsOnScreen(_ size: DynamicTypeSize) -> Bool {
         !size.isAccessibilitySize
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let spacing = Self.barSpacing(dynamicTypeSize)
+        VStack(alignment: .leading, spacing: spacing.stackGap) {
             controls
-                // Past this size the pinned bar would leave almost no room for the tunes. The
-                // chips scroll or wrap, so no word is lost.
+                // Past this size the bar would fill the first screen. The chips scroll or wrap, so
+                // no word is lost.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             ForEach(errors, id: \.self) { error in
                 Text(error)
@@ -63,12 +65,22 @@ struct CatalogFilterBar: View {
                     .padding(.horizontal, Self.inset)
             }
         }
-        .padding(.vertical, 4)
+        // The list cell takes no touches past its bounds, so the chips' tap targets need room.
+        .padding(.top, max(spacing.filterBarPadding, tapOutset(visibleHeight: chipHeight)))
+        .padding(.bottom, max(spacing.filterBarBottom, tapOutset(visibleHeight: chipHeight)))
+    }
+
+    /// The bar's spacing, which stops growing where its chips do.
+    static func barSpacing(_ size: DynamicTypeSize) -> Spacing {
+        Spacing(min(size, .accessibility1))
     }
 
     @ViewBuilder private var controls: some View {
         let railsOnScreen = Self.railsOnScreen(dynamicTypeSize)
-        VStack(alignment: .leading, spacing: 4) {
+        let spacing = Self.barSpacing(dynamicTypeSize)
+        // At the default size and above, 12 between lines keeps neighboring chips' 44 point
+        // targets apart. Smaller sizes let them overlap a little rather than spread the bar out.
+        VStack(alignment: .leading, spacing: spacing(12)) {
             StatusRail(
                 filter: Binding {
                     filters.status
@@ -93,7 +105,7 @@ struct CatalogFilterBar: View {
             }
             let set = Self.setFilters(filters, railsOnScreen: railsOnScreen)
             if !set.isEmpty {
-                FlowLayout(spacing: 8, lineSpacing: 0) {
+                FlowLayout(spacing: spacing.railGap, lineSpacing: spacing(12)) {
                     ForEach(set) { filter in
                         RemoveFilterCapsule(label: filter.label) { onChange(filter.remove) }
                     }
@@ -141,18 +153,17 @@ private struct ChoiceCapsuleLabel: View {
     let chosen: Bool
 
     @Environment(\.colorScheme) private var colorScheme
-    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 32
+    @Environment(\.spacing) private var spacing
 
     var body: some View {
         Text(text)
             .font(.subheadline)
             .lineLimit(1)
             .foregroundStyle(chosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-            .padding(.horizontal, 14)
-            .frame(minHeight: height)
+            .padding(.horizontal, spacing(14))
+            .padding(.vertical, spacing.chipVertical)
             .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
+            .tapTarget()
     }
 }
 
@@ -196,11 +207,11 @@ private struct RemoveFilterCapsule: View {
     let label: String
     let action: () -> Void
 
-    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 32
+    @Environment(\.spacing) private var spacing
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: spacing(6)) {
                 Text(label)
                     .lineLimit(1)
                 Image(systemName: "xmark")
@@ -208,11 +219,10 @@ private struct RemoveFilterCapsule: View {
             }
             .font(.subheadline)
             .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .frame(minHeight: height)
+            .padding(.horizontal, spacing(12))
+            .padding(.vertical, spacing.chipVertical)
             .background(.tint, in: .capsule)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
+            .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(CatalogFilterBar.removeFilter) \(label)")
