@@ -1,28 +1,31 @@
 ---
+// The "No signal needed" picture: the campsite, and a phone with no service holding an edit
+// until it is back in range.
 import { Picture } from 'astro:assets'
 import campsite from '../../assets/campsite.jpg'
-import KeyPill from './KeyPill.astro'
-import Phone from './Phone.astro'
-import TuneRow from './TuneRow.astro'
+import KeyPill from '../fragments/KeyPill.astro'
+import Phone from '../fragments/Phone.astro'
+import TuneRow from '../fragments/TuneRow.astro'
 ---
 
-<figure class="offline">
+<figure class="scene">
   <div class="art">
     <Picture
       src={campsite}
       formats={['avif', 'webp']}
-      widths={[480, 720, 1120]}
-      sizes="(min-width: 1000px) 540px, (min-width: 760px) 55vw, calc(100vw - 32px)"
+      widths={[480, 720, 1120, 1600]}
+      sizes="(min-width: 1000px) 920px, calc(100vw - 32px)"
       alt="Friends around a campfire at night, with tents lit among the trees behind them."
     />
     <div class="phone-slot" data-fragment="offline-phone" aria-hidden="true">
       <Phone signal="No Service">
         <p class="title">Tunes</p>
+        <span class="badge">1 change waiting</span>
         <div class="group">
           <KeyPill name="A" />
         </div>
         <TuneRow name="Cluck Old Hen" status="known" />
-        <TuneRow name="Breaking Up Christmas" status="learning" />
+        <TuneRow name="Breaking Up Christmas" status="known" />
         <TuneRow name="Sally Goodin" status="known" />
         <div class="player">
           <span class="pause"></span>
@@ -36,7 +39,7 @@ import TuneRow from './TuneRow.astro'
 </figure>
 
 <style>
-  .offline {
+  .scene {
     margin: 0;
   }
 
@@ -51,18 +54,18 @@ import TuneRow from './TuneRow.astro'
   .art :global(img) {
     display: block;
     width: 100%;
-    height: 360px;
-    border-radius: 20px;
+    height: 440px;
+    border-radius: 24px;
     object-fit: cover;
     object-position: 30% 70%;
   }
 
   .phone-slot {
     position: absolute;
-    top: -36px;
-    right: 24px;
-    font-size: 11px;
-    --screen-height: 17.8em;
+    top: -40px;
+    right: 48px;
+    font-size: 12px;
+    --screen-height: 21em;
   }
 
   .title {
@@ -72,8 +75,19 @@ import TuneRow from './TuneRow.astro'
     letter-spacing: -0.02em;
   }
 
+  .badge {
+    display: inline-block;
+    margin-bottom: 0.4em;
+    padding: 0.2em 0.7em;
+    border-radius: 999px;
+    background: #f6ebe8;
+    color: var(--clay-ink);
+    font-size: 0.72em;
+    font-weight: 600;
+  }
+
   .group {
-    padding: 0.4em 0 0.2em;
+    padding: 0.2em 0;
   }
 
   .player {
@@ -114,12 +128,8 @@ import TuneRow from './TuneRow.astro'
   }
 
   @media (max-width: 760px) {
-    .offline {
-      margin-top: 24px;
-    }
-
     .art :global(img) {
-      height: 260px;
+      height: 300px;
       object-position: 25% 70%;
     }
 

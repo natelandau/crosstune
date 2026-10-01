@@ -1,50 +1,63 @@
 ---
 // Nate's own words. The one place the site says fiddle: old-time players call it that.
+import { NATE_EMAIL } from './actions'
 ---
 
-<div class="column">
-  <figure class="note">
-    <blockquote>
-      <p>
-        I play old-time fiddle in New York City. For years my tunes lived on a folded list in my
-        case, and the recordings I learned them from were scattered across voice memos, YouTube, and
-        Spotify. I built Crosstune so any tune I know, or want to learn, is two taps from hearing
-        it.
-      </p>
-    </blockquote>
-    <figcaption>
-      <cite>Nate</cite>
-    </figcaption>
-  </figure>
-</div>
+<section class="column" aria-labelledby="maker-title">
+  <div class="note">
+    <h2 id="maker-title">Who built this</h2>
+    <figure>
+      <blockquote>
+        <p>
+          I'm Nate, and I built Crosstune because I needed it myself. I was tired of the folded list
+          of tunes in my fiddle case, and of keeping the tunes I wanted to learn in lists scattered
+          across online services. I'm a fiddle player in New York's old-time scene and a member of
+          the <a href="https://strungoutstringband.com">Strung Out String Band</a>.
+        </p>
+        <p>
+          I'd love to hear from you. Send feedback, ideas, or anything that gets in your way to{' '}
+          <a href={`mailto:${NATE_EMAIL}`}>{NATE_EMAIL}</a>.
+        </p>
+      </blockquote>
+    </figure>
+  </div>
+</section>
 
 <style>
   .note {
-    margin: 0;
     padding-block: 88px 96px;
     border-top: 1px solid var(--rule);
   }
 
+  h2 {
+    margin: 0 0 32px;
+    font-size: clamp(1.9rem, 1.4rem + 1.8vw, 2.75rem);
+    font-weight: 650;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  p + p {
+    margin-top: 0.9em;
+  }
+
+  figure,
   blockquote {
     margin: 0;
   }
 
+  a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+
   p {
-    max-width: 34ch;
+    max-width: 38ch;
     margin: 0;
-    font-size: clamp(1.375rem, 1rem + 1.4vw, 1.9rem);
-    line-height: 1.4;
+    font-size: clamp(1.25rem, 1rem + 1vw, 1.6rem);
+    line-height: 1.45;
     letter-spacing: -0.015em;
     text-wrap: pretty;
-  }
-
-  figcaption {
-    margin-top: 24px;
-  }
-
-  cite {
-    color: var(--clay-ink);
-    font-style: normal;
-    font-weight: 600;
   }
 </style>

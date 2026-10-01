@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { HOME_TITLE } from '../src/components/seo'
 import { JSDOM } from 'jsdom'
 import { readDist, readPage } from './dist'
 import { APP_URL, SIGN_IN } from '../src/components/actions'
@@ -7,7 +8,7 @@ describe('home page shell', () => {
   const doc = readPage('/')
 
   it('has the title and canonical link', () => {
-    expect(doc.title).toBe('Crosstune')
+    expect(doc.title).toBe(HOME_TITLE)
     expect(doc.querySelector('link[rel=canonical]')?.getAttribute('href')).toBe(
       'https://crosstune.app/',
     )
