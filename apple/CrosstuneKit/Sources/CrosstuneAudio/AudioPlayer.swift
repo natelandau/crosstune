@@ -19,6 +19,7 @@ public final class AudioPlayer: AudioPlayback {
     public private(set) var elapsed: TimeInterval = 0
     public private(set) var duration: TimeInterval?
     public private(set) var hasFailed = false
+    public private(set) var isRepeating = false
 
     @ObservationIgnored let engine = AVAudioEngine()
     @ObservationIgnored private let node = AVAudioPlayerNode()
@@ -27,8 +28,13 @@ public final class AudioPlayer: AudioPlayback {
     @ObservationIgnored private var fileDuration: TimeInterval = 0
     /// The part of the file that plays, held within it.
     @ObservationIgnored private var window = PlaybackWindow(from: 0, to: 0)
-    /// Where the scheduled segment starts on the trimmed timeline; the node counts from there.
-    @ObservationIgnored private var segmentStart: TimeInterval = 0
+    /// The loop in seconds into the file, so it stays on the same audio when the window moves.
+    @ObservationIgnored private var loopInFile: PlaybackWindow?
+    /// What the node was last scheduled with; its played frames count from the start of it.
+    @ObservationIgnored private var run = ScheduledRun(start: 0, leadFrames: 0, loop: nil)
+    /// The node's last render when it was scheduled. Until it renders again its player time
+    /// reads against that render and says nothing of the new schedule.
+    @ObservationIgnored private var renderBeforeSchedule: AVAudioFramePosition?
     /// Counts schedules, so the end of a segment that was stopped or replaced is ignored.
     @ObservationIgnored private var segmentID = 0
     /// The offline renderer has no device to play back to, so it reports rendered data instead.
@@ -93,7 +99,8 @@ public final class AudioPlayer: AudioPlayback {
         engine.stop()
     }
 
-    public func load(_ url: URL, nowPlaying: NowPlaying) {
+    public func load(_ url: URL, nowPlaying: NowPlaying, keepLoop: Bool) {
+        let repeating = keepLoop && isRepeating
         unload()
         timePitch.rate = 1
         timePitch.pitch = 0
@@ -109,6 +116,7 @@ public final class AudioPlayer: AudioPlayback {
             fileDuration = Double(file.length) / format.sampleRate
             window = PlaybackWindow(from: 0, to: fileDuration)
             duration = window.length
+            isRepeating = repeating
         } catch {
             fail(error)
         }
@@ -142,6 +150,46 @@ public final class AudioPlayer: AudioPlayback {
         publish()
     }
 
+    public func setLoop(_ loop: PlaybackWindow?) {
+        guard file != nil else { return }
+        refreshElapsed()
+        let inFile = loop.map { PlaybackWindow(from: window.from + $0.from, to: window.from + $0.to) }
+        let changed = inFile != loopInFile
+        loopInFile = inFile
+        // Only a repeating loop shapes the schedule, so any other change plays on unbroken.
+        let moved = enterLoop()
+        if isRepeating && (changed || moved) { rescheduleIfPlaying() }
+        publish()
+    }
+
+    public func setRepeat(_ on: Bool) {
+        guard file != nil else { return }
+        refreshElapsed()
+        let changed = on != isRepeating
+        isRepeating = on
+        let moved = enterLoop()
+        if loop != nil && (changed || moved) { rescheduleIfPlaying() }
+        publish()
+    }
+
+    /// The loop on the trimmed timeline, held within the window, nil when none or nothing of
+    /// it is left in the window.
+    private var loop: PlaybackWindow? {
+        guard let loopInFile else { return nil }
+        let held = PlaybackWindow(
+            from: max(loopInFile.from, window.from) - window.from, to: min(loopInFile.to, window.to) - window.from)
+        return held.length > 0 ? held : nil
+    }
+
+    /// Moves to the loop start when Repeat is on and the position is outside the loop. True
+    /// when it moved.
+    private func enterLoop() -> Bool {
+        let entry = LoopSchedule.entry(position: elapsed, loop: loop, repeat: isRepeating)
+        guard entry != elapsed else { return false }
+        elapsed = entry
+        return true
+    }
+
     public func setRate(_ percent: Int) {
         refreshElapsed()
         timePitch.rate = Float(percent) / 100
@@ -165,6 +213,7 @@ public final class AudioPlayer: AudioPlayback {
         activateSession()
         // A finished window starts over, as a player's play button does at the end.
         if elapsed >= window.length - 0.05 { elapsed = 0 }
+        _ = enterLoop()
         do {
             if !engine.isRunning { try engine.start() }
         } catch {
@@ -210,7 +259,9 @@ public final class AudioPlayer: AudioPlayback {
         file = nil
         fileDuration = 0
         window = PlaybackWindow(from: 0, to: 0)
-        segmentStart = 0
+        run = ScheduledRun(start: 0, leadFrames: 0, loop: nil)
+        loopInFile = nil
+        isRepeating = false
         controls?.remove()
         controls = nil
         nowPlaying = nil
@@ -239,26 +290,42 @@ public final class AudioPlayer: AudioPlayback {
 
     // MARK: Segment
 
-    /// Stops the node and schedules the window from `position` to its end, ready to play.
-    /// False when nothing of the window is left.
+    /// Stops the node and schedules from `position` to the window end, or, with a loop
+    /// repeating, to the loop end and then the loop pass after pass, ready to play. False when
+    /// nothing of the window is left.
     private func schedule(from position: TimeInterval) -> Bool {
         segmentID += 1
         node.stop()
-        guard
-            let file,
-            let segment = window.segment(
-                at: position, sampleRate: file.processingFormat.sampleRate, fileLength: file.length)
-        else { return false }
-        segmentStart = position
+        guard let file else { return false }
+        let sampleRate = file.processingFormat.sampleRate
+        let segments = LoopSchedule.next(
+            position: position, loop: loop, repeat: isRepeating, window: window, sampleRate: sampleRate,
+            fileLength: file.length)
+        guard let lead = segments.first else { return false }
+        let pass = segments.count > 1 ? segments.last : nil
+        run = ScheduledRun(
+            start: Double(lead.startFrame) / sampleRate - window.from,
+            leadFrames: AVAudioFramePosition(lead.frameCount),
+            loop: pass.map {
+                LoopRun(
+                    from: Double($0.startFrame) / sampleRate - window.from, frames: AVAudioFramePosition($0.frameCount))
+            })
         lastReading = nil
+        renderBeforeSchedule = node.lastRenderTime.flatMap { $0.isSampleTimeValid ? $0.sampleTime : nil }
+        for segment in segments { enqueue(segment, of: file, then: pass) }
+        return true
+    }
+
+    /// Queues `segment` under the current schedule. Its end queues another `pass` of a
+    /// repeating loop, or ends playback when there is none.
+    private func enqueue(_ segment: PlaybackSegment, of file: AVAudioFile, then pass: PlaybackSegment?) {
         let id = segmentID
         node.scheduleSegment(
             file, startingFrame: segment.startFrame, frameCount: segment.frameCount, at: nil,
             completionCallbackType: segmentEnd
         ) { [weak self] _ in
-            Task { @MainActor in self?.segmentEnded(id) }
+            Task { @MainActor in self?.segmentEnded(id, then: pass) }
         }
-        return true
     }
 
     private func rescheduleIfPlaying() {
@@ -278,9 +345,16 @@ public final class AudioPlayer: AudioPlayback {
 
     /// A segment also ends when the system stops the engine; the interruption and
     /// configuration handlers pick that up from where it stood, so only a running engine ends.
-    private func segmentEnded(_ id: Int) {
+    private func segmentEnded(_ id: Int, then pass: PlaybackSegment?) {
         guard id == segmentID, isPlaying, engine.isRunning else { return }
-        reachedEnd()
+        guard let pass, let file else {
+            reachedEnd()
+            return
+        }
+        // Each end in a repeating run is a wrap: keep the queue full and show the jump back.
+        enqueue(pass, of: file, then: pass)
+        refreshElapsed()
+        publish()
     }
 
     private func reachedEnd() {
@@ -306,18 +380,23 @@ public final class AudioPlayer: AudioPlayback {
     private func refreshElapsed() {
         guard isPlaying else { return }
         if let nodeTime = node.lastRenderTime, nodeTime.isSampleTimeValid,
+            nodeTime.sampleTime != renderBeforeSchedule,
             let playerTime = node.playerTime(forNodeTime: nodeTime)
         {
-            elapsed = playbackPosition(
-                segmentStart: segmentStart, playedFrames: playerTime.sampleTime,
-                sampleRate: playerTime.sampleRate, duration: window.length)
+            elapsed = run.position(
+                playedFrames: playerTime.sampleTime, sampleRate: playerTime.sampleRate, duration: window.length)
             if nodeTime.isHostTimeValid { lastReading = (elapsed, nodeTime.hostTime) }
         } else if let lastReading {
             let now = mach_absolute_time()
             let since = now > lastReading.hostTime ? AVAudioTime.seconds(forHostTime: now - lastReading.hostTime) : 0
             let played = min(since, Self.tick) * Double(timePitch.rate)
-            elapsed = clampedPosition(lastReading.position + played, duration: window.length)
+            elapsed = clampedPosition(lastReading.position + played, duration: loopEnd ?? window.length)
         }
+    }
+
+    /// The end of the loop the node is repeating, which the position never passes.
+    private var loopEnd: TimeInterval? {
+        run.loop.map { $0.from + Double($0.frames) / (file?.processingFormat.sampleRate ?? 1) }
     }
 
     private func fail(_ error: (any Error)?) {

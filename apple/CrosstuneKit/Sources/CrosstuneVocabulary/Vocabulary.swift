@@ -43,12 +43,18 @@ public enum Vocabulary {
         public enum Recording {
             public static let label = 200
         }
+        public enum RecordingLoop {
+            public static let label = 100
+        }
     }
 
     public enum Ranges {
         public enum Recording {
             public static let pitchCents = -1200...1200
             public static let speedPercent = 50...150
+        }
+        public enum RecordingLoop {
+            public static let color = 0...5
         }
     }
 }

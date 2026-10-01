@@ -90,6 +90,7 @@ private struct V4Fixture {
     }
     #expect(files == Set(fixture.fileIDs))
     #expect(recordings == Set(fixture.fileIDs))
+    #expect(try await store.read { db in try db.tableExists("recording_loops") })
     #expect(outboxRowIDs == fixture.outboxRowIDs)
     #expect(outboxSeqs == fixture.outboxSeqs)
     let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
@@ -123,6 +124,46 @@ private struct V4Fixture {
     }
     #expect(schema == v4Schema)
 }
+
+/// Same promise as `v4`'s, for the migration that adds loops.
+@Test func theV5MigrationNeverChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v4")
+    try Schema.migrator.migrate(queue, upTo: "v5")
+    let schema = try queue.read { db in
+        try Row.fetchAll(
+            db,
+            sql: """
+                SELECT type, name, sql FROM sqlite_master
+                WHERE tbl_name = 'recording_loops' AND sql IS NOT NULL
+                ORDER BY name
+                """
+        )
+        .map { row -> String in
+            let type: String = row["type"]
+            let name: String = row["name"]
+            let sql: String = row["sql"]
+            return "\(type) \(name): \(sql.replacingOccurrences(of: ", ", with: ",\n  "))"
+        }
+        .joined(separator: "\n")
+    }
+    #expect(schema == v5LoopsSchema)
+}
+
+private let v5LoopsSchema = """
+    table recording_loops: CREATE TABLE "recording_loops" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "recording_id" TEXT NOT NULL,
+      "label" TEXT,
+      "start_ms" INTEGER NOT NULL,
+      "end_ms" INTEGER NOT NULL,
+      "color" INTEGER NOT NULL,
+      "extra" TEXT NOT NULL)
+    index recording_loops_on_recording_id: CREATE INDEX "recording_loops_on_recording_id" ON "recording_loops"("recording_id")
+    """
 
 private let v4Schema = """
     table list_items: CREATE TABLE "list_items" ("id" TEXT PRIMARY KEY NOT NULL,

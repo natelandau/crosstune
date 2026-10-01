@@ -54,10 +54,17 @@ struct SpeedPanel: View {
         }
     }
 
-    /// A stored speed off the 5% grid steps onto it rather than keeping its odd offset.
     private func step(by delta: Int) {
-        let onGrid = Int((Double(value) / Double(Self.step)).rounded()) * Self.step
-        onChange(Self.clamped(onGrid + delta))
+        onChange(Self.stepped(value, by: delta))
+    }
+
+    /// `percent` moved by `delta` and clamped to the range. A speed off the 5% grid lands on
+    /// the nearest grid step in the direction of travel, so the first step from 72% is 70% or
+    /// 75%, never 65%.
+    static func stepped(_ percent: Int, by delta: Int) -> Int {
+        let moved = Double(percent + delta) / Double(step)
+        let snapped = Int(delta < 0 ? moved.rounded(.up) : moved.rounded(.down)) * step
+        return clamped(snapped)
     }
 
     private static func clamped(_ percent: Int) -> Int {

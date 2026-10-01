@@ -9,6 +9,7 @@ import SwiftUI
 /// Where the recording screen's navigation stack goes.
 enum RecordingRoute: Hashable {
     case trim
+    case practice
 }
 
 /// The loaded recording's stored rows, as the recording screen reads them.
@@ -18,6 +19,8 @@ private struct ScreenRows: Equatable, Sendable {
     /// The recording's tune while it still exists.
     let tuneID: String?
     let tuneTitle: String?
+    /// The tune's part structure, which names loops.
+    let partStructure: String?
 
     var view: RecordingView {
         RecordingView(recording: recording, file: file, tuneID: tuneID, tuneTitle: tuneTitle)
@@ -35,7 +38,7 @@ private struct ScreenRows: Equatable, Sendable {
         let live = tune?.deletedAt == nil ? tune : nil
         return ScreenRows(
             recording: recording, file: try RecordingFile.fetchOne(db, key: id), tuneID: live?.id,
-            tuneTitle: live?.title)
+            tuneTitle: live?.title, partStructure: live?.partStructure)
     }
 }
 
@@ -74,13 +77,13 @@ public struct RecordingScreen: View {
             .frame(minWidth: 480, idealWidth: 560, minHeight: 600, idealHeight: 720)
         #endif
         .task(id: loadedID) {
-            // A trim screen belongs to the recording it opened on.
+            // A trim or practice screen belongs to the recording it opened on.
             path = []
             guard let store, let id = loadedID else { return }
             rows = LiveQuery(store, initial: nil) { try ScreenRows.fetch($0, id: id) }
         }
         .onChange(of: (rows?.value ?? nil) == nil) { _, isGone in
-            // The trim screen went with the row, so a row that returns opens on the recording.
+            // The pushed screen went with the row, so a row that returns opens on the recording.
             if isGone { path = [] }
         }
         .shellSheet()
@@ -101,7 +104,7 @@ private struct RecordingScreenContent: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
-    @State private var tool: RecordingTool?
+    @Environment(\.playerWindow) private var window
     @State private var peaks: LoadedPeaks?
     @State private var renaming: RecordingView?
     @State private var filing: RecordingView?
@@ -114,6 +117,8 @@ private struct RecordingScreenContent: View {
     @State private var trim: TrimModel?
     /// Why the trim screen gave way on its own, until the musician next does something here.
     @State private var trimNotice: String?
+    /// The open practice screen's model, kept until the screen has gone.
+    @State private var practice: PracticeModel?
     @FocusState private var holdsKeyboard: Bool
 
     private struct LoadedPeaks: Equatable {
@@ -141,10 +146,13 @@ private struct RecordingScreenContent: View {
         let position = ready ? player.audio.elapsed : 0
         ScrollView {
             VStack(spacing: 20) {
-                Text(subtitle)
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 8) {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    practiceBadge
+                }
                 if let message = player.failure ?? failure {
                     PlayerFailureText(message)
                 }
@@ -180,12 +188,7 @@ private struct RecordingScreenContent: View {
                 #if os(iOS)
                     AudioRoutePicker()
                 #endif
-                ToolStrip(items: tools, selected: tool, onSelect: select)
-                switch tool {
-                case .speed: SpeedPanel(value: player.speedPercent, onChange: player.setSpeed)
-                case .pitch: PitchPanel(value: player.pitchCents, onChange: player.setPitch)
-                case .trim, nil: EmptyView()
-                }
+                ToolStrip(items: tools, onSelect: select)
             }
             .frame(maxWidth: 560)
             .padding(16)
@@ -198,19 +201,41 @@ private struct RecordingScreenContent: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) { menu }
         }
-        .navigationDestination(for: RecordingRoute.self) { _ in
-            if let trim {
-                TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: leaveTrim)
+        .navigationDestination(for: RecordingRoute.self) { route in
+            switch route {
+            case .trim:
+                if let trim {
+                    TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: leaveTrim)
+                }
+            case .practice:
+                if let practice {
+                    PracticeScreen(model: practice, title: player.title ?? "", peaks: shownPeaks) {
+                        path.removeAll()
+                    }
+                }
             }
         }
         .onChange(of: path.isEmpty) { _, isEmpty in
-            // However the trim screen went, back swipe included, it holds nothing after.
+            // However the pushed screen went, back swipe included, it holds nothing after.
             guard isEmpty else { return }
             trim?.leave()
             trim = nil
+            practice?.leave()
+            practice = nil
         }
         .onChange(of: rows.recording) { _, row in
             trim?.follow(row)
+            practice?.follow(row, file: rows.file)
+        }
+        .onChange(of: rows.file) { _, file in
+            practice?.follow(rows.recording, file: file)
+        }
+        .onChange(of: rows.partStructure) { _, parts in
+            practice?.partStructure = parts
+        }
+        .onChange(of: player.opening, initial: true) { _, opening in
+            guard opening != nil, player.takeOpening() == .practice else { return }
+            openPractice()
         }
         // True once a trim from elsewhere has landed, and a save under way has finished.
         .onChange(of: trim?.mustGiveWay == true) { _, mustGiveWay in
@@ -284,17 +309,42 @@ private struct RecordingScreenContent: View {
         let blocker = RecordingScreenText.trimBlocker(
             rows.recording, file: rows.file, audio: downloading ? .fetching : player.recordingAudio,
             offline: session?.isOffline == true)
-        let badges = RecordingScreenText.badges(speedPercent: player.speedPercent, pitchCents: player.pitchCents)
-        return [
-            ToolStripItem(tool: .trim, blocker: blocker),
-            ToolStripItem(tool: .speed, value: badges.speed),
-            ToolStripItem(tool: .pitch, value: badges.pitch),
-        ]
+        return ToolStripItem.recordingScreen(
+            trimBlocker: blocker, practiceBlocker: practiceBlocker, speedPercent: player.speedPercent,
+            pitchCents: player.pitchCents)
+    }
+
+    private var practiceBlocker: String? {
+        RecordingScreenText.practiceBlocker(
+            file: rows.file, downloading: transfers?.isDownloading(rows.recording.id) == true)
+    }
+
+    /// The speed and pitch away from their defaults, which opens Practice where they are set.
+    @ViewBuilder private var practiceBadge: some View {
+        if practiceBlocker == nil,
+            let badge = RecordingScreenText.practiceBadge(
+                speedPercent: player.speedPercent, pitchCents: player.pitchCents)
+        {
+            // Through the player, the way the player bar's Repeat badge opens Practice too.
+            Button {
+                trimNotice = nil
+                player.openPractice(in: window)
+            } label: {
+                SettingsBadgeLabel(text: badge)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(RecordingScreenText.practiceBadgeLabel(badge))
+        }
     }
 
     private var menu: some View {
         let view = rows.view
         return Menu {
+            if practiceBlocker == nil {
+                Button(PracticeText.practice, systemImage: "repeat") { act(openPractice) }
+            }
             Button(RecordingRowActions.rename, systemImage: "pencil") { act { renaming = view } }
             if view.tuneID != nil {
                 Button(RecordingRowActions.removeFromTune, systemImage: "folder.badge.minus") { act(removeFromTune) }
@@ -317,11 +367,21 @@ private struct RecordingScreenContent: View {
 
     private func select(_ chosen: RecordingTool) {
         trimNotice = nil
-        if chosen == .trim {
-            openTrim()
-        } else {
-            tool = tool == chosen ? nil : chosen
+        switch chosen {
+        case .trim: openTrim()
+        case .practice: openPractice()
         }
+    }
+
+    /// Pushes Practice, unless it cannot run now, when the recording's own view says why.
+    private func openPractice() {
+        guard path.isEmpty, practiceBlocker == nil, let commands else { return }
+        let model = PracticeModel(
+            player: player, recording: rows.recording, file: rows.file, writer: .commands(commands))
+        model.partStructure = rows.partStructure
+        practice = model
+        trimNotice = nil
+        path.append(.practice)
     }
 
     private func openTrim() {

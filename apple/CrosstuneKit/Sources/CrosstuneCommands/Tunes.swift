@@ -245,6 +245,7 @@ extension StoreWriter {
         let recordings = try Recording.filter(Column("tune_id") == tuneID).fetchAll(db)
         for recording in recordings {
             try tombstone(Recording.self, id: recording.id, at: time, enqueueDelete: false)
+            try tombstoneLoops(recordingID: recording.id, at: time, enqueueDelete: false)
             try RecordingFile.deleteOne(db, key: recording.id)
         }
     }

@@ -13,14 +13,21 @@ final class FakeAudio: AudioPlayback {
     var elapsed: TimeInterval = 0
     var duration: TimeInterval?
     var hasFailed = false
+    var isRepeating = false
     private(set) var loaded: URL?
+    /// Whether the last load kept Repeat and the loop.
+    private(set) var keptLoop: Bool?
+    private(set) var loop: PlaybackWindow?
     private(set) var nowPlaying: NowPlaying?
     private(set) var window: PlaybackWindow?
     private(set) var calls: [String] = []
 
-    func load(_ url: URL, nowPlaying: NowPlaying) {
+    func load(_ url: URL, nowPlaying: NowPlaying, keepLoop: Bool) {
         loaded = url
         self.nowPlaying = nowPlaying
+        keptLoop = keepLoop
+        loop = nil
+        if !keepLoop { isRepeating = false }
         calls.append("load")
     }
 
@@ -47,6 +54,16 @@ final class FakeAudio: AudioPlayback {
     func setWindow(_ window: PlaybackWindow?) {
         self.window = window
         calls.append("setWindow")
+    }
+
+    func setLoop(_ loop: PlaybackWindow?) {
+        self.loop = loop
+        calls.append("setLoop")
+    }
+
+    func setRepeat(_ on: Bool) {
+        isRepeating = on
+        calls.append("setRepeat(\(on))")
     }
 
     func setRate(_ percent: Int) {
@@ -116,6 +133,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         source.answer("r1", with: audioURL)
         try await eventually { player.recordingAudio == .loaded }
         #expect(audio.loaded == audioURL)
+        #expect(audio.keptLoop == false)
         #expect(audio.nowPlaying == NowPlaying(title: "Jam at Mike's", tuneTitle: "Kitchen Girl"))
         #expect(audio.calls == loadAndPlay)
         #expect(audio.isPlaying)

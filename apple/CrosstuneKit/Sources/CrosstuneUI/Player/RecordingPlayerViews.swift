@@ -196,10 +196,12 @@ struct PlayerFailureText: View {
 /// Skip back, play or pause, and skip forward, as the full player shows them.
 struct RecordingTransport: View {
     let player: PlayerModel
+    /// Between the controls; Practice sets them closer, with A B and Repeat either side.
+    var spacing: CGFloat = 40
 
     var body: some View {
         let ready = player.recordingAudio == .loaded && !player.audio.hasFailed
-        HStack(spacing: 40) {
+        HStack(spacing: spacing) {
             skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
             RecordingPlayButton(player: player, font: .largeTitle)
                 .frame(minWidth: 64, minHeight: 64)

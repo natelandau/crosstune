@@ -29,9 +29,13 @@ public enum RecordingText {
         case transcode
     }
 
-    /// `m:ss`, rounded to the nearest second. Nil when the length is unknown.
+    /// `duration(of:)`, or nil when the length is unknown.
     public static func duration(milliseconds: Int64?) -> String? {
-        guard let milliseconds else { return nil }
+        milliseconds.map(duration(of:))
+    }
+
+    /// `m:ss`, rounded to the nearest second.
+    public static func duration(of milliseconds: Int64) -> String {
         let total = Int64((Double(milliseconds) / 1000).rounded())
         let seconds = total % 60
         return "\(total / 60):\(seconds < 10 ? "0" : "")\(seconds)"

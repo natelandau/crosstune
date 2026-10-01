@@ -20,6 +20,15 @@ enum Schema {
             try createOutbox(db)
             try createRecordingFiles(db)
         }
+        migrator.registerMigration("v5") { db in
+            try createSyncTable(db, .recordingLoops) { t in
+                t.column("recording_id", .text).notNull().indexed()
+                t.column("label", .text)
+                t.column("start_ms", .integer).notNull()
+                t.column("end_ms", .integer).notNull()
+                t.column("color", .integer).notNull()
+            }
+        }
         return migrator
     }()
 

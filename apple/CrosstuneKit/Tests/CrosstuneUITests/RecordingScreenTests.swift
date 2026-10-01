@@ -108,6 +108,7 @@ private final class Writes {
             Array(audio.calls[before...]) == ["load", "setWindow", "setRate(75)", "setPitch(200)", "seek", "play"])
         #expect(audio.window == PlaybackWindow(from: 0, to: 2))
         #expect(audio.elapsed == 1.5)
+        #expect(audio.keptLoop == true)
     }
 
     @Test func aRowValueLandingWhileAChangeSettlesNeverOverridesIt() async throws {
@@ -266,6 +267,75 @@ private final class Writes {
         #expect(player.open(.recording(take(), tuneTitle: nil)))
         #expect(player.isExpanded)
         #expect(audio.calls.count == before)
+    }
+
+    @Test func theToolStripIsTrimAndPractice() {
+        #expect(RecordingTool.allCases == [.trim, .practice])
+        #expect(RecordingTool.practice.label == PracticeText.practice)
+        #expect(RecordingTool.practice.systemImage == "repeat")
+        let items = ToolStripItem.recordingScreen(
+            trimBlocker: RecordingScreenText.trimBusy, practiceBlocker: nil, speedPercent: 75, pitchCents: 200)
+        #expect(
+            items == [
+                ToolStripItem(tool: .trim, blocker: RecordingScreenText.trimBusy),
+                ToolStripItem(tool: .practice, value: "75% · +2"),
+            ])
+    }
+
+    @Test func theBadgeNamesPracticeAndOnlyAPendingTrimLeavesPracticeOpen() {
+        #expect(RecordingScreenText.practiceBadge(speedPercent: 100, pitchCents: 0) == nil)
+        #expect(RecordingScreenText.practiceBadge(speedPercent: 75, pitchCents: 0) == "75%")
+        #expect(RecordingScreenText.practiceBadge(speedPercent: 100, pitchCents: 200) == "+2")
+        #expect(RecordingScreenText.practiceBadge(speedPercent: 75, pitchCents: 200) == "75% · +2")
+        #expect(RecordingScreenText.practiceBadgeLabel("75% · +2") == "Practice, 75% · +2")
+
+        var cutting = take()
+        cutting.playbackStartMs = 0
+        cutting.playbackEndMs = 4000
+        #expect(RecordingScreenText.practiceBlocker(file: nil, downloading: false) == nil)
+        #expect(RecordingScreenText.trimBlocker(cutting, file: nil, audio: .loaded) != nil)
+        #expect(
+            RecordingScreenText.practiceBlocker(
+                file: RecordingFile(id: "r1", localState: .capturing), downloading: false)
+                == RecordingScreenText.trimWhileRecording)
+        #expect(
+            RecordingScreenText.practiceBlocker(file: nil, downloading: true)
+                == RecordingScreenText.trimWhileDownloading)
+    }
+
+    @Test func theRowsPracticeActionOpensTheScreenOnPractice() async throws {
+        player.audioSource = { _ in audioFile() }
+        let window = UUID()
+        #expect(player.open(.recording(take(), tuneTitle: nil), in: window, view: .practice))
+        #expect(player.showsExpanded(in: window))
+        #expect(player.takeOpening() == .practice)
+        #expect(player.takeOpening() == nil)
+
+        // Opening the screen itself asks for no particular view.
+        player.isExpanded = false
+        player.open(.recording(take(), tuneTitle: nil))
+        #expect(player.takeOpening() == nil)
+    }
+
+    @Test func theBadgeAndThePlayerBarOpenTheLoadedRecordingOnPractice() async throws {
+        let window = UUID()
+        player.openPractice(in: window)
+        #expect(!player.isExpanded)
+        #expect(player.opening == nil)
+
+        try await load()
+        player.openPractice(in: window)
+        #expect(player.showsExpanded(in: window))
+        #expect(player.takeOpening() == .practice)
+
+        // Closing the screen before it takes the request drops it.
+        player.openPractice(in: window)
+        player.isExpanded = false
+        #expect(player.takeOpening() == nil)
+    }
+
+    @Test func theRepeatBadgeNamesTheLoop() {
+        #expect(PracticeText.repeating("B part") == "Repeating B part")
     }
 
     @Test(arguments: [

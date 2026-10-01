@@ -74,6 +74,12 @@ extension PlayerItem {
     }
 }
 
+/// Which view the recording screen opens on.
+public enum RecordingScreenView: Hashable, Sendable {
+    case recording
+    case practice
+}
+
 /// Where a loaded recording's audio stands.
 public enum RecordingAudio: Equatable, Sendable {
     /// Looking for the audio on this device, or fetching it from the server.
@@ -176,12 +182,17 @@ public final class PlayerModel {
         didSet {
             guard oldValue && !isExpanded else { return }
             expandedWindow = nil
+            opening = nil
             flushSettings()
             releaseHolds()
         }
     }
     /// The window that asked for the player in full, or nil when any window may show it.
     public private(set) var expandedWindow: UUID?
+    /// The view the recording screen was asked to open on, until it takes the request.
+    public private(set) var opening: RecordingScreenView?
+    /// The loaded recording's loops, the selected one, and Repeat.
+    public let loops: LoopPlayback
     /// Where the loaded recording's audio stands; nil unless a recording is loaded.
     public private(set) var recordingAudio: RecordingAudio?
     /// Why the last change to the loaded recording, a speed, a pitch, or a delete, did not
@@ -237,6 +248,7 @@ public final class PlayerModel {
     /// - Parameter audio: Plays recordings; nil is the device's player.
     public init(audio: (any AudioPlayback)? = nil) {
         self.audio = audio ?? AudioPlayer()
+        loops = LoopPlayback(audio: self.audio)
     }
 
     /// Whether `kind` with `id` is the loaded item.
@@ -251,7 +263,9 @@ public final class PlayerModel {
     @discardableResult
     public func play(_ item: PlayerItem) -> Bool {
         guard !isCapturing() else { return false }
+        let same = holds(item.kind, id: item.id)
         stopAudio()
+        loops.reset(forgettingRows: !same)
         self.item = item
         expandedWindow = nil
         isExpanded = item.link != nil
@@ -259,15 +273,29 @@ public final class PlayerModel {
         return true
     }
 
-    /// Shows a recording's screen in `window`, starting the recording first when it is not the
-    /// one loaded. Refused, returning false, while a take is being recorded.
+    /// Shows a recording's screen in `window` on `view`, starting the recording first when it
+    /// is not the one loaded. Refused, returning false, while a take is being recorded.
     @discardableResult
-    public func open(_ item: PlayerItem, in window: UUID? = nil) -> Bool {
+    public func open(_ item: PlayerItem, in window: UUID? = nil, view: RecordingScreenView = .recording) -> Bool {
         if !holds(item.kind, id: item.id) {
             guard play(item) else { return false }
         }
         expand(in: window)
+        opening = view == .recording ? nil : view
         return true
+    }
+
+    /// Shows the loaded recording's screen in `window`, on Practice.
+    public func openPractice(in window: UUID? = nil) {
+        guard item?.kind == .recording else { return }
+        expand(in: window)
+        opening = .practice
+    }
+
+    /// The view the recording screen was asked to open on, once: taking it clears it.
+    public func takeOpening() -> RecordingScreenView? {
+        defer { opening = nil }
+        return opening
     }
 
     /// Shows the loaded item's player in full in `window`, or in any window when nil.
@@ -288,6 +316,7 @@ public final class PlayerModel {
     /// Unloads the item, which stops it and takes the player off screen.
     public func close() {
         stopAudio()
+        loops.reset(forgettingRows: true)
         item = nil
         isExpanded = false
     }
@@ -354,6 +383,7 @@ public final class PlayerModel {
         let wasPlaying = audio.isPlaying
         fetch?.cancel()
         if recordingAudio == .loaded { audio.unload() }
+        loops.audioGone()
         recordingAudio = .fetching
         loadedFile = nil
         applied = [:]
@@ -407,15 +437,22 @@ public final class PlayerModel {
         if let audioFile, audioFile.url != loadedFile?.audio.url {
             let position = audio.elapsed
             let wasPlaying = audio.isPlaying
-            start(audioFile, next)
+            start(audioFile, next, keepLoop: true)
             audio.seek(to: position)
             if wasPlaying { audio.play() }
             return
         }
         if before.map(Self.trim) != Self.trim(row), let window = window(row) {
             audio.setWindow(window)
+            loops.trimMoved(to: row.trimStartMs)
         }
         for setting in changed { apply(setting) }
+    }
+
+    /// Follows the loops of the loaded recording `id`. Does nothing when another item is loaded.
+    public func loopsChanged(id: String, to rows: [RecordingLoop]) {
+        guard holds(.recording, id: id) else { return }
+        loops.follow(rows)
     }
 
     private static func trim(_ row: Recording) -> [Int64?] {
@@ -443,15 +480,17 @@ public final class PlayerModel {
         }
     }
 
-    /// Loads `file` paused at its start, playing `item`'s trim, speed, and pitch.
-    private func start(_ file: RecordingAudioFile, _ item: PlayerItem) {
-        audio.load(file.url, nowPlaying: NowPlaying(title: item.title, tuneTitle: item.tuneTitle))
+    /// Loads `file` paused at its start, playing `item`'s trim, speed, and pitch. `keepLoop`
+    /// keeps Repeat on through a new file of the same recording.
+    private func start(_ file: RecordingAudioFile, _ item: PlayerItem, keepLoop: Bool = false) {
+        audio.load(file.url, nowPlaying: NowPlaying(title: item.title, tuneTitle: item.tuneTitle), keepLoop: keepLoop)
         loadedFile = (file, audio.duration)
         applied = [:]
         recordingAudio = .loaded
         guard let row = item.recording else { return }
         if let window = window(row) { audio.setWindow(window) }
         for setting in PlaybackSetting.allCases { apply(setting) }
+        loops.audioReady(trimStartMs: row.trimStartMs)
     }
 
     private func window(_ row: Recording) -> PlaybackWindow? {

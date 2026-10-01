@@ -769,6 +769,8 @@ extension Components {
                 case lists(Components.Schemas.ListPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLinkPullRow`.
                 case recordingLinks(Components.Schemas.RecordingLinkPullRow)
+                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLoopPullRow`.
+                case recordingLoops(Components.Schemas.RecordingLoopPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingPullRow`.
                 case recordings(Components.Schemas.RecordingPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/TunePullRow`.
@@ -793,6 +795,8 @@ extension Components {
                         self = .lists(try .init(from: decoder))
                     case "recording_links":
                         self = .recordingLinks(try .init(from: decoder))
+                    case "recording_loops":
+                        self = .recordingLoops(try .init(from: decoder))
                     case "recordings":
                         self = .recordings(try .init(from: decoder))
                     case "tunes":
@@ -816,6 +820,8 @@ extension Components {
                     case let .lists(value):
                         try value.encode(to: encoder)
                     case let .recordingLinks(value):
+                        try value.encode(to: encoder)
+                    case let .recordingLoops(value):
                         try value.encode(to: encoder)
                     case let .recordings(value):
                         try value.encode(to: encoder)
@@ -882,6 +888,8 @@ extension Components {
                 case lists(Components.Schemas.ListChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingLinkChangeResult`.
                 case recordingLinks(Components.Schemas.RecordingLinkChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingLoopChangeResult`.
+                case recordingLoops(Components.Schemas.RecordingLoopChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingChangeResult`.
                 case recordings(Components.Schemas.RecordingChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/TuneChangeResult`.
@@ -906,6 +914,8 @@ extension Components {
                         self = .lists(try .init(from: decoder))
                     case "recording_links":
                         self = .recordingLinks(try .init(from: decoder))
+                    case "recording_loops":
+                        self = .recordingLoops(try .init(from: decoder))
                     case "recordings":
                         self = .recordings(try .init(from: decoder))
                     case "tunes":
@@ -929,6 +939,8 @@ extension Components {
                     case let .lists(value):
                         try value.encode(to: encoder)
                     case let .recordingLinks(value):
+                        try value.encode(to: encoder)
+                    case let .recordingLoops(value):
                         try value.encode(to: encoder)
                     case let .recordings(value):
                         try value.encode(to: encoder)
@@ -1385,6 +1397,274 @@ extension Components {
                 try container.encode(
                     self.url,
                     forKey: .url
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
+            }
+        }
+        /// The outcome of one change to a recording loop.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult`.
+        public struct RecordingLoopChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult/row`.
+            public var row: Components.Schemas.RecordingLoopRow?
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case recordingLoops = "recording_loops"
+            }
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopChangeResult/table`.
+            public var table: Components.Schemas.RecordingLoopChangeResult.TablePayload
+            /// Creates a new `RecordingLoopChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.RecordingLoopRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.RecordingLoopChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// A recording loop row in a pull page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RecordingLoopPullRow`.
+        public struct RecordingLoopPullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopPullRow/row`.
+            public var row: Components.Schemas.RecordingLoopRow
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopPullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case recordingLoops = "recording_loops"
+            }
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopPullRow/table`.
+            public var table: Components.Schemas.RecordingLoopPullRow.TablePayload
+            /// Creates a new `RecordingLoopPullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.RecordingLoopRow,
+                table: Components.Schemas.RecordingLoopPullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored practice loop, as push and pull return it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RecordingLoopRow`.
+        public struct RecordingLoopRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/color`.
+            public var color: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/deleted_at`.
+            public var deletedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/end_ms`.
+            public var endMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/label`.
+            public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/recording_id`.
+            public var recordingId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/start_ms`.
+            public var startMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/RecordingLoopRow/user_id`.
+            public var userId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+            /// Creates a new `RecordingLoopRow`.
+            ///
+            /// - Parameters:
+            ///   - color:
+            ///   - createdAt:
+            ///   - deletedAt:
+            ///   - endMs:
+            ///   - id:
+            ///   - label:
+            ///   - recordingId:
+            ///   - serverSeq:
+            ///   - startMs:
+            ///   - updatedAt:
+            ///   - userId:
+            ///   - additionalProperties: A container of undocumented properties.
+            public init(
+                color: Swift.Int,
+                createdAt: Foundation.Date,
+                deletedAt: Foundation.Date? = nil,
+                endMs: Swift.Int,
+                id: Swift.String,
+                label: Swift.String? = nil,
+                recordingId: Swift.String,
+                serverSeq: Swift.Int,
+                startMs: Swift.Int,
+                updatedAt: Foundation.Date,
+                userId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
+            ) {
+                self.color = color
+                self.createdAt = createdAt
+                self.deletedAt = deletedAt
+                self.endMs = endMs
+                self.id = id
+                self.label = label
+                self.recordingId = recordingId
+                self.serverSeq = serverSeq
+                self.startMs = startMs
+                self.updatedAt = updatedAt
+                self.userId = userId
+                self.additionalProperties = additionalProperties
+            }
+            public enum CodingKeys: String, CodingKey {
+                case color
+                case createdAt = "created_at"
+                case deletedAt = "deleted_at"
+                case endMs = "end_ms"
+                case id
+                case label
+                case recordingId = "recording_id"
+                case serverSeq = "server_seq"
+                case startMs = "start_ms"
+                case updatedAt = "updated_at"
+                case userId = "user_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.color = try container.decode(
+                    Swift.Int.self,
+                    forKey: .color
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.deletedAt = try container.decodeIfPresent(
+                    Foundation.Date.self,
+                    forKey: .deletedAt
+                )
+                self.endMs = try container.decode(
+                    Swift.Int.self,
+                    forKey: .endMs
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.label = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .label
+                )
+                self.recordingId = try container.decode(
+                    Swift.String.self,
+                    forKey: .recordingId
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.startMs = try container.decode(
+                    Swift.Int.self,
+                    forKey: .startMs
+                )
+                self.updatedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .updatedAt
+                )
+                self.userId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "color",
+                    "created_at",
+                    "deleted_at",
+                    "end_ms",
+                    "id",
+                    "label",
+                    "recording_id",
+                    "server_seq",
+                    "start_ms",
+                    "updated_at",
+                    "user_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.color,
+                    forKey: .color
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encodeIfPresent(
+                    self.deletedAt,
+                    forKey: .deletedAt
+                )
+                try container.encode(
+                    self.endMs,
+                    forKey: .endMs
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.label,
+                    forKey: .label
+                )
+                try container.encode(
+                    self.recordingId,
+                    forKey: .recordingId
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.startMs,
+                    forKey: .startMs
+                )
+                try container.encode(
+                    self.updatedAt,
+                    forKey: .updatedAt
+                )
+                try container.encode(
+                    self.userId,
+                    forKey: .userId
                 )
                 try encoder.encodeAdditionalProperties(additionalProperties)
             }

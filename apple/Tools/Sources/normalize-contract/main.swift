@@ -26,7 +26,7 @@ guard arguments.count == 3 else {
 /// The tables synced with the API; the store keeps any field of these it does not model.
 let syncRowSchemas: Set<String> = [
     "TuneRow", "UserTuneRow", "ListRow", "ListItemRow",
-    "RecordingLinkRow", "RecordingRow", "UserSettingsRow",
+    "RecordingLinkRow", "RecordingRow", "RecordingLoopRow", "UserSettingsRow",
 ]
 
 /// Marks each sync row schema open to additional properties, before the generic pass below

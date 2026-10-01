@@ -9,6 +9,7 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case listItems = "list_items"
     case recordingLinks = "recording_links"
     case recordings
+    case recordingLoops = "recording_loops"
     case userSettings = "user_settings"
 }
 
@@ -350,6 +351,56 @@ public struct RecordingLink: SyncedRecord, Hashable {
         self.label = label
         self.artworkURL = artworkURL
         self.position = position
+        self.extra = extra
+    }
+}
+
+/// A stretch of a recording's audio the player repeats, in milliseconds on the source timeline.
+public struct RecordingLoop: SyncedRecord, Hashable {
+    public static let table = SyncTable.recordingLoops
+
+    public var id: String
+    public var createdAt: Timestamp
+    public var updatedAt: Timestamp
+    public var deletedAt: Timestamp?
+    public var serverSeq: Int64
+    public var recordingID: String
+    public var label: String?
+    public var startMs: Int64
+    public var endMs: Int64
+    public var color: Int
+    public var extra: JSONObject
+
+    public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+        case id
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case serverSeq = "server_seq"
+        case recordingID = "recording_id"
+        case label
+        case startMs = "start_ms"
+        case endMs = "end_ms"
+        case color, extra
+    }
+
+    public static var wireDefaults: JSONObject { [:] }
+
+    public init(
+        id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
+        deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, recordingID: String, label: String? = nil,
+        startMs: Int64, endMs: Int64, color: Int, extra: JSONObject = [:]
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        self.deletedAt = deletedAt
+        self.serverSeq = serverSeq
+        self.recordingID = recordingID
+        self.label = label
+        self.startMs = startMs
+        self.endMs = endMs
+        self.color = color
         self.extra = extra
     }
 }
