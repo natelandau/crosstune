@@ -11,6 +11,7 @@ import { DRAG_THRESHOLD_PX, resizeSpan, snapMs, type Bounds, type Span } from '.
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 import type { Draft } from './useLoopGestures'
+import { capturePointer } from '../../platform/pointer'
 
 export const LOOP_START = 'Loop start'
 export const LOOP_END = 'Loop end'
@@ -172,11 +173,7 @@ export function LoopHandle({
       onPointerDown={(event) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         event.stopPropagation()
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId)
-        } catch {
-          // A synthetic or already-released pointer cannot be captured; its events still arrive.
-        }
+        capturePointer(event.currentTarget, event.pointerId)
         press.current = {
           pointerId: event.pointerId,
           startX: event.clientX,

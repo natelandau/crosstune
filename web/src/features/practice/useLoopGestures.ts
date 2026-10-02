@@ -12,6 +12,7 @@ import {
 } from './loopModel'
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
+import { capturePointer } from '../../platform/pointer'
 
 export const ROW_HEIGHT_PX = 20
 export const ROW_GAP_PX = 4
@@ -192,11 +193,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top + element.scrollTop
       const gesture = hit(x, y)
-      try {
-        element.setPointerCapture(event.pointerId)
-      } catch {
-        // A synthetic or already-released pointer cannot be captured; its events still arrive.
-      }
+      capturePointer(element, event.pointerId)
       pressed.current = {
         pointerId: event.pointerId,
         gesture,

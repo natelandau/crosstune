@@ -14,6 +14,7 @@ import type { ShownPeaks } from './recordingRange'
 import type { TrimAction, TrimHandle, TrimState } from './trimModel'
 import { Waveform } from './Waveform'
 import { clamp } from '../../math'
+import { capturePointer } from '../../platform/pointer'
 
 export const START_HANDLE = 'Start'
 export const END_HANDLE = 'End'
@@ -165,7 +166,7 @@ export function TrimStrip({
             style={{ left: `${at * 100}%` }}
             onFocus={() => dispatch({ type: 'focus', handle })}
             onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture?.(event.pointerId)
+              capturePointer(event.currentTarget, event.pointerId)
               dragging.current = handle
               setDragged(handle)
               dispatch({ type: 'focus', handle })

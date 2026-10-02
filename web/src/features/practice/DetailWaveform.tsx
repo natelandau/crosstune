@@ -7,6 +7,7 @@ import { LoopHandle } from './LoopHandle'
 import { DRAG_THRESHOLD_PX, type Bounds, type Span } from './loopModel'
 import { xOfMs, type LaneView } from './practiceZoom'
 import type { Draft } from './useLoopGestures'
+import { capturePointer } from '../../platform/pointer'
 
 /** Tick spacings the ruler picks from, in ms. */
 const TICK_STEPS = [100, 200, 500, 1000, 2000, 5000, 10_000, 15_000, 30_000, 60_000, 120_000]
@@ -145,11 +146,7 @@ export function DetailWaveform({
           className="absolute inset-0 cursor-pointer touch-pan-y select-none"
           onPointerDown={(event) => {
             if (event.pointerType === 'mouse' && event.button !== 0) return
-            try {
-              event.currentTarget.setPointerCapture(event.pointerId)
-            } catch {
-              // A synthetic or already-released pointer cannot be captured; its events still arrive.
-            }
+            capturePointer(event.currentTarget, event.pointerId)
             const x = localX(event)
             press.current = {
               pointerId: event.pointerId,

@@ -138,10 +138,6 @@ function RecordingBody({
     recording.trim_end_ms,
     recording.source_duration_ms,
   ])
-  const settings = useMemo(
-    () => ({ speedPercent: recording.speed_percent, pitchCents: recording.pitch_cents }),
-    [recording.speed_percent, recording.pitch_cents],
-  )
 
   // The blob identity backing the current `span`, computed fresh every render exactly like
   // `span` itself. `loadedBlobIdentity` (set only when a load actually runs) lags behind it
@@ -167,8 +163,8 @@ function RecordingBody({
       src,
       span,
       {
-        speedPercent: held?.speedPercent ?? settings.speedPercent,
-        pitchCents: held?.pitchCents ?? settings.pitchCents,
+        speedPercent: held?.speedPercent ?? recording.speed_percent,
+        pitchCents: held?.pitchCents ?? recording.pitch_cents,
       },
       { title },
       { keepLoop: !!replaced },
@@ -198,18 +194,18 @@ function RecordingBody({
   // that screen's own earlier write landing.
   const onSpeedChange = useEffectEvent(() => {
     if (!src || loadedBlobIdentity.current !== blobIdentity) return
-    engine.setSpeed(recordingScreen.held(recording.id)?.speedPercent ?? settings.speedPercent)
+    engine.setSpeed(recordingScreen.held(recording.id)?.speedPercent ?? recording.speed_percent)
   })
   useEffect(() => {
     onSpeedChange()
-  }, [settings.speedPercent])
+  }, [recording.speed_percent])
   const onPitchChange = useEffectEvent(() => {
     if (!src || loadedBlobIdentity.current !== blobIdentity) return
-    engine.setPitch(recordingScreen.held(recording.id)?.pitchCents ?? settings.pitchCents)
+    engine.setPitch(recordingScreen.held(recording.id)?.pitchCents ?? recording.pitch_cents)
   })
   useEffect(() => {
     onPitchChange()
-  }, [settings.pitchCents])
+  }, [recording.pitch_cents])
 
   // A rename touches only what the lock screen shows.
   const onTitleChange = useEffectEvent(() => {

@@ -3,6 +3,7 @@ import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
 import { BAR_GAP, BAR_WIDTH, MIN_BAR } from '../recording/waveformBars'
 import { barLevels, type Peaks } from '../waveform/peaks'
+import { capturePointer } from '../../platform/pointer'
 
 export const SEEK_LABEL = 'Position'
 
@@ -175,7 +176,7 @@ export function Waveform({
       onPointerDown={(event) => {
         if (disabled) return
         dragging.current = true
-        event.currentTarget.setPointerCapture?.(event.pointerId)
+        capturePointer(event.currentTarget, event.pointerId)
         seekTo(event)
       }}
       onPointerMove={(event) => {
@@ -185,6 +186,9 @@ export function Waveform({
         dragging.current = false
       }}
       onPointerCancel={() => {
+        dragging.current = false
+      }}
+      onLostPointerCapture={() => {
         dragging.current = false
       }}
       onKeyDown={onKeyDown}

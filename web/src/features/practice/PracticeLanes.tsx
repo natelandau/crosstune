@@ -1,6 +1,7 @@
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import {
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -231,10 +232,7 @@ export function PracticeLanes({
     }
   }, [fitRef])
 
-  const keys = useRef(zoomAround)
-  useLayoutEffect(() => {
-    keys.current = zoomAround
-  })
+  const zoomFromKeys = useEffectEvent((factor: number) => zoomAround(factor))
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!event.ctrlKey && !event.metaKey) return
@@ -243,7 +241,7 @@ export function PracticeLanes({
       if (factor === 0 || isTextEntry(event.target) || !isTopOverlay(modal.current)) return
       // Otherwise the browser zooms the whole page.
       event.preventDefault()
-      keys.current(factor)
+      zoomFromKeys(factor)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
