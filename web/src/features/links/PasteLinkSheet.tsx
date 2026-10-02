@@ -11,6 +11,7 @@ import { useAction } from '../../ui/useAction'
 import { detectProvider, isProvider } from './detect'
 import { outboundUrl } from './display'
 import { CANCEL } from '../../ui/Confirm'
+import { useSheetSession } from '../../ui/useSheetSession'
 
 export const PASTE_LINK = 'Paste link'
 export const ADD_LINK = 'Add link'
@@ -32,32 +33,18 @@ export function PasteLinkSheet({
   const { error, pending, runThen, clear } = useAction()
   const [url, setUrl] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
-  const [closing, setClosing] = useState(false)
-  const [openedFor, setOpenedFor] = useState<string | null>(null)
-  // The tune a submit is running for. A ref, because two submits in one tick both read the
-  // same `pending` state.
-  const saving = useRef<string | null>(null)
   const urlRef = useRef<HTMLIonInputElement>(null)
-
-  // Reset during render so the sheet's first frame already shows empty fields.
-  if (tuneId !== openedFor) {
-    setOpenedFor(tuneId)
-    if (tuneId) {
+  const sheet = useSheetSession(tuneId, {
+    onOpen: () => {
       setUrl('')
       setValidation(null)
-      setClosing(false)
       clear()
-    }
-  }
-
-  // A dismissal that ends after the sheet reopened for another tune belongs to the old one.
-  const dismissed = () => {
-    saving.current = null
-    if (tuneId === null || closing) onClose()
-  }
+    },
+    onClose,
+  })
 
   const submit = () => {
-    if (!tuneId || closing || saving.current === tuneId) return
+    if (!tuneId || !sheet.canSave()) return
     const trimmed = url.trim()
     if (!trimmed) {
       clear()
@@ -72,49 +59,45 @@ export function PasteLinkSheet({
       return
     }
     setValidation(null)
-    saving.current = tuneId
+    sheet.beginSave()
     const target = tuneId
-    runThen(
-      async () => {
-        // Metadata is a nicety; a link the resolver cannot reach still gets added.
-        const resolved: ResolveResponse | null = await engine.resolveLink(trimmed)
-        const detected = detectProvider(trimmed)
-        // A provider the resolver returned that this client doesn't recognize can't carry
-        // that provider's ref either, since the ref format is provider-specific.
-        const { provider, provider_ref } =
-          resolved && isProvider(resolved.provider)
-            ? { provider: resolved.provider, provider_ref: resolved.provider_ref }
-            : detected
-        try {
-          await addLink(db, target, {
-            url: resolved?.url ?? trimmed,
-            provider,
-            provider_ref,
-            title: resolved?.title ?? null,
-            artwork_url: resolved?.artwork_url ?? null,
-          })
-        } catch (caught) {
-          saving.current = null
-          throw caught
-        }
-      },
-      () => setClosing(true),
-    )
+    runThen(async () => {
+      // Metadata is a nicety; a link the resolver cannot reach still gets added.
+      const resolved: ResolveResponse | null = await engine.resolveLink(trimmed)
+      const detected = detectProvider(trimmed)
+      // A provider the resolver returned that this client doesn't recognize can't carry
+      // that provider's ref either, since the ref format is provider-specific.
+      const { provider, provider_ref } =
+        resolved && isProvider(resolved.provider)
+          ? { provider: resolved.provider, provider_ref: resolved.provider_ref }
+          : detected
+      try {
+        await addLink(db, target, {
+          url: resolved?.url ?? trimmed,
+          provider,
+          provider_ref,
+          title: resolved?.title ?? null,
+          artwork_url: resolved?.artwork_url ?? null,
+        })
+      } catch (caught) {
+        sheet.saveFailed(caught)
+      }
+    }, sheet.close)
   }
 
   return (
     <Sheet
-      open={tuneId !== null && !closing}
+      open={sheet.open}
       title={PASTE_LINK}
       dismissible={false}
-      onClose={dismissed}
+      onClose={sheet.dismissed}
       start={
-        <IonButton disabled={pending} onClick={() => setClosing(true)}>
+        <IonButton disabled={pending} onClick={sheet.close}>
           {CANCEL}
         </IonButton>
       }
       end={
-        <IonButton strong disabled={pending || closing} onClick={submit}>
+        <IonButton strong disabled={pending || sheet.closing} onClick={submit}>
           {ADD_LINK}
         </IonButton>
       }

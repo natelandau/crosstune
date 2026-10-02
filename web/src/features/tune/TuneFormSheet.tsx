@@ -31,6 +31,7 @@ import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
 import { catalogComposers, mostUsedGenre, orderedTypes } from './tuneTypes'
 import { CANCEL } from '../../ui/Confirm'
+import { useSheetSession } from '../../ui/useSheetSession'
 
 export const TITLE_REQUIRED = 'A title is required'
 export const EDIT_TUNE_TITLE = 'Edit tune'
@@ -68,36 +69,28 @@ export function TuneFormSheet({
   const [tunings, setTunings] = useState<Instrument[]>([])
   const [validation, setValidation] = useState<string | null>(null)
   const titleRef = useRef<HTMLIonInputElement>(null)
-  // The target a save is running for. A ref, because two submits in one tick both read the
-  // same `pending` state.
-  const savingFor = useRef<TuneFormTarget | null>(null)
-  const [openedFor, setOpenedFor] = useState<TuneFormTarget | null>(null)
   const [editingLyrics, setEditingLyrics] = useState(false)
   // The last target shown, so the title and action label hold while the sheet animates closed.
   const [shown, setShown] = useState<TuneFormTarget | null>(null)
-  // Set by Cancel or a save; the sheet closes itself and reports it once, when dismissal ends.
-  const [closing, setClosing] = useState(false)
   // A type fills the time signature only while the player has not chosen one.
   const [timeSignatureTouched, setTimeSignatureTouched] = useState(false)
   // The seeded genre stands down once the player picks one, even an empty one.
   const [genreTouched, setGenreTouched] = useState(false)
 
-  // Reset during render so the sheet's first frame already shows the target's values. Tunings
-  // are decided at open, so a field never disappears mid-edit.
-  if (target !== openedFor) {
-    setOpenedFor(target)
-    if (target) {
-      setShown(target)
-      setClosing(false)
-      setValues(initialValues(target))
-      setTunings(tuningInstruments(instruments, target.kind === 'edit' ? target.entry.tune : null))
+  // Tunings are decided at open, so a field never disappears mid-edit.
+  const sheet = useSheetSession(target, {
+    onOpen: (opened) => {
+      setShown(opened)
+      setValues(initialValues(opened))
+      setTunings(tuningInstruments(instruments, opened.kind === 'edit' ? opened.entry.tune : null))
       setValidation(null)
       setEditingLyrics(false)
       setTimeSignatureTouched(false)
       setGenreTouched(false)
       clear()
-    }
-  }
+    },
+    onClose,
+  })
 
   // Ionic copies aria-* onto the native input once, while the component loads, and takes them
   // off the host; an attribute set on the host later reaches nothing. The title is only ever
@@ -130,7 +123,7 @@ export function TuneFormSheet({
   const save = () => {
     // Enter reaches this through the hidden submit button, which the toolbar's disabled state
     // does not cover.
-    if (!target || closing || savingFor.current === target) return
+    if (!target || !sheet.canSave()) return
     const { tune, userTune } = inputsFromValues(
       values,
       target.kind === 'edit' ? target.entry.tune.tunings : undefined,
@@ -142,47 +135,24 @@ export function TuneFormSheet({
       void titleRef.current?.setFocus()
       return
     }
-    savingFor.current = target
-    const failed = (error: unknown): never => {
-      savingFor.current = null
-      throw error
-    }
+    sheet.beginSave()
     setValidation(null)
-    if (target.kind === 'new') {
-      let ids = { tuneId: '', userTuneId: '' }
-      runThen(
-        async () => {
-          ids = await createTune(db, tune, userTune).catch(failed)
-        },
-        () => {
-          setClosing(true)
-          onSaved(ids)
-        },
-      )
-      return
+    const write = async (): Promise<{ tuneId: string; userTuneId: string }> => {
+      if (target.kind === 'new') return createTune(db, tune, userTune)
+      const ids = { tuneId: target.entry.tune.id, userTuneId: target.entry.userTune.id }
+      await updateTuneEntry(db, ids, tune, userTune)
+      return ids
     }
-    const { tune: current, userTune: currentUser } = target.entry
+    let ids = { tuneId: '', userTuneId: '' }
     runThen(
       async () => {
-        await updateTuneEntry(
-          db,
-          { tuneId: current.id, userTuneId: currentUser.id },
-          tune,
-          userTune,
-        ).catch(failed)
+        ids = await write().catch(sheet.saveFailed)
       },
       () => {
-        setClosing(true)
-        onSaved({ tuneId: current.id, userTuneId: currentUser.id })
+        sheet.close()
+        onSaved(ids)
       },
     )
-  }
-
-  // A dismissal that ends after a new target opened belongs to the old one, so it closes nothing.
-  const dismissed = () => {
-    // A parent may reopen the sheet with the very target object that was just saved.
-    savingFor.current = null
-    if (target === null || closing) onClose()
   }
 
   const pickOptions = (key: string, options: readonly string[]): readonly string[] => {
@@ -194,18 +164,18 @@ export function TuneFormSheet({
   const editing = shown?.kind === 'edit'
   return (
     <Sheet
-      open={target !== null && !closing}
+      open={sheet.open}
       title={editing ? EDIT_TUNE_TITLE : NEW_TUNE_TITLE}
       height="full"
       dismissible={false}
-      onClose={dismissed}
+      onClose={sheet.dismissed}
       start={
-        <IonButton disabled={pending} onClick={() => setClosing(true)}>
+        <IonButton disabled={pending} onClick={sheet.close}>
           {CANCEL}
         </IonButton>
       }
       end={
-        <IonButton strong disabled={pending || closing} onClick={save}>
+        <IonButton strong disabled={pending || sheet.closing} onClick={save}>
           {editing ? 'Save' : 'Add'}
         </IonButton>
       }
