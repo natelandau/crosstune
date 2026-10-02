@@ -21,9 +21,12 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
+      # The export fixtures pin exact bytes: CRLF records with LF inside quoted fields.
       - id: mixed-line-ending
+        exclude: ^fixtures/export/
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: ^fixtures/export/
 
   - repo: "https://github.com/adrienverge/yamllint.git"
     rev: v1.38.0

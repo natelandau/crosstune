@@ -1,0 +1,2 @@
+# The export fixtures pin exact bytes, line endings included.
+fixtures/export/** -text
