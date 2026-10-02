@@ -197,6 +197,8 @@ Everywhere the app lists tunes it uses one row.
   dot, learning a filled warning dot, want to learn a hollow ring.
 - Status is a rail of capsules wherever it is set or filtered. A filter rail
   leads with All.
+- The tune screen shows the status as a facet and never sets it. Only the
+  tune's edit form sets it.
 - A required field never clears: pressing the chosen capsule leaves it
   chosen. An optional field does the opposite.
 - An unrecognized status value shows as want to learn.

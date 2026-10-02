@@ -23,7 +23,7 @@ public final class TuneModel {
 
     /// Where a failed write reports: beside the control that made it.
     public enum Place: Equatable, Sendable {
-        /// Above the rows: a status, archive, or delete.
+        /// Above the rows: an archive or delete.
         case screen
         /// Under the recordings and links.
         case media
@@ -68,19 +68,6 @@ public final class TuneModel {
     public var shown: TuneDetail? {
         if case .shown(let detail) = phase { return detail }
         return nil
-    }
-
-    /// Sets the tune's status. A required field, so the rail never asks to clear it. Pressing the
-    /// status the tune already holds writes nothing, so it queues no push, but still clears an
-    /// earlier write's failure, as any other press does.
-    public func setStatus(_ status: String) async {
-        guard let userTune = shown?.userTune else { return }
-        guard userTune.status != status else {
-            failure = nil
-            return
-        }
-        let userTuneID = userTune.id
-        await run(.screen) { try await $0.updateUserTune(userTuneID, patch: UserTunePatch(status: .value(status))) }
     }
 
     /// Archives the tune, or brings it back.

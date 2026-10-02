@@ -4,7 +4,7 @@ import CrosstuneSync
 import SwiftUI
 
 /// One tune, opened from any tune row: pushed on iPhone, in the detail column on iPad and Mac.
-/// What it is, the musician's status for it, how it sounds, the lists it is in, and their notes.
+/// What it is, with the musician's status among its facets, how it sounds, the lists it is in, and their notes.
 public struct TuneScreen: View {
     public static let fallbackTitle = "Tune"
     public static let gone = "This tune is gone"
@@ -39,8 +39,8 @@ public struct TuneScreen: View {
         Group {
             if let model, model.tuneID == tuneID {
                 TuneContent(model: model)
-                    // A new tune starts with fresh sheets, dialogs, and rail, so switching tunes
-                    // in the detail column never carries one over or buzzes as a status change.
+                    // A new tune starts with fresh sheets and dialogs, so switching tunes in the
+                    // detail column never carries one over.
                     .id(tuneID)
             } else {
                 // Loading is silence.
@@ -235,8 +235,8 @@ private struct TuneBody: View {
     }
 }
 
-/// Everything above the rows: the tune's other names and composer, its facets in one wrapping
-/// row, key first, and the status rail, which writes on each press.
+/// Everything above the rows: the tune's other names and composer, and its facets in one
+/// wrapping row, key first. Status shows here but is set only in the edit sheet.
 private struct TuneHeader: View {
     let model: TuneModel
     let detail: TuneDetail
@@ -258,19 +258,11 @@ private struct TuneHeader: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             }
-            if !detail.facets.isEmpty {
-                FlowLayout {
-                    ForEach(Array(detail.facets.enumerated()), id: \.offset) { _, facet in
-                        FacetView(facet: facet)
-                    }
+            FlowLayout {
+                ForEach(Array(detail.facets.enumerated()), id: \.offset) { _, facet in
+                    FacetView(facet: facet)
                 }
             }
-            StatusRail(
-                status: Binding {
-                    detail.userTune.status
-                } set: { status in
-                    Task { await model.setStatus(status) }
-                })
             if let failure = model.failure(at: .screen) {
                 FailureText(failure)
             }
@@ -278,8 +270,8 @@ private struct TuneHeader: View {
     }
 }
 
-/// One facet: the key as its colored pill, anything else as a plain capsule, archived in the
-/// cautionary tone.
+/// One facet: the key as its colored pill, the status as its dot and label, anything else as a
+/// plain capsule, archived in the cautionary tone.
 private struct FacetView: View {
     let facet: TuneFacet
 
@@ -292,16 +284,18 @@ private struct FacetView: View {
             KeyPill(key)
                 .accessibilityLabel("\(TuneRowText.keyPrefix) \(key)")
         case .text(let text):
-            capsule(text, fill: neutralFill(colorScheme), ink: AnyShapeStyle(.primary))
+            capsule(Text(text), fill: neutralFill(colorScheme), ink: AnyShapeStyle(.primary))
+        case .status(let status):
+            capsule(StatusDot(status), fill: neutralFill(colorScheme), ink: AnyShapeStyle(.primary))
         case .archived:
             capsule(
-                TuneRowText.archived, fill: AnyShapeStyle(Color.orange.opacity(0.18)),
+                Text(TuneRowText.archived), fill: AnyShapeStyle(Color.orange.opacity(0.18)),
                 ink: AnyShapeStyle(Color.orange))
         }
     }
 
-    private func capsule(_ text: String, fill: AnyShapeStyle, ink: AnyShapeStyle) -> some View {
-        Text(text)
+    private func capsule(_ content: some View, fill: AnyShapeStyle, ink: AnyShapeStyle) -> some View {
+        content
             .font(.subheadline)
             .foregroundStyle(ink)
             .rowLineLimit()

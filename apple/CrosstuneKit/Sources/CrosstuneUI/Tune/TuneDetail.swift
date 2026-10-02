@@ -24,6 +24,8 @@ public struct TuneMembership: Hashable, Sendable, Identifiable {
 public enum TuneFacet: Hashable, Sendable {
     case key(String)
     case text(String)
+    /// The musician's status for the tune, as its dot and label.
+    case status(String)
     /// The tune is archived, in the cautionary tone.
     case archived
 }
@@ -69,8 +71,8 @@ public struct TuneDetail: Hashable, Sendable {
         }
     }
 
-    /// What the tune is, in one wrapping row: the key first, then each part's mode, the
-    /// tunings, time signature, crooked, type, genre, parts, and archived, each left out when
+    /// What the tune is, in one wrapping row: the key first, then each part's mode, the status,
+    /// the tunings, time signature, crooked, type, genre, parts, and archived, each left out when
     /// unset.
     public var facets: [TuneFacet] {
         var facets: [TuneFacet] = []
@@ -78,6 +80,7 @@ public struct TuneDetail: Hashable, Sendable {
             facets.append(.key(key))
         }
         facets += tune.modes.map(TuneFacet.text)
+        facets.append(.status(userTune.status))
         facets += tunings.map(TuneFacet.text)
         let labels = [
             tune.timeSignature, tune.isCrooked ? Self.crooked : nil, tune.tuneType, tune.genre, tune.partStructure,

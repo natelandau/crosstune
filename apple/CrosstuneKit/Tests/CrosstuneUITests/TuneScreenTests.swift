@@ -76,15 +76,16 @@ private func file(_ state: LocalFileState) -> RecordingFile {
             modes: ["mixolydian", "dorian"], timeSignature: "2/4", partStructure: "AABB", isCrooked: true,
             tunings: tunings(["violin": ("Cross A (AEAE)", nil)]))
         #expect(
-            detail(tune, archived: true).facets == [
-                .key("A"), .text("mixolydian"), .text("dorian"), .text("Violin: Cross A (AEAE)"), .text("2/4"),
+            detail(tune, status: "learning", archived: true).facets == [
+                .key("A"), .text("mixolydian"), .text("dorian"), .status("learning"), .text("Violin: Cross A (AEAE)"),
+                .text("2/4"),
                 .text(TuneDetail.crooked), .text("Reel"), .text("Old-time"), .text("AABB"), .archived,
             ])
     }
 
-    @Test func leavesOutEveryUnsetFacet() {
+    @Test func leavesOutEveryUnsetFacetButAlwaysShowsTheStatus() {
         let tune = Tune(createdAt: noon, title: "A tune with no key yet", genre: "", key: "  ")
-        #expect(detail(tune).facets == [])
+        #expect(detail(tune).facets == [.status("known")])
     }
 
     @Test func showsEveryTuningStandardIncludedAndAlwaysNamesTheInstrument() {
@@ -183,30 +184,16 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.phase == .gone }
     }
 
-    @Test func writesTheStatusAndArchive() async throws {
+    @Test func writesTheArchive() async throws {
         let root = TemporaryRoot()
         let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)
         try await eventually { model.shown != nil }
-        await model.setStatus("learning")
-        try await eventually { model.shown?.userTune.status == "learning" }
         await model.setArchived(true)
         try await eventually { model.shown?.isArchived == true }
         #expect(model.shown?.facets.last == .archived)
         await model.setArchived(false)
         try await eventually { model.shown?.isArchived == false }
         #expect(model.failure == nil)
-    }
-
-    @Test func writesNothingWhenTheChosenStatusIsPressedAgain() async throws {
-        let root = TemporaryRoot()
-        let store = try await SampleCatalog.makeStore(root: root.url)
-        try await store.write { writer in _ = try OutboxEntry.deleteAll(writer.db) }
-        let model = TuneModel(store: store, tuneID: soldiersJoy.tune.id)
-        try await eventually { model.shown != nil }
-        await model.setStatus("known")
-        #expect(try await store.read { db in try OutboxEntry.fetchCount(db) } == 0)
-        await model.setStatus("learning")
-        #expect(try await store.read { db in try OutboxEntry.fetchCount(db) } == 1)
     }
 
     @Test func removesALinkAndAListEntry() async throws {
@@ -233,8 +220,8 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(!failure.isEmpty)
         #expect(model.failure(at: .screen) == nil && model.failure(at: .media) == nil)
         #expect(model.shown?.lists.count == 1)
-        // Pressing the status already held writes nothing but still clears it.
-        await model.setStatus("known")
+        // The next write clears it.
+        await model.removeLink("sample_link_youtube")
         #expect(model.failure == nil)
     }
 
