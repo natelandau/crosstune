@@ -143,7 +143,8 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
       error instanceof ApiError &&
       error.status >= 400 &&
       error.status < 500 &&
-      ![401, 403, 408, 429].includes(error.status)
+      !isAuthFailure(error) &&
+      ![408, 429].includes(error.status)
     ) {
       // A refusal of the request itself (bad mime, too large) will never succeed
       // as-is; an auth, timeout, or rate-limit refusal might on retry.
