@@ -93,7 +93,7 @@
             RecordingLink(
                 id: "sample_link_spotify", createdAt: now, tuneID: entries[0].tune.id,
                 url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC", provider: "spotify",
-                providerRef: "track:4uLU6hMCjMI75M1A2tKUQC", label: "Bruce Molsky's version",
+                providerRef: "track:4uLU6hMCjMI75M1A2tKUQC", title: "Soldier's Joy - Bruce Molsky",
                 position: 1),
             RecordingLink(
                 id: "sample_link_other", createdAt: now, tuneID: entries[1].tune.id,

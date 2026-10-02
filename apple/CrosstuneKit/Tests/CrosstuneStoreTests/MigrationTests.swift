@@ -150,6 +150,38 @@ private struct V4Fixture {
     #expect(schema == v5LoopsSchema)
 }
 
+@Test func theV6MigrationDropsTheLinkLabelAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v5")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO recording_links
+                    (id, created_at, updated_at, server_seq, tune_id, url, provider, title, label, position, extra)
+                VALUES ('link-1', ?, ?, 0, 'tune-1', 'https://youtu.be/x', 'youtube', 'Jam', 'slow version', 0, '{}')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recording_links', 'link-1', 'upsert', ?, '{"url":"https://youtu.be/x","label":"slow version"}'),
+                    ('recording_links', 'link-2', 'delete', ?, NULL),
+                    ('recordings', 'rec-1', 'upsert', ?, '{"label":"A part"}')
+                """,
+            arguments: [time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v6")
+
+    try queue.read { db in
+        #expect(try db.columns(in: "recording_links").map(\.name).contains("label") == false)
+        #expect(try String.fetchOne(db, sql: "SELECT title FROM recording_links WHERE id = 'link-1'") == "Jam")
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(data == [#"{"url":"https://youtu.be/x"}"#, nil, #"{"label":"A part"}"#])
+    }
+}
+
 private let v5LoopsSchema = """
     table recording_loops: CREATE TABLE "recording_loops" ("id" TEXT PRIMARY KEY NOT NULL,
       "created_at" TEXT NOT NULL,

@@ -94,27 +94,11 @@ describe('LinkItem', () => {
     expect(page.getByText('Spotify', { exact: true }).elements()).toHaveLength(1)
   })
 
-  it('titles an unresolved link by what the musician called it, said once', async () => {
+  it('falls back to the host when the link has no title', async () => {
     const link = linkRow('l1', 's1', {
       url: 'https://open.spotify.com/track/abc',
       provider: 'spotify',
       title: null,
-      label: 'slow version',
-    })
-    show(link)
-    await expect
-      .element(page.getByRole('heading', { name: 'slow version', level: 3 }))
-      .toBeVisible()
-    // Standing in as the title, the label is not repeated under it.
-    expect(page.getByText('slow version', { exact: true }).elements()).toHaveLength(1)
-  })
-
-  it('falls back to the host when the link has neither name', async () => {
-    const link = linkRow('l1', 's1', {
-      url: 'https://open.spotify.com/track/abc',
-      provider: 'spotify',
-      title: null,
-      label: null,
     })
     show(link)
     await expect
@@ -145,20 +129,6 @@ describe('LinkItem', () => {
     element.addEventListener('click', (event) => event.preventDefault(), { once: true })
     await anchor.click()
     expect(player.play).not.toHaveBeenCalled()
-  })
-
-  it('keeps a resolved title and leaves the label the musician typed off the row', async () => {
-    const link = linkRow('l1', 's1', {
-      url: 'https://open.spotify.com/track/abc',
-      provider: 'spotify',
-      title: 'Jam session',
-      label: 'slow version',
-    })
-    show(link)
-    await expect
-      .element(page.getByRole('link', { name: 'Open Jam session on Spotify' }))
-      .toBeVisible()
-    expect(page.getByText('slow version').elements()).toHaveLength(0)
   })
 
   it('opens the provider from the row itself when there is nothing to embed', async () => {

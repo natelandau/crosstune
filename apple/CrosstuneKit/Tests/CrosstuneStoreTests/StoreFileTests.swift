@@ -88,7 +88,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
 
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 0)
     #expect(try await store.meta(.keepOffline, as: Bool.self) == nil)
-    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4", "v5"])
+    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4", "v5", "v6"])
 }
 
 @Test func aNewMigrationKeepsRowsOutboxAndPreferences() async throws {
@@ -132,7 +132,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     let store = try root.open()
     #expect(try await store.read { db in try Tune.fetchCount(db) } == 1)
     #expect(try await store.pendingChangeCount() == 1)
-    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4", "v5"])
+    #expect(try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == ["v4", "v5", "v6"])
     #expect(try await store.read { db in try db.columns(in: "tunes").map(\.name) }.contains("nickname") == false)
     #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: audio).path()))
 }

@@ -6,8 +6,8 @@ import Foundation
 import Observation
 import os
 
-/// The paste link sheet's state: the pasted link, its label, the title the server finds for the link
-/// as it is pasted, and the one save the sheet makes.
+/// The paste link sheet's state: the pasted link, the title the server finds for it as it is
+/// pasted, and the one save the sheet makes.
 @MainActor
 @Observable
 public final class LinkSheetModel {
@@ -20,7 +20,6 @@ public final class LinkSheetModel {
     /// The tune the link is added to.
     public let tuneID: String
     public private(set) var url = ""
-    public private(set) var label = ""
     /// The title the server found for the link as pasted, shown before the save.
     public private(set) var preview: String?
     public private(set) var isSaving = false
@@ -28,7 +27,7 @@ public final class LinkSheetModel {
     public private(set) var isSaved = false
     /// Shown under the link after a save with no link, or with one that is not a web address.
     public private(set) var validation: String?
-    /// The last save's failure, cleared as the fields are retyped.
+    /// The last save's failure, cleared as the link is retyped.
     public private(set) var failure: String?
 
     private let store: CrosstuneStore
@@ -53,7 +52,7 @@ public final class LinkSheetModel {
     }
 
     /// Whether the sheet holds typing a dismissal would lose.
-    public var isEdited: Bool { !url.isEmpty || !label.isEmpty }
+    public var isEdited: Bool { !url.isEmpty }
 
     /// Takes the link as typed or pasted, and looks it up once typing pauses.
     public func setURL(_ url: String) {
@@ -105,11 +104,6 @@ public final class LinkSheetModel {
         return task
     }
 
-    public func setLabel(_ label: String) {
-        self.label = label
-        failure = nil
-    }
-
     /// Adds the link. True once the save lands; false when it could not run or failed, with the
     /// reason in ``validation`` or ``failure``.
     public func save() async -> Bool {
@@ -125,14 +119,13 @@ public final class LinkSheetModel {
             validation = Self.linkNotWeb
             return false
         }
-        let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
         validation = nil
         failure = nil
         isSaving = true
         defer { isSaving = false }
         // Metadata is a nicety; a link the resolver cannot reach still gets added.
         let resolved = await resolution(for: trimmed)
-        let input = Self.input(trimmed, resolved: resolved, label: trimmedLabel.isEmpty ? nil : trimmedLabel)
+        let input = Self.input(trimmed, resolved: resolved)
         do {
             try await Commands(store: store).addLink(tuneID: tuneID, link: input)
             isSaved = true
@@ -157,7 +150,7 @@ public final class LinkSheetModel {
     /// What gets stored for a pasted link. A provider the server named that this build does not
     /// know cannot carry that provider's ref either, since a ref's format is the provider's own,
     /// so the provider detected from the URL stands in.
-    nonisolated static func input(_ url: String, resolved: ResolvedLink?, label: String?) -> LinkInput {
+    nonisolated static func input(_ url: String, resolved: ResolvedLink?) -> LinkInput {
         let detected = detectProvider(url)
         let (provider, providerRef) =
             if let resolved, Vocabulary.providers.contains(resolved.provider) {
@@ -167,6 +160,6 @@ public final class LinkSheetModel {
             }
         return LinkInput(
             url: resolved?.url ?? url, provider: provider, providerRef: providerRef, title: resolved?.title,
-            artworkURL: resolved?.artworkURL, label: label)
+            artworkURL: resolved?.artworkURL)
     }
 }

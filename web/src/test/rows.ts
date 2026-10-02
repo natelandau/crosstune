@@ -68,7 +68,6 @@ export function linkRow(
     provider_ref: null,
     title: null,
     artwork_url: null,
-    label: null,
     position: 0,
     ...extra,
   }

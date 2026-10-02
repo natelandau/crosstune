@@ -311,7 +311,6 @@ public struct RecordingLink: SyncedRecord, Hashable {
     public var provider: String
     public var providerRef: String?
     public var title: String?
-    public var label: String?
     public var artworkURL: String?
     public var position: Int
     public var extra: JSONObject
@@ -325,7 +324,7 @@ public struct RecordingLink: SyncedRecord, Hashable {
         case tuneID = "tune_id"
         case url, provider
         case providerRef = "provider_ref"
-        case title, label
+        case title
         case artworkURL = "artwork_url"
         case position, extra
     }
@@ -335,7 +334,7 @@ public struct RecordingLink: SyncedRecord, Hashable {
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String, url: String, provider: String,
-        providerRef: String? = nil, title: String? = nil, label: String? = nil, artworkURL: String? = nil,
+        providerRef: String? = nil, title: String? = nil, artworkURL: String? = nil,
         position: Int = 0, extra: JSONObject = [:]
     ) {
         self.id = id
@@ -348,7 +347,6 @@ public struct RecordingLink: SyncedRecord, Hashable {
         self.provider = provider
         self.providerRef = providerRef
         self.title = title
-        self.label = label
         self.artworkURL = artworkURL
         self.position = position
         self.extra = extra

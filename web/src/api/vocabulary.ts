@@ -79,7 +79,6 @@ export const LIST_LIMITS = {
 
 export const LINK_LIMITS = {
   artwork_url: 2048,
-  label: 200,
   provider_ref: 200,
   title: 300,
   url: 2048,

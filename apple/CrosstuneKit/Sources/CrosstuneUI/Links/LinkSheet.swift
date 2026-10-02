@@ -9,9 +9,7 @@ public struct LinkSheet: View {
     public static let pasteTitle = "Paste link"
     public static let add = "Add link"
     public static let linkHeader = "Link"
-    public static let labelHeader = "Label"
     public static let linkPlaceholder = "Paste a YouTube, Spotify, or other link"
-    public static let labelPlaceholder = "slow version, jam recording, …"
 
     private let tuneID: String
 
@@ -56,14 +54,10 @@ public struct LinkSheet: View {
 }
 
 private struct LinkForm: View {
-    private enum Field {
-        case link, label
-    }
-
     let model: LinkSheetModel
 
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var focus: Field?
+    @FocusState private var linkFocused: Bool
 
     var body: some View {
         Form {
@@ -76,9 +70,9 @@ private struct LinkForm: View {
                         .textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled()
-                    .focused($focus, equals: .link)
-                    .submitLabel(.next)
-                    .onSubmit { focus = .label }
+                    .focused($linkFocused)
+                    .submitLabel(.done)
+                    .onSubmit(save)
             } header: {
                 Text(LinkSheet.linkHeader)
             } footer: {
@@ -89,15 +83,6 @@ private struct LinkForm: View {
                     Text(preview)
                         .lineLimit(2)
                 }
-            }
-            Section {
-                TextField(LinkSheet.labelHeader, text: labelBinding, prompt: Text(LinkSheet.labelPlaceholder))
-                    .characterLimit(Vocabulary.Limits.Link.label, text: labelBinding)
-                    .focused($focus, equals: .label)
-                    .submitLabel(.done)
-                    .onSubmit(save)
-            } header: {
-                Text(LinkSheet.labelHeader)
             }
         }
         .formStyle(.grouped)
@@ -113,7 +98,7 @@ private struct LinkForm: View {
             }
         }
         .interactiveDismissDisabled(model.isEdited || model.isSaving)
-        .onAppear { focus = .link }
+        .onAppear { linkFocused = true }
         .onDisappear { model.cancel() }
     }
 
@@ -125,18 +110,10 @@ private struct LinkForm: View {
         }
     }
 
-    private var labelBinding: Binding<String> {
-        Binding {
-            model.label
-        } set: {
-            model.setLabel($0)
-        }
-    }
-
     private func save() {
         Task {
             guard await model.save() else {
-                if model.validation != nil { focus = .link }
+                if model.validation != nil { linkFocused = true }
                 return
             }
             dismiss()

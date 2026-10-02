@@ -144,6 +144,24 @@ export class CrosstuneDb extends Dexie {
       songs: null,
       user_songs: null,
     })
+
+    // Links no longer carry a label, and the API refuses a push that still names one.
+    this.version(8)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table('recording_links')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            delete row.label
+          })
+        await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recording_links')
+          .modify((entry: OutboxEntry) => {
+            if (entry.data) delete entry.data.label
+          })
+      })
   }
 
   // Dexie's auto-open on the first query calls this method too.

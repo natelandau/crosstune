@@ -9,18 +9,16 @@ public struct LinkInput: Sendable {
     public var providerRef: String?
     public var title: String?
     public var artworkURL: String?
-    public var label: String?
 
     public init(
         url: String, provider: String, providerRef: String? = nil, title: String? = nil,
-        artworkURL: String? = nil, label: String? = nil
+        artworkURL: String? = nil
     ) {
         self.url = url
         self.provider = provider
         self.providerRef = providerRef
         self.title = title
         self.artworkURL = artworkURL
-        self.label = label
     }
 }
 
@@ -37,7 +35,7 @@ extension StoreWriter {
             RecordingLink(
                 id: id, createdAt: time, updatedAt: time, tuneID: tuneID,
                 url: link.url.trimmingCharacters(in: .whitespacesAndNewlines), provider: link.provider,
-                providerRef: link.providerRef, title: link.title, label: link.label,
+                providerRef: link.providerRef, title: link.title,
                 artworkURL: link.artworkURL, position: nextPosition(active)), at: time)
         return id
     }

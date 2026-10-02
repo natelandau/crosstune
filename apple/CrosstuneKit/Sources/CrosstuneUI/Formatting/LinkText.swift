@@ -12,11 +12,9 @@ public enum LinkText {
         Vocabulary.providerLabels[provider] ?? Vocabulary.providerLabels["other"]!
     }
 
-    /// What to call a link: what the provider says it is, then what the musician called it,
-    /// then where it points. A bare host names nothing, so it comes last.
+    /// What to call a link: what the provider says it is, else where it points.
     public static func title(_ link: RecordingLink) -> String {
         if let title = link.title, !title.isEmpty { return title }
-        if let label = link.label, !label.isEmpty { return label }
         return outboundURL(link.url)?.host() ?? link.url
     }
 

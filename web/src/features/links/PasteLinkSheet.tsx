@@ -31,7 +31,6 @@ export function PasteLinkSheet({
   const engine = useSyncEngine()
   const { error, pending, runThen, clear } = useAction()
   const [url, setUrl] = useState('')
-  const [label, setLabel] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
   const [openedFor, setOpenedFor] = useState<string | null>(null)
@@ -45,7 +44,6 @@ export function PasteLinkSheet({
     setOpenedFor(tuneId)
     if (tuneId) {
       setUrl('')
-      setLabel('')
       setValidation(null)
       setClosing(false)
       clear()
@@ -76,7 +74,6 @@ export function PasteLinkSheet({
     setValidation(null)
     saving.current = tuneId
     const target = tuneId
-    const trimmedLabel = label.trim()
     runThen(
       async () => {
         // Metadata is a nicety; a link the resolver cannot reach still gets added.
@@ -95,7 +92,6 @@ export function PasteLinkSheet({
             provider_ref,
             title: resolved?.title ?? null,
             artwork_url: resolved?.artwork_url ?? null,
-            label: trimmedLabel || null,
           })
         } catch (caught) {
           saving.current = null
@@ -130,8 +126,6 @@ export function PasteLinkSheet({
           submit()
         }}
       >
-        {/* A form with several fields submits on Enter only when it has a submit button. */}
-        <button type="submit" tabIndex={-1} aria-hidden="true" className="sr-only" />
         <Group header="Link" error={validation ?? error}>
           <IonItem>
             <IonInput
@@ -142,24 +136,12 @@ export function PasteLinkSheet({
               placeholder={LINK_PLACEHOLDER}
               maxlength={LINK_LIMITS.url}
               value={url}
-              enterkeyhint="next"
+              enterkeyhint="done"
               onIonInput={(event) => {
                 setUrl(String(event.detail.value ?? ''))
                 setValidation(null)
                 clear()
               }}
-            />
-          </IonItem>
-        </Group>
-        <Group header="Label">
-          <IonItem>
-            <IonInput
-              aria-label="Label"
-              placeholder="slow version, jam recording, …"
-              maxlength={LINK_LIMITS.label}
-              value={label}
-              enterkeyhint="done"
-              onIonInput={(event) => setLabel(String(event.detail.value ?? ''))}
             />
           </IonItem>
         </Group>

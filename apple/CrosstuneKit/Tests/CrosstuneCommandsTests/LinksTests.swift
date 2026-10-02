@@ -16,17 +16,14 @@ import Testing
             tuneID: tuneID, link: LinkInput(url: "https://youtu.be/abc", provider: "youtube", providerRef: "abc"))
         let second = try await commands.addLink(
             tuneID: tuneID,
-            link: LinkInput(
-                url: "https://open.spotify.com/track/1", provider: "spotify", title: "Track", label: "studio"))
+            link: LinkInput(url: "https://open.spotify.com/track/1", provider: "spotify", title: "Track"))
 
         let firstRow = try #require(try await store.read { db in try RecordingLink.fetchOne(db, key: first) })
         #expect(firstRow.position == 0)
         #expect(firstRow.title == nil)
-        #expect(firstRow.label == nil)
         let secondRow = try #require(try await store.read { db in try RecordingLink.fetchOne(db, key: second) })
         #expect(secondRow.position == 1)
         #expect(secondRow.title == "Track")
-        #expect(secondRow.label == "studio")
 
         let queued = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == first })
         #expect(queued.data?["url"] == .string("https://youtu.be/abc"))

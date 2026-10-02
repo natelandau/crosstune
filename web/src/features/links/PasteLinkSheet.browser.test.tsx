@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import type { ResolveResponse } from '../../api/types'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
@@ -48,15 +48,13 @@ function show(
 }
 
 describe('PasteLinkSheet', () => {
-  it('shows the title, fields, and placeholders', async () => {
+  it('shows the title, field, and placeholder', async () => {
     const db = openTestDb()
     const tuneId = await tune(db)
     show(tuneId, { db })
     await expect.element(page.getByText(PASTE_LINK)).toBeVisible()
     await expect.element(page.getByLabelText('Link')).toBeVisible()
     await expect.element(page.getByPlaceholder(LINK_PLACEHOLDER)).toBeVisible()
-    await expect.element(page.getByLabelText('Label')).toBeVisible()
-    await expect.element(page.getByPlaceholder('slow version, jam recording, …')).toBeVisible()
   })
 
   it('adds a link with the provider and ref a YouTube url detects', async () => {
@@ -69,6 +67,15 @@ describe('PasteLinkSheet', () => {
     const [link] = await db.recording_links.toArray()
     expect(link?.provider).toBe('youtube')
     expect(link?.provider_ref).toBe('dQw4w9WgXcQ')
+  })
+
+  it('adds the link when Enter is pressed in the field', async () => {
+    const db = openTestDb()
+    const tuneId = await tune(db)
+    show(tuneId, { db })
+    await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
+    await userEvent.keyboard('{Enter}')
+    await vi.waitFor(async () => expect(await db.recording_links.count()).toBe(1))
   })
 
   it('still adds a url this client cannot parse into a known provider, as other', async () => {

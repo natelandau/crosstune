@@ -36,7 +36,6 @@ import Testing
     #expect(Vocabulary.Limits.Tune.tuning == 100)
     #expect(Vocabulary.Limits.List.name == 200)
     #expect(Vocabulary.Limits.Link.artworkUrl == 2048)
-    #expect(Vocabulary.Limits.Link.label == 200)
     #expect(Vocabulary.Limits.Link.providerRef == 200)
     #expect(Vocabulary.Limits.Link.title == 300)
     #expect(Vocabulary.Limits.Link.url == 2048)
