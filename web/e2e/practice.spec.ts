@@ -6,7 +6,16 @@ import {
   MARK_LOOP,
   PRACTICE,
 } from '../src/features/practice/practiceCopy'
-import { expectSynced, nudgeSync, recordUnfiled, signIn, swipeLeft, waitForReady } from './helpers'
+import {
+  expectSynced,
+  nudgeSync,
+  recordUnfiled,
+  renameRecording,
+  signIn,
+  swipeLeft,
+  unique,
+  waitForReady,
+} from './helpers'
 import { PAUSE, PLAY } from '../src/features/player/transportCopy'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
@@ -46,7 +55,6 @@ test('marks a loop with A B, names it, and another device sees the name', async 
   await signIn(page)
   const unfiled = await recordUnfiled(page, 6)
   await waitForReady(page, unfiled)
-  const label = (await unfiled.locator('h3').innerText()).trim()
 
   const screen = await openPractice(page, unfiled)
   // Opening the recording starts it playing; from the top, the mark has the whole take to run in.
@@ -77,6 +85,8 @@ test('marks a loop with A B, names it, and another device sees the name', async 
   await expect(loops.getByRole('button', { name: /^B part/ })).toBeVisible()
 
   await screen.getByRole('button', { name: BACK, exact: true }).click()
+  const label = unique('Practice take')
+  await renameRecording(page, screen, label)
   await screen.getByRole('button', { name: 'Close', exact: true }).click()
   const pushedAfter = new Date().toISOString()
   await nudgeSync(page)

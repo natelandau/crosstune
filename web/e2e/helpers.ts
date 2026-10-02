@@ -1,6 +1,9 @@
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
-import { expect, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
+import { RECORDING_NAME_LABEL, RENAME } from '../src/features/recordings/recordingCopy'
 import { MORE_KEYS } from '../src/features/tune/KeyChooser'
+import { MORE_ACTIONS } from '../src/ui/Menu'
+import { e2eUserEmails } from './users'
 
 export function unique(name: string): string {
   return `${name} ${Date.now().toString(36)}`
@@ -11,9 +14,13 @@ export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/** Sign in as this worker's own user. A retry keeps the worker's index, so it keeps the user. */
 export async function signIn(page: Page): Promise<void> {
-  const emailAddress = process.env.E2E_CLERK_USER_EMAIL
-  if (!emailAddress) throw new Error('E2E_CLERK_USER_EMAIL is not set')
+  const emails = e2eUserEmails()
+  const emailAddress = emails[test.info().parallelIndex]
+  if (!emailAddress) {
+    throw new Error(`E2E_CLERK_USER_EMAILS names ${emails.length} users, too few for this worker`)
+  }
   await signInAs(page, emailAddress)
 }
 
@@ -309,6 +316,28 @@ export async function waitForReady(
       { timeout, intervals: [3_000] },
     )
     .not.toMatch(busy)
+}
+
+/**
+ * Rename the recording open on `screen` from its menu. A recording's default label is only
+ * minute-precise, so a second device can find the row by a `unique()` name where two recordings
+ * made in the same minute would share a label.
+ */
+export async function renameRecording(page: Page, screen: Locator, name: string): Promise<void> {
+  await screen.getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
+  await page
+    .locator('ion-action-sheet, ion-popover')
+    .last()
+    .getByRole('button', { name: RENAME, exact: true })
+    .click()
+  await expectNoOverlay(page)
+  const field = page.getByRole('textbox', { name: RECORDING_NAME_LABEL, exact: true })
+  await expectSettled(field)
+  await field.fill(name)
+  await field.press('Enter')
+  // The rename sheet is a second ion-modal over the recording screen, so `screen` matches both
+  // until it has gone.
+  await expect(page.locator('ion-modal.show-modal')).toHaveCount(1)
 }
 
 /** Nudge the transfer loop from Settings, then return to the recordings list it left. */

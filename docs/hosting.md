@@ -361,7 +361,7 @@ Actions secrets:
 | -------------------------------------------- | --------- | ---------------------------------------------------------------------------------- |
 | `CLERK_SECRET_KEY`                           | `E2E`     | The development instance's `sk_test_...` key                                       |
 | `VITE_CLERK_PUBLISHABLE_KEY`                 | `E2E`     | The development instance's `pk_test_...` key                                       |
-| `E2E_CLERK_USER_EMAIL`                       | `E2E`     | The email of a user in the development instance                                    |
+| `E2E_CLERK_USER_EMAILS`                      | `E2E`     | Comma-separated emails of users in the development instance, one per worker        |
 | `NEON_API_KEY`                               | `Preview` | A Neon API key                                                                     |
 | `RAILWAY_API_TOKEN`                          | `Preview` | A Railway account token, not a project token                                       |
 | `CLOUDFLARE_API_TOKEN`                       | `Preview` | The KV-only token described under Cloudflare Workers                               |

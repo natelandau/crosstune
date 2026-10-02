@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { e2eUserEmails } from './e2e/users'
 
 try {
   process.loadEnvFile('.env')
@@ -13,13 +14,16 @@ const PORT = 4173
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
-  workers: 1,
+  workers: Math.max(1, e2eUserEmails().length),
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    // Ionic's transitions and the swipe and drag gestures move between trace snapshots.
+    video: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   webServer: {
     command: `pnpm vite build && pnpm vite preview --port ${PORT} --strictPort`,

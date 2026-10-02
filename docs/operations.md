@@ -102,12 +102,14 @@ Postgres and RustFS volumes; `just dev-down` keeps them.
 The end-to-end suite:
 
 - Signs in through the Clerk development instance and spends its usage
-  limits. It needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAIL` in
+  limits. It needs `CLERK_SECRET_KEY` and `E2E_CLERK_USER_EMAILS` in
   `web/.env`, and the same development key as `CROSSTUNE_CLERK_SECRET_KEY`
   in `api/.env`.
-- Signs in as that one user in every spec. A spec that deletes or changes
-  the account makes its own user with `createThrowawayUser` and removes it
-  with `removeClerkUser`, both in `web/e2e/helpers.ts`.
+- Runs one worker per address in `E2E_CLERK_USER_EMAILS`, and each worker
+  signs in as its own user, so workers never share data. A spec that
+  deletes or changes the account makes its own user with
+  `createThrowawayUser` and removes it with `removeClerkUser`, both in
+  `web/e2e/helpers.ts`.
 - Serves the API on 8001 against `crosstune_e2e`, created for the run and
   dropped afterwards, so it runs beside `just dev` and starts empty.
 - To keep the database after a failure, run `just api::run-e2e`, then
