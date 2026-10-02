@@ -46,7 +46,7 @@ struct TuningRows: View {
     var body: some View {
         ForEach(instruments, id: \.self) { instrument in
             SuggestionPicker(
-                TuneFieldLabels.tuning(instrument), rowLabel: TuningText.instrumentLabel(instrument),
+                TuneFieldLabels.tuning(instrument), rowLabel: Vocabulary.instrumentLabel(instrument),
                 value: Binding {
                     values.tuning(instrument).tuning
                 } set: { tuning in

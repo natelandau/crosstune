@@ -67,7 +67,7 @@ public struct TuneDetail: Hashable, Sendable {
         Vocabulary.instruments.compactMap { instrument in
             let entry = tuningEntry(tune.tunings, instrument: instrument)
             guard instruments.contains(instrument) || entry.tuning != nil || entry.capo != nil else { return nil }
-            return TuningText.display(tune.tunings, instrument: instrument, withInstrument: true)
+            return tuningDisplay(tune.tunings, instrument: instrument, withInstrument: true)
         }
     }
 

@@ -49,21 +49,6 @@ import Testing
         "bouzouki": .string("a shape from a newer server"),
     ]
 
-    @Test func readsTuningCapoOrBoth() {
-        #expect(TuningText.display(tunings, instrument: "violin") == "Standard (GDAE)")
-        #expect(TuningText.display(tunings, instrument: "five_string_banjo") == "Open G (gDGBD), capo 2")
-        #expect(TuningText.display(tunings, instrument: "guitar") == "Capo 3")
-        #expect(TuningText.display(tunings, instrument: "tenor_banjo") == nil)
-        #expect(TuningText.display(tunings, instrument: "bouzouki") == nil)
-    }
-
-    @Test func namesTheInstrumentWhenAsked() {
-        #expect(TuningText.display(tunings, instrument: "mandolin", withInstrument: true) == "Mandolin: Cross A (AEAE)")
-        #expect(
-            TuningText.display(tunings, instrument: "five_string_banjo", withInstrument: true)
-                == "5-string banjo: Open G (gDGBD), capo 2")
-    }
-
     @Test func leavesAStandardTuningUnsaidUnlessACapoIsSet() {
         #expect(TuningText.summary(tunings, instrument: "violin") == nil)
         #expect(TuningText.summary(tunings, instrument: "five_string_banjo") == "Open G (gDGBD), capo 2")

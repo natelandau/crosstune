@@ -45,7 +45,7 @@ public enum CatalogFacet: Hashable, Sendable {
         case .key: "Key"
         case .tuneType: "Type"
         case .mode: "Mode"
-        case .tuning(let instrument): "\(TuningText.instrumentLabel(instrument)) tuning"
+        case .tuning(let instrument): "\(Vocabulary.instrumentLabel(instrument)) tuning"
         case .genre: "Genre"
         }
     }
@@ -78,6 +78,6 @@ public enum CatalogFacet: Hashable, Sendable {
     /// two instruments can share a tuning's name.
     public func capsuleLabel(_ value: String) -> String {
         guard let instrument else { return valueLabel(value) }
-        return "\(TuningText.instrumentLabel(instrument)): \(value)"
+        return "\(Vocabulary.instrumentLabel(instrument)): \(value)"
     }
 }

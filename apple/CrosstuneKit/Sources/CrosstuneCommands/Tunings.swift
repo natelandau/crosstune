@@ -13,6 +13,20 @@ public func tuningEntry(_ tunings: JSONObject, instrument: String) -> (tuning: S
     return (tuning, capo)
 }
 
+/// One instrument's tuning, capo, or both: "Open G (gDGBD), capo 2", "Capo 2". Nil when the
+/// tune holds neither. `withInstrument` prefixes the instrument's name, "Mandolin: GDAE".
+public func tuningDisplay(_ tunings: JSONObject, instrument: String, withInstrument: Bool = false) -> String? {
+    let entry = tuningEntry(tunings, instrument: instrument)
+    let text: String
+    switch (entry.tuning, entry.capo) {
+    case (nil, nil): return nil
+    case (let tuning?, nil): text = tuning
+    case (nil, let capo?): text = "Capo \(capo)"
+    case (let tuning?, let capo?): text = "\(tuning), capo \(capo)"
+    }
+    return withInstrument ? "\(Vocabulary.instrumentLabel(instrument)): \(text)" : text
+}
+
 /// The tunings map with one instrument's entry replaced by `tuning` and `capo`, every other key
 /// kept, and the entry dropped once both are nil. Written the way the API stores it: no null
 /// fields, and no capo on an instrument that takes none, which the API refuses whatever its
