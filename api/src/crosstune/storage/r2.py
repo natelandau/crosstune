@@ -22,6 +22,13 @@ if TYPE_CHECKING:
 # The S3 API's ceiling on one batch delete.
 MAX_KEYS_PER_DELETE = 1000
 
+# Every call holds a to_thread worker, so a stalled endpoint must fail in seconds,
+# not boto3's default of minutes. The read timeout bounds each socket read, not a
+# whole transfer, so large uploads and downloads that keep moving are unaffected.
+CONNECT_TIMEOUT_SECONDS = 5
+READ_TIMEOUT_SECONDS = 20
+TOTAL_ATTEMPTS = 3
+
 
 class ObjectDeleteError(Exception):
     """The bucket accepted a batch delete but reported some of its keys as not removed."""
@@ -36,7 +43,12 @@ def s3_client(endpoint_url: str, access_key_id: str, secret_access_key: str) -> 
         aws_secret_access_key=secret_access_key,
         # R2 signs for "auto"; other S3 servers reject any region but their own default.
         region_name="auto" if endpoint_url.endswith(".r2.cloudflarestorage.com") else "us-east-1",
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            connect_timeout=CONNECT_TIMEOUT_SECONDS,
+            read_timeout=READ_TIMEOUT_SECONDS,
+            retries={"mode": "standard", "total_max_attempts": TOTAL_ATTEMPTS},
+        ),
     )
 
 
