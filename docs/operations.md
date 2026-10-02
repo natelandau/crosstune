@@ -167,16 +167,17 @@ and fails instead in CI, where the `API` workflow always starts it.
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
   Worker config with a dry run.
-  All three are required checks, so they start on every PR and skip their jobs
-  when it touches nothing they cover. A skipped job passes a required
-  check.
+  All three start on every PR and skip their jobs when it touches nothing
+  they cover. `API` and `Web` are required checks, and a skipped job passes
+  a required check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
   package tests, builds for the iOS Simulator and macOS, and checks the
   generated Swift client and vocabulary file. It runs only when `apple/` or
   the contract changes, and no host deploys from it. It is not a required
   check, because a required check must run on every PR and macOS minutes
-  cost more. `E2E`
-  runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
+  cost more. `E2E` runs Playwright on a PR that changes `web/` or `api/`
+  beyond their unit and browser tests, test helpers, and Markdown, and on
+  demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges. It skips fork and Dependabot PRs, which cannot sign in.
 - A workflow from a fork runs only after you approve it on the PR.
