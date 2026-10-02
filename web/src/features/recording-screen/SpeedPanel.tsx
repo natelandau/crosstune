@@ -1,7 +1,7 @@
 import { Minus, Plus } from 'lucide-react'
 import { useId } from 'react'
 import { RECORDING_RANGES } from '../../api/vocabulary'
-import { SPEED_BADGE, SPEED_LABEL } from '../player/Dock'
+import { SPEED_BADGE, SPEED_LABEL } from '../player/transportCopy'
 import {
   clampSpeed,
   PANEL_ICON_BUTTON,

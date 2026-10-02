@@ -1,5 +1,5 @@
 import { Repeat } from 'lucide-react'
-import { REPEAT_LABEL } from '../player/Dock'
+import { REPEAT_LABEL } from '../player/transportCopy'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { Transport } from '../recording-screen/Transport'
 import type { LoopMark } from './useLoopMark'

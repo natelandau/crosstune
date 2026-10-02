@@ -1,7 +1,7 @@
 import { Minus, Plus } from 'lucide-react'
 import { useId, useState } from 'react'
 import { getMode } from '../../platform/mode'
-import { PITCH_LABEL, PITCH_UNAVAILABLE } from '../player/Dock'
+import { PITCH_LABEL, PITCH_UNAVAILABLE } from '../player/transportCopy'
 import { clampPitch, PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
 
 export const PITCH = PITCH_LABEL

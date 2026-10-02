@@ -10,6 +10,7 @@ import {
   unique,
   waitForReady,
 } from './helpers'
+import { PAUSE, PLAY } from '../src/features/player/transportCopy'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
@@ -49,7 +50,7 @@ test('record, add the recording to a tune, and play it back on the device', asyn
   await row.getByRole('button', { name: /^Play / }).click()
   const player = page.getByRole('region', { name: 'Player' })
   // Every recording reaches the dock from a Play tap, so it starts playing on its own.
-  await expect(player.getByRole('button', { name: 'Pause' })).toBeVisible()
+  await expect(player.getByRole('button', { name: PAUSE })).toBeVisible()
   await expect(player.getByRole('timer').first()).toHaveText(/^0:0\d$/)
 })
 
@@ -107,7 +108,7 @@ test('uploads a recording, transcodes it, and plays it back from a second device
     await row2.getByRole('button', { name: /^Download / }).click()
     await row2.getByRole('button', { name: /^Play / }).click({ timeout: 30_000 })
     const player2 = page2.getByRole('region', { name: 'Player' })
-    await expect(player2.getByRole('button', { name: 'Pause' })).toBeVisible()
+    await expect(player2.getByRole('button', { name: PAUSE })).toBeVisible()
     try {
       // The elapsed timer only advances once the decoded audio is genuinely playing.
       await expect
@@ -149,10 +150,10 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
   // Opening the recording starts it playing; pausing (whichever state it lands in) keeps the
   // playhead from drifting past the range this test is about to trim.
   const transport = screen
-    .getByRole('button', { name: 'Pause', exact: true })
-    .or(screen.getByRole('button', { name: 'Play', exact: true }))
+    .getByRole('button', { name: PAUSE, exact: true })
+    .or(screen.getByRole('button', { name: PLAY, exact: true }))
   await expect(transport).toBeVisible({ timeout: 15_000 })
-  if ((await transport.getAttribute('aria-label')) === 'Pause') await transport.click()
+  if ((await transport.getAttribute('aria-label')) === PAUSE) await transport.click()
 
   await screen.getByRole('button', { name: 'Trim', exact: true }).click()
 

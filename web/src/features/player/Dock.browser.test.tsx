@@ -30,22 +30,21 @@ import { loopRow } from '../../test/rows'
 import { PRACTICE } from '../practice/practiceCopy'
 import { DOWNLOAD_FAILED } from '../recording/format'
 import { RecordProvider, useRecord } from '../recording/useRecord'
+import { Dock, PLAY_FAILED } from './Dock'
+import { PlaybackEngine, type EngineClock } from './playbackEngine'
 import {
   CLOSE_PLAYER,
-  Dock,
   OPEN_RECORDING,
   PAUSE,
   PITCH_BADGE,
   PITCH_LABEL,
   PITCH_UNAVAILABLE,
   PLAY,
-  PLAY_FAILED,
   REPEAT_LABEL,
   REPEATING_BADGE,
   SPEED_BADGE,
   SPEED_LABEL,
-} from './Dock'
-import { PlaybackEngine, type EngineClock } from './playbackEngine'
+} from './transportCopy'
 import { usePlayer, type PlayerItem } from './usePlayer'
 
 const realClock: EngineClock = {

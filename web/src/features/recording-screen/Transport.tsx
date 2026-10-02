@@ -1,6 +1,6 @@
 import { IonButton } from '@ionic/react'
 import { Pause, Play, RotateCcw, RotateCw } from 'lucide-react'
-import { PAUSE, PLAY } from '../player/Dock'
+import { PAUSE, PLAY } from '../player/transportCopy'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 
 export const SKIP_BACK = 'Skip back 15 seconds'

@@ -13,6 +13,12 @@ export const PANEL_ICON_BUTTON =
 export const PANEL_TEXT_BUTTON =
   'type-body min-h-11 rounded-full px-4 text-(--ion-color-primary) disabled:opacity-40'
 
+export const ZOOM_IN = 'Zoom in'
+export const ZOOM_OUT = 'Zoom out'
+
+/** How much one zoom step scales the view by. */
+export const ZOOM_STEP = 2
+
 /** One step of speed, in percent. */
 export const SPEED_STEP = 5
 

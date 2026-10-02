@@ -17,11 +17,11 @@ import type { LocalRecording } from '../../db/types'
 import { CANCEL, useConfirm } from '../../ui/Confirm'
 import { InlineError } from '../../ui/InlineError'
 import { isControl, isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import { PAUSE } from '../player/Dock'
+import { PAUSE } from '../player/transportCopy'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { TICK_MS } from '../player/playbackEngine'
 import { formatDuration, formatPreciseDuration } from '../recording/format'
-import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON } from './panel'
+import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from './panel'
 import type { ShownPeaks } from './recordingRange'
 import {
   detailWindow,
@@ -43,8 +43,6 @@ export const PLAY_SELECTION = 'Play selection'
 export const PREVIEW_END = 'Preview end'
 export const GO_TO_START = 'Go to start'
 export const GO_TO_END = 'Go to end'
-export const ZOOM_IN = 'Zoom in'
-export const ZOOM_OUT = 'Zoom out'
 export const LENGTH_LABEL = 'Length'
 export const OVERVIEW_LABEL = 'Whole recording'
 export const DETAIL_LABEL = 'Zoomed in'
@@ -58,7 +56,6 @@ export function TRIM_CONFIRM_TITLE(lengthMs: number): string {
 }
 
 const PREVIEW_MS = 3000
-const ZOOM_STEP = 2
 /**
  * How far short of the end handle playback may stop. The engine reports its position once a
  * tick, so stopping within half a tick of the handle lands nearer it than waiting a whole one.

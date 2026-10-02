@@ -15,9 +15,14 @@ import type { LocalRecordingLoop } from '../../db/types'
 import { isTextEntry, isTopOverlay } from '../../ui/useShortcut'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration } from '../recording/format'
-import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON } from '../recording-screen/panel'
+import {
+  PANEL_ICON_BUTTON,
+  PANEL_TEXT_BUTTON,
+  ZOOM_IN,
+  ZOOM_OUT,
+  ZOOM_STEP,
+} from '../recording-screen/panel'
 import { trimmedLengthMs, type ShownPeaks } from '../recording-screen/recordingRange'
-import { ZOOM_IN, ZOOM_OUT } from '../recording-screen/TrimView'
 import { useZoomGestures } from '../recording-screen/useZoomGestures'
 import type { RecordingView } from '../recordings/useRecordings'
 import { DetailWaveform } from './DetailWaveform'
@@ -45,7 +50,6 @@ export const FIT = 'Fit'
 export const LOOP_NOT_SAVED = 'The loop could not be saved.'
 
 /** How far one press of a zoom button or key zooms. */
-const ZOOM_STEP = 2
 
 const sameSpan = (row: LocalRecordingLoop, span: Span) =>
   row.start_ms === span.startMs && row.end_ms === span.endMs
