@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { addLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT, RECORDING_NOT_FOUND } from '../../commands/messages'
 import { useDb } from '../../db/DbProvider'
@@ -18,6 +18,7 @@ import {
 import { LOOP_NOT_SAVED } from './PracticeLanes'
 import { LOOP_CREATED, LOOP_START_MARKED } from './PracticeTransport'
 import type { LoopPlayback } from './useLoopPlayback'
+import { useLatest } from '../../ui/useLatest'
 
 /** A second tap on A B sooner than this after the first is taken for a slip and cancels. */
 export const MARK_DOUBLE_TAP_MS = 500
@@ -75,9 +76,15 @@ export function useLoopMark({
     setPhase(null)
   }
 
-  const latest = useRef({ phase, bounds, create, rows, playback, announce, onError, recording })
-  useLayoutEffect(() => {
-    latest.current = { phase, bounds, create, rows, playback, announce, onError, recording }
+  const latestRef = useLatest({
+    phase,
+    bounds,
+    create,
+    rows,
+    playback,
+    announce,
+    onError,
+    recording,
   })
 
   const marking = phase?.kind === 'marking'
@@ -89,27 +96,30 @@ export function useLoopMark({
   }, [engine, marking])
 
   const here = useCallback(
-    () => latest.current.recording.trim_start_ms + engine.getState().positionMs,
-    [engine],
+    () => latestRef.current.recording.trim_start_ms + engine.getState().positionMs,
+    [engine, latestRef],
   )
 
-  const report = useCallback((error: unknown) => {
-    if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
-    latest.current.onError(
-      error instanceof Error && error.message === LOOP_LIMIT ? LOOP_LIMIT : LOOP_NOT_SAVED,
-    )
-  }, [])
+  const report = useCallback(
+    (error: unknown) => {
+      if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
+      latestRef.current.onError(
+        error instanceof Error && error.message === LOOP_LIMIT ? LOOP_LIMIT : LOOP_NOT_SAVED,
+      )
+    },
+    [latestRef],
+  )
 
   const begin = useCallback(() => {
-    const { create, announce } = latest.current
+    const { create, announce } = latestRef.current
     if (!create.allowed || engine.getState().lengthMs === 0) return
     setPhase({ kind: 'marking', startMs: here(), at: performance.now() })
     announce(LOOP_START_MARKED)
-  }, [engine, here])
+  }, [engine, here, latestRef])
 
   const finish = useCallback(
     (startMs: number) => {
-      const { bounds, playback, announce, recording } = latest.current
+      const { bounds, playback, announce, recording } = latestRef.current
       const span = spanFromDrag(startMs, Math.max(here(), startMs + MIN_LOOP_MS), bounds)
       setPhase({ kind: 'saving', span, id: null })
       addLoop(db, recording.id, spanFields(span)).then(
@@ -132,11 +142,11 @@ export function useLoopMark({
         },
       )
     },
-    [db, engine, here, report],
+    [db, engine, here, report, latestRef],
   )
 
   const tap = useCallback(() => {
-    const { phase } = latest.current
+    const { phase } = latestRef.current
     if (phase?.kind !== 'marking') {
       begin()
       return
@@ -146,11 +156,11 @@ export function useLoopMark({
       return
     }
     finish(phase.startMs)
-  }, [begin, finish])
+  }, [begin, finish, latestRef])
 
   const moveEdge = useCallback(
     (edge: 'start' | 'end') => {
-      const { rows, playback, bounds } = latest.current
+      const { rows, playback, bounds } = latestRef.current
       const row = rows.find((l) => l.id === playback.selectedId)
       if (!row) return false
       const span = resizeSpan(rowSpan(row), edge, here(), bounds)
@@ -165,7 +175,7 @@ export function useLoopMark({
       if (patch) updateLoop(db, row.id, patch).catch(report)
       return true
     },
-    [db, here, report],
+    [db, here, report, latestRef],
   )
 
   const markStart = useCallback(() => {
@@ -173,16 +183,16 @@ export function useLoopMark({
   }, [begin, moveEdge])
 
   const markEnd = useCallback(() => {
-    const { phase } = latest.current
+    const { phase } = latestRef.current
     if (phase?.kind === 'marking') finish(phase.startMs)
     else moveEdge('end')
-  }, [finish, moveEdge])
+  }, [finish, moveEdge, latestRef])
 
   const cancel = useCallback(() => {
-    if (latest.current.phase?.kind !== 'marking') return false
+    if (latestRef.current.phase?.kind !== 'marking') return false
     setPhase(null)
     return true
-  }, [])
+  }, [latestRef])
 
   const band =
     phase?.kind === 'marking'

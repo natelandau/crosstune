@@ -1,5 +1,5 @@
 import { IonModal } from '@ionic/react'
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { visibleMain } from '../../ui/useShortcut'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { RecordingScreen } from './RecordingScreen'
@@ -8,6 +8,7 @@ import {
   type HeldSettings,
   type RecordingScreen as Screen,
 } from './useRecordingScreen'
+import { useLatest } from '../../ui/useLatest'
 
 /**
  * Holds the one recording screen, a full-screen modal over whatever tab is open, so every
@@ -49,13 +50,10 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
     setShown({ ...shown, open: false })
   }
 
-  const latest = useRef(shown)
-  useLayoutEffect(() => {
-    latest.current = shown
-  })
+  const latestRef = useLatest(shown)
   const dismissed = () => {
     // A screen opened again while this one was still leaving belongs to that newer open.
-    if (latest.current?.open) return
+    if (latestRef.current?.open) return
     setShown(null)
     const target = opener.current?.isConnected ? opener.current : visibleMain()
     target?.focus()

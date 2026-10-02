@@ -2,7 +2,6 @@ import { IonButton, IonButtons, IonContent, IonHeader, IonTitle, IonToolbar } fr
 import { ArrowLeftToLine, ArrowRightToLine, Pause, Play, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   useEffect,
-  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -34,6 +33,7 @@ import {
 import { END_HANDLE, START_HANDLE, TrimStrip } from './TrimStrip'
 import { useEntryFocus } from './useEntryFocus'
 import { useZoomGestures } from './useZoomGestures'
+import { useLatest } from '../../ui/useLatest'
 
 export const TRIM = 'Trim'
 export const SAVE_TRIM = 'Save'
@@ -118,10 +118,7 @@ export function TrimView({
       live.current = false
     }
   }, [])
-  const stale = useRef(trimmedElsewhere)
-  useLayoutEffect(() => {
-    stale.current = trimmedElsewhere
-  })
+  const staleRef = useLatest(trimmedElsewhere)
   useEffect(() => {
     if (trimmedElsewhere && !writing.current) onTrimmedElsewhere()
   }, [trimmedElsewhere, onTrimmedElsewhere])
@@ -132,10 +129,7 @@ export function TrimView({
   // Play selection and Preview end run up to the end handle and stop on it. The check reads
   // the handle as it stands, so moving it while playing moves where playback stops.
   const stopAtEnd = useRef(false)
-  const latest = useRef(trim)
-  useLayoutEffect(() => {
-    latest.current = trim
-  })
+  const latestRef = useLatest(trim)
   useEffect(() => {
     // The engine rewinds to the range start when it reaches the range end, even paused, so
     // a stop there parks a millisecond short of it.
@@ -143,7 +137,7 @@ export function TrimView({
     let wasPlaying = engine.getState().playing
     let awaitingRewind = false
     const unsubscribe = engine.subscribe((next) => {
-      const endMs = latest.current.end - low
+      const endMs = latestRef.current.end - low
       if (awaitingRewind) {
         awaitingRewind = false
         if (!next.playing && next.positionMs === 0) engine.seek(park(endMs))
@@ -168,7 +162,7 @@ export function TrimView({
       stopAtEnd.current = false
       unsubscribe()
     }
-  }, [engine, low])
+  }, [engine, low, latestRef])
 
   const goTo = (ms: number) =>
     engine.seek(Math.min(ms - low, Math.max(0, engine.getState().lengthMs - 1)))
@@ -180,11 +174,8 @@ export function TrimView({
   const setAtPlayhead = (handle: TrimHandle) =>
     dispatch({ type: 'setAtPlayhead', handle, ms: low + engine.getState().positionMs })
 
-  const playSelection = () => playFrom(latest.current.start)
-  const keys = useRef({ setAtPlayhead, playSelection })
-  useLayoutEffect(() => {
-    keys.current = { setAtPlayhead, playSelection }
-  })
+  const playSelection = () => playFrom(latestRef.current.start)
+  const keysRef = useLatest({ setAtPlayhead, playSelection })
   // Space is Play selection, so it stops on the end handle like the button. The arrows belong
   // to a focused handle, which nudges it; with none focused they do nothing here.
   useEffect(() => {
@@ -197,14 +188,14 @@ export function TrimView({
       event.preventDefault()
       if (event.key === ' ') {
         if (engine.getState().playing) engine.pause()
-        else keys.current.playSelection()
+        else keysRef.current.playSelection()
       } else {
-        keys.current.setAtPlayhead(event.key === '[' ? 'start' : 'end')
+        keysRef.current.setAtPlayhead(event.key === '[' ? 'start' : 'end')
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [engine, modal])
+  }, [engine, modal, keysRef])
 
   const detailBox = useRef<HTMLDivElement>(null)
   const beforePinch = useRef({ positionMs: 0, start: trim.start, end: trim.end })
@@ -215,8 +206,8 @@ export function TrimView({
       onFirstPointer: () => {
         beforePinch.current = {
           positionMs: engine.getState().positionMs,
-          start: latest.current.start,
-          end: latest.current.end,
+          start: latestRef.current.start,
+          end: latestRef.current.end,
         }
       },
       onPinchStart: () => {
@@ -235,7 +226,7 @@ export function TrimView({
       action: TRIM_CONFIRM_ACTION,
     })
     // The view can have given way while the question was up.
-    if (!answer || !live.current || stale.current) return
+    if (!answer || !live.current || staleRef.current) return
     writing.current = true
     setSaving(true)
     setError(null)

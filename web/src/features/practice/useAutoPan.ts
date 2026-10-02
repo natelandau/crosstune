@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { LaneView } from './practiceZoom'
+import { useLatest } from '../../ui/useLatest'
 
 /** How near either end of the zoomed view a drag starts panning it. */
 export const AUTO_PAN_ZONE_PX = 24
@@ -21,18 +22,15 @@ export function useAutoPan({
   onPan: (deltaMs: number) => void
   follow: () => void
 }) {
-  const latest = useRef({ view, onPan, follow })
-  useLayoutEffect(() => {
-    latest.current = { view, onPan, follow }
-  })
+  const latestRef = useLatest({ view, onPan, follow })
   const frame = useRef(0)
   const pointerX = useRef(0)
   const panned = useRef(false)
   useLayoutEffect(() => {
     if (!panned.current) return
     panned.current = false
-    latest.current.follow()
-  }, [view.startMs, view.pxPerS])
+    latestRef.current.follow()
+  }, [view.startMs, view.pxPerS, latestRef])
 
   // Stable for the life of the drag surface, so an effect can stop it without re-running.
   const controls = useMemo(() => {
@@ -43,7 +41,7 @@ export function useAutoPan({
     }
     const depth = () => {
       const x = pointerX.current
-      const width = latest.current.view.widthPx
+      const width = latestRef.current.view.widthPx
       if (x < AUTO_PAN_ZONE_PX) return -(AUTO_PAN_ZONE_PX - Math.max(0, x))
       if (x > width - AUTO_PAN_ZONE_PX) return AUTO_PAN_ZONE_PX - Math.max(0, width - x)
       return 0
@@ -52,7 +50,7 @@ export function useAutoPan({
       frame.current = 0
       const by = depth()
       if (by === 0) return
-      const { view, onPan } = latest.current
+      const { view, onPan } = latestRef.current
       panned.current = true
       onPan(((by / AUTO_PAN_ZONE_PX) * AUTO_PAN_MAX_PX * 1000) / view.pxPerS)
       // An accepted pan has committed by the next frame; one the ends refuse renders nothing,
@@ -70,7 +68,7 @@ export function useAutoPan({
       },
       stop,
     }
-  }, [])
+  }, [latestRef])
   useEffect(() => controls.stop, [controls])
   return controls
 }

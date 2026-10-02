@@ -46,6 +46,7 @@ import {
 } from './practiceZoom'
 import type { Draft } from './useLoopGestures'
 import type { LoopPlayback } from './useLoopPlayback'
+import { useLatest } from '../../ui/useLatest'
 
 export const FIT = 'Fit'
 export const LOOP_NOT_SAVED = 'The loop could not be saved.'
@@ -180,20 +181,17 @@ export function PracticeLanes({
     }
   }
 
-  const latest = useRef({ current, frame, positionMs, drafts })
-  useLayoutEffect(() => {
-    latest.current = { current, frame, positionMs, drafts }
-  })
+  const latestRef = useLatest({ current, frame, positionMs, drafts })
   // Each change builds on the zoom as it now stands, so several in one frame (the moves of a
   // fast drag) add up rather than each starting from the last render.
   const update = (change: (zoom: ZoomState, frame: ZoomFrame) => ZoomState) => {
-    const { frame } = latest.current
+    const { frame } = latestRef.current
     if (frame.widthPx <= 0 || frame.lengthMs <= 0) return
     setZoom((zoom) => (zoom ? change(clampZoom(zoom, frame), frame) : zoom))
   }
   const zoomAround = (factor: number, anchorMs?: number) =>
     update((zoom, frame) => {
-      const { positionMs } = latest.current
+      const { positionMs } = latestRef.current
       const { startMs, endMs } = visibleSpan(zoom, frame.widthPx)
       const anchor =
         anchorMs ?? (positionMs >= startMs && positionMs <= endMs ? positionMs : zoom.centerMs)
@@ -252,14 +250,14 @@ export function PracticeLanes({
   const pinches = useRef(0)
   const pinch = useZoomGestures(zoomArea, (action) => zoomAround(action.factor, action.centerMs), {
     onFirstPointer: () => {
-      beforePinch.current = latest.current.current
+      beforePinch.current = latestRef.current.current
     },
     onPinchStart: () => {
       if (beforePinch.current) setZoom(beforePinch.current)
       pinches.current += 1
     },
     msAt: (clientX) => {
-      const { current, frame } = latest.current
+      const { current, frame } = latestRef.current
       const left = zoomArea.current?.getBoundingClientRect().left ?? 0
       if (!current) return 0
       return (
@@ -349,7 +347,7 @@ export function PracticeLanes({
         // row, so its draft would otherwise wait forever. A newer draft is left alone.
         const stored = await db.recording_loops.get(id)
         if (stored && !stored.deleted_at && sameSpan(stored, span)) return
-        const draft = latest.current.drafts[id]?.span
+        const draft = latestRef.current.drafts[id]?.span
         if (draft && draft.startMs === span.startMs && draft.endMs === span.endMs) letGo()
       })
       .catch((error: unknown) => {

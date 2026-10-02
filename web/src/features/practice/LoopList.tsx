@@ -30,6 +30,7 @@ import {
 import { LOOP_NOT_SAVED } from './PracticeLanes'
 import type { LoopPlayback } from './useLoopPlayback'
 import { LOOP_NAME } from './practiceCopy'
+import { useLatest } from '../../ui/useLatest'
 
 export const NEW_LOOP = 'New loop'
 export const LOOP_DELETED = 'Loop deleted'
@@ -176,13 +177,10 @@ export function LoopList({
       .catch(report)
   }
 
-  const latest = useRef({ rows, playback, renaming, remove })
-  useLayoutEffect(() => {
-    latest.current = { rows, playback, renaming, remove }
-  })
+  const latestRef = useLatest({ rows, playback, renaming, remove })
   useLayoutEffect(() => {
     cancelRef.current = () => {
-      const { renaming } = latest.current
+      const { renaming } = latestRef.current
       if (renaming === null) return false
       setRenaming(null)
       focusTarget.current = rowId(renaming)
@@ -204,7 +202,7 @@ export function LoopList({
       if (key !== 'Enter' && key !== 'Delete' && key !== 'Backspace') return
       if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return
       if (isTextEntry(event.target) || !isTopOverlay(modal.current)) return
-      const { rows, playback, renaming, remove } = latest.current
+      const { rows, playback, renaming, remove } = latestRef.current
       const row = rows.find((l) => l.id === playback.selectedId)
       if (!row || renaming !== null) return
       if (key === 'Enter') {
@@ -219,7 +217,7 @@ export function LoopList({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal])
+  }, [modal, latestRef])
 
   const usedLabels = rows.map((l) => l.label?.trim()).filter((l): l is string => !!l)
   // Only a recording too short to hold a loop has no reason to give, and then New loop has no use.

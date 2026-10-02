@@ -1,10 +1,4 @@
-import {
-  useLayoutEffect,
-  useRef,
-  type KeyboardEvent,
-  type PointerEvent,
-  type RefObject,
-} from 'react'
+import { useRef, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
 import { DRAG_THRESHOLD_PX, resizeSpan, snapMs, type Bounds, type Span } from './loopModel'
@@ -12,6 +6,7 @@ import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 import type { Draft } from './useLoopGestures'
 import { capturePointer } from '../../platform/pointer'
+import { useLatest } from '../../ui/useLatest'
 
 export const LOOP_START = 'Loop start'
 export const LOOP_END = 'Loop end'
@@ -70,10 +65,7 @@ export function LoopHandle({
   /** Counts pinches; a drag that gave way to one puts the loop back and writes nothing. */
   pinches: RefObject<number>
 }) {
-  const latest = useRef(span)
-  useLayoutEffect(() => {
-    latest.current = span
-  })
+  const latestRef = useLatest(span)
   const press = useRef<{
     pointerId: number
     startX: number
@@ -98,7 +90,7 @@ export function LoopHandle({
     const raw = msAtX(view, localX(clientX))
     const to = pressed.alt ? raw : snapMs(raw, snapTargets, 1000 / view.pxPerS)
     const next = resizeSpan(pressed.span, edge, Math.round(to), bounds)
-    latest.current = next
+    latestRef.current = next
     onDraft({ id, ...next })
     autoPan.track(localX(clientX))
   }
@@ -114,10 +106,10 @@ export function LoopHandle({
     const steps = KEY_STEPS[event.key]
     if (!steps) return
     event.preventDefault()
-    const current = latest.current
+    const current = latestRef.current
     const at = edge === 'start' ? current.startMs : current.endMs
     const next = resizeSpan(current, edge, at + steps[event.shiftKey ? 1 : 0], bounds)
-    latest.current = next
+    latestRef.current = next
     nudged.current = true
     onDraft({ id, ...next })
     onReveal(edge === 'start' ? next.startMs : next.endMs)
@@ -125,7 +117,7 @@ export function LoopHandle({
   const commitNudge = () => {
     if (!nudged.current) return
     nudged.current = false
-    onCommit({ id, ...latest.current })
+    onCommit({ id, ...latestRef.current })
   }
   const onKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
     if (KEY_STEPS[event.key]) commitNudge()
@@ -145,7 +137,7 @@ export function LoopHandle({
     press.current = null
     autoPan.stop()
     if (!pressed.moved) return
-    if (pinches.current === pressed.pinch) onCommit({ id, ...latest.current })
+    if (pinches.current === pressed.pinch) onCommit({ id, ...latestRef.current })
     else onDraft(null)
   }
 
@@ -177,7 +169,7 @@ export function LoopHandle({
         press.current = {
           pointerId: event.pointerId,
           startX: event.clientX,
-          span: latest.current,
+          span: latestRef.current,
           moved: false,
           lastX: event.clientX,
           alt: event.altKey,

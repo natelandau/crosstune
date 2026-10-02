@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { LocalRecordingLoop } from '../../db/types'
 import type { PlaybackEngine, PlaybackLoop } from '../player/playbackEngine'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { loopName, rowSpan, type Span } from './loopModel'
+import { useLatest } from '../../ui/useLatest'
 
 /**
  * A span played for loop `id` ahead of its row. `base` is the row's span when the hold was
@@ -89,20 +90,17 @@ const sameRange = (a: Readonly<PlaybackLoop> | null, b: PlaybackLoop) =>
 export function useLoopFollow(loops: LocalRecordingLoop[] | undefined, offsets: LoopOffsets): void {
   const engine = usePlaybackEngine()
   const holds = loopHolds(engine)
-  const latest = useRef({ loops, offsets })
-  useLayoutEffect(() => {
-    latest.current = { loops, offsets }
-  })
+  const latestRef = useLatest({ loops, offsets })
 
   /** Hands the engine the chosen loop's range when what it holds differs. */
   const sync = useCallback(() => {
     const id = engine.getState().loop?.id
     if (!id) return
-    const row = latest.current.loops?.find((l) => l.id === id)
+    const row = latestRef.current.loops?.find((l) => l.id === id)
     if (!row) return
-    const range = loopRange(row, holds.get(), latest.current.offsets)
+    const range = loopRange(row, holds.get(), latestRef.current.offsets)
     if (!sameRange(engine.loopRange, range)) engine.setLoop(range)
-  }, [engine, holds])
+  }, [engine, holds, latestRef])
 
   // A `keepLoop` reload suspends the range whenever it lands, which can be after the file row
   // that describes the new blob has already arrived.

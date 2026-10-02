@@ -51,6 +51,7 @@ import {
   SPEED_BADGE,
   SPEED_LABEL,
 } from './transportCopy'
+import { useLatest } from '../../ui/useLatest'
 
 export const PLAY_FAILED = "Couldn't play"
 
@@ -94,10 +95,7 @@ function RecordingBody({
   // object even though its content did not change, so the effect below keys on identity
   // (the recording and whether a blob exists) and reads the current blob through this ref,
   // kept in sync after every render rather than during it.
-  const blobRef = useRef(blob)
-  useEffect(() => {
-    blobRef.current = blob
-  })
+  const blobRef = useLatest(blob)
   const hasBlob = !!blob
   // Minted and revoked in the same effect (not useMemo, which StrictMode can
   // double-invoke without a matching cleanup) so every URL is revoked exactly once. Keyed on
@@ -115,7 +113,7 @@ function RecordingBody({
       URL.revokeObjectURL(url)
       setSrc(null)
     }
-  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms])
+  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms, blobRef])
 
   // The exact fields playbackWindow reads, named here so adding one it reads without adding
   // it here is a visible omission rather than a silently missed dependency.

@@ -45,6 +45,7 @@ import { SKIP_MS, Transport } from './Transport'
 import { TRIM, TrimView } from './TrimView'
 import { useHeldSettings, useRecordingScreen } from './useRecordingScreen'
 import { Waveform } from './Waveform'
+import { useLatest } from '../../ui/useLatest'
 
 export const CLOSE_RECORDING = 'Close'
 export const TRIM_BUSY = 'Trimming…'
@@ -206,10 +207,7 @@ function useLeaveView(
   leave: () => void,
   escapeRef?: RefObject<(() => boolean) | null>,
 ): void {
-  const latest = useRef(leave)
-  useLayoutEffect(() => {
-    latest.current = leave
-  })
+  const latestRef = useLatest(leave)
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent) => {
@@ -219,12 +217,12 @@ function useLeaveView(
       event.preventDefault()
       event.stopPropagation()
       if (escapeRef?.current?.()) return
-      latest.current()
+      latestRef.current()
     }
     const onBack = (event: Event) => {
       if (!isTopOverlay(modal.current)) return
       const { detail } = event as CustomEvent<BackButtonDetail>
-      detail.register(VIEW_BACK_PRIORITY, () => latest.current())
+      detail.register(VIEW_BACK_PRIORITY, () => latestRef.current())
     }
     window.addEventListener('keydown', onKey, true)
     document.addEventListener('ionBackButton', onBack)
@@ -232,7 +230,7 @@ function useLeaveView(
       window.removeEventListener('keydown', onKey, true)
       document.removeEventListener('ionBackButton', onBack)
     }
-  }, [modal, enabled, escapeRef])
+  }, [modal, enabled, escapeRef, latestRef])
 }
 
 type View = 'main' | 'trim' | 'practice'
@@ -282,20 +280,20 @@ function Loaded({
     recordingScreen.hold(recordingId, { speedPercent: 100, pitchCents: 0, shown: false })
     return () => recordingScreen.hold(recordingId, null)
   }, [recordingScreen, recordingId, trimming])
-  const settings = useRef({ speed: recording.speed_percent, pitch: recording.pitch_cents })
-  useLayoutEffect(() => {
-    settings.current = { speed: recording.speed_percent, pitch: recording.pitch_cents }
-  })
+  const settingsRef = useLatest({ speed: recording.speed_percent, pitch: recording.pitch_cents })
   useEffect(() => {
     if (!trimming) return
     engine.setSpeed(100)
     engine.setPitch(0)
     // Leaving the trim view, or the whole screen from inside it, gives back what was playing.
     return () => {
-      engine.setSpeed(settings.current.speed)
-      engine.setPitch(settings.current.pitch)
+      // The settings as they stand when trimming ends, not as they were when it began.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const { speed, pitch } = settingsRef.current
+      engine.setSpeed(speed)
+      engine.setPitch(pitch)
     }
-  }, [trimming, engine])
+  }, [trimming, engine, settingsRef])
 
   const peaksRev = recording.peaks_rev
   const filePeaks = file?.peaks ?? null

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { useLatest } from '../../ui/useLatest'
 
 /**
  * Writes `value` once it has held still for `delayMs`, and on unmount if it is still waiting,
@@ -6,10 +7,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
  * it starts with is never written.
  */
 export function useSettledWrite<T>(value: T, write: (value: T) => void, delayMs = 1000): void {
-  const writeRef = useRef(write)
-  useLayoutEffect(() => {
-    writeRef.current = write
-  })
+  const writeRef = useLatest(write)
   const written = useRef(value)
   const waiting = useRef<{ value: T } | null>(null)
 
@@ -29,7 +27,7 @@ export function useSettledWrite<T>(value: T, write: (value: T) => void, delayMs 
       written.current = next.value
       writeRef.current(next.value)
     }
-  }, [value, delayMs])
+  }, [value, delayMs, writeRef])
 
   useEffect(
     () => () => {
@@ -39,6 +37,6 @@ export function useSettledWrite<T>(value: T, write: (value: T) => void, delayMs 
       written.current = next.value
       writeRef.current(next.value)
     },
-    [],
+    [writeRef],
   )
 }
