@@ -1,11 +1,4 @@
-import {
-  IonButton,
-  IonList,
-  IonRefresher,
-  IonRefresherContent,
-  useIonRouter,
-  type RefresherCustomEvent,
-} from '@ionic/react'
+import { IonButton, IonList, useIonRouter } from '@ionic/react'
 import {
   Archive,
   ArchiveRestore,
@@ -19,8 +12,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../api/vocabulary'
 import { setArchived } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
-import { usePointer } from '../../platform/pointer'
-import { useSyncEngine } from '../../sync/SyncProvider'
+import { SyncRefresher } from '../../sync/SyncRefresher'
 import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
@@ -80,9 +72,7 @@ export function CatalogPage() {
   const filters = storedFilters ?? DEFAULT_FILTERS
   const instruments = loadedInstruments ?? NO_INSTRUMENTS
   const db = useDb()
-  const engine = useSyncEngine()
   const router = useIonRouter()
-  const pointer = usePointer()
   const { error, run } = useAction()
   const [query, setQuery] = useState(readSearchQuery)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -177,9 +167,6 @@ export function CatalogPage() {
     else if (action.kind === 'create') createFromSearch(action.title)
     else searchRef.current?.blur()
   }
-  const refresh = (event: RefresherCustomEvent) => {
-    void engine.sync().finally(() => event.detail.complete())
-  }
   // A sheet owns the screen while it is up, so nothing behind it, not even a long press, opens
   // the mode under it.
   const sheetOwnsScreen = sheetOpen || form !== null
@@ -246,13 +233,7 @@ export function CatalogPage() {
           </IonButton>
         )
       }
-      refresher={
-        pointer === 'touch' ? (
-          <IonRefresher slot="fixed" onIonRefresh={refresh}>
-            <IonRefresherContent />
-          </IonRefresher>
-        ) : null
-      }
+      refresher={<SyncRefresher />}
       footer={
         active ? (
           <SelectionFooter selection={selection} actions={bulk.actions} more={bulk.more} />

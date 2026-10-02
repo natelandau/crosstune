@@ -1,18 +1,10 @@
-import {
-  IonButton,
-  IonList,
-  IonRefresher,
-  IonRefresherContent,
-  useIonRouter,
-  type RefresherCustomEvent,
-} from '@ionic/react'
+import { IonButton, IonList, useIonRouter } from '@ionic/react'
 import { ListMusic, Plus, SquarePen, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { deleteList } from '../../commands/lists'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
-import { usePointer } from '../../platform/pointer'
-import { useSyncEngine } from '../../sync/SyncProvider'
+import { SyncRefresher } from '../../sync/SyncRefresher'
 import { DELETE, useConfirm } from '../../ui/Confirm'
 import { EmptyState } from '../../ui/EmptyState'
 import { InlineError } from '../../ui/InlineError'
@@ -30,9 +22,7 @@ export const NO_LISTS_TITLE = 'No lists yet'
 export function ListsPage() {
   const lists = useLists()
   const db = useDb()
-  const engine = useSyncEngine()
   const router = useIonRouter()
-  const pointer = usePointer()
   const confirm = useConfirm()
   const { error, run } = useAction()
   const [naming, setNaming] = useState<ListNameTarget | null>(null)
@@ -48,10 +38,6 @@ export function ListsPage() {
     if (ok) run(() => deleteList(db, list.id))
   }
 
-  const refresh = (event: RefresherCustomEvent) => {
-    void engine.sync().finally(() => event.detail.complete())
-  }
-
   return (
     <Screen
       title="Lists"
@@ -61,13 +47,7 @@ export function ListsPage() {
           <Plus aria-hidden="true" className="size-7" />
         </IonButton>
       }
-      refresher={
-        pointer === 'touch' ? (
-          <IonRefresher slot="fixed" onIonRefresh={refresh}>
-            <IonRefresherContent />
-          </IonRefresher>
-        ) : null
-      }
+      refresher={<SyncRefresher />}
     >
       <h1 className="sr-only">Lists</h1>
       {lists ? (

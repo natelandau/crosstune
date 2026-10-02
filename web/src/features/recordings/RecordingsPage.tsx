@@ -1,13 +1,7 @@
-import {
-  IonRefresher,
-  IonRefresherContent,
-  useIonRouter,
-  type RefresherCustomEvent,
-} from '@ionic/react'
+import { useIonRouter } from '@ionic/react'
 import { AudioLines } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
-import { usePointer } from '../../platform/pointer'
-import { useSyncEngine } from '../../sync/SyncProvider'
+import { SyncRefresher } from '../../sync/SyncRefresher'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
@@ -52,9 +46,7 @@ export function RecordingsPage() {
   // One Screen whether or not the data has loaded: swapping the IonPage element after the
   // router outlet has mounted it would leave the outlet holding a detached page.
   const ready = loadedViews !== undefined
-  const engine = useSyncEngine()
   const router = useIonRouter()
-  const pointer = usePointer()
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const { error, setUploadError, retry, actionsFor } = useRecordingActions({
     onAddToTune: setFiling,
@@ -64,23 +56,13 @@ export function RecordingsPage() {
 
   const groups = useMemo(() => (loadedViews ? groupByTune(loadedViews) : []), [loadedViews])
 
-  const refresh = (event: RefresherCustomEvent) => {
-    void engine.sync().finally(() => event.detail.complete())
-  }
-
   return (
     <Screen
       title="Recordings"
       level="top"
       grouped
       end={<UploadButton tuneId={null} onError={setUploadError} />}
-      refresher={
-        pointer === 'touch' ? (
-          <IonRefresher slot="fixed" onIonRefresh={refresh}>
-            <IonRefresherContent />
-          </IonRefresher>
-        ) : null
-      }
+      refresher={<SyncRefresher />}
     >
       <h1 className="sr-only">Recordings</h1>
       <Storage />
