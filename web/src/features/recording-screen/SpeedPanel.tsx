@@ -2,7 +2,14 @@ import { Minus, Plus } from 'lucide-react'
 import { useId } from 'react'
 import { RECORDING_RANGES } from '../../api/vocabulary'
 import { SPEED_BADGE, SPEED_LABEL } from '../player/Dock'
-import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET, SPEED_STEP, stepSpeed } from './panel'
+import {
+  clampSpeed,
+  PANEL_ICON_BUTTON,
+  PANEL_TEXT_BUTTON,
+  RESET,
+  SPEED_STEP,
+  stepSpeed,
+} from './panel'
 
 export const SPEED = SPEED_LABEL
 export const SLOWER = 'Slower'
@@ -10,11 +17,6 @@ export const FASTER = 'Faster'
 
 const PRESETS = [50, 75, 100] as const
 const DEFAULT_SPEED = 100
-
-function clampSpeed(percent: number): number {
-  const { min, max } = RECORDING_RANGES.speed_percent
-  return Math.min(max, Math.max(min, percent))
-}
 
 /** Playback speed with pitch held, applied live by whoever passes `onChange`. */
 export function SpeedPanel({

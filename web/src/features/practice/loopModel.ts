@@ -1,5 +1,6 @@
 import { LOOP_LIMIT } from '../../commands/messages'
 import { formatDuration } from '../recording/format'
+import { clamp } from '../../math'
 
 export const MIN_LOOP_MS = 500
 export const MAX_LOOPS = 100
@@ -10,8 +11,6 @@ export const DRAG_THRESHOLD_PX = 8
 export type Span = { startMs: number; endMs: number }
 export type Bounds = Span
 export type PlacedLoop = Span & { id: string; color: number }
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 /** The span between an anchor and a pointer, widened to the minimum length and held inside the bounds. */
 export function spanFromDrag(anchorMs: number, pointerMs: number, bounds: Bounds): Span {

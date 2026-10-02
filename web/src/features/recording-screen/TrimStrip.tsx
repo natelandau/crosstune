@@ -13,6 +13,7 @@ import { slicePeaks } from '../waveform/peaks'
 import type { ShownPeaks } from './recordingRange'
 import type { TrimAction, TrimHandle, TrimState } from './trimModel'
 import { Waveform } from './Waveform'
+import { clamp } from '../../math'
 
 export const START_HANDLE = 'Start'
 export const END_HANDLE = 'End'
@@ -31,10 +32,6 @@ const KEY_STEPS: Record<string, [number, number]> = {
   ArrowUp: [NUDGE_MS, NUDGE_LARGE_MS],
   PageDown: [-NUDGE_LARGE_MS, -NUDGE_LARGE_MS],
   PageUp: [NUDGE_LARGE_MS, NUDGE_LARGE_MS],
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
 }
 
 /**

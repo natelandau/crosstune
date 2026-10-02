@@ -1,6 +1,6 @@
 export const BAR_WIDTH = 3
 export const BAR_GAP = 2
-const MIN_BAR = 2
+export const MIN_BAR = 2
 const GAIN = 2.5
 
 export interface Bar {

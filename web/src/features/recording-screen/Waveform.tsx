@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
-import { BAR_GAP, BAR_WIDTH } from '../recording/waveformBars'
+import { BAR_GAP, BAR_WIDTH, MIN_BAR } from '../recording/waveformBars'
 import { barLevels, type Peaks } from '../waveform/peaks'
 
 export const SEEK_LABEL = 'Position'
 
 const KEY_STEP_MS = 5000
-const MIN_BAR = 2
 const STEP = BAR_WIDTH + BAR_GAP
 /** How much of the full color the part not yet played keeps. */
 const UNPLAYED_ALPHA = 0.35
@@ -134,7 +134,7 @@ export function Waveform({
     context.globalAlpha = 1
   }, [size, theme, peaks, levels, played])
 
-  const clampMs = (ms: number) => Math.min(lengthMs, Math.max(0, ms))
+  const clampMs = (ms: number) => clamp(ms, 0, lengthMs)
 
   const seekTo = (event: PointerEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect()

@@ -1,6 +1,7 @@
 import { setAudioSessionType } from '../../platform/audioSession'
 import { compensatedSemitones, createPitchStage, type PitchStage } from './pitchStage'
 import type { PlaybackWindow } from './playbackWindow'
+import { clamp } from '../../math'
 
 export interface PlaybackSettings {
   speedPercent: number
@@ -60,10 +61,6 @@ const MEDIA_SESSION_ACTIONS: MediaSessionAction[] = [
   'seekforward',
   'seekto',
 ]
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
 
 /** Undeclared on HTMLMediaElement; only some Safari builds still read it. */
 type LegacyPitchElement = HTMLAudioElement & { webkitPreservesPitch?: boolean }

@@ -5,6 +5,7 @@ import {
   type PointerEvent,
   type RefObject,
 } from 'react'
+import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
 import { DRAG_THRESHOLD_PX, resizeSpan, snapMs, type Bounds, type Span } from './loopModel'
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
@@ -160,7 +161,7 @@ export function LoopHandle({
       data-color={color}
       // A 44 px target around a thin line; off the view it stays reachable by keyboard.
       className={`loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none ${inView ? '' : 'pointer-events-none opacity-0'}`}
-      style={{ left: Math.min(Math.max(x, 0), view.widthPx) }}
+      style={{ left: clamp(x, 0, view.widthPx) }}
       onFocus={() => {
         if (!inView) onReveal(ms)
       }}

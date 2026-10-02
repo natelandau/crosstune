@@ -21,7 +21,7 @@ import { useToast } from '../../ui/Toast'
 import { isTextEntry, isTopOverlay } from '../../ui/useShortcut'
 import { PITCH_BADGE, SPEED_BADGE } from '../player/Dock'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { PANEL_ICON_BUTTON, SPEED_STEP, stepSpeed } from '../recording-screen/panel'
+import { clampPitch, PANEL_ICON_BUTTON, SPEED_STEP, stepSpeed } from '../recording-screen/panel'
 import { PITCH, PITCH_DOWN, PITCH_UP, PitchPanel } from '../recording-screen/PitchPanel'
 import type { ShownPeaks } from '../recording-screen/recordingRange'
 import { FASTER, SLOWER, SPEED, SpeedPanel } from '../recording-screen/SpeedPanel'
@@ -58,11 +58,6 @@ export function PRACTICE_BADGE(speedPercent: number, pitchCents: number): string
 /** `Practice, 75%`, the name of the badge that opens Practice. */
 export function PRACTICE_BADGE_LABEL(badge: string): string {
   return `${PRACTICE}, ${badge}`
-}
-
-function clampPitch(cents: number): number {
-  const { min, max } = RECORDING_RANGES.pitch_cents
-  return Math.min(max, Math.max(min, cents))
 }
 
 /**
