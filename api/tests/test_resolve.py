@@ -8,14 +8,10 @@ import pytest
 from crosstune.links import resolve as resolve_module
 from crosstune.links.opengraph import PageMeta, parse_open_graph
 from crosstune.links.resolve import MAX_JSON_BYTES, MAX_PAGE_BYTES, resolve_link
-from tests.test_push import T0, change, push, uid
+from tests.helpers import OEMBED, T0, change, og_html, push, uid
 
 pytestmark = pytest.mark.anyio
 
-OEMBED = {
-    "title": "Angeline the Baker - Old Time Fiddle",
-    "thumbnail_url": "https://i.ytimg.com/vi/x/hq.jpg",
-}
 ITUNES = {
     "results": [
         {
@@ -222,10 +218,6 @@ async def test_push_keeps_client_title(client, auth_headers, mock_http) -> None:
     )
     assert results[1]["row"]["title"] == "Mine"
     assert not any("oembed" in str(c.url) for c in mock_http.calls)
-
-
-def og_html(title: str) -> str:
-    return f'<html><head><meta property="og:title" content="{title}" /></head></html>'
 
 
 async def test_push_enriches_every_untitled_link_in_a_batch(client, auth_headers, mock_http):

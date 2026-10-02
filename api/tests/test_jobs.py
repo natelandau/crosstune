@@ -55,21 +55,26 @@ async def make_user(session) -> User:
     return user
 
 
-async def make_uploaded(
-    session, store: FakeObjectStore, user: User, path, content_type: str
-) -> Recording:
+async def add_recording(session, user: User, state: str, **fields) -> Recording:
     rec = Recording(
-        id=uuid.uuid4(),
+        id=new_uuid7(),
         user_id=user.id,
         source="upload",
         recorded_at=utc_now(),
         created_at=utc_now(),
         updated_at=utc_now(),
-        state="uploaded",
-        playback_bytes=path.stat().st_size,
+        state=state,
+        **fields,
     )
     session.add(rec)
     await session.flush()
+    return rec
+
+
+async def make_uploaded(
+    session, store: FakeObjectStore, user: User, path, content_type: str
+) -> Recording:
+    rec = await add_recording(session, user, "uploaded", playback_bytes=path.stat().st_size)
     store.put_bytes(upload_key(user.id, rec.id), path.read_bytes(), content_type)
     return rec
 
@@ -901,21 +906,6 @@ async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> No
     always = JobRunner(make_sessionmaker(engine), store, orphan_sweep_seconds=0)
     assert await always.run_once() == 1
     assert store.keys() == []
-
-
-async def add_recording(session, user: User, state: str) -> Recording:
-    rec = Recording(
-        id=new_uuid7(),
-        user_id=user.id,
-        source="upload",
-        recorded_at=utc_now(),
-        created_at=utc_now(),
-        updated_at=utc_now(),
-        state=state,
-    )
-    session.add(rec)
-    await session.flush()
-    return rec
 
 
 async def test_sweep_removes_recording_prefixes_with_no_row(runner, verify_session) -> None:

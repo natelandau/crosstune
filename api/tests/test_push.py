@@ -3,40 +3,18 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 from sqlalchemy import event, func, select
 
 from crosstune.models import ListItem, RecordingLink, Tune, UserTune
+from tests.helpers import T0, T1, T2, change, push, uid
 
 if TYPE_CHECKING:
-    import httpx2
     from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
-
-T0 = datetime(2026, 9, 11, 12, 0, tzinfo=UTC)
-T1 = T0 + timedelta(seconds=10)
-T2 = T0 + timedelta(seconds=20)
-
-
-def uid() -> str:
-    return str(uuid.uuid4())
-
-
-def change(table: str, id_: str, updated_at: datetime, op: str = "upsert", **data) -> dict:
-    body = {"table": table, "op": op, "id": id_, "updated_at": updated_at.isoformat()}
-    if op == "upsert":
-        body["data"] = {"created_at": updated_at.isoformat(), **data}
-    return body
-
-
-async def push(client: httpx2.AsyncClient, headers: dict, *changes: dict) -> list[dict]:
-    response = await client.post("/v1/sync/push", json={"changes": list(changes)}, headers=headers)
-    assert response.status_code == 200, response.text
-    return response.json()["results"]
 
 
 async def test_batch_creates_tune_user_tune_and_link(

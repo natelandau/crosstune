@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import json
 import logging
 import time
@@ -18,14 +15,13 @@ from sqlalchemy import func, select
 from crosstune.auth.webhooks import verify_svix_signature
 from crosstune.models import DeletedAccount, Tune, User
 from tests.fakes import FakeObjectStore
-from tests.test_push import T0, change, push, uid
+from tests.helpers import T0, WEBHOOK_SECRET, change, push, sign, uid
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
 
-SECRET = "whsec_dGVzdHNlY3JldHRlc3RzZWNyZXQ="  # gitleaks:allow -- fixture, not a real secret
 WRONG_SECRET = (
     "whsec_d3JvbmdzZWNyZXR3cm9uZ3NlY3JldA=="  # gitleaks:allow -- fixture, not a real secret
 )
@@ -40,43 +36,35 @@ class _PurgeFailsStore(FakeObjectStore):
         raise RuntimeError(msg)
 
 
-def sign(
-    body: bytes, secret: str = SECRET, msg_id: str = "msg_1", ts: int | None = None
-) -> dict[str, str]:
-    ts = ts or int(time.time())
-    key = base64.b64decode(secret.removeprefix("whsec_"))
-    signed = f"{msg_id}.{ts}.".encode() + body
-    sig = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
-    return {"svix-id": msg_id, "svix-timestamp": str(ts), "svix-signature": f"v1,{sig}"}
-
-
 def test_valid_signature_verifies() -> None:
     body = b'{"type":"user.deleted"}'
-    assert verify_svix_signature(SECRET, sign(body), body) is True
+    assert verify_svix_signature(WEBHOOK_SECRET, sign(body), body) is True
 
 
 def test_tampered_body_fails() -> None:
     body = b'{"type":"user.deleted"}'
-    assert verify_svix_signature(SECRET, sign(body), b'{"type":"user.created"}') is False
+    assert verify_svix_signature(WEBHOOK_SECRET, sign(body), b'{"type":"user.created"}') is False
 
 
 def test_stale_timestamp_fails() -> None:
     body = b"{}"
-    assert verify_svix_signature(SECRET, sign(body, ts=int(time.time()) - 600), body) is False
+    assert (
+        verify_svix_signature(WEBHOOK_SECRET, sign(body, ts=int(time.time()) - 600), body) is False
+    )
 
 
 def test_multiple_signatures_any_match() -> None:
     body = b"{}"
     headers = sign(body)
     headers["svix-signature"] = "v1,bogus " + headers["svix-signature"]
-    assert verify_svix_signature(SECRET, headers, body) is True
+    assert verify_svix_signature(WEBHOOK_SECRET, headers, body) is True
 
 
 def test_non_ascii_signature_fails() -> None:
     body = b"{}"
     headers = sign(body)
     headers["svix-signature"] = "v1,\xe9"
-    assert verify_svix_signature(SECRET, headers, body) is False
+    assert verify_svix_signature(WEBHOOK_SECRET, headers, body) is False
 
 
 async def test_user_deleted_purges_account_and_data(

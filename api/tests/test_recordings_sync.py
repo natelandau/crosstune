@@ -6,16 +6,9 @@ import pytest
 from sqlalchemy import select, update
 
 from crosstune.models import Job, Recording
-from tests.test_pull import pull
-from tests.test_push import T0, T1, T2, change, push, uid
+from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
-
-
-def recording(id_: str, at=T0, **data) -> dict:
-    fields = {"source": "microphone", "recorded_at": at.isoformat(), "position": 0}
-    fields.update(data)
-    return change("recordings", id_, at, **fields)
 
 
 async def test_push_creates_a_pending_recording(client, auth_headers) -> None:
