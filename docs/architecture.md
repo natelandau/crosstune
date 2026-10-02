@@ -227,7 +227,10 @@ same triggers. A return to the foreground stands in for a visible tab.
   confirmation is released, and the runner deletes whatever its PUT left.
 - ffprobe and ffmpeg read an upload only as a local file, only through the
   demuxers of the audio types an upload may declare, and run with no
-  environment but `PATH`.
+  environment but `PATH`. On Linux they run under `prlimit` limits on
+  address space, CPU time, and file size, so a hostile file fails its job
+  rather than the API, and the API process is marked non-dumpable so a
+  tool cannot read its credentials through `/proc`.
 - Download: the API signs a GET for a ready recording's playback file, and
   another for its peaks file. Each carries the revision the signature
   covers, read from the same row as the key. A client records that

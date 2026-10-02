@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Puts ffmpeg and ffprobe on a CI runner's PATH, running inside the API's own image, so CI
+# Puts ffmpeg, ffprobe, and prlimit on a CI runner's PATH, running inside the API's own image, so CI
 # decodes audio with the ffmpeg build production ships rather than the runner's package.
 # Needs GITHUB_WORKSPACE and GITHUB_PATH, which every Actions job sets.
 set -euo pipefail
@@ -15,7 +15,9 @@ docker run --detach --name "$container" --user "$(id -u):$(id -g)" \
   --entrypoint sleep "$image" infinity > /dev/null
 
 bin="$(mktemp -d)"
-for tool in ffmpeg ffprobe; do
+# The API starts the tools through prlimit, which must run in the container too, or it
+# would limit the docker client instead of the tool.
+for tool in ffmpeg ffprobe prlimit; do
   printf '#!/bin/sh\nexec docker exec %s %s "$@"\n' "$container" "$tool" > "$bin/$tool"
   chmod +x "$bin/$tool"
 done

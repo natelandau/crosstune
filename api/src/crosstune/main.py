@@ -15,6 +15,7 @@ from crosstune.config import Settings, get_settings
 from crosstune.db.engine import IdlePoolCloser, make_engine, make_sessionmaker
 from crosstune.errors import install_error_handlers
 from crosstune.http import public_only_client
+from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
 from crosstune.links.router import router as links_router
 from crosstune.logging import configure_logging
@@ -107,6 +108,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     _build_object_store(app, settings)
     built_runner = app.state.job_runner is None and app.state.object_store is not None
     if built_runner:
+        hide_from_media_tools()
         app.state.job_runner = JobRunner(
             app.state.sessionmaker,
             app.state.object_store,
