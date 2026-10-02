@@ -42,12 +42,13 @@ public struct Rail<ID: Hashable, Content: View>: View {
                 .padding(.horizontal, inset)
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
+                    // A scroll view takes no touches past its bounds, so it grows to the chips' tap
+                    // targets and gives the extra back to the layout. The outset is padding, not a
+                    // content margin, so the scroll view sizes to it and has no height to scroll.
                     chips
+                        .padding(.vertical, tapOutset(visibleHeight: chipHeight))
                 }
                 .contentMargins(.horizontal, inset, for: .scrollContent)
-                // A scroll view takes no touches past its bounds, so it grows to the chips' tap
-                // targets and gives the extra back to the layout.
-                .contentMargins(.vertical, tapOutset(visibleHeight: chipHeight), for: .scrollContent)
                 .scrollIndicators(.hidden)
                 .onScrollGeometryChange(for: Overflow.self) { geometry in
                     // At rest the offset is minus the leading margin; at the far end the trailing
