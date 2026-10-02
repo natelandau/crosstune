@@ -315,19 +315,20 @@ export function PracticeLanes({
         return
       }
       putDraft(NEW_DRAFT, span)
-      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs })
-        .then((created) => {
+      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs }).then(
+        (created) => {
           setDrafts((current) => {
             const next = { ...current, [created]: { span, base: null } }
             delete next[NEW_DRAFT]
             return next
           })
           playback.select(created)
-        })
-        .catch((error: unknown) => {
+        },
+        (error: unknown) => {
           dropDraft(NEW_DRAFT)
           report(error)
-        })
+        },
+      )
       return
     }
     const row = rows.find((loop) => loop.id === id)

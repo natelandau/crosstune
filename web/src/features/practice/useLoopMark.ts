@@ -104,8 +104,8 @@ export function useLoopMark({
       const { bounds, playback, announce, recording } = latest.current
       const span = spanFromDrag(startMs, Math.max(here(), startMs + MIN_LOOP_MS), bounds)
       setPhase({ kind: 'saving', span, id: null })
-      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs })
-        .then((id) => {
+      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs }).then(
+        (id) => {
           setPhase((current) =>
             current?.kind === 'saving' && current.span === span ? { ...current, id } : current,
           )
@@ -115,13 +115,14 @@ export function useLoopMark({
           playback.select(id)
           engine.setRepeat(true)
           announce(LOOP_CREATED)
-        })
-        .catch((error: unknown) => {
+        },
+        (error: unknown) => {
           setPhase((current) =>
             current?.kind === 'saving' && current.span === span ? null : current,
           )
           report(error)
-        })
+        },
+      )
     },
     [db, engine, here, report],
   )
