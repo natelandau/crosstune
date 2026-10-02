@@ -10,6 +10,13 @@ import type {
   UserTuneRow,
 } from '../api/types'
 
+function conflict(detail?: string): ApiError {
+  return new ApiError(
+    409,
+    detail ? { type: 'about:blank', title: 'Conflict', status: 409, detail } : null,
+  )
+}
+
 type PushResponder = (changes: Change[]) => ChangeResult[] | Promise<ChangeResult[]>
 
 // The column the server fills from the token; list items inherit ownership from their list.
@@ -76,23 +83,19 @@ export function createFakeApi() {
       (c) => ({ table: c.table, id: c.id, status: 'applied', row: appliedRow(c) }) as ChangeResult,
     )
 
-  const api: SyncApi = {
+  const impl: SyncApi = {
     async push(changes) {
-      if (failWith) throw failWith
       pushes.push(changes)
       return { results: await respond(changes) }
     },
     async pull(since) {
-      if (failWith) throw failWith
       pulls.push(since)
       return pullQueue.shift() ?? { rows: [], next_since: since, has_more: false }
     },
     async resolveLink(url) {
-      if (failWith) throw failWith
       return { url, provider: 'other', provider_ref: null, title: 'Resolved', artwork_url: null }
     },
     async me() {
-      if (failWith) throw failWith
       return {
         id: 'server-user',
         clerk_user_id: 'user_1',
@@ -101,20 +104,12 @@ export function createFakeApi() {
         storage,
       }
     },
-    async deleteAccount() {
-      if (failWith) throw failWith
-    },
+    async deleteAccount() {},
     async requestUploadSlot(recordingId, body) {
-      if (failWith) throw failWith
       if (slotError && (slotErrorId === null || slotErrorId === recordingId)) throw slotError
       const state = recordingStates.get(recordingId) ?? 'pending_upload'
       if (state !== 'pending_upload' && state !== 'failed') {
-        throw new ApiError(409, {
-          type: 'about:blank',
-          title: 'Conflict',
-          status: 409,
-          detail: state,
-        })
+        throw conflict(state)
       }
       recordingStates.set(recordingId, 'pending_upload')
       return {
@@ -123,25 +118,22 @@ export function createFakeApi() {
       }
     },
     async uploadFinished(recordingId) {
-      if (failWith) throw failWith
       if (confirmError) {
         const error = confirmError
         confirmError = null
         throw error
       }
-      if (!objects.has(`${recordingId}/upload`)) throw new ApiError(409, null)
+      if (!objects.has(`${recordingId}/upload`)) throw conflict()
       recordingStates.set(recordingId, 'uploaded')
     },
     async retryRecording(recordingId) {
-      if (failWith) throw failWith
       const state = recordingStates.get(recordingId)
       if (state === 'uploaded' || state === 'processing' || state === 'ready') return
-      if (state !== 'failed') throw new ApiError(409, null)
+      if (state !== 'failed') throw conflict()
       recordingStates.set(recordingId, 'uploaded')
     },
     async downloadUrl(recordingId) {
-      if (failWith) throw failWith
-      if (recordingStates.get(recordingId) !== 'ready') throw new ApiError(409, null)
+      if (recordingStates.get(recordingId) !== 'ready') throw conflict()
       const signed = downloadSigned.get(recordingId) ?? { rev: 'aaaaaaaa', startMs: 0 }
       return {
         url: `https://fake.r2/${recordingId}/playback.m4a`,
@@ -151,8 +143,7 @@ export function createFakeApi() {
       }
     },
     async peaksUrl(recordingId) {
-      if (failWith) throw failWith
-      if (recordingStates.get(recordingId) !== 'ready') throw new ApiError(409, null)
+      if (recordingStates.get(recordingId) !== 'ready') throw conflict()
       return {
         url: `https://fake.r2/${recordingId}/peaks.bin`,
         expires_at: '2999-01-01T00:00:00Z',
@@ -160,19 +151,27 @@ export function createFakeApi() {
       }
     },
     async putObject(url, blob) {
-      if (failWith) throw failWith
       const key = new URL(url).pathname.slice(1)
       const recordingId = key.split('/')[0]
       if (putError && (putErrorId === null || putErrorId === recordingId)) throw putError
       objects.set(key, blob)
     },
     async getObject(url) {
-      if (failWith) throw failWith
       const blob = objects.get(new URL(url).pathname.slice(1))
       if (!blob) throw new TransferError(404)
       return blob
     },
   }
+  // Wrapping every method means one added to SyncApi honors fail() without remembering to.
+  const api = Object.fromEntries(
+    Object.entries(impl).map(([name, method]: [string, (...args: unknown[]) => unknown]) => [
+      name,
+      async (...args: unknown[]) => {
+        if (failWith) throw failWith
+        return method(...args)
+      },
+    ]),
+  ) as unknown as SyncApi
 
   return {
     api,

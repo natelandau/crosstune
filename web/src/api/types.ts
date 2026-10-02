@@ -1,6 +1,6 @@
 import type { components } from './schema'
 
-export type Schemas = components['schemas']
+type Schemas = components['schemas']
 
 export type Change = Schemas['Change']
 export type TableName = Change['table']
@@ -20,7 +20,6 @@ export type ListItemRow = Schemas['ListItemRow']
 export type UserSettingsRow = Schemas['UserSettingsRow']
 export type RecordingRow = Schemas['RecordingRow']
 export type MeResponse = Schemas['MeResponse']
-export type StorageResponse = Schemas['StorageResponse']
 export type SignedUrl = Schemas['SignedUrl']
 export type DownloadUrl = Schemas['DownloadUrl']
 export type PeaksUrl = Schemas['PeaksUrl']
@@ -42,5 +41,6 @@ export interface SyncApi {
   peaksUrl(recordingId: string): Promise<PeaksUrl>
   /** PUT bytes to a presigned URL. No bearer token: the signature is the credential. */
   putObject(url: string, blob: Blob, contentType: string): Promise<void>
+  /** GET bytes from a presigned URL. No bearer token: the signature is the credential. */
   getObject(url: string): Promise<Blob>
 }
