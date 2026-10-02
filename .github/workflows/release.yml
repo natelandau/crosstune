@@ -16,6 +16,9 @@ on:
 
 permissions:
   contents: write
+  # The called workflows' change detection asks for it, and a called job can hold
+  # no permission its caller lacks.
+  pull-requests: read
 
 # Queue rather than cancel, so an older run never lands after a newer one.
 concurrency:

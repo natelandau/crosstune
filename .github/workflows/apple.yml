@@ -46,15 +46,29 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v4
       - run: xcodebuild -version
-      - run: just lint
-      - run: just test
-        timeout-minutes: 15
-      - run: just build
-        if: ${{ !inputs.skip_build }}
-      # A build from another Swift compiler cannot be reused, so the compiler is in the key.
+      # A build from another Swift compiler cannot be reused, so the compiler is in the
+      # cache keys.
       - name: read the Swift compiler version
         id: swift
         run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - run: just lint
+      - run: just test
+        timeout-minutes: 15
+      # Xcode never prunes its compilation cache, so `main` builds from an empty one and
+      # saves just what that build used, and pull requests restore the newest.
+      - uses: actions/cache/restore@v6
+        if: ${{ !inputs.skip_build && github.event_name == 'pull_request' }}
+        with:
+          path: apple/.build/DerivedData/CompilationCache.noindex
+          key: apple-xcode-${{ steps.swift.outputs.version }}-${{ github.run_id }}
+          restore-keys: apple-xcode-${{ steps.swift.outputs.version }}-
+      - run: just build
+        if: ${{ !inputs.skip_build }}
+      - uses: actions/cache/save@v6
+        if: ${{ !inputs.skip_build && github.ref == 'refs/heads/main' }}
+        with:
+          path: apple/.build/DerivedData/CompilationCache.noindex
+          key: apple-xcode-${{ steps.swift.outputs.version }}-${{ github.run_id }}
       # The contract tools compile the OpenAPI generator, which changes only with the lockfile.
       - uses: actions/cache@v6
         with:

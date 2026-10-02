@@ -40,12 +40,16 @@ fix:
 test *args:
     swift test --package-path CrosstuneKit {{ args }}
 
+# The compilation cache is keyed on content rather than file dates, so CI restores it into a
+# fresh checkout and still hits.
+
 # Build the app for the iOS Simulator and for macOS, unsigned
 [group('build')]
 build:
     for destination in 'generic/platform=iOS Simulator' 'generic/platform=macOS'; do \
         xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
-            -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO; \
+            -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES; \
     done
 
 # The release recipes read ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the environment

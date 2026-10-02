@@ -22,37 +22,29 @@ env:
   UV_LOCKED: "1"
   CI: "true"
 
-# A bump commit on `main` skips these jobs, because the Release workflow runs
-# them on the tag it makes. The called jobs see the tag ref, so they run there.
 jobs:
   # The checks are required, so they run on every pull request and skip when it touches
   # nothing they cover; a skipped job passes a required check, a missing one blocks it.
   changes:
     name: Web changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ steps.changes.outputs.relevant }}
     steps:
       - uses: actions/checkout@v7
-        if: github.event_name == 'pull_request'
         with:
-          fetch-depth: 0
-      - id: filter
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if [ -z "$BASE" ] || git diff --name-only "$BASE...$HEAD" | grep -qE '^(web/|brand/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
-          fi
+          sparse-checkout: .github/actions
+      - id: changes
+        uses: ./.github/actions/changes
+        with:
+          pattern: '^(web/|brand/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'
 
   lint:
     needs: changes
-    if: >-
-      needs.changes.outputs.relevant == 'true' &&
-      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
+    if: needs.changes.outputs.relevant == 'true'
     name: Web lint and build
     runs-on: ubuntu-latest
     defaults:
@@ -78,9 +70,7 @@ jobs:
   # public repository nothing, so the files split across parallel runners.
   test:
     needs: changes
-    if: >-
-      needs.changes.outputs.relevant == 'true' &&
-      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
+    if: needs.changes.outputs.relevant == 'true'
     name: Web test ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
     strategy:
@@ -128,9 +118,7 @@ jobs:
 
   contract:
     needs: changes
-    if: >-
-      needs.changes.outputs.relevant == 'true' &&
-      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
+    if: needs.changes.outputs.relevant == 'true'
     name: Web contract
     runs-on: ubuntu-latest
     defaults:
