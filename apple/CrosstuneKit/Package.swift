@@ -20,10 +20,10 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
         .package(url: "https://github.com/clerk/clerk-ios", from: "1.5.6"),
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.11.1"),
-        // Constraint only, reached through swift-openapi-urlsession. 1.7.0 calls
-        // swift_initBorrow, which the Swift runtime in iOS 26 and macOS 26 does not have, so
-        // the app fails to launch there. Lift the cap when a release gates that call.
-        .package(url: "https://github.com/apple/swift-collections", "1.6.0"..<"1.7.0"),
+        // Constraint only, reached through swift-openapi-urlsession. Built with Swift 6.4, 1.7.0
+        // strongly links swift_initBorrow, which the Swift runtime in iOS 26 and macOS 26 does
+        // not have, so the app fails to launch there.
+        .package(url: "https://github.com/apple/swift-collections", from: "1.7.1"),
     ],
     targets: [
         .target(

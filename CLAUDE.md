@@ -33,6 +33,12 @@ every label. The glossary in `docs/product.md` has the reasons.
 - `just dev` runs Postgres, migrations, the API, the web client, and the
   site together. Every checkout and worktree shares one Postgres container and
   database.
+- Create a worktree with `just worktree <branch>`, never `git worktree add`.
+  It adds `.worktrees/<branch>`, copies every module's `.env` from the main
+  checkout, and runs `just setup`, so `just e2e` works there. In a worktree
+  made any other way, run `just worktree-env`, then `just setup`. Never run
+  `just dev-setup` in a worktree: it points the git hooks every checkout
+  shares at that worktree's venv, and removing the worktree breaks them.
 - `just test` never runs Playwright. `just e2e` does, beside `just dev`,
   against its own `crosstune_e2e` database. It signs in against the shared
   Clerk development instance and spends its usage limits, and needs the

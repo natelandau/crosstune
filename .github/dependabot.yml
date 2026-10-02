@@ -1,7 +1,9 @@
 ---
-# One grouped pull request per ecosystem each month. The prefix becomes the PR title's
-# conventional-commit type and scope, and the PR title becomes the squashed commit's
-# subject, so group names stay short to keep titles within 70 characters.
+# npm and uv updates arrive as one grouped pull request per ecosystem each month; the
+# other ecosystems open one pull request per dependency, because closing an ungrouped
+# pull request makes Dependabot skip that version, and closing a grouped one does not.
+# The prefix becomes the PR title's conventional-commit type and scope, and the PR title
+# becomes the squashed commit's subject, so group names stay short.
 version: 2
 
 updates:
@@ -13,9 +15,6 @@ updates:
       default-days: 7
     commit-message:
       prefix: ci
-    groups:
-      actions:
-        patterns: ["*"]
 
   - package-ecosystem: npm
     directory: /web
@@ -49,8 +48,11 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(site)
-    # @types/node follows the Node major in site/.node-version.
+    # typescript-eslint and @astrojs/check do not support TypeScript 7, and @types/node
+    # follows the Node major in site/.node-version.
     ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     groups:
@@ -77,9 +79,6 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(api)
-    groups:
-      docker:
-        patterns: ["*"]
 
   - package-ecosystem: docker-compose
     directory: /
@@ -89,9 +88,6 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(dev)
-    groups:
-      compose:
-        patterns: ["*"]
 
   - package-ecosystem: swift
     directories:
@@ -103,9 +99,6 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(apple)
-    groups:
-      spm:
-        patterns: ["*"]
 
   - package-ecosystem: pre-commit
     directory: /
@@ -115,6 +108,3 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(pre-commit)
-    groups:
-      hooks:
-        patterns: ["*"]

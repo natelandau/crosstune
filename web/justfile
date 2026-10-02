@@ -101,10 +101,11 @@ contract:
     node scripts/vocabulary.mjs ../api/openapi.json src/api/vocabulary.ts
     pnpm exec prettier --write src/api/vocabulary.ts > /dev/null
 
-# Upgrade dependencies
+# Upgrade dependencies, holding the majors .github/dependabot.yml ignores to their range
 [group('maintenance')]
 update:
-    pnpm update --latest
+    pnpm update --latest '!react-router' '!react-router-dom' '!typescript' '!@types/node'
+    pnpm update react-router react-router-dom typescript @types/node
 
 # Remove build artifacts and caches
 [group('maintenance')]

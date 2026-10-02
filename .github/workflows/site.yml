@@ -18,6 +18,8 @@ permissions:
   contents: read
 
 env:
+  # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
+  UV_LOCKED: "1"
   CI: "true"
 
 # A bump commit on `main` skips these jobs, because the Release workflow runs
