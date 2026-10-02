@@ -39,9 +39,10 @@ export class TransferError extends Error {
   }
 }
 
-// The PUT allowance assumes a slow-link floor of 50 bytes/ms, about 400 kbit/s.
 const PUT_BASE_TIMEOUT_MS = 60_000
-const PUT_BYTES_PER_MS = 50
+// About 128 kbps, the slowest link that still finishes a maximum-size file and its
+// confirmation inside the API's one-hour upload slot.
+const PUT_BYTES_PER_MS = 16
 const GET_TIMEOUT_MS = 120_000
 const API_TIMEOUT_MS = 60_000
 
