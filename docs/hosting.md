@@ -371,9 +371,10 @@ Actions secrets:
 | `STORAGE_READ_SECRET_ACCESS_KEY_DEVELOPMENT` | `Preview` | The development bucket's read-only token's secret access key                       |
 | `ENVIRONMENTS_ADMIN_TOKEN`                   | `Preview` | A fine-grained token for this repository alone, with Administration read and write |
 
-Environment `app-store`, used only by the `Release` workflow's **Upload to
-TestFlight** job. Its deployment rule admits tags matching `v*` only, and
-the maintainer is a required reviewer with **Prevent self-review** off.
+Environment `app-store`, used only by the `Release` workflow's **Archive
+the Apple apps** and **Upload to TestFlight** jobs. Its deployment rule
+admits tags matching `v*` only. It has no required reviewer, because each
+job that uses it would wait for its own approval.
 
 | Secret                           | Value                                                           |
 | -------------------------------- | --------------------------------------------------------------- |

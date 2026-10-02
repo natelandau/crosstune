@@ -216,18 +216,18 @@ git push --follow-tags origin main
 - The tag push runs the `API`, `Web`, and `Apple` workflows on the tagged
   commit, checks that it is on `main`, and force-pushes `production`. The
   bump commit itself skips CI on `main`, so each release runs the checks
-  once. Every release rebuilds both services. A failing `Apple` check holds
-  the whole release.
-- After `production` moves, the **Upload to TestFlight** job waits for your
-  approval: open the run, click **Review deployments**, select
-  **app-store**, and approve. It uploads the iOS and macOS builds with build
-  number `<run number>.<attempt>`, and the internal testers get them once
-  Apple processes them. A job that waits blocks the next `Release` run, so
-  approve or cancel it.
-- A failed upload does not undo production. Re-run the failed job, which
-  raises the attempt. The same upload runs from a Mac with
-  `just apple::testflight <build number>` and the key in `apple/.env`. Use
-  a build number higher than every uploaded build.
+  once. Every release rebuilds both services. A failing `Apple` check or
+  **Archive the Apple apps** job holds the whole release.
+- The archive job signs the iOS and macOS release builds with build number
+  `<run number>.<attempt>` beside the checks. After `production` moves, the
+  **Upload to TestFlight** job uploads those archives, and the internal
+  testers get them once Apple processes them.
+- A failed upload does not undo production. Re-run the **Archive the Apple
+  apps** job, which raises the attempt and re-runs the jobs after it. A
+  re-run of the upload alone sends the same build number, which App Store
+  Connect refuses once it has that build. The same release runs from a Mac
+  with `just apple::testflight <build number>` and the key in `apple/.env`.
+  Use a build number higher than every uploaded build.
 - Each version is its side's Sentry release tag.
 - A home-screen install keeps the icon it was installed with. A release that
   changes the icon says so.

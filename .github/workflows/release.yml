@@ -5,10 +5,10 @@ name: Release
 # and neither host can trigger on a tag. Pushing a version tag moves that
 # branch to the tagged commit, so a tag is the only thing that reaches
 # production. The branch moves only after the API, Web, and Apple workflows
-# pass on that commit, which gates every client in one place. The Apple
-# builds then go to TestFlight. A manual run started from a tag, under "Use
-# workflow from", moves the branch to that tag and uploads that version
-# again, which is how an older version is put back.
+# pass and the Apple release builds archive on that commit, which gates every
+# client in one place. Those archives then go to TestFlight. A manual run
+# started from a tag, under "Use workflow from", moves the branch to that tag
+# and uploads that version again, which is how an older version is put back.
 on:
   push:
     tags: ["v*"]
@@ -32,12 +32,15 @@ jobs:
   site:
     name: Site
     uses: ./.github/workflows/site.yml
+  # The archive job compiles the app, so the check skips its own build.
   apple:
     name: Apple
     uses: ./.github/workflows/apple.yml
+    with:
+      skip_build: true
   promote:
     name: Move the production branch to the tag
-    needs: [api, web, site, apple]
+    needs: [api, web, site, apple, archive]
     runs-on: ubuntu-latest
     steps:
       - name: require a version tag
@@ -55,15 +58,13 @@ jobs:
         run: git merge-base --is-ancestor HEAD origin/main
       - run: git push --force origin "HEAD:refs/heads/production"
 
-  # Runs after promote, so the build reaches testers only once the tag is on
-  # main and production is deploying the API it calls. The environment admits
-  # `v*` tags only and waits for a maintainer's approval.
-  testflight:
-    name: Upload to TestFlight
-    needs: [promote]
+  # Runs beside the checks, so a release build that fails to compile holds
+  # promote. The environment admits `v*` tags only.
+  archive:
+    name: Archive the Apple apps
     runs-on: xcode-27
     environment: app-store
-    timeout-minutes: 45
+    timeout-minutes: 40
     permissions:
       contents: read
     defaults:
@@ -97,14 +98,25 @@ jobs:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
         run: printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
       # The run number only rises, and a re-run raises the attempt, so no two
-      # uploads share a build number.
-      - name: archive and upload
+      # uploads share a build number. The archive fixes the number, so a new
+      # upload needs this job re-run, not only the upload.
+      - name: archive
         env:
           ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
           ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
           BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
-        run: just testflight "$BUILD_NUMBER"
+        run: just archive "$BUILD_NUMBER"
+      # An artifact keeps neither symlinks nor the executable bit, and an app
+      # bundle needs both, so the archives travel as a tarball.
+      - name: pack the archives
+        run: tar -cf "$RUNNER_TEMP/archives.tar" -C .build archives
+      - uses: actions/upload-artifact@v7
+        with:
+          name: apple-archives
+          path: ${{ runner.temp }}/archives.tar
+          if-no-files-found: error
+          retention-days: 7
       - name: fail if Xcode created a development certificate
         if: always()
         run: |
@@ -117,3 +129,48 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/development.p12"
           security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+
+  # Runs after promote, so the build reaches testers only once the tag is on
+  # main and production is deploying the API it calls.
+  testflight:
+    name: Upload to TestFlight
+    needs: [promote]
+    runs-on: xcode-27
+    environment: app-store
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v7
+      - uses: extractions/setup-just@v4
+      - uses: actions/download-artifact@v8
+        with:
+          name: apple-archives
+          path: ${{ runner.temp }}
+      - name: unpack the archives
+        run: mkdir -p .build && tar -xf "$RUNNER_TEMP/archives.tar" -C .build
+      - name: write the App Store Connect key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+      - name: upload
+        env:
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+        run: just upload
+      # Cloud signing exports without the development identity; this catches
+      # an export that wanted one anyway.
+      - name: fail if Xcode created a development certificate
+        if: always()
+        run: |
+          if security find-identity -v -p codesigning | grep -q "Created via API"; then
+            echo "::error::Xcode created a development certificate; revoke it in the developer portal"
+            exit 1
+          fi
+      - name: delete the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
