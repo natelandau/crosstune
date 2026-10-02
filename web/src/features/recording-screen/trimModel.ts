@@ -1,6 +1,7 @@
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
 import { trimmedLengthMs } from './recordingRange'
+import { clamp } from '../../math'
 
 /** The shortest kept range, as `MIN_TRIM_MS` in `api/src/crosstune/vocabulary.py` enforces. */
 export const MIN_TRIM_MS = 1000
@@ -34,10 +35,6 @@ export type TrimAction =
   | { type: 'restore'; start: number; end: number }
 
 type TrimRow = Pick<LocalRecording, 'trim_start_ms' | 'trim_end_ms' | 'source_duration_ms'>
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
 
 function maxZoom(state: Pick<TrimState, 'bounds'>): number {
   return Math.max(1, (state.bounds[1] - state.bounds[0]) / MIN_DETAIL_MS)

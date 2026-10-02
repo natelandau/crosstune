@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PITCH_UNAVAILABLE } from '../player/Dock'
+import { PITCH_UNAVAILABLE } from '../player/transportCopy'
 import {
   CENTS,
   PITCH_DOWN,

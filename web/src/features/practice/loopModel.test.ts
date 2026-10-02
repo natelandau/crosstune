@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { LOOP_LIMIT } from '../../commands/messages'
 import {
   canCreate,
-  clampLoop,
   loopName,
   moveSpan,
   partSuggestions,
@@ -23,16 +22,6 @@ const placed = (id: string, startMs: number, endMs: number, color = 0): PlacedLo
   startMs,
   endMs,
   color,
-})
-
-describe('clampLoop', () => {
-  it.each([
-    [s(0, 5000), s(1000, 5000)],
-    [s(60800, 70000), null],
-    [s(60000, 70000), s(60000, 61000)],
-  ])('%j -> %j', (span, expected) => {
-    expect(clampLoop(span, B)).toEqual(expected)
-  })
 })
 
 describe('spanFromDrag', () => {

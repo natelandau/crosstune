@@ -1,16 +1,11 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { LocalRecordingLoop } from '../../db/types'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { RecordingView } from '../recordings/useRecordings'
 import type { Span } from './loopModel'
 import { loopHolds, loopRange } from './useLoopFollow'
+import { rowSpan } from './loopModel'
+import { useLatest } from '../../ui/useLatest'
 
 export interface LoopPlayback {
   selectedId: string | null
@@ -36,30 +31,28 @@ export function useLoopPlayback(
 ): LoopPlayback {
   const engine = usePlaybackEngine()
   const holds = loopHolds(engine)
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const loopId = useEngineState(engine, (s) => s.loop?.id ?? null)
+  const repeat = useEngineState(engine, (s) => s.repeat)
   // A loop just created is selected before the live query has read its row.
   const [pending, setPending] = useState<string | null>(null)
-  if (pending !== null && state.loop?.id === pending) setPending(null)
-  const selectedId = pending ?? state.loop?.id ?? null
+  if (pending !== null && loopId === pending) setPending(null)
+  const selectedId = pending ?? loopId
 
   const offsets = {
     blobStartMs: view.file?.blob_start_ms ?? 0,
     trimStartMs: view.recording.trim_start_ms,
   }
-  const latest = useRef({ loops, offsets })
-  useLayoutEffect(() => {
-    latest.current = { loops, offsets }
-  })
+  const latestRef = useLatest({ loops, offsets })
 
   /** Selects `row`; a loop taking over Repeat from another starts from its top. */
   const take = useCallback(
     (row: LocalRecordingLoop) => {
       const { repeat, loop } = engine.getState()
-      const { offsets } = latest.current
+      const { offsets } = latestRef.current
       engine.setLoop(loopRange(row, holds.get(), offsets))
       if (repeat && loop?.id !== row.id) engine.seek(row.start_ms - offsets.trimStartMs)
     },
-    [engine, holds],
+    [engine, holds, latestRef],
   )
 
   useEffect(() => {
@@ -77,7 +70,7 @@ export function useLoopPlayback(
         engine.setRepeat(false)
         return
       }
-      const row = latest.current.loops?.find((l) => l.id === id)
+      const row = latestRef.current.loops?.find((l) => l.id === id)
       if (!row) {
         setPending(id)
         return
@@ -85,7 +78,7 @@ export function useLoopPlayback(
       setPending(null)
       take(row)
     },
-    [engine, holds, take],
+    [engine, holds, take, latestRef],
   )
 
   const toggleRepeat = useCallback(() => {
@@ -95,12 +88,12 @@ export function useLoopPlayback(
 
   const hold = useCallback(
     (id: string, span: Span | null) => {
-      const row = latest.current.loops?.find((l) => l.id === id)
-      const base = row ? { startMs: row.start_ms, endMs: row.end_ms } : null
+      const row = latestRef.current.loops?.find((l) => l.id === id)
+      const base = row ? rowSpan(row) : null
       holds.set(span ? { id, span, base } : null)
     },
-    [holds],
+    [holds, latestRef],
   )
 
-  return { selectedId, select, repeat: state.repeat, toggleRepeat, hold }
+  return { selectedId, select, repeat, toggleRepeat, hold }
 }

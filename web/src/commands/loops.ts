@@ -1,5 +1,5 @@
 import type { CrosstuneDb } from '../db/schema'
-import { MAX_LOOPS, pickColor } from '../features/practice/loopModel'
+import { MAX_LOOPS, pickColor, rowSpan } from '../features/practice/loopModel'
 import { LOOP_LIMIT, RECORDING_NOT_FOUND } from './messages'
 import { defined, newId, now, putRow, tombstone, writeTx } from './write'
 
@@ -31,7 +31,7 @@ export async function addLoop(
   await writeTx(db, async () => {
     const live = await roomForLoop(db, recordingId)
     const color = pickColor(
-      { startMs: span.start_ms, endMs: span.end_ms },
+      rowSpan(span),
       live.map((l) => ({ id: l.id, startMs: l.start_ms, endMs: l.end_ms, color: l.color })),
     )
     await putRow(db, 'recording_loops', {

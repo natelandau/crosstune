@@ -1,4 +1,5 @@
 import { useEffect, useRef, type PointerEvent, type RefObject } from 'react'
+import { useLatest } from '../../ui/useLatest'
 
 /** Zoom by `factor`, around `centerMs` when the gesture says where it happened. */
 export type ZoomAction = { type: 'zoom'; factor: number; centerMs?: number }
@@ -38,10 +39,7 @@ export function useZoomGestures(
   },
 ) {
   // The wheel listener is attached once, so it reaches the latest callbacks through a ref.
-  const latest = useRef({ onZoom, msAt })
-  useEffect(() => {
-    latest.current = { onZoom, msAt }
-  })
+  const latestRef = useLatest({ onZoom, msAt })
 
   useEffect(() => {
     const target = element.current
@@ -49,11 +47,11 @@ export function useZoomGestures(
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return
       event.preventDefault()
-      emit(latest.current, Math.exp(-event.deltaY * WHEEL_ZOOM_RATE), event.clientX)
+      emit(latestRef.current, Math.exp(-event.deltaY * WHEEL_ZOOM_RATE), event.clientX)
     }
     target.addEventListener('wheel', onWheel, { passive: false })
     return () => target.removeEventListener('wheel', onWheel)
-  }, [element])
+  }, [element, latestRef])
 
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const spread = useRef<number | null>(null)
@@ -92,7 +90,7 @@ export function useZoomGestures(
       const now = distance()
       const [a, b] = Array.from(pointers.current.values())
       if (now && spread.current && a && b) {
-        emit(latest.current, now / spread.current, (a.x + b.x) / 2)
+        emit(latestRef.current, now / spread.current, (a.x + b.x) / 2)
       }
       spread.current = now
     },

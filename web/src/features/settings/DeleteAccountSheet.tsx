@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
+import { DELETING } from '../../ui/Confirm'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
@@ -23,7 +24,6 @@ import {
   DELETE_ACCOUNT_TITLE,
   DELETE_FAILED,
   DELETE_UNCONFIRMED,
-  DELETING,
   NO_RECOVERY,
   SETTINGS_LINE,
   UNSYNCED_LINE,

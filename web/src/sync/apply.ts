@@ -37,13 +37,14 @@ export async function applyPushResults(
   let settled = 0
   const byKey = new Map(results.map((r) => [rowKey(r.table, r.id), r]))
   await db.transaction('rw', [...syncTables(db), db.outbox], async () => {
-    const pending = await pendingByRow(db)
+    // A row keeps its seq when re-queued, so the sent seqs find each row's current entry.
+    const pending = await db.outbox.bulkGet(sent.map((entry) => entry.seq!))
     const stores = new Map<TableName, LocalRow[]>()
     const settledSeqs: number[] = []
-    for (const entry of sent) {
+    for (const [i, entry] of sent.entries()) {
       const result = byKey.get(rowKey(entry.table, entry.row_id))
       if (!result) continue
-      const current = pending.get(rowKey(entry.table, entry.row_id))
+      const current = pending[i]
       // A write queued after the batch left keeps its entry; the next push settles it.
       const unchanged =
         current !== undefined &&

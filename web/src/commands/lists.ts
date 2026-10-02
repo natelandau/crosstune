@@ -2,7 +2,16 @@ import type { CrosstuneDb } from '../db/schema'
 import type { LocalListItem } from '../db/types'
 import { moveBeside } from '../features/lists/order'
 import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from './messages'
-import { activeByPosition, newId, nextPosition, now, putRow, tombstone, writeTx } from './write'
+import {
+  activeByPosition,
+  newId,
+  nextPosition,
+  now,
+  putRow,
+  tombstone,
+  tombstoneWhere,
+  writeTx,
+} from './write'
 
 export async function activeItems(db: CrosstuneDb, listId: string): Promise<LocalListItem[]> {
   return activeByPosition(await db.list_items.where('list_id').equals(listId).toArray())
@@ -43,10 +52,7 @@ export async function deleteList(db: CrosstuneDb, listId: string): Promise<void>
   const at = now()
   await writeTx(db, async () => {
     await tombstone(db, 'lists', listId, at)
-    const items = await db.list_items.where('list_id').equals(listId).toArray()
-    for (const item of items) {
-      await tombstone(db, 'list_items', item.id, at, { enqueueDelete: false })
-    }
+    await tombstoneWhere(db, 'list_items', 'list_id', listId, at)
   })
 }
 

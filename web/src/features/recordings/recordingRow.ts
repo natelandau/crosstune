@@ -13,8 +13,10 @@ export function deleteRecordingMessage(view: RecordingView): string {
     : DELETE_SYNCED_NOTE
 }
 
+const RECORDED_AT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
 export function recordedAtLabel(recordedAt: string): string {
-  return new Date(recordedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return RECORDED_AT.format(new Date(recordedAt))
 }
 
 /**

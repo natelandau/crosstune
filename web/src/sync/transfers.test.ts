@@ -3,6 +3,7 @@ import { ApiError, NetworkError } from '../api/client'
 import {
   appendChunk,
   beginCapture,
+  deleteRecording,
   finishCapture,
   storeDownloadedBlob,
   storePeaks,
@@ -722,6 +723,17 @@ describe('downloads', () => {
       error: 'disk full',
     })
     expect(await (await db.recording_files.get('r2'))?.blob?.text()).toBe('xyz')
+  })
+
+  it('stores nothing when the recording is deleted while its download is in flight', async () => {
+    await readyOnServer('r1')
+    const getObject = fake.api.getObject.bind(fake.api)
+    vi.spyOn(fake.api, 'getObject').mockImplementationOnce(async (url) => {
+      await deleteRecording(db, 'r1')
+      return getObject(url)
+    })
+    expect(await downloadOne(db, fake.api, 'r1')).toBeNull()
+    expect(await db.recording_files.get('r1')).toBeUndefined()
   })
 
   it('downloadOne recovers a row stuck downloading instead of leaving it stuck', async () => {

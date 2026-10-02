@@ -1,9 +1,8 @@
 import { Minus, Plus } from 'lucide-react'
 import { useId, useState } from 'react'
-import { RECORDING_RANGES } from '../../api/vocabulary'
 import { getMode } from '../../platform/mode'
-import { PITCH_LABEL, PITCH_UNAVAILABLE } from '../player/Dock'
-import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
+import { PITCH_LABEL, PITCH_UNAVAILABLE } from '../player/transportCopy'
+import { clampPitch, PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON, RESET } from './panel'
 
 export const PITCH = PITCH_LABEL
 export const SEMITONES = 'Semitones'
@@ -26,11 +25,6 @@ function signed(n: number): string {
 function splitSemitones(cents: number): number {
   const whole = Math.floor((Math.abs(cents) + 49) / 100)
   return cents < 0 && whole !== 0 ? -whole : whole
-}
-
-function clampPitch(cents: number): number {
-  const { min, max } = RECORDING_RANGES.pitch_cents
-  return Math.min(max, Math.max(min, cents))
 }
 
 /**

@@ -1,5 +1,5 @@
 import { IonButton, IonInput, IonItem } from '@ionic/react'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { RECORDING_LIMITS } from '../../api/vocabulary'
 import { updateRecording } from '../../commands/recordings'
 import { useDb } from '../../db/DbProvider'
@@ -8,6 +8,7 @@ import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import type { RecordingView } from './useRecordings'
 import { CANCEL } from '../../ui/Confirm'
+import { useSheetSession } from '../../ui/useSheetSession'
 
 export const RECORDING_NAME_LABEL = 'Recording name'
 export const RECORDING_NAME_PLACEHOLDER = 'Jam at Tom’s, take 2, …'
@@ -25,59 +26,39 @@ export function RenameRecordingSheet({
   const db = useDb()
   const { error, pending, runThen, clear } = useAction()
   const [name, setName] = useState('')
-  const [closing, setClosing] = useState(false)
-  const [openedFor, setOpenedFor] = useState<RecordingView | null>(null)
-  // The recording a save is running for. A ref, because two submits in one tick both read the
-  // same `pending` state.
-  const saving = useRef<RecordingView | null>(null)
-
-  // Reset during render so the sheet's first frame already shows the recording's stored name,
-  // whatever a cancelled edit left in the box.
-  if (view !== openedFor) {
-    setOpenedFor(view)
-    if (view) {
-      setName(view.recording.label ?? '')
-      setClosing(false)
+  // The stored name on open, whatever a cancelled edit left in the box.
+  const sheet = useSheetSession(view, {
+    onOpen: (opened) => {
+      setName(opened.recording.label ?? '')
       clear()
-    }
-  }
-
-  // A dismissal that ends after a new recording opened belongs to the old one, so it closes nothing.
-  const dismissed = () => {
-    saving.current = null
-    if (view === null || closing) onClose()
-  }
+    },
+    onClose,
+  })
 
   const save = () => {
     // Enter reaches this through the hidden submit button, which the toolbar's disabled state
     // does not cover.
-    if (!view || closing || saving.current === view) return
-    saving.current = view
+    if (!view || !sheet.canSave()) return
+    sheet.beginSave()
     const label = name.trim() || null
-    runThen(
-      async () => {
-        await updateRecording(db, view.recording.id, { label }).catch((caught: unknown) => {
-          saving.current = null
-          throw caught
-        })
-      },
-      () => setClosing(true),
-    )
+    runThen(async () => {
+      await updateRecording(db, view.recording.id, { label }).catch(sheet.saveFailed)
+    }, sheet.close)
   }
 
   return (
     <Sheet
-      open={view !== null && !closing}
+      open={sheet.open}
       title={RENAME_RECORDING_TITLE}
       dismissible={false}
-      onClose={dismissed}
+      onClose={sheet.dismissed}
       start={
-        <IonButton disabled={pending} onClick={() => setClosing(true)}>
+        <IonButton disabled={pending} onClick={sheet.close}>
           {CANCEL}
         </IonButton>
       }
       end={
-        <IonButton strong disabled={pending || closing} onClick={save}>
+        <IonButton strong disabled={pending || sheet.closing} onClick={save}>
           Save
         </IonButton>
       }

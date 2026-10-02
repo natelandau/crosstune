@@ -16,7 +16,7 @@ import type { RecordingFile } from '../../db/recordings'
 import { liveTune } from '../../db/tunes'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { OFFLINE } from '../../sync/labels'
-import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
+import { useOnline } from '../../sync/SyncProvider'
 import { displayTitle } from '../links/display'
 import {
   DOWNLOAD_FAILED,
@@ -34,50 +34,26 @@ import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { playbackWindow, type PlaybackWindow } from './playbackWindow'
 import { useCurrentAudio } from './useCurrentAudio'
+import { useRecordingDownload } from './useRecordingDownload'
 import { usePlayer } from './usePlayer'
+import {
+  CLOSE_PLAYER,
+  ELAPSED_LABEL,
+  OPEN_RECORDING,
+  PAUSE,
+  PITCH_BADGE,
+  PITCH_LABEL,
+  PITCH_UNAVAILABLE,
+  PLAY,
+  REMAINING_LABEL,
+  REPEAT_LABEL,
+  REPEATING_BADGE,
+  SPEED_BADGE,
+  SPEED_LABEL,
+} from './transportCopy'
+import { useLatest } from '../../ui/useLatest'
 
-export const CLOSE_PLAYER = 'Close player'
-export const PLAY = 'Play'
-export const PAUSE = 'Pause'
 export const PLAY_FAILED = "Couldn't play"
-export const PITCH_UNAVAILABLE = "Pitch shift isn't available here"
-export const SPEED_LABEL = 'Speed'
-export const PITCH_LABEL = 'Pitch'
-export const ELAPSED_LABEL = 'Elapsed'
-export const REMAINING_LABEL = 'Remaining'
-export const REPEAT_LABEL = 'Repeat'
-
-/** `Repeating B part`, the loop the player repeats while Practice is closed. */
-export function REPEATING_BADGE(label: string): string {
-  return `Repeating ${label}`
-}
-
-/** `75%`, shown only away from the 100% default. */
-export function SPEED_BADGE(percent: number): string {
-  return `${percent}%`
-}
-
-/**
- * Semitones with a sign, one decimal only when the cents are not a whole semitone: `+2`,
- * `-1`, `+2.1`. Rounds the magnitude, then prefixes the sign from `cents`, so a negative and
- * a positive value of the same size round identically (`Math.round` alone rounds halves
- * toward positive infinity, which is asymmetric for negatives). Rounds at the
- * tenths-of-a-semitone integer (`magnitude / 10`) rather than on the final float, so 205
- * cents (2.05 semitones) rounds to 2.1 rather than whatever binary value `2.05` itself
- * happens to be stored as, and never rounds a non-zero pitch away to a bare "0.0": the
- * smallest a shown fraction ever reads is a tenth of a semitone.
- */
-export function PITCH_BADGE(cents: number): string {
-  const magnitude = Math.abs(cents)
-  const sign = cents < 0 ? '-' : '+'
-  if (magnitude % 100 === 0) return `${sign}${(magnitude / 100).toFixed(0)}`
-  const tenths = Math.max(1, Math.round(magnitude / 10))
-  return `${sign}${(tenths / 10).toFixed(1)}`
-}
-
-export function OPEN_RECORDING(title: string): string {
-  return `Open ${title}`
-}
 
 type Shown =
   | { kind: 'link'; link: LocalRecordingLink; embed: Embed }
@@ -106,23 +82,10 @@ function RecordingBody({
   file: RecordingFile | null
   title: string
 }) {
-  const syncEngine = useSyncEngine()
   const engine = usePlaybackEngine()
   const recordingScreen = useRecordingScreen()
   const online = useOnline()
-  const [fetched, setFetched] = useState<{ id: string; blob: Blob | null } | null>(null)
-  const blob = file?.blob ?? (fetched?.id === recording.id ? fetched.blob : null)
-  const failed = !blob && recording.state === 'ready' && fetched?.id === recording.id
-  useEffect(() => {
-    if (blob || recording.state !== 'ready') return
-    let cancelled = false
-    void syncEngine.download(recording.id).then((result) => {
-      if (!cancelled) setFetched({ id: recording.id, blob: result })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [blob, syncEngine, recording.id, recording.state])
+  const { blob, failed, retry } = useRecordingDownload(recording, file)
   useCurrentAudio(recording, file)
   useLoopFollow(useLoops(recording.id), {
     blobStartMs: file?.blob_start_ms ?? 0,
@@ -132,10 +95,7 @@ function RecordingBody({
   // object even though its content did not change, so the effect below keys on identity
   // (the recording and whether a blob exists) and reads the current blob through this ref,
   // kept in sync after every render rather than during it.
-  const blobRef = useRef(blob)
-  useEffect(() => {
-    blobRef.current = blob
-  })
+  const blobRef = useLatest(blob)
   const hasBlob = !!blob
   // Minted and revoked in the same effect (not useMemo, which StrictMode can
   // double-invoke without a matching cleanup) so every URL is revoked exactly once. Keyed on
@@ -153,7 +113,7 @@ function RecordingBody({
       URL.revokeObjectURL(url)
       setSrc(null)
     }
-  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms])
+  }, [recording.id, hasBlob, file?.blob_rev, file?.blob_start_ms, blobRef])
 
   // The exact fields playbackWindow reads, named here so adding one it reads without adding
   // it here is a visible omission rather than a silently missed dependency.
@@ -176,10 +136,6 @@ function RecordingBody({
     recording.trim_end_ms,
     recording.source_duration_ms,
   ])
-  const settings = useMemo(
-    () => ({ speedPercent: recording.speed_percent, pitchCents: recording.pitch_cents }),
-    [recording.speed_percent, recording.pitch_cents],
-  )
 
   // The blob identity backing the current `span`, computed fresh every render exactly like
   // `span` itself. `loadedBlobIdentity` (set only when a load actually runs) lags behind it
@@ -205,8 +161,8 @@ function RecordingBody({
       src,
       span,
       {
-        speedPercent: held?.speedPercent ?? settings.speedPercent,
-        pitchCents: held?.pitchCents ?? settings.pitchCents,
+        speedPercent: held?.speedPercent ?? recording.speed_percent,
+        pitchCents: held?.pitchCents ?? recording.pitch_cents,
       },
       { title },
       { keepLoop: !!replaced },
@@ -236,18 +192,18 @@ function RecordingBody({
   // that screen's own earlier write landing.
   const onSpeedChange = useEffectEvent(() => {
     if (!src || loadedBlobIdentity.current !== blobIdentity) return
-    engine.setSpeed(recordingScreen.held(recording.id)?.speedPercent ?? settings.speedPercent)
+    engine.setSpeed(recordingScreen.held(recording.id)?.speedPercent ?? recording.speed_percent)
   })
   useEffect(() => {
     onSpeedChange()
-  }, [settings.speedPercent])
+  }, [recording.speed_percent])
   const onPitchChange = useEffectEvent(() => {
     if (!src || loadedBlobIdentity.current !== blobIdentity) return
-    engine.setPitch(recordingScreen.held(recording.id)?.pitchCents ?? settings.pitchCents)
+    engine.setPitch(recordingScreen.held(recording.id)?.pitchCents ?? recording.pitch_cents)
   })
   useEffect(() => {
     onPitchChange()
-  }, [settings.pitchCents])
+  }, [recording.pitch_cents])
 
   // A rename touches only what the lock screen shows.
   const onTitleChange = useEffectEvent(() => {
@@ -383,16 +339,7 @@ function RecordingBody({
       </p>
       {/* Offline refuses the tap by not offering it, rather than leaving a control that cannot work. */}
       {failed && online ? (
-        <IonButton
-          fill="outline"
-          onClick={() => {
-            // Clearing the failed result shows Downloading again until this attempt settles.
-            setFetched(null)
-            void syncEngine.download(recording.id).then((result) => {
-              setFetched({ id: recording.id, blob: result })
-            })
-          }}
-        >
+        <IonButton fill="outline" onClick={retry}>
           Retry
         </IonButton>
       ) : null}

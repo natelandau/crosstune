@@ -7,6 +7,7 @@ const MS_PER_WINDOW = 1000 / PEAKS_PER_SECOND
 
 export interface Peaks {
   pointsPerSecond: number
+  /** A view into the file it was parsed from, shared rather than copied: never write to it. */
   values: Uint8Array
 }
 
@@ -32,14 +33,14 @@ export function parsePeaks(file: Uint8Array): Peaks {
       `Unsupported peaks header: version=${version}, pointsPerSecond=${pointsPerSecond}`,
     )
   }
-  return { pointsPerSecond, values: file.slice(HEADER_SIZE) }
+  return { pointsPerSecond, values: file.subarray(HEADER_SIZE) }
 }
 
 /** Cut a full peaks file down to the `startMs` to `endMs` range of its own file. */
 export function slicePeaks(peaks: Peaks, startMs: number, endMs: number): Peaks {
   const start = Math.floor((startMs * peaks.pointsPerSecond) / 1000)
   const end = Math.floor((endMs * peaks.pointsPerSecond) / 1000)
-  return { pointsPerSecond: peaks.pointsPerSecond, values: peaks.values.slice(start, end) }
+  return { pointsPerSecond: peaks.pointsPerSecond, values: peaks.values.subarray(start, end) }
 }
 
 /**

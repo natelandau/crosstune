@@ -1,15 +1,7 @@
 import { IonList } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, Trash2 } from 'lucide-react'
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type RefObject,
-} from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { LOOP_LIMITS } from '../../api/vocabulary'
 import { addLoop, removeLoop, restoreLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT, RECORDING_NOT_FOUND } from '../../commands/messages'
@@ -21,15 +13,24 @@ import { Rail } from '../../ui/Rail'
 import { Row } from '../../ui/Row'
 import { useToast } from '../../ui/Toast'
 import { isControl, isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration } from '../recording/format'
 import { PANEL_TEXT_BUTTON } from '../recording-screen/panel'
 import { trimmedLengthMs } from '../recording-screen/recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
-import { canCreate, loopName, partSuggestions, spanFromDrag, type Span } from './loopModel'
+import {
+  canCreate,
+  loopName,
+  partSuggestions,
+  rowSpan,
+  type Span,
+  spanFields,
+  spanFromDrag,
+} from './loopModel'
 import { LOOP_NOT_SAVED } from './PracticeLanes'
 import type { LoopPlayback } from './useLoopPlayback'
 import { LOOP_NAME } from './practiceCopy'
+import { useLatest } from '../../ui/useLatest'
 
 export const NEW_LOOP = 'New loop'
 export const LOOP_DELETED = 'Loop deleted'
@@ -73,10 +74,10 @@ export function LoopList({
   const db = useDb()
   const engine = usePlaybackEngine()
   const toast = useToast()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const loadedLengthMs = useEngineState(engine, (s) => s.lengthMs)
   const rows = loops ?? []
   const trimStartMs = recording.trim_start_ms
-  const lengthMs = state.lengthMs > 0 ? state.lengthMs : (trimmedLengthMs(recording, file) ?? 0)
+  const lengthMs = loadedLengthMs > 0 ? loadedLengthMs : (trimmedLengthMs(recording, file) ?? 0)
   const bounds = { startMs: trimStartMs, endMs: trimStartMs + lengthMs }
   const create = canCreate(rows.length, bounds)
   const idPrefix = useId()
@@ -125,7 +126,7 @@ export function LoopList({
       return
     }
     playback.select(row.id)
-    onFit({ startMs: row.start_ms, endMs: row.end_ms })
+    onFit(rowSpan(row))
   }
 
   /** Closes the name field, saving `text` unless it is null (the name the field opened with). */
@@ -168,7 +169,7 @@ export function LoopList({
     if (!create.allowed) return
     const playheadMs = trimStartMs + engine.getState().positionMs
     const span = spanFromDrag(playheadMs, playheadMs + NEW_LOOP_MS, bounds)
-    addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs })
+    addLoop(db, recording.id, spanFields(span))
       .then((id) => {
         playback.select(id)
         onFit(span)
@@ -176,13 +177,10 @@ export function LoopList({
       .catch(report)
   }
 
-  const latest = useRef({ rows, playback, renaming, remove })
-  useLayoutEffect(() => {
-    latest.current = { rows, playback, renaming, remove }
-  })
+  const latestRef = useLatest({ rows, playback, renaming, remove })
   useLayoutEffect(() => {
     cancelRef.current = () => {
-      const { renaming } = latest.current
+      const { renaming } = latestRef.current
       if (renaming === null) return false
       setRenaming(null)
       focusTarget.current = rowId(renaming)
@@ -204,7 +202,7 @@ export function LoopList({
       if (key !== 'Enter' && key !== 'Delete' && key !== 'Backspace') return
       if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return
       if (isTextEntry(event.target) || !isTopOverlay(modal.current)) return
-      const { rows, playback, renaming, remove } = latest.current
+      const { rows, playback, renaming, remove } = latestRef.current
       const row = rows.find((l) => l.id === playback.selectedId)
       if (!row || renaming !== null) return
       if (key === 'Enter') {
@@ -219,7 +217,7 @@ export function LoopList({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal])
+  }, [modal, latestRef])
 
   const usedLabels = rows.map((l) => l.label?.trim()).filter((l): l is string => !!l)
   // Only a recording too short to hold a loop has no reason to give, and then New loop has no use.
@@ -291,7 +289,7 @@ export function LoopList({
           type="button"
           id={newLoopId}
           title={create.reason ?? undefined}
-          disabled={!create.allowed || state.lengthMs === 0}
+          disabled={!create.allowed || loadedLengthMs === 0}
           className={`${PANEL_TEXT_BUTTON} inline-flex items-center gap-2 self-start`}
           onClick={makeNew}
         >

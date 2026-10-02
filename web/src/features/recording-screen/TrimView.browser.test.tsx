@@ -12,7 +12,7 @@ import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { CANCEL } from '../../ui/Confirm'
-import { PAUSE } from '../player/Dock'
+import { PAUSE } from '../player/transportCopy'
 import { PlaybackEngine, type EngineClock } from '../player/playbackEngine'
 import { usePlayer } from '../player/usePlayer'
 import { RecordingsPage } from '../recordings/RecordingsPage'
@@ -29,8 +29,8 @@ import {
   TRIM_CONFIRM_ACTION,
   TRIM_CONFIRM_MESSAGE,
   TRIM_CONFIRM_TITLE,
-  ZOOM_IN,
 } from './TrimView'
+import { ZOOM_IN } from './panel'
 import { EDIT_RECORDING } from './useRecordingScreen'
 import { SEEK_LABEL } from './Waveform'
 

@@ -1,6 +1,7 @@
 /** What the recording screen's tool panels share. */
 
 import { RECORDING_RANGES } from '../../api/vocabulary'
+import { clamp } from '../../math'
 
 export const RESET = 'Reset'
 
@@ -12,6 +13,12 @@ export const PANEL_ICON_BUTTON =
 export const PANEL_TEXT_BUTTON =
   'type-body min-h-11 rounded-full px-4 text-(--ion-color-primary) disabled:opacity-40'
 
+export const ZOOM_IN = 'Zoom in'
+export const ZOOM_OUT = 'Zoom out'
+
+/** How much one zoom step scales the view by. */
+export const ZOOM_STEP = 2
+
 /** One step of speed, in percent. */
 export const SPEED_STEP = 5
 
@@ -20,5 +27,15 @@ export const SPEED_STEP = 5
 export function stepSpeed(percent: number, by: number): number {
   const { min, max } = RECORDING_RANGES.speed_percent
   const snap = by < 0 ? Math.ceil : Math.floor
-  return Math.min(max, Math.max(min, snap((percent + by) / SPEED_STEP) * SPEED_STEP))
+  return clamp(snap((percent + by) / SPEED_STEP) * SPEED_STEP, min, max)
+}
+
+export function clampSpeed(percent: number): number {
+  const { min, max } = RECORDING_RANGES.speed_percent
+  return clamp(percent, min, max)
+}
+
+export function clampPitch(cents: number): number {
+  const { min, max } = RECORDING_RANGES.pitch_cents
+  return clamp(cents, min, max)
 }

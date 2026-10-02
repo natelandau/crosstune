@@ -1,16 +1,19 @@
-import { useLayoutEffect, useRef, type PointerEvent, type RefObject } from 'react'
+import { useRef, type PointerEvent, type RefObject } from 'react'
 import {
+  type Bounds,
   DRAG_THRESHOLD_PX,
   moveSpan,
+  type PlacedLoop,
   resizeSpan,
   snapMs,
-  spanFromDrag,
-  type Bounds,
-  type PlacedLoop,
   type Span,
+  spanFromDrag,
+  spanOf,
 } from './loopModel'
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
+import { capturePointer } from '../../platform/pointer'
+import { useLatest } from '../../ui/useLatest'
 
 export const ROW_HEIGHT_PX = 20
 export const ROW_GAP_PX = 4
@@ -69,10 +72,7 @@ const round = (span: Span): Span => ({
  * edges unless Alt or Option is held, and a drag near either end of the lane pans the view.
  */
 export function useLoopGestures(options: LoopGestureOptions) {
-  const latest = useRef(options)
-  useLayoutEffect(() => {
-    latest.current = options
-  })
+  const latestRef = useLatest(options)
   const pressed = useRef<Pressed | null>(null)
   const autoPan = useAutoPan({
     view: options.view,
@@ -84,12 +84,12 @@ export function useLoopGestures(options: LoopGestureOptions) {
   })
 
   const localX = (clientX: number) => {
-    const rect = latest.current.lane.current?.getBoundingClientRect()
+    const rect = latestRef.current.lane.current?.getBoundingClientRect()
     return rect ? clientX - rect.left : 0
   }
 
   const hit = (x: number, y: number): Gesture => {
-    const { view, loops, rows } = latest.current
+    const { view, loops, rows } = latestRef.current
     const row = Math.floor((y - LANE_PAD_PX) / (ROW_HEIGHT_PX + ROW_GAP_PX))
     const inRow = loops.filter((loop) => rows.get(loop.id) === row)
     const placed = inRow.map((loop) => ({
@@ -100,18 +100,18 @@ export function useLoopGestures(options: LoopGestureOptions) {
     // Inside a loop, the reach of an end shrinks with the loop so a short one keeps a body.
     for (const { loop, x0, x1 } of placed) {
       const inner = Math.min(HANDLE_REACH_PX, (x1 - x0) / 4)
-      const span = { startMs: loop.startMs, endMs: loop.endMs }
+      const span = spanOf(loop)
       if (x >= x0 && x <= x0 + inner) return { kind: 'resize', id: loop.id, span, edge: 'start' }
       if (x <= x1 && x >= x1 - inner) return { kind: 'resize', id: loop.id, span, edge: 'end' }
     }
     for (const { loop, x0, x1 } of placed) {
       if (x > x0 && x < x1) {
-        const span = { startMs: loop.startMs, endMs: loop.endMs }
+        const span = spanOf(loop)
         return { kind: 'move', id: loop.id, span, anchorMs: msAtX(view, x) }
       }
     }
     for (const { loop, x0, x1 } of placed) {
-      const span = { startMs: loop.startMs, endMs: loop.endMs }
+      const span = spanOf(loop)
       if (x < x0 && x0 - x <= HANDLE_REACH_PX) {
         return { kind: 'resize', id: loop.id, span, edge: 'start' }
       }
@@ -124,7 +124,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
 
   /** The draft for the pointer at `x`, snapped unless `alt`. */
   const draftAt = (gesture: Gesture, x: number, alt: boolean): Draft => {
-    const { view, loops, bounds, playheadMs } = latest.current
+    const { view, loops, bounds, playheadMs } = latestRef.current
     const msPerPx = 1000 / view.pxPerS
     const dragged = gesture.kind === 'create' ? null : gesture.id
     const targets = [playheadMs]
@@ -155,7 +155,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
     const press = pressed.current
     if (!press?.moved) return
     press.lastX = x
-    latest.current.onDraft(draftAt(press.gesture, x, press.alt))
+    latestRef.current.onDraft(draftAt(press.gesture, x, press.alt))
     autoPan.track(x)
   }
 
@@ -164,7 +164,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
     if (!press || press.pointerId !== event.pointerId) return
     pressed.current = null
     autoPan.stop()
-    const { onDraft, onCommit, onSelect, canCreate, pinches } = latest.current
+    const { onDraft, onCommit, onSelect, canCreate, pinches } = latestRef.current
     if (!commit || press.scrolling || pinches.current !== press.pinch) {
       onDraft(null)
       return
@@ -185,17 +185,13 @@ export function useLoopGestures(options: LoopGestureOptions) {
     onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
       if (event.pointerType === 'mouse' && event.button !== 0) return
       if (pressed.current) return
-      const element = latest.current.lane.current
+      const element = latestRef.current.lane.current
       if (!element) return
       const rect = element.getBoundingClientRect()
       const x = event.clientX - rect.left
       const y = event.clientY - rect.top + element.scrollTop
       const gesture = hit(x, y)
-      try {
-        element.setPointerCapture(event.pointerId)
-      } catch {
-        // A synthetic or already-released pointer cannot be captured; its events still arrive.
-      }
+      capturePointer(element, event.pointerId)
       pressed.current = {
         pointerId: event.pointerId,
         gesture,
@@ -206,7 +202,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
         scrolling: false,
         lastX: x,
         alt: event.altKey,
-        pinch: latest.current.pinches.current,
+        pinch: latestRef.current.pinches.current,
       }
     },
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
@@ -215,7 +211,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
       const x = localX(event.clientX)
       press.alt = event.altKey
       if (press.scrolling) {
-        const element = latest.current.lane.current
+        const element = latestRef.current.lane.current
         if (element) element.scrollTop = press.startScroll - (event.clientY - press.startY)
         return
       }
@@ -228,7 +224,7 @@ export function useLoopGestures(options: LoopGestureOptions) {
           return
         }
         if (Math.abs(dx) < DRAG_THRESHOLD_PX) return
-        if (press.gesture.kind === 'create' && !latest.current.canCreate) return
+        if (press.gesture.kind === 'create' && !latestRef.current.canCreate) return
         press.moved = true
       }
       follow(x)

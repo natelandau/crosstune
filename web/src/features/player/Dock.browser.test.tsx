@@ -30,22 +30,21 @@ import { loopRow } from '../../test/rows'
 import { PRACTICE } from '../practice/practiceCopy'
 import { DOWNLOAD_FAILED } from '../recording/format'
 import { RecordProvider, useRecord } from '../recording/useRecord'
+import { Dock, PLAY_FAILED } from './Dock'
+import { PlaybackEngine, type EngineClock } from './playbackEngine'
 import {
   CLOSE_PLAYER,
-  Dock,
   OPEN_RECORDING,
   PAUSE,
   PITCH_BADGE,
   PITCH_LABEL,
   PITCH_UNAVAILABLE,
   PLAY,
-  PLAY_FAILED,
   REPEAT_LABEL,
   REPEATING_BADGE,
   SPEED_BADGE,
   SPEED_LABEL,
-} from './Dock'
-import { PlaybackEngine, type EngineClock } from './playbackEngine'
+} from './transportCopy'
 import { usePlayer, type PlayerItem } from './usePlayer'
 
 const realClock: EngineClock = {
@@ -940,6 +939,23 @@ describe('Dock', () => {
     expect(page.getByRole('button', { name: 'Retry' }).query()).toBeNull()
     // Nothing offline is disabled: the dock's own control keeps its name and its tap.
     await expect.element(dock().getByRole('button', { name: CLOSE_PLAYER })).toBeEnabled()
+  })
+
+  it('fetches the audio once the connection comes back', async () => {
+    const id = await remoteRecording('remote')
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const download = vi.fn(() => new Promise<Blob | null>(() => {}))
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      engine: fakeEngine({ download }),
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByText('Offline')).toBeVisible()
+    expect(download).not.toHaveBeenCalled()
+
+    onLine.mockReturnValue(true)
+    window.dispatchEvent(new Event('online'))
+    await expect.element(dock().getByText('Downloading')).toBeVisible()
+    await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(1))
   })
 
   it('closes itself when the loaded recording is tombstoned', async () => {

@@ -1,5 +1,6 @@
 import { LOOP_LIMIT } from '../../commands/messages'
 import { formatDuration } from '../recording/format'
+import { clamp } from '../../math'
 
 export const MIN_LOOP_MS = 500
 export const MAX_LOOPS = 100
@@ -8,17 +9,23 @@ export const SNAP_PX = 8
 export const DRAG_THRESHOLD_PX = 8
 
 export type Span = { startMs: number; endMs: number }
+
+/** A loop row's span, in the lanes' own terms. */
+export function rowSpan(row: { start_ms: number; end_ms: number }): Span {
+  return { startMs: row.start_ms, endMs: row.end_ms }
+}
+
+/** Only the span of something that carries one, so its other fields never ride along. */
+export function spanOf(value: Span): Span {
+  return { startMs: value.startMs, endMs: value.endMs }
+}
+
+/** A span as the fields a loop write takes. */
+export function spanFields(span: Span): { start_ms: number; end_ms: number } {
+  return { start_ms: span.startMs, end_ms: span.endMs }
+}
 export type Bounds = Span
 export type PlacedLoop = Span & { id: string; color: number }
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
-
-/** Pulls a span inside the bounds; null when less than the minimum length remains. */
-export function clampLoop(span: Span, bounds: Bounds): Span | null {
-  const startMs = Math.max(span.startMs, bounds.startMs)
-  const endMs = Math.min(span.endMs, bounds.endMs)
-  return endMs - startMs < MIN_LOOP_MS ? null : { startMs, endMs }
-}
 
 /** The span between an anchor and a pointer, widened to the minimum length and held inside the bounds. */
 export function spanFromDrag(anchorMs: number, pointerMs: number, bounds: Bounds): Span {

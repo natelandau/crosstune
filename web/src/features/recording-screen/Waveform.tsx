@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
-import { BAR_GAP, BAR_WIDTH } from '../recording/waveformBars'
+import { BAR_GAP, BAR_WIDTH, MIN_BAR } from '../recording/waveformBars'
 import { barLevels, type Peaks } from '../waveform/peaks'
+import { capturePointer } from '../../platform/pointer'
 
 export const SEEK_LABEL = 'Position'
 
 const KEY_STEP_MS = 5000
-const MIN_BAR = 2
 const STEP = BAR_WIDTH + BAR_GAP
 /** How much of the full color the part not yet played keeps. */
 const UNPLAYED_ALPHA = 0.35
@@ -75,9 +76,11 @@ export function Waveform({
     const canvas = canvasRef.current
     if (!canvas) return
     // An observer reports the size it starts with, so this also takes the first measurement.
-    const observer = new ResizeObserver(() =>
-      setSize({ width: canvas.clientWidth, height: canvas.clientHeight }),
-    )
+    const observer = new ResizeObserver(() => {
+      const width = canvas.clientWidth
+      const height = canvas.clientHeight
+      setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }))
+    })
     observer.observe(canvas)
     return () => observer.disconnect()
   }, [])
@@ -132,7 +135,7 @@ export function Waveform({
     context.globalAlpha = 1
   }, [size, theme, peaks, levels, played])
 
-  const clampMs = (ms: number) => Math.min(lengthMs, Math.max(0, ms))
+  const clampMs = (ms: number) => clamp(ms, 0, lengthMs)
 
   const seekTo = (event: PointerEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect()
@@ -173,7 +176,7 @@ export function Waveform({
       onPointerDown={(event) => {
         if (disabled) return
         dragging.current = true
-        event.currentTarget.setPointerCapture?.(event.pointerId)
+        capturePointer(event.currentTarget, event.pointerId)
         seekTo(event)
       }}
       onPointerMove={(event) => {
@@ -183,6 +186,9 @@ export function Waveform({
         dragging.current = false
       }}
       onPointerCancel={() => {
+        dragging.current = false
+      }}
+      onLostPointerCapture={() => {
         dragging.current = false
       }}
       onKeyDown={onKeyDown}

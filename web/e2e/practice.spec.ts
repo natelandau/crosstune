@@ -7,6 +7,7 @@ import {
   PRACTICE,
 } from '../src/features/practice/practiceCopy'
 import { expectSynced, nudgeSync, recordUnfiled, signIn, swipeLeft, waitForReady } from './helpers'
+import { PAUSE, PLAY } from '../src/features/player/transportCopy'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
@@ -50,12 +51,12 @@ test('marks a loop with A B, names it, and another device sees the name', async 
   const screen = await openPractice(page, unfiled)
   // Opening the recording starts it playing; from the top, the mark has the whole take to run in.
   const transport = screen
-    .getByRole('button', { name: 'Pause', exact: true })
-    .or(screen.getByRole('button', { name: 'Play', exact: true }))
+    .getByRole('button', { name: PAUSE, exact: true })
+    .or(screen.getByRole('button', { name: PLAY, exact: true }))
   await expect(transport).toBeVisible({ timeout: 15_000 })
-  if ((await transport.getAttribute('aria-label')) === 'Pause') await transport.click()
+  if ((await transport.getAttribute('aria-label')) === PAUSE) await transport.click()
   await screen.getByRole('button', { name: 'Skip back 15 seconds', exact: true }).click()
-  await screen.getByRole('button', { name: 'Play', exact: true }).click()
+  await screen.getByRole('button', { name: PLAY, exact: true }).click()
 
   const mark = screen.getByRole('button', { name: MARK_LOOP, exact: true })
   await mark.click()
@@ -63,7 +64,7 @@ test('marks a loop with A B, names it, and another device sees the name', async 
   // Long enough past the double-tap guard for the loop to run a second or more.
   await page.waitForTimeout(1_500)
   await mark.click()
-  await screen.getByRole('button', { name: 'Pause', exact: true }).click()
+  await screen.getByRole('button', { name: PAUSE, exact: true }).click()
 
   const loops = screen.getByRole('region', { name: LOOPS_LABEL, exact: true })
   const created = loops.locator('[data-row-open][aria-current="true"]')

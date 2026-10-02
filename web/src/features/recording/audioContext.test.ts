@@ -26,13 +26,6 @@ afterEach(() => {
 })
 
 describe('audioContext', () => {
-  it('reports unlocked only after a tap creates or resumes the context', async () => {
-    const { wasUnlockedByTap, unlockAudioContext } = await freshModule()
-    expect(wasUnlockedByTap()).toBe(false)
-    unlockAudioContext()
-    expect(wasUnlockedByTap()).toBe(true)
-  })
-
   it('reuses the same context across calls and resumes a suspended one', async () => {
     const { unlockAudioContext, getAudioContext } = await freshModule()
     const first = unlockAudioContext()

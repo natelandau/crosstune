@@ -3,7 +3,16 @@ import type { CrosstuneDb } from '../db/schema'
 import type { TuningsMap } from '../features/settings/instruments'
 import { TUNE_NOT_FOUND } from './messages'
 import { tombstoneTuneRecordings } from './recordings'
-import { defined, newId, now, putRow, recordingTx, tombstone, writeTx } from './write'
+import {
+  defined,
+  newId,
+  now,
+  putRow,
+  recordingTx,
+  tombstone,
+  tombstoneWhere,
+  writeTx,
+} from './write'
 
 export interface TuneInput {
   title: string
@@ -141,18 +150,12 @@ export async function setArchived(
  */
 export async function tombstoneTune(db: CrosstuneDb, tuneId: string, at: string): Promise<void> {
   await tombstone(db, 'tunes', tuneId, at)
-  const userTunes = await db.user_tunes.where('tune_id').equals(tuneId).toArray()
-  for (const userTune of userTunes) {
-    const items = await db.list_items.where('user_tune_id').equals(userTune.id).toArray()
-    for (const item of items) {
-      await tombstone(db, 'list_items', item.id, at, { enqueueDelete: false })
-    }
-    await tombstone(db, 'user_tunes', userTune.id, at, { enqueueDelete: false })
+  const userTuneIds = await db.user_tunes.where('tune_id').equals(tuneId).primaryKeys()
+  for (const userTuneId of userTuneIds) {
+    await tombstoneWhere(db, 'list_items', 'user_tune_id', userTuneId, at)
+    await tombstone(db, 'user_tunes', userTuneId, at, { enqueueDelete: false })
   }
-  const links = await db.recording_links.where('tune_id').equals(tuneId).toArray()
-  for (const link of links) {
-    await tombstone(db, 'recording_links', link.id, at, { enqueueDelete: false })
-  }
+  await tombstoneWhere(db, 'recording_links', 'tune_id', tuneId, at)
   await tombstoneTuneRecordings(db, tuneId, at)
 }
 

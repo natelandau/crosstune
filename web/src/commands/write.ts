@@ -92,3 +92,16 @@ export async function tombstone<T extends TableName>(
     await dropPending(db, table, id)
   }
 }
+
+/** Soft-delete every row whose `index` equals `value`: the dependents of a cascading parent,
+ * so no delete is queued for them. */
+export async function tombstoneWhere<T extends TableName>(
+  db: CrosstuneDb,
+  table: T,
+  index: string,
+  value: string,
+  at: string,
+): Promise<void> {
+  const ids = await rowsTable(db, table).where(index).equals(value).primaryKeys()
+  for (const id of ids) await tombstone(db, table, id, at, { enqueueDelete: false })
+}

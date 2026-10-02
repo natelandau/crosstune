@@ -1,5 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
-import { PlaybackEngine, type EngineClock } from './playbackEngine'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
+import { PlaybackEngine, type EngineClock, type PlaybackState } from './playbackEngine'
 
 const realClock: EngineClock = {
   every: (ms, fn) => {
@@ -37,4 +44,14 @@ export function usePlaybackEngine(): PlaybackEngine {
   const engine = useContext(PlaybackEngineContext)
   if (!engine) throw new Error('usePlaybackEngine must be used inside PlaybackEngineProvider')
   return engine
+}
+
+/**
+ * One slice of the engine's state. The position changes on every tick while playing, so a
+ * component that reads only other fields re-renders only when those change. `select` must
+ * return a primitive or a reference the engine keeps, never a fresh object.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useEngineState<T>(engine: PlaybackEngine, select: (state: PlaybackState) => T): T {
+  return useSyncExternalStore(engine.subscribe, () => select(engine.getState()))
 }

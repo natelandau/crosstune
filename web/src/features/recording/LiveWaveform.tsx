@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from '../../platform/motion'
 import { barCount, createLevels, layoutBars, pushLevel, rmsLevel } from './waveformBars'
+import { useLatest } from '../../ui/useLatest'
 
 /**
  * A bar waveform drawn from the analyser's time domain, one level per animation frame. It
@@ -18,11 +19,8 @@ export function LiveWaveform({
   active: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const pausedRef = useRef(paused)
+  const pausedRef = useLatest(paused)
   const reduceMotion = useReducedMotion()
-  useEffect(() => {
-    pausedRef.current = paused
-  })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -62,7 +60,7 @@ export function LiveWaveform({
       cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [analyser, active, reduceMotion])
+  }, [analyser, active, reduceMotion, pausedRef])
 
   // The draw loop reads this color off the canvas, so the bars follow the palette in either theme.
   return (

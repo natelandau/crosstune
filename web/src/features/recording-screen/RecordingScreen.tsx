@@ -20,10 +20,11 @@ import { useDialogName } from '../../ui/dialogName'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import { isControl, isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import { ELAPSED_LABEL, REMAINING_LABEL } from '../player/Dock'
+import { ELAPSED_LABEL, REMAINING_LABEL } from '../player/transportCopy'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { useCurrentAudio } from '../player/useCurrentAudio'
+import { useRecordingDownload } from '../player/useRecordingDownload'
 import {
   DOWNLOAD_FAILED,
   DOWNLOADING,
@@ -44,6 +45,7 @@ import { SKIP_MS, Transport } from './Transport'
 import { TRIM, TrimView } from './TrimView'
 import { useHeldSettings, useRecordingScreen } from './useRecordingScreen'
 import { Waveform } from './Waveform'
+import { useLatest } from '../../ui/useLatest'
 
 export const CLOSE_RECORDING = 'Close'
 export const TRIM_BUSY = 'Trimming…'
@@ -118,26 +120,14 @@ function useTransportKeys(
  * dock already started, so the two never fetch the same file twice.
  */
 function useAudioFetch(recording: LocalRecording, file: RecordingFile | undefined): AudioFetch {
-  const syncEngine = useSyncEngine()
   const online = useOnline()
   useCurrentAudio(recording, file)
-  const needed = !file?.blob && recording.state === 'ready'
-  const [fetched, setFetched] = useState<{ id: string; blob: Blob | null } | null>(null)
-  useEffect(() => {
-    if (!needed || !online) return
-    let cancelled = false
-    void syncEngine.download(recording.id).then((blob) => {
-      if (!cancelled) setFetched({ id: recording.id, blob })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [needed, online, syncEngine, recording.id])
+  const { blob, failed } = useRecordingDownload(recording, file)
   if (!file?.blob && recording.state !== 'ready') return 'unavailable'
-  if (!needed) return 'held'
+  if (blob) return 'held'
   if (!online) return 'offline'
   if (file?.local_state === 'downloading') return 'downloading'
-  return fetched?.id === recording.id ? 'failed' : 'downloading'
+  return failed ? 'failed' : 'downloading'
 }
 
 /**
@@ -217,10 +207,7 @@ function useLeaveView(
   leave: () => void,
   escapeRef?: RefObject<(() => boolean) | null>,
 ): void {
-  const latest = useRef(leave)
-  useLayoutEffect(() => {
-    latest.current = leave
-  })
+  const latestRef = useLatest(leave)
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent) => {
@@ -230,12 +217,12 @@ function useLeaveView(
       event.preventDefault()
       event.stopPropagation()
       if (escapeRef?.current?.()) return
-      latest.current()
+      latestRef.current()
     }
     const onBack = (event: Event) => {
       if (!isTopOverlay(modal.current)) return
       const { detail } = event as CustomEvent<BackButtonDetail>
-      detail.register(VIEW_BACK_PRIORITY, () => latest.current())
+      detail.register(VIEW_BACK_PRIORITY, () => latestRef.current())
     }
     window.addEventListener('keydown', onKey, true)
     document.addEventListener('ionBackButton', onBack)
@@ -243,7 +230,7 @@ function useLeaveView(
       window.removeEventListener('keydown', onKey, true)
       document.removeEventListener('ionBackButton', onBack)
     }
-  }, [modal, enabled, escapeRef])
+  }, [modal, enabled, escapeRef, latestRef])
 }
 
 type View = 'main' | 'trim' | 'practice'
@@ -293,20 +280,20 @@ function Loaded({
     recordingScreen.hold(recordingId, { speedPercent: 100, pitchCents: 0, shown: false })
     return () => recordingScreen.hold(recordingId, null)
   }, [recordingScreen, recordingId, trimming])
-  const settings = useRef({ speed: recording.speed_percent, pitch: recording.pitch_cents })
-  useLayoutEffect(() => {
-    settings.current = { speed: recording.speed_percent, pitch: recording.pitch_cents }
-  })
+  const settingsRef = useLatest({ speed: recording.speed_percent, pitch: recording.pitch_cents })
   useEffect(() => {
     if (!trimming) return
     engine.setSpeed(100)
     engine.setPitch(0)
     // Leaving the trim view, or the whole screen from inside it, gives back what was playing.
     return () => {
-      engine.setSpeed(settings.current.speed)
-      engine.setPitch(settings.current.pitch)
+      // The settings as they stand when trimming ends, not as they were when it began.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const { speed, pitch } = settingsRef.current
+      engine.setSpeed(speed)
+      engine.setPitch(pitch)
     }
-  }, [trimming, engine])
+  }, [trimming, engine, settingsRef])
 
   const peaksRev = recording.peaks_rev
   const filePeaks = file?.peaks ?? null

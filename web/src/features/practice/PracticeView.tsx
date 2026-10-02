@@ -7,7 +7,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
   type RefObject,
 } from 'react'
@@ -20,9 +19,9 @@ import { getMode } from '../../platform/mode'
 import { InlineError } from '../../ui/InlineError'
 import { useToast } from '../../ui/Toast'
 import { isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import { PITCH_BADGE, SPEED_BADGE } from '../player/Dock'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { PANEL_ICON_BUTTON, SPEED_STEP, stepSpeed } from '../recording-screen/panel'
+import { PITCH_BADGE, SPEED_BADGE } from '../player/transportCopy'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { clampPitch, PANEL_ICON_BUTTON, SPEED_STEP, stepSpeed } from '../recording-screen/panel'
 import { PITCH, PITCH_DOWN, PITCH_UP, PitchPanel } from '../recording-screen/PitchPanel'
 import type { ShownPeaks } from '../recording-screen/recordingRange'
 import { FASTER, SLOWER, SPEED, SpeedPanel } from '../recording-screen/SpeedPanel'
@@ -39,6 +38,7 @@ import { useLoopMark, type LoopMark } from './useLoopMark'
 import { useLoopPlayback, type LoopPlayback } from './useLoopPlayback'
 import { useLoops } from './useLoops'
 import { BACK, LOOPS_LABEL, PRACTICE } from './practiceCopy'
+import { useLatest } from '../../ui/useLatest'
 
 export const LANES_LABEL = 'Waveform'
 export const SPEED_NOT_SAVED = 'The speed could not be saved.'
@@ -59,11 +59,6 @@ export function PRACTICE_BADGE(speedPercent: number, pitchCents: number): string
 /** `Practice, 75%`, the name of the badge that opens Practice. */
 export function PRACTICE_BADGE_LABEL(badge: string): string {
   return `${PRACTICE}, ${badge}`
-}
-
-function clampPitch(cents: number): number {
-  const { min, max } = RECORDING_RANGES.pitch_cents
-  return Math.min(max, Math.max(min, cents))
 }
 
 /**
@@ -91,7 +86,7 @@ export function PracticeView({
   const engine = usePlaybackEngine()
   const toast = useToast()
   const layout = useFrame()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const pitchUnavailable = useEngineState(engine, (s) => s.pitchUnavailable)
   const title = recordingTitle({ ...view, tuneId: null })
   const [writeError, setWriteError] = useState<string | null>(null)
   const loopRows = useLoops(recording.id)
@@ -160,11 +155,8 @@ export function PracticeView({
     )
   }, [recordingScreen, recordingId, speed, pitch, rowSpeed, rowPitch])
 
-  const row = useRef(recording)
+  const rowRef = useLatest(recording)
   const mounted = useRef(true)
-  useLayoutEffect(() => {
-    row.current = recording
-  })
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -180,19 +172,19 @@ export function PracticeView({
   }
   const writing = useRef(new Set<Promise<void>>())
   const write = (patch: { speed_percent: number } | { pitch_cents: number }, message: string) => {
-    const done = updateRecording(db, row.current.id, patch).catch(report(message))
+    const done = updateRecording(db, rowRef.current.id, patch).catch(report(message))
     writing.current.add(done)
     void done.finally(() => writing.current.delete(done))
   }
   // A value the row already holds, such as one adopted from another device, is not written back.
   useSettledWrite(speed, (value) => {
     setSent((current) => ({ ...current, speed: value }))
-    if (value === row.current.speed_percent) return
+    if (value === rowRef.current.speed_percent) return
     write({ speed_percent: value }, SPEED_NOT_SAVED)
   })
   useSettledWrite(pitch, (value) => {
     setSent((current) => ({ ...current, pitch: value }))
-    if (value === row.current.pitch_cents) return
+    if (value === rowRef.current.pitch_cents) return
     write({ pitch_cents: value }, PITCH_NOT_SAVED)
   })
   // Declared after the settled writes, so their flush on leaving is already under way. The hold
@@ -243,7 +235,7 @@ export function PracticeView({
         more={{ label: PITCH_UP, disabled: pitch >= maxPitch }}
         onStep={(by) => changePitch(clampPitch(pitch + by * PITCH_STEP_CENTS))}
       >
-        <PitchPanel value={pitch} onChange={changePitch} unavailable={state.pitchUnavailable} />
+        <PitchPanel value={pitch} onChange={changePitch} unavailable={pitchUnavailable} />
       </Stepper>
     </div>
   )
@@ -343,17 +335,14 @@ function usePracticeKeys(
   cancelRename: RefObject<(() => boolean) | null>,
   escapeRef: RefObject<(() => boolean) | null> | undefined,
 ): void {
-  const latest = useRef({ playback, mark })
-  useLayoutEffect(() => {
-    latest.current = { playback, mark }
-  })
+  const latestRef = useLatest({ playback, mark })
   useLayoutEffect(() => {
     if (!escapeRef) return
-    escapeRef.current = () => latest.current.mark.cancel() || !!cancelRename.current?.()
+    escapeRef.current = () => latestRef.current.mark.cancel() || !!cancelRename.current?.()
     return () => {
       escapeRef.current = null
     }
-  }, [escapeRef, cancelRename])
+  }, [escapeRef, cancelRename, latestRef])
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.repeat) return
@@ -364,14 +353,14 @@ function usePracticeKeys(
       if (!bracket && ((key !== 'r' && key !== 'R') || event.ctrlKey || event.altKey)) return
       if (isTextEntry(event.target) || !isTopOverlay(modal.current)) return
       event.preventDefault()
-      const { playback, mark } = latest.current
+      const { playback, mark } = latestRef.current
       if (key === '[') mark.markStart()
       else if (key === ']') mark.markEnd()
       else playback.toggleRepeat()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal])
+  }, [modal, latestRef])
 }
 
 /**

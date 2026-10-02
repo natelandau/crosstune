@@ -8,6 +8,7 @@ import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
 import { CANCEL } from '../../ui/Confirm'
+import { useSheetSession } from '../../ui/useSheetSession'
 
 export const LIST_NAME_PLACEHOLDER = 'Tuesday jam, square dance set, …'
 export const LIST_NAME_LABEL = 'List name'
@@ -32,32 +33,21 @@ export function ListNameSheet({
   const { error, pending, runThen, clear } = useAction()
   const [name, setName] = useState('')
   const [validation, setValidation] = useState<string | null>(null)
-  const [closing, setClosing] = useState(false)
-  const [openedFor, setOpenedFor] = useState<ListNameTarget | null>(null)
   // The last target stays shown while the sheet animates closed, so its title does not flip.
   const [shown, setShown] = useState<ListNameTarget | null>(null)
-  const saving = useRef<ListNameTarget | null>(null)
   const inputRef = useRef<HTMLIonInputElement>(null)
-
-  if (target !== openedFor) {
-    setOpenedFor(target)
-    if (target) {
-      setShown(target)
-      setName(target.kind === 'rename' ? target.name : '')
+  const sheet = useSheetSession(target, {
+    onOpen: (opened) => {
+      setShown(opened)
+      setName(opened.kind === 'rename' ? opened.name : '')
       setValidation(null)
-      setClosing(false)
       clear()
-    }
-  }
-
-  // A dismissal that ends after a new target opened belongs to the old one, so it closes nothing.
-  const dismissed = () => {
-    saving.current = null
-    if (target === null || closing) onClose()
-  }
+    },
+    onClose,
+  })
 
   const save = () => {
-    if (!target || closing || saving.current === target) return
+    if (!target || !sheet.canSave()) return
     const trimmed = name.trim()
     if (!trimmed) {
       clear()
@@ -66,7 +56,7 @@ export function ListNameSheet({
       return
     }
     setValidation(null)
-    saving.current = target
+    sheet.beginSave()
     const current = target
     let listId = current.kind === 'rename' ? current.listId : ''
     runThen(
@@ -75,12 +65,11 @@ export function ListNameSheet({
           if (current.kind === 'new') listId = await createList(db, trimmed)
           else await renameList(db, current.listId, trimmed)
         } catch (caught) {
-          saving.current = null
-          throw caught
+          sheet.saveFailed(caught)
         }
       },
       () => {
-        setClosing(true)
+        sheet.close()
         onSaved(listId)
       },
     )
@@ -89,17 +78,17 @@ export function ListNameSheet({
   const renaming = shown?.kind === 'rename'
   return (
     <Sheet
-      open={target !== null && !closing}
+      open={sheet.open}
       title={renaming ? RENAME_LIST_TITLE : NEW_LIST_TITLE}
       dismissible={false}
-      onClose={dismissed}
+      onClose={sheet.dismissed}
       start={
-        <IonButton disabled={pending} onClick={() => setClosing(true)}>
+        <IonButton disabled={pending} onClick={sheet.close}>
           {CANCEL}
         </IonButton>
       }
       end={
-        <IonButton strong disabled={pending || closing} onClick={save}>
+        <IonButton strong disabled={pending || sheet.closing} onClick={save}>
           {renaming ? 'Save' : 'Create'}
         </IonButton>
       }

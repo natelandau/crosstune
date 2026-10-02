@@ -149,8 +149,12 @@ export function filterCatalog(
 // Dedupe the way facetMatches compares, so one option stands for every spelling it matches.
 function distinct(values: (string | null | undefined)[]): string[] {
   const seen: string[] = []
+  // An exact repeat, the common case, skips the collator scan.
+  const exact = new Set<string>()
   for (const value of values) {
-    if (value?.trim() && !seen.some((s) => collator.compare(s, value) === 0)) seen.push(value)
+    if (!value?.trim() || exact.has(value)) continue
+    exact.add(value)
+    if (!seen.some((s) => collator.compare(s, value) === 0)) seen.push(value)
   }
   return seen.sort(collator.compare)
 }

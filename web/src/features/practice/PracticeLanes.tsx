@@ -1,6 +1,7 @@
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import {
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -15,13 +16,18 @@ import type { LocalRecordingLoop } from '../../db/types'
 import { isTextEntry, isTopOverlay } from '../../ui/useShortcut'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration } from '../recording/format'
-import { PANEL_ICON_BUTTON, PANEL_TEXT_BUTTON } from '../recording-screen/panel'
+import {
+  PANEL_ICON_BUTTON,
+  PANEL_TEXT_BUTTON,
+  ZOOM_IN,
+  ZOOM_OUT,
+  ZOOM_STEP,
+} from '../recording-screen/panel'
 import { trimmedLengthMs, type ShownPeaks } from '../recording-screen/recordingRange'
-import { ZOOM_IN, ZOOM_OUT } from '../recording-screen/TrimView'
 import { useZoomGestures } from '../recording-screen/useZoomGestures'
 import type { RecordingView } from '../recordings/useRecordings'
 import { DetailWaveform } from './DetailWaveform'
-import { canCreate, loopName, type Span } from './loopModel'
+import { canCreate, loopName, rowSpan, type Span, spanFields, spanOf } from './loopModel'
 import { LoopLane, NEW_DRAFT, type LaneLoop } from './LoopLane'
 import { OverviewStrip } from './OverviewStrip'
 import {
@@ -40,12 +46,12 @@ import {
 } from './practiceZoom'
 import type { Draft } from './useLoopGestures'
 import type { LoopPlayback } from './useLoopPlayback'
+import { useLatest } from '../../ui/useLatest'
 
 export const FIT = 'Fit'
 export const LOOP_NOT_SAVED = 'The loop could not be saved.'
 
 /** How far one press of a zoom button or key zooms. */
-const ZOOM_STEP = 2
 
 const sameSpan = (row: LocalRecordingLoop, span: Span) =>
   row.start_ms === span.startMs && row.end_ms === span.endMs
@@ -133,7 +139,7 @@ export function PracticeLanes({
   }, [drafts, band])
   const putDraft = (key: string, span: Span) => {
     const row = rows.find((loop) => loop.id === key)
-    const base = row ? { startMs: row.start_ms, endMs: row.end_ms } : null
+    const base = row ? rowSpan(row) : null
     setDrafts((current) => ({ ...current, [key]: { span, base: current[key]?.base ?? base } }))
   }
 
@@ -155,9 +161,7 @@ export function PracticeLanes({
     endMs: span.endMs - trimStartMs,
   })
   if (!zoom && widthPx > 0 && lengthMs > 0 && loops !== undefined) {
-    const loop = selectedRow
-      ? trimmed({ startMs: selectedRow.start_ms, endMs: selectedRow.end_ms })
-      : null
+    const loop = selectedRow ? trimmed(rowSpan(selectedRow)) : null
     setZoom(openingZoom(loop, positionMs, frame))
   }
   const current = zoom && widthPx > 0 && lengthMs > 0 ? clampZoom(zoom, frame) : null
@@ -177,20 +181,17 @@ export function PracticeLanes({
     }
   }
 
-  const latest = useRef({ current, frame, positionMs, drafts })
-  useLayoutEffect(() => {
-    latest.current = { current, frame, positionMs, drafts }
-  })
+  const latestRef = useLatest({ current, frame, positionMs, drafts })
   // Each change builds on the zoom as it now stands, so several in one frame (the moves of a
   // fast drag) add up rather than each starting from the last render.
   const update = (change: (zoom: ZoomState, frame: ZoomFrame) => ZoomState) => {
-    const { frame } = latest.current
+    const { frame } = latestRef.current
     if (frame.widthPx <= 0 || frame.lengthMs <= 0) return
     setZoom((zoom) => (zoom ? change(clampZoom(zoom, frame), frame) : zoom))
   }
   const zoomAround = (factor: number, anchorMs?: number) =>
     update((zoom, frame) => {
-      const { positionMs } = latest.current
+      const { positionMs } = latestRef.current
       const { startMs, endMs } = visibleSpan(zoom, frame.widthPx)
       const anchor =
         anchorMs ?? (positionMs >= startMs && positionMs <= endMs ? positionMs : zoom.centerMs)
@@ -210,7 +211,7 @@ export function PracticeLanes({
     setZoom(
       clampZoom(
         selectedRow
-          ? fitSpan(trimmed({ startMs: selectedRow.start_ms, endMs: selectedRow.end_ms }), widthPx)
+          ? fitSpan(trimmed(rowSpan(selectedRow)), widthPx)
           : { pxPerS: minPxPerS(widthPx, lengthMs), centerMs: lengthMs / 2 },
         frame,
       ),
@@ -229,10 +230,7 @@ export function PracticeLanes({
     }
   }, [fitRef])
 
-  const keys = useRef(zoomAround)
-  useLayoutEffect(() => {
-    keys.current = zoomAround
-  })
+  const zoomFromKeys = useEffectEvent((factor: number) => zoomAround(factor))
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!event.ctrlKey && !event.metaKey) return
@@ -241,7 +239,7 @@ export function PracticeLanes({
       if (factor === 0 || isTextEntry(event.target) || !isTopOverlay(modal.current)) return
       // Otherwise the browser zooms the whole page.
       event.preventDefault()
-      keys.current(factor)
+      zoomFromKeys(factor)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -252,14 +250,14 @@ export function PracticeLanes({
   const pinches = useRef(0)
   const pinch = useZoomGestures(zoomArea, (action) => zoomAround(action.factor, action.centerMs), {
     onFirstPointer: () => {
-      beforePinch.current = latest.current.current
+      beforePinch.current = latestRef.current.current
     },
     onPinchStart: () => {
       if (beforePinch.current) setZoom(beforePinch.current)
       pinches.current += 1
     },
     msAt: (clientX) => {
-      const { current, frame } = latest.current
+      const { current, frame } = latestRef.current
       const left = zoomArea.current?.getBoundingClientRect().left ?? 0
       if (!current) return 0
       return (
@@ -296,7 +294,7 @@ export function PracticeLanes({
     }
     const key = draft.id ?? NEW_DRAFT
     setActive(key)
-    const span = { startMs: draft.startMs, endMs: draft.endMs }
+    const span = spanOf(draft)
     putDraft(key, span)
     // A repeating loop follows the drag while the playhead stays inside it; one dragged off
     // the playhead takes it along on release.
@@ -307,7 +305,7 @@ export function PracticeLanes({
 
   const onCommit = (draft: Draft) => {
     setActive(null)
-    const span = { startMs: draft.startMs, endMs: draft.endMs }
+    const span = spanOf(draft)
     const id = draft.id
     if (id === null) {
       if (!create.allowed) {
@@ -315,19 +313,20 @@ export function PracticeLanes({
         return
       }
       putDraft(NEW_DRAFT, span)
-      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs })
-        .then((created) => {
+      addLoop(db, recording.id, spanFields(span)).then(
+        (created) => {
           setDrafts((current) => {
             const next = { ...current, [created]: { span, base: null } }
             delete next[NEW_DRAFT]
             return next
           })
           playback.select(created)
-        })
-        .catch((error: unknown) => {
+        },
+        (error: unknown) => {
           dropDraft(NEW_DRAFT)
           report(error)
-        })
+        },
+      )
       return
     }
     const row = rows.find((loop) => loop.id === id)
@@ -342,13 +341,13 @@ export function PracticeLanes({
       dropDraft(id)
       if (id === playback.selectedId) playback.hold(id, null)
     }
-    updateLoop(db, id, { start_ms: span.startMs, end_ms: span.endMs })
+    updateLoop(db, id, spanFields(span))
       .then(async () => {
         // A write that changed nothing (its row deleted meanwhile, say) never lands in the
         // row, so its draft would otherwise wait forever. A newer draft is left alone.
         const stored = await db.recording_loops.get(id)
         if (stored && !stored.deleted_at && sameSpan(stored, span)) return
-        const draft = latest.current.drafts[id]?.span
+        const draft = latestRef.current.drafts[id]?.span
         if (draft && draft.startMs === span.startMs && draft.endMs === span.endMs) letGo()
       })
       .catch((error: unknown) => {

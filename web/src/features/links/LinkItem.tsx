@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react'
 import type { LocalRecordingLink } from '../../db/types'
 import { Row, type RowAction } from '../../ui/Row'
 import { embedFor } from '../player/embed'
-import { PlayGlyph, Slot, StopGlyph } from '../player/rowGlyphs'
+import { PlayGlyph, Slot, StopGlyph } from '../../ui/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { displayTitle, outboundUrl, providerLabel } from './display'
 

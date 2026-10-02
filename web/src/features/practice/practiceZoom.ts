@@ -1,4 +1,5 @@
 import type { Span } from './loopModel'
+import { clamp } from '../../math'
 
 /**
  * The zoomed view as a scale and the time at its center, both on the trimmed timeline. A scale
@@ -18,8 +19,6 @@ export const OPENING_SPAN_MS = 30_000
 
 /** The margin a fitted span keeps on each side, as a share of its length. */
 const FIT_MARGIN = 0.1
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 /** The scale at which the whole recording fills the view. */
 export function minPxPerS(widthPx: number, lengthMs: number): number {

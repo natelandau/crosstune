@@ -1,22 +1,24 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { addLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT, RECORDING_NOT_FOUND } from '../../commands/messages'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLoop } from '../../db/types'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { trimmedLengthMs } from '../recording-screen/recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
-import { canCreate, MIN_LOOP_MS, resizeSpan, spanFromDrag, type Span } from './loopModel'
+import {
+  canCreate,
+  MIN_LOOP_MS,
+  resizeSpan,
+  rowSpan,
+  type Span,
+  spanFields,
+  spanFromDrag,
+} from './loopModel'
 import { LOOP_NOT_SAVED } from './PracticeLanes'
 import { LOOP_CREATED, LOOP_START_MARKED } from './PracticeTransport'
 import type { LoopPlayback } from './useLoopPlayback'
+import { useLatest } from '../../ui/useLatest'
 
 /** A second tap on A B sooner than this after the first is taken for a slip and cancels. */
 export const MARK_DOUBLE_TAP_MS = 500
@@ -62,56 +64,66 @@ export function useLoopMark({
   const { recording, file } = view
   const db = useDb()
   const engine = usePlaybackEngine()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
   const trimStartMs = recording.trim_start_ms
-  const lengthMs = state.lengthMs > 0 ? state.lengthMs : (trimmedLengthMs(recording, file) ?? 0)
+  const loadedLengthMs = useEngineState(engine, (s) => s.lengthMs)
+  const lengthMs = loadedLengthMs > 0 ? loadedLengthMs : (trimmedLengthMs(recording, file) ?? 0)
   const bounds = { startMs: trimStartMs, endMs: trimStartMs + lengthMs }
   const rows = loops ?? []
   const create = canCreate(rows.length, bounds)
-  const playheadMs = trimStartMs + state.positionMs
 
   const [phase, setPhase] = useState<Phase>(null)
   if (phase?.kind === 'saving' && phase.id !== null && rows.some((l) => l.id === phase.id)) {
     setPhase(null)
   }
 
-  const latest = useRef({ phase, bounds, create, rows, playback, announce, onError, recording })
-  useLayoutEffect(() => {
-    latest.current = { phase, bounds, create, rows, playback, announce, onError, recording }
+  const latestRef = useLatest({
+    phase,
+    bounds,
+    create,
+    rows,
+    playback,
+    announce,
+    onError,
+    recording,
   })
 
   const marking = phase?.kind === 'marking'
+  // Only a loop being marked follows the playhead, so nothing else re-renders on every tick.
+  const playheadMs = trimStartMs + useEngineState(engine, (s) => (marking ? s.positionMs : 0))
   useEffect(() => {
     if (!marking) return
     return engine.onJump(() => setPhase(null))
   }, [engine, marking])
 
   const here = useCallback(
-    () => latest.current.recording.trim_start_ms + engine.getState().positionMs,
-    [engine],
+    () => latestRef.current.recording.trim_start_ms + engine.getState().positionMs,
+    [engine, latestRef],
   )
 
-  const report = useCallback((error: unknown) => {
-    if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
-    latest.current.onError(
-      error instanceof Error && error.message === LOOP_LIMIT ? LOOP_LIMIT : LOOP_NOT_SAVED,
-    )
-  }, [])
+  const report = useCallback(
+    (error: unknown) => {
+      if (error instanceof Error && error.message === RECORDING_NOT_FOUND) return
+      latestRef.current.onError(
+        error instanceof Error && error.message === LOOP_LIMIT ? LOOP_LIMIT : LOOP_NOT_SAVED,
+      )
+    },
+    [latestRef],
+  )
 
   const begin = useCallback(() => {
-    const { create, announce } = latest.current
+    const { create, announce } = latestRef.current
     if (!create.allowed || engine.getState().lengthMs === 0) return
     setPhase({ kind: 'marking', startMs: here(), at: performance.now() })
     announce(LOOP_START_MARKED)
-  }, [engine, here])
+  }, [engine, here, latestRef])
 
   const finish = useCallback(
     (startMs: number) => {
-      const { bounds, playback, announce, recording } = latest.current
+      const { bounds, playback, announce, recording } = latestRef.current
       const span = spanFromDrag(startMs, Math.max(here(), startMs + MIN_LOOP_MS), bounds)
       setPhase({ kind: 'saving', span, id: null })
-      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs })
-        .then((id) => {
+      addLoop(db, recording.id, spanFields(span)).then(
+        (id) => {
           setPhase((current) =>
             current?.kind === 'saving' && current.span === span ? { ...current, id } : current,
           )
@@ -121,19 +133,20 @@ export function useLoopMark({
           playback.select(id)
           engine.setRepeat(true)
           announce(LOOP_CREATED)
-        })
-        .catch((error: unknown) => {
+        },
+        (error: unknown) => {
           setPhase((current) =>
             current?.kind === 'saving' && current.span === span ? null : current,
           )
           report(error)
-        })
+        },
+      )
     },
-    [db, engine, here, report],
+    [db, engine, here, report, latestRef],
   )
 
   const tap = useCallback(() => {
-    const { phase } = latest.current
+    const { phase } = latestRef.current
     if (phase?.kind !== 'marking') {
       begin()
       return
@@ -143,14 +156,14 @@ export function useLoopMark({
       return
     }
     finish(phase.startMs)
-  }, [begin, finish])
+  }, [begin, finish, latestRef])
 
   const moveEdge = useCallback(
     (edge: 'start' | 'end') => {
-      const { rows, playback, bounds } = latest.current
+      const { rows, playback, bounds } = latestRef.current
       const row = rows.find((l) => l.id === playback.selectedId)
       if (!row) return false
-      const span = resizeSpan({ startMs: row.start_ms, endMs: row.end_ms }, edge, here(), bounds)
+      const span = resizeSpan(rowSpan(row), edge, here(), bounds)
       const patch =
         edge === 'start'
           ? span.startMs === row.start_ms
@@ -162,7 +175,7 @@ export function useLoopMark({
       if (patch) updateLoop(db, row.id, patch).catch(report)
       return true
     },
-    [db, here, report],
+    [db, here, report, latestRef],
   )
 
   const markStart = useCallback(() => {
@@ -170,16 +183,16 @@ export function useLoopMark({
   }, [begin, moveEdge])
 
   const markEnd = useCallback(() => {
-    const { phase } = latest.current
+    const { phase } = latestRef.current
     if (phase?.kind === 'marking') finish(phase.startMs)
     else moveEdge('end')
-  }, [finish, moveEdge])
+  }, [finish, moveEdge, latestRef])
 
   const cancel = useCallback(() => {
-    if (latest.current.phase?.kind !== 'marking') return false
+    if (latestRef.current.phase?.kind !== 'marking') return false
     setPhase(null)
     return true
-  }, [])
+  }, [latestRef])
 
   const band =
     phase?.kind === 'marking'

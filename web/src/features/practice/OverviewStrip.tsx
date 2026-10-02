@@ -2,6 +2,7 @@ import { useRef, type PointerEvent } from 'react'
 import type { ShownPeaks } from '../recording-screen/recordingRange'
 import { Waveform } from '../recording-screen/Waveform'
 import type { LaneLoop } from './LoopLane'
+import { capturePointer } from '../../platform/pointer'
 
 /**
  * The whole trimmed recording, every loop as a band beneath it, the playhead, and a box around
@@ -53,11 +54,7 @@ export function OverviewStrip({
       className="relative cursor-pointer touch-none pb-2 select-none"
       onPointerDown={(event) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId)
-        } catch {
-          // A synthetic or already-released pointer cannot be captured; its events still arrive.
-        }
+        capturePointer(event.currentTarget, event.pointerId)
         const x = localX(event)
         const ms = x * msPerPx()
         // A press inside the box carries it from where it was taken; anywhere else first

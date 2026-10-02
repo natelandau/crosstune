@@ -19,9 +19,14 @@ export function useLists(): ListSummary[] | undefined {
   const db = useDb()
   return useLiveQuery(async () => {
     const lists = activeByPosition(await db.lists.toArray())
-    const items = await db.list_items.toArray()
+    const itemsByList = new Map<string, LocalListItem[]>()
+    for (const item of await db.list_items.toArray()) {
+      const own = itemsByList.get(item.list_id)
+      if (own) own.push(item)
+      else itemsByList.set(item.list_id, [item])
+    }
     return lists.map((list) => {
-      const own = items.filter((i) => i.list_id === list.id)
+      const own = itemsByList.get(list.id) ?? []
       return {
         ...list,
         count: own.filter((i) => !i.deleted_at).length,
