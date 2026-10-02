@@ -18,6 +18,22 @@ if (sentryDsn) {
     release: APP_VERSION,
     environment: import.meta.env.VITE_SENTRY_ENVIRONMENT ?? 'development',
     beforeBreadcrumb: scrubR2Breadcrumb,
+    // Sentry's defaults collect user info, cookies, and request and response bodies, and bodies
+    // carry a user's own tunes. This is Sentry's documented restrictive baseline.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: {
+        request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+        response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+      },
+      httpBodies: [],
+      urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      graphQL: { document: false, variables: false },
+    },
   })
 }
 

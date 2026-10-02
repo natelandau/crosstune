@@ -4,3 +4,9 @@ allowBuilds:
   esbuild: false
   sharp: true
   workerd: false
+
+peerDependencyRules:
+  allowedVersions:
+    # Only vite-plugin-pwa's pwaAssets option needs v1; the config does not use it, and the
+    # `icons` recipe runs v2 directly.
+    'vite-plugin-pwa>@vite-pwa/assets-generator': '2'
