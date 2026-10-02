@@ -48,8 +48,11 @@ updates:
       default-days: 7
     commit-message:
       prefix: build(site)
-    # @types/node follows the Node major in site/.node-version.
+    # typescript-eslint and @astrojs/check do not support TypeScript 7, and @types/node
+    # follows the Node major in site/.node-version.
     ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     groups:

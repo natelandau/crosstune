@@ -62,8 +62,8 @@ clean:
 # Upgrade dependencies, holding the majors .github/dependabot.yml ignores to their range
 [group('maintenance')]
 update:
-    pnpm update --latest '!@types/node'
-    pnpm update @types/node
+    pnpm update --latest '!typescript' '!@types/node'
+    pnpm update typescript @types/node
 
 # Install dependencies
 [group('maintenance')]
