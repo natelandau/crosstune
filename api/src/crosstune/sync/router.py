@@ -1,4 +1,4 @@
-"""Sync endpoints."""
+"""Sync push and pull routes. Push resolves untitled recording links before it opens the write transaction."""
 
 from __future__ import annotations
 
@@ -80,20 +80,18 @@ async def _resolve_untitled_links(
 
     async def one(url: str) -> None:
         async with semaphore:
-            resolved[url] = await resolve_link(url, client, timeout)
+            try:
+                resolved[url] = await resolve_link(url, client, timeout)
+            # Caught per link, so one failure neither cancels its siblings nor fails the push.
+            except Exception:
+                log.warning("link resolution raised", exc_info=True)
 
-    tasks = [asyncio.create_task(one(url)) for url in urls]
-    outcomes: list[object] = []
     try:
-        async with asyncio.timeout(LINK_RESOLVE_BUDGET_SECONDS):
-            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+        async with asyncio.timeout(LINK_RESOLVE_BUDGET_SECONDS), asyncio.TaskGroup() as group:
+            for url in urls:
+                group.create_task(one(url))
     except TimeoutError:
         log.warning("link resolution budget expired", extra={"links": len(urls)})
-        # Reap the tasks the expiry cancelled.
-        await asyncio.gather(*tasks, return_exceptions=True)
-    for outcome in outcomes:
-        if isinstance(outcome, BaseException):
-            log.warning("link resolution raised", exc_info=outcome)
     return resolved
 
 
@@ -120,11 +118,7 @@ async def push(
         allow_fetch=lambda: limiter.hit(user.id) is None,
     )
 
-    async def enrich(url: str) -> ResolvedLink:
-        # A url the pre-pass did not collect still resolves to something storable.
-        return resolved.get(url) or unresolved_link(url)
-
-    results = await apply_push(session, user.id, body.changes, enrich_link=enrich)
+    results = await apply_push(session, user.id, body.changes, resolved_links=resolved)
     return PushResponse(results=results)
 
 
