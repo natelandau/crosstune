@@ -202,14 +202,14 @@ entry point, the assets directory with the single-page fallback and
 and the Railway development hostname are literal there because both are
 public in DNS.
 
-| Build setting                        | Value                 |
-| ------------------------------------ | --------------------- |
-| Root directory                       | `web`                 |
-| Build command                        | `pnpm build:hosted`   |
-| Deploy command                       | `npx wrangler deploy` |
-| Preview command                      | `pnpm deploy:preview` |
-| Build watch paths                    | `web/*`               |
-| Builds for non-production branches   | On                    |
+| Build setting                      | Value                 |
+| ---------------------------------- | --------------------- |
+| Root directory                     | `web`                 |
+| Build command                      | `pnpm build:hosted`   |
+| Deploy command                     | `npx wrangler deploy` |
+| Preview command                    | `pnpm deploy:preview` |
+| Build watch paths                  | `web/*`               |
+| Builds for non-production branches | On                    |
 
 Build variables, set on both the production and the branch builds.
 Workers Builds keeps a separate set for each, and a branch build never
@@ -244,9 +244,12 @@ sees the production set:
   Worker reads them per request. A missing key means the development API.
 - The API token the workflow uses has one permission, Workers KV Storage
   Edit, on this account only.
-- `web/public/_headers` ships in the assets directory: security headers on
-  every response, `no-cache` on the service worker and manifest, a year of
-  immutable caching on hashed assets.
+- `web/public/_headers` ships in the assets directory: security headers,
+  including the Content-Security-Policy, on every response, `no-cache` on the
+  service worker and manifest, a year of immutable caching on hashed assets.
+  `vite preview` ignores `_headers`, so `just e2e` never sees the policy. A
+  new third-party origin is blocked only on a deployed Worker or under
+  `wrangler dev`.
 
 ### The site Worker
 
