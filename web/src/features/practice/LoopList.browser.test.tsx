@@ -65,6 +65,9 @@ const newLoopButton = () =>
     (b) => b.textContent === NEW_LOOP,
   ) ?? null
 const nameField = () => list()?.querySelector<HTMLInputElement>(`input[aria-label="${LOOP_NAME}"]`)
+// The tune's parts load in a live query that can resolve after the name field renders.
+const partChips = () =>
+  Array.from(list()?.querySelectorAll<HTMLButtonElement>('[role="group"] button') ?? [])
 
 /** Practice opened straight on the recording and paused, with its lanes measured. */
 async function openPractice(id: string, lengthMs = LENGTH_MS, trimStartMs = 0) {
@@ -172,10 +175,7 @@ describe('LoopList', () => {
     expect(nameField()!.maxLength).toBe(100)
     expect(document.activeElement).toBe(nameField())
     // A part is already a label here, so it comes last.
-    const chips = Array.from(list()!.querySelectorAll('[role="group"] button')).map(
-      (b) => b.textContent,
-    )
-    expect(chips).toEqual(['B part', 'A part'])
+    await expect.poll(() => partChips().map((b) => b.textContent)).toEqual(['B part', 'A part'])
 
     await userEvent.fill(nameField()!, 'Turnaround')
     await userEvent.keyboard('{Enter}')
@@ -198,8 +198,10 @@ describe('LoopList', () => {
 
     press('Enter')
     await expect.poll(nameField).toBeTruthy()
-    const chip = Array.from(list()!.querySelectorAll<HTMLButtonElement>('[role="group"] button'))
-    chip.find((b) => b.textContent === 'B part')!.click()
+    await expect.poll(() => partChips().find((b) => b.textContent === 'B part')).toBeTruthy()
+    partChips()
+      .find((b) => b.textContent === 'B part')!
+      .click()
     await expect.poll(() => vi.mocked(updateLoop).mock.calls.length).toBe(1)
     expect(vi.mocked(updateLoop).mock.calls[0]!.slice(1)).toEqual([loop, { label: 'B part' }])
     await expect.poll(() => rowFor('B part')).not.toBeNull()
@@ -232,9 +234,9 @@ describe('LoopList', () => {
     rowFor('Loop 1:00')!.click()
     await expect.poll(nameField).toBeTruthy()
     await userEvent.fill(nameField()!, 'Turnaround')
-    const chips = Array.from(list()!.querySelectorAll<HTMLButtonElement>('[role="group"] button'))
+    await expect.poll(() => partChips().length).toBeGreaterThan(0)
     await userEvent.tab()
-    expect(document.activeElement).toBe(chips[0])
+    expect(document.activeElement).toBe(partChips()[0])
     await userEvent.tab()
     await userEvent.tab()
     await expect.poll(nameField).toBeFalsy()
