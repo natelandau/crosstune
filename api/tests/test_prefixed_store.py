@@ -72,6 +72,13 @@ async def test_list_keys_returns_logical_keys() -> None:
     assert await scoped.list_keys("u1/") == ["u1/r1/a"]
 
 
+async def test_list_objects_returns_logical_keys() -> None:
+    bucket, scoped = pair()
+    bucket.put_bytes("pr-6/u1/r1/a", b"x", "audio/mp4")
+    bucket.put_bytes("pr-7/u1/r1/a", b"x", "audio/mp4")
+    assert [obj.key for obj in await scoped.list_objects()] == ["u1/r1/a"]
+
+
 async def test_sibling_prefixes_are_never_listed_or_deleted() -> None:
     bucket = FakeObjectStore()
     bucket.put_bytes("pr-6/u1/r1/a", b"x", "audio/mp4")

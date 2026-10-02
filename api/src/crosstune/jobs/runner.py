@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeGuard
 
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 
 from crosstune.db.locks import lock_user
-from crosstune.jobs.media import MediaError
+from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
 from crosstune.jobs.peaks_job import build_recording_peaks
 from crosstune.jobs.sweep import (
     ABANDONED_SLOT_GRACE,
@@ -44,7 +44,19 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
-LOCK_SECONDS = 600
+# The longest job attempt is a transcode that needs a cut: five ffmpeg-family runs
+# (probe, remux, cut, probe, peaks), each capped at SUBPROCESS_TIMEOUT_SECONDS, plus
+# the bucket transfers of a file the upload limit keeps to 50 MB. An attempt still
+# running at this limit fails like any other error and is retried.
+ATTEMPT_TIMEOUT_SECONDS = 5 * SUBPROCESS_TIMEOUT_SECONDS + 300
+# Outlasts any attempt, so a claim never expires under one still running, and with it
+# the window in which a job may name a file it uploaded.
+LOCK_SECONDS = ATTEMPT_TIMEOUT_SECONDS + 300
+# A playback or peaks revision no row names is garbage once it is older than any
+# attempt that could still commit it, with room for the bucket's clock to differ.
+STRAY_REVISION_AGE = timedelta(seconds=LOCK_SECONDS + 300)
+# How long a cancelled job may spend handing its claim back before shutdown goes on.
+RELEASE_TIMEOUT_SECONDS = 3.0
 # Each failed attempt holds its job back this much longer than the last.
 RETRY_BACKOFF_SECONDS = 30
 # How much of a raw failure the job row keeps for diagnosis.
@@ -170,8 +182,9 @@ class JobRunner:
     async def stop(self) -> None:
         """Ask the loop to finish its current job and exit, waiting only so long.
 
-        A transcode cancelled at the deadline leaves its recording in processing with
-        the job still locked; the lock expiry is what puts it back in the queue.
+        A job cancelled at the deadline hands its claim straight back, uncounted, so
+        the next process retries it without waiting out the lock. A recording it
+        moved to processing stays there until that retry.
         """
         self._stopping.set()
         self._wake.set()
@@ -275,7 +288,9 @@ class JobRunner:
 
     async def sweep_orphans(self) -> int:
         """Delete the bucket prefixes of users and recordings that have no row."""
-        return await sweep_orphan_prefixes(self._sessionmaker, self._store)
+        return await sweep_orphan_prefixes(
+            self._sessionmaker, self._store, stray_after=STRAY_REVISION_AGE
+        )
 
     async def _purge(self) -> int:
         return await purge_deleted(self._sessionmaker, self._store)
@@ -308,6 +323,13 @@ class JobRunner:
         from a current claim, but is dropped rather than left locked forever if one
         ever does.
         """
+        try:
+            await self._dispatch(job)
+        except asyncio.CancelledError:
+            await self._release_claim(job)
+            raise
+
+    async def _dispatch(self, job: Job) -> None:
         if job.kind == JobKind.TRANSCODE.value:
             await self._transcode(job)
         elif job.kind == JobKind.PEAKS.value:
@@ -322,6 +344,27 @@ class JobRunner:
                 stored_job = await session.get(Job, job.id)
                 if stored_job is not None and stored_job.locked_until == job.locked_until:
                     await session.delete(stored_job)
+
+    async def _release_claim(self, job: Job) -> None:
+        """Put a cancelled job back in the queue now, without counting the attempt.
+
+        A shutdown is no fault of the file, so it must not use up one of its attempts.
+        Matching on this claim's lock leaves a job alone that has since finished,
+        failed, or been claimed by another pass.
+        """
+        try:
+            async with (
+                asyncio.timeout(RELEASE_TIMEOUT_SECONDS),
+                self._sessionmaker() as session,
+                session.begin(),
+            ):
+                await session.execute(
+                    update(Job)
+                    .where(Job.id == job.id, Job.locked_until == job.locked_until)
+                    .values(locked_until=None, attempts=Job.attempts - 1)
+                )
+        except Exception:  # noqa: BLE001 -- the lock expiry still frees the job
+            log.warning("could not release a cancelled job", extra={"job": str(job.id)})
 
     async def _delete_stale(self, *keys: str | None) -> None:
         """Best-effort delete of objects a job's own write superseded or orphaned.
@@ -349,12 +392,24 @@ class JobRunner:
             source_key = upload_key(recording.user_id, recording.id)
             previous_playback_key = recording.playback_key
             previous_peaks_key = recording.peaks_key
+            committing = False
             with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
                 try:
-                    await transcode(session, self._store, recording, Path(folder))
+                    async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
+                        await transcode(session, self._store, recording, Path(folder))
                     await session.delete(stored_job)
                     await ensure_trim_job(session, recording)
+                    committing = True
                     await session.commit()
+                except asyncio.CancelledError:
+                    # A commit the cancel interrupted may have landed and named these,
+                    # so only files uploaded before it are deleted; the sweep gets the rest.
+                    if not committing:
+                        await self._delete_stale(
+                            _changed(recording.playback_key, previous_playback_key),
+                            _changed(recording.peaks_key, previous_peaks_key),
+                        )
+                    raise
                 except Exception as exc:  # noqa: BLE001 -- any transcode failure is a job failure, not a crash
                     # Whatever this attempt itself uploaded before failing is an
                     # orphan once the rollback below discards the row's write.
@@ -440,7 +495,8 @@ class JobRunner:
             previous_peaks_key = recording.peaks_key
             with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
                 try:
-                    await build_recording_peaks(session, self._store, recording, Path(folder))
+                    async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
+                        await build_recording_peaks(session, self._store, recording, Path(folder))
                 except Exception as exc:  # noqa: BLE001 -- any failure here is a job failure, not a crash
                     await session.rollback()
                     reloaded = await _reload(session, Recording, job.recording_id)
@@ -508,13 +564,17 @@ class JobRunner:
             previous_peaks_key = recording.peaks_key
             with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
                 try:
-                    superseded = await trim(session, self._store, recording, Path(folder))
+                    async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
+                        superseded = await trim(session, self._store, recording, Path(folder))
                     await session.delete(stored_job)
                     # trim() read the trim columns fresh under the lock, so a trim saved
                     # while it ran, which found this job holding the one trim slot, is
                     # queued now.
                     await ensure_trim_job(session, recording)
                     await session.commit()
+                except asyncio.CancelledError:
+                    await self._release_cancelled_trim_backup(session, job)
+                    raise
                 except Exception as exc:
                     # trim() deletes its own uploads when it raises; these are only set
                     # once it has returned and something after it failed.
@@ -537,6 +597,23 @@ class JobRunner:
                     await self._delete_stale(*_unnamed(reloaded, *orphaned))
                     return
         await self._delete_stale(*superseded)
+
+    async def _release_cancelled_trim_backup(self, session: AsyncSession, job: Job) -> None:
+        """Delete the backup a cancelled trim copied but never named, within a short budget.
+
+        The released job may find nothing left to cut when it is retried, and then no
+        attempt would ever come back for the backup.
+        """
+        try:
+            async with asyncio.timeout(RELEASE_TIMEOUT_SECONDS):
+                await session.rollback()
+                await self._release_trim_backup(session, job)
+                await session.commit()
+        except Exception:  # noqa: BLE001 -- the recording's purge still removes it
+            log.warning(
+                "could not release a cancelled trim's backup",
+                extra={"recording": str(job.recording_id)},
+            )
 
     async def _release_trim_backup(self, session: AsyncSession, job: Job) -> Recording | None:
         """Delete an original a failed trim copied but never got to name on the row.

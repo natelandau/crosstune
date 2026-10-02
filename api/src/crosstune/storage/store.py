@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
@@ -9,9 +10,11 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     import logging
     from collections.abc import Callable, Iterable
+    from datetime import datetime
     from pathlib import Path
 
 PLAYBACK_MIME = "audio/mp4"
+BEST_EFFORT_DELETE_SECONDS = 3.0
 PEAKS_MIME = "application/octet-stream"
 
 _EXTENSIONS: dict[str, str] = {
@@ -37,6 +40,14 @@ class ObjectInfo:
 
     size: int
     content_type: str
+
+
+@dataclass(frozen=True)
+class ListedObject:
+    """One key from a bucket listing, with when its object was last written."""
+
+    key: str
+    modified: datetime
 
 
 def user_prefix(user_id: object) -> str:
@@ -67,6 +78,12 @@ def playback_key(user_id: object, recording_id: object, rev: str) -> str:
 def peaks_key(user_id: object, recording_id: object, rev: str) -> str:
     """The waveform peaks file for one playback revision."""
     return f"{recording_prefix(user_id, recording_id)}peaks-{rev}.bin"
+
+
+def is_revision_key(key: str) -> bool:
+    """Whether `key` is a playback or peaks file, the keys every job attempt mints anew."""
+    name = key.rpartition("/")[2]
+    return name.startswith(("playback-", "peaks-"))
 
 
 def original_key(user_id: object, recording_id: object, content_type: str) -> str:
@@ -117,9 +134,10 @@ async def delete_best_effort(
 ) -> None:
     """Delete zero or more objects, logging instead of raising if the store call fails.
 
-    A leftover object left by a failed delete here is bounded: the next successful
-    write to the same key overwrites it, or a recording's own purge sweep removes
-    it. Never pass an original object's key; those are never deleted.
+    Gives up after BEST_EFFORT_DELETE_SECONDS, so a cancelled job still cleans up
+    without holding shutdown on a slow bucket. A leftover object is bounded: the next
+    write to the same key overwrites it, or the runner's sweeps remove it. Never pass
+    an original object's key; those are never deleted.
 
     Args:
         store: Where the objects live.
@@ -132,7 +150,8 @@ async def delete_best_effort(
     if not stale:
         return
     try:
-        await store.delete(*stale)
+        async with asyncio.timeout(BEST_EFFORT_DELETE_SECONDS):
+            await store.delete(*stale)
     except Exception:  # noqa: BLE001 -- a leftover object is bounded, not a caller failure
         log.warning(message, extra={"keys": stale})
 
@@ -177,4 +196,8 @@ class ObjectStore(Protocol):
 
     async def list_keys(self, prefix: str = "") -> list[str]:
         """Every key under `prefix`, each in full, or every key in the bucket."""
+        ...
+
+    async def list_objects(self, prefix: str = "") -> list[ListedObject]:
+        """Every object under `prefix`, or in the bucket, with its last write time."""
         ...

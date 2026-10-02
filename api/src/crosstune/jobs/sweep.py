@@ -13,7 +13,7 @@ from crosstune.db.locks import lock_user
 from crosstune.models import Recording, UploadSlot, User
 from crosstune.models.user import utc_now
 from crosstune.recordings.service import bump_server_seq
-from crosstune.storage.store import recording_prefix, upload_key
+from crosstune.storage.store import is_revision_key, recording_prefix, upload_key
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -43,6 +43,17 @@ def _as_uuid(segment: str) -> uuid.UUID | None:
         return uuid.UUID(segment)
     except ValueError:
         return None
+
+
+def _recording_of(key: str) -> tuple[uuid.UUID, uuid.UUID] | None:
+    """The (user id, recording id) a key's first two segments name, if both are ours."""
+    user_segment, _, rest = key.partition("/")
+    recording_segment, has_recording, _ = rest.partition("/")
+    user_id = _as_uuid(user_segment)
+    recording_id = _as_uuid(recording_segment) if has_recording else None
+    if user_id is None or recording_id is None:
+        return None
+    return user_id, recording_id
 
 
 def _owned_prefixes(
@@ -78,8 +89,10 @@ async def _lock_users(session: AsyncSession, recordings: Iterable[Recording]) ->
         await lock_user(session, user_id)
 
 
-async def sweep_orphans(sessionmaker: async_sessionmaker[AsyncSession], store: ObjectStore) -> int:
-    """Delete every user prefix with no user row, then every recording prefix with no row.
+async def sweep_orphans(
+    sessionmaker: async_sessionmaker[AsyncSession], store: ObjectStore, *, stray_after: timedelta
+) -> int:
+    """Delete every bucket object no row will ever name again.
 
     Account deletion removes the row first and wipes the bucket best-effort
     afterwards; this sweep is what makes the wipe certain. A user row exists
@@ -87,29 +100,57 @@ async def sweep_orphans(sessionmaker: async_sessionmaker[AsyncSession], store: O
     URL under its id, and ids are never reused, so a UUID prefix with no row
     is always garbage. Other prefixes are not ours to touch.
 
+    Inside a live recording's prefix, a playback or peaks revision the row does not
+    name is garbage too once it is older than `stray_after`: every job attempt mints
+    its own revision keys and only that attempt's commit names them, so one older
+    than any attempt can run was left by an attempt that failed, was cancelled, or
+    died before it could clean up. Originals and uploads are left alone, since jobs
+    rewrite those keys in place and a sweep could race the write.
+
     One listing and two queries per sweep, however many users the bucket holds.
 
+    Args:
+        sessionmaker: Opens the read-only session the row checks use.
+        store: The bucket to sweep.
+        stray_after: How old an unnamed revision must be before no attempt can still
+            commit it; at least the longest a job attempt can run.
+
     Returns:
-        int: How many prefixes were removed.
+        int: How many prefixes and stray revisions were removed.
     """
-    users, recordings = _owned_prefixes(await store.list_keys())
+    objects = await store.list_objects()
+    users, recordings = _owned_prefixes([obj.key for obj in objects])
     if not users:
         return 0
     async with sessionmaker() as session:
         live = set(await session.scalars(select(User.id).where(User.id == _any_uuid(users))))
         candidates = {pair: prefix for pair, prefix in recordings.items() if pair[0] in live}
         known: set[tuple[uuid.UUID, uuid.UUID]] = set()
+        named: set[str] = set()
         if candidates:
             rows = await session.execute(
-                select(Recording.user_id, Recording.id).where(
-                    Recording.id == _any_uuid(recording_id for _, recording_id in candidates)
-                )
+                select(
+                    Recording.user_id, Recording.id, Recording.playback_key, Recording.peaks_key
+                ).where(Recording.id == _any_uuid(recording_id for _, recording_id in candidates))
             )
-            known = {(user_id, recording_id) for user_id, recording_id in rows.tuples()}
+            for user_id, recording_id, playback, peaks in rows.tuples():
+                known.add((user_id, recording_id))
+                named.update(key for key in (playback, peaks) if key is not None)
     orphans = [prefix for user_id, prefix in users.items() if user_id not in live]
     orphans += [prefix for pair, prefix in candidates.items() if pair not in known]
+    cutoff = utc_now() - stray_after
+    strays = [
+        obj.key
+        for obj in objects
+        if is_revision_key(obj.key)
+        and obj.key not in named
+        and obj.modified < cutoff
+        and _recording_of(obj.key) in known
+    ]
     await asyncio.gather(*(store.delete_prefix(prefix) for prefix in orphans))
-    return len(orphans)
+    if strays:
+        await store.delete(*strays)
+    return len(orphans) + len(strays)
 
 
 async def release_abandoned_slots(

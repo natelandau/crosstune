@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
 
 import pytest
 from botocore.stub import Stubber
 
+from crosstune.storage import store as store_module
 from crosstune.storage.r2 import ObjectDeleteError, R2Store, s3_client
 from crosstune.storage.store import (
+    ListedObject,
     ObjectStore,
+    delete_best_effort,
+    is_revision_key,
     original_key,
+    peaks_key,
     playback_key,
     upload_key,
     user_prefix,
@@ -224,3 +232,58 @@ async def test_r2_delete_raises_when_the_bucket_reports_a_key_it_kept() -> None:
     )
     with stub, pytest.raises(ObjectDeleteError, match="1 of 2 objects were not deleted"):
         await r2.delete("u/r/upload", "u/r/x")
+
+
+async def test_r2_delete_splits_a_batch_at_the_api_limit() -> None:
+    r2 = store()
+    keys = [f"u/r/{i}" for i in range(1_001)]
+    stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
+    for batch in (keys[:1_000], keys[1_000:]):
+        stub.add_response(
+            "delete_objects",
+            {},
+            {
+                "Bucket": "crosstune-test",
+                "Delete": {"Objects": [{"Key": key} for key in batch], "Quiet": True},
+            },
+        )
+    with stub:
+        await r2.delete(*keys)
+    stub.assert_no_pending_responses()
+
+
+async def test_r2_list_objects_carries_each_last_write_time() -> None:
+    r2 = store()
+    written = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    stub = Stubber(r2._client)  # the client is the seam boto3 offers for stubbing
+    stub.add_response(
+        "list_objects_v2",
+        {"IsTruncated": False, "Contents": [{"Key": "u1/r1/a", "LastModified": written}]},
+        {"Bucket": "crosstune-test", "Prefix": "u1/"},
+    )
+    with stub:
+        assert await r2.list_objects("u1/") == [ListedObject(key="u1/r1/a", modified=written)]
+
+
+def test_only_playback_and_peaks_files_are_revision_keys() -> None:
+    assert is_revision_key(playback_key("u", "r", "abc"))
+    assert is_revision_key(peaks_key("u", "r", "abc"))
+    assert not is_revision_key(upload_key("u", "r"))
+    assert not is_revision_key(original_key("u", "r", "audio/mp4"))
+
+
+async def test_delete_best_effort_gives_up_on_a_store_that_hangs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    class HangingStore(FakeObjectStore):
+        async def delete(self, *keys: str) -> None:
+            await asyncio.sleep(60)
+
+    monkeypatch.setattr(store_module, "BEST_EFFORT_DELETE_SECONDS", 0.05)
+    log = logging.getLogger("test")
+    with caplog.at_level(logging.WARNING, logger="test"):
+        await asyncio.wait_for(
+            delete_best_effort(HangingStore(), ["u/r/a"], log=log, message="gave up"),
+            timeout=2,
+        )
+    assert "gave up" in caplog.text

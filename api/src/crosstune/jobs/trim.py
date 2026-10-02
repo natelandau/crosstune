@@ -282,9 +282,9 @@ async def trim(
                 superseded = _apply(recording, result, start_ms, end_ms)
         bump_server_seq(recording)
         await session.flush()
-    except Exception:
+    except BaseException:
         # The caller rolls the row back, but these objects are already in the
-        # bucket and nothing will ever reference them.
+        # bucket and nothing will ever reference them. A cancelled job cleans up too.
         await delete_best_effort(
             store, uploaded, log=log, message="could not delete an orphaned trim cut"
         )

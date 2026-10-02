@@ -74,10 +74,10 @@ async def build_recording_peaks(
             await _store_length(session, recording, measured_ms)
         bump_server_seq(recording)
         await session.flush()
-    except Exception:
-        # Whatever raised here leaves the row's own write rolled back by the
-        # caller, but the object above is already in the bucket; nothing else
-        # will ever come to reference it, so it goes now instead of leaking.
+    except BaseException:
+        # Whatever raised here, a cancellation included, leaves the row's own write
+        # rolled back by the caller, but the object above is already in the bucket;
+        # nothing else will ever come to reference it, so it goes now.
         await delete_best_effort(
             store, [peaks.key], log=log, message="could not delete an orphaned peaks object"
         )

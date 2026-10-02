@@ -127,8 +127,6 @@ LOOP_COLOR_COUNT: Final[int] = 6
 """How many palette colors a loop can name; a loop stores an index below this."""
 
 
-# Maximum lengths, by table then field. A column with a width takes it from here, the
-# row schema publishes it, and the client stops input at it.
 TableName = Literal[
     "tunes",
     "user_tunes",
@@ -140,6 +138,8 @@ TableName = Literal[
     "user_settings",
 ]
 
+# Maximum lengths, by table then field. A column with a width takes it from here, the
+# row schema publishes it, and the client stops input at it.
 LIMITS: Final[dict[str, dict[str, int]]] = {
     "tunes": {
         "title": 200,

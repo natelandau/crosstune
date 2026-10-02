@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from crosstune.storage.store import ObjectInfo, ObjectStore
+    from crosstune.storage.store import ListedObject, ObjectInfo, ObjectStore
 
 
 class PrefixedStore:
@@ -59,3 +60,8 @@ class PrefixedStore:
         """Every key under `prefix`, each in full, or every key within this store's prefix."""
         listed = await self._inner.list_keys(self._key(prefix))
         return [key[len(self._prefix) :] for key in listed]
+
+    async def list_objects(self, prefix: str = "") -> list[ListedObject]:
+        """Every object under `prefix`, or within this store's prefix, with its last write time."""
+        listed = await self._inner.list_objects(self._key(prefix))
+        return [replace(obj, key=obj.key[len(self._prefix) :]) for obj in listed]
