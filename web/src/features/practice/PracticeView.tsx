@@ -7,7 +7,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
   type RefObject,
 } from 'react'
@@ -21,7 +20,7 @@ import { InlineError } from '../../ui/InlineError'
 import { useToast } from '../../ui/Toast'
 import { isTextEntry, isTopOverlay } from '../../ui/useShortcut'
 import { PITCH_BADGE, SPEED_BADGE } from '../player/Dock'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { PANEL_ICON_BUTTON, SPEED_STEP, stepSpeed } from '../recording-screen/panel'
 import { PITCH, PITCH_DOWN, PITCH_UP, PitchPanel } from '../recording-screen/PitchPanel'
 import type { ShownPeaks } from '../recording-screen/recordingRange'
@@ -91,7 +90,7 @@ export function PracticeView({
   const engine = usePlaybackEngine()
   const toast = useToast()
   const layout = useFrame()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const pitchUnavailable = useEngineState(engine, (s) => s.pitchUnavailable)
   const title = recordingTitle({ ...view, tuneId: null })
   const [writeError, setWriteError] = useState<string | null>(null)
   const loopRows = useLoops(recording.id)
@@ -243,7 +242,7 @@ export function PracticeView({
         more={{ label: PITCH_UP, disabled: pitch >= maxPitch }}
         onStep={(by) => changePitch(clampPitch(pitch + by * PITCH_STEP_CENTS))}
       >
-        <PitchPanel value={pitch} onChange={changePitch} unavailable={state.pitchUnavailable} />
+        <PitchPanel value={pitch} onChange={changePitch} unavailable={pitchUnavailable} />
       </Stepper>
     </div>
   )

@@ -192,6 +192,39 @@ describe('PlaybackEngine', () => {
     expect(states.at(-1)?.positionMs).toBe(3000)
   })
 
+  it('notifies nobody on a tick that changes nothing, but always on a load', () => {
+    const element = fakeElement()
+    const { clock, tick } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    const listener = vi.fn()
+    engine.subscribe(listener)
+    engine.load('blob:test', span, settings, meta)
+    engine.load('blob:test', span, settings, meta, { keepLoop: true })
+    expect(listener).toHaveBeenCalledTimes(2)
+    tick()
+    tick()
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports the lock-screen position on a jump and about once a second while playing', () => {
+    const element = fakeElement()
+    const { clock, tick } = fakeClock()
+    const { session } = fakeMediaSession()
+    const setPositionState = vi.spyOn(session, 'setPositionState')
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    engine.load('blob:test', span, settings, meta)
+    expect(setPositionState).toHaveBeenCalledTimes(1)
+    for (let i = 0; i < 40; i++) tick()
+    expect(setPositionState).toHaveBeenCalledTimes(1)
+    element.paused = false
+    setPositionState.mockClear()
+    for (let i = 0; i < 40; i++) tick()
+    expect(setPositionState).toHaveBeenCalledTimes(2)
+    element.currentTime = 10
+    tick()
+    expect(setPositionState).toHaveBeenLastCalledWith(expect.objectContaining({ position: 0 }))
+  })
+
   it('derives playing from the element rather than assuming its own call succeeded', () => {
     const element = fakeElement()
     const { clock } = fakeClock()

@@ -75,9 +75,11 @@ export function Waveform({
     const canvas = canvasRef.current
     if (!canvas) return
     // An observer reports the size it starts with, so this also takes the first measurement.
-    const observer = new ResizeObserver(() =>
-      setSize({ width: canvas.clientWidth, height: canvas.clientHeight }),
-    )
+    const observer = new ResizeObserver(() => {
+      const width = canvas.clientWidth
+      const height = canvas.clientHeight
+      setSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }))
+    })
     observer.observe(canvas)
     return () => observer.disconnect()
   }, [])

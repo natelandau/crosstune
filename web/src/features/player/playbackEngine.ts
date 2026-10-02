@@ -44,6 +44,9 @@ export interface EngineClock {
 
 /** How often the engine reports its position. */
 export const TICK_MS = 50
+// The OS extrapolates the lock-screen scrubber from the rate, so a playing position needs
+// only an occasional correction; every jump reports at once.
+const REPORT_EVERY_TICKS = 1000 / TICK_MS
 /** How far short of the loop end, in seconds, the end timer may find the playhead and still
  * wrap; further short means playback stalled, and wrapping then would cut the loop. */
 const LOOP_END_TOLERANCE_S = 0.03
@@ -116,6 +119,7 @@ export class PlaybackEngine {
   private readonly listeners = new Set<(state: PlaybackState) => void>()
   private readonly jumpListeners = new Set<() => void>()
   private stopTick: (() => void) | null = null
+  private ticksSinceReport = 0
 
   constructor(
     private readonly element: HTMLAudioElement,
@@ -192,9 +196,13 @@ export class PlaybackEngine {
     this.applySpeed(settings.speedPercent)
     this.updateTranspose()
     this.applyMetadata(meta)
-    this.setState({ playing: false, positionMs: 0, lengthMs: this.span.lengthMs, failed: false })
+    // Always notify: useLoopFollow hands back a kept loop's range on this, even when the
+    // reload leaves every field as it was.
+    this.setState(
+      { playing: false, positionMs: 0, lengthMs: this.span.lengthMs, failed: false },
+      { force: true },
+    )
     this.stopTick = this.clock.every(TICK_MS, this.tick)
-    this.reportPosition()
     this.jumped()
   }
 
@@ -396,7 +404,9 @@ export class PlaybackEngine {
     } else {
       this.setState({ positionMs: this.positionMsFor(this.element.currentTime) })
     }
-    this.reportPosition()
+    if (this.element.paused) return
+    this.ticksSinceReport += 1
+    if (this.ticksSinceReport >= REPORT_EVERY_TICKS) this.reportPosition()
   }
 
   /** Wraps a playhead that reached the loop end from inside. The tick is too coarse to land
@@ -471,11 +481,11 @@ export class PlaybackEngine {
     this.element.currentTime = target
     this.insideLoop = this.isInside(target)
     this.setState({ positionMs: this.positionMsFor(target) })
-    this.reportPosition()
     this.jumped()
   }
 
   private jumped(): void {
+    this.reportPosition()
     for (const fn of this.jumpListeners) fn()
   }
 
@@ -588,6 +598,7 @@ export class PlaybackEngine {
   }
 
   private reportPosition(): void {
+    this.ticksSinceReport = 0
     const session = mediaSession()
     if (!session?.setPositionState) return
     const duration = this.span.lengthMs / 1000
@@ -596,11 +607,14 @@ export class PlaybackEngine {
     try {
       session.setPositionState({ duration, position, playbackRate: this.element.playbackRate })
     } catch {
-      // Some browsers refuse a position outside [0, duration] mid-seek; the next tick retries.
+      // Some browsers refuse a position outside [0, duration] mid-seek; a later report retries.
     }
   }
 
-  private setState(patch: Partial<PlaybackState>): void {
+  /** Notifies only when a field changes, so a paused tick re-renders nothing. */
+  private setState(patch: Partial<PlaybackState>, { force = false } = {}): void {
+    const keys = Object.keys(patch) as (keyof PlaybackState)[]
+    if (!force && keys.every((key) => Object.is(this.state[key], patch[key]))) return
     this.state = { ...this.state, ...patch }
     for (const fn of this.listeners) fn(this.state)
   }

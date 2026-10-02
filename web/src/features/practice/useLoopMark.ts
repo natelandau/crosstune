@@ -1,16 +1,9 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { addLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT, RECORDING_NOT_FOUND } from '../../commands/messages'
 import { useDb } from '../../db/DbProvider'
 import type { LocalRecordingLoop } from '../../db/types'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { trimmedLengthMs } from '../recording-screen/recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
 import { canCreate, MIN_LOOP_MS, resizeSpan, spanFromDrag, type Span } from './loopModel'
@@ -62,13 +55,12 @@ export function useLoopMark({
   const { recording, file } = view
   const db = useDb()
   const engine = usePlaybackEngine()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
   const trimStartMs = recording.trim_start_ms
-  const lengthMs = state.lengthMs > 0 ? state.lengthMs : (trimmedLengthMs(recording, file) ?? 0)
+  const loadedLengthMs = useEngineState(engine, (s) => s.lengthMs)
+  const lengthMs = loadedLengthMs > 0 ? loadedLengthMs : (trimmedLengthMs(recording, file) ?? 0)
   const bounds = { startMs: trimStartMs, endMs: trimStartMs + lengthMs }
   const rows = loops ?? []
   const create = canCreate(rows.length, bounds)
-  const playheadMs = trimStartMs + state.positionMs
 
   const [phase, setPhase] = useState<Phase>(null)
   if (phase?.kind === 'saving' && phase.id !== null && rows.some((l) => l.id === phase.id)) {
@@ -81,6 +73,8 @@ export function useLoopMark({
   })
 
   const marking = phase?.kind === 'marking'
+  // Only a loop being marked follows the playhead, so nothing else re-renders on every tick.
+  const playheadMs = trimStartMs + useEngineState(engine, (s) => (marking ? s.positionMs : 0))
   useEffect(() => {
     if (!marking) return
     return engine.onJump(() => setPhase(null))

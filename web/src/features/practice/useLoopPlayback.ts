@@ -1,13 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { LocalRecordingLoop } from '../../db/types'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { RecordingView } from '../recordings/useRecordings'
 import type { Span } from './loopModel'
 import { loopHolds, loopRange } from './useLoopFollow'
@@ -36,11 +29,12 @@ export function useLoopPlayback(
 ): LoopPlayback {
   const engine = usePlaybackEngine()
   const holds = loopHolds(engine)
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const loopId = useEngineState(engine, (s) => s.loop?.id ?? null)
+  const repeat = useEngineState(engine, (s) => s.repeat)
   // A loop just created is selected before the live query has read its row.
   const [pending, setPending] = useState<string | null>(null)
-  if (pending !== null && state.loop?.id === pending) setPending(null)
-  const selectedId = pending ?? state.loop?.id ?? null
+  if (pending !== null && loopId === pending) setPending(null)
+  const selectedId = pending ?? loopId
 
   const offsets = {
     blobStartMs: view.file?.blob_start_ms ?? 0,
@@ -102,5 +96,5 @@ export function useLoopPlayback(
     [holds],
   )
 
-  return { selectedId, select, repeat: state.repeat, toggleRepeat, hold }
+  return { selectedId, select, repeat, toggleRepeat, hold }
 }

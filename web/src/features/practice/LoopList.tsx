@@ -1,15 +1,7 @@
 import { IonList } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, Trash2 } from 'lucide-react'
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type RefObject,
-} from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { LOOP_LIMITS } from '../../api/vocabulary'
 import { addLoop, removeLoop, restoreLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT, RECORDING_NOT_FOUND } from '../../commands/messages'
@@ -21,7 +13,7 @@ import { Rail } from '../../ui/Rail'
 import { Row } from '../../ui/Row'
 import { useToast } from '../../ui/Toast'
 import { isControl, isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { formatDuration } from '../recording/format'
 import { PANEL_TEXT_BUTTON } from '../recording-screen/panel'
 import { trimmedLengthMs } from '../recording-screen/recordingRange'
@@ -73,10 +65,10 @@ export function LoopList({
   const db = useDb()
   const engine = usePlaybackEngine()
   const toast = useToast()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
+  const loadedLengthMs = useEngineState(engine, (s) => s.lengthMs)
   const rows = loops ?? []
   const trimStartMs = recording.trim_start_ms
-  const lengthMs = state.lengthMs > 0 ? state.lengthMs : (trimmedLengthMs(recording, file) ?? 0)
+  const lengthMs = loadedLengthMs > 0 ? loadedLengthMs : (trimmedLengthMs(recording, file) ?? 0)
   const bounds = { startMs: trimStartMs, endMs: trimStartMs + lengthMs }
   const create = canCreate(rows.length, bounds)
   const idPrefix = useId()
@@ -291,7 +283,7 @@ export function LoopList({
           type="button"
           id={newLoopId}
           title={create.reason ?? undefined}
-          disabled={!create.allowed || state.lengthMs === 0}
+          disabled={!create.allowed || loadedLengthMs === 0}
           className={`${PANEL_TEXT_BUTTON} inline-flex items-center gap-2 self-start`}
           onClick={makeNew}
         >

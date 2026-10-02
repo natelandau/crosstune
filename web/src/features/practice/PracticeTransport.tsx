@@ -1,7 +1,6 @@
 import { Repeat } from 'lucide-react'
-import { useSyncExternalStore } from 'react'
 import { REPEAT_LABEL } from '../player/Dock'
-import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
+import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { Transport } from '../recording-screen/Transport'
 import type { LoopMark } from './useLoopMark'
 import type { LoopPlayback } from './useLoopPlayback'
@@ -23,8 +22,7 @@ const ON = 'bg-(--ion-color-primary) text-(--ion-color-primary-contrast)'
 /** The shared transport with A B on its left and Repeat on its right. */
 export function PracticeTransport({ playback, mark }: { playback: LoopPlayback; mark: LoopMark }) {
   const engine = usePlaybackEngine()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
-  const loaded = state.lengthMs > 0
+  const loaded = useEngineState(engine, (s) => s.lengthMs > 0)
   // Only a recording too short to hold a loop has no reason to give, and then A B has no use.
   const showMark = mark.create.allowed || mark.create.reason !== null
   const noLoop = playback.selectedId === null
