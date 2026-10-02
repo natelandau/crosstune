@@ -1,13 +1,14 @@
 import { useLayoutEffect, useRef, type PointerEvent, type RefObject } from 'react'
 import {
+  type Bounds,
   DRAG_THRESHOLD_PX,
   moveSpan,
+  type PlacedLoop,
   resizeSpan,
   snapMs,
-  spanFromDrag,
-  type Bounds,
-  type PlacedLoop,
   type Span,
+  spanFromDrag,
+  spanOf,
 } from './loopModel'
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
@@ -100,18 +101,18 @@ export function useLoopGestures(options: LoopGestureOptions) {
     // Inside a loop, the reach of an end shrinks with the loop so a short one keeps a body.
     for (const { loop, x0, x1 } of placed) {
       const inner = Math.min(HANDLE_REACH_PX, (x1 - x0) / 4)
-      const span = { startMs: loop.startMs, endMs: loop.endMs }
+      const span = spanOf(loop)
       if (x >= x0 && x <= x0 + inner) return { kind: 'resize', id: loop.id, span, edge: 'start' }
       if (x <= x1 && x >= x1 - inner) return { kind: 'resize', id: loop.id, span, edge: 'end' }
     }
     for (const { loop, x0, x1 } of placed) {
       if (x > x0 && x < x1) {
-        const span = { startMs: loop.startMs, endMs: loop.endMs }
+        const span = spanOf(loop)
         return { kind: 'move', id: loop.id, span, anchorMs: msAtX(view, x) }
       }
     }
     for (const { loop, x0, x1 } of placed) {
-      const span = { startMs: loop.startMs, endMs: loop.endMs }
+      const span = spanOf(loop)
       if (x < x0 && x0 - x <= HANDLE_REACH_PX) {
         return { kind: 'resize', id: loop.id, span, edge: 'start' }
       }

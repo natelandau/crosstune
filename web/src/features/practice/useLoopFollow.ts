@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { LocalRecordingLoop } from '../../db/types'
 import type { PlaybackEngine, PlaybackLoop } from '../player/playbackEngine'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import { loopName, type Span } from './loopModel'
+import { loopName, rowSpan, type Span } from './loopModel'
 
 /**
  * A span played for loop `id` ahead of its row. `base` is the row's span when the hold was
@@ -65,7 +65,7 @@ export function loopRange(
   hold: LoopHold | null,
   { blobStartMs, trimStartMs }: LoopOffsets,
 ): PlaybackLoop {
-  const span = hold?.id === row.id ? hold.span : { startMs: row.start_ms, endMs: row.end_ms }
+  const span = hold?.id === row.id ? hold.span : rowSpan(row)
   return {
     id: row.id,
     label: loopName(row.label ?? null, span.startMs, trimStartMs),

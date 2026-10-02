@@ -18,7 +18,15 @@ import { formatDuration } from '../recording/format'
 import { PANEL_TEXT_BUTTON } from '../recording-screen/panel'
 import { trimmedLengthMs } from '../recording-screen/recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
-import { canCreate, loopName, partSuggestions, spanFromDrag, type Span } from './loopModel'
+import {
+  canCreate,
+  loopName,
+  partSuggestions,
+  rowSpan,
+  type Span,
+  spanFields,
+  spanFromDrag,
+} from './loopModel'
 import { LOOP_NOT_SAVED } from './PracticeLanes'
 import type { LoopPlayback } from './useLoopPlayback'
 import { LOOP_NAME } from './practiceCopy'
@@ -117,7 +125,7 @@ export function LoopList({
       return
     }
     playback.select(row.id)
-    onFit({ startMs: row.start_ms, endMs: row.end_ms })
+    onFit(rowSpan(row))
   }
 
   /** Closes the name field, saving `text` unless it is null (the name the field opened with). */
@@ -160,7 +168,7 @@ export function LoopList({
     if (!create.allowed) return
     const playheadMs = trimStartMs + engine.getState().positionMs
     const span = spanFromDrag(playheadMs, playheadMs + NEW_LOOP_MS, bounds)
-    addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs })
+    addLoop(db, recording.id, spanFields(span))
       .then((id) => {
         playback.select(id)
         onFit(span)

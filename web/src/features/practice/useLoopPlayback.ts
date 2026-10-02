@@ -4,6 +4,7 @@ import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvi
 import type { RecordingView } from '../recordings/useRecordings'
 import type { Span } from './loopModel'
 import { loopHolds, loopRange } from './useLoopFollow'
+import { rowSpan } from './loopModel'
 
 export interface LoopPlayback {
   selectedId: string | null
@@ -90,7 +91,7 @@ export function useLoopPlayback(
   const hold = useCallback(
     (id: string, span: Span | null) => {
       const row = latest.current.loops?.find((l) => l.id === id)
-      const base = row ? { startMs: row.start_ms, endMs: row.end_ms } : null
+      const base = row ? rowSpan(row) : null
       holds.set(span ? { id, span, base } : null)
     },
     [holds],

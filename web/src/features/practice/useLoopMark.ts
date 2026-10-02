@@ -6,7 +6,15 @@ import type { LocalRecordingLoop } from '../../db/types'
 import { useEngineState, usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { trimmedLengthMs } from '../recording-screen/recordingRange'
 import type { RecordingView } from '../recordings/useRecordings'
-import { canCreate, MIN_LOOP_MS, resizeSpan, spanFromDrag, type Span } from './loopModel'
+import {
+  canCreate,
+  MIN_LOOP_MS,
+  resizeSpan,
+  rowSpan,
+  type Span,
+  spanFields,
+  spanFromDrag,
+} from './loopModel'
 import { LOOP_NOT_SAVED } from './PracticeLanes'
 import { LOOP_CREATED, LOOP_START_MARKED } from './PracticeTransport'
 import type { LoopPlayback } from './useLoopPlayback'
@@ -104,7 +112,7 @@ export function useLoopMark({
       const { bounds, playback, announce, recording } = latest.current
       const span = spanFromDrag(startMs, Math.max(here(), startMs + MIN_LOOP_MS), bounds)
       setPhase({ kind: 'saving', span, id: null })
-      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs }).then(
+      addLoop(db, recording.id, spanFields(span)).then(
         (id) => {
           setPhase((current) =>
             current?.kind === 'saving' && current.span === span ? { ...current, id } : current,
@@ -145,7 +153,7 @@ export function useLoopMark({
       const { rows, playback, bounds } = latest.current
       const row = rows.find((l) => l.id === playback.selectedId)
       if (!row) return false
-      const span = resizeSpan({ startMs: row.start_ms, endMs: row.end_ms }, edge, here(), bounds)
+      const span = resizeSpan(rowSpan(row), edge, here(), bounds)
       const patch =
         edge === 'start'
           ? span.startMs === row.start_ms

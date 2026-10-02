@@ -26,7 +26,7 @@ import { trimmedLengthMs, type ShownPeaks } from '../recording-screen/recordingR
 import { useZoomGestures } from '../recording-screen/useZoomGestures'
 import type { RecordingView } from '../recordings/useRecordings'
 import { DetailWaveform } from './DetailWaveform'
-import { canCreate, loopName, type Span } from './loopModel'
+import { canCreate, loopName, rowSpan, type Span, spanFields, spanOf } from './loopModel'
 import { LoopLane, NEW_DRAFT, type LaneLoop } from './LoopLane'
 import { OverviewStrip } from './OverviewStrip'
 import {
@@ -137,7 +137,7 @@ export function PracticeLanes({
   }, [drafts, band])
   const putDraft = (key: string, span: Span) => {
     const row = rows.find((loop) => loop.id === key)
-    const base = row ? { startMs: row.start_ms, endMs: row.end_ms } : null
+    const base = row ? rowSpan(row) : null
     setDrafts((current) => ({ ...current, [key]: { span, base: current[key]?.base ?? base } }))
   }
 
@@ -159,9 +159,7 @@ export function PracticeLanes({
     endMs: span.endMs - trimStartMs,
   })
   if (!zoom && widthPx > 0 && lengthMs > 0 && loops !== undefined) {
-    const loop = selectedRow
-      ? trimmed({ startMs: selectedRow.start_ms, endMs: selectedRow.end_ms })
-      : null
+    const loop = selectedRow ? trimmed(rowSpan(selectedRow)) : null
     setZoom(openingZoom(loop, positionMs, frame))
   }
   const current = zoom && widthPx > 0 && lengthMs > 0 ? clampZoom(zoom, frame) : null
@@ -214,7 +212,7 @@ export function PracticeLanes({
     setZoom(
       clampZoom(
         selectedRow
-          ? fitSpan(trimmed({ startMs: selectedRow.start_ms, endMs: selectedRow.end_ms }), widthPx)
+          ? fitSpan(trimmed(rowSpan(selectedRow)), widthPx)
           : { pxPerS: minPxPerS(widthPx, lengthMs), centerMs: lengthMs / 2 },
         frame,
       ),
@@ -300,7 +298,7 @@ export function PracticeLanes({
     }
     const key = draft.id ?? NEW_DRAFT
     setActive(key)
-    const span = { startMs: draft.startMs, endMs: draft.endMs }
+    const span = spanOf(draft)
     putDraft(key, span)
     // A repeating loop follows the drag while the playhead stays inside it; one dragged off
     // the playhead takes it along on release.
@@ -311,7 +309,7 @@ export function PracticeLanes({
 
   const onCommit = (draft: Draft) => {
     setActive(null)
-    const span = { startMs: draft.startMs, endMs: draft.endMs }
+    const span = spanOf(draft)
     const id = draft.id
     if (id === null) {
       if (!create.allowed) {
@@ -319,7 +317,7 @@ export function PracticeLanes({
         return
       }
       putDraft(NEW_DRAFT, span)
-      addLoop(db, recording.id, { start_ms: span.startMs, end_ms: span.endMs }).then(
+      addLoop(db, recording.id, spanFields(span)).then(
         (created) => {
           setDrafts((current) => {
             const next = { ...current, [created]: { span, base: null } }
@@ -347,7 +345,7 @@ export function PracticeLanes({
       dropDraft(id)
       if (id === playback.selectedId) playback.hold(id, null)
     }
-    updateLoop(db, id, { start_ms: span.startMs, end_ms: span.endMs })
+    updateLoop(db, id, spanFields(span))
       .then(async () => {
         // A write that changed nothing (its row deleted meanwhile, say) never lands in the
         // row, so its draft would otherwise wait forever. A newer draft is left alone.

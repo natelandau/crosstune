@@ -9,6 +9,21 @@ export const SNAP_PX = 8
 export const DRAG_THRESHOLD_PX = 8
 
 export type Span = { startMs: number; endMs: number }
+
+/** A loop row's span, in the lanes' own terms. */
+export function rowSpan(row: { start_ms: number; end_ms: number }): Span {
+  return { startMs: row.start_ms, endMs: row.end_ms }
+}
+
+/** Only the span of something that carries one, so its other fields never ride along. */
+export function spanOf(value: Span): Span {
+  return { startMs: value.startMs, endMs: value.endMs }
+}
+
+/** A span as the fields a loop write takes. */
+export function spanFields(span: Span): { start_ms: number; end_ms: number } {
+  return { start_ms: span.startMs, end_ms: span.endMs }
+}
 export type Bounds = Span
 export type PlacedLoop = Span & { id: string; color: number }
 
