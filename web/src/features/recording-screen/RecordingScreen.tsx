@@ -24,6 +24,7 @@ import { ELAPSED_LABEL, REMAINING_LABEL } from '../player/Dock'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { useCurrentAudio } from '../player/useCurrentAudio'
+import { useRecordingDownload } from '../player/useRecordingDownload'
 import {
   DOWNLOAD_FAILED,
   DOWNLOADING,
@@ -118,26 +119,14 @@ function useTransportKeys(
  * dock already started, so the two never fetch the same file twice.
  */
 function useAudioFetch(recording: LocalRecording, file: RecordingFile | undefined): AudioFetch {
-  const syncEngine = useSyncEngine()
   const online = useOnline()
   useCurrentAudio(recording, file)
-  const needed = !file?.blob && recording.state === 'ready'
-  const [fetched, setFetched] = useState<{ id: string; blob: Blob | null } | null>(null)
-  useEffect(() => {
-    if (!needed || !online) return
-    let cancelled = false
-    void syncEngine.download(recording.id).then((blob) => {
-      if (!cancelled) setFetched({ id: recording.id, blob })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [needed, online, syncEngine, recording.id])
+  const { blob, failed } = useRecordingDownload(recording, file)
   if (!file?.blob && recording.state !== 'ready') return 'unavailable'
-  if (!needed) return 'held'
+  if (blob) return 'held'
   if (!online) return 'offline'
   if (file?.local_state === 'downloading') return 'downloading'
-  return fetched?.id === recording.id ? 'failed' : 'downloading'
+  return failed ? 'failed' : 'downloading'
 }
 
 /**

@@ -942,6 +942,23 @@ describe('Dock', () => {
     await expect.element(dock().getByRole('button', { name: CLOSE_PLAYER })).toBeEnabled()
   })
 
+  it('fetches the audio once the connection comes back', async () => {
+    const id = await remoteRecording('remote')
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const download = vi.fn(() => new Promise<Blob | null>(() => {}))
+    renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }], {
+      engine: fakeEngine({ download }),
+    })
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    await expect.element(dock().getByText('Offline')).toBeVisible()
+    expect(download).not.toHaveBeenCalled()
+
+    onLine.mockReturnValue(true)
+    window.dispatchEvent(new Event('online'))
+    await expect.element(dock().getByText('Downloading')).toBeVisible()
+    await vi.waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+  })
+
   it('closes itself when the loaded recording is tombstoned', async () => {
     const id = await localRecording('Jam recording')
     renderDock([{ label: 'Play recording', item: { kind: 'recording', id } }])

@@ -16,7 +16,7 @@ import type { RecordingFile } from '../../db/recordings'
 import { liveTune } from '../../db/tunes'
 import type { LocalRecording, LocalRecordingLink } from '../../db/types'
 import { OFFLINE } from '../../sync/labels'
-import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
+import { useOnline } from '../../sync/SyncProvider'
 import { displayTitle } from '../links/display'
 import {
   DOWNLOAD_FAILED,
@@ -34,6 +34,7 @@ import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { playbackWindow, type PlaybackWindow } from './playbackWindow'
 import { useCurrentAudio } from './useCurrentAudio'
+import { useRecordingDownload } from './useRecordingDownload'
 import { usePlayer } from './usePlayer'
 
 export const CLOSE_PLAYER = 'Close player'
@@ -106,23 +107,10 @@ function RecordingBody({
   file: RecordingFile | null
   title: string
 }) {
-  const syncEngine = useSyncEngine()
   const engine = usePlaybackEngine()
   const recordingScreen = useRecordingScreen()
   const online = useOnline()
-  const [fetched, setFetched] = useState<{ id: string; blob: Blob | null } | null>(null)
-  const blob = file?.blob ?? (fetched?.id === recording.id ? fetched.blob : null)
-  const failed = !blob && recording.state === 'ready' && fetched?.id === recording.id
-  useEffect(() => {
-    if (blob || recording.state !== 'ready') return
-    let cancelled = false
-    void syncEngine.download(recording.id).then((result) => {
-      if (!cancelled) setFetched({ id: recording.id, blob: result })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [blob, syncEngine, recording.id, recording.state])
+  const { blob, failed, retry } = useRecordingDownload(recording, file)
   useCurrentAudio(recording, file)
   useLoopFollow(useLoops(recording.id), {
     blobStartMs: file?.blob_start_ms ?? 0,
@@ -383,16 +371,7 @@ function RecordingBody({
       </p>
       {/* Offline refuses the tap by not offering it, rather than leaving a control that cannot work. */}
       {failed && online ? (
-        <IonButton
-          fill="outline"
-          onClick={() => {
-            // Clearing the failed result shows Downloading again until this attempt settles.
-            setFetched(null)
-            void syncEngine.download(recording.id).then((result) => {
-              setFetched({ id: recording.id, blob: result })
-            })
-          }}
-        >
+        <IonButton fill="outline" onClick={retry}>
           Retry
         </IonButton>
       ) : null}
