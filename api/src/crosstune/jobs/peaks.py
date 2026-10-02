@@ -6,7 +6,7 @@ import array
 import sys
 from typing import TYPE_CHECKING
 
-from crosstune.jobs.media import INPUT_GUARD, run_media_tool
+from crosstune.jobs.media import INPUT_GUARD, stream_media_tool
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -16,6 +16,7 @@ PEAKS_PER_SECOND = 50
 _HEADER_SIZE = 3
 _SAMPLE_RATE = 8_000
 _WINDOW_SAMPLES = _SAMPLE_RATE // PEAKS_PER_SECOND
+_WINDOW_BYTES = _WINDOW_SAMPLES * 2
 _FULL_SCALE = 32_768  # magnitude of the most negative sample in signed 16-bit PCM
 
 
@@ -31,7 +32,8 @@ async def build_peaks(source: Path) -> bytes:
     Raises:
         MediaError: ffmpeg failed, most often because the file cannot be decoded.
     """
-    raw = await run_media_tool(
+    reducer = _PeakReducer()
+    await stream_media_tool(
         "ffmpeg",
         "-v",
         "error",
@@ -45,8 +47,30 @@ async def build_peaks(source: Path) -> bytes:
         "-f",
         "s16le",
         "-",
+        on_stdout=reducer.feed,
     )
-    return encode_peaks(reduce_pcm(raw))
+    return encode_peaks(reducer.finish())
+
+
+class _PeakReducer:
+    """Reduce PCM to peak bytes as it streams in, holding at most one partial window."""
+
+    def __init__(self) -> None:
+        self._peaks = bytearray()
+        self._pending = b""
+
+    def feed(self, chunk: bytes) -> None:
+        """Reduce every whole window `chunk` completes and keep the rest for the next one."""
+        data = self._pending + chunk
+        whole = len(data) - len(data) % _WINDOW_BYTES
+        self._peaks += reduce_pcm(data[:whole])
+        self._pending = data[whole:]
+
+    def finish(self) -> bytes:
+        """Reduce the final partial window, as `reduce_pcm` would, and return every peak byte."""
+        self._peaks += reduce_pcm(self._pending)
+        self._pending = b""
+        return bytes(self._peaks)
 
 
 def reduce_pcm(raw: bytes) -> bytes:
