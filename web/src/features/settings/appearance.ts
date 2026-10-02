@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { matches } from '../../platform/mediaQuery'
 import { syncStatusBar } from '../../platform/statusBar'
 
 export const APPEARANCES = ['system', 'light', 'dark'] as const
@@ -71,7 +72,7 @@ function currentTextSize(): TextSize {
 const DARK_QUERY = '(prefers-color-scheme: dark)'
 
 export function resolveDark(appearance: Appearance): boolean {
-  if (appearance === 'system') return window.matchMedia?.(DARK_QUERY).matches ?? false
+  if (appearance === 'system') return matches(DARK_QUERY)
   return appearance === 'dark'
 }
 

@@ -2,6 +2,12 @@ export const EDITED_TODAY = 'Edited today'
 export const EDITED_YESTERDAY = 'Edited yesterday'
 
 const DAY_MS = 86_400_000
+const THIS_YEAR = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+const OTHER_YEAR = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
 
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
@@ -14,9 +20,6 @@ export function editedLabel(iso: string, now: Date = new Date()): string {
   const days = Math.round((startOfDay(now) - startOfDay(edited)) / DAY_MS)
   if (days <= 0) return EDITED_TODAY
   if (days === 1) return EDITED_YESTERDAY
-  const format =
-    edited.getFullYear() === now.getFullYear()
-      ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
-      : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const format = edited.getFullYear() === now.getFullYear() ? THIS_YEAR : OTHER_YEAR
   return `Edited ${format.format(edited)}`
 }
