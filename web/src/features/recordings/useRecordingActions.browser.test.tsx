@@ -11,7 +11,8 @@ import {
   RecordingScreenContext,
   type RecordingScreen,
 } from '../recording-screen/useRecordingScreen'
-import { RENAME, useRecordingActions } from './useRecordingActions'
+import { RENAME } from './recordingCopy'
+import { useRecordingActions } from './useRecordingActions'
 import type { RecordingView } from './useRecordings'
 
 /** Stands in for a list of recordings: one line for every refusal, wherever the control sits. */

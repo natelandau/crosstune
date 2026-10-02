@@ -14,8 +14,8 @@ import { recordingRow } from '../../test/rows'
 import { SEARCH_TUNES } from '../catalog/TuneSearch'
 import { NEW_TUNE_TITLE } from '../tune/TuneFormSheet'
 import { ADD_TO_TUNE_ERROR, ADD_TO_TUNE_TITLE, AddToTuneSheet } from './AddToTuneSheet'
+import { RECORDING_NAME_LABEL } from './recordingCopy'
 import {
-  RECORDING_NAME_LABEL,
   RECORDING_NAME_PLACEHOLDER,
   RENAME_RECORDING_TITLE,
   RenameRecordingSheet,

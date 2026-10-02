@@ -5,6 +5,7 @@ import {
   expectNoOverlay,
   nudgeSync,
   recordUnfiled,
+  renameRecording,
   signIn,
   swipeLeft,
   unique,
@@ -136,7 +137,6 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
 
   const unfiled = await recordUnfiled(page, 6)
   await waitForReady(page, unfiled)
-  const label = (await unfiled.locator('h3').innerText()).trim()
   // ion-modal names its shadow dialog asynchronously and unreliably, so the modal element
   // itself is the scope, the same way every sheet in this file is scoped.
   const screen = page.locator('ion-modal.show-modal')
@@ -172,6 +172,8 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
   // The confirm sheet is its own overlay, outside the recording screen's modal.
   await page.getByRole('button', { name: 'Trim', exact: true }).click()
   await expectNoOverlay(page)
+  const label = unique('Trimmed take')
+  await renameRecording(page, screen, label)
 
   await screen.getByRole('button', { name: 'Close', exact: true }).click()
   const player = page.getByRole('region', { name: 'Player' })

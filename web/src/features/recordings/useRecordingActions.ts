@@ -9,12 +9,12 @@ import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { PRACTICE } from '../practice/practiceCopy'
 import { EDIT_RECORDING, useRecordingScreen } from '../recording-screen/useRecordingScreen'
+import { RENAME } from './recordingCopy'
 import { deleteRecordingMessage } from './recordingRow'
 import type { RecordingView } from './useRecordings'
 
 export const DELETE_RECORDING_TITLE = 'Delete this recording?'
 export const REMOVE_FROM_TUNE = 'Remove from tune'
-export const RENAME = 'Rename'
 export const ADD_TO_TUNE = 'Add to tune'
 
 export interface RecordingActions {

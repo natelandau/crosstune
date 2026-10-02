@@ -6,11 +6,11 @@ import { useDb } from '../../db/DbProvider'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
+import { RECORDING_NAME_LABEL } from './recordingCopy'
 import type { RecordingView } from './useRecordings'
 import { CANCEL } from '../../ui/Confirm'
 import { useSheetSession } from '../../ui/useSheetSession'
 
-export const RECORDING_NAME_LABEL = 'Recording name'
 export const RECORDING_NAME_PLACEHOLDER = 'Jam at Tom’s, take 2, …'
 export const RENAME_RECORDING_TITLE = 'Rename recording'
 
