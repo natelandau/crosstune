@@ -35,7 +35,6 @@ public enum Vocabulary {
         }
         public enum Link {
             public static let artworkUrl = 2048
-            public static let label = 200
             public static let providerRef = 200
             public static let title = 300
             public static let url = 2048

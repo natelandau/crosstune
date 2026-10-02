@@ -111,7 +111,7 @@ private func wire(_ json: String) throws -> JSONObject {
               "id": "link-1", "created_at": "2026-09-20T18:04:11Z", "updated_at": "2026-09-21T02:15:40Z",
               "deleted_at": null, "server_seq": 5, "added_by_user_id": "owner-1",
               "tune_id": "tune-1", "url": "https://example.com", "provider": "youtube",
-              "provider_ref": "abc123", "title": "A Recording", "label": "Live", "artwork_url": "a",
+              "provider_ref": "abc123", "title": "A Recording", "artwork_url": "a",
               "position": 2
             }
             """#))

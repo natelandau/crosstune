@@ -29,6 +29,13 @@ enum Schema {
                 t.column("color", .integer).notNull()
             }
         }
+        migrator.registerMigration("v6") { db in
+            try db.alter(table: SyncTable.recordingLinks.rawValue) { t in t.drop(column: "label") }
+            // The API refuses a queued link that still names a label.
+            try db.execute(
+                sql: "UPDATE outbox SET data = json_remove(data, '$.label') WHERE table_name = ? AND data IS NOT NULL",
+                arguments: [SyncTable.recordingLinks.rawValue])
+        }
         return migrator
     }()
 

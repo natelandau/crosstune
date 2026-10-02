@@ -287,15 +287,13 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 
 @Suite struct LinkTextTests {
     private func link(
-        url: String = "https://www.youtube.com/watch?v=x", provider: String = "youtube", title: String? = nil,
-        label: String? = nil
+        url: String = "https://www.youtube.com/watch?v=x", provider: String = "youtube", title: String? = nil
     ) -> RecordingLink {
-        RecordingLink(tuneID: "t1", url: url, provider: provider, title: title, label: label)
+        RecordingLink(tuneID: "t1", url: url, provider: provider, title: title)
     }
 
-    @Test func titlesByProviderTitleThenLabelThenHost() {
-        #expect(LinkText.title(link(title: "Tommy Jarrell", label: "Mine")) == "Tommy Jarrell")
-        #expect(LinkText.title(link(label: "Mine")) == "Mine")
+    @Test func titlesByProviderTitleThenHost() {
+        #expect(LinkText.title(link(title: "Tommy Jarrell")) == "Tommy Jarrell")
         #expect(LinkText.title(link()) == "www.youtube.com")
     }
 

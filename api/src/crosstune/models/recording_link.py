@@ -38,5 +38,4 @@ class RecordingLink(SyncColumns, Base):
     provider_ref: Mapped[str | None] = mapped_column(String(LINK["provider_ref"]), nullable=True)
     title: Mapped[str | None] = mapped_column(String(LINK["title"]), nullable=True)
     artwork_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    label: Mapped[str | None] = mapped_column(String(LINK["label"]), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

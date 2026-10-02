@@ -9,7 +9,6 @@ export interface LinkInput {
   provider_ref?: string | null
   title?: string | null
   artwork_url?: string | null
-  label?: string | null
 }
 
 export async function addLink(db: CrosstuneDb, tuneId: string, link: LinkInput): Promise<string> {
@@ -32,7 +31,6 @@ export async function addLink(db: CrosstuneDb, tuneId: string, link: LinkInput):
       provider_ref: link.provider_ref ?? null,
       title: link.title ?? null,
       artwork_url: link.artwork_url ?? null,
-      label: link.label ?? null,
       position: nextPosition(active),
     })
   })

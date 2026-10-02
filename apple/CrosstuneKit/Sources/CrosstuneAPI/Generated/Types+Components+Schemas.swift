@@ -1178,8 +1178,6 @@ extension Components {
             public var deletedAt: Foundation.Date?
             /// - Remark: Generated from `#/components/schemas/RecordingLinkRow/id`.
             public var id: Swift.String
-            /// - Remark: Generated from `#/components/schemas/RecordingLinkRow/label`.
-            public var label: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingLinkRow/position`.
             public var position: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingLinkRow/provider`.
@@ -1206,7 +1204,6 @@ extension Components {
             ///   - createdAt:
             ///   - deletedAt:
             ///   - id:
-            ///   - label:
             ///   - position:
             ///   - provider:
             ///   - providerRef:
@@ -1222,7 +1219,6 @@ extension Components {
                 createdAt: Foundation.Date,
                 deletedAt: Foundation.Date? = nil,
                 id: Swift.String,
-                label: Swift.String? = nil,
                 position: Swift.Int? = nil,
                 provider: Components.Schemas.Provider,
                 providerRef: Swift.String? = nil,
@@ -1238,7 +1234,6 @@ extension Components {
                 self.createdAt = createdAt
                 self.deletedAt = deletedAt
                 self.id = id
-                self.label = label
                 self.position = position
                 self.provider = provider
                 self.providerRef = providerRef
@@ -1255,7 +1250,6 @@ extension Components {
                 case createdAt = "created_at"
                 case deletedAt = "deleted_at"
                 case id
-                case label
                 case position
                 case provider
                 case providerRef = "provider_ref"
@@ -1286,10 +1280,6 @@ extension Components {
                 self.id = try container.decode(
                     Swift.String.self,
                     forKey: .id
-                )
-                self.label = try container.decodeIfPresent(
-                    Swift.String.self,
-                    forKey: .label
                 )
                 self.position = try container.decodeIfPresent(
                     Swift.Int.self,
@@ -1329,7 +1319,6 @@ extension Components {
                     "created_at",
                     "deleted_at",
                     "id",
-                    "label",
                     "position",
                     "provider",
                     "provider_ref",
@@ -1361,10 +1350,6 @@ extension Components {
                 try container.encode(
                     self.id,
                     forKey: .id
-                )
-                try container.encodeIfPresent(
-                    self.label,
-                    forKey: .label
                 )
                 try container.encodeIfPresent(
                     self.position,

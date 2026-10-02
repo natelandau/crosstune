@@ -52,7 +52,6 @@ private final class FakeResolver {
 
         model.setURL("  \(url) ")
         try await eventually { model.preview == "Soldier's Joy" }
-        model.setLabel(" slow version ")
         #expect(await model.save())
 
         // The lookup made while pasting is the one the save uses.
@@ -63,7 +62,6 @@ private final class FakeResolver {
         #expect(row.providerRef == "dQw4w9WgXcQ")
         #expect(row.title == "Soldier's Joy")
         #expect(row.artworkURL == "https://i.ytimg.com/a.jpg")
-        #expect(row.label == "slow version")
     }
 
     @Test func waitsForTypingToPauseBeforeLookingUp() async throws {
@@ -133,7 +131,6 @@ private final class FakeResolver {
         #expect(row.provider == "spotify")
         #expect(row.providerRef == "track:4uLU6hMCjMI75M1A2tKUQC")
         #expect(row.title == nil)
-        #expect(row.label == nil)
     }
 
     @Test func asksAtSaveWhenNothingWasLookedUpAndKeepsTheDetectedProviderForAnUnknownOne() async throws {

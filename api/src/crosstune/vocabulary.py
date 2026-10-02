@@ -152,7 +152,6 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
         "provider_ref": 200,
         "title": 300,
         "artwork_url": 2048,
-        "label": 200,
     },
     "recordings": {
         "label": 200,

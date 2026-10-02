@@ -1408,3 +1408,22 @@ async def test_downgrade_to_0017_drops_recording_loops_and_upgrade_restores_them
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
     async with engine.connect() as conn:
         assert (await conn.execute(query)).scalar_one()
+
+
+async def test_downgrade_to_0018_restores_the_link_label_and_upgrade_drops_it(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'recording_links' and column_name = 'label'"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0018")
+        async with engine.connect() as conn:
+            assert (await conn.execute(query)).scalar_one() == 1
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        assert (await conn.execute(query)).scalar_one() == 0

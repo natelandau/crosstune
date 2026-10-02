@@ -27,17 +27,14 @@ describe('links', () => {
       url: 'https://open.spotify.com/track/1',
       provider: 'spotify',
       title: 'Track',
-      label: 'studio',
     })
     expect(await db.recording_links.get(first)).toMatchObject({
       position: 0,
       title: null,
-      label: null,
     })
     expect(await db.recording_links.get(second)).toMatchObject({
       position: 1,
       title: 'Track',
-      label: 'studio',
     })
     const queued = await pendingFor(db, 'recording_links', first)
     expect(queued?.data).toMatchObject({
