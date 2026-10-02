@@ -6,8 +6,7 @@ import httpx2
 import pytest
 
 from crosstune.ratelimit import RateLimiter
-from tests.test_push import T0, change, push, uid
-from tests.test_resolve import OEMBED, og_html
+from tests.helpers import OEMBED, T0, change, og_html, push, uid
 
 
 class Clock:

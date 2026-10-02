@@ -31,7 +31,7 @@ from crosstune.ops import local_storage
 from tests.fakes import FakeClerkUsers, FakeObjectStore, FakeRunner
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncIterator, Callable, Iterator
     from pathlib import Path
 
     from fastapi import FastAPI
@@ -209,7 +209,10 @@ def long_m4a(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """
     if shutil.which("ffmpeg") is None:
         pytest.skip("ffmpeg is not installed")
-    path = tmp_path_factory.mktemp("media-long") / "long.m4a"
+    folder = tmp_path_factory.mktemp("media-long")
+    # Encoding an hour of AAC takes seconds; looping one encoded minute with stream copy
+    # takes a fraction of one. ADTS has no container edit list, so the copies join cleanly.
+    seed = folder / "minute.aac"
     _run_ffmpeg(
         [
             "-v",
@@ -218,8 +221,32 @@ def long_m4a(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "-f",
             "lavfi",
             "-i",
-            "sine=frequency=440:duration=3600",
-            *FIXTURE_ENCODERS["m4a"],
+            "sine=frequency=440:duration=60",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            "-f",
+            "adts",
+            str(seed),
+        ]
+    )
+    path = folder / "long.m4a"
+    _run_ffmpeg(
+        [
+            "-v",
+            "error",
+            "-y",
+            "-stream_loop",
+            "-1",
+            "-i",
+            str(seed),
+            "-t",
+            "3600",
+            "-c",
+            "copy",
+            "-f",
+            "mp4",
             str(path),
         ]
     )
@@ -501,13 +528,26 @@ def rustfs() -> S3Client:
 
 
 @pytest.fixture
-def rustfs_bucket(rustfs: S3Client) -> Iterator[str]:
+def make_rustfs_bucket(rustfs: S3Client) -> Iterator[Callable[[str], str]]:
+    """Make fresh buckets with the local CORS rules, every one removed after the test."""
+    made: list[str] = []
+
+    def _make(prefix: str = "crosstune-test") -> str:
+        bucket = f"{prefix}-{uuid.uuid4().hex[:12]}"
+        local_storage.ensure_bucket(rustfs, bucket)
+        made.append(bucket)
+        return bucket
+
+    yield _make
+    for bucket in made:
+        local_storage.empty_bucket(rustfs, bucket)
+        rustfs.delete_bucket(Bucket=bucket)
+
+
+@pytest.fixture
+def rustfs_bucket(make_rustfs_bucket: Callable[[str], str]) -> str:
     """A fresh bucket with the local CORS rules, removed after the test."""
-    bucket = f"crosstune-test-{uuid.uuid4().hex[:12]}"
-    local_storage.ensure_bucket(rustfs, bucket)
-    yield bucket
-    local_storage.empty_bucket(rustfs, bucket)
-    rustfs.delete_bucket(Bucket=bucket)
+    return make_rustfs_bucket()
 
 
 @pytest.fixture

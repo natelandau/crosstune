@@ -9,8 +9,7 @@ import pytest
 from sqlalchemy import select, update
 
 from crosstune.models import Job, Recording, UploadSlot
-from tests.test_push import T1, change, push, uid
-from tests.test_recordings_sync import recording
+from tests.helpers import T1, change, push, recording, uid
 
 if TYPE_CHECKING:
     from crosstune.storage.store import ObjectInfo

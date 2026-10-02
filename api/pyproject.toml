@@ -64,7 +64,7 @@
     output = ".cache/coverage.xml"
 
 [tool.pytest.ini_options]
-    addopts        = "--color=yes --strict-config --strict-markers -n auto --dist loadfile"
+    addopts        = "--color=yes --strict-config --strict-markers -n auto --dist worksteal"
     cache_dir      = ".cache/pytest"
     filterwarnings = ["error", "ignore::DeprecationWarning:"]
     testpaths      = ["tests"]

@@ -4,15 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from tests.test_push import T0, T1, change, push, uid
+from tests.helpers import T0, T1, change, pull, push, uid
 
 pytestmark = pytest.mark.anyio
-
-
-async def pull(client, headers, since: int = 0) -> dict:
-    response = await client.get(f"/v1/sync/pull?since={since}", headers=headers)
-    assert response.status_code == 200, response.text
-    return response.json()
 
 
 async def test_initial_pull_returns_everything_for_the_caller_only(client, auth_headers) -> None:

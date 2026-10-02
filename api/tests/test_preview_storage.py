@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-import uuid
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
@@ -14,7 +13,7 @@ from crosstune.storage.r2 import R2Store
 from tests.fakes import FakeObjectStore
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable
 
     from types_boto3_s3 import S3Client
 
@@ -72,14 +71,8 @@ def test_main_seed_names_a_missing_dev_read_variable(monkeypatch: pytest.MonkeyP
 
 
 @pytest.fixture
-def two_buckets(rustfs: S3Client) -> Iterator[tuple[str, str]]:
-    names = (f"seed-src-{uuid.uuid4().hex[:10]}", f"seed-dst-{uuid.uuid4().hex[:10]}")
-    for name in names:
-        local_storage.ensure_bucket(rustfs, name)
-    yield names
-    for name in names:
-        local_storage.empty_bucket(rustfs, name)
-        rustfs.delete_bucket(Bucket=name)
+def two_buckets(make_rustfs_bucket: Callable[[str], str]) -> tuple[str, str]:
+    return make_rustfs_bucket("seed-src"), make_rustfs_bucket("seed-dst")
 
 
 def keys(client: S3Client, bucket: str) -> list[str]:
