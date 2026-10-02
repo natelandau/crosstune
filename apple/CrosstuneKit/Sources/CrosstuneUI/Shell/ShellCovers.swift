@@ -35,7 +35,10 @@ extension View {
     /// Marks this view as a sheet over the shell while it shows: the record dome hides and the
     /// menu commands that open sheets stand down.
     func shellSheet() -> some View {
-        coversShell(true)
+        // The dome comes back as the sheet starts down rather than once it has gone, so the bar
+        // is whole when the sheet clears it.
+        modifier(Covers(cover: \.domeCover, isCovering: true, endsAsDismissed: true))
+            .modifier(Covers(cover: \.openSheets, isCovering: true))
     }
 
     /// A ``shellSheet()`` that opens part way and drags to full height.
@@ -86,24 +89,40 @@ struct CoverClaim: Equatable {
     }
 }
 
-/// Holds one claim on a cover while `isCovering` is true and the view shows.
+/// Holds one claim on a cover while `isCovering` is true and the view shows. With
+/// `endsAsDismissed`, the claim ends as the presentation holding the view starts to leave,
+/// where `onDisappear` comes only once it has gone.
 private struct Covers: ViewModifier {
-    let isCovering: Bool
+    private let isCovering: Bool
+    private let endsAsDismissed: Bool
 
     @Environment private var cover: ShellCover?
     @State private var claim: CoverClaim
+    @State private var isLeaving = false
 
-    init(cover: KeyPath<EnvironmentValues, ShellCover?>, isCovering: Bool) {
+    init(cover: KeyPath<EnvironmentValues, ShellCover?>, isCovering: Bool, endsAsDismissed: Bool = false) {
         _cover = Environment(cover)
         _claim = State(initialValue: CoverClaim(isCovering: isCovering))
         self.isCovering = isCovering
+        self.endsAsDismissed = endsAsDismissed
+    }
+
+    private var wantsCover: Bool {
+        isCovering && !isLeaving
     }
 
     func body(content: Content) -> some View {
         content
-            .onAppear { apply(claim.update(isShown: true, isCovering: isCovering)) }
+            #if os(iOS)
+                .background {
+                    if endsAsDismissed {
+                        LeavingWatch { isLeaving = $0 }
+                    }
+                }
+            #endif
+            .onAppear { apply(claim.update(isShown: true, isCovering: wantsCover)) }
             .onDisappear { apply(claim.update(isShown: false)) }
-            .onChange(of: isCovering) { apply(claim.update(isCovering: isCovering)) }
+            .onChange(of: wantsCover) { apply(claim.update(isCovering: wantsCover)) }
     }
 
     private func apply(_ change: CoverClaim.Change?) {
@@ -114,6 +133,46 @@ private struct Covers: ViewModifier {
         }
     }
 }
+
+#if os(iOS)
+    /// Reports true as the view controller holding this view starts to disappear, as when its
+    /// sheet starts down, and false as it starts to appear again, as when a swipe down is let go.
+    private struct LeavingWatch: UIViewControllerRepresentable {
+        let onChange: @MainActor (Bool) -> Void
+
+        func makeUIViewController(context: Context) -> Controller {
+            Controller(onChange: onChange)
+        }
+
+        func updateUIViewController(_ controller: Controller, context: Context) {
+            controller.onChange = onChange
+        }
+
+        final class Controller: UIViewController {
+            var onChange: @MainActor (Bool) -> Void
+
+            init(onChange: @escaping @MainActor (Bool) -> Void) {
+                self.onChange = onChange
+                super.init(nibName: nil, bundle: nil)
+            }
+
+            @available(*, unavailable)
+            required init?(coder: NSCoder) {
+                fatalError("init(coder:) is not supported")
+            }
+
+            override func viewWillAppear(_ animated: Bool) {
+                super.viewWillAppear(animated)
+                onChange(false)
+            }
+
+            override func viewWillDisappear(_ animated: Bool) {
+                super.viewWillDisappear(animated)
+                onChange(true)
+            }
+        }
+    }
+#endif
 
 /// When each menu command can act, from what covers the shell.
 enum MenuGates {
