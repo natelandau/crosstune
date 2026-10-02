@@ -89,7 +89,7 @@ describe('schema', () => {
       expect(db.tables.map((t) => t.name)).toEqual(
         expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
       )
-      expect(db.verno).toBe(8)
+      expect(db.verno).toBe(9)
     } finally {
       await db.delete()
     }
@@ -156,7 +156,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(8)
+      expect(upgraded.verno).toBe(9)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -258,7 +258,7 @@ describe('schema', () => {
       ])
       expect(await getPullCursor(opened)).toBe(42)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(8)
+      expect(opened.verno).toBe(9)
     } finally {
       await opened.delete()
     }
@@ -337,17 +337,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v9 = new Dexie(name)
-    v9.version(9).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v9.table('tunes').put({ id: tune.id, title: tune.title })
-    await v9.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v9.close()
+    const v10 = new Dexie(name)
+    v10.version(10).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v10.table('tunes').put({ id: tune.id, title: tune.title })
+    await v10.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v10.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(80)
+      expect(older.backendDB().version).toBe(90)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {

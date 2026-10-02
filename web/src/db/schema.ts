@@ -162,6 +162,9 @@ export class CrosstuneDb extends Dexie {
             if (entry.data) delete entry.data.label
           })
       })
+
+    // The processing watch queries by state, so a write to any other recording passes it by.
+    this.version(9).stores({ recordings: 'id, tune_id, state' })
   }
 
   // Dexie's auto-open on the first query calls this method too.

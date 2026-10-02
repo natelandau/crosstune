@@ -60,7 +60,11 @@ export function startSyncTriggers(
 
   // A row sitting in Processing gets no pull of its own; only a poll notices it finished.
   const processingSubscription = liveQuery(() =>
-    db.recordings.filter((r) => !r.deleted_at && PROCESSING_STATES.includes(r.state)).count(),
+    db.recordings
+      .where('state')
+      .anyOf(PROCESSING_STATES)
+      .filter((r) => !r.deleted_at)
+      .count(),
   ).subscribe({
     next(count) {
       processing = count > 0
