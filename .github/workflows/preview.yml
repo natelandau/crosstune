@@ -29,6 +29,8 @@ concurrency:
 # Secrets are set on the steps that use them, never here, so third-party actions and
 # packages in other steps never see them in their environment.
 env:
+  # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
+  UV_LOCKED: "1"
   PR_NAME: pr-${{ inputs.pr_number || github.event.pull_request.number }}
   RAILWAY_CLI_IMAGE: ghcr.io/railwayapp/cli:5.60.0
   RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
