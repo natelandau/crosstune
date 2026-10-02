@@ -7,7 +7,7 @@ import { settleOverlays } from './overlays'
 
 // Headless Chromium reports a desktop user agent, so the harness forces iOS to make iOS-only
 // behavior testable; the app itself never forces a mode.
-setupIonicReact({ mode: 'ios' })
+setupIonicReact({ mode: 'ios', animated: false })
 
 // Ionic transitions and overlays settle in a few hundred milliseconds; findBy waits for them.
 configure({ asyncUtilTimeout: 3000 })

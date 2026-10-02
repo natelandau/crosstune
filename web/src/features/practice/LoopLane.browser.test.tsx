@@ -2,19 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { addLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT } from '../../commands/messages'
-import {
-  appendChunk,
-  beginCapture,
-  finishCapture,
-  updateRecording,
-} from '../../commands/recordings'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
 import { contrastRatio } from '../../test/contrast'
 import { openTestDb } from '../../test/db'
+import { modal, presentedModal } from '../../test/dialogs'
 import { renderScreen } from '../../test/ionic'
 import { fakePlaybackEngine } from '../../test/providers'
+import { captureRecording, liveLoops, seedLoop } from '../../test/recordings'
 import { loopRow } from '../../test/rows'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { EDIT_RECORDING } from '../recording-screen/useRecordingScreen'
@@ -42,34 +38,8 @@ afterEach(async () => {
 const LENGTH_MS = 180_000
 
 /** A three-minute recording captured on this device, so its blob is already held locally. */
-async function localRecording(extra: Partial<LocalRecording> = {}) {
-  const id = newId()
-  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
-  await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, {
-    tuneId: null,
-    mime: 'audio/mp4',
-    durationMs: LENGTH_MS,
-    recordedAt: '2026-09-14T20:00:00.000Z',
-    peaks: null,
-  })
-  await updateRecording(db, id, { label: 'Jam recording', ...extra })
-  return id
-}
-
-async function seedLoop(recordingId: string, startMs: number, endMs: number, extra = {}) {
-  const id = newId()
-  await db.recording_loops.put(
-    loopRow({ id, recording_id: recordingId, start_ms: startMs, end_ms: endMs, ...extra }),
-  )
-  return id
-}
-
-const presented = () => document.querySelector<HTMLElement>('ion-modal:not(.overlay-hidden)')
-
-async function dialog() {
-  await expect.poll(presented).not.toBeNull()
-  return page.elementLocator(presented()!)
+function localRecording(extra: Partial<LocalRecording> = {}) {
+  return captureRecording(db, { durationMs: LENGTH_MS, label: 'Jam recording', ...extra })
 }
 
 /** Practice opened on the recording, with its lanes measured and laid out. */
@@ -83,7 +53,7 @@ async function openPractice(engine: PlaybackEngine = fakePlaybackEngine(), lengt
     dock: true,
   })
   await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
-  await (await dialog()).getByRole('button', { name: PRACTICE }).click()
+  await (await modal()).getByRole('button', { name: PRACTICE }).click()
   await expect.poll(() => engine.getState().lengthMs).toBe(lengthMs)
   await expect.poll(() => lane()?.dataset.pxPerS).toBeTruthy()
   engine.pause()
@@ -149,23 +119,17 @@ function drag(target: Element, from: number, to: number, options: { alt?: boolea
 const near = (actual: number, expected: number, within = 2) =>
   expect(Math.abs(actual - expected), `${actual} vs ${expected}`).toBeLessThanOrEqual(within)
 
-async function liveLoops(recordingId: string) {
-  return (await db.recording_loops.where('recording_id').equals(recordingId).toArray()).filter(
-    (l) => !l.deleted_at,
-  )
-}
-
 describe('LoopLane', () => {
   it('names the lanes region', async () => {
     await localRecording()
     await openPractice()
-    await expect.element((await dialog()).getByRole('region', { name: LANES_LABEL })).toBeVisible()
+    await expect.element((await modal()).getByRole('region', { name: LANES_LABEL })).toBeVisible()
   })
 
   it('shows the hint while the recording has no loops', async () => {
     await localRecording()
     await openPractice()
-    await expect.element((await dialog()).getByText(LOOP_HINT)).toBeVisible()
+    await expect.element((await modal()).getByText(LOOP_HINT)).toBeVisible()
   })
 
   it('draws a new loop with one drag across the empty lane, and selects it', async () => {
@@ -181,7 +145,7 @@ describe('LoopLane', () => {
     expect(recordingId).toBe(id)
     near(span.start_ms, expectedStart)
     near(span.end_ms, expectedEnd)
-    const [created] = await liveLoops(id)
+    const [created] = await liveLoops(db, id)
     await expect.poll(() => engine.getState().loop?.id).toBe(created!.id)
     await expect.poll(() => pill(created!.id)?.dataset.selected).toBe('true')
   })
@@ -198,7 +162,7 @@ describe('LoopLane', () => {
 
   it('moves a loop by its body with one write', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     await openPractice()
     await expect.poll(() => pill(loop)).not.toBeNull()
     const from = xOf(7_500)
@@ -214,7 +178,7 @@ describe('LoopLane', () => {
 
   it('resizes a loop by its end and stops at half a second', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     await openPractice()
     await expect.poll(() => pill(loop)).not.toBeNull()
     drag(lane()!, xOf(10_000) - 2, xOf(1_000))
@@ -227,7 +191,7 @@ describe('LoopLane', () => {
     await localRecording()
     const engine = await openPractice()
     engine.seek(12_000)
-    await expect.element((await dialog()).getByText('0:12', { exact: true })).toBeVisible()
+    await expect.element((await modal()).getByText('0:12', { exact: true })).toBeVisible()
     drag(lane()!, xOf(5_000), xOf(12_000) + 5)
     await expect.poll(() => vi.mocked(addLoop).mock.calls.length).toBe(1)
     expect(vi.mocked(addLoop).mock.calls[0]![2].end_ms).toBe(12_000)
@@ -239,8 +203,8 @@ describe('LoopLane', () => {
 
   it('stacks overlapping loops in rows', async () => {
     const id = await localRecording()
-    const first = await seedLoop(id, 5_000, 10_000)
-    const second = await seedLoop(id, 7_000, 12_000)
+    const first = await seedLoop(db, id, 5_000, 10_000)
+    const second = await seedLoop(db, id, 7_000, 12_000)
     await openPractice()
     await expect.poll(() => pill(second)?.dataset.row).toBe('1')
     expect(pill(first)?.dataset.row).toBe('0')
@@ -248,7 +212,7 @@ describe('LoopLane', () => {
 
   it('scrolls inside the lane when more than three rows stack', async () => {
     const id = await localRecording()
-    for (let i = 0; i < 4; i++) await seedLoop(id, 5_000 + i * 500, 15_000)
+    for (let i = 0; i < 4; i++) await seedLoop(db, id, 5_000 + i * 500, 15_000)
     await openPractice()
     await expect.poll(() => document.querySelectorAll('[data-loop]').length).toBe(4)
     const el = lane()!
@@ -257,7 +221,7 @@ describe('LoopLane', () => {
 
   it('moves the playhead into a repeating loop dragged away from it, on release', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     const engine = await openPractice()
     engine.seek(7_000)
     await expect.poll(() => pill(loop)).not.toBeNull()
@@ -291,11 +255,11 @@ describe('LoopLane', () => {
       ),
     )
     await openPractice()
-    await expect.element((await dialog()).getByText(LOOP_LIMIT)).toBeVisible()
+    await expect.element((await modal()).getByText(LOOP_LIMIT)).toBeVisible()
     drag(lane()!, 100, 160)
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(addLoop).not.toHaveBeenCalled()
-    expect(await liveLoops(id)).toHaveLength(100)
+    expect(await liveLoops(db, id)).toHaveLength(100)
   })
 
   it('seeks on a tap on the zoomed waveform and pans on a drag', async () => {
@@ -331,12 +295,12 @@ describe('LoopLane', () => {
 
   it('fits the selected loop with a margin', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 20_000, 28_000)
+    const loop = await seedLoop(db, id, 20_000, 28_000)
     const engine = await openPractice()
     await expect.poll(() => pill(loop)).not.toBeNull()
     drag(lane()!, xOf(24_000), xOf(24_000))
     await expect.poll(() => engine.getState().loop?.id).toBe(loop)
-    await (await dialog()).getByRole('button', { name: FIT }).click()
+    await (await modal()).getByRole('button', { name: FIT }).click()
     await expect.poll(() => view().startMs).toBeCloseTo(19_200, -1)
     const width = lane()!.clientWidth
     expect(view().pxPerS).toBeCloseTo(width / 9.6, 3)
@@ -355,15 +319,15 @@ describe('LoopLane', () => {
       new KeyboardEvent('keydown', { key: '-', metaKey: true, bubbles: true }),
     )
     await expect.poll(() => view().pxPerS).toBeCloseTo(start, 3)
-    await (await dialog()).getByRole('button', { name: ZOOM_IN }).click()
+    await (await modal()).getByRole('button', { name: ZOOM_IN }).click()
     await expect.poll(() => view().pxPerS).toBeCloseTo(start * 2, 3)
-    await (await dialog()).getByRole('button', { name: ZOOM_OUT }).click()
+    await (await modal()).getByRole('button', { name: ZOOM_OUT }).click()
     await expect.poll(() => view().pxPerS).toBeCloseTo(start, 3)
   })
 
   it('gives each handle of the selected loop a slider the arrows nudge', async () => {
     const id = await localRecording({ trim_start_ms: 2_000 })
-    const loop = await seedLoop(id, 60_000, 80_000, { label: 'B part' })
+    const loop = await seedLoop(db, id, 60_000, 80_000, { label: 'B part' })
     const engine = await openPractice(fakePlaybackEngine(), LENGTH_MS - 2_000)
     const strip = overview()!
     const width = strip.getBoundingClientRect().width
@@ -374,10 +338,10 @@ describe('LoopLane', () => {
     drag(lane()!, xOf(68_000), xOf(68_000))
     await expect.poll(() => engine.getState().loop?.id).toBe(loop)
 
-    const start = (await dialog()).getByRole('slider', { name: LOOP_START })
+    const start = (await modal()).getByRole('slider', { name: LOOP_START })
     await expect.element(start).toHaveAttribute('aria-valuetext', 'B part start, 0:58')
     await expect
-      .element((await dialog()).getByRole('slider', { name: LOOP_END }))
+      .element((await modal()).getByRole('slider', { name: LOOP_END }))
       .toHaveAttribute('aria-valuetext', 'B part end, 1:18')
     ;(start.element() as HTMLElement).focus()
     await userEvent.keyboard('{ArrowRight}')
@@ -393,7 +357,7 @@ describe('LoopLane', () => {
 
   it('saves a nudge whose key is let go after focus has left the handle', async () => {
     const { loop } = await repeatingLoop()
-    const end = (await dialog()).getByRole('slider', { name: LOOP_END })
+    const end = (await modal()).getByRole('slider', { name: LOOP_END })
     ;(end.element() as HTMLElement).focus()
     await userEvent.keyboard('{ArrowRight>}')
     ;(end.element() as HTMLElement).blur()
@@ -410,7 +374,7 @@ describe('LoopLane', () => {
     await openPractice(fakePlaybackEngine(), 1_000)
     // The view cannot zoom in far enough to fill with one second, so it starts before 0.
     expect(view().startMs).toBeLessThan(0)
-    const bars = presented()!.querySelector<HTMLElement>('canvas.practice-detail')!
+    const bars = presentedModal()!.querySelector<HTMLElement>('canvas.practice-detail')!
     const surface = detail()!.getBoundingClientRect()
     const box = bars.getBoundingClientRect()
     near(box.left - surface.left, xOf(0), 1)
@@ -441,7 +405,7 @@ describe('LoopLane', () => {
 
   it('lets go of a move whose write leaves the row as it was', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     await openPractice()
     await expect.poll(() => pill(loop)).not.toBeNull()
     vi.mocked(updateLoop).mockImplementationOnce(async () => {})
@@ -453,7 +417,7 @@ describe('LoopLane', () => {
 
   it('pans the view while a drag holds near the edge of the lane', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     await openPractice()
     await expect.poll(() => pill(loop)).not.toBeNull()
     const width = lane()!.clientWidth
@@ -469,26 +433,26 @@ describe('LoopLane', () => {
 
   it('opens on 30 seconds around the playhead, or fitted to the selected loop', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 20_000, 28_000)
+    const loop = await seedLoop(db, id, 20_000, 28_000)
     const engine = await openPractice()
     await expect.poll(() => view().startMs).toBe(0)
     drag(lane()!, xOf(24_000), xOf(24_000))
     await expect.poll(() => engine.getState().loop?.id).toBe(loop)
 
-    await (await dialog()).getByRole('button', { name: BACK }).click()
+    await (await modal()).getByRole('button', { name: BACK }).click()
     await expect.poll(() => lane()).toBeNull()
-    await (await dialog()).getByRole('button', { name: PRACTICE }).click()
+    await (await modal()).getByRole('button', { name: PRACTICE }).click()
     await expect.poll(() => lane()?.dataset.startMs).toBeTruthy()
     // The selection outlived the view, and the view opened framed on it.
     expect(engine.getState().loop?.id).toBe(loop)
     await expect.poll(() => pill(loop)?.dataset.selected).toBe('true')
     expect(view().startMs).toBeCloseTo(19_200, -1)
 
-    await (await dialog()).getByRole('button', { name: BACK }).click()
+    await (await modal()).getByRole('button', { name: BACK }).click()
     await expect.poll(() => lane()).toBeNull()
     engine.setLoop(null)
     engine.seek(60_000)
-    await (await dialog()).getByRole('button', { name: PRACTICE }).click()
+    await (await modal()).getByRole('button', { name: PRACTICE }).click()
     await expect.poll(() => lane()?.dataset.startMs).toBeTruthy()
     expect(view().startMs).toBe(45_000)
   })
@@ -497,7 +461,7 @@ describe('LoopLane', () => {
     await localRecording()
     await openPractice()
     const bars = () =>
-      presented()!.querySelector<HTMLElement>('[data-practice-lanes] canvas.practice-detail')!
+      presentedModal()!.querySelector<HTMLElement>('[data-practice-lanes] canvas.practice-detail')!
     expect(bars().getBoundingClientRect().height).toBe(120)
     expect(lane()!.clientHeight).toBe(76)
     await page.viewport(844, 390)
@@ -527,14 +491,14 @@ describe('LoopLane', () => {
   /** Practice on a selected, repeating loop at 20-28 s with the playhead inside it. */
   async function repeatingLoop() {
     const id = await localRecording()
-    const loop = await seedLoop(id, 20_000, 28_000)
+    const loop = await seedLoop(db, id, 20_000, 28_000)
     const engine = await openPractice()
     engine.seek(24_000)
     await expect.poll(() => pill(loop)).not.toBeNull()
     drag(lane()!, xOf(24_000), xOf(24_000))
     await expect.poll(() => engine.getState().loop?.id).toBe(loop)
     engine.setRepeat(true)
-    await expect.element((await dialog()).getByText('0:24', { exact: true })).toBeVisible()
+    await expect.element((await modal()).getByText('0:24', { exact: true })).toBeVisible()
     const handle = document.querySelector<HTMLElement>('[data-handle="end"]')!
     return { loop, engine, handle }
   }
@@ -591,7 +555,7 @@ describe('LoopLane', () => {
 
   it('shows a newer value from elsewhere over a move whose write has not landed', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     await openPractice()
     await expect.poll(() => pill(loop)).not.toBeNull()
     vi.mocked(updateLoop).mockImplementationOnce(() => new Promise(() => {}))

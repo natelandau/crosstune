@@ -6,6 +6,7 @@ import { getKeepOffline } from '../../db/meta'
 import { pendingBatch } from '../../db/outbox'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { openPickerRow } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import type { SyncEngine } from '../../sync/types'
@@ -40,17 +41,7 @@ const clearButton = () => page.getByRole('button', { name: REMOVE_DOWNLOADS })
 const qualityRow = (preset: string) =>
   page.getByRole('button', { name: `Quality, ${preset}`, exact: true })
 
-/** Ionic's own inner button takes no clicks, so the row is what opens the picker. */
-async function openQuality(preset: string) {
-  // Ionic ignores a present while the previous popover is still dismissing.
-  await vi.waitFor(() =>
-    expect(document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull(),
-  )
-  await page
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name: `Quality, ${preset}` }) })
-    .click()
-}
+const openQuality = (preset: string) => openPickerRow(`Quality, ${preset}`)
 
 async function chooseQuality(from: string, to: string) {
   await openQuality(from)

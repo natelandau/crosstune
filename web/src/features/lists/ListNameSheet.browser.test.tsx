@@ -5,6 +5,7 @@ import { createList } from '../../commands/lists'
 import { LIST_NAME_REQUIRED, LIST_NOT_FOUND } from '../../commands/messages'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { animateOverlays } from '../../test/overlays'
 import {
   LIST_NAME_LABEL,
   LIST_NAME_PLACEHOLDER,
@@ -112,6 +113,7 @@ describe('ListNameSheet', () => {
   })
 
   it('keeps a target set while the cancelled sheet is still closing, without a stale close', async () => {
+    animateOverlays()
     const db = openTestDb()
     const onClose = vi.fn()
     // Exposed through an effect so the test can apply the swap directly, outside any click's

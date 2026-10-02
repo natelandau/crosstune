@@ -6,6 +6,7 @@ import type { BulkPatch } from '../../commands/bulk'
 import { createTune, type TuneInput, type UserTuneInput } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { openPickerRow } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
 import { tuningLabel } from '../settings/instruments'
@@ -71,15 +72,7 @@ const sheet = () => document.querySelector<HTMLIonModalElement>('ion-modal')!
 
 const dismissed = () => vi.waitFor(() => expect(sheet().isOpen).toBe(false))
 
-// Ionic ignores a present that lands while the previous popover is still dismissing, and the
-// hidden class arrives before the dismissal reaches React, so the wait is for the element to go.
-async function openRow(name: string) {
-  await vi.waitFor(() => expect(document.querySelector('ion-popover')).toBeNull())
-  await page
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name, exact: true }) })
-    .click()
-}
+const openRow = (name: string) => openPickerRow(name, { exact: true })
 
 const save = () => page.getByRole('button', { name: 'Save', exact: true }).click()
 

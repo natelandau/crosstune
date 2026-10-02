@@ -32,14 +32,11 @@ function Host({ height }: { height?: 'sheet' | 'full' }) {
   )
 }
 
-let restore: () => void
-
 beforeEach(() => {
-  restore = forceTouch()
+  forceTouch()
 })
 
 afterEach(() => {
-  restore()
   vi.resetAllMocks()
 })
 

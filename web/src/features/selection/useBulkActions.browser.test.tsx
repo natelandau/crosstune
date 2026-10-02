@@ -8,6 +8,7 @@ import { activeItems, addToList, createList } from '../../commands/lists'
 import { createTune, setArchived, type TuneInput, type UserTuneInput } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { alertButton, openPickerRow } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import { recordingFile, recordingRow } from '../../test/rows'
 import { InlineError } from '../../ui/InlineError'
@@ -119,13 +120,6 @@ async function alertEl(): Promise<HTMLElement> {
   })
 }
 
-async function answer(label: string) {
-  await page
-    .elementLocator(await alertEl())
-    .getByRole('button', { name: label, exact: true })
-    .click()
-}
-
 const deleted = async (entry: CatalogEntry) => (await db.tunes.get(entry.tune.id))!.deleted_at
 
 const undo = () => page.getByRole('button', { name: 'Undo' }).click()
@@ -136,18 +130,9 @@ const tuningOf = async (id: string) => (await db.tunes.get(id))!.tunings.violin?
 const order = async (listId: string) =>
   (await activeItems(db, listId)).map((item) => item.user_tune_id)
 
-/** Opens an edit sheet row, named by its label and the value it currently reads. */
-async function openRow(name: string) {
-  await noMenu()
-  await page
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name, exact: true }) })
-    .click()
-}
-
 /** Puts a violin tuning on every selected tune through the edit sheet. */
 async function editTuning() {
-  await openRow('Violin tuning, Not set')
+  await openPickerRow('Violin tuning, Not set', { exact: true })
   await page.getByRole('radio', { name: 'Cross A (AEAE)', exact: true }).click()
   await save()
 }
@@ -481,7 +466,7 @@ describe('useBulkActions', () => {
     show([one, two])
     await tap('More')
     await pick('Delete 2 tunes')
-    await answer('Delete')
+    await (await alertButton('Delete')).click()
 
     await vi.waitFor(async () => {
       expect(await deleted(one)).not.toBeNull()
@@ -498,7 +483,7 @@ describe('useBulkActions', () => {
     show([one, two])
     await tap('More')
     await pick('Delete 2 tunes')
-    await answer(CANCEL)
+    await (await alertButton(CANCEL)).click()
 
     await vi.waitFor(() =>
       expect(document.querySelector('ion-alert:not(.overlay-hidden)')).toBeNull(),
@@ -523,7 +508,7 @@ describe('useBulkActions', () => {
     expect((await alertEl()).textContent).toContain(
       'Delete 2 tunes? This removes their links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',
     )
-    await answer(CANCEL)
+    await (await alertButton(CANCEL)).click()
   })
 
   it('names one selected tune in the question, as the tune page does', async () => {
@@ -535,7 +520,7 @@ describe('useBulkActions', () => {
     expect((await alertEl()).textContent).toContain(
       'Delete "Say Old Man"? This removes its links and list entries.',
     )
-    await answer(CANCEL)
+    await (await alertButton(CANCEL)).click()
   })
 
   it('keeps every action but offers no More items when nothing is selected', async () => {

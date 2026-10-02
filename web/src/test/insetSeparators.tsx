@@ -1,15 +1,13 @@
 import { IonItem, IonLabel, IonList, IonReorderGroup } from '@ionic/react'
 import { Minus } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MOUSE_QUERY } from '../platform/pointer'
+import { describe, expect, it, vi } from 'vitest'
 import { Row } from '../ui/Row'
 import { openTestDb } from './db'
 import { renderIonic } from './ionic'
+import { forceTouch } from './pointer'
 
 type Kind = 'item' | 'sliding'
-
-const originalMatchMedia = window.matchMedia
 
 /** The width of the line under an item, whether Ionic draws it inset or full. */
 function lineUnder(item: Element): number {
@@ -63,22 +61,6 @@ function renderList(kinds: Kind[], lines?: 'none' | 'full', reorderable = false)
  */
 export function insetSeparatorTests(mode: string) {
   describe(`inset list separators on ${mode}`, () => {
-    afterEach(() => {
-      window.matchMedia = originalMatchMedia
-    })
-
-    const forceTouch = () => {
-      window.matchMedia = (query: string) =>
-        query === MOUSE_QUERY
-          ? ({
-              matches: false,
-              media: query,
-              addEventListener() {},
-              removeEventListener() {},
-            } as unknown as MediaQueryList)
-          : originalMatchMedia.call(window, query)
-    }
-
     it.each([
       [['sliding', 'item'] as Kind[]],
       [['item', 'item', 'sliding'] as Kind[]],

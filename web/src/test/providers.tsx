@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react'
+import { vi } from 'vitest'
 import { AuthProvider, type AuthSession } from '../auth/AuthContext'
 import { DbContext } from '../db/DbProvider'
 import type { CrosstuneDb } from '../db/schema'
@@ -7,6 +8,7 @@ import {
   type CreateStage,
   type EngineClock,
 } from '../features/player/playbackEngine'
+import type { Player } from '../features/player/usePlayer'
 import { SyncContext } from '../sync/SyncProvider'
 import type { SyncEngine } from '../sync/types'
 
@@ -51,6 +53,11 @@ export class FakeAudioElement extends EventTarget {
     this.paused = true
     this.dispatchEvent(new Event('pause'))
   }
+}
+
+/** A player with nothing loaded whose every call is a spy, to watch what a tree asks of it. */
+export function fakePlayer(overrides: Partial<Player> = {}): Player {
+  return { item: null, play: vi.fn(), close: vi.fn(), returnFocus: vi.fn(), ...overrides }
 }
 
 export const realClock: EngineClock = {

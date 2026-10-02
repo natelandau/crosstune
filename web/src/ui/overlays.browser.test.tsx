@@ -2,10 +2,11 @@ import { IonButton } from '@ionic/react'
 import { screen, waitFor } from '@testing-library/react'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
+import { animateOverlays } from '../test/overlays'
 import { forceTouch } from '../test/pointer'
 import { CANCEL, type ConfirmOptions, useConfirm } from './Confirm'
 
@@ -310,6 +311,7 @@ describe('useMenu', () => {
   })
 
   it('opens a menu asked for while the previous one is still dismissing', async () => {
+    animateOverlays()
     const onMove = vi.fn()
     renderIonic(<ChainedMenuHost onMove={onMove} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('More'))
@@ -347,6 +349,7 @@ describe('useConfirm', () => {
   })
 
   it('presents a confirmation asked while the previous one is still dismissing', async () => {
+    animateOverlays()
     const onResult = vi.fn()
     renderIonic(<ChainedConfirmHost onResult={onResult} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Ask twice'))
@@ -407,14 +410,8 @@ describe('useConfirm', () => {
 })
 
 describe('on touch', () => {
-  let restore: () => void
-
   beforeEach(() => {
-    restore = forceTouch()
-  })
-
-  afterEach(() => {
-    restore()
+    forceTouch()
   })
 
   describe('useMenu', () => {
@@ -474,6 +471,7 @@ describe('on touch', () => {
     })
 
     it('opens a menu asked for while the previous one is still dismissing', async () => {
+      animateOverlays()
       const onMove = vi.fn()
       renderIonic(<ChainedMenuHost onMove={onMove} />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('More'))

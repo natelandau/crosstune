@@ -1,21 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import {
-  addUploadedFile,
-  appendChunk,
-  beginCapture,
-  finishCapture,
-  storeDownloadedBlob,
-  updateRecording,
-} from '../../commands/recordings'
-import { newId } from '../../commands/write'
+import { addUploadedFile, storeDownloadedBlob, updateRecording } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecording } from '../../db/types'
 import { OFFLINE } from '../../sync/labels'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
+import { menuItem, modal, presentedModal } from '../../test/dialogs'
 import { renderIonic, renderScreen } from '../../test/ionic'
+import { animateOverlays } from '../../test/overlays'
 import { fakeEngine, fakePlaybackEngine } from '../../test/providers'
+import { captureRecording } from '../../test/recordings'
 import { CANCEL, DELETE } from '../../ui/Confirm'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { recordingRow } from '../../test/rows'
@@ -50,27 +45,9 @@ afterEach(async () => {
 
 /** A recording captured on this device, so its blob is already held locally. */
 async function localRecording(label: string): Promise<string> {
-  const id = newId()
-  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
-  await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, {
-    tuneId: null,
-    mime: 'audio/mp4',
-    durationMs: 30_000,
-    recordedAt: '2026-09-14T20:00:00.000Z',
-    peaks: null,
-  })
-  await updateRecording(db, id, { label })
+  const id = await captureRecording(db, { label })
   vi.mocked(updateRecording).mockClear()
   return id
-}
-
-const presented = () => document.querySelector<HTMLElement>('ion-modal:not(.overlay-hidden)')
-
-/** The shown modal. Its contents are slotted into, not under, the role its shadow root holds. */
-async function dialog() {
-  await expect.poll(presented).not.toBeNull()
-  return page.elementLocator(presented()!)
 }
 
 const never = new Promise<never>(() => {})
@@ -113,17 +90,7 @@ async function openFromRows(
 }
 
 async function trimTool() {
-  return (await dialog()).getByRole('button', { name: new RegExp(`^${TRIM}`) })
-}
-
-/** The menu's popover, open on a mouse. */
-async function menuItem(label: string) {
-  const popover = await vi.waitFor(() => {
-    const open = document.querySelector<HTMLElement>('ion-popover:not(.overlay-hidden)')
-    if (!open) throw new Error('The menu is not open')
-    return open
-  })
-  return page.elementLocator(popover).getByText(label, { exact: true })
+  return (await modal()).getByRole('button', { name: new RegExp(`^${TRIM}`) })
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -148,18 +115,18 @@ describe('RecordingScreen', () => {
     })
     await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
     await expect.element(page.getByRole('dialog', { name: 'Jam recording' })).toBeVisible()
-    await expect.element((await dialog()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+    await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
     await expect.poll(() => load.mock.calls.length).toBe(1)
     expect(load.mock.calls[0]![0]).toMatch(/^blob:/)
 
-    await (await dialog()).getByRole('button', { name: CLOSE_RECORDING }).click()
+    await (await modal()).getByRole('button', { name: CLOSE_RECORDING }).click()
     await expect.poll(() => document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull()
   })
 
   it('offers Trim and Practice, and no Speed or Pitch', async () => {
     await localRecording('Jam recording')
     await openFromRows('Jam recording')
-    const screen = await dialog()
+    const screen = await modal()
     await expect.element(await trimTool()).toBeVisible()
     await expect.element(screen.getByRole('button', { name: PRACTICE, exact: true })).toBeVisible()
     expect(screen.getByRole('button', { name: new RegExp(`^${SPEED}`) }).elements()).toHaveLength(0)
@@ -173,7 +140,7 @@ describe('RecordingScreen', () => {
     await localRecording('Jam recording')
     await db.recordings.toCollection().modify({ speed_percent: 75, pitch_cents: 200 })
     await openFromRows('Jam recording')
-    const screen = await dialog()
+    const screen = await modal()
     const tool = screen.getByRole('button', { name: `${PRACTICE} 75% · +2`, exact: true })
     await expect.element(tool).toHaveAttribute('data-tool', 'practice')
     const badge = screen.getByRole('button', { name: `${PRACTICE}, 75% · +2`, exact: true })
@@ -185,7 +152,7 @@ describe('RecordingScreen', () => {
     await localRecording('Jam recording')
     await db.recordings.toCollection().modify({ speed_percent: 75 })
     await openFromRows('Jam recording')
-    const screen = await dialog()
+    const screen = await modal()
     await screen.getByRole('button', { name: `${PRACTICE}, 75%`, exact: true }).click()
     await expect.element(screen.getByRole('heading', { name: PRACTICE })).toBeVisible()
   })
@@ -193,7 +160,7 @@ describe('RecordingScreen', () => {
   it('Practice waits for a recording that is still downloading, as Trim does', async () => {
     await remoteRecording('Remote take')
     await openFromRows('Remote take', { syncEngine: fakeEngine({ download: () => never }) })
-    const practice = (await dialog()).getByRole('button', { name: new RegExp(`^${PRACTICE}`) })
+    const practice = (await modal()).getByRole('button', { name: new RegExp(`^${PRACTICE}`) })
     await expect.element(practice).toHaveAttribute('aria-disabled', 'true')
     await expect.element(practice).toHaveTextContent(TRIM_WHILE_DOWNLOADING)
   })
@@ -213,10 +180,10 @@ describe('RecordingScreen', () => {
     )
     await storeDownloadedBlob(db, 'r1', new Blob(['abc']), 'audio/mp4', 'aaaa1111', 0)
     await openFromRows('Server take')
-    const practice = (await dialog()).getByRole('button', { name: PRACTICE, exact: true })
+    const practice = (await modal()).getByRole('button', { name: PRACTICE, exact: true })
     await expect.element(practice).not.toHaveAttribute('aria-disabled', 'true')
     await practice.click()
-    await expect.element((await dialog()).getByRole('heading', { name: PRACTICE })).toBeVisible()
+    await expect.element((await modal()).getByRole('heading', { name: PRACTICE })).toBeVisible()
   })
 
   it('Trim is disabled while a trim is pending', async () => {
@@ -242,7 +209,7 @@ describe('RecordingScreen', () => {
       dock: true,
     })
     await page.getByRole('button', { name: `${EDIT_RECORDING} Server take` }).click()
-    const trim = (await dialog()).getByRole('button', { name: new RegExp(`^${TRIM}`) })
+    const trim = (await modal()).getByRole('button', { name: new RegExp(`^${TRIM}`) })
     await expect.element(trim).toHaveAttribute('aria-disabled', 'true')
     await expect.element(trim).toHaveTextContent(TRIM_BUSY)
     await trim.click({ force: true })
@@ -321,9 +288,9 @@ describe('RecordingScreen', () => {
       dock: true,
     })
     await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
-    await (await dialog()).getByRole('button', { name: TRIM }).click()
-    await (await dialog()).getByRole('button', { name: CANCEL }).click()
-    await expect.element((await dialog()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+    await (await modal()).getByRole('button', { name: TRIM }).click()
+    await (await modal()).getByRole('button', { name: CANCEL }).click()
+    await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
   })
 
   it("opens from the dock's title without reloading what the dock plays", async () => {
@@ -343,7 +310,7 @@ describe('RecordingScreen', () => {
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await page.getByRole('button', { name: OPEN_RECORDING('Jam recording') }).click()
     await expect.element(page.getByRole('dialog', { name: 'Jam recording' })).toBeVisible()
-    await expect.element((await dialog()).getByRole('button', { name: PAUSE })).toBeVisible()
+    await expect.element((await modal()).getByRole('button', { name: PAUSE })).toBeVisible()
     expect(load).toHaveBeenCalledOnce()
   })
 
@@ -367,26 +334,26 @@ describe('RecordingScreen', () => {
     await expect.poll(() => engine.getState().playing).toBe(false)
     await userEvent.keyboard(' ')
     await expect.poll(() => engine.getState().playing).toBe(true)
-    await expect.element((await dialog()).getByRole('button', { name: PAUSE })).toBeVisible()
+    await expect.element((await modal()).getByRole('button', { name: PAUSE })).toBeVisible()
 
     // Space on a focused button presses that button and leaves playback alone.
-    ;((await dialog()).getByRole('button', { name: PRACTICE }).element() as HTMLElement).focus()
+    ;((await modal()).getByRole('button', { name: PRACTICE }).element() as HTMLElement).focus()
     await userEvent.keyboard(' ')
-    await expect.element((await dialog()).getByRole('heading', { name: PRACTICE })).toBeVisible()
+    await expect.element((await modal()).getByRole('heading', { name: PRACTICE })).toBeVisible()
     expect(engine.getState().playing).toBe(true)
-    await expect.element((await dialog()).getByRole('button', { name: PAUSE })).toBeVisible()
+    await expect.element((await modal()).getByRole('button', { name: PAUSE })).toBeVisible()
   })
 
   it('switches to Practice from its menu and still returns focus to the row on close', async () => {
     await localRecording('Jam recording')
     await openFromRows('Jam recording')
     const edit = page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` })
-    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(PRACTICE)).click()
-    await expect.element((await dialog()).getByRole('heading', { name: PRACTICE })).toBeVisible()
-    await (await dialog()).getByRole('button', { name: BACK }).click()
-    await (await dialog()).getByRole('button', { name: CLOSE_RECORDING }).click()
-    await expect.poll(presented).toBeNull()
+    await expect.element((await modal()).getByRole('heading', { name: PRACTICE })).toBeVisible()
+    await (await modal()).getByRole('button', { name: BACK }).click()
+    await (await modal()).getByRole('button', { name: CLOSE_RECORDING }).click()
+    await expect.poll(presentedModal).toBeNull()
     // The row's Edit is an Ionic button, which takes focus on its host.
     const host = (edit.element().getRootNode() as ShadowRoot).host
     await expect.poll(() => document.activeElement).toBe(host)
@@ -396,7 +363,7 @@ describe('RecordingScreen', () => {
     await remoteRecording('Remote take')
     await openFromRows('Remote take', { syncEngine: fakeEngine({ download: () => never }) })
     await expect.element(await trimTool()).toHaveTextContent(TRIM_WHILE_DOWNLOADING)
-    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await menuItem(DELETE)
     expect((await menuItem(PRACTICE)).elements()).toHaveLength(0)
   })
@@ -404,7 +371,7 @@ describe('RecordingScreen', () => {
   it('renames from its menu', async () => {
     await localRecording('Jam recording')
     await openFromRows('Jam recording')
-    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(RENAME)).click()
     await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
     await expect
@@ -415,7 +382,7 @@ describe('RecordingScreen', () => {
   it('files an unfiled recording from its menu', async () => {
     await localRecording('Jam recording')
     await openFromRows('Jam recording')
-    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(ADD_TO_TUNE)).click()
     await expect.element(page.getByText(ADD_TO_TUNE_TITLE)).toBeVisible()
   })
@@ -423,7 +390,7 @@ describe('RecordingScreen', () => {
   it('deletes from its menu after asking, and closes', async () => {
     const id = await localRecording('Jam recording')
     await openFromRows('Jam recording')
-    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(DELETE)).click()
     await expect.element(page.getByText(DELETE_RECORDING_TITLE)).toBeVisible()
     const alert = await vi.waitFor(() => {
@@ -433,7 +400,7 @@ describe('RecordingScreen', () => {
     })
     await page.elementLocator(alert).getByRole('button', { name: DELETE, exact: true }).click()
     await expect.poll(async () => (await db.recordings.get(id))?.deleted_at).not.toBeNull()
-    await expect.poll(presented).toBeNull()
+    await expect.poll(presentedModal).toBeNull()
   })
 
   it('skips with the arrow keys, except on a focused button', async () => {
@@ -441,7 +408,7 @@ describe('RecordingScreen', () => {
     const { engine, load } = await openFromRows('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     // The screen takes keys only once its modal is presented, which can lag the load.
-    await dialog()
+    await modal()
     engine.seek(10_000)
     press('ArrowRight')
     expect(engine.getState().positionMs).toBe(10_000 + SKIP_MS)
@@ -459,10 +426,10 @@ describe('RecordingScreen', () => {
     const { engine, load } = await openFromRows('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(true)
-    await dialog()
+    await modal()
     press(' ', { repeat: true })
     expect(engine.getState().playing).toBe(true)
-    await (await dialog()).getByRole('button', { name: MORE_ACTIONS }).click()
+    await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await menuItem(RENAME)
     press(' ')
     press('ArrowRight')
@@ -490,13 +457,14 @@ describe('RecordingScreen', () => {
     await expect
       .poll(() => (document.activeElement as HTMLElement | null)?.textContent)
       .toBe(CANCEL)
-    await (await dialog()).getByRole('button', { name: CANCEL }).click()
+    await (await modal()).getByRole('button', { name: CANCEL }).click()
     await expect
       .poll(() => (document.activeElement as HTMLElement | null)?.dataset.tool)
       .toBe('trim')
   })
 
   it('stays open when opened again while it was still closing', async () => {
+    animateOverlays()
     const id = await localRecording('Jam recording')
     function Opener() {
       const { play } = usePlayer()
@@ -515,11 +483,11 @@ describe('RecordingScreen', () => {
     await page.getByRole('button', { name: 'Play recording' }).click()
     const opener = page.getByRole('button', { name: OPEN_RECORDING('Jam recording') })
     await opener.click()
-    await (await dialog()).getByRole('button', { name: CLOSE_RECORDING }).click()
+    await (await modal()).getByRole('button', { name: CLOSE_RECORDING }).click()
     ;(opener.element() as HTMLElement).click()
     await wait(800)
-    expect(presented()).not.toBeNull()
-    await expect.element((await dialog()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+    expect(presentedModal()).not.toBeNull()
+    await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
   })
 
   it("returns focus to the dock's title when it closes", async () => {
@@ -541,8 +509,8 @@ describe('RecordingScreen', () => {
     await page.getByRole('button', { name: 'Play recording' }).click()
     const opener = page.getByRole('button', { name: OPEN_RECORDING('Jam recording') })
     await opener.click()
-    await (await dialog()).getByRole('button', { name: CLOSE_RECORDING }).click()
-    await expect.poll(presented).toBeNull()
+    await (await modal()).getByRole('button', { name: CLOSE_RECORDING }).click()
+    await expect.poll(presentedModal).toBeNull()
     await expect.poll(() => document.activeElement).toBe(opener.element())
   })
 })

@@ -11,9 +11,9 @@ import { createTune, setArchived } from '../../commands/tunes'
 import * as metaModule from '../../db/meta'
 import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic, renderScreen } from '../../test/ionic'
+import { forceTouch } from '../../test/pointer'
 import { fakeEngine } from '../../test/providers'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { CLEAR_SEARCH } from '../../ui/SearchField'
@@ -36,8 +36,6 @@ vi.mock('../../db/meta', { spy: true })
 let db: CrosstuneDb
 let joy: { tuneId: string; userTuneId: string }
 let hen: { tuneId: string; userTuneId: string }
-
-const originalMatchMedia = window.matchMedia
 
 const storedStatus = async () =>
   (await getMeta<{ status: string } | null>(db, META_CATALOG_FILTERS, null))?.status
@@ -79,18 +77,6 @@ function gate() {
   return { opened, open }
 }
 
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
-
 beforeEach(async () => {
   db = openTestDb()
   joy = await createTune(
@@ -102,7 +88,6 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  window.matchMedia = originalMatchMedia
   vi.restoreAllMocks()
   await db.delete()
 })

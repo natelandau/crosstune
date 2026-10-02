@@ -1,31 +1,14 @@
 import { IonList } from '@ionic/react'
 import { SquarePen } from 'lucide-react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { Instrument } from '../../api/vocabulary'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { forceTouch } from '../../test/pointer'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { TuneItem } from './TuneItem'
-
-const originalMatchMedia = window.matchMedia
-afterEach(() => {
-  window.matchMedia = originalMatchMedia
-})
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
 
 const played = new Set<Instrument>(['violin', 'five_string_banjo'])
 

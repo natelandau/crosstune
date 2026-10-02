@@ -2,17 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { addLoop, updateLoop } from '../../commands/loops'
 import { LOOP_LIMIT } from '../../commands/messages'
-import {
-  appendChunk,
-  beginCapture,
-  finishCapture,
-  updateRecording,
-} from '../../commands/recordings'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { modal, presentedModal } from '../../test/dialogs'
 import { renderScreen } from '../../test/ionic'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
+import { captureRecording, liveLoops, seedLoop } from '../../test/recordings'
 import { loopRow } from '../../test/rows'
 import { SEEK_LABEL } from '../recording-screen/Waveform'
 import { EDIT_RECORDING } from '../recording-screen/useRecordingScreen'
@@ -44,33 +40,7 @@ const LENGTH_MS = 180_000
 
 /** A three-minute recording captured on this device, untrimmed, so source time is blob time. */
 async function localRecording() {
-  const id = newId()
-  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
-  await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, {
-    tuneId: null,
-    mime: 'audio/mp4',
-    durationMs: LENGTH_MS,
-    recordedAt: '2026-09-14T20:00:00.000Z',
-    peaks: null,
-  })
-  await updateRecording(db, id, { label: 'Jam recording' })
-  return id
-}
-
-async function seedLoop(recordingId: string, startMs: number, endMs: number) {
-  const id = newId()
-  await db.recording_loops.put(
-    loopRow({ id, recording_id: recordingId, start_ms: startMs, end_ms: endMs }),
-  )
-  return id
-}
-
-const presented = () => document.querySelector<HTMLElement>('ion-modal:not(.overlay-hidden)')
-
-async function dialog() {
-  await expect.poll(presented).not.toBeNull()
-  return page.elementLocator(presented()!)
+  return captureRecording(db, { durationMs: LENGTH_MS, label: 'Jam recording' })
 }
 
 const lane = () => document.querySelector<HTMLElement>('[data-loop-lane]')
@@ -96,7 +66,7 @@ async function openPractice({ strict = false }: { strict?: boolean } = {}) {
     strict,
   })
   await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
-  await (await dialog()).getByRole('button', { name: PRACTICE }).click()
+  await (await modal()).getByRole('button', { name: PRACTICE }).click()
   await expect.poll(() => engine.getState().lengthMs).toBe(LENGTH_MS)
   await expect.poll(() => lane()?.dataset.pxPerS).toBeTruthy()
   engine.pause()
@@ -139,12 +109,6 @@ function press(key: string, target: EventTarget = document.body, init: KeyboardE
   )
 }
 
-async function liveLoops(recordingId: string) {
-  return (await db.recording_loops.where('recording_id').equals(recordingId).toArray()).filter(
-    (l) => !l.deleted_at,
-  )
-}
-
 describe('PracticeTransport', () => {
   it('flanks the transport with A B and Repeat', async () => {
     await localRecording()
@@ -174,7 +138,7 @@ describe('PracticeTransport', () => {
 
     await expect.poll(() => vi.mocked(addLoop).mock.calls.length).toBe(1)
     expect(vi.mocked(addLoop).mock.calls[0]![2]).toEqual({ start_ms: 2_000, end_ms: 5_000 })
-    const [created] = await liveLoops(id)
+    const [created] = await liveLoops(db, id)
     await expect.poll(() => engine.getState().loop?.id).toBe(created!.id)
     expect(engine.getState().repeat).toBe(true)
     // Repeat on with the playhead at the loop's end starts it again from the top.
@@ -234,7 +198,7 @@ describe('PracticeTransport', () => {
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(markButton()).not.toBeNull()
     await userEvent.keyboard('{Escape}')
-    await expect.element((await dialog()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+    await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
   })
 
   it('cancels the mark on Escape without leaving Practice under StrictMode', async () => {
@@ -248,7 +212,7 @@ describe('PracticeTransport', () => {
     await wait(100)
     expect(markButton()).not.toBeNull()
     await userEvent.keyboard('{Escape}')
-    await expect.element((await dialog()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+    await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
   })
 
   it('keeps focus off A B after a click, so Space plays rather than ending the mark', async () => {
@@ -301,7 +265,7 @@ describe('PracticeTransport', () => {
 
   it('toggles Repeat on the selected loop with aria-pressed', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     const { engine } = await openPractice()
     await tapLoop(loop)
     await expect.poll(() => repeatButton()?.disabled).toBe(false)
@@ -316,7 +280,7 @@ describe('PracticeTransport', () => {
 
   it('turns Repeat off when a sync tombstones the repeating loop', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     await openPractice()
     await tapLoop(loop)
     await expect.poll(() => repeatButton()?.disabled).toBe(false)
@@ -330,7 +294,7 @@ describe('PracticeTransport', () => {
 
   it('toggles Repeat with R', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     const { engine } = await openPractice()
     press('r')
     expect(engine.getState().repeat).toBe(false)
@@ -344,7 +308,7 @@ describe('PracticeTransport', () => {
 
   it('sets the selected loop’s start and end at the playhead with [ and ]', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     const { engine, playTo } = await openPractice()
     await tapLoop(loop)
     await expect.poll(() => engine.getState().loop?.id).toBe(loop)
@@ -371,7 +335,7 @@ describe('PracticeTransport', () => {
     press(']')
     await expect.poll(() => vi.mocked(addLoop).mock.calls.length).toBe(1)
     expect(vi.mocked(addLoop).mock.calls[0]![2]).toEqual({ start_ms: 2_000, end_ms: 6_000 })
-    const [created] = await liveLoops(id)
+    const [created] = await liveLoops(db, id)
     await expect.poll(() => engine.getState().loop?.id).toBe(created!.id)
     expect(engine.getState().repeat).toBe(true)
   })
@@ -393,13 +357,13 @@ describe('PracticeTransport', () => {
 
   it('ignores R, [, and ] while a text field has focus', async () => {
     const id = await localRecording()
-    const loop = await seedLoop(id, 5_000, 10_000)
+    const loop = await seedLoop(db, id, 5_000, 10_000)
     const { engine, playTo } = await openPractice()
     await tapLoop(loop)
     await expect.poll(() => engine.getState().loop?.id).toBe(loop)
     await playTo(3_000)
     const field = document.createElement('input')
-    presented()!.appendChild(field)
+    presentedModal()!.appendChild(field)
     press('[', field)
     press(']', field)
     press('r', field)

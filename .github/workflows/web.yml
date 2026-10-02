@@ -96,6 +96,15 @@ jobs:
       # components with shadow DOM that jsdom does not render.
       - run: pnpm exec playwright install --with-deps chromium
       - run: just test --shard=${{ matrix.shard }}/3
+      # A failing browser test leaves a screenshot under .vitest/attachments. This job holds
+      # no secrets and no .env, so a screenshot shows nothing private.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: web-test-failures-${{ matrix.shard }}
+          path: web/.vitest/attachments
+          retention-days: 1
+          if-no-files-found: ignore
 
   # The required status check, so the shards can change without touching the
   # ruleset. It runs even when they skip, and a skip passes.

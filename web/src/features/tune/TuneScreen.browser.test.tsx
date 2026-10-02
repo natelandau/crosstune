@@ -9,6 +9,7 @@ import * as tunesModule from '../../commands/tunes'
 import { createTune, deleteTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { alertButton, menuItem } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
 import { CANCEL, DELETING } from '../../ui/Confirm'
@@ -111,27 +112,6 @@ function show(tuneId = ids.tuneId) {
 }
 
 const title = () => page.getByRole('heading', { name: "Soldier's Joy", level: 1 })
-
-// Menu items render in a popover on a mouse; scoping to it keeps "Add to list" from matching the
-// row of the same name on the page.
-async function menuItem(label: string) {
-  const popover = await vi.waitFor(() => {
-    const open = document.querySelector<HTMLElement>('ion-popover:not(.overlay-hidden)')
-    if (!open) throw new Error('The menu is not open')
-    return open
-  })
-  return page.elementLocator(popover).getByText(label, { exact: true })
-}
-
-// The alert opens while the menu's popover is still dismissing, so its button is scoped to it.
-async function alertButton(label: string) {
-  const alert = await vi.waitFor(() => {
-    const open = document.querySelector<HTMLElement>('ion-alert:not(.overlay-hidden)')
-    if (!open) throw new Error('The confirmation is not open')
-    return open
-  })
-  return page.elementLocator(alert).getByRole('button', { name: label, exact: true })
-}
 
 async function openMenuItem(label: string) {
   await page.getByRole('button', { name: MORE_ACTIONS }).click()

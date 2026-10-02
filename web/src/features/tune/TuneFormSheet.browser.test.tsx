@@ -5,6 +5,8 @@ import { TUNE_LIMITS, type Instrument } from '../../api/vocabulary'
 import { createTune } from '../../commands/tunes'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { openPickerRow } from '../../test/dialogs'
+import { animateOverlays } from '../../test/overlays'
 import { forceTouch } from '../../test/pointer'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { NOT_SET } from '../../ui/FieldRow'
@@ -55,17 +57,6 @@ function Host({
       }}
     />
   )
-}
-
-// Ionic ignores a present while the previous popover is still dismissing.
-async function openDetail(name: string) {
-  await vi.waitFor(() =>
-    expect(document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull(),
-  )
-  await page
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name }) })
-    .click()
 }
 
 const sheetDismissed = () =>
@@ -187,7 +178,7 @@ describe('TuneFormSheet', () => {
       />,
       { db },
     )
-    await openDetail('Guitar capo, None')
+    await openPickerRow('Guitar capo, None')
     await page.getByRole('radio', { name: '2', exact: true }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () =>
@@ -478,6 +469,7 @@ describe('TuneFormSheet', () => {
   it.each([0, 150, 400])(
     'shows a new target passed %ims into the previous sheet closing',
     async (delay) => {
+      animateOverlays()
       const db = openTestDb()
       function NextHost() {
         const [target, setTarget] = useState<TuneFormTarget | null>({ kind: 'new', title: 'First' })
@@ -547,7 +539,7 @@ describe('TuneFormSheet', () => {
   it('accepts a value the suggestions lack through Other', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
-    await openDetail('Genre, Not set')
+    await openPickerRow('Genre, Not set')
     await page.getByRole('radio', { name: OTHER_OPTION }).click()
     await page.getByLabelText('Other genre').fill('Sacred Harp')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
@@ -557,9 +549,9 @@ describe('TuneFormSheet', () => {
   it('clears the value when Other is chosen, so what is saved is what is shown', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
-    await openDetail('Genre, Not set')
+    await openPickerRow('Genre, Not set')
     await page.getByRole('radio', { name: 'Irish' }).click()
-    await openDetail('Genre, Irish')
+    await openPickerRow('Genre, Irish')
     await page.getByRole('radio', { name: OTHER_OPTION }).click()
     await expect.element(page.getByLabelText('Other genre')).toHaveValue('')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
@@ -570,7 +562,7 @@ describe('TuneFormSheet', () => {
   it('keeps a typed Other value that matches a suggestion', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
-    await openDetail('Genre, Not set')
+    await openPickerRow('Genre, Not set')
     await page.getByRole('radio', { name: OTHER_OPTION }).click()
     await page.getByLabelText('Other genre').fill('Blues')
     await expect.element(page.getByLabelText('Other genre')).toHaveValue('Blues')
@@ -624,17 +616,13 @@ describe('TuneFormSheet', () => {
   })
 
   it('picks a suggestion from an action sheet on touch', async () => {
-    const restore = forceTouch()
-    try {
-      const db = openTestDb()
-      renderIonic(<Host initial={{ kind: 'new', title: 'Touch' }} />, { db })
-      await openDetail('Genre, Not set')
-      await page.getByRole('radio', { name: 'Gospel' }).click()
-      await page.getByRole('button', { name: 'Add', exact: true }).click()
-      await vi.waitFor(async () => expect((await db.tunes.toArray())[0]?.genre).toBe('Gospel'))
-    } finally {
-      restore()
-    }
+    forceTouch()
+    const db = openTestDb()
+    renderIonic(<Host initial={{ kind: 'new', title: 'Touch' }} />, { db })
+    await openPickerRow('Genre, Not set')
+    await page.getByRole('radio', { name: 'Gospel' }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await vi.waitFor(async () => expect((await db.tunes.toArray())[0]?.genre).toBe('Gospel'))
   })
 
   it('shows a tuning field for an unplayed instrument when the tune already has a value', async () => {
@@ -659,7 +647,7 @@ describe('TuneFormSheet', () => {
 
   it('offers 3/2 as a time signature choice', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
-    await openDetail('Time signature, 4/4')
+    await openPickerRow('Time signature, 4/4')
     await expect.element(page.getByRole('radio', { name: '3/2', exact: true })).toBeVisible()
   })
 
@@ -707,7 +695,7 @@ describe('TuneFormSheet', () => {
   it('adds a B part mode row once the first mode is set', async () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await expect.element(page.getByRole('button', { name: ADD_PART_MODE })).not.toBeInTheDocument()
-    await openDetail(`${PART_MODE_LABELS[0]}, ${NOT_SET}`)
+    await openPickerRow(`${PART_MODE_LABELS[0]}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'dorian' }).click()
     await page.getByRole('button', { name: ADD_PART_MODE }).click()
     await expect
@@ -727,7 +715,7 @@ describe('TuneFormSheet', () => {
       userTune: (await db.user_tunes.get(userTuneId))!,
     }
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
-    await openDetail(`${PART_MODE_LABELS[0]}, major`)
+    await openPickerRow(`${PART_MODE_LABELS[0]}, major`)
     await page.getByRole('radio', { name: NOT_SET }).click()
     await expect
       .element(page.getByRole('button', { name: `${PART_MODE_LABELS[0]}, ${NOT_SET}` }))
@@ -766,7 +754,7 @@ describe('TuneFormSheet', () => {
     await expect
       .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 4/4` }))
       .toBeInTheDocument()
-    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await openPickerRow(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'Jig', exact: true }).click()
     await expect
       .element(page.getByRole('button', { name: `${DETAIL_LABELS.time_signature}, 6/8` }))
@@ -777,9 +765,9 @@ describe('TuneFormSheet', () => {
   it('keeps a time signature the player set when a new tune is given a type', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
-    await openDetail(`${DETAIL_LABELS.time_signature}, 4/4`)
+    await openPickerRow(`${DETAIL_LABELS.time_signature}, 4/4`)
     await page.getByRole('radio', { name: '3/4', exact: true }).click()
-    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await openPickerRow(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'Jig', exact: true }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await sheetDismissed()
@@ -789,9 +777,9 @@ describe('TuneFormSheet', () => {
   it('keeps 4/4 on a new tune once the player picks it, though it was already set', async () => {
     const db = openTestDb()
     renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
-    await openDetail(`${DETAIL_LABELS.time_signature}, 4/4`)
+    await openPickerRow(`${DETAIL_LABELS.time_signature}, 4/4`)
     await page.getByRole('radio', { name: '4/4', exact: true }).click()
-    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await openPickerRow(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'Jig', exact: true }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await sheetDismissed()
@@ -810,7 +798,7 @@ describe('TuneFormSheet', () => {
       userTune: (await db.user_tunes.get(userTuneId))!,
     }
     renderIonic(<Host initial={{ kind: 'edit', entry }} />, { db })
-    await openDetail(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
+    await openPickerRow(`${DETAIL_LABELS.tune_type}, ${NOT_SET}`)
     await page.getByRole('radio', { name: 'Jig', exact: true }).click()
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await sheetDismissed()
@@ -832,7 +820,7 @@ describe('TuneFormSheet', () => {
     const db = openTestDb()
     await createTune(db, { title: 'Lucy Farr', composer: 'Ed Reavy' }, { status: 'known' })
     renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
-    await openDetail(`${DETAIL_LABELS.composer}, ${NOT_SET}`)
+    await openPickerRow(`${DETAIL_LABELS.composer}, ${NOT_SET}`)
     await expect.element(page.getByRole('radio', { name: 'Ed Reavy' })).toBeVisible()
     await page.getByRole('radio', { name: TRADITIONAL }).click()
     await page.getByRole('button', { name: 'Add', exact: true }).click()

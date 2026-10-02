@@ -75,20 +75,16 @@ describe('DeleteAccountSheet', () => {
   })
 
   it('opens at full height on touch, so its form is reachable without a drag', async () => {
-    const restore = forceTouch()
-    try {
-      show()
-      const modal = document.querySelector<HTMLIonModalElement>('ion-modal')
-      if (!modal) throw new Error('No sheet is mounted')
-      await vi.waitFor(() => expect(modal.initialBreakpoint).toBe(1))
-      expect(modal.breakpoints).toEqual([0, 1])
-      // Closed cleanly, rather than left mid-present, so touch's extra sheet-gesture setup
-      // never resolves against a component the next test has already unmounted.
-      await page.getByRole('button', { name: 'Cancel' }).click()
-      await vi.waitFor(() => expect(document.querySelector('ion-modal.show-modal')).toBeNull())
-    } finally {
-      restore()
-    }
+    forceTouch()
+    show()
+    const modal = document.querySelector<HTMLIonModalElement>('ion-modal')
+    if (!modal) throw new Error('No sheet is mounted')
+    await vi.waitFor(() => expect(modal.initialBreakpoint).toBe(1))
+    expect(modal.breakpoints).toEqual([0, 1])
+    // Closed cleanly, rather than left mid-present, so touch's extra sheet-gesture setup
+    // never resolves against a component the next test has already unmounted.
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await vi.waitFor(() => expect(document.querySelector('ion-modal.show-modal')).toBeNull())
   })
 
   it('names the dialog after the row, and shows the question once as a heading', async () => {

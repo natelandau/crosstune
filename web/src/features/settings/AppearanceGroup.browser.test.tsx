@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { openPickerRow } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import { setAppearance, setTextSize } from './appearance'
 import { APPEARANCE_FOOTER, AppearanceGroup, TEXT_SIZE_LABEL } from './AppearanceGroup'
@@ -29,20 +30,8 @@ const show = () => renderIonic(<AppearanceGroup />, { db })
 /** The name a screen reader announces for a row: the field and the option it holds. */
 const named = (name: string) => page.getByRole('button', { name, exact: true })
 
-/** Ionic's own inner button takes no clicks, so the row is what opens the picker. */
-async function openRow(name: string) {
-  // Ionic ignores a present while the previous popover is still dismissing.
-  await vi.waitFor(() =>
-    expect(document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull(),
-  )
-  await page
-    .getByRole('listitem')
-    .filter({ has: page.getByRole('button', { name }) })
-    .click()
-}
-
 async function choose(row: string, option: string) {
-  await openRow(row)
+  await openPickerRow(row)
   await page.getByRole('radio', { name: option, exact: true }).click()
 }
 

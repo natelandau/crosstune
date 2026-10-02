@@ -1,14 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { Instrument } from '../../api/vocabulary'
 import { addToList, createList } from '../../commands/lists'
 import type * as ListsModule from '../../commands/lists'
 import { createTune, setArchived } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
+import { forceTouch } from '../../test/pointer'
 import { ListTunes, MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './ListTunes'
 import { useListView } from './useLists'
 
@@ -29,23 +29,6 @@ beforeEach(async () => {
     await addToList(db, listId, userTuneId)
   }
 })
-
-const originalMatchMedia = window.matchMedia
-afterEach(() => {
-  window.matchMedia = originalMatchMedia
-})
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
 
 function Host({
   showArchived = false,
