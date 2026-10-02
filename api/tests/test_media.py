@@ -272,7 +272,7 @@ async def test_probe_fails_on_a_file_that_needs_more_memory_than_allowed(
     media_fixtures, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("crosstune.jobs.media.MEMORY_LIMIT_BYTES", 16 * 1024 * 1024)
-    with pytest.raises(MediaError):
+    with pytest.raises(MediaError, match=r"^ffprobe failed"):
         await probe(media_fixtures["m4a"])
 
 

@@ -157,9 +157,14 @@ def hide_from_media_tools() -> None:
         raise OSError(errno, os.strerror(errno))
 
 
+def _tool(argv: tuple[str, ...]) -> str:
+    """Name the tool `argv` runs, looking past a `_limited` prefix."""
+    return argv[argv.index("--") + 1] if argv[0] == "prlimit" else argv[0]
+
+
 def _check_exit(argv: tuple[str, ...], returncode: int | None, stderr: bytes) -> None:
     if returncode != 0:
-        msg = f"{argv[0]} failed: {stderr.decode(errors='replace')[-500:]}"
+        msg = f"{_tool(argv)} failed: {stderr.decode(errors='replace')[-500:]}"
         raise MediaError(msg)
 
 
@@ -177,7 +182,7 @@ async def run_media_tool(*argv: str) -> bytes:
             async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
                 stdout, stderr = await process.communicate()
         except TimeoutError:
-            msg = f"{argv[0]} timed out"
+            msg = f"{_tool(argv)} timed out"
             raise MediaError(msg) from None
     _check_exit(argv, process.returncode, stderr)
     return stdout
@@ -196,7 +201,7 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
     async with _media_process(argv) as process:
         stdout, stderr_pipe = process.stdout, process.stderr
         if stdout is None or stderr_pipe is None:
-            msg = f"{argv[0]} started without its output pipes"
+            msg = f"{_tool(argv)} started without its output pipes"
             raise MediaError(msg)
         # Drained alongside stdout, or a tool that fills the stderr pipe blocks forever.
         stderr_read = asyncio.create_task(stderr_pipe.read())
@@ -207,7 +212,7 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
                 stderr = await stderr_read
                 await process.wait()
         except TimeoutError:
-            msg = f"{argv[0]} timed out"
+            msg = f"{_tool(argv)} timed out"
             raise MediaError(msg) from None
         finally:
             stderr_read.cancel()
