@@ -3,12 +3,18 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
 
-let frames: FrameRequestCallback[] = []
+let frames = new Map<number, FrameRequestCallback>()
+let nextFrame = 0
 
 beforeEach(() => {
-  frames = []
-  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((fn) => frames.push(fn))
-  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+  frames = new Map()
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((fn) => {
+    frames.set(++nextFrame, fn)
+    return nextFrame
+  })
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+    frames.delete(id)
+  })
 })
 
 afterEach(() => {
@@ -16,7 +22,8 @@ afterEach(() => {
 })
 
 function runFrames() {
-  const due = frames.splice(0)
+  const due = Array.from(frames.values())
+  frames.clear()
   for (const frame of due) frame(0)
 }
 
@@ -38,7 +45,7 @@ it('follows a pan against the view it produced, not the one before it', () => {
   expect(follow).toHaveBeenCalledTimes(1)
 })
 
-it('does not follow a later view change after the ends refused a pan', () => {
+it('keeps panning while the pan it asked for has yet to render', () => {
   const onPan = vi.fn()
   const follow = vi.fn()
   const { result, rerender } = renderHook(({ view }) => useAutoPan({ view, onPan, follow }), {
@@ -46,10 +53,30 @@ it('does not follow a later view change after the ends refused a pan', () => {
   })
   result.current.track(start.widthPx - 2)
   runFrames()
-  expect(onPan).toHaveBeenCalledTimes(1)
-  // The view did not move, and the next frame passes.
   runFrames()
+  expect(onPan).toHaveBeenCalledTimes(2)
 
+  rerender({ view: { ...start, startMs: start.startMs + 800 } })
+  expect(follow).toHaveBeenCalledTimes(1)
+})
+
+it('stops panning when the pointer leaves the edge or the drag ends', () => {
+  const onPan = vi.fn()
+  const follow = vi.fn()
+  const { result, rerender } = renderHook(({ view }) => useAutoPan({ view, onPan, follow }), {
+    initialProps: { view: start },
+  })
+  result.current.track(start.widthPx - 2)
+  runFrames()
+  result.current.track(start.widthPx / 2)
+  runFrames()
+  expect(onPan).toHaveBeenCalledTimes(1)
+
+  result.current.track(start.widthPx - 2)
+  runFrames()
+  result.current.stop()
+  runFrames()
+  expect(onPan).toHaveBeenCalledTimes(2)
   rerender({ view: { ...start, pxPerS: start.pxPerS * 2 } })
   expect(follow).not.toHaveBeenCalled()
 })

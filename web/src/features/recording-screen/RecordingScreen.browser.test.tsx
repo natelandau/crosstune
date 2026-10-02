@@ -94,6 +94,12 @@ async function trimTool() {
   return (await modal()).getByRole('button', { name: new RegExp(`^${TRIM}`) })
 }
 
+/** Waits for the screen's own content, which mounts its keys and can lag both the load and the
+ * modal it shows in. */
+async function screenShown() {
+  await expect.element(await trimTool()).toBeVisible()
+}
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** A key pressed with focus on nothing in particular. */
@@ -330,6 +336,7 @@ describe('RecordingScreen', () => {
     await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(true)
+    await screenShown()
     ;(document.activeElement as HTMLElement | null)?.blur()
     await userEvent.keyboard(' ')
     await expect.poll(() => engine.getState().playing).toBe(false)
@@ -408,8 +415,7 @@ describe('RecordingScreen', () => {
     await localRecording('Jam recording')
     const { engine, load } = await openFromRows('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
-    // The screen takes keys only once its modal is presented, which can lag the load.
-    await modal()
+    await screenShown()
     engine.seek(10_000)
     press('ArrowRight')
     expect(engine.getState().positionMs).toBe(10_000 + SKIP_MS)
@@ -427,7 +433,7 @@ describe('RecordingScreen', () => {
     const { engine, load } = await openFromRows('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(true)
-    await modal()
+    await screenShown()
     press(' ', { repeat: true })
     expect(engine.getState().playing).toBe(true)
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()

@@ -56,8 +56,10 @@ export function zoomBy(
   return clampZoom({ pxPerS, centerMs: anchorMs + (state.centerMs - anchorMs) / applied }, frame)
 }
 
+/** Pans by `deltaMs`, returning `state` itself when the view's ends refuse the pan. */
 export function panBy(state: ZoomState, deltaMs: number, frame: ZoomFrame): ZoomState {
-  return clampZoom({ ...state, centerMs: state.centerMs + deltaMs }, frame)
+  const panned = clampZoom({ ...state, centerMs: state.centerMs + deltaMs }, frame)
+  return panned.centerMs === state.centerMs && panned.pxPerS === state.pxPerS ? state : panned
 }
 
 /** Frames `span` with a tenth of its length as margin on each side. Not clamped. */
