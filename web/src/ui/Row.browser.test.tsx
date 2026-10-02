@@ -743,6 +743,8 @@ describe('Row while selecting', () => {
   it.each(['light', 'dark'])('keeps the unselected mark clear of its row in %s', async (theme) => {
     // The palette goes on before the render, as it does at boot.
     document.documentElement.classList.toggle('ion-palette-dark', theme === 'dark')
+    // The pointer stays where an earlier test left it, and a hovered row tints its surface.
+    await userEvent.unhover(document.body)
     renderIonic(selectable({ openName: 'Select', selected: false }), { db: openTestDb() })
     await expect.element(page.getByRole('checkbox', { name: "Select Soldier's Joy" })).toBeVisible()
     const mark = document.querySelector('[data-row-check] svg')!
