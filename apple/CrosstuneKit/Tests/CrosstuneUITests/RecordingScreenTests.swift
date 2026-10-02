@@ -269,69 +269,84 @@ private final class Writes {
         #expect(audio.calls.count == before)
     }
 
-    @Test func theToolStripIsTrimAndPractice() {
-        #expect(RecordingTool.allCases == [.trim, .practice])
-        #expect(RecordingTool.practice.label == PracticeText.practice)
-        #expect(RecordingTool.practice.systemImage == "repeat")
-        let items = ToolStripItem.recordingScreen(
-            trimBlocker: RecordingScreenText.trimBusy, practiceBlocker: nil, speedPercent: 75, pitchCents: 200)
+    @Test func theMoreMenuOffersTrimRenameAddToTuneAndDelete() {
         #expect(
-            items == [
-                ToolStripItem(tool: .trim, blocker: RecordingScreenText.trimBusy),
-                ToolStripItem(tool: .practice, value: "75% · +2"),
+            RecordingMenuItem.items(inTune: false, trimBlocker: nil) == [
+                .trim(blocker: nil), .rename, .addToTune, .delete,
             ])
+        #expect(
+            RecordingMenuItem.items(inTune: true, trimBlocker: RecordingScreenText.trimBusy) == [
+                .trim(blocker: RecordingScreenText.trimBusy), .rename, .removeFromTune, .delete,
+            ])
+        #expect(RecordingMenuItem.trim(blocker: nil).label == "Trim")
+        #expect(RecordingMenuItem.rename.label == RecordingRowActions.rename)
+        #expect(RecordingMenuItem.addToTune.label == RecordingRowActions.addToTune)
+        #expect(RecordingMenuItem.delete.label == RecordingRowActions.delete)
     }
 
-    @Test func theBadgeNamesPracticeAndOnlyAPendingTrimLeavesPracticeOpen() {
-        #expect(RecordingScreenText.practiceBadge(speedPercent: 100, pitchCents: 0) == nil)
-        #expect(RecordingScreenText.practiceBadge(speedPercent: 75, pitchCents: 0) == "75%")
-        #expect(RecordingScreenText.practiceBadge(speedPercent: 100, pitchCents: 200) == "+2")
-        #expect(RecordingScreenText.practiceBadge(speedPercent: 75, pitchCents: 200) == "75% · +2")
-        #expect(RecordingScreenText.practiceBadgeLabel("75% · +2") == "Practice, 75% · +2")
+    @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {
+        #expect(PracticeMode.allCases == [.loops, .speed, .pitch])
+        #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200) == "Loops")
+        #expect(PracticeMode.speed.title(speedPercent: 100, pitchCents: 0) == "Speed")
+        #expect(PracticeMode.speed.title(speedPercent: 75, pitchCents: 0) == "Speed 75%")
+        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 0) == "Pitch")
+        #expect(PracticeMode.pitch.title(speedPercent: 100, pitchCents: 200) == "Pitch +2")
+        #expect(PracticeText.segment("Speed", value: nil) == "Speed")
+    }
 
-        var cutting = take()
-        cutting.playbackStartMs = 0
-        cutting.playbackEndMs = 4000
-        #expect(RecordingScreenText.practiceBlocker(file: nil, downloading: false) == nil)
-        #expect(RecordingScreenText.trimBlocker(cutting, file: nil, audio: .loaded) != nil)
+    @Test func aRecordingStillCapturingDisablesTheWaveformTransportAndModesWithTheReason() {
+        #expect(RecordingScreenText.screenBlocker(file: nil, downloading: false) == nil)
         #expect(
-            RecordingScreenText.practiceBlocker(
+            RecordingScreenText.screenBlocker(
                 file: RecordingFile(id: "r1", localState: .capturing), downloading: false)
                 == RecordingScreenText.trimWhileRecording)
         #expect(
-            RecordingScreenText.practiceBlocker(file: nil, downloading: true)
+            RecordingScreenText.screenBlocker(file: nil, downloading: true)
                 == RecordingScreenText.trimWhileDownloading)
+        // A pending trim blocks Trim but leaves the rest of the screen working.
+        var cutting = take()
+        cutting.playbackStartMs = 0
+        cutting.playbackEndMs = 4000
+        #expect(RecordingScreenText.trimBlocker(cutting, file: nil, audio: .loaded) != nil)
+        #expect(RecordingScreenText.screenBlocker(file: nil, downloading: false) == nil)
     }
 
-    @Test func theRowsPracticeActionOpensTheScreenOnPractice() async throws {
-        player.audioSource = { _ in audioFile() }
-        let window = UUID()
-        #expect(player.open(.recording(take(), tuneTitle: nil), in: window, view: .practice))
-        #expect(player.showsExpanded(in: window))
-        #expect(player.takeOpening() == .practice)
-        #expect(player.takeOpening() == nil)
-
-        // Opening the screen itself asks for no particular view.
-        player.isExpanded = false
-        player.open(.recording(take(), tuneTitle: nil))
-        #expect(player.takeOpening() == nil)
+    @Test func thePlayButtonNamesTheRepeat() {
+        #expect(PlayFace(isPlaying: false, repeating: nil) == PlayFace(label: "Play", systemImage: "play.fill"))
+        #expect(
+            PlayFace(isPlaying: false, repeating: "B part")
+                == PlayFace(label: "Repeat B part", systemImage: "repeat"))
+        #expect(PlayFace(isPlaying: true, repeating: "B part") == PlayFace(label: "Pause", systemImage: "pause.fill"))
     }
 
-    @Test func theBadgeAndThePlayerBarOpenTheLoadedRecordingOnPractice() async throws {
-        let window = UUID()
-        player.openPractice(in: window)
-        #expect(!player.isExpanded)
-        #expect(player.opening == nil)
+    @Test func theWaveformReadsThePlayheadAgainstTheLength() {
+        #expect(PracticeText.position(42_300, of: 190_000) == "0:42 of 3:10")
+    }
 
+    @Test func theBadgeOpensTheLoadedRecordingsScreen() async throws {
+        let window = UUID()
         try await load()
-        player.openPractice(in: window)
+        #expect(player.open(.recording(take(), tuneTitle: nil), in: window))
         #expect(player.showsExpanded(in: window))
-        #expect(player.takeOpening() == .practice)
+    }
 
-        // Closing the screen before it takes the request drops it.
-        player.openPractice(in: window)
-        player.isExpanded = false
-        #expect(player.takeOpening() == nil)
+    @Test func theBarsStopControlClearsTheSelection() async throws {
+        try await load()
+        player.loops.follow([
+            RecordingLoop(
+                id: "a", createdAt: noon, updatedAt: noon, recordingID: "r1", label: nil, startMs: 1000, endMs: 3000,
+                color: 0)
+        ])
+        player.loops.select("a")
+        #expect(player.loops.isRepeating)
+        player.loops.select(nil)
+        #expect(player.loops.selectedID == nil)
+        #expect(!player.loops.isRepeating)
+        #expect(!audio.isRepeating)
+    }
+
+    @Test func theRepeatBadgeOffersToRepeatTheLoop() {
+        #expect(PracticeText.repeatLoop("B part") == "Repeat B part")
     }
 
     @Test func theRepeatBadgeNamesTheLoop() {

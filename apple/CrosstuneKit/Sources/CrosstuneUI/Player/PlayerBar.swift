@@ -134,8 +134,8 @@ struct SettingsBadgeLabel: View {
     }
 }
 
-/// While a loop repeats: "Repeating B part", which opens Practice, and a Repeat toggle that
-/// turns it off.
+/// While a loop repeats: "Repeating B part", which opens the recording's screen, and a Repeat
+/// control that deselects the loop.
 private struct RepeatBadge: View {
     let player: PlayerModel
     let name: String
@@ -149,7 +149,7 @@ private struct RepeatBadge: View {
     var body: some View {
         HStack(spacing: 0) {
             Button {
-                player.openPractice(in: window)
+                if let item = player.item { player.open(item, in: window) }
             } label: {
                 Text(PracticeText.repeating(name))
                     .font(.caption)
@@ -165,9 +165,9 @@ private struct RepeatBadge: View {
             }
             .buttonStyle(.plain)
             Button {
-                player.loops.setRepeat(false)
+                player.loops.select(nil)
             } label: {
-                Label(PracticeText.repeatLabel, systemImage: "repeat")
+                Label(PracticeText.repeatLoop(name), systemImage: "repeat")
                     .labelStyle(.iconOnly)
                     .foregroundStyle(.tint)
                     .frame(minWidth: 44, minHeight: 44)
@@ -175,7 +175,7 @@ private struct RepeatBadge: View {
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(.isSelected)
-            .help(PracticeText.repeatLabel)
+            .help(PracticeText.repeatLoop(name))
         }
         // The badge keeps its words up to its cap; the item's title beside it truncates first.
         .layoutPriority(1)

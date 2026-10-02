@@ -91,22 +91,10 @@ public enum RecordingScreenText {
         return named.isEmpty ? nil : named.joined(separator: ", ")
     }
 
-    /// Practice's badge on the recording screen: "75% · +2". Nil at the defaults, when no badge
-    /// shows.
-    public static func practiceBadge(speedPercent: Int, pitchCents: Int) -> String? {
-        let parts = badges(speedPercent: speedPercent, pitchCents: pitchCents)
-        let shown = [parts.speed, parts.pitch].compactMap(\.self)
-        return shown.isEmpty ? nil : shown.joined(separator: " · ")
-    }
-
-    /// `Practice, 75% · +2`, the name of the badge that opens Practice.
-    public static func practiceBadgeLabel(_ badge: String) -> String {
-        "\(PracticeText.practice), \(badge)"
-    }
-
-    /// Why Practice cannot be used now, or nil when it can: the take is still being recorded,
-    /// or its audio is downloading. A pending trim does not touch loops, so it does not block.
-    static func practiceBlocker(file: RecordingFile?, downloading: Bool) -> String? {
+    /// Why the waveform, transport, and modes cannot be used now, or nil when they can: the take
+    /// is still being recorded, or its audio is downloading. A pending trim does not touch them,
+    /// so it does not block.
+    static func screenBlocker(file: RecordingFile?, downloading: Bool) -> String? {
         if file?.localState == .capturing { return trimWhileRecording }
         if downloading || file?.localState == .downloading { return trimWhileDownloading }
         return nil

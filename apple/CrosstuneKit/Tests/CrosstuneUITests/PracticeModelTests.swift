@@ -15,7 +15,7 @@ private func eventually(_ condition: () -> Bool) async throws {
 
 private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
-private func take(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64 = 60_000) -> Recording {
+private func take(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 60_000) -> Recording {
     Recording(
         id: "r1", tuneID: nil, source: "microphone", recordedAt: noon, label: "Jam", state: "ready",
         sourceDurationMs: sourceDurationMs, trimStartMs: trimStartMs, trimEndMs: trimEndMs, speedPercent: 100,
@@ -26,16 +26,6 @@ private func loop(_ id: String, _ startMs: Int64, _ endMs: Int64, label: String?
     RecordingLoop(
         id: id, createdAt: noon, updatedAt: noon, recordingID: "r1", label: label, startMs: startMs, endMs: endMs,
         color: 0)
-}
-
-/// A clock a test moves by hand.
-@MainActor
-private final class Clock {
-    var now = ContinuousClock.now
-
-    func advance(_ duration: Duration) {
-        now = now.advanced(by: duration)
-    }
 }
 
 /// The recording's loops as the store would hold them: each write lands in `rows` and is fed
@@ -60,8 +50,6 @@ private final class FakeLoops {
     /// While set, writes land in `rows` but the player does not hear of them, as while the live
     /// observation has yet to deliver them.
     var paused = false
-    /// Set by another registrant's undo, which Practice's banner must never run.
-    var otherUndone = false
 
     func feed() {
         guard !paused else { return }
@@ -103,11 +91,6 @@ private final class FakeLoops {
                 calls.append("remove(\(id))")
                 rows[id]?.deletedAt = noon
                 feed()
-            },
-            restore: { [self] id in
-                calls.append("restore(\(id))")
-                rows[id]?.deletedAt = nil
-                feed()
             })
     }
 }
@@ -117,7 +100,6 @@ private final class FakeLoops {
     private let audio = FakeAudio()
     private let player: PlayerModel
     private let store: FakeLoops
-    private let clock = Clock()
     private let spoken = Spoken()
 
     @MainActor
@@ -139,9 +121,10 @@ private final class FakeLoops {
         try await eventually { player.recordingAudio == .loaded }
     }
 
-    private func practice(_ row: Recording = take()) -> PracticeModel {
+    /// Practice 300 points wide, which opens on 30 seconds: 10 points a second.
+    private func practice(_ row: Recording = take(), file: RecordingFile? = nil) -> PracticeModel {
         let model = PracticeModel(
-            player: player, recording: row, file: nil, writer: store.writer, clock: { [clock] in clock.now },
+            player: player, recording: row, file: file, writer: store.writer,
             announce: { [spoken] in spoken.said.append($0) })
         model.setWidth(300)
         return model
@@ -152,113 +135,179 @@ private final class FakeLoops {
         PlaybackWindow(from: Double(startMs - trimStartMs) / 1000, to: Double(endMs - trimStartMs) / 1000)
     }
 
-    // MARK: A B
+    /// Where `sourceMs` sits on the waveform now.
+    private func x(_ model: PracticeModel, _ sourceMs: Int64) throws -> Double {
+        try #require(model.laneView).x(ofSourceMs: Double(sourceMs))
+    }
 
-    @Test func aBMarksAStartThenMakesASelectedRepeatingLoop() async throws {
+    // MARK: Scrolling the audio
+
+    @Test func aScrubHoldsPlaybackAndResumesFromTheNewSpot() async throws {
         try await load()
         let model = practice()
         audio.elapsed = 10
-        model.markAB()
-        #expect(model.isMarking)
-        #expect(spoken.said == [PracticeText.loopStartMarked])
-        clock.advance(.seconds(2))
-        audio.elapsed = 12
-        model.observe(elapsed: 12)
-        #expect(model.isMarking)
-        #expect(model.markBand == LoopSpan(startMs: 10_000, endMs: 12_000))
-
-        clock.advance(.seconds(2))
-        audio.elapsed = 14
-        model.observe(elapsed: 14)
-        model.markAB()
-        await model.settle()
-        #expect(store.calls == ["add(10000-14000)"])
-        #expect(!model.isMarking)
-        #expect(model.selectedID == "n1")
-        #expect(model.isRepeating)
-        #expect(audio.isRepeating)
-        #expect(audio.loop == window(10_000, 14_000))
-        #expect(spoken.said == [PracticeText.loopStartMarked, PracticeText.loopCreated])
+        #expect(audio.isPlaying)
+        model.beginScrub()
+        #expect(!audio.isPlaying)
+        model.scrub(dx: -50)
+        #expect(model.scrubbingMs == 15_000)
+        #expect(model.centerMs == 15_000)
+        #expect(audio.elapsed == 10)
+        model.endScrub(predictedDx: -50)
+        #expect(model.scrubbingMs == nil)
+        #expect(audio.elapsed == 15)
+        #expect(audio.isPlaying)
     }
 
-    @Test func aSecondTapSoonerThanHalfASecondCancels() async throws {
+    @Test func aGlidePastEitherEndStopsThere() async throws {
+        try await load()
+        let model = practice()
+        model.glideRun = .milliseconds(30)
+        audio.elapsed = 50
+        model.beginScrub()
+        model.scrub(dx: -20)
+        model.endScrub(predictedDx: -100_000)
+        try await eventually { model.scrubbingMs == nil }
+        #expect(audio.elapsed == 60)
+        // A glide to the end ends playback there rather than starting over.
+        #expect(!audio.isPlaying)
+
+        audio.play()
+        model.beginScrub()
+        model.scrub(dx: 20)
+        model.endScrub(predictedDx: 100_000)
+        try await eventually { model.scrubbingMs == nil }
+        #expect(audio.elapsed == 0)
+        #expect(audio.isPlaying)
+    }
+
+    @Test func aPinchDuringAScrubLeavesThePlayheadWhereItWas() async throws {
         try await load()
         let model = practice()
         audio.elapsed = 10
-        model.markAB()
-        clock.advance(.milliseconds(300))
-        model.markAB()
-        await model.settle()
-        #expect(!model.isMarking)
-        #expect(store.calls.isEmpty)
+        model.beginScrub()
+        model.scrub(dx: -50)
+        model.pinch(2)
+        model.endPinch()
+        model.scrub(dx: -60)
+        model.endScrub(predictedDx: -60)
+        #expect(model.scrubbingMs == nil)
+        #expect(audio.elapsed == 10)
+        #expect(audio.isPlaying)
     }
 
-    @Test func aSeekOrEscapeCancelsAPendingMark() async throws {
+    @Test func aTapSelectsTheLoopUnderItAndOutsideDeselects() async throws {
         try await load()
         let model = practice()
+        store.put([loop("a", 12_000, 18_000, label: "B part")])
         audio.elapsed = 10
-        model.markAB()
-        model.observe(elapsed: 10.05)
-        #expect(model.isMarking)
-        model.observe(elapsed: 30)
-        #expect(!model.isMarking)
+        let calls = audio.calls.count
+        model.tap(atX: try x(model, 14_000))
+        #expect(model.selectedID == "a")
+        #expect(spoken.said == [PracticeText.loopSelected("B part")])
+        #expect(audio.elapsed == 12)
+        // A tap never holds or resumes playback.
+        #expect(!audio.calls[calls...].contains("pause"))
+        #expect(audio.isPlaying)
 
-        model.markAB()
-        #expect(model.cancelMark())
-        #expect(!model.cancelMark())
-        await model.settle()
-        #expect(store.calls.isEmpty)
+        model.tap(atX: try x(model, 25_000))
+        #expect(model.selectedID == nil)
+        #expect(audio.isPlaying)
     }
 
-    @Test func aShortSecondTapStretchesToTheShortestLoop() async throws {
+    @Test func theSeamBelongsToTheLoopThatStartsThere() async throws {
         try await load()
         let model = practice()
-        audio.elapsed = 10
-        model.markAB()
-        clock.advance(.milliseconds(600))
-        audio.elapsed = 10.2
-        model.markAB()
-        await model.settle()
-        #expect(store.calls == ["add(10000-10500)"])
+        store.put([loop("a", 5000, 10_000), loop("b", 10_000, 15_000)])
+        audio.elapsed = 0
+        model.tap(atX: try x(model, 10_000))
+        #expect(model.selectedID == "b")
     }
 
-    @Test func bracketsMoveTheSelectedLoopsEdgesOrMarkALoop() async throws {
+    @Test func aPlainTapOnTheSelectedLoopKeepsIt() async throws {
         try await load()
         let model = practice()
-        store.put([loop("a", 5000, 9000)])
+        store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        audio.elapsed = 6
-        model.markStart()
-        await model.settle()
-        #expect(store.calls == ["update(a, 6000-9000)"])
+        model.tap(atX: try x(model, 6000))
+        #expect(model.selectedID == "a")
+        #expect(spoken.said.isEmpty)
+    }
+
+    // MARK: Zoom
+
+    @Test func everyZoomKeepsThePlayheadAtTheCenter() async throws {
+        try await load()
+        let model = practice()
+        audio.elapsed = 20
+        #expect(model.scale == 10)
+        model.zoom(by: 2)
+        #expect(model.scale == 20)
+        #expect(try x(model, 20_000) == 150)
+        model.pinch(2)
+        model.endPinch()
+        #expect(model.scale == 40)
+        #expect(try x(model, 20_000) == 150)
+
+        // Turning the phone keeps the scale.
+        model.setWidth(600)
+        #expect(model.scale == 40)
+    }
+
+    @Test func fitMovesAnOutsidePlayheadToTheLoopStart() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 20_000, 30_000)])
+        model.select("a")
+        audio.elapsed = 5
+        model.fit()
+        #expect(audio.elapsed == 20)
+        // Centered on the loop's start, the far end shows with its margin: 11 s each side.
+        #expect(abs(try #require(model.scale) - 150.0 / 11) < 0.001)
+
+        audio.elapsed = 25
+        model.fit()
+        #expect(audio.elapsed == 25)
+        #expect(model.scale == 25)
 
         model.select(nil)
-        audio.elapsed = 20
-        model.markStart()
-        #expect(model.isMarking)
-        clock.advance(.seconds(1))
-        audio.elapsed = 22
-        model.markEnd()
-        await model.settle()
-        #expect(store.calls.last == "add(20000-22000)")
+        model.fit()
+        #expect(model.scale == 5)
     }
 
-    // MARK: Selection and Repeat
+    @Test func theViewOpensOnTheSelectedLoop() async throws {
+        try await load()
+        store.put([loop("a", 20_000, 30_000)])
+        player.loops.select("a")
+        let model = practice()
+        #expect(abs(try #require(model.scale) - 150.0 / 11) < 0.001)
+    }
 
-    @Test func repeatMovesWithTheSelectionAndThePlayheadToItsStart() async throws {
+    @Test func aTakeStillCapturingHasNoViewUntilItsLengthIsKnown() {
+        let capturing = RecordingFile(id: "r1", localState: .capturing)
+        let model = practice(take(sourceDurationMs: nil), file: capturing)
+        #expect(model.lengthMs == 0)
+        #expect(model.laneView == nil)
+        #expect(model.newLoopState == .noRoom)
+
+        model.follow(take(sourceDurationMs: 30_000), file: RecordingFile(id: "r1", localState: .downloaded))
+        #expect(model.laneView != nil)
+    }
+
+    // MARK: Selection and repeat
+
+    @Test func selectingALoopRepeatsItAndMovesAnOutsidePlayheadToItsStart() async throws {
         try await load()
         let model = practice()
-        store.put([loop("a", 5000, 15_000), loop("b", 8000, 12_000)])
-        #expect(!model.canRepeat)
+        store.put([loop("a", 5000, 15_000), loop("b", 20_000, 25_000)])
         model.select("a")
-        model.toggleRepeat()
         #expect(audio.isRepeating && model.isRepeating)
         #expect(audio.loop == window(5000, 15_000))
 
-        audio.elapsed = 9
+        audio.elapsed = 13
         model.select("b")
-        #expect(audio.loop == window(8000, 12_000))
-        #expect(audio.elapsed == 8)
+        #expect(audio.loop == window(20_000, 25_000))
+        #expect(audio.elapsed == 20)
         #expect(model.isRepeating)
     }
 
@@ -267,7 +316,6 @@ private final class FakeLoops {
         let model = practice()
         store.put([loop("a", 5000, 15_000, label: "B part")])
         model.select("a")
-        model.toggleRepeat()
         store.put([loop("a", 6000, 14_000, label: "B part")])
         #expect(audio.loop == window(6000, 14_000))
         #expect(player.loops.selectedName == "B part")
@@ -284,13 +332,13 @@ private final class FakeLoops {
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        model.toggleRepeat()
         store.rows["a"]?.deletedAt = noon
         store.feed()
         #expect(model.selectedID == nil)
         #expect(!model.isRepeating)
         #expect(!audio.isRepeating)
         #expect(audio.loop == nil)
+        #expect(audio.isPlaying)
     }
 
     @Test func aLoopSelectedBeforeItsRowArrivesIsSelectedOnceItDoes() async throws {
@@ -303,11 +351,10 @@ private final class FakeLoops {
         #expect(audio.loop == window(5000, 15_000))
     }
 
-    @Test func theSelectionOutlivesPracticeWhileTheRecordingStaysLoaded() async throws {
+    @Test func theSelectionOutlivesTheScreenWhileTheRecordingStaysLoaded() async throws {
         try await load()
         store.put([loop("a", 5000, 15_000)])
         practice().select("a")
-        player.loops.setRepeat(true)
         #expect(practice().selectedID == "a")
         #expect(practice().isRepeating)
 
@@ -316,63 +363,265 @@ private final class FakeLoops {
         #expect(!player.loops.isRepeating)
     }
 
-    // MARK: Gestures
-
-    @Test func aDragWritesOnceOnReleaseAndMovesARepeatingLoopOnlyThen() async throws {
+    @Test func aFailedRecordingDeleteKeepsRepeatOn() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        model.toggleRepeat()
-        model.fit()
-        let view = try #require(model.laneView)
-        let loops = audio.calls.filter { $0 == "setLoop" }.count
-
-        model.beginLaneDrag(at: CGPoint(x: view.x(ofSourceMs: 10_000), y: LaneMetrics.standard.rowTop(0) + 4))
-        for dx in [10.0, 20, 30] {
-            model.drag(toX: view.x(ofSourceMs: 10_000) + dx, snapping: false)
-        }
-        #expect(store.calls.isEmpty)
-        #expect(audio.calls.filter { $0 == "setLoop" }.count == loops)
-        let shown = try #require(model.shownSpan("a"))
-        #expect(shown.startMs > 5000)
-
-        model.endDrag(atX: view.x(ofSourceMs: 10_000) + 30, snapping: false)
-        await model.settle()
-        #expect(store.calls.count == 1)
-        #expect(store.calls.first?.hasPrefix("update(a, ") == true)
-        #expect(audio.loop == window(shown.startMs, shown.endMs))
+        await player.deleteLoadedRecording { throw CommandError.recordingNotFound }
+        try await eventually { player.recordingAudio == .loaded }
+        #expect(model.isRepeating)
+        #expect(audio.isRepeating)
+        #expect(audio.loop == window(5000, 15_000))
     }
 
-    @Test func drawingOnEmptyLaneMakesASelectedLoop() async throws {
+    // MARK: Loops mode
+
+    @Test func newLoopPadsFourSecondsAroundThePlayheadWithinTheTrim() async throws {
         try await load()
         let model = practice()
-        model.fit()
-        let view = try #require(model.laneView)
-        let y = LaneMetrics.standard.rowTop(0) + 4
-        model.beginLaneDrag(at: CGPoint(x: view.x(ofSourceMs: 10_000), y: y))
-        model.drag(toX: view.x(ofSourceMs: 20_000), snapping: false)
-        model.endDrag(atX: view.x(ofSourceMs: 20_000), snapping: false)
+        audio.elapsed = 20
+        model.newLoop()
         await model.settle()
-        #expect(store.calls.count == 1)
-        #expect(model.selectedID == "n1")
-        #expect(!model.isRepeating)
+        audio.elapsed = 59.8
+        model.newLoop()
+        await model.settle()
+        #expect(store.calls == ["add(16000-24000)", "add(55800-60000)"])
+        #expect(model.selectedID == "n2")
+        #expect(model.isRepeating)
+        #expect(spoken.said == [PracticeText.loopCreated, PracticeText.loopCreated])
     }
 
-    @Test func aPinchPutsADragBackAndWritesNothing() async throws {
+    @Test func newLoopIsDisabledWithEachReason() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 0, 10_000, label: "B part"), loop("b", 10_499, 20_000)])
+        audio.elapsed = 5
+        #expect(model.newLoopState == .inside(id: "a"))
+        #expect(model.newLoopReason == "The playhead is in B part.")
+
+        audio.elapsed = 10.2
+        #expect(model.newLoopState == .noRoom)
+        #expect(model.newLoopReason == PracticeText.noRoom)
+
+        store.put([loop("b", 10_500, 20_000)])
+        #expect(model.newLoopState == .span(LoopSpan(startMs: 10_000, endMs: 10_500)))
+        #expect(model.newLoopReason == nil)
+
+        store.put((0..<100).map { loop("l\($0)", 20_000 + Int64($0) * 500, 20_500 + Int64($0) * 500) })
+        #expect(model.newLoopState == .atCap)
+        #expect(model.newLoopReason == PracticeText.loopLimit)
+    }
+
+    @Test func aRefusedNewLoopWritesNothingAndSaysWhy() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 0, 10_000, label: "B part")])
+        audio.elapsed = 5
+        model.newLoop()
+        await model.settle()
+        #expect(store.calls.isEmpty)
+        #expect(spoken.said == ["The playhead is in B part."])
+    }
+
+    @Test(arguments: [
+        (CommandError.noRoom, PracticeText.noRoom), (CommandError.loopLimit, PracticeText.loopLimit),
+    ])
+    func aNewLoopTheWriterRefusesSaysWhyInItsOwnWords(_ refusal: CommandError, _ text: String) async throws {
+        try await load()
+        let model = practice()
+        store.refusal = refusal
+        audio.elapsed = 20
+        model.newLoop()
+        await model.settle()
+        #expect(model.failure == text)
+    }
+
+    @Test func aRecordingShorterThanTheShortestLoopHasNoRoom() async throws {
+        audio.duration = 0.4
+        try await load(take(sourceDurationMs: 400))
+        let model = practice(take(sourceDurationMs: 400))
+        #expect(model.newLoopState == .noRoom)
+        model.newLoop()
+        await model.settle()
+        #expect(store.calls.isEmpty)
+    }
+
+    @Test func previousAndNextSelectAndMoveThePlayhead() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 10_000), loop("b", 20_000, 25_000, label: "B part"), loop("c", 40_000, 45_000)])
+        audio.elapsed = 15
+        #expect(model.adjacent(.previous)?.id == "a")
+        model.step(.next)
+        #expect(model.selectedID == "b")
+        #expect(audio.elapsed == 20)
+        #expect(spoken.said == [PracticeText.loopSelected("B part")])
+        model.step(.next)
+        #expect(model.selectedID == "c")
+        #expect(audio.elapsed == 40)
+        #expect(model.adjacent(.next) == nil)
+        model.step(.previous)
+        #expect(model.selectedID == "b")
+        #expect(audio.elapsed == 20)
+    }
+
+    @Test func theSwitcherNamesTheSelectedLoopOrNoLoopAndIsGoneWithNoLoops() async throws {
+        try await load()
+        let model = practice()
+        #expect(model.switcherLabel == nil)
+        store.put([loop("a", 5000, 10_000, label: "B part"), loop("b", 20_000, 25_000)])
+        #expect(model.switcherLabel == PracticeText.noLoop)
+        model.select("a")
+        #expect(model.switcherLabel == "B part")
+        model.select("b")
+        #expect(model.switcherLabel == PracticeText.loopName("0:20"))
+    }
+
+    @Test func theSwitchersArrowsGoOffWithNoLoopThatWayOrNoAudio() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 10_000), loop("b", 20_000, 25_000)])
+        audio.elapsed = 15
+        #expect(model.canStep(.previous))
+        #expect(model.canStep(.next))
+        model.step(.next)
+        #expect(model.selectedID == "b")
+        #expect(audio.elapsed == 20)
+        #expect(model.canStep(.previous))
+        #expect(!model.canStep(.next))
+        audio.hasFailed = true
+        #expect(!model.canStep(.previous))
+    }
+
+    @Test func deleteLoopIsOffUntilALoopIsSelected() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
-        model.fit()
-        let view = try #require(model.laneView)
-        model.beginLaneDrag(at: CGPoint(x: view.x(ofSourceMs: 10_000), y: LaneMetrics.standard.rowTop(0) + 4))
-        model.drag(toX: view.x(ofSourceMs: 10_000) + 40, snapping: false)
+        #expect(!model.canDeleteSelected)
+        model.select("a")
+        #expect(model.canDeleteSelected)
+        audio.hasFailed = true
+        #expect(!model.canDeleteSelected)
+    }
+
+    @Test func deleteRemovesTheSelectedLoopAtOnceAndPlaysOn() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        #expect(!model.deleteSelected())
+        model.select("a")
+        #expect(model.deleteSelected())
+        await model.settle()
+        #expect(store.calls == ["remove(a)"])
+        #expect(model.selectedID == nil)
+        #expect(!audio.isRepeating)
+        #expect(audio.isPlaying)
+    }
+
+    @Test func bracketsMoveTheSelectedLoopsEdgesUpToItsNeighbors() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 9000), loop("b", 12_000, 15_000)])
+        model.select("a")
+        audio.elapsed = 6
+        model.setEdge(.start)
+        await model.settle()
+        #expect(store.calls == ["update(a, 6000-9000)"])
+
+        audio.elapsed = 13
+        model.setEdge(.end)
+        await model.settle()
+        #expect(store.calls.last == "update(a, 6000-12000)")
+
+        model.select(nil)
+        model.setEdge(.start)
+        await model.settle()
+        #expect(store.calls.count == 2)
+    }
+
+    // MARK: Handles
+
+    @Test func aHandleStopsFlushAtTheNeighbor() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 10_000), loop("b", 12_000, 15_000)])
+        model.select("a")
+        model.beginHandleDrag(.end)
+        model.dragHandle(toX: try x(model, 14_000), snapping: false)
+        #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 12_000))
+        #expect(store.calls.isEmpty)
+        model.endHandleDrag(atX: try x(model, 14_000), snapping: false)
+        await model.settle()
+        #expect(store.calls == ["update(a, 5000-12000)"])
+    }
+
+    @Test func aHandleSnapsToThePlayheadUnlessSnappingIsOff() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 10_000)])
+        model.select("a")
+        audio.elapsed = 8
+        model.beginHandleDrag(.end)
+        model.dragHandle(toX: try x(model, 8300), snapping: true)
+        #expect(model.shownSpan("a")?.endMs == 8000)
+        #expect(model.snaps == 1)
+        model.dragHandle(toX: try x(model, 8300), snapping: false)
+        #expect(model.shownSpan("a")?.endMs == 8300)
+        model.endHandleDrag(atX: try x(model, 8300), snapping: false)
+        await model.settle()
+        #expect(store.calls == ["update(a, 5000-8300)"])
+    }
+
+    @Test func aRepeatingLoopFollowsItsHandleWhileThePlayheadIsInside() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        audio.elapsed = 6
+        model.beginHandleDrag(.end)
+        model.dragHandle(toX: try x(model, 12_000), snapping: false)
+        #expect(audio.loop == window(5000, 12_000))
+        model.endHandleDrag(atX: try x(model, 12_000), snapping: false)
+        await model.settle()
+        #expect(audio.loop == window(5000, 12_000))
+    }
+
+    @Test func aPinchPutsAHandleDragBackAndWritesNothing() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        model.beginHandleDrag(.end)
+        model.dragHandle(toX: try x(model, 12_000), snapping: false)
         model.pinch(1.5)
         model.endPinch()
-        model.endDrag(atX: view.x(ofSourceMs: 10_000) + 40, snapping: false)
+        model.endHandleDrag(atX: try x(model, 12_000), snapping: false)
         await model.settle()
         #expect(store.calls.isEmpty)
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5000, endMs: 15_000))
+    }
+
+    @Test func aSecondDragShowsItsOwnSpanUntilItsWriteLands() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000)])
+        model.select("a")
+        func drag(to ms: Int64) throws {
+            model.beginHandleDrag(.end)
+            model.dragHandle(toX: try x(model, ms), snapping: false)
+            model.endHandleDrag(atX: try x(model, ms), snapping: false)
+        }
+        try drag(to: 14_000)
+        await model.settle()
+        #expect(model.shownSpan("a")?.endMs == 14_000)
+
+        store.paused = true
+        try drag(to: 13_000)
+        await model.settle()
+        #expect(model.shownSpan("a")?.endMs == 13_000)
+        store.resume()
+        #expect(model.shownSpan("a")?.endMs == 13_000)
     }
 
     @Test func aNudgeWritesOnceWhenTheKeyIsLetGo() async throws {
@@ -430,67 +679,44 @@ private final class FakeLoops {
         #expect(model.shownSpan("a") == LoopSpan(startMs: 5200, endMs: 15_000))
     }
 
-    @Test func aSecondDragShowsItsOwnSpanUntilItsWriteLands() async throws {
-        try await load()
-        let model = practice()
-        store.put([loop("a", 5000, 15_000)])
-        model.fit()
-        let view = try #require(model.laneView)
-        let y = LaneMetrics.standard.rowTop(0) + 4
-        func drag(by dx: Double) {
-            let x = view.x(ofSourceMs: 10_000)
-            model.beginLaneDrag(at: CGPoint(x: x, y: y))
-            model.drag(toX: x + dx, snapping: false)
-            model.endDrag(atX: x + dx, snapping: false)
-        }
-        drag(by: 10)
-        await model.settle()
-        let first = try #require(model.shownSpan("a"))
-        #expect(first.startMs > 5000)
+    // MARK: Rename and Escape
 
-        store.paused = true
-        drag(by: 10)
-        await model.settle()
-        let second = try #require(model.shownSpan("a"))
-        #expect(second.startMs > first.startMs)
-        store.resume()
-        #expect(model.shownSpan("a") == second)
-    }
-
-    @Test func aPinchAndAScrollZoomAroundWhereTheyHappen() async throws {
-        try await load()
-        let model = practice()
-        model.fit()
-        let before = try #require(model.laneView)
-        let x = before.x(ofSourceMs: 20_000)
-        model.pinch(2, anchorX: x)
-        model.endPinch()
-        let pinched = try #require(model.laneView)
-        #expect(abs(pinched.x(ofSourceMs: 20_000) - x) < 0.01)
-        #expect(pinched.pointsPerSecond == before.pointsPerSecond * 2)
-
-        let at = pinched.x(ofSourceMs: 25_000)
-        model.zoom(by: 2, aroundX: at)
-        let scrolled = try #require(model.laneView)
-        #expect(abs(scrolled.x(ofSourceMs: 25_000) - at) < 0.01)
-    }
-
-    @Test func aFailedRecordingDeleteKeepsRepeatOn() async throws {
+    @Test func renamingWritesTheLabelOnceAndAnEmptyNameClearsIt() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
         model.select("a")
-        model.toggleRepeat()
-        await player.deleteLoadedRecording { throw CommandError.recordingNotFound }
-        try await eventually { player.recordingAudio == .loaded }
-        #expect(model.isRepeating)
-        #expect(audio.isRepeating)
-        #expect(audio.loop == window(5000, 15_000))
+        #expect(model.renameSelected())
+        #expect(model.renaming == "a")
+        model.commitRename("B part")
+        await model.settle()
+        #expect(store.calls == ["label(a, B part)"])
+
+        model.beginRename("a")
+        model.commitRename("B part")
+        model.beginRename("a")
+        model.commitRename("  ")
+        await model.settle()
+        #expect(store.calls == ["label(a, B part)", "label(a, nil)"])
+
+        model.beginRename("a")
+        #expect(model.cancelRename())
+        #expect(!model.cancelRename())
     }
 
-    // MARK: List, rename, delete, undo
+    @Test func theNameFieldOpensOnTheStoredLabelAndLeavesAnUnnamedLoopUnnamed() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000), loop("b", 20_000, 25_000, label: "B part")])
+        #expect(model.renameText("a") == "")
+        #expect(model.renameText("b") == "B part")
+        model.beginRename("a")
+        model.commitRename("")
+        await model.settle()
+        #expect(store.calls.isEmpty)
+    }
 
-    @Test func aChipPressedAsTheFieldLosesFocusWritesTheChip() async throws {
+    @Test func aChipPressedAsTheFieldLosesFocusWritesTheChipOnce() async throws {
         try await load()
         let model = practice()
         model.blurDelay = .milliseconds(30)
@@ -509,6 +735,27 @@ private final class FakeLoops {
         #expect(store.calls.last == "label(a, Typed)")
     }
 
+    @Test func aTapOrScrubElsewhereSavesTheNameBeingTyped() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 12_000, 18_000)])
+        model.tap(atX: try x(model, 14_000))
+        model.beginRename("a")
+        model.renameTyped("Reel")
+        model.tap(atX: try x(model, 14_000))
+        await model.settle()
+        #expect(model.renaming == nil)
+        #expect(store.calls == ["label(a, Reel)"])
+
+        model.beginRename("a")
+        model.renameTyped("Roll")
+        model.beginScrub()
+        model.cancelScrub()
+        await model.settle()
+        #expect(model.renaming == nil)
+        #expect(store.calls.last == "label(a, Roll)")
+    }
+
     @Test func aNameLeftByOpeningAnotherLoopsFieldGoesToItsOwnLoop() async throws {
         try await load()
         let model = practice()
@@ -524,51 +771,118 @@ private final class FakeLoops {
         #expect(model.renaming == "b")
     }
 
-    @Test func theBannersUndoLeavesAnotherActionOnTheStackAlone() async throws {
+    @Test func escapeCancelsARenameThenDeselects() async throws {
         try await load()
         let model = practice()
-        let undo = UndoManager()
-        undo.groupsByEvent = false
-        model.undoManager = undo
         store.put([loop("a", 5000, 15_000)])
-        model.delete("a")
+        model.select("a")
+        model.beginRename("a")
+        #expect(model.escape())
+        #expect(model.renaming == nil)
+        #expect(model.selectedID == "a")
+        #expect(model.escape())
+        #expect(model.selectedID == nil)
+        #expect(!model.escape())
         await model.settle()
-        undo.beginUndoGrouping()
-        undo.registerUndo(withTarget: store) { other in
-            MainActor.assumeIsolated { other.otherUndone = true }
-        }
-        undo.setActionName("Other")
-        undo.endUndoGrouping()
-
-        model.undo()
-        await model.settle()
-        #expect(store.calls == ["remove(a)", "restore(a)"])
-        #expect(!store.otherUndone)
+        #expect(store.calls.isEmpty)
     }
 
-    @Test func renamingWritesTheLabelOnceAndAnEmptyNameClearsIt() async throws {
+    @Test func theScreensEscapeRunsTheChainAndClosesOnlyWhenNothingIsLeft() async throws {
         try await load()
         let model = practice()
         store.put([loop("a", 5000, 15_000)])
-        model.choose("a")
-        #expect(model.selectedID == "a")
+        model.select("a")
+        model.beginRename("a")
+        var closed = 0
+        model.escape { closed += 1 }
         #expect(model.renaming == nil)
-        model.choose("a")
-        #expect(model.renaming == "a")
-        model.commitRename("B part")
-        await model.settle()
-        #expect(store.calls == ["label(a, B part)"])
+        #expect(model.selectedID == "a")
+        #expect(closed == 0)
+        model.escape { closed += 1 }
+        #expect(model.selectedID == nil)
+        #expect(closed == 0)
+        model.escape { closed += 1 }
+        #expect(closed == 1)
+    }
 
-        model.beginRename("a")
-        model.commitRename("B part")
-        model.beginRename("a")
-        model.commitRename("  ")
-        await model.settle()
-        #expect(store.calls == ["label(a, B part)", "label(a, nil)"])
+    // MARK: The shown playhead
 
-        model.beginRename("a")
-        #expect(model.cancelRename())
-        #expect(!model.cancelRename())
+    @Test func newLoopDuringAScrubActsWhereThePlayheadShows() async throws {
+        try await load()
+        let model = practice()
+        audio.elapsed = 10
+        model.beginScrub()
+        model.scrub(dx: -50)
+        model.newLoop()
+        await model.settle()
+        #expect(store.calls == ["add(11000-19000)"])
+    }
+
+    @Test func newLoopDuringAGlideStopsItWhereItShows() async throws {
+        try await load()
+        let model = practice()
+        model.glideRun = .seconds(10)
+        audio.elapsed = 10
+        model.beginScrub()
+        model.scrub(dx: -50)
+        model.endScrub(predictedDx: -400)
+        try await Task.sleep(for: .milliseconds(50))
+        let shown = try #require(model.scrubbingMs)
+        model.newLoop()
+        #expect(model.scrubbingMs == nil)
+        #expect(model.glide == nil)
+        #expect(audio.elapsed == Double(shown) / 1000)
+        await model.settle()
+        #expect(store.calls == ["add(\(shown - 4000)-\(shown + 4000))"])
+    }
+
+    @Test func aSeekFromTheOverviewStopsAGlide() async throws {
+        try await load()
+        let model = practice()
+        model.glideRun = .seconds(10)
+        audio.elapsed = 10
+        model.beginScrub()
+        model.scrub(dx: -50)
+        model.endScrub(predictedDx: -400)
+        #expect(model.glide != nil)
+        model.seek(toMs: 30_000)
+        #expect(model.glide == nil)
+        #expect(model.scrubbingMs == nil)
+        #expect(audio.elapsed == 30)
+        #expect(audio.isPlaying)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(audio.elapsed == 30)
+    }
+
+    @Test func aTapOnAHandleOutsideItsLoopIsATapOnTheWaveform() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 20_000, 30_000)])
+        model.select("a")
+        // Inside the end handle's 44 point target, just past the loop's end.
+        model.tap(atX: try x(model, 30_000) + 10)
+        #expect(model.selectedID == nil)
+
+        model.select("a")
+        model.tap(atX: try x(model, 30_000) - 10)
+        #expect(model.selectedID == "a")
+    }
+
+    @Test func withNoAudioToPlayTheLoopCommandsDoNothing() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("a", 5000, 15_000), loop("b", 40_000, 45_000)])
+        model.select("a")
+        audio.hasFailed = true
+        #expect(!model.isLoaded)
+        model.newLoop()
+        model.setEdge(.end)
+        model.step(.next)
+        #expect(!model.deleteSelected())
+        await model.settle()
+        #expect(store.calls.isEmpty)
+        #expect(model.selectedID == "a")
+        #expect(spoken.said.isEmpty)
     }
 
     @Test func suggestsTheTunesPartsWithLabelsInUseLast() async throws {
@@ -578,94 +892,6 @@ private final class FakeLoops {
         store.put([loop("a", 5000, 15_000, label: "A part"), loop("b", 20_000, 25_000)])
         #expect(model.suggestions(for: "b") == ["B part", "C part", "A part"])
         #expect(model.suggestions(for: "a") == ["A part", "B part", "C part"])
-    }
-
-    @Test func undoPutsBackADeletedLoopAndItsSelection() async throws {
-        try await load()
-        let model = practice()
-        store.put([loop("a", 5000, 15_000)])
-        model.select("a")
-        model.delete("a")
-        await model.settle()
-        #expect(store.calls == ["remove(a)"])
-        #expect(model.undoBanner?.message == PracticeText.loopDeleted)
-        #expect(model.selectedID == nil)
-
-        model.undo()
-        await model.settle()
-        #expect(store.calls == ["remove(a)", "restore(a)"])
-        #expect(model.undoBanner == nil)
-        #expect(model.selectedID == "a")
-    }
-
-    @Test func theUndoManagerUndoesAndRedoesEachEdit() async throws {
-        try await load()
-        let model = practice()
-        let undo = UndoManager()
-        model.undoManager = undo
-        store.put([loop("a", 5000, 15_000)])
-        model.select("a")
-        model.nudge(.end, by: 1000)
-        model.commitNudge()
-        await model.settle()
-        model.delete("a")
-        await model.settle()
-
-        undo.undo()
-        await model.settle()
-        #expect(store.calls.last == "restore(a)")
-        undo.undo()
-        await model.settle()
-        #expect(store.calls.last == "update(a, 5000-15000)")
-        undo.redo()
-        await model.settle()
-        #expect(store.calls.last == "update(a, 5000-16000)")
-    }
-
-    @Test func newLoopRunsFourSecondsFromThePlayheadWithinTheTrim() async throws {
-        try await load()
-        let model = practice()
-        audio.elapsed = 20
-        model.newLoop()
-        audio.elapsed = 59.8
-        model.newLoop()
-        await model.settle()
-        #expect(store.calls == ["add(20000-24000)", "add(59500-60000)"])
-        #expect(model.selectedID == "n2")
-    }
-
-    // MARK: Limits
-
-    @Test func atOneHundredLoopsNothingMakesAnother() async throws {
-        try await load()
-        let model = practice()
-        store.put((0..<100).map { loop("l\($0)", Int64($0) * 500, Int64($0) * 500 + 500) })
-        #expect(!model.create.allowed)
-        #expect(model.create.reason == PracticeText.loopLimit)
-        audio.elapsed = 10
-        model.markAB()
-        model.newLoop()
-        #expect(!model.isMarking)
-        model.fit()
-        let view = try #require(model.laneView)
-        model.beginLaneDrag(at: CGPoint(x: 1, y: LaneMetrics.standard.rowTop(50)))
-        model.drag(toX: view.width - 1, snapping: false)
-        model.endDrag(atX: view.width - 1, snapping: false)
-        await model.settle()
-        #expect(store.calls.isEmpty)
-    }
-
-    @Test func aRecordingShorterThanTheShortestLoopMakesNone() async throws {
-        audio.duration = 0.4
-        try await load(take(sourceDurationMs: 400))
-        let model = practice(take(sourceDurationMs: 400))
-        #expect(!model.create.allowed)
-        #expect(model.create.reason == nil)
-        model.markAB()
-        model.newLoop()
-        await model.settle()
-        #expect(!model.isMarking)
-        #expect(store.calls.isEmpty)
     }
 
     @Test func eachLoopColorHasALightAndADarkVariantMatchingTheWeb() {

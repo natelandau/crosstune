@@ -1,85 +1,62 @@
+import CrosstuneStore
 import Testing
 
 @testable import CrosstuneUI
-
-private let frame = ZoomFrame(width: 300, lengthMs: 180_000)
 
 private func near(_ a: Double, _ b: Double) -> Bool {
     abs(a - b) < 0.001
 }
 
 @Suite struct PracticeZoomTests {
-    @Test func stopsZoomingOutWhereTheWholeRecordingFitsAndInAtFourPointsPerPeak() {
-        #expect(near(PracticeZoom.minPointsPerSecond(width: 300, lengthMs: 180_000), 300.0 / 180))
-        #expect(PracticeZoom.maxPointsPerSecond == 200)
-        let out = PracticeZoom(pointsPerSecond: 10, centerMs: 90_000).zoomed(by: 1 / 100, around: 90_000, in: frame)
-        #expect(near(out.pointsPerSecond, 300.0 / 180))
-        #expect(out.visibleSpan(width: 300) == TimeSpan(startMs: 0, endMs: 180_000))
-        let deep = PracticeZoom(pointsPerSecond: 150, centerMs: 90_000).zoomed(by: 10, around: 90_000, in: frame)
-        #expect(deep.pointsPerSecond == PracticeZoom.maxPointsPerSecond)
+    @Test(arguments: [
+        (Int64(10_000), 100.0, Int64(9000)),
+        (500, 100.0, 0),
+        (59_500, -100.0, 60_000),
+    ])
+    func scrub(_ from: Int64, _ dx: Double, _ expected: Int64) {
+        #expect(PracticeZoom.scrub(from: from, dx: dx, pointsPerSecond: 100, lengthMs: 60_000) == expected)
     }
 
-    @Test func keepsTheAnchorWhereItIsOnScreenWhileZooming() {
-        let before = PracticeZoom(pointsPerSecond: 10, centerMs: 60_000)
-        let anchorMs = 66_000.0
-        let after = before.zoomed(by: 2, around: anchorMs, in: frame)
-        func at(_ zoom: PracticeZoom) -> Double {
-            (anchorMs - zoom.visibleSpan(width: 300).startMs) / 1000 * zoom.pointsPerSecond
-        }
-        #expect(after.pointsPerSecond == 20)
-        #expect(near(at(after), at(before)))
+    @Test func glideTravelsAgainstTheVelocity() {
+        #expect(PracticeZoom.glideTauMs == 325)
+        #expect(PracticeZoom.glide(velocity: 1000, pointsPerSecond: 100) == -3250)
     }
 
-    @Test func fitsASpanWithATenthOfItsLengthAsMarginOnEachSide() {
-        let fitted = PracticeZoom.fit(TimeSpan(startMs: 58_000, endMs: 111_000), width: 300)
-        let shown = fitted.visibleSpan(width: 300)
-        #expect(near(shown.startMs, 52_700))
-        #expect(near(shown.endMs, 116_300))
-        #expect(fitted.centerMs == 84_500)
+    @Test(arguments: [(Int64(5000), 0.0), (0, -5000.0)])
+    func viewCentersWithoutClamping(_ center: Int64, _ expectedStart: Double) {
+        let view = PracticeZoom.view(pointsPerSecond: 100, centerMs: center, width: 1000, trimStartMs: 1000)
+        #expect(view == LaneView(startMs: expectedStart, pointsPerSecond: 100, width: 1000, trimStartMs: 1000))
     }
 
-    @Test func keepsTheScaleAndTheCenterThroughAChangeOfWidthAsOnRotation() {
-        let portrait = PracticeZoom(pointsPerSecond: 12, centerMs: 70_000).clamped(to: frame)
-        let landscape = portrait.clamped(to: ZoomFrame(width: 700, lengthMs: 180_000))
-        #expect(landscape == portrait)
-        let wide = landscape.visibleSpan(width: 700)
-        let narrow = portrait.visibleSpan(width: 300)
-        #expect(wide.endMs - wide.startMs > narrow.endMs - narrow.startMs)
-        #expect((wide.startMs + wide.endMs) / 2 == 70_000)
+    @Test func minimumScaleFitsTheRecording() {
+        #expect(near(PracticeZoom.minPointsPerSecond(width: 1000, lengthMs: 120_000), 1000.0 / 120))
     }
 
-    @Test func holdsTheViewInsideTheRecording() {
-        #expect(
-            PracticeZoom(pointsPerSecond: 10, centerMs: 1000).clamped(to: frame).visibleSpan(width: 300).startMs == 0)
-        #expect(
-            PracticeZoom(pointsPerSecond: 10, centerMs: 179_000).clamped(to: frame).visibleSpan(width: 300).endMs
-                == 180_000)
-        #expect(
-            PracticeZoom(pointsPerSecond: 10, centerMs: 20_000).panned(by: -50_000, in: frame).visibleSpan(width: 300)
-                .startMs == 0)
+    // Shared with practiceZoom.test.ts; keep the two tables equal.
+    @Test(arguments: [
+        (Int64(0), Int64(10_000), Int64(5000), 83.3333),
+        (0, 10_000, 0, 45.4545),
+        (0, 10_000, 9000, 50),
+        (0, 10_000, 10_000, 45.4545),
+        (0, 10_000, 20_000, 45.4545),
+        (0, 600, 300, 200),
+    ])
+    func fitScale(_ startMs: Int64, _ endMs: Int64, _ playheadMs: Int64, _ expected: Double) {
+        let span = LoopSpan(startMs: startMs, endMs: endMs)
+        #expect(near(PracticeZoom.fitScale(span: span, playheadMs: playheadMs, width: 1000), expected))
     }
 
-    @Test func pagesOnlyOnceThePlayheadLeavesTheView() {
-        let state = PracticeZoom(pointsPerSecond: 10, centerMs: 15_000)
-        #expect(state.paged(toKeep: 20_000, width: 300) == state)
-        #expect(state.paged(toKeep: 29_900, width: 300) == state)
-        let paged = state.paged(toKeep: 30_100, width: 300)
-        #expect(paged.visibleSpan(width: 300).startMs == 30_100)
-        let back = paged.paged(toKeep: 2_000, width: 300)
-        #expect(back.visibleSpan(width: 300).startMs == 2_000)
+    @Test func openingScaleFramesALoopAsFitDoesOrThirtySeconds() {
+        #expect(near(PracticeZoom.openingScale(loop: nil, playheadMs: 0, width: 1000), 1000.0 / 30))
+        let loop = LoopSpan(startMs: 0, endMs: 10_000)
+        #expect(near(PracticeZoom.openingScale(loop: loop, playheadMs: 5000, width: 1000), 500.0 / 6))
+        #expect(near(PracticeZoom.openingScale(loop: loop, playheadMs: 0, width: 1000), 500.0 / 11))
     }
 
-    @Test func opensThirtySecondsAroundThePlayhead() {
-        let opened = PracticeZoom.opening(loop: nil, playheadMs: 60_000, frame: frame)
-        #expect(opened.visibleSpan(width: 300) == TimeSpan(startMs: 45_000, endMs: 75_000))
-        #expect(
-            PracticeZoom.opening(loop: nil, playheadMs: 0, frame: frame).visibleSpan(width: 300)
-                == TimeSpan(startMs: 0, endMs: 30_000))
-    }
-
-    @Test func opensFittedToALoopWhenThereIsOne() {
-        let loop = TimeSpan(startMs: 58_000, endMs: 111_000)
-        #expect(PracticeZoom.opening(loop: loop, playheadMs: 0, frame: frame) == PracticeZoom.fit(loop, width: 300))
+    @Test(arguments: [(100.0, 4.0, 200.0), (10.0, 0.5, 1000.0 / 120)])
+    func zoomScale(_ scale: Double, _ factor: Double, _ expected: Double) {
+        let frame = ZoomFrame(width: 1000, lengthMs: 120_000)
+        #expect(near(PracticeZoom.zoomScale(scale, by: factor, frame: frame), expected))
     }
 
     @Test func mapsSourceTimesToPointsAndBack() {
