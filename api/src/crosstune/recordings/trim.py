@@ -10,6 +10,14 @@ if TYPE_CHECKING:
     from crosstune.models import Recording
 
 
+def clamp_stored_trim(recording: Recording, *, high: int | None) -> None:
+    """Narrow the row's saved trim into `[0, high]`, writing the columns only if that moves them."""
+    start_ms, end_ms = clamp_trim(recording.trim_start_ms, recording.trim_end_ms, low=0, high=high)
+    if (start_ms, end_ms) != (recording.trim_start_ms, recording.trim_end_ms):
+        recording.trim_start_ms = start_ms
+        recording.trim_end_ms = end_ms
+
+
 def clamp_trim(
     start_ms: int, end_ms: int | None, *, low: int, high: int | None
 ) -> tuple[int, int | None]:

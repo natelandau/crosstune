@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
     from pathlib import Path
 
 PLAYBACK_MIME = "audio/mp4"
@@ -73,6 +73,43 @@ def original_key(user_id: object, recording_id: object, content_type: str) -> st
     """Where the untouched upload is kept when it differs from the playback file."""
     base = content_type.split(";", 1)[0].strip().lower()
     return f"{recording_prefix(user_id, recording_id)}original.{_EXTENSIONS.get(base, 'bin')}"
+
+
+@dataclass(frozen=True)
+class Revision:
+    """An object uploaded under a revision key no other upload reuses."""
+
+    key: str
+    rev: str
+    size: int
+
+
+async def upload_revision(
+    store: ObjectStore,
+    path: Path,
+    content_type: str,
+    key_for: Callable[[str], str],
+    *,
+    uploaded: list[str] | None = None,
+) -> Revision:
+    """Upload a local file under a fresh revision, so no reader of an older one sees it change.
+
+    Args:
+        store: Where the file goes.
+        path: The local file.
+        content_type: The type the object is served with.
+        key_for: Builds the key from the new revision, such as `peaks_key` with its ids bound.
+        uploaded: Gets the key appended before the upload starts, so a caller can delete
+            whatever a failed attempt left behind.
+
+    Returns:
+        Revision: The key, revision, and stored byte count.
+    """
+    rev = new_rev()
+    key = key_for(rev)
+    if uploaded is not None:
+        uploaded.append(key)
+    return Revision(key=key, rev=rev, size=await store.upload(path, key, content_type))
 
 
 async def delete_best_effort(
