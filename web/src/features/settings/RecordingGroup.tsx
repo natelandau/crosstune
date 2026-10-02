@@ -16,8 +16,8 @@ import { useAction } from '../../ui/useAction'
 import { usePendingWrite } from '../../ui/usePendingWrite'
 import { formatBytes } from '../recording/format'
 import { QUALITY_LABELS } from './audioQuality'
+import { KEEP_OFFLINE_LABEL } from './recordingCopy'
 
-export const KEEP_OFFLINE_LABEL = 'Download all recordings to this device'
 export const REMOVE_DOWNLOADS_FOOTER =
   'Frees up space on this device. Your recordings stay in your account and download again when you play them. Anything not yet saved to your account is kept.'
 export const QUALITY_FOOTER = 'Higher quality makes larger files.'
