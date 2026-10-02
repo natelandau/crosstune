@@ -5,7 +5,7 @@ import { afterEach } from 'vitest'
 import '../app.css'
 import { settleOverlays } from './overlays'
 
-setupIonicReact()
+setupIonicReact({ animated: false })
 
 // Ionic transitions and overlays settle in a few hundred milliseconds; findBy waits for them.
 configure({ asyncUtilTimeout: 3000 })

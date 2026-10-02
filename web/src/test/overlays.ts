@@ -1,5 +1,22 @@
 import { getConfig } from '@testing-library/react'
+import { onTestFinished } from 'vitest'
 import { BLOCKING_OVERLAYS } from '../ui/useShortcut'
+
+interface IonicConfig {
+  set: (key: string, value: unknown) => void
+}
+
+/**
+ * Turns Ionic's animations back on for the rest of the current test. The browser harness runs
+ * without them, so a present or dismissal finishes at once; a test about what happens while
+ * one is still in flight needs the real window to land in. Ionic reads the setting each time
+ * an overlay presents or dismisses, so the change takes effect on the next one.
+ */
+export function animateOverlays() {
+  const config = (window as unknown as { Ionic: { config: IonicConfig } }).Ionic.config
+  config.set('animated', true)
+  onTestFinished(() => config.set('animated', false))
+}
 
 interface Overlay extends HTMLElement {
   /** Set by Ionic's controllers, which put an overlay in the page only in order to present it. */

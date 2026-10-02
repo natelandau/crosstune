@@ -1,42 +1,15 @@
 import { IonList } from '@ionic/react'
 import { Trash2 } from 'lucide-react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { forceTouch } from '../../test/pointer'
+import { fakePlayer } from '../../test/providers'
 import { linkRow } from '../../test/rows'
 import type { RowAction } from '../../ui/Row'
 import type { Player } from '../player/usePlayer'
 import { LinkItem } from './LinkItem'
-
-const realMatchMedia = window.matchMedia
-afterEach(() => {
-  window.matchMedia = realMatchMedia
-})
-
-/** On touch the row lays its own open control over the body, which the link sits above. */
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : realMatchMedia.call(window, query)
-}
-
-function fakePlayer(overrides: Partial<Player> = {}): Player {
-  return {
-    item: null,
-    play: vi.fn(),
-    close: vi.fn(),
-    returnFocus: vi.fn(),
-    ...overrides,
-  }
-}
 
 function show(
   link: ReturnType<typeof linkRow>,

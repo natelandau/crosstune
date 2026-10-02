@@ -1,29 +1,11 @@
 import { IonButton } from '@ionic/react'
 import { screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
-import { MOUSE_QUERY } from '../platform/pointer'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
+import { forceTouch } from '../test/pointer'
 import { useConfirm } from './Confirm'
-
-const originalMatchMedia = window.matchMedia
-
-afterEach(() => {
-  window.matchMedia = originalMatchMedia
-})
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
 
 function ConfirmHost() {
   const confirm = useConfirm()

@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import * as bulkModule from '../../commands/bulk'
 import { addToList, createList } from '../../commands/lists'
 import { createTune, setArchived } from '../../commands/tunes'
 import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
+import { forceTouch } from '../../test/pointer'
 import { CANCEL, DELETING } from '../../ui/Confirm'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { SHOW_ARCHIVED } from '../catalog/CatalogFilterSheet'
@@ -37,29 +37,11 @@ let db: CrosstuneDb
 let listId: string
 let joy: { tuneId: string; userTuneId: string }
 
-const originalMatchMedia = window.matchMedia
-
 beforeEach(async () => {
   db = openTestDb()
   listId = await createList(db, 'Tuesday jam')
   joy = await createTune(db, { title: "Soldier's Joy", key: 'D' }, { status: 'known' })
 })
-
-afterEach(() => {
-  window.matchMedia = originalMatchMedia
-})
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
 
 const show = (id = listId) =>
   renderScreen(<ListPage />, { db, path: `/lists/${id}`, route: '/lists/:listId' })

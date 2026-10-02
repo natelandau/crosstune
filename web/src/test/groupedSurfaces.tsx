@@ -1,11 +1,11 @@
 import { IonItem, IonLabel, IonList } from '@ionic/react'
 import { screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MOUSE_QUERY } from '../platform/pointer'
 import { Screen } from '../ui/Screen'
 import { Sheet } from '../ui/Sheet'
 import { openTestDb } from './db'
 import { renderIonic, renderScreen } from './ionic'
+import { forceTouch } from './pointer'
 
 /** Relative luminance of an rgb() or rgba() color, 0 for black and 1 for white. */
 function luminance(color: string): number {
@@ -59,20 +59,6 @@ async function expectCardReads(theme: string, surface: () => string, card: Eleme
   })
 }
 
-const originalMatchMedia = window.matchMedia
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
-
 /**
  * Checks that a grouped screen, a touch sheet, and a mouse dialog each draw a card that reads
  * against the background behind it, in light and in dark mode, for whichever mode the project
@@ -81,7 +67,6 @@ function forceTouch() {
 export function groupedSurfaceTests(mode: string) {
   describe.each(['light', 'dark'])(`grouped surfaces on ${mode} in %s mode`, (theme) => {
     afterEach(() => {
-      window.matchMedia = originalMatchMedia
       document.documentElement.classList.remove('ion-palette-dark')
     })
 

@@ -6,6 +6,7 @@ import { updateRecording } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { menuItem } from '../../test/dialogs'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderScreen } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
@@ -91,17 +92,6 @@ function show() {
     </IonPage>,
     { db, path: `/catalog/${tuneId}`, route: '/catalog/:tuneId' },
   )
-}
-
-// Menu items render in a popover on a mouse; scoping to it keeps a label from matching the
-// control that opened the menu.
-async function menuItem(label: string) {
-  const popover = await vi.waitFor(() => {
-    const open = document.querySelector<HTMLElement>('ion-popover:not(.overlay-hidden)')
-    if (!open) throw new Error('The menu is not open')
-    return open
-  })
-  return page.elementLocator(popover).getByText(label, { exact: true })
 }
 
 const youtube = {

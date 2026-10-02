@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
+import { animateOverlays } from '../test/overlays'
 import { forceTouch } from '../test/pointer'
 import { useMenu, type MenuItem } from './Menu'
 
@@ -19,6 +20,7 @@ function Host({ onChoose }: { onChoose: () => void }) {
 
 /** Opens the menu, picks the item, and reports what overlay was still up when its action ran. */
 async function choose() {
+  animateOverlays()
   const seen: (Element | null)[] = []
   const onChoose = vi.fn(() => {
     seen.push(presentedMenu())
@@ -34,12 +36,8 @@ describe('useMenu', () => {
   // An item that opens a sheet must not overlap the menu it came from: two overlays presented at
   // once leave Ionic unable to tell which one should give the page back to assistive tech.
   it('runs a chosen item only after the action sheet has closed', async () => {
-    const restore = forceTouch()
-    try {
-      expect(await choose()).toBeNull()
-    } finally {
-      restore()
-    }
+    forceTouch()
+    expect(await choose()).toBeNull()
   })
 
   it('runs a chosen item only after the popover has closed', async () => {

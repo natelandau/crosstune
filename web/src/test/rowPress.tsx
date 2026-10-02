@@ -1,13 +1,11 @@
 import { IonLabel, IonList } from '@ionic/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { Mode } from '../platform/mode'
-import { MOUSE_QUERY } from '../platform/pointer'
 import { Row } from '../ui/Row'
 import { openTestDb } from './db'
 import { renderIonic } from './ionic'
-
-const originalMatchMedia = window.matchMedia
+import { forceTouch } from './pointer'
 
 /**
  * A row that opens through its own button is not the clickable item Ionic draws press feedback
@@ -17,22 +15,6 @@ const originalMatchMedia = window.matchMedia
  */
 export function rowPressTests(mode: Mode) {
   describe(`a pressed row on ${mode}`, () => {
-    afterEach(() => {
-      window.matchMedia = originalMatchMedia
-    })
-
-    function forceTouch() {
-      window.matchMedia = (query: string) =>
-        query === MOUSE_QUERY
-          ? ({
-              matches: false,
-              media: query,
-              addEventListener() {},
-              removeEventListener() {},
-            } as unknown as MediaQueryList)
-          : originalMatchMedia.call(window, query)
-    }
-
     async function render() {
       forceTouch()
       renderIonic(

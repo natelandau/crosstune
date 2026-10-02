@@ -2,29 +2,15 @@ import { IonButton, IonLabel, IonList, IonToggle } from '@ionic/react'
 import { Archive, SquarePen } from 'lucide-react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import { MOUSE_QUERY } from '../platform/pointer'
 import { glyphContrast } from '../test/contrast'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
+import { forceTouch } from '../test/pointer'
 import { Row } from './Row'
 
-const original = window.matchMedia
 afterEach(() => {
-  window.matchMedia = original
   document.documentElement.classList.remove('ion-palette-dark')
 })
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : original.call(window, query)
-}
 
 function List({
   onOpen = () => {},

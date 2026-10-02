@@ -9,10 +9,7 @@ import { RECORD_LABEL } from '../../app/tabs'
 import { addLink, removeLink } from '../../commands/links'
 import { removeLoop, updateLoop } from '../../commands/loops'
 import {
-  appendChunk,
-  beginCapture,
   deleteRecording,
-  finishCapture,
   setFileState,
   storeDownloadedBlob,
   updateRecording,
@@ -25,6 +22,7 @@ import { openTestDb } from '../../test/db'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic } from '../../test/ionic'
 import { fakeEngine, FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
+import { captureRecording } from '../../test/recordings'
 import { Screen } from '../../ui/Screen'
 import { loopRow } from '../../test/rows'
 import { PRACTICE } from '../practice/practiceCopy'
@@ -89,37 +87,15 @@ function addSpotify() {
 }
 
 /** A recording captured on this device, so its blob is already held locally. */
-async function localRecording(label: string): Promise<string> {
-  const id = newId()
-  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
-  await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, {
-    tuneId,
-    mime: 'audio/mp4',
-    durationMs: 3000,
-    recordedAt: '2026-09-14T20:00:00.000Z',
-    peaks: null,
-  })
-  await updateRecording(db, id, { label })
-  return id
+function localRecording(label: string): Promise<string> {
+  return captureRecording(db, { tuneId, durationMs: 3000, label })
 }
 
 /** A recording with no label and no tune, so its title has nothing to fall back to but its date. */
-async function unfiledRecording(): Promise<string> {
-  const id = newId()
-  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
-  await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, {
-    tuneId: null,
-    mime: 'audio/mp4',
-    durationMs: 3000,
-    recordedAt: '2026-09-14T20:00:00.000Z',
-    peaks: null,
-  })
+function unfiledRecording(): Promise<string> {
   // finishCapture gives every recording a default date-based label; clear it to reach the
   // title's own recorded-at fallback.
-  await updateRecording(db, id, { label: null })
-  return id
+  return captureRecording(db, { durationMs: 3000, label: null })
 }
 
 /** A recording the server holds and this device does not, so playing it must download it. */

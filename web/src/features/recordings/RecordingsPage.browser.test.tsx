@@ -4,11 +4,11 @@ import { page } from 'vitest/browser'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
-import { fakeEngine } from '../../test/providers'
+import { forceTouch } from '../../test/pointer'
+import { fakeEngine, fakePlayer } from '../../test/providers'
 import { recordingFile, recordingRow, tuneRow } from '../../test/rows'
 import { SEARCH_TUNES } from '../catalog/TuneSearch'
 import type { Player } from '../player/usePlayer'
@@ -25,32 +25,14 @@ vi.mock('../../commands/recordings', { spy: true })
 vi.mock('./useRecordings', { spy: true })
 
 let db: CrosstuneDb
-const originalMatchMedia = window.matchMedia
 
 beforeEach(() => {
   db = openTestDb()
 })
 
 afterEach(async () => {
-  window.matchMedia = originalMatchMedia
   await db.delete()
 })
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
-
-function fakePlayer(overrides: Partial<Player> = {}): Player {
-  return { item: null, play: vi.fn(), close: vi.fn(), returnFocus: vi.fn(), ...overrides }
-}
 
 function show(
   opts: { engine?: SyncEngine; player?: Player; probes?: Record<string, string> } = {},

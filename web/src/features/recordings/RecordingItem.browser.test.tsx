@@ -1,14 +1,14 @@
 import { IonList } from '@ionic/react'
 import { Pencil } from 'lucide-react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { setStorage } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
-import { MOUSE_QUERY } from '../../platform/pointer'
 import type { SyncEngine } from '../../sync/types'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
-import { fakeEngine } from '../../test/providers'
+import { forceTouch } from '../../test/pointer'
+import { fakeEngine, fakePlayer } from '../../test/providers'
 import { recordingFile, recordingRow } from '../../test/rows'
 import type { RowAction } from '../../ui/Row'
 import { CLOSE_PLAYER } from '../player/transportCopy'
@@ -16,34 +16,6 @@ import type { Player } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import { RecordingItem } from './RecordingItem'
 import type { RecordingView } from './useRecordings'
-
-const originalMatchMedia = window.matchMedia
-
-afterEach(() => {
-  window.matchMedia = originalMatchMedia
-})
-
-function forceTouch() {
-  window.matchMedia = (query: string) =>
-    query === MOUSE_QUERY
-      ? ({
-          matches: false,
-          media: query,
-          addEventListener() {},
-          removeEventListener() {},
-        } as unknown as MediaQueryList)
-      : originalMatchMedia.call(window, query)
-}
-
-function fakePlayer(overrides: Partial<Player> = {}): Player {
-  return {
-    item: null,
-    play: vi.fn(),
-    close: vi.fn(),
-    returnFocus: vi.fn(),
-    ...overrides,
-  }
-}
 
 function view(
   overrides: {

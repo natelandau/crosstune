@@ -1,16 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
-import {
-  appendChunk,
-  beginCapture,
-  finishCapture,
-  updateRecording,
-} from '../../commands/recordings'
-import { newId } from '../../commands/write'
+import { updateRecording } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { alertButton, modal, presentedModal } from '../../test/dialogs'
 import { renderScreen } from '../../test/ionic'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
+import { captureRecording } from '../../test/recordings'
 import { CANCEL } from '../../ui/Confirm'
 import { PAUSE } from '../player/transportCopy'
 import { PlaybackEngine, type EngineClock } from '../player/playbackEngine'
@@ -51,35 +47,9 @@ async function localRecording(
   label: string,
   settings: { speed_percent?: number; pitch_cents?: number } = {},
 ): Promise<string> {
-  const id = newId()
-  await beginCapture(db, id, { tuneId: null, recordedAt: '2026-09-14T20:00:00.000Z' })
-  await appendChunk(db, id, 0, new Blob(['abc'], { type: 'audio/mp4' }))
-  await finishCapture(db, id, {
-    tuneId: null,
-    mime: 'audio/mp4',
-    durationMs: 30_000,
-    recordedAt: '2026-09-14T20:00:00.000Z',
-    peaks: null,
-  })
-  await updateRecording(db, id, { label, ...settings })
+  const id = await captureRecording(db, { label, ...settings })
   vi.mocked(updateRecording).mockClear()
   return id
-}
-
-const presented = () => document.querySelector<HTMLElement>('ion-modal:not(.overlay-hidden)')
-
-async function dialog() {
-  await expect.poll(presented).not.toBeNull()
-  return page.elementLocator(presented()!)
-}
-
-async function alertButton(name: string) {
-  const alert = await vi.waitFor(() => {
-    const open = document.querySelector<HTMLElement>('ion-alert:not(.overlay-hidden)')
-    if (!open) throw new Error('The confirmation is not open')
-    return open
-  })
-  return page.elementLocator(alert).getByRole('button', { name, exact: true })
 }
 
 /** A clock the test ticks by hand, so the engine reports a position only when told. */
@@ -112,8 +82,8 @@ async function openScreen(label: string, engine: PlaybackEngine = fakePlaybackEn
 }
 
 async function enterTrim() {
-  await (await dialog()).getByRole('button', { name: new RegExp(`^${TRIM}`) }).click()
-  await expect.element((await dialog()).getByRole('slider', { name: START_HANDLE })).toBeVisible()
+  await (await modal()).getByRole('button', { name: new RegExp(`^${TRIM}`) }).click()
+  await expect.element((await modal()).getByRole('slider', { name: START_HANDLE })).toBeVisible()
 }
 
 /** The recording screen switched to the trim view once its audio loaded. */
@@ -125,12 +95,12 @@ async function openTrim(label: string, engine?: PlaybackEngine) {
 
 /** Back on the recording view: its scrubber shows and the trim view's handles are gone. */
 async function expectRecordingView() {
-  await expect.element((await dialog()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+  await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
   expect(page.getByRole('slider', { name: START_HANDLE }).elements()).toHaveLength(0)
 }
 
 async function handle(name: string) {
-  return (await dialog()).getByRole('slider', { name })
+  return (await modal()).getByRole('slider', { name })
 }
 
 async function focusHandle(name: string) {
@@ -164,7 +134,7 @@ describe('TrimView', () => {
   it('Save is disabled until a handle moves', async () => {
     await localRecording('Jam recording')
     await openTrim('Jam recording')
-    const save = (await dialog()).getByRole('button', { name: SAVE_TRIM })
+    const save = (await modal()).getByRole('button', { name: SAVE_TRIM })
     await expect.element(save).toBeDisabled()
     await focusHandle(END_HANDLE)
     await userEvent.keyboard('{ArrowLeft}')
@@ -180,9 +150,9 @@ describe('TrimView', () => {
     )
     engine.pause()
     engine.seek(5000)
-    await (await dialog()).getByRole('button', { name: SET_START }).click()
+    await (await modal()).getByRole('button', { name: SET_START }).click()
     await expect.element(await handle(START_HANDLE)).toHaveAttribute('aria-valuenow', '5000')
-    await (await dialog()).getByRole('button', { name: SAVE_TRIM }).click()
+    await (await modal()).getByRole('button', { name: SAVE_TRIM }).click()
     await expect.element(page.getByText(TRIM_CONFIRM_TITLE(25_000))).toBeVisible()
     expect(TRIM_CONFIRM_TITLE(25_000)).toBe('Trim to 0:25?')
     await expect.element(page.getByText(TRIM_CONFIRM_MESSAGE)).toBeVisible()
@@ -206,7 +176,7 @@ describe('TrimView', () => {
     await openTrim('Jam recording')
     await focusHandle(START_HANDLE)
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
-    await (await dialog()).getByRole('button', { name: SAVE_TRIM }).click()
+    await (await modal()).getByRole('button', { name: SAVE_TRIM }).click()
     await (await alertButton(CANCEL)).click()
     await expect.poll(() => document.querySelector('ion-alert:not(.overlay-hidden)')).toBeNull()
     await expect.element(await handle(START_HANDLE)).toBeVisible()
@@ -219,7 +189,7 @@ describe('TrimView', () => {
     await openTrim('Jam recording')
     await focusHandle(START_HANDLE)
     await userEvent.keyboard('{ArrowRight}')
-    await (await dialog()).getByRole('button', { name: CANCEL }).click()
+    await (await modal()).getByRole('button', { name: CANCEL }).click()
     await expectRecordingView()
     expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
   })
@@ -231,7 +201,7 @@ describe('TrimView', () => {
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
     await db.recordings.update(id, { trim_start_ms: 3000 })
     await expectRecordingView()
-    await expect.element((await dialog()).getByText(TRIM_CHANGED_ELSEWHERE)).toBeVisible()
+    await expect.element((await modal()).getByText(TRIM_CHANGED_ELSEWHERE)).toBeVisible()
     expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
   })
 
@@ -246,11 +216,11 @@ describe('TrimView', () => {
     await expect.poll(() => element.playbackRate).toBe(1)
     expect(engine.pitchCents).toBe(0)
 
-    await (await dialog()).getByRole('button', { name: CANCEL }).click()
+    await (await modal()).getByRole('button', { name: CANCEL }).click()
     await expect.poll(() => element.playbackRate).toBe(0.75)
     expect(engine.pitchCents).toBe(200)
     await expect
-      .element((await dialog()).getByRole('button', { name: `${PRACTICE}, 75% · +2`, exact: true }))
+      .element((await modal()).getByRole('button', { name: `${PRACTICE}, 75% · +2`, exact: true }))
       .toBeVisible()
     expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
   })
@@ -264,7 +234,7 @@ describe('TrimView', () => {
     )
     await expect.poll(() => element.playbackRate).toBe(1)
     await userEvent.keyboard('{Escape}')
-    await expect.poll(presented).toBeNull()
+    await expect.poll(presentedModal).toBeNull()
     expect(element.playbackRate).toBe(0.75)
     expect(engine.pitchCents).toBe(200)
   })
@@ -275,7 +245,7 @@ describe('TrimView', () => {
     await openTrim('Jam recording', fakePlaybackEngine(element as unknown as HTMLAudioElement))
     await expect.poll(() => element.playbackRate).toBe(1)
     await userEvent.keyboard('{Escape}')
-    await expect.poll(presented).toBeNull()
+    await expect.poll(presentedModal).toBeNull()
 
     await updateRecording(db, id, { speed_percent: 120 })
     await expect.poll(() => element.playbackRate).toBe(1.2)
@@ -311,7 +281,7 @@ describe('TrimView', () => {
     await enterTrim()
 
     player!.play({ kind: 'recording', id: other })
-    await expect.poll(presented).toBeNull()
+    await expect.poll(presentedModal).toBeNull()
     await expect.poll(() => load.mock.calls.length).toBe(2)
     player!.play(jam)
     await expect.poll(() => load.mock.calls.length).toBe(3)
@@ -373,7 +343,7 @@ describe('TrimView', () => {
     for (let i = 0; i < 10; i++) await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
     await expect.element(await handle(END_HANDLE)).toHaveAttribute('aria-valuenow', '20000')
 
-    await (await dialog()).getByRole('button', { name: PLAY_SELECTION }).click()
+    await (await modal()).getByRole('button', { name: PLAY_SELECTION }).click()
     expect(engine.getState().playing).toBe(true)
     expect(engine.getState().positionMs).toBe(0)
     // The fake element never advances on its own, so the test moves it along.
@@ -430,7 +400,7 @@ describe('TrimView', () => {
       new PlaybackEngine(element as unknown as HTMLAudioElement, clock),
     )
     engine.pause()
-    await (await dialog()).getByRole('button', { name: PREVIEW_END }).click()
+    await (await modal()).getByRole('button', { name: PREVIEW_END }).click()
     expect(engine.getState().playing).toBe(true)
     expect(engine.getState().positionMs).toBe(27_000)
 
@@ -452,10 +422,10 @@ describe('TrimView', () => {
       new PlaybackEngine(element as unknown as HTMLAudioElement, clock),
     )
     engine.pause()
-    await (await dialog()).getByRole('button', { name: PREVIEW_END }).click()
-    await (await dialog()).getByRole('button', { name: PAUSE }).click()
+    await (await modal()).getByRole('button', { name: PREVIEW_END }).click()
+    await (await modal()).getByRole('button', { name: PAUSE }).click()
     expect(engine.getState().playing).toBe(false)
-    await (await dialog()).getByRole('button', { name: GO_TO_START }).click()
+    await (await modal()).getByRole('button', { name: GO_TO_START }).click()
     expect(engine.getState().positionMs).toBe(0)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(engine.getState().positionMs).toBe(0)
@@ -466,7 +436,7 @@ describe('TrimView', () => {
     await openTrim('Jam recording')
     await focusHandle(START_HANDLE)
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
-    await (await dialog()).getByRole('button', { name: SAVE_TRIM }).click()
+    await (await modal()).getByRole('button', { name: SAVE_TRIM }).click()
     await expect.element(await alertButton(TRIM_CONFIRM_ACTION)).toBeVisible()
     await db.recordings.update(id, { trim_start_ms: 3000 })
     await expectRecordingView()
@@ -488,7 +458,7 @@ describe('TrimView', () => {
     await expect.element(await handle(START_HANDLE)).toHaveAttribute('aria-valuenow', '10000')
     pointer(document.body, 'pointerup', 1, edge + 200)
 
-    await (await dialog()).getByRole('button', { name: ZOOM_IN }).click()
+    await (await modal()).getByRole('button', { name: ZOOM_IN }).click()
     await expect.poll(() => detailWaveform().getAttribute('aria-valuemax')).toBe('5000')
   })
 
