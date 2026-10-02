@@ -522,19 +522,30 @@ ion-toggle::part(label) {
   --loop-tint: var(--loop-5-tint);
 }
 
-/* The zoomed waveform in Practice: shorter on a landscape phone, where height is scarce, and
-   taller on the wide frame. */
+/* The recording screen's waveform, sized from the viewport alone so nothing under it can change
+   it. A third of the height inside the safe areas leaves the Loops controls on screen on a typical
+   phone; the floor keeps a landscape phone usable. */
+.practice-waveform-slot {
+  height: clamp(
+    160px,
+    calc((100dvh - var(--ion-safe-area-top, 0px) - var(--ion-safe-area-bottom, 0px)) * 0.34),
+    480px
+  );
+}
+
+/* The zoomed waveform: the recording screen sets the variable to the room it measured, and the
+   fallbacks are shorter on a landscape phone, where height is scarce, and taller when wide. */
 .practice-detail {
-  height: 120px;
+  height: var(--practice-detail-height, 120px);
 }
 @media (max-height: 499px) {
   .practice-detail {
-    height: 80px;
+    height: var(--practice-detail-height, 80px);
   }
 }
 @media (min-width: 768px) and (min-height: 600px) {
   .practice-detail {
-    height: 150px;
+    height: var(--practice-detail-height, 150px);
   }
 }
 

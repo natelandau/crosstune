@@ -692,7 +692,8 @@ describe('CatalogPage', () => {
       .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .not.toBeInTheDocument()
     ;(document.activeElement as HTMLElement | null)?.blur()
-    expect(await pressSlash()).toBe(true)
+    // The page takes / back once Ionic's back transition has shown it, which can lag the heading.
+    await expect.poll(pressSlash).toBe(true)
     await vi.waitFor(() => expect(document.activeElement?.closest('ion-searchbar')).not.toBeNull())
   })
 

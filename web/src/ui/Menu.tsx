@@ -18,6 +18,7 @@ import {
 } from 'react'
 import { usePointer } from '../platform/pointer'
 import { CANCEL } from './Confirm'
+import { DISABLED_ITEM } from './menuCopy'
 
 export const MORE_ACTIONS = 'More actions'
 
@@ -25,6 +26,8 @@ export interface MenuItem {
   label: string
   icon?: LucideIcon
   tone?: 'neutral' | 'warning' | 'error'
+  /** Why the item cannot be used right now; it stays in the menu, disabled, with this reason. */
+  disabled?: string
   onPress: () => void
 }
 
@@ -56,10 +59,16 @@ function PopoverMenu({
             <IonItem
               button
               detail={false}
+              disabled={!!item.disabled}
               className={TONE_CLASS[item.tone ?? 'neutral']}
-              onClick={() => onChoose(item)}
+              onClick={() => {
+                if (!item.disabled) onChoose(item)
+              }}
             >
-              <IonLabel>{item.label}</IonLabel>
+              <IonLabel>
+                <span data-menu-label>{item.label}</span>
+                {item.disabled ? <p>{item.disabled}</p> : null}
+              </IonLabel>
               {item.icon ? <item.icon aria-hidden className="size-5" slot="end" /> : null}
             </IonItem>
           </Fragment>
@@ -148,7 +157,8 @@ export function useMenu(): (
                   index === firstDestructive ? 'menu-destructive' : null,
                 ].filter((name): name is string => name !== null && name !== undefined)
                 return {
-                  text: item.label,
+                  text: item.disabled ? DISABLED_ITEM(item.label, item.disabled) : item.label,
+                  disabled: !!item.disabled,
                   role: item.tone === 'error' ? ('destructive' as const) : undefined,
                   cssClass: classes.length > 0 ? classes : undefined,
                   handler: () => {

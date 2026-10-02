@@ -1,13 +1,14 @@
 import { useRef, type PointerEvent } from 'react'
 import type { ShownPeaks } from '../recording-screen/recordingRange'
 import { Waveform } from '../recording-screen/Waveform'
-import type { LaneLoop } from './LoopLane'
+import type { LaneLoop } from './PracticeWaveform'
 import { capturePointer } from '../../platform/pointer'
+import { clamp } from '../../math'
 
 /**
  * The whole trimmed recording, every loop as a band beneath it, the playhead, and a box around
- * the zoomed stretch. A tap moves the zoomed view there and a drag carries it along. Pointer
- * only: the zoom buttons and the handles are the keyboard's way to the same places.
+ * the stretch the waveform shows. A tap moves the playhead there and a drag carries it along.
+ * Pointer only: the waveform's own slider is the keyboard's way to the same places.
  */
 export function OverviewStrip({
   shown,
@@ -17,8 +18,7 @@ export function OverviewStrip({
   loops,
   playheadMs,
   selectedId,
-  onCenter,
-  onPan,
+  onSeek,
 }: {
   shown: ShownPeaks | null
   lengthMs: number
@@ -30,20 +30,21 @@ export function OverviewStrip({
   playheadMs: number
   selectedId: string | null
   /** `ms` on the trimmed timeline. */
-  onCenter: (ms: number) => void
-  onPan: (deltaMs: number) => void
+  onSeek: (ms: number) => void
 }) {
   const strip = useRef<HTMLDivElement>(null)
-  const press = useRef<{ pointerId: number; lastX: number } | null>(null)
+  const press = useRef<number | null>(null)
   const share = (ms: number) => (lengthMs > 0 ? (ms / lengthMs) * 100 : 0)
   const msPerPx = () => {
     const width = strip.current?.getBoundingClientRect().width ?? 0
     return width > 0 ? lengthMs / width : 0
   }
-  const localX = (event: PointerEvent<HTMLDivElement>) =>
-    event.clientX - (strip.current?.getBoundingClientRect().left ?? 0)
+  const seekTo = (event: PointerEvent<HTMLDivElement>) => {
+    const x = event.clientX - (strip.current?.getBoundingClientRect().left ?? 0)
+    onSeek(clamp(x * msPerPx(), 0, lengthMs))
+  }
   const release = (event: PointerEvent<HTMLDivElement>) => {
-    if (press.current?.pointerId === event.pointerId) press.current = null
+    if (press.current === event.pointerId) press.current = null
   }
 
   return (
@@ -55,19 +56,11 @@ export function OverviewStrip({
       onPointerDown={(event) => {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         capturePointer(event.currentTarget, event.pointerId)
-        const x = localX(event)
-        const ms = x * msPerPx()
-        // A press inside the box carries it from where it was taken; anywhere else first
-        // brings the box to the press.
-        if (ms < visible.startMs || ms > visible.endMs) onCenter(ms)
-        press.current = { pointerId: event.pointerId, lastX: x }
+        press.current = event.pointerId
+        seekTo(event)
       }}
       onPointerMove={(event) => {
-        const pressed = press.current
-        if (!pressed || pressed.pointerId !== event.pointerId) return
-        const x = localX(event)
-        onPan((x - pressed.lastX) * msPerPx())
-        pressed.lastX = x
+        if (press.current === event.pointerId) seekTo(event)
       }}
       onPointerUp={release}
       onPointerCancel={release}

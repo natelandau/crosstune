@@ -106,7 +106,6 @@ describe('useLoopPlayback', () => {
     const { engine, wrapper } = setup()
     const { result, rerender } = render(wrapper, { view: view(), loops: [bPart] })
     act(() => result.current.select('b'))
-    act(() => result.current.toggleRepeat())
 
     // A trim landed: the dock loads the cut file, which starts 40 s into the source.
     act(() =>
@@ -120,7 +119,7 @@ describe('useLoopPlayback', () => {
     )
     rerender({ view: view(40_000, 'rev2'), loops: [bPart] })
     expect(engine.loopRange).toEqual({ id: 'b', label: 'B part', fromS: 18, toS: 71 })
-    expect(result.current.repeat).toBe(true)
+    expect(engine.getState().repeat).toBe(true)
   })
 
   it('hands the range again when the reload lands after the file row changes', () => {
@@ -144,12 +143,11 @@ describe('useLoopPlayback', () => {
     const { engine, wrapper } = setup()
     const { result, rerender } = render(wrapper, { view: view(), loops: [aPart, bPart] })
     act(() => result.current.select('b'))
-    act(() => result.current.toggleRepeat())
-    expect(result.current.repeat).toBe(true)
+    expect(engine.getState().repeat).toBe(true)
 
     rerender({ view: view(), loops: [aPart] })
     expect(result.current.selectedId).toBeNull()
-    expect(result.current.repeat).toBe(false)
+    expect(engine.getState().repeat).toBe(false)
     expect(engine.getState().loop).toBeNull()
     expect(engine.loopRange).toBeNull()
   })
@@ -164,44 +162,69 @@ describe('useLoopPlayback', () => {
     expect(engine.getState().loop?.id).toBe('b')
   })
 
-  it('toggles Repeat on the engine', () => {
+  it('repeats a selected loop and moves an outside playhead to its start', () => {
     const { engine, wrapper } = setup()
-    const { result } = render(wrapper, { view: view(), loops: [bPart] })
-    act(() => result.current.toggleRepeat())
-    // Nothing to repeat without a loop.
-    expect(engine.getState().repeat).toBe(false)
+    const { result } = render(wrapper, { view: view(), loops: [aPart, bPart] })
+    engine.seek(5_000)
     act(() => result.current.select('b'))
-    act(() => result.current.toggleRepeat())
     expect(engine.getState().repeat).toBe(true)
-    expect(result.current.repeat).toBe(true)
-    act(() => result.current.toggleRepeat())
-    expect(result.current.repeat).toBe(false)
+    expect(engine.getState().positionMs).toBe(48_000)
   })
 
-  it('moves the repeat and the playhead to the start of another loop selected', () => {
+  it('moves an outside playhead to the start while playing too', () => {
     const { engine, wrapper } = setup()
-    // Overlaps A, so a playhead inside both is not moved by the engine's own entry rule.
+    const { result } = render(wrapper, { view: view(), loops: [aPart, bPart] })
+    engine.play()
+    engine.seek(5_000)
+    act(() => result.current.select('b'))
+    expect(engine.getState().positionMs).toBe(48_000)
+  })
+
+  it('keeps the playhead when it is inside the selected loop', () => {
+    const { engine, wrapper } = setup()
+    const { result } = render(wrapper, { view: view(), loops: [aPart, bPart] })
+    engine.seek(60_000)
+    act(() => result.current.select('b'))
+    expect(engine.getState().repeat).toBe(true)
+    expect(engine.getState().positionMs).toBe(60_000)
+  })
+
+  it('moves to the start of another loop selected when outside it', () => {
+    const { engine, wrapper } = setup()
+    // Overlaps A, so a playhead inside both is not moved.
     const cPart = loopRow({ id: 'c', label: 'C part', start_ms: 30_000, end_ms: 50_000 })
     const { result } = render(wrapper, { view: view(), loops: [aPart, bPart, cPart] })
     act(() => result.current.select('a'))
-    act(() => result.current.toggleRepeat())
     engine.seek(25_000)
 
     act(() => result.current.select('c'))
     expect(engine.loopRange?.id).toBe('c')
     expect(engine.getState().repeat).toBe(true)
-    expect(engine.getState().positionMs).toBe(20_000)
+    expect(engine.getState().positionMs).toBe(25_000)
 
     act(() => result.current.select('b'))
     expect(engine.getState().positionMs).toBe(48_000)
   })
 
-  it('leaves the playhead alone when a loop is selected with Repeat off', () => {
+  it('plays on straight through once deselected', () => {
     const { engine, wrapper } = setup()
-    const { result } = render(wrapper, { view: view(), loops: [aPart, bPart] })
-    engine.seek(5_000)
+    const { result } = render(wrapper, { view: view(), loops: [bPart] })
     act(() => result.current.select('b'))
-    expect(engine.getState().positionMs).toBe(5_000)
+    act(() => result.current.select(null))
+    expect(result.current.selectedId).toBeNull()
+    expect(engine.getState().loop).toBeNull()
+    expect(engine.getState().repeat).toBe(false)
+  })
+
+  it('clears the selection and repeat when the selected loop is tombstoned', () => {
+    const { engine, wrapper } = setup()
+    const { result, rerender } = render(wrapper, { view: view(), loops: [bPart] })
+    act(() => result.current.select('b'))
+    // The live query drops a tombstoned row, so the loop is simply no longer in the list.
+    rerender({ view: view(), loops: [] })
+    expect(result.current.selectedId).toBeNull()
+    expect(engine.getState().repeat).toBe(false)
+    expect(engine.getState().loop).toBeNull()
   })
 
   it('plays a held span ahead of the row until the row catches up', () => {

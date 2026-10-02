@@ -25,7 +25,7 @@ import {
   formatDuration,
   NOT_AVAILABLE,
 } from '../recording/format'
-import { useLoopFollow } from '../practice/useLoopFollow'
+import { loopHolds, useLoopFollow } from '../practice/useLoopFollow'
 import { useLoops } from '../practice/useLoops'
 import { recordingTitle } from '../recordings/recordingRow'
 import { useRecordingScreen } from '../recording-screen/useRecordingScreen'
@@ -46,7 +46,7 @@ import {
   PITCH_UNAVAILABLE,
   PLAY,
   REMAINING_LABEL,
-  REPEAT_LABEL,
+  REPEAT_LOOP,
   REPEATING_BADGE,
   SPEED_BADGE,
   SPEED_LABEL,
@@ -272,7 +272,7 @@ function RecordingBody({
                 <button
                   type="button"
                   className="flex min-h-11 min-w-11 items-center"
-                  onClick={() => recordingScreen.open(recording.id, 'practice')}
+                  onClick={() => recordingScreen.open(recording.id)}
                 >
                   <span className="type-footnote inline-flex h-6 min-w-0 items-center rounded-full bg-(--ion-color-primary) px-2 text-(--ion-color-primary-contrast)">
                     <span className="truncate">{REPEATING_BADGE(state.loop.label)}</span>
@@ -280,10 +280,13 @@ function RecordingBody({
                 </button>
                 <button
                   type="button"
-                  aria-label={REPEAT_LABEL}
+                  aria-label={REPEAT_LOOP(state.loop.label)}
                   aria-pressed="true"
                   className="grid size-11 shrink-0 place-items-center"
                   onClick={() => {
+                    // As deselecting does, so a drag's hold cannot outlive the loop it held.
+                    loopHolds(engine).drop()
+                    engine.setLoop(null)
                     engine.setRepeat(false)
                     // The toggle leaves with the badge, so focus moves to the transport beside it.
                     playButton.current?.shadowRoot?.querySelector('button')?.focus()

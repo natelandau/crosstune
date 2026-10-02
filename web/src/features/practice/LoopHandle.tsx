@@ -1,10 +1,16 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type RefObject } from 'react'
 import { clamp } from '../../math'
 import { formatDuration } from '../recording/format'
-import { DRAG_THRESHOLD_PX, resizeSpan, snapMs, type Bounds, type Span } from './loopModel'
+import {
+  DRAG_THRESHOLD_PX,
+  resizeSpan,
+  snapMs,
+  type Bounds,
+  type Draft,
+  type Span,
+} from './loopModel'
 import { msAtX, xOfMs, type LaneView } from './practiceZoom'
 import { useAutoPan } from './useAutoPan'
-import type { Draft } from './useLoopGestures'
 import { capturePointer } from '../../platform/pointer'
 import { useLatest } from '../../ui/useLatest'
 
@@ -37,12 +43,13 @@ export function LoopHandle({
   span,
   view,
   bounds,
-  snapTargets,
+  playheadMs,
   surface,
   onDraft,
   onCommit,
   onPan,
   onReveal,
+  onTap,
   pinches,
 }: {
   edge: 'start' | 'end'
@@ -52,8 +59,10 @@ export function LoopHandle({
   /** The loop as shown, a draft ahead of its row included. */
   span: Span
   view: LaneView
+  /** The free span around the loop on the source timeline, which the edge never leaves. */
   bounds: Bounds
-  snapTargets: readonly number[]
+  /** On the source timeline. */
+  playheadMs: number
   /** The element the view's pixels are measured from. */
   surface: RefObject<HTMLDivElement | null>
   /** A draft while the handle moves; null when a drag ends without a write. */
@@ -62,6 +71,11 @@ export function LoopHandle({
   onPan: (deltaMs: number) => void
   /** Brings a handle the keyboard reached from outside the view into it. */
   onReveal: (sourceMs: number) => void
+  /**
+   * A press that let go without moving, `x` px from the surface's left edge. The target reaches
+   * past the loop's edge, so a tap on it is a tap on the waveform there.
+   */
+  onTap: (x: number) => void
   /** Counts pinches; a drag that gave way to one puts the loop back and writes nothing. */
   pinches: RefObject<number>
 }) {
@@ -83,12 +97,15 @@ export function LoopHandle({
 
   const localX = (clientX: number) => clientX - (surface.current?.getBoundingClientRect().left ?? 0)
 
-  /** Moves the edge to the pointer, snapped unless Alt or Option is held. */
+  /** Moves the edge to the pointer, snapped to the playhead unless Alt or Option is held. */
   const dragTo = (clientX: number) => {
     const pressed = press.current
     if (!pressed) return
     const raw = msAtX(view, localX(clientX))
-    const to = pressed.alt ? raw : snapMs(raw, snapTargets, 1000 / view.pxPerS)
+    const targets = pressed.alt
+      ? [bounds.startMs, bounds.endMs]
+      : [playheadMs, bounds.startMs, bounds.endMs]
+    const to = snapMs(raw, targets, 1000 / view.pxPerS)
     const next = resizeSpan(pressed.span, edge, Math.round(to), bounds)
     latestRef.current = next
     onDraft({ id, ...next })
@@ -136,7 +153,10 @@ export function LoopHandle({
     if (!pressed || pressed.pointerId !== event.pointerId) return
     press.current = null
     autoPan.stop()
-    if (!pressed.moved) return
+    if (!pressed.moved) {
+      if (pinches.current === pressed.pinch) onTap(localX(event.clientX))
+      return
+    }
     if (pinches.current === pressed.pinch) onCommit({ id, ...latestRef.current })
     else onDraft(null)
   }
@@ -147,12 +167,12 @@ export function LoopHandle({
       tabIndex={0}
       data-handle={edge}
       aria-label={edge === 'start' ? LOOP_START : LOOP_END}
-      aria-valuemin={0}
-      aria-valuemax={bounds.endMs - bounds.startMs}
-      aria-valuenow={ms - bounds.startMs}
-      aria-valuetext={HANDLE_TEXT(name, edge, ms - bounds.startMs)}
+      aria-valuemin={bounds.startMs - view.trimStartMs}
+      aria-valuemax={bounds.endMs - view.trimStartMs}
+      aria-valuenow={ms - view.trimStartMs}
+      aria-valuetext={HANDLE_TEXT(name, edge, ms - view.trimStartMs)}
       data-color={color}
-      // A 44 px target around a thin line; off the view it stays reachable by keyboard.
+      // A 44 px target around the edge and its tab; off the view it stays reachable by keyboard.
       className={`loop-color absolute inset-y-0 z-10 flex w-11 -translate-x-1/2 cursor-ew-resize touch-none justify-center rounded-md outline-offset-0 select-none ${inView ? '' : 'pointer-events-none opacity-0'}`}
       style={{ left: clamp(x, 0, view.widthPx) }}
       onFocus={() => {
@@ -192,9 +212,14 @@ export function LoopHandle({
       onLostPointerCapture={cancel}
     >
       <span className="h-full w-0.5 bg-(--loop)" />
+      {/* The tab sits outside the loop so it never covers the audio being looped. */}
       <span
-        className={`absolute size-3 rounded-full bg-(--loop) ${edge === 'start' ? '-top-1.5' : '-bottom-1.5'}`}
-      />
+        data-grip
+        className={`absolute top-1/2 flex h-11 w-4 -translate-y-1/2 items-center justify-center gap-0.5 bg-(--loop) ${edge === 'start' ? 'right-1/2 rounded-l-md' : 'left-1/2 rounded-r-md'}`}
+      >
+        <span className="h-4 w-px bg-white/90" />
+        <span className="h-4 w-px bg-white/90" />
+      </span>
     </div>
   )
 }

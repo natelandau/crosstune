@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import { LOOP_LIMIT } from '../../commands/messages'
 import {
-  canCreate,
+  adjacent,
+  freeGap,
+  loopAt,
   loopName,
-  moveSpan,
+  newLoop,
   partSuggestions,
   pickColor,
   resizeSpan,
   snapMs,
-  spanFromDrag,
-  stackRows,
+  roomAround,
   type Bounds,
   type PlacedLoop,
 } from './loopModel'
@@ -22,25 +22,6 @@ const placed = (id: string, startMs: number, endMs: number, color = 0): PlacedLo
   startMs,
   endMs,
   color,
-})
-
-describe('spanFromDrag', () => {
-  it.each([
-    [5000, 3000, s(3000, 5000)],
-    [5000, 5100, s(5000, 5500)],
-    [60900, 61000, s(60500, 61000)],
-  ])('anchor %i pointer %i -> %j', (anchor, pointer, expected) => {
-    expect(spanFromDrag(anchor, pointer, B)).toEqual(expected)
-  })
-})
-
-describe('moveSpan', () => {
-  it.each([
-    [s(2000, 4000), -5000, s(1000, 3000)],
-    [s(2000, 4000), 60000, s(59000, 61000)],
-  ])('%j by %i -> %j', (span, delta, expected) => {
-    expect(moveSpan(span, delta, B)).toEqual(expected)
-  })
 })
 
 describe('resizeSpan', () => {
@@ -62,29 +43,6 @@ describe('snapMs', () => {
     [10_100, 10_100],
   ])('%i against [10000] -> %i', (ms, expected) => {
     expect(snapMs(ms, [10_000], 10)).toBe(expected)
-  })
-})
-
-describe('stackRows', () => {
-  it('stacks overlapping loops into the lowest free row', () => {
-    const rows = stackRows([
-      placed('a', 0, 10),
-      placed('b', 5, 15),
-      placed('c', 12, 20),
-      placed('d', 16, 18),
-    ])
-    expect([...rows]).toEqual([
-      ['a', 0],
-      ['b', 1],
-      ['c', 0],
-      ['d', 1],
-    ])
-  })
-
-  it('treats touching loops as non-overlapping', () => {
-    const rows = stackRows([placed('a', 0, 10), placed('b', 10, 20)])
-    expect(rows.get('a')).toBe(0)
-    expect(rows.get('b')).toBe(0)
   })
 })
 
@@ -157,16 +115,88 @@ describe('loopName', () => {
   })
 })
 
-describe('canCreate', () => {
-  it('blocks at the cap with a reason', () => {
-    expect(canCreate(100, B)).toEqual({ allowed: false, reason: LOOP_LIMIT })
-  })
+const A = placed('a', 10000, 20000)
+const Bl = placed('b', 30000, 40000)
+const loops = [A, Bl]
 
-  it('hides the control when the trim range is too short', () => {
-    expect(canCreate(0, s(0, 400))).toEqual({ allowed: false, reason: null })
+describe('loopAt', () => {
+  it.each([
+    ['inside', 15000, loops, 'a'],
+    ['start inclusive', 10000, loops, 'a'],
+    ['end exclusive', 20000, loops, null],
+    ['seam goes to the loop that starts there', 20000, [A, placed('c', 20000, 25000), Bl], 'c'],
+    ['between loops', 25000, loops, null],
+  ])('%s', (_name, ms, list, id) => {
+    expect(loopAt(ms, list)?.id ?? null).toBe(id)
   })
+})
 
-  it('allows otherwise', () => {
-    expect(canCreate(99, B)).toEqual({ allowed: true, reason: null })
+describe('roomAround', () => {
+  it.each([
+    [A, s(1000, 30000)],
+    [Bl, s(20000, 61000)],
+  ])('%j -> %j', (loop, expected) => {
+    expect(roomAround(loop, loops, B)).toEqual(expected)
+  })
+})
+
+describe('freeGap', () => {
+  it.each([
+    [25000, s(20000, 30000)],
+    [5000, s(1000, 10000)],
+    [15000, null],
+  ])('%i -> %j', (ms, expected) => {
+    expect(freeGap(ms, loops, B)).toEqual(expected)
+  })
+})
+
+describe('newLoop', () => {
+  it.each([
+    [
+      'clamps to both neighbors only when needed',
+      25000,
+      loops,
+      { kind: 'span', span: s(21000, 29000) },
+    ],
+    ['flush to the loop before', 21000, loops, { kind: 'span', span: s(20000, 25000) }],
+    ['flush to the start bound', 3000, loops, { kind: 'span', span: s(1000, 7000) }],
+    ['inside a loop', 15000, loops, { kind: 'inside', id: 'a' }],
+    [
+      'a gap of exactly 500 ms',
+      20250,
+      [A, placed('c', 20500, 30000)],
+      { kind: 'span', span: s(20000, 20500) },
+    ],
+    ['a gap of 499 ms', 20250, [A, placed('c', 20499, 30000)], { kind: 'noRoom' }],
+    [
+      'the cap, checked before anything else',
+      15000,
+      Array.from({ length: 100 }, (_, i) => placed(`l${i}`, i * 1000, i * 1000 + 500)),
+      { kind: 'atCap' },
+    ],
+  ])('%s', (_name, playhead, list, expected) => {
+    expect(newLoop(playhead, list, B)).toEqual(expected)
+  })
+})
+
+describe('adjacent', () => {
+  it.each([
+    ['next', 25000, null, 'b'],
+    ['previous', 25000, null, 'a'],
+    ['previous', 10000, 'a', null],
+    ['previous', 15000, 'a', null],
+    ['next', 10000, 'a', 'b'],
+  ] as const)('%s from %i, selected %s -> %s', (direction, playhead, selected, id) => {
+    expect(adjacent(direction, playhead, loops, selected)?.id ?? null).toBe(id)
+  })
+})
+
+describe('resizeSpan between neighbors', () => {
+  it.each([
+    [A, 'end', 35000, s(10000, 30000)],
+    [Bl, 'start', 15000, s(20000, 40000)],
+    [A, 'end', 10200, s(10000, 10500)],
+  ] as const)('%j %s to %i -> %j', (loop, edge, to, expected) => {
+    expect(resizeSpan(loop, edge, to, roomAround(loop, loops, B))).toEqual(expected)
   })
 })

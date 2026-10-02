@@ -1,4 +1,3 @@
-import { LOOP_LIMIT } from '../../commands/messages'
 import { formatDuration } from '../recording/format'
 import { clamp } from '../../math'
 
@@ -7,6 +6,7 @@ export const MAX_LOOPS = 100
 export const LOOP_COLOR_COUNT = 6
 export const SNAP_PX = 8
 export const DRAG_THRESHOLD_PX = 8
+export const NEW_LOOP_PAD_MS = 4000
 
 export type Span = { startMs: number; endMs: number }
 
@@ -27,20 +27,17 @@ export function spanFields(span: Span): { start_ms: number; end_ms: number } {
 export type Bounds = Span
 export type PlacedLoop = Span & { id: string; color: number }
 
-/** The span between an anchor and a pointer, widened to the minimum length and held inside the bounds. */
-export function spanFromDrag(anchorMs: number, pointerMs: number, bounds: Bounds): Span {
-  const lo = clamp(Math.min(anchorMs, pointerMs), bounds.startMs, bounds.endMs)
-  const hi = clamp(Math.max(anchorMs, pointerMs), bounds.startMs, bounds.endMs)
-  if (hi - lo >= MIN_LOOP_MS) return { startMs: lo, endMs: hi }
-  const endMs = Math.min(lo + MIN_LOOP_MS, bounds.endMs)
-  return { startMs: endMs - MIN_LOOP_MS, endMs }
+/** A loop row as the lanes place it. */
+export function placedLoop(row: {
+  id: string
+  color: number
+  start_ms: number
+  end_ms: number
+}): PlacedLoop {
+  return { ...rowSpan(row), id: row.id, color: row.color }
 }
-
-/** Slides a span by a delta, keeping its length and stopping at the bounds. */
-export function moveSpan(span: Span, deltaMs: number, bounds: Bounds): Span {
-  const delta = clamp(deltaMs, bounds.startMs - span.startMs, bounds.endMs - span.endMs)
-  return { startMs: span.startMs + delta, endMs: span.endMs + delta }
-}
+/** A loop as a drag has it: `id` null for one being drawn. */
+export type Draft = Span & { id: string | null }
 
 /** Drags one edge to a new time, keeping the minimum length and staying inside the bounds. */
 export function resizeSpan(span: Span, edge: 'start' | 'end', toMs: number, bounds: Bounds): Span {
@@ -73,19 +70,6 @@ export function snapMs(ms: number, targets: readonly number[], msPerPx: number):
 
 const byPosition = (a: PlacedLoop, b: PlacedLoop) =>
   a.startMs - b.startMs || a.endMs - b.endMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
-
-/** Greedy interval partitioning: each loop takes the lowest row that is free by its start. */
-export function stackRows(loops: readonly PlacedLoop[]): Map<string, number> {
-  const rows = new Map<string, number>()
-  const rowEnds: number[] = []
-  for (const loop of [...loops].sort(byPosition)) {
-    let row = rowEnds.findIndex((end) => end <= loop.startMs)
-    if (row === -1) row = rowEnds.length
-    rowEnds[row] = loop.endMs
-    rows.set(loop.id, row)
-  }
-  return rows
-}
 
 /** The color slot least used among nearby loops, then across all loops, then lowest index. */
 export function pickColor(span: Span, loops: readonly PlacedLoop[]): number {
@@ -145,11 +129,54 @@ export function loopName(label: string | null, startMs: number, trimStartMs: num
   return `Loop ${formatDuration(startMs - trimStartMs)}`
 }
 
-export function canCreate(
-  liveCount: number,
-  bounds: Bounds,
-): { allowed: boolean; reason: string | null } {
-  if (liveCount >= MAX_LOOPS) return { allowed: false, reason: LOOP_LIMIT }
-  if (bounds.endMs - bounds.startMs < MIN_LOOP_MS) return { allowed: false, reason: null }
-  return { allowed: true, reason: null }
+export type NewLoop =
+  | { kind: 'span'; span: Span }
+  | { kind: 'inside'; id: string }
+  | { kind: 'noRoom' }
+  | { kind: 'atCap' }
+
+/** The loop holding `ms`; a seam between flush loops belongs to the one that starts there. */
+export function loopAt(ms: number, loops: readonly PlacedLoop[]): PlacedLoop | null {
+  return loops.find((loop) => loop.startMs <= ms && ms < loop.endMs) ?? null
+}
+
+/** The free span around `loop`, up to its neighbors or the bounds. Loops are sorted by start. */
+export function roomAround(loop: Span, loops: readonly PlacedLoop[], bounds: Bounds): Bounds {
+  let startMs = bounds.startMs
+  let endMs = bounds.endMs
+  for (const other of loops) {
+    if (other.endMs <= loop.startMs) startMs = Math.max(startMs, other.endMs)
+    else if (other.startMs >= loop.endMs) endMs = Math.min(endMs, other.startMs)
+  }
+  return { startMs, endMs }
+}
+
+/** The free span around a point outside every loop, or null when the point is inside one. */
+export function freeGap(ms: number, loops: readonly PlacedLoop[], bounds: Bounds): Bounds | null {
+  if (loopAt(ms, loops)) return null
+  return roomAround({ startMs: ms, endMs: ms }, loops, bounds)
+}
+
+/** Where New loop would go: padded around the playhead and held inside the free gap. */
+export function newLoop(playheadMs: number, loops: readonly PlacedLoop[], bounds: Bounds): NewLoop {
+  if (loops.length >= MAX_LOOPS) return { kind: 'atCap' }
+  const inside = loopAt(playheadMs, loops)
+  if (inside) return { kind: 'inside', id: inside.id }
+  const gap = freeGap(playheadMs, loops, bounds)
+  if (!gap) return { kind: 'noRoom' }
+  const startMs = Math.max(gap.startMs, playheadMs - NEW_LOOP_PAD_MS)
+  const endMs = Math.min(gap.endMs, playheadMs + NEW_LOOP_PAD_MS)
+  if (endMs - startMs < MIN_LOOP_MS) return { kind: 'noRoom' }
+  return { kind: 'span', span: { startMs, endMs } }
+}
+
+/** The next loop starting after the playhead, or the previous one starting before it, never the selected loop. */
+export function adjacent(
+  direction: 'previous' | 'next',
+  playheadMs: number,
+  loops: readonly PlacedLoop[],
+  selectedId: string | null,
+): PlacedLoop | null {
+  if (direction === 'next') return loops.find((loop) => loop.startMs > playheadMs) ?? null
+  return loops.findLast((loop) => loop.startMs < playheadMs && loop.id !== selectedId) ?? null
 }

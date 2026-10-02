@@ -3,7 +3,7 @@ import { page, userEvent } from 'vitest/browser'
 import { updateRecording } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
-import { alertButton, modal, presentedModal } from '../../test/dialogs'
+import { alertButton, menuItem, modal, presentedModal } from '../../test/dialogs'
 import { renderScreen } from '../../test/ionic'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
@@ -13,7 +13,10 @@ import { PlaybackEngine, type EngineClock } from '../player/playbackEngine'
 import { usePlayer } from '../player/usePlayer'
 import { RecordingsPage } from '../recordings/RecordingsPage'
 import { TRIM_CHANGED_ELSEWHERE } from './RecordingScreen'
-import { PRACTICE } from '../practice/practiceCopy'
+import { LANES_LABEL, SEGMENT_LABEL } from '../practice/practiceCopy'
+import { MORE_ACTIONS } from '../../ui/Menu'
+import { PITCH } from './PitchPanel'
+import { SPEED } from './SpeedPanel'
 import { END_HANDLE, START_HANDLE } from './TrimStrip'
 import {
   GO_TO_START,
@@ -28,7 +31,6 @@ import {
 } from './TrimView'
 import { ZOOM_IN } from './panel'
 import { EDIT_RECORDING } from './useRecordingScreen'
-import { SEEK_LABEL } from './Waveform'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -82,7 +84,8 @@ async function openScreen(label: string, engine: PlaybackEngine = fakePlaybackEn
 }
 
 async function enterTrim() {
-  await (await modal()).getByRole('button', { name: new RegExp(`^${TRIM}`) }).click()
+  await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
+  await (await menuItem(TRIM)).click()
   await expect.element((await modal()).getByRole('slider', { name: START_HANDLE })).toBeVisible()
 }
 
@@ -95,7 +98,7 @@ async function openTrim(label: string, engine?: PlaybackEngine) {
 
 /** Back on the recording view: its scrubber shows and the trim view's handles are gone. */
 async function expectRecordingView() {
-  await expect.element((await modal()).getByRole('slider', { name: SEEK_LABEL })).toBeVisible()
+  await expect.element((await modal()).getByRole('slider', { name: LANES_LABEL })).toBeVisible()
   expect(page.getByRole('slider', { name: START_HANDLE }).elements()).toHaveLength(0)
 }
 
@@ -220,7 +223,10 @@ describe('TrimView', () => {
     await expect.poll(() => element.playbackRate).toBe(0.75)
     expect(engine.pitchCents).toBe(200)
     await expect
-      .element((await modal()).getByRole('button', { name: `${PRACTICE}, 75% · +2`, exact: true }))
+      .element((await modal()).getByRole('tab', { name: SEGMENT_LABEL(SPEED, '75%') }))
+      .toBeVisible()
+    await expect
+      .element((await modal()).getByRole('tab', { name: SEGMENT_LABEL(PITCH, '+2') }))
       .toBeVisible()
     expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
   })
@@ -235,7 +241,8 @@ describe('TrimView', () => {
     await expect.poll(() => element.playbackRate).toBe(1)
     await userEvent.keyboard('{Escape}')
     await expect.poll(presentedModal).toBeNull()
-    expect(element.playbackRate).toBe(0.75)
+    // The screen unmounts once Ionic has finished dismissing it, which can trail the modal.
+    await expect.poll(() => element.playbackRate).toBe(0.75)
     expect(engine.pitchCents).toBe(200)
   })
 

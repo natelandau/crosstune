@@ -378,19 +378,18 @@ Each follows the pointer and is implemented once.
   `Cancel` and a bold `Save`. Save confirms through the app's own overlay,
   naming what the edit keeps, before it writes.
 
-## Tool strips
+## Mode panels
 
-A screen that edits more than one property of what it plays or shows puts
-each behind one tool strip: a row of buttons that scrolls sideways once it
-holds more than fit.
+A screen whose tools are modes puts a segmented control under its main
+surface.
 
-- A tool opens its own view, such as Trim or Practice, in place of the
-  screen's content.
-- A tool shows its current value beside its label only when that value
-  differs from the tool's default. At the default, the tool shows only its
-  label.
-- A tool that cannot run right now stays in the strip and names the reason
-  in place of its value.
+- Each mode shows only its own controls.
+- A mode shows its current value beside its name only when that value
+  differs from the mode's default. At the default, it shows only its name.
+- A control that cannot run right now stays in place, disabled. Its reason
+  goes to assistive technology, not onto the screen.
+- Actions on the whole screen, such as Rename or Delete, live in its `⋯`
+  menu, not in the panel.
 
 ## Recording and link rows
 

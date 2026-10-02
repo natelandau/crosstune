@@ -20,23 +20,21 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
   const modal = useRef<HTMLIonModalElement>(null)
   const opener = useRef<HTMLElement | null>(null)
   // The id outlives `open` through the closing animation, so the screen does not empty
-  // before it leaves. Each open counts up, so opening again starts the screen afresh in the
-  // view it asked for.
+  // before it leaves. Each open counts up, so opening again starts the screen afresh.
   const [shown, setShown] = useState<{
     id: string
     open: boolean
-    view?: 'practice'
     opening: number
   } | null>(null)
 
   const open = useCallback(
-    (id: string, view?: 'practice') => {
+    (id: string) => {
       const active = document.activeElement
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null
       const item = { kind: 'recording', id } as const
       // Inside the tap, so the player primes the engine's audio while iOS still allows it.
       if (!isPlaying(player, item)) player.play(item)
-      setShown((current) => ({ id, open: true, view, opening: (current?.opening ?? 0) + 1 }))
+      setShown((current) => ({ id, open: true, opening: (current?.opening ?? 0) + 1 }))
     },
     [player],
   )
@@ -93,13 +91,7 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
         onDidDismiss={dismissed}
       >
         {shown ? (
-          <RecordingScreen
-            key={shown.opening}
-            id={shown.id}
-            view={shown.view}
-            modal={modal}
-            onClose={close}
-          />
+          <RecordingScreen key={shown.opening} id={shown.id} modal={modal} onClose={close} />
         ) : null}
       </IonModal>
     </RecordingScreenContext.Provider>

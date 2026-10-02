@@ -15,9 +15,8 @@ export interface HeldSettings {
 export interface RecordingScreen {
   /**
    * Opens the recording screen for `id`, starting it in the player if it is not loaded.
-   * `view` opens straight into that view rather than the recording's own.
    */
-  open: (id: string, view?: 'practice') => void
+  open: (id: string) => void
   close: () => void
   /**
    * What the screen plays for `id` ahead of the row, so a stored value landing late (its own

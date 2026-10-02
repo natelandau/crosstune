@@ -5,7 +5,7 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
 import { InlineError } from '../../ui/InlineError'
-import { PRACTICE } from '../practice/practiceCopy'
+import { TRIM } from '../recording-screen/TrimView'
 import {
   EDIT_RECORDING,
   RecordingScreenContext,
@@ -49,7 +49,7 @@ describe('useRecordingActions', () => {
     await vi.waitFor(() => expect(page.getByRole('alert').elements()).toHaveLength(0))
   })
 
-  it('offers Practice only in the menu, and only when given a way in', async () => {
+  it('offers Trim first, only in the menu, disabled with its reason while blocked', async () => {
     const screen: RecordingScreen = {
       open: vi.fn(),
       close: () => {},
@@ -63,24 +63,31 @@ describe('useRecordingActions', () => {
       tuneId: null,
       tuneTitle: null,
     }
-    const onPractice = vi.fn()
-    function Actions({ practice }: { practice?: () => void }) {
+    const onTrim = vi.fn()
+    function Actions({ blocked }: { blocked?: string }) {
       const { actionsFor, menuFor } = useRecordingActions({
         onRename: () => {},
-        onPractice: practice,
+        onTrim,
+        trimBlocked: blocked,
       })
-      const prefix = practice ? 'Menu' : 'Blocked menu'
+      const prefix = blocked ? 'Blocked menu' : 'Menu'
       return (
         <>
-          {practice
-            ? actionsFor(view).map((action) => (
+          {blocked
+            ? null
+            : actionsFor(view).map((action) => (
                 <button type="button" key={action.label} onClick={action.onPress}>
                   {`Row ${action.label}`}
                 </button>
-              ))
-            : null}
+              ))}
           {menuFor(view).map((action) => (
-            <button type="button" key={action.label} onClick={action.onPress}>
+            <button
+              type="button"
+              key={action.label}
+              disabled={!!action.disabled}
+              title={action.disabled}
+              onClick={action.onPress}
+            >
               {`${prefix} ${action.label}`}
             </button>
           ))}
@@ -89,8 +96,8 @@ describe('useRecordingActions', () => {
     }
     renderIonic(
       <RecordingScreenContext.Provider value={screen}>
-        <Actions practice={onPractice} />
         <Actions />
+        <Actions blocked="Offline" />
       </RecordingScreenContext.Provider>,
       { db: openTestDb() },
     )
@@ -99,11 +106,13 @@ describe('useRecordingActions', () => {
       .getByRole('button')
       .elements()
       .map((element) => element.textContent)
-    expect(labels).not.toContain(`Row ${PRACTICE}`)
-    expect(labels).not.toContain(`Blocked menu ${PRACTICE}`)
-    expect(labels.indexOf(`Menu ${PRACTICE}`)).toBe(labels.indexOf(`Menu ${RENAME}`) + 1)
-    await page.getByRole('button', { name: `Menu ${PRACTICE}` }).click()
-    expect(onPractice).toHaveBeenCalledOnce()
+    expect(labels).not.toContain(`Row ${TRIM}`)
+    expect(labels.indexOf(`Menu ${TRIM}`)).toBe(labels.indexOf(`Menu ${RENAME}`) - 1)
+    const blocked = page.getByRole('button', { name: `Blocked menu ${TRIM}` })
+    await expect.element(blocked).toBeDisabled()
+    await expect.element(blocked).toHaveAttribute('title', 'Offline')
+    await page.getByRole('button', { name: `Menu ${TRIM}` }).click()
+    expect(onTrim).toHaveBeenCalledOnce()
     expect(screen.open).not.toHaveBeenCalled()
   })
 })
