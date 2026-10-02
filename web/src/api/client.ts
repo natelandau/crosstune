@@ -1,74 +1,68 @@
 import createClient, { type Middleware } from 'openapi-fetch'
 import type { paths } from './schema'
-import type {
-  Change,
-  DownloadUrl,
-  MeResponse,
-  PeaksUrl,
-  Problem,
-  PullResponse,
-  PushResponse,
-  ResolveResponse,
-  SignedUrl,
-  SyncApi,
-  UploadSlotRequest,
-} from './types'
+import type { Problem, SyncApi } from './types'
 
+/** A non-2xx API answer. `problem` is null when the body is not a Problem document, such as a gateway's error page; branch on `problemType`, never on the message. */
 export class ApiError extends Error {
+  override readonly name = 'ApiError'
   readonly problemType: string | null
   constructor(
     readonly status: number,
     readonly problem: Problem | null,
   ) {
     super(problem?.detail ?? `API request failed with status ${status}`)
-    this.name = 'ApiError'
     this.problemType = problem?.type ?? null
   }
 }
 
+/** No session token, so the request was never sent. Unlike a 401, the server has not refused anything. */
 export class NoTokenError extends Error {
+  override readonly name = 'NoTokenError'
   constructor() {
     super('No session token available')
-    this.name = 'NoTokenError'
   }
 }
 
 /** The request never reached the server: no connection, DNS failure, or a blocked origin. */
 export class NetworkError extends Error {
+  override readonly name = 'NetworkError'
   constructor(cause: unknown) {
     super('Network request failed', { cause })
-    this.name = 'NetworkError'
   }
 }
 
 /** A presigned object PUT or GET failed. It carries no problem body: the signature, not the API, is its contract. */
 export class TransferError extends Error {
+  override readonly name = 'TransferError'
   constructor(readonly status: number) {
     super(`Object transfer failed with status ${status}`)
-    this.name = 'TransferError'
   }
 }
 
+// The PUT allowance assumes a slow-link floor of 50 bytes/ms, about 400 kbit/s.
 const PUT_BASE_TIMEOUT_MS = 60_000
 const PUT_BYTES_PER_MS = 50
 const GET_TIMEOUT_MS = 120_000
+const API_TIMEOUT_MS = 60_000
 
 /** Waits between attempts after a 502 or 504, about 15 s in all: enough for a sleeping API to wake. */
-export const GATEWAY_RETRY_DELAYS_MS = [500, 1000, 2000, 4000, 8000]
+export const GATEWAY_RETRY_DELAYS_MS: readonly number[] = [500, 1000, 2000, 4000, 8000]
 // 503 is left out on purpose: the API sends it when a feature is not configured, which a retry cannot fix.
-const GATEWAY_STATUSES = new Set([502, 504])
+const GATEWAY_STATUSES: ReadonlySet<number> = new Set([502, 504])
 
 export interface ApiClientOptions {
   baseUrl: string
   getToken: () => Promise<string | null>
   clientVersion: string
-  fetch?: typeof fetch
+  fetch?: (request: Request) => Promise<Response>
   /** Override the PUT timeout formula (bytes in, ms out). Tests only. */
   putTimeoutMs?: (bytes: number) => number
   /** Override the fixed GET timeout in ms. Tests only. */
   getTimeoutMs?: number
+  /** Override the per-attempt API timeout in ms. Tests only. */
+  apiTimeoutMs?: number
   /** Override the waits between gateway retries in ms. Tests only. */
-  gatewayRetryDelaysMs?: number[]
+  gatewayRetryDelaysMs?: readonly number[]
 }
 
 export function createApiClient(options: ApiClientOptions): SyncApi {
@@ -77,6 +71,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     options.putTimeoutMs ??
     ((bytes: number) => Math.ceil(PUT_BASE_TIMEOUT_MS + bytes / PUT_BYTES_PER_MS))
   const getTimeoutMs = options.getTimeoutMs ?? GET_TIMEOUT_MS
+  const apiTimeoutMs = options.apiTimeoutMs ?? API_TIMEOUT_MS
   const gatewayRetryDelaysMs = options.gatewayRetryDelaysMs ?? GATEWAY_RETRY_DELAYS_MS
   const auth: Middleware = {
     async onRequest({ request }) {
@@ -88,28 +83,18 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     },
   }
 
-  // fetch signals an unreachable server with a bare TypeError, which is also what any
-  // programming error throws; give the network case its own type so callers can tell.
-  // A signal timeout rejects with a DOMException instead, so it needs the same treatment.
-  async function withNetworkErrors<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn()
-    } catch (error) {
-      const isTimeout =
-        error instanceof DOMException &&
-        (error.name === 'TimeoutError' || error.name === 'AbortError')
-      throw error instanceof TypeError || isTimeout ? new NetworkError(error) : error
-    }
-  }
-
-  // fetch consumes a request's body, so each attempt sends a clone to resend the body intact.
+  // fetch consumes a request's body, so each attempt but the last sends a clone to keep the
+  // body intact for a resend. The timeout signal also bounds the body read that follows.
   async function withGatewayRetries(input: Request): Promise<Response> {
+    const attempt = (request: Request) =>
+      baseFetch(new Request(request, { signal: AbortSignal.timeout(apiTimeoutMs) }))
     for (const delayMs of gatewayRetryDelaysMs) {
-      const response = await baseFetch(input.clone())
+      const response = await attempt(input.clone())
       if (!GATEWAY_STATUSES.has(response.status)) return response
+      discardBody(response)
       await new Promise((resolve) => setTimeout(resolve, delayMs))
     }
-    return baseFetch(input)
+    return attempt(input)
   }
 
   const client = createClient<paths>({
@@ -118,83 +103,64 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     // baseUrl against the page location on its own, but the fetch client needs
     // an absolute URL, so mirror that resolution.
     baseUrl: options.baseUrl || globalThis.location?.origin || '',
-    fetch: (input) => withNetworkErrors(() => withGatewayRetries(input)),
+    fetch: withGatewayRetries,
   })
   client.use(auth)
-
-  function unwrap<T>(result: { data?: T; error?: unknown; response: Response }): T {
-    if (result.data !== undefined) return result.data
-    const problem = isProblem(result.error) ? result.error : null
-    throw new ApiError(result.response.status, problem)
-  }
-
-  function unwrapEmpty(result: { error?: unknown; response: Response }): void {
-    if (result.response.ok) return
-    const problem = isProblem(result.error) ? result.error : null
-    throw new ApiError(result.response.status, problem)
-  }
 
   // Presigned URLs carry their own credential in the signature, so these bypass
   // openapi-fetch entirely and never receive the bearer token.
   async function transfer(request: Request): Promise<Response> {
     const response = await withNetworkErrors(() => baseFetch(request))
-    if (!response.ok) throw new TransferError(response.status)
-    return response
+    if (response.ok) return response
+    discardBody(response)
+    throw new TransferError(response.status)
   }
 
+  const byRecording = (recordingId: string) => ({
+    params: { path: { recording_id: recordingId } },
+  })
+
   return {
-    async push(changes: Change[]): Promise<PushResponse> {
-      return unwrap(await client.POST('/v1/sync/push', { body: { changes } }))
+    async push(changes) {
+      return unwrap(client.POST('/v1/sync/push', { body: { changes } }))
     },
-    async pull(since: number): Promise<PullResponse> {
-      return unwrap(await client.GET('/v1/sync/pull', { params: { query: { since } } }))
+    async pull(since) {
+      return unwrap(client.GET('/v1/sync/pull', { params: { query: { since } } }))
     },
-    async resolveLink(url: string): Promise<ResolveResponse> {
-      return unwrap(await client.POST('/v1/links/resolve', { body: { url } }))
+    async resolveLink(url) {
+      return unwrap(client.POST('/v1/links/resolve', { body: { url } }))
     },
-    async me(): Promise<MeResponse> {
-      return unwrap(await client.GET('/v1/me'))
+    async me() {
+      return unwrap(client.GET('/v1/me'))
     },
-    async deleteAccount(): Promise<void> {
-      unwrapEmpty(await client.DELETE('/v1/me'))
+    async deleteAccount() {
+      return unwrapEmpty(client.DELETE('/v1/me'))
     },
-    async requestUploadSlot(recordingId, body: UploadSlotRequest): Promise<SignedUrl> {
+    async requestUploadSlot(recordingId, body) {
       return unwrap(
-        await client.POST('/v1/recordings/{recording_id}/upload-slot', {
-          params: { path: { recording_id: recordingId } },
+        client.POST('/v1/recordings/{recording_id}/upload-slot', {
+          ...byRecording(recordingId),
           body,
         }),
       )
     },
-    async uploadFinished(recordingId): Promise<void> {
-      unwrapEmpty(
-        await client.POST('/v1/recordings/{recording_id}/uploaded', {
-          params: { path: { recording_id: recordingId } },
-        }),
+    async uploadFinished(recordingId) {
+      return unwrapEmpty(
+        client.POST('/v1/recordings/{recording_id}/uploaded', byRecording(recordingId)),
       )
     },
-    async retryRecording(recordingId): Promise<void> {
-      unwrapEmpty(
-        await client.POST('/v1/recordings/{recording_id}/retry', {
-          params: { path: { recording_id: recordingId } },
-        }),
+    async retryRecording(recordingId) {
+      return unwrapEmpty(
+        client.POST('/v1/recordings/{recording_id}/retry', byRecording(recordingId)),
       )
     },
-    async downloadUrl(recordingId): Promise<DownloadUrl> {
-      return unwrap(
-        await client.GET('/v1/recordings/{recording_id}/download', {
-          params: { path: { recording_id: recordingId } },
-        }),
-      )
+    async downloadUrl(recordingId) {
+      return unwrap(client.GET('/v1/recordings/{recording_id}/download', byRecording(recordingId)))
     },
-    async peaksUrl(recordingId): Promise<PeaksUrl> {
-      return unwrap(
-        await client.GET('/v1/recordings/{recording_id}/peaks', {
-          params: { path: { recording_id: recordingId } },
-        }),
-      )
+    async peaksUrl(recordingId) {
+      return unwrap(client.GET('/v1/recordings/{recording_id}/peaks', byRecording(recordingId)))
     },
-    async putObject(url, blob, contentType): Promise<void> {
+    async putObject(url, blob, contentType) {
       // A blob read back from IndexedDB is file-backed on iOS, and an iOS home-screen web
       // app cannot hand that file to the network layer ("Load failed"), so send the bytes
       // from memory. The read stays outside the network wrapper to keep its own error.
@@ -209,15 +175,52 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
         }),
       )
     },
-    async getObject(url): Promise<Blob> {
-      return withNetworkErrors(
-        async () =>
-          await (
-            await transfer(new Request(url, { signal: AbortSignal.timeout(getTimeoutMs) }))
-          ).blob(),
+    async getObject(url) {
+      const response = await transfer(
+        new Request(url, { signal: AbortSignal.timeout(getTimeoutMs) }),
       )
+      // Reading the body can still time out or drop, so it needs its own wrapper.
+      return withNetworkErrors(() => response.blob())
     },
   }
+}
+
+type ApiResult = { error?: unknown; response: Response }
+
+// openapi-fetch reads the response body after fetch resolves, so the network wrapper has to
+// cover the whole call for a dropped body read to surface as a NetworkError.
+async function unwrap<T>(pending: Promise<ApiResult & { data?: T }>): Promise<T> {
+  const result = await withNetworkErrors(() => pending)
+  if (result.data !== undefined) return result.data
+  throw apiError(result)
+}
+
+async function unwrapEmpty(pending: Promise<ApiResult>): Promise<void> {
+  const result = await withNetworkErrors(() => pending)
+  if (!result.response.ok) throw apiError(result)
+}
+
+function apiError(result: ApiResult): ApiError {
+  return new ApiError(result.response.status, isProblem(result.error) ? result.error : null)
+}
+
+// fetch signals an unreachable server with a bare TypeError, which is also what any
+// programming error throws; give the network case its own type so callers can tell.
+// A signal timeout rejects with a DOMException instead, so it needs the same treatment.
+async function withNetworkErrors<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    const isTimeout =
+      error instanceof DOMException &&
+      (error.name === 'TimeoutError' || error.name === 'AbortError')
+    throw error instanceof TypeError || isTimeout ? new NetworkError(error) : error
+  }
+}
+
+// An unread body holds its connection until garbage collection.
+function discardBody(response: Response): void {
+  void response.body?.cancel().catch(() => {})
 }
 
 function isProblem(value: unknown): value is Problem {
