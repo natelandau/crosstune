@@ -7,6 +7,7 @@ import time
 
 import pytest
 
+from crosstune.jobs import peaks as peaks_module
 from crosstune.jobs.peaks import (
     PEAKS_PER_SECOND,
     PEAKS_VERSION,
@@ -38,6 +39,21 @@ async def test_build_peaks_is_near_silent_for_a_silent_file(media_fixtures) -> N
 async def test_build_peaks_hour_long(long_m4a) -> None:
     values = decode_peaks(await build_peaks(long_m4a))
     assert 179_999 <= len(values) <= 180_001 + AAC_PADDING_WINDOWS
+
+
+@pytest.mark.parametrize("chunk_bytes", [1, 7, 320, 333, 65_536])
+async def test_build_peaks_matches_a_whole_buffer_reduction_for_any_chunking(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, chunk_bytes: int
+) -> None:
+    # Odd length, so the stray trailing byte and the partial last window both occur.
+    raw = array.array("h", [(i * 37) % 65_536 - 32_768 for i in range(1_000)]).tobytes() + b"\x01"
+
+    async def fake_stream(*_argv: str, on_stdout) -> None:
+        for start in range(0, len(raw), chunk_bytes):
+            on_stdout(raw[start : start + chunk_bytes])
+
+    monkeypatch.setattr(peaks_module, "stream_media_tool", fake_stream)
+    assert decode_peaks(await build_peaks(tmp_path / "any")) == reduce_pcm(raw)
 
 
 def test_reduce_pcm_keeps_up_with_an_hour() -> None:

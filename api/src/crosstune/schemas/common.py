@@ -18,17 +18,8 @@ from crosstune.schemas.rows import (
     UserSettingsRow,
     UserTuneRow,
 )
+from crosstune.vocabulary import TableName
 
-TableName = Literal[
-    "tunes",
-    "user_tunes",
-    "lists",
-    "list_items",
-    "recording_links",
-    "recordings",
-    "recording_loops",
-    "user_settings",
-]
 Op = Literal["upsert", "delete"]
 Status = Literal["applied", "stale", "invalid"]
 

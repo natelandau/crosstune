@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING
 
 from crosstune.db.locks import lock_user
@@ -11,16 +12,16 @@ from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
 from crosstune.models.user import utc_now
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import bump_server_seq
-from crosstune.recordings.trim import clamp_trim
+from crosstune.recordings.service import attach_peaks, attach_playback, bump_server_seq
+from crosstune.recordings.trim import clamp_stored_trim, clamp_trim
 from crosstune.storage.store import (
     PEAKS_MIME,
     PLAYBACK_MIME,
-    new_rev,
     original_key,
     peaks_key,
     playback_key,
     upload_key,
+    upload_revision,
 )
 
 if TYPE_CHECKING:
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from crosstune.jobs.media import Probe
     from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore
 
@@ -48,7 +50,7 @@ async def _write_playback(
     target: Path,
     work_dir: Path,
     *,
-    must_encode: bool,
+    info: Probe,
     trim: _Trim,
 ) -> None:
     """Produce the playback file at `target` and back up the source, by whichever path it needs.
@@ -58,7 +60,8 @@ async def _write_playback(
     remuxes the upload to a full file first and keeps that instead of the raw upload.
     """
     source_key = upload_key(recording.user_id, recording.id)
-    if must_encode:
+    channels = info.channels
+    if needs_encode(info):
         uploaded = await store.head(source_key)
         content_type = uploaded.content_type if uploaded else "application/octet-stream"
         kept = original_key(recording.user_id, recording.id, content_type)
@@ -66,16 +69,16 @@ async def _write_playback(
         recording.original_key = kept
         recording.original_bytes = await asyncio.to_thread(lambda: source.stat().st_size)
         if trim.needs_cut:
-            await cut(source, target, trim.start_ms, trim.end_ms)
+            await cut(source, target, trim.start_ms, trim.end_ms, channels=channels)
         else:
-            await encode(source, target)
+            await encode(source, target, channels=channels)
     elif trim.needs_cut:
         full = work_dir / "full.m4a"
         await remux(source, full)
         kept = original_key(recording.user_id, recording.id, PLAYBACK_MIME)
         recording.original_bytes = await store.upload(full, kept, PLAYBACK_MIME)
         recording.original_key = kept
-        await cut(full, target, trim.start_ms, trim.end_ms)
+        await cut(full, target, trim.start_ms, trim.end_ms, channels=channels)
     else:
         await remux(source, target)
         # A prior attempt's backup, if any, still holds the whole source and is
@@ -91,11 +94,12 @@ async def _write_peaks(
     """Build the waveform peaks for `target` and set the recording's peaks columns."""
     peaks_path = work_dir / "peaks.bin"
     peaks_path.write_bytes(await build_peaks(target))
-    rev = new_rev()
-    key = peaks_key(recording.user_id, recording.id, rev)
-    recording.peaks_bytes = await store.upload(peaks_path, key, PEAKS_MIME)
-    recording.peaks_key = key
-    recording.peaks_rev = rev
+    attach_peaks(
+        recording,
+        await upload_revision(
+            store, peaks_path, PEAKS_MIME, partial(peaks_key, recording.user_id, recording.id)
+        ),
+    )
 
 
 async def _reclamp_trim(session: AsyncSession, recording: Recording) -> None:
@@ -110,12 +114,7 @@ async def _reclamp_trim(session: AsyncSession, recording: Recording) -> None:
     caller's `ensure_trim_job`.
     """
     await session.refresh(recording, attribute_names=["trim_start_ms", "trim_end_ms"])
-    start_ms, end_ms = clamp_trim(
-        recording.trim_start_ms, recording.trim_end_ms, low=0, high=recording.source_duration_ms
-    )
-    if (start_ms, end_ms) != (recording.trim_start_ms, recording.trim_end_ms):
-        recording.trim_start_ms = start_ms
-        recording.trim_end_ms = end_ms
+    clamp_stored_trim(recording, high=recording.source_duration_ms)
 
 
 async def transcode(
@@ -158,19 +157,26 @@ async def transcode(
     )
 
     await _write_playback(
-        store, recording, source, target, work_dir, must_encode=needs_encode(info), trim=trim
+        store,
+        recording,
+        source,
+        target,
+        work_dir,
+        info=info,
+        trim=trim,
     )
 
     result = await probe(target)
-    rev = new_rev()
-    key = playback_key(recording.user_id, recording.id, rev)
-    recording.playback_bytes = await store.upload(target, key, PLAYBACK_MIME)
-    recording.playback_key = key
-    recording.playback_rev = rev
-    recording.playback_mime = PLAYBACK_MIME
-    recording.duration_ms = result.duration_ms
-    recording.playback_start_ms = trim.start_ms
-    recording.playback_end_ms = trim.end_ms
+    playback = await upload_revision(
+        store, target, PLAYBACK_MIME, partial(playback_key, recording.user_id, recording.id)
+    )
+    attach_playback(
+        recording,
+        playback,
+        duration_ms=result.duration_ms,
+        start_ms=trim.start_ms,
+        end_ms=trim.end_ms,
+    )
 
     await _write_peaks(store, recording, target, work_dir)
 

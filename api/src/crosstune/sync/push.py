@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 from sqlalchemy import func, select, update
@@ -14,6 +14,7 @@ from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import request_runner_wake
 from crosstune.links.detect import detect_provider, normalize_url
+from crosstune.links.resolve import unresolved_link
 from crosstune.models import (
     List,
     ListItem,
@@ -25,54 +26,36 @@ from crosstune.models import (
 from crosstune.recordings.loops import clamp_loop, clamp_span, loop_bounds, reclamp_recording_loops
 from crosstune.recordings.service import ensure_trim_job
 from crosstune.recordings.trim import clamp_trim
-from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
+from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
-from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING
+from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING, TableName
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Mapping
     from datetime import datetime
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
-
-class Resolved(Protocol):
-    """What a link enricher returns. Any object exposing these read-only attributes satisfies it."""
-
-    @property
-    def url(self) -> str:
-        """The canonical URL for the link."""
-        ...
-
-    @property
-    def provider(self) -> str:
-        """The provider the URL points at."""
-        ...
-
-    @property
-    def provider_ref(self) -> str | None:
-        """The provider's own id for the recording, or None when there is none."""
-        ...
-
-    @property
-    def title(self) -> str | None:
-        """The resolved title, or None if resolution found none."""
-        ...
-
-    @property
-    def artwork_url(self) -> str | None:
-        """The resolved artwork URL, or None if resolution found none."""
-        ...
+    from crosstune.links.resolve import ResolvedLink
 
 
 async def apply_push(
     session: AsyncSession,
     user_id: uuid.UUID,
     changes: list[Change],
-    enrich_link: Callable[[str], Awaitable[Resolved]] | None = None,
+    resolved_links: Mapping[str, ResolvedLink] | None = None,
 ) -> list[ChangeResult]:
-    """Apply changes grouped by table in dependency order. Returns results in the input order."""
+    """Apply changes grouped by table in dependency order. Returns results in the input order.
+
+    Args:
+        session: The request's session; the caller commits.
+        user_id: The pushing user.
+        changes: The batch, in client order.
+        resolved_links: What each untitled link URL resolved to before the transaction, or
+            None to store untitled links as pushed. A URL missing from it is stored in its
+            offline form.
+    """
     # Serializes this user's concurrent pushes so server_seq is assigned in commit order,
     # matching the order a pull cursor relies on. Released automatically when the request's
     # transaction ends.
@@ -87,7 +70,7 @@ async def apply_push(
         spec = TABLES[table]
         for index, change in grouped.get(table, []):
             if change.op == "upsert":
-                results[index] = await _upsert(session, spec, user_id, change, enrich_link)
+                results[index] = await _upsert(session, spec, user_id, change, resolved_links)
             else:
                 results[index] = await _delete(session, spec, user_id, change)
     return [results[i] for i in range(len(changes))]
@@ -98,6 +81,18 @@ def _invalid(change: Change, reason: str) -> ChangeResult:
     return result(table=change.table, id=change.id, status="invalid", reason=reason)
 
 
+def _result(spec: TableSpec, change: Change, status: str, current: Any) -> ChangeResult:
+    # The result and row types vary by table at runtime, so their fields aren't statically known.
+    row_schema: Any = spec.row_schema
+    result: Any = CHANGE_RESULTS[change.table]
+    return result(
+        table=change.table,
+        id=change.id,
+        status=status,
+        row=row_schema.model_validate(row_to_dict(current)),
+    )
+
+
 async def _fetch_owned(
     session: AsyncSession, spec: TableSpec, row_id: uuid.UUID, user_id: uuid.UUID
 ) -> Any | None:
@@ -106,7 +101,7 @@ async def _fetch_owned(
     row: Any = await session.get(spec.model, row_id)
     if row is None:
         return None
-    if spec.owner_column:
+    if spec.owner_column is not None:
         return row if getattr(row, spec.owner_column) == user_id else None
     # list_items: owned when its list is owned.
     parent: Any = await session.get(TABLES["lists"].model, row.list_id)
@@ -121,29 +116,29 @@ async def _parents_owned(
     A loop's deleted recording still counts as owned: the loop is stored deleted instead,
     so a device that made it before learning of the delete gets a tombstone back.
     """
+    deleted_ok = spec.name == "recording_loops"
     for column, parent_table in spec.parents:
         if data.get(column) is None:
             # An unfiled recording has no tune yet; nothing to own.
             continue
         parent = await _fetch_owned(session, TABLES[parent_table], data[column], user_id)
-        deleted_ok = spec.name == "recording_loops"
         if parent is None or (parent.deleted_at is not None and not deleted_ok):
             return f"{column} does not reference one of your {parent_table}"
     return None
 
 
-async def _enrich_recording_link(
-    data: dict[str, Any], enrich_link: Callable[[str], Awaitable[Resolved]] | None
+def _enrich_recording_link(
+    data: dict[str, Any], resolved_links: Mapping[str, ResolvedLink] | None
 ) -> None:
     """Bring a pushed link to the shape the online paste path stores, in place.
 
     Args:
         data: The validated link fields; url, provider, provider_ref, title, and
             artwork_url may be rewritten.
-        enrich_link: The resolver for an untitled link, or None when nothing was fetched.
+        resolved_links: What untitled URLs resolved to, or None when nothing was fetched.
     """
-    if enrich_link is not None and data.get("title") is None:
-        resolved = await enrich_link(data["url"])
+    if resolved_links is not None and data.get("title") is None:
+        resolved = resolved_links.get(data["url"]) or unresolved_link(data["url"])
         # Store what the online paste path would have stored: the canonical url and the
         # provider the resolver identified, not the raw string the client happened to hold.
         data["url"] = resolved.url
@@ -225,16 +220,20 @@ async def _loop_cap_reached(
 
 async def _prepare_loop(
     session: AsyncSession, user_id: uuid.UUID, change: Change, data: dict[str, Any]
-) -> tuple[ChangeResult | None, datetime | None]:
-    """Clamp a pushed loop and enforce the cap, returning a rejection or its `deleted_at`."""
+) -> ChangeResult | None:
+    """Clamp a pushed loop and enforce the cap in place, returning a rejection if any.
+
+    A loop that no longer fits gets `deleted_at` set in `data`, so it is stored deleted.
+    """
     fits = await _clamp_loop(session, data)
-    if (
-        fits
-        and not await _write_keeps_live_count(session, user_id, change, data["recording_id"])
-        and await _loop_cap_reached(session, user_id, change.id, data["recording_id"])
-    ):
-        return _invalid(change, "loop limit reached"), None
-    return None, None if fits else change.updated_at
+    if not fits:
+        data["deleted_at"] = change.updated_at
+        return None
+    if not await _write_keeps_live_count(
+        session, user_id, change, data["recording_id"]
+    ) and await _loop_cap_reached(session, user_id, change.id, data["recording_id"]):
+        return _invalid(change, "loop limit reached")
+    return None
 
 
 async def _write_keeps_live_count(
@@ -265,16 +264,16 @@ async def _prepare(
     user_id: uuid.UUID,
     change: Change,
     data: dict[str, Any],
-    enrich_link: Callable[[str], Awaitable[Resolved]] | None,
-) -> tuple[ChangeResult | None, datetime | None]:
-    """Apply a table's pre-write rules to `data`, returning a rejection or the row's `deleted_at`."""
+    resolved_links: Mapping[str, ResolvedLink] | None,
+) -> ChangeResult | None:
+    """Apply a table's pre-write rules to `data` in place, returning a rejection if any."""
     if spec.name == "recording_links":
-        await _enrich_recording_link(data, enrich_link)
+        _enrich_recording_link(data, resolved_links)
     elif spec.name == "recordings":
         await _clamp_recording_trim(session, change.id, data)
     elif spec.name == "recording_loops":
         return await _prepare_loop(session, user_id, change, data)
-    return None, None
+    return None
 
 
 def _validated(data_schema: Any, change: Change) -> tuple[dict[str, Any], ChangeResult | None]:
@@ -290,7 +289,7 @@ async def _upsert(
     spec: TableSpec,
     user_id: uuid.UUID,
     change: Change,
-    enrich_link: Callable[[str], Awaitable[Resolved]] | None,
+    resolved_links: Mapping[str, ResolvedLink] | None,
 ) -> ChangeResult:
     data_schema: Any = spec.data_schema
     data, rejection = _validated(data_schema, change)
@@ -301,27 +300,24 @@ async def _upsert(
     if reason:
         return _invalid(change, reason)
 
-    rejection, deleted_at = await _prepare(session, spec, user_id, change, data, enrich_link)
+    rejection = await _prepare(session, spec, user_id, change, data, resolved_links)
     if rejection:
         return rejection
 
-    values = {**data, "id": change.id, "updated_at": change.updated_at, "deleted_at": deleted_at}
-    if spec.owner_column:
+    values = {"deleted_at": None, **data, "id": change.id, "updated_at": change.updated_at}
+    if spec.owner_column is not None:
         values[spec.owner_column] = user_id
 
     model: Any = spec.model
     stmt = insert(model).values(**values, server_seq=next_server_seq())
     excluded = stmt.excluded
     set_ = {k: getattr(excluded, k) for k in values if k not in ("id", "created_at")}
-    set_["server_seq"] = next_server_seq()
-    # Strictly newer wins. Equal timestamps fall through to the no-op branch below.
-    condition = model.updated_at < excluded.updated_at
-    if spec.owner_column:
-        condition = condition & (getattr(model, spec.owner_column) == user_id)
-    else:
-        # list_items has no owner column; require the *stored* row's list to be the
-        # caller's, since _parents_owned only checked the incoming list_id/user_tune_id.
-        condition = condition & model.list_id.in_(select(List.id).where(List.user_id == user_id))
+    # The value the insert already drew, so an update spends one sequence value, not two.
+    set_["server_seq"] = excluded.server_seq
+    # Strictly newer wins, and only over a stored row the caller owns: for list_items that
+    # is the stored row's list, since _parents_owned only checked the incoming parents.
+    # Equal timestamps fall through to the no-op branch below.
+    condition = (model.updated_at < excluded.updated_at) & spec.owned_by(user_id)
     stmt = stmt.on_conflict_do_update(
         index_elements=[model.id], set_=set_, where=condition
     ).returning(model)
@@ -343,14 +339,7 @@ async def _upsert(
     if spec.name == "recordings" and status == "applied":
         await _after_recording_write(session, current, change.updated_at)
 
-    row_schema: Any = spec.row_schema
-    result: Any = CHANGE_RESULTS[change.table]
-    return result(
-        table=change.table,
-        id=change.id,
-        status=status,
-        row=row_schema.model_validate(row_to_dict(current)),
-    )
+    return _result(spec, change, status, current)
 
 
 async def _current_and_status(
@@ -378,43 +367,32 @@ async def _delete(
     current = await _fetch_owned(session, spec, change.id, user_id)
     if current is None:
         return _invalid(change, "not found")
-    row_schema: Any = spec.row_schema
-    result: Any = CHANGE_RESULTS[change.table]
     if current.deleted_at is not None:
-        return result(
-            table=change.table,
-            id=change.id,
-            status="applied",
-            row=row_schema.model_validate(row_to_dict(current)),
-        )
+        return _result(spec, change, "applied", current)
     if current.updated_at > change.updated_at:
-        return result(
-            table=change.table,
-            id=change.id,
-            status="stale",
-            row=row_schema.model_validate(row_to_dict(current)),
-        )
+        return _result(spec, change, "stale", current)
 
     model: Any = spec.model
-    await session.execute(
-        update(model)
-        .where(model.id == change.id)
-        .values(
-            deleted_at=change.updated_at, updated_at=change.updated_at, server_seq=next_server_seq()
+    # populate_existing, so the copy of the row already in the session takes the write.
+    current = (
+        await session.execute(
+            update(model)
+            .where(model.id == change.id)
+            .values(
+                deleted_at=change.updated_at,
+                updated_at=change.updated_at,
+                server_seq=next_server_seq(),
+            )
+            .returning(model),
+            execution_options={"populate_existing": True},
         )
-    )
+    ).scalar_one()
     await _cascade(session, spec.name, change.id, change.updated_at, user_id)
     if spec.name in ("recordings", "tunes"):
         # A deleted recording, or one a tune delete cascades to, has files only the
         # runner's purge removes, and a purge has no due time to wake it.
         request_runner_wake(session)
-    await session.refresh(current)
-    return result(
-        table=change.table,
-        id=change.id,
-        status="applied",
-        row=row_schema.model_validate(row_to_dict(current)),
-    )
+    return _result(spec, change, "applied", current)
 
 
 async def _cascade(

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 
 import pytest
 
@@ -15,6 +17,7 @@ from crosstune.jobs.media import (
     probe,
     remux,
     run_media_tool,
+    stream_media_tool,
 )
 
 pytestmark = pytest.mark.anyio
@@ -137,6 +140,38 @@ async def test_run_times_out_and_reaps_the_process(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("crosstune.jobs.media.SUBPROCESS_TIMEOUT_SECONDS", 0.2)
     with pytest.raises(MediaError, match="timed out"):
         await run_media_tool("sleep", "5")
+
+
+async def test_run_kills_and_reaps_the_process_when_cancelled(tmp_path) -> None:
+    pid_file = tmp_path / "pid"
+    task = asyncio.create_task(run_media_tool("sh", "-c", f"echo $$ > {pid_file}; exec sleep 5"))
+    for _ in range(500):
+        if pid_file.exists() and pid_file.read_text().strip():
+            break
+        await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    # A reaped child's pid no longer exists; one left running or unreaped still does.
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
+
+
+async def test_stream_hands_over_all_of_stdout() -> None:
+    chunks: list[bytes] = []
+    await stream_media_tool("head", "-c", "200000", "/dev/zero", on_stdout=chunks.append)
+    assert b"".join(chunks) == bytes(200_000)
+
+
+async def test_stream_raises_with_stderr_on_failure() -> None:
+    with pytest.raises(MediaError, match="No such file"):
+        await stream_media_tool("ls", "/no/such/path", on_stdout=lambda _chunk: None)
+
+
+async def test_stream_times_out_and_reaps_the_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("crosstune.jobs.media.SUBPROCESS_TIMEOUT_SECONDS", 0.2)
+    with pytest.raises(MediaError, match="timed out"):
+        await stream_media_tool("sleep", "5", on_stdout=lambda _chunk: None)
 
 
 async def test_probe_rejects_output_that_is_not_json(

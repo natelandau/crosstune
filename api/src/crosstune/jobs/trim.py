@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING
 
 from crosstune.db.locks import lock_user
@@ -11,16 +12,16 @@ from crosstune.jobs.media import cut, probe
 from crosstune.jobs.peaks import build_peaks, slice_peaks
 from crosstune.models.user import utc_now
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import bump_server_seq
+from crosstune.recordings.service import attach_peaks, attach_playback, bump_server_seq
 from crosstune.recordings.trim import clamp_trim, effective_end
 from crosstune.storage.store import (
     PEAKS_MIME,
     PLAYBACK_MIME,
     delete_best_effort,
-    new_rev,
     original_key,
     peaks_key,
     playback_key,
+    upload_revision,
 )
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from crosstune.models import Recording
-    from crosstune.storage.store import ObjectStore
+    from crosstune.storage.store import ObjectStore, Revision
 
 log = logging.getLogger(__name__)
 
@@ -42,13 +43,9 @@ class TrimError(Exception):
 class _Cut:
     """The playback and peaks files one trim attempt uploaded, not yet on the row."""
 
-    playback_key: str
-    playback_rev: str
-    playback_bytes: int
+    playback: Revision
     duration_ms: int
-    peaks_key: str
-    peaks_rev: str
-    peaks_bytes: int
+    peaks: Revision
 
 
 @dataclass(frozen=True)
@@ -160,38 +157,23 @@ async def _cut_and_upload(
     else:
         peaks_path.write_bytes(await build_peaks(target))
 
-    playback_rev = new_rev()
-    new_playback_key = playback_key(recording.user_id, recording.id, playback_rev)
-    uploaded.append(new_playback_key)
-    playback_bytes = await store.upload(target, new_playback_key, PLAYBACK_MIME)
-    peaks_rev = new_rev()
-    new_peaks_key = peaks_key(recording.user_id, recording.id, peaks_rev)
-    uploaded.append(new_peaks_key)
-    peaks_bytes = await store.upload(peaks_path, new_peaks_key, PEAKS_MIME)
-    return _Cut(
-        playback_key=new_playback_key,
-        playback_rev=playback_rev,
-        playback_bytes=playback_bytes,
-        duration_ms=duration_ms,
-        peaks_key=new_peaks_key,
-        peaks_rev=peaks_rev,
-        peaks_bytes=peaks_bytes,
+    ids = (recording.user_id, recording.id)
+    playback = await upload_revision(
+        store, target, PLAYBACK_MIME, partial(playback_key, *ids), uploaded=uploaded
     )
+    peaks = await upload_revision(
+        store, peaks_path, PEAKS_MIME, partial(peaks_key, *ids), uploaded=uploaded
+    )
+    return _Cut(playback=playback, duration_ms=duration_ms, peaks=peaks)
 
 
 def _apply(recording: Recording, result: _Cut, start_ms: int, end_ms: int) -> list[str]:
     """Point the row at the new files and return the keys they supersede."""
     superseded = [key for key in (recording.playback_key, recording.peaks_key) if key is not None]
-    recording.playback_key = result.playback_key
-    recording.playback_rev = result.playback_rev
-    recording.playback_bytes = result.playback_bytes
-    recording.playback_mime = PLAYBACK_MIME
-    recording.duration_ms = result.duration_ms
-    recording.playback_start_ms = start_ms
-    recording.playback_end_ms = end_ms
-    recording.peaks_key = result.peaks_key
-    recording.peaks_rev = result.peaks_rev
-    recording.peaks_bytes = result.peaks_bytes
+    attach_playback(
+        recording, result.playback, duration_ms=result.duration_ms, start_ms=start_ms, end_ms=end_ms
+    )
+    attach_peaks(recording, result.peaks)
     return superseded
 
 
@@ -300,9 +282,9 @@ async def trim(
                 superseded = _apply(recording, result, start_ms, end_ms)
         bump_server_seq(recording)
         await session.flush()
-    except Exception:
+    except BaseException:
         # The caller rolls the row back, but these objects are already in the
-        # bucket and nothing will ever reference them.
+        # bucket and nothing will ever reference them. A cancelled job cleans up too.
         await delete_best_effort(
             store, uploaded, log=log, message="could not delete an orphaned trim cut"
         )

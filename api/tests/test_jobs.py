@@ -957,6 +957,114 @@ async def test_sweep_keeps_recordings_with_a_row_in_any_state(runner, verify_ses
     assert await job_runner.sweep_orphans() == 0
 
 
+async def test_sweep_removes_old_revisions_a_live_row_does_not_name(runner, verify_session) -> None:
+    """Files an attempt uploaded but never committed go once no attempt could still name them."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    rec = await add_recording(verify_session, user, "ready")
+    rec.playback_key = playback_key(user.id, rec.id, "live")
+    rec.peaks_key = peaks_key(user.id, rec.id, "live")
+    await verify_session.commit()
+    named = [rec.playback_key, rec.peaks_key]
+    strays = [playback_key(user.id, rec.id, "gone"), peaks_key(user.id, rec.id, "gone")]
+    rewritten_in_place = [upload_key(user.id, rec.id), original_key(user.id, rec.id, "audio/mp4")]
+    for key in [*named, *strays, *rewritten_in_place]:
+        store.put_bytes(key, b"a", "audio/mp4")
+        store.age(key, runner_module.STRAY_REVISION_AGE + timedelta(minutes=1))
+    # Young enough that an attempt still running could yet commit it.
+    in_flight = playback_key(user.id, rec.id, "new")
+    store.put_bytes(in_flight, b"a", "audio/mp4")
+    assert await job_runner.sweep_orphans() == 2
+    assert store.keys() == sorted([*named, *rewritten_in_place, in_flight])
+    assert await job_runner.sweep_orphans() == 0
+
+
+def test_a_claim_outlasts_the_longest_attempt() -> None:
+    assert runner_module.LOCK_SECONDS > runner_module.ATTEMPT_TIMEOUT_SECONDS
+    assert runner_module.STRAY_REVISION_AGE.total_seconds() > runner_module.LOCK_SECONDS
+
+
+async def test_a_job_cancelled_at_shutdown_goes_back_uncounted_and_cleans_up(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    monkeypatch.setattr(runner_module, "STOP_TIMEOUT_SECONDS", 0.1)
+    rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
+    uploaded = playback_key(rec.user_id, rec.id, "cut")
+    started = asyncio.Event()
+
+    async def upload_then_hang(_session, _store, recording, _work_dir) -> None:
+        store.put_bytes(uploaded, b"a", "audio/mp4")
+        recording.playback_key = uploaded
+        started.set()
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr(runner_module, "transcode", upload_then_hang)
+    job_runner.start()
+    await asyncio.wait_for(started.wait(), timeout=5)
+    await asyncio.wait_for(job_runner.stop(), timeout=10)
+    job = await verify_session.scalar(
+        select(Job).where(Job.recording_id == rec.id).execution_options(populate_existing=True)
+    )
+    assert job is not None
+    assert job.locked_until is None
+    assert job.attempts == 0
+    assert await store.head(uploaded) is None
+
+
+async def test_an_attempt_past_its_time_limit_fails_and_backs_off(
+    runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    monkeypatch.setattr(runner_module, "ATTEMPT_TIMEOUT_SECONDS", 0.1)
+
+    async def hang(*_args: object) -> None:
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr(runner_module, "transcode", hang)
+    rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
+    await asyncio.wait_for(job_runner.run_once(), timeout=10)
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    job = await verify_session.scalar(
+        select(Job).where(Job.recording_id == rec.id).execution_options(populate_existing=True)
+    )
+    assert job is not None
+    assert job.attempts == 1
+    assert job.locked_until is not None
+    assert job.locked_until > utc_now()
+
+
+async def test_peaks_cancelled_after_its_upload_deletes_the_object(
+    runner, verify_session, media_fixtures, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = runner
+    rec = await seed_ready_for_peaks(verify_session, store, media_fixtures, tmp_path)
+    before_keys = set(store.keys())
+    uploaded: set[str] = set()
+
+    async def hang_at_the_lock(_session, _user_id) -> None:
+        uploaded.update(set(store.keys()) - before_keys)
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr(peaks_job_module, "lock_user", hang_at_the_lock)
+    task = asyncio.create_task(job_runner.run_once())
+    for _ in range(500):
+        if uploaded:
+            break
+        await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert len(uploaded) == 1
+    assert not (uploaded & set(store.keys()))
+    job = await verify_session.scalar(
+        select(Job).where(Job.recording_id == rec.id).execution_options(populate_existing=True)
+    )
+    assert job is not None
+    assert job.attempts == 0
+
+
 async def test_sweep_through_a_prefix_leaves_other_environments_alone(
     engine, verify_session
 ) -> None:
@@ -1424,6 +1532,32 @@ async def test_trim_cleans_up_its_uploads_when_it_fails_late(
     assert not set(new_objects) & set(store.keys())
     job = (await trim_jobs(verify_session, rec))[0]
     assert job.attempts == 1
+
+
+async def test_trim_cancelled_after_its_backup_deletes_it(
+    trim_runner, verify_session, media_fixtures, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A released trim may never run again, so the backup it copied cannot wait for a retry."""
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
+    await save_trim(verify_session, rec, 500, 1500)
+    backup = original_key(rec.user_id, rec.id, "audio/mp4")
+    reached_lock = asyncio.Event()
+
+    async def hang_at_the_lock(_session, _user_id) -> None:
+        reached_lock.set()
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr(trim_module, "lock_user", hang_at_the_lock)
+    task = asyncio.create_task(job_runner.run_once())
+    await asyncio.wait_for(reached_lock.wait(), timeout=10)
+    assert await store.head(backup) is not None
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert await store.head(backup) is None
+    job = (await trim_jobs(verify_session, rec))[0]
+    assert job.attempts == 0
 
 
 async def test_trim_skips_deleted_recording(

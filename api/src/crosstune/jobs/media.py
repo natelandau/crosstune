@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
     from pathlib import Path
 
 MAX_PLAYBACK_CHANNELS = 2
 SUBPROCESS_TIMEOUT_SECONDS = 300.0
+STREAM_CHUNK_BYTES = 64 * 1024
 # Every file these tools open is an upload someone else chose. Reading only local files,
 # and only through the demuxers of the audio types an upload may declare, keeps a
 # playlist or concat list from pulling in any other file or URL.
@@ -65,14 +68,12 @@ def playback_bitrate(channels: int) -> int:
     return 96_000 if channels <= 1 else 192_000
 
 
-async def run_media_tool(*argv: str) -> bytes:
-    """Run an ffmpeg-family binary and return its stdout.
+@contextlib.asynccontextmanager
+async def _media_process(argv: tuple[str, ...]) -> AsyncIterator[asyncio.subprocess.Process]:
+    """Start a tool with piped output, and kill and reap it on any exit it has not finished by.
 
-    Args:
-        argv: The full command line, including the binary name.
-
-    Returns:
-        bytes: The process's stdout.
+    Covers a timeout, an error in the caller, and a cancelled job alike, so no ffmpeg
+    outlives the work that started it.
     """
     # Only PATH is passed on: the API's environment holds every credential it has.
     process = await asyncio.create_subprocess_exec(
@@ -82,17 +83,68 @@ async def run_media_tool(*argv: str) -> bytes:
         env={"PATH": os.environ.get("PATH", "")},
     )
     try:
-        async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
-            stdout, stderr = await process.communicate()
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        msg = f"{argv[0]} timed out"
-        raise MediaError(msg) from None
-    if process.returncode != 0:
+        yield process
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+
+
+def _check_exit(argv: tuple[str, ...], returncode: int | None, stderr: bytes) -> None:
+    if returncode != 0:
         msg = f"{argv[0]} failed: {stderr.decode(errors='replace')[-500:]}"
         raise MediaError(msg)
+
+
+async def run_media_tool(*argv: str) -> bytes:
+    """Run an ffmpeg-family binary and return its stdout.
+
+    Args:
+        argv: The full command line, including the binary name.
+
+    Returns:
+        bytes: The process's stdout.
+    """
+    async with _media_process(argv) as process:
+        try:
+            async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
+                stdout, stderr = await process.communicate()
+        except TimeoutError:
+            msg = f"{argv[0]} timed out"
+            raise MediaError(msg) from None
+    _check_exit(argv, process.returncode, stderr)
     return stdout
+
+
+async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> None:
+    """Run an ffmpeg-family binary, handing its stdout to `on_stdout` chunk by chunk.
+
+    For output too large to hold whole, such as an hour of decoded PCM: only one
+    chunk is in memory at a time.
+
+    Args:
+        argv: The full command line, including the binary name.
+        on_stdout: Called with each chunk of stdout, in order, as it arrives.
+    """
+    async with _media_process(argv) as process:
+        stdout, stderr_pipe = process.stdout, process.stderr
+        if stdout is None or stderr_pipe is None:
+            msg = f"{argv[0]} started without its output pipes"
+            raise MediaError(msg)
+        # Drained alongside stdout, or a tool that fills the stderr pipe blocks forever.
+        stderr_read = asyncio.create_task(stderr_pipe.read())
+        try:
+            async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
+                while chunk := await stdout.read(STREAM_CHUNK_BYTES):
+                    on_stdout(chunk)
+                stderr = await stderr_read
+                await process.wait()
+        except TimeoutError:
+            msg = f"{argv[0]} timed out"
+            raise MediaError(msg) from None
+        finally:
+            stderr_read.cancel()
+    _check_exit(argv, process.returncode, stderr)
 
 
 async def probe(path: Path) -> Probe:
@@ -225,21 +277,27 @@ async def remux(source: Path, target: Path) -> None:
     await _to_mp4(source, target, "-c:a", "copy")
 
 
-async def encode(source: Path, target: Path) -> None:
+async def _channels(source: Path, channels: int | None) -> int:
+    return channels if channels is not None else (await probe(source)).channels
+
+
+async def encode(source: Path, target: Path, *, channels: int | None = None) -> None:
     """Encode to AAC-LC in MP4 at the playback bit rate for the source's channel count.
 
     Args:
         source: The file to read.
         target: The MP4 file to write.
+        channels: The source's channel count, when a probe has already read it.
 
     Raises:
         MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
-    info = await probe(source)
-    await _to_mp4(source, target, *_playback_codec_args(info.channels))
+    await _to_mp4(source, target, *_playback_codec_args(await _channels(source, channels)))
 
 
-async def cut(source: Path, target: Path, start_ms: int, end_ms: int) -> None:
+async def cut(
+    source: Path, target: Path, start_ms: int, end_ms: int, *, channels: int | None = None
+) -> None:
     """Re-encode the `start_ms` to `end_ms` range of `source` to a playback MP4.
 
     Always re-encodes from the original, even when it is already AAC: `-ss`/`-to`
@@ -251,14 +309,14 @@ async def cut(source: Path, target: Path, start_ms: int, end_ms: int) -> None:
         target: The MP4 file to write.
         start_ms: Where the kept range starts, in milliseconds.
         end_ms: Where the kept range ends, in milliseconds.
+        channels: The source's channel count, when a probe has already read it.
 
     Raises:
         MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
-    info = await probe(source)
     await _to_mp4(
         source,
         target,
-        *_playback_codec_args(info.channels),
+        *_playback_codec_args(await _channels(source, channels)),
         pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
     )

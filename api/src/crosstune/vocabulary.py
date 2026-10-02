@@ -9,7 +9,7 @@ check constraint or column it alters, and `just contract` afterwards.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Final
+from typing import Final, Literal
 
 
 class Instrument(StrEnum):
@@ -126,6 +126,17 @@ MAX_LOOPS_PER_RECORDING: Final[int] = 100
 LOOP_COLOR_COUNT: Final[int] = 6
 """How many palette colors a loop can name; a loop stores an index below this."""
 
+
+TableName = Literal[
+    "tunes",
+    "user_tunes",
+    "lists",
+    "list_items",
+    "recording_links",
+    "recordings",
+    "recording_loops",
+    "user_settings",
+]
 
 # Maximum lengths, by table then field. A column with a width takes it from here, the
 # row schema publishes it, and the client stops input at it.

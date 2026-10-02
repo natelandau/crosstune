@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from crosstune.storage.store import ObjectInfo
+from crosstune.storage.store import ListedObject, ObjectInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from datetime import timedelta
     from pathlib import Path
 
 
@@ -30,12 +32,18 @@ class FakeObjectStore:
 
     def __init__(self) -> None:
         self._objects: dict[str, tuple[bytes, str]] = {}
+        self._modified: dict[str, datetime] = {}
         self.presigned: list[tuple[str, str]] = []
         self.deleted_prefixes: list[str] = []
 
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
         """What a client's PUT to a presigned URL leaves behind."""
         self._objects[key] = (data, content_type)
+        self._modified[key] = datetime.now(UTC)
+
+    def age(self, key: str, by: timedelta) -> None:
+        """Move an object's last write time back, as if it were written `by` ago."""
+        self._modified[key] -= by
 
     def get_bytes(self, key: str) -> bytes:
         """The stored bytes of one object."""
@@ -73,11 +81,13 @@ class FakeObjectStore:
         """Store a local file. Returns the byte count stored."""
         data = path.read_bytes()  # noqa: ASYNC240 -- in-memory fake, no real I/O
         self._objects[key] = (data, content_type)
+        self._modified[key] = datetime.now(UTC)
         return len(data)
 
     async def copy(self, source: str, target: str) -> None:
         """Copy an object within the bucket."""
         self._objects[target] = self._objects[source]
+        self._modified[target] = datetime.now(UTC)
 
     async def delete(self, *keys: str) -> None:
         """Remove objects. Missing keys are not an error."""
@@ -93,6 +103,13 @@ class FakeObjectStore:
     async def list_keys(self, prefix: str = "") -> list[str]:
         """Every key under `prefix`, each in full, or every key in the bucket."""
         return sorted(key for key in self._objects if key.startswith(prefix))
+
+    async def list_objects(self, prefix: str = "") -> list[ListedObject]:
+        """Every object under `prefix`, or in the bucket, with its last write time."""
+        return [
+            ListedObject(key=key, modified=self._modified[key])
+            for key in await self.list_keys(prefix)
+        ]
 
 
 class FakeRunner:

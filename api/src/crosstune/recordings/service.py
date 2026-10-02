@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, overload
 
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -13,6 +13,7 @@ from crosstune.errors import ConflictError, NotFoundError
 from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
 from crosstune.recordings.trim import needs_trim
+from crosstune.storage.store import PLAYBACK_MIME
 from crosstune.vocabulary import JobKind
 
 if TYPE_CHECKING:
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from crosstune.storage.store import Revision
 
 
 async def used_bytes(
@@ -89,6 +92,14 @@ async def slot_for(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot
     return await session.get(UploadSlot, recording_id)
 
 
+@overload
+async def enqueue_job(
+    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRIM]
+) -> Job | None: ...
+@overload
+async def enqueue_job(
+    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRANSCODE, JobKind.PEAKS]
+) -> Job: ...
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.
 
@@ -123,8 +134,7 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
 
 async def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
     """Add a transcode job for the recording and wake the runner once the request commits."""
-    # Only a TRIM insert can be skipped as a duplicate; this call always queues one.
-    return cast("Job", await enqueue_job(session, recording, JobKind.TRANSCODE))
+    return await enqueue_job(session, recording, JobKind.TRANSCODE)
 
 
 async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:
@@ -134,6 +144,26 @@ async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:
     """
     if recording.deleted_at is None and needs_trim(recording):
         await enqueue_job(session, recording, JobKind.TRIM)
+
+
+def attach_playback(
+    recording: Recording, playback: Revision, *, duration_ms: int, start_ms: int, end_ms: int
+) -> None:
+    """Point the row at a new playback file covering `start_ms` to `end_ms` of the source."""
+    recording.playback_key = playback.key
+    recording.playback_rev = playback.rev
+    recording.playback_bytes = playback.size
+    recording.playback_mime = PLAYBACK_MIME
+    recording.duration_ms = duration_ms
+    recording.playback_start_ms = start_ms
+    recording.playback_end_ms = end_ms
+
+
+def attach_peaks(recording: Recording, peaks: Revision) -> None:
+    """Point the row at a new waveform peaks file."""
+    recording.peaks_key = peaks.key
+    recording.peaks_rev = peaks.rev
+    recording.peaks_bytes = peaks.size
 
 
 def bump_server_seq(recording: Recording) -> None:

@@ -33,7 +33,7 @@ def normalize_database_url(url: str) -> str:
 
 
 class Settings(BaseSettings):
-    """Runtime configuration."""
+    """Environment settings that refuse to build when hosted auth or storage config is unsafe."""
 
     model_config = SettingsConfigDict(
         env_prefix="CROSSTUNE_", env_file=".env", env_file_encoding="utf-8", extra="ignore"

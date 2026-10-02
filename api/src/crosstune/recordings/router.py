@@ -92,6 +92,11 @@ class StorageUnavailableError(AppError):
         super().__init__(503, "Service Unavailable", "Recording storage is not configured")
 
 
+def _file_too_large(limit: int) -> FileTooLargeError:
+    msg = f"Files are limited to {limit} bytes"
+    return FileTooLargeError(msg)
+
+
 def require_store(request: Request) -> ObjectStore:
     """The app's object store, or a 503 when the deployment has none."""
     store = request.app.state.object_store
@@ -119,8 +124,7 @@ async def upload_slot(
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, *SLOT_STATES)
     if body.bytes > settings.recording_max_file_bytes:
-        msg = f"Files are limited to {settings.recording_max_file_bytes} bytes"
-        raise FileTooLargeError(msg)
+        raise _file_too_large(settings.recording_max_file_bytes)
 
     now = utc_now()
     existing = await slot_for(session, recording.id)
@@ -191,8 +195,7 @@ async def upload_finished(
         raise ConflictError(msg)
     if info.size > settings.recording_max_file_bytes:
         await store.delete(key)
-        msg = f"Files are limited to {settings.recording_max_file_bytes} bytes"
-        raise FileTooLargeError(msg)
+        raise _file_too_large(settings.recording_max_file_bytes)
     if info.size > slot.declared_bytes * (1 + UPLOAD_SIZE_TOLERANCE):
         await store.delete(key)
         msg = f"Uploaded {info.size} bytes but declared {slot.declared_bytes}"

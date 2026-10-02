@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, select
 
 from crosstune.models import (
     List,
@@ -39,17 +39,21 @@ from crosstune.schemas.rows import (
 )
 
 if TYPE_CHECKING:
+    import uuid
+
     from pydantic import BaseModel
+    from sqlalchemy import ColumnElement
 
     from crosstune.db.base import Base
-    from crosstune.schemas.common import TableName
+    from crosstune.vocabulary import TableName
 
 
 @dataclass(frozen=True)
 class TableSpec:
     """One synced table.
 
-    owner_column names the column that must equal the calling user.
+    owner_column names the column that must equal the calling user, or is None for a table
+    owned through a parent.
     parents lists (foreign key column, parent table) pairs whose target must be owned by the caller.
     """
 
@@ -57,8 +61,17 @@ class TableSpec:
     model: type[Base]
     data_schema: type
     row_schema: type[BaseModel]
-    owner_column: str
+    owner_column: str | None
     parents: tuple[tuple[str, TableName], ...]
+
+    def owned_by(self, user_id: uuid.UUID) -> ColumnElement[bool]:
+        """A filter matching the stored rows of this table that `user_id` owns."""
+        # The model varies by table, so its columns aren't statically known here.
+        model: Any = self.model
+        if self.owner_column is not None:
+            return getattr(model, self.owner_column) == user_id
+        # list_items carry no owner; scope through the owning list.
+        return model.list_id.in_(select(List.id).where(List.user_id == user_id))
 
 
 # Parents before children, so a batch that creates a tune and its links applies in one pass.
@@ -84,7 +97,7 @@ TABLES: dict[TableName, TableSpec] = {
         ListItem,
         ListItemData,
         ListItemRow,
-        "",  # no owner column; ownership is proven through both parents
+        None,  # ownership is proven through both parents
         (("list_id", "lists"), ("user_tune_id", "user_tunes")),
     ),
     "recording_links": TableSpec(

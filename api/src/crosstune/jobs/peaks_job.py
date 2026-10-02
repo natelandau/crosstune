@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import TYPE_CHECKING
 
 from crosstune.db.locks import lock_user
@@ -10,9 +11,9 @@ from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import build_peaks
 from crosstune.models.user import utc_now
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import bump_server_seq
-from crosstune.recordings.trim import clamp_trim
-from crosstune.storage.store import PEAKS_MIME, delete_best_effort, new_rev, peaks_key
+from crosstune.recordings.service import attach_peaks, bump_server_seq
+from crosstune.recordings.trim import clamp_stored_trim
+from crosstune.storage.store import PEAKS_MIME, delete_best_effort, peaks_key, upload_revision
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -56,31 +57,29 @@ async def build_recording_peaks(
     measured_ms = (await probe(source)).duration_ms if recording.playback_end_ms is None else None
     peaks_path = work_dir / "peaks.bin"
     peaks_path.write_bytes(await build_peaks(source))
-    rev = new_rev()
-    key = peaks_key(recording.user_id, recording.id, rev)
-    peaks_bytes = await store.upload(peaks_path, key, PEAKS_MIME)
+    peaks = await upload_revision(
+        store, peaks_path, PEAKS_MIME, partial(peaks_key, recording.user_id, recording.id)
+    )
 
     try:
         await lock_user(session, recording.user_id)
         await session.refresh(recording, attribute_names=["playback_key"])
         if recording.playback_key != playback_key_used:
             await delete_best_effort(
-                store, [key], log=log, message="could not delete a superseded peaks object"
+                store, [peaks.key], log=log, message="could not delete a superseded peaks object"
             )
             return
-        recording.peaks_bytes = peaks_bytes
-        recording.peaks_key = key
-        recording.peaks_rev = rev
+        attach_peaks(recording, peaks)
         if measured_ms is not None:
             await _store_length(session, recording, measured_ms)
         bump_server_seq(recording)
         await session.flush()
-    except Exception:
-        # Whatever raised here leaves the row's own write rolled back by the
-        # caller, but the object above is already in the bucket; nothing else
-        # will ever come to reference it, so it goes now instead of leaking.
+    except BaseException:
+        # Whatever raised here, a cancellation included, leaves the row's own write
+        # rolled back by the caller, but the object above is already in the bucket;
+        # nothing else will ever come to reference it, so it goes now.
         await delete_best_effort(
-            store, [key], log=log, message="could not delete an orphaned peaks object"
+            store, [peaks.key], log=log, message="could not delete an orphaned peaks object"
         )
         raise
 
@@ -100,10 +99,5 @@ async def _store_length(session: AsyncSession, recording: Recording, length_ms: 
     recording.source_duration_ms = length_ms
     recording.playback_start_ms = 0
     recording.playback_end_ms = length_ms
-    start_ms, end_ms = clamp_trim(
-        recording.trim_start_ms, recording.trim_end_ms, low=0, high=length_ms
-    )
-    if (start_ms, end_ms) != (recording.trim_start_ms, recording.trim_end_ms):
-        recording.trim_start_ms = start_ms
-        recording.trim_end_ms = end_ms
+    clamp_stored_trim(recording, high=length_ms)
     await reclamp_recording_loops(session, recording, utc_now())

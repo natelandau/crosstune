@@ -28,7 +28,8 @@ def verify_svix_signature(
         ts = int(timestamp)
     except ValueError:
         return False
-    if abs((now or time.time()) - ts) > TIMESTAMP_TOLERANCE_SECONDS:
+    current = time.time() if now is None else now
+    if abs(current - ts) > TIMESTAMP_TOLERANCE_SECONDS:
         return False
 
     try:
