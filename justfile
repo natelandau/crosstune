@@ -74,10 +74,44 @@ contract: api::contract web::contract apple::contract
 smoke api_origin web_origin site_origin="":
     scripts/smoke.sh '{{ api_origin }}' '{{ web_origin }}' '{{ site_origin }}'
 
-# Install dependencies, git hooks, and start local services
-dev-setup: api::setup web::setup site::setup apple::setup
+# Install every module's dependencies and create missing .env files from their examples
+setup: api::setup web::setup site::setup apple::setup
+
+# Install dependencies, git hooks, and start local services; run it in the main checkout,
+# since the hooks every worktree shares call the prek of the checkout that installed them
+dev-setup: setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
+
+# Create .worktrees/<branch> on a new branch from the main checkout's HEAD, copy in its .env
+# files, then install its dependencies
+worktree branch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+    path="$main/.worktrees/{{ branch }}"
+    git -C "$main" worktree add "$path" -b '{{ branch }}'
+    # This justfile, not the new checkout's, since a branch cut from an older commit may lack the recipe
+    just --justfile '{{ justfile() }}' --working-directory "$path" worktree-env
+    cd "$path"
+    just api::setup web::setup site::setup apple::setup
+    echo "worktree ready at $path"
+
+# Copy the main checkout's .env files into this worktree, replacing any already here
+worktree-env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+    here="$(git rev-parse --show-toplevel)"
+    if [ "$main" = "$here" ]; then
+        echo "this is the main checkout; run this in a worktree" >&2
+        exit 1
+    fi
+    for env in "$main"/*/.env; do
+        [ -e "$env" ] || continue
+        cp "$env" "$here/${env#"$main"/}"
+        echo "copied ${env#"$main"/}"
+    done
 
 # Start Postgres, apply migrations, then run the API, web client, and site together
 dev:
