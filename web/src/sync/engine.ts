@@ -145,6 +145,18 @@ function createLoop<S extends string>({
   }
 }
 
+/** Share one in-flight call per key: a second caller gets the first one's promise until it settles. */
+function oncePerKey<T>(start: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  const inFlight = new Map<string, Promise<T>>()
+  return (key) => {
+    const existing = inFlight.get(key)
+    if (existing) return existing
+    const attempt = start(key).finally(() => inFlight.delete(key))
+    inFlight.set(key, attempt)
+    return attempt
+  }
+}
+
 export function createSyncEngine({
   db,
   api,
@@ -156,8 +168,6 @@ export function createSyncEngine({
   let accountDeleted = false
   const accountDeletedListeners = new Set<() => void>()
   let syncedAt: string | null = null
-  const inFlightDownloads = new Map<string, Promise<Blob | null>>()
-  const inFlightPeaks = new Map<string, Promise<Uint8Array | null>>()
 
   async function push(): Promise<void> {
     for (;;) {
@@ -189,27 +199,9 @@ export function createSyncEngine({
     }
   }
 
-  /** One fetch per recording at a time, whether the download pass or a Play tap asks. */
-  function fetchOne(recordingId: string): Promise<Blob | null> {
-    const existing = inFlightDownloads.get(recordingId)
-    if (existing) return existing
-    const attempt = downloadOne(db, api, recordingId).finally(() => {
-      inFlightDownloads.delete(recordingId)
-    })
-    inFlightDownloads.set(recordingId, attempt)
-    return attempt
-  }
-
-  /** One fetch per recording at a time, whether the download pass or a caller asks. */
-  function fetchPeaksOnce(recordingId: string): Promise<Uint8Array | null> {
-    const existing = inFlightPeaks.get(recordingId)
-    if (existing) return existing
-    const attempt = fetchPeaks(db, api, recordingId).finally(() => {
-      inFlightPeaks.delete(recordingId)
-    })
-    inFlightPeaks.set(recordingId, attempt)
-    return attempt
-  }
+  // One fetch per recording at a time, whether the download pass, a Play tap, or another caller asks.
+  const fetchOne = oncePerKey((id) => downloadOne(db, api, id))
+  const fetchPeaksOnce = oncePerKey((id) => fetchPeaks(db, api, id))
 
   const downloadRetries = createDownloadRetries()
 

@@ -2,7 +2,17 @@ import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
 import { RECORDING_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
-import { activeByPosition, newId, nextPosition, now, putRow, recordingTx, tombstone } from './write'
+import {
+  activeByPosition,
+  defined,
+  newId,
+  nextPosition,
+  now,
+  putRow,
+  recordingTx,
+  tombstone,
+  tombstoneWhere,
+} from './write'
 
 function emptyFile(id: string, overrides: Partial<RecordingFile> = {}): RecordingFile {
   return {
@@ -206,17 +216,7 @@ export async function updateRecording(
       if (!tune || tune.deleted_at) throw new Error(TUNE_NOT_FOUND)
       position = nextPosition(await activeRecordingsForTune(db, patch.tune_id))
     }
-    await putRow(db, 'recordings', {
-      ...row,
-      label: patch.label === undefined ? row.label : patch.label,
-      tune_id: patch.tune_id === undefined ? row.tune_id : patch.tune_id,
-      trim_start_ms: patch.trim_start_ms === undefined ? row.trim_start_ms : patch.trim_start_ms,
-      trim_end_ms: patch.trim_end_ms === undefined ? row.trim_end_ms : patch.trim_end_ms,
-      speed_percent: patch.speed_percent === undefined ? row.speed_percent : patch.speed_percent,
-      pitch_cents: patch.pitch_cents === undefined ? row.pitch_cents : patch.pitch_cents,
-      position,
-      updated_at: now(),
-    })
+    await putRow(db, 'recordings', { ...row, ...defined(patch), position, updated_at: now() })
     // The edit re-pushes the row, so a failed upload gets a fresh attempt along with it.
     const file = await db.recording_files.get(id)
     if (file?.local_state === 'failed_upload') {
@@ -225,36 +225,40 @@ export async function updateRecording(
   })
 }
 
+/** Put a file back in the upload queue with a clean slate: no error, no backoff. */
+export async function requeueFile(db: CrosstuneDb, id: string): Promise<void> {
+  await db.recording_files.update(id, {
+    local_state: 'captured',
+    error: null,
+    upload_attempts: 0,
+    next_attempt_at: null,
+  })
+}
+
 /** Put a refused or backed-off upload at the front of the queue, so the next pass tries it now. */
 export async function retryUpload(db: CrosstuneDb, id: string): Promise<void> {
   await db.transaction('rw', db.recording_files, async () => {
     const file = await db.recording_files.get(id)
     if (file?.local_state !== 'failed_upload' && file?.local_state !== 'captured') return
-    await db.recording_files.update(id, {
-      local_state: 'captured',
-      error: null,
-      upload_attempts: 0,
-      next_attempt_at: null,
-    })
+    await requeueFile(db, id)
   })
 }
 
-/** A recording's loops go with it; the server cascades them, so no delete change is queued. */
-async function tombstoneLoops(db: CrosstuneDb, recordingId: string, at: string): Promise<void> {
-  const loops = await db.recording_loops.where('recording_id').equals(recordingId).toArray()
-  for (const loop of loops) {
-    await tombstone(db, 'recording_loops', loop.id, at, { enqueueDelete: false })
-  }
+/** Tombstone a recording with its loops, which the server cascades, and drop its local audio. */
+async function tombstoneRecording(
+  db: CrosstuneDb,
+  id: string,
+  at: string,
+  options: { enqueueDelete: boolean },
+): Promise<void> {
+  await tombstone(db, 'recordings', id, at, options)
+  await tombstoneWhere(db, 'recording_loops', 'recording_id', id, at)
+  await db.recording_files.delete(id)
+  await db.recording_chunks.where('recording_id').equals(id).delete()
 }
 
 export async function deleteRecording(db: CrosstuneDb, id: string): Promise<void> {
-  await recordingTx(db, async () => {
-    const at = now()
-    await tombstone(db, 'recordings', id, at)
-    await tombstoneLoops(db, id, at)
-    await db.recording_files.delete(id)
-    await db.recording_chunks.where('recording_id').equals(id).delete()
-  })
+  await recordingTx(db, () => tombstoneRecording(db, id, now(), { enqueueDelete: true }))
 }
 
 /** Called inside deleteTune's transaction, which is already widened to the audio tables. */
@@ -263,13 +267,8 @@ export async function tombstoneTuneRecordings(
   tuneId: string,
   at: string,
 ): Promise<void> {
-  const rows = await db.recordings.where('tune_id').equals(tuneId).toArray()
-  for (const row of rows) {
-    await tombstone(db, 'recordings', row.id, at, { enqueueDelete: false })
-    await tombstoneLoops(db, row.id, at)
-    await db.recording_files.delete(row.id)
-    await db.recording_chunks.where('recording_id').equals(row.id).delete()
-  }
+  const ids = await db.recordings.where('tune_id').equals(tuneId).primaryKeys()
+  for (const id of ids) await tombstoneRecording(db, id, at, { enqueueDelete: false })
 }
 
 export async function setFileState(
@@ -322,14 +321,16 @@ export async function storePeaks(
  * still queued, blocked, failed, or not yet transcoded is the only copy. */
 export async function clearDownloadedBlobs(db: CrosstuneDb): Promise<void> {
   await db.transaction('rw', db.recording_files, db.recordings, async () => {
-    const candidates = await db.recording_files
-      .filter((f) => f.local_state === 'uploaded' || f.local_state === 'downloaded')
-      .toArray()
-    const rows = await db.recordings.bulkGet(candidates.map((f) => f.id))
-    for (const [i, file] of candidates.entries()) {
+    // Keys only, so the blobs being dropped are never read.
+    const ids = await db.recording_files
+      .where('local_state')
+      .anyOf(['uploaded', 'downloaded'])
+      .primaryKeys()
+    const rows = await db.recordings.bulkGet(ids)
+    for (const [i, id] of ids.entries()) {
       const row = rows[i]
       if (!row || row.deleted_at || row.state !== 'ready') continue
-      await db.recording_files.update(file.id, { blob: null, bytes: 0 })
+      await db.recording_files.update(id, { blob: null, bytes: 0 })
     }
   })
 }
