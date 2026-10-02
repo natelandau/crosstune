@@ -9,9 +9,10 @@ const AUTO_PAN_MAX_PX = 8
 
 /**
  * Pans the zoomed view while a drag holds the pointer near either end of it, faster the nearer
- * the edge, so a loop can be dragged past what is shown. `follow` runs once the view a pan
- * produced has rendered, to recompute the drag against it and `track` the pointer again, which
- * keeps the panning going. A pan the view's ends refuse renders nothing and ends the panning.
+ * the edge, so a loop can be dragged past what is shown. It pans every frame the pointer stays
+ * there, however late each pan renders, and `follow` runs once a panned view has rendered, to
+ * recompute the drag against it. A pan the view's ends refuse renders nothing, so the view
+ * rests at its end.
  */
 export function useAutoPan({
   view,
@@ -53,11 +54,7 @@ export function useAutoPan({
       const { view, onPan } = latestRef.current
       panned.current = true
       onPan(((by / AUTO_PAN_ZONE_PX) * AUTO_PAN_MAX_PX * 1000) / view.pxPerS)
-      // An accepted pan has committed by the next frame; one the ends refuse renders nothing,
-      // so only this clears it.
-      requestAnimationFrame(() => {
-        panned.current = false
-      })
+      frame.current = requestAnimationFrame(step)
     }
     return {
       /** The dragging pointer is now `x` px from the view's left edge. */

@@ -61,6 +61,9 @@ describe('practiceZoom', () => {
     expect(visibleSpan(panBy({ pxPerS: 10, centerMs: 20_000 }, -50_000, frame), 300).startMs).toBe(
       0,
     )
+    // A pan the ends refuse keeps the state itself, so it renders nothing.
+    const atStart = { pxPerS: 10, centerMs: 15_000 }
+    expect(panBy(atStart, -1_000, frame)).toBe(atStart)
   })
 
   it('pages only once the playhead leaves the view', () => {
