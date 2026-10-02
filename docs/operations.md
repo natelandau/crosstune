@@ -33,6 +33,14 @@ URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
 
 Migrations run every time `just dev` starts. Nothing is created by hand.
 
+Run `just dev-setup` in the main checkout only. The git hooks every
+checkout shares call the `prek` of the checkout that installed them, so
+installing them from a worktree breaks them once that worktree is removed.
+Create a worktree with `just worktree <branch>`: it copies each module's
+`.env` from the main checkout and runs `just setup`, so `just e2e` works
+there. In a worktree made another way, run `just worktree-env`, then
+`just setup`.
+
 ## Run
 
 | Command             | Does                                                                                                                                                                                                                                    |
@@ -172,9 +180,12 @@ and fails instead in CI, where the `API` workflow always starts it.
   is not a required check, because a Clerk outage would block unrelated
   merges. It skips fork and Dependabot PRs, which cannot sign in.
 - A workflow from a fork runs only after you approve it on the PR.
-- Dependabot opens one PR per ecosystem each month, grouped as configured
-  in `.github/dependabot.yml`, and skips a release until it is seven days
-  old. Its PR title is the squashed commit's subject. Check a PR that bumps
+- Dependabot runs monthly and skips a release until it is seven days old.
+  npm and uv updates arrive as one grouped PR per ecosystem; every other
+  ecosystem opens one PR per dependency, so closing that PR skips the
+  version. To decline one update in a grouped PR, comment
+  `@dependabot ignore <dependency>` instead of closing it. Its PR title is
+  the squashed commit's subject. Check a PR that bumps
   `packageManager` in `web/package.json`: it needs the pnpm step below.
 - A change to `.github/dependabot.yml` makes Dependabot close every grouped
   PR the old config built. Merge the open ones before you push the change.
