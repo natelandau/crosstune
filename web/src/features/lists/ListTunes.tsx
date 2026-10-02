@@ -1,107 +1,18 @@
 import { IonList, IonReorder, IonReorderGroup, type ReorderEndCustomEvent } from '@ionic/react'
 import { ArrowUpDown, GripVertical, ListX, SquarePen } from 'lucide-react'
-import {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type Ref,
-} from 'react'
+import { useCallback, useRef, type MouseEvent as ReactMouseEvent, type Ref } from 'react'
 import type { Instrument } from '../../api/vocabulary'
-import { activeItems, moveItem } from '../../commands/lists'
-import { useDb } from '../../db/DbProvider'
 import { useMenu, type MenuItem } from '../../ui/Menu'
-import { messageFor } from '../../ui/useAction'
+import { useLatest } from '../../ui/useLatest'
 import { TuneItem } from '../catalog/TuneItem'
-import type { BulkAction } from '../selection/SelectionToolbar'
-import { useBulkActions } from '../selection/useBulkActions'
-import { useSelection } from '../selection/useSelection'
-import type { TuneSelection } from '../selection/useTuneSelection'
-import { placeBeside } from './order'
+import { useListSelection, type ListSelectionHost } from './useListSelection'
 import type { ListItemView } from './useLists'
+import { useReplayedOrder } from './useReplayedOrder'
 
 export const MOVE_DOWN = 'Move down'
 export const MOVE_TO_BOTTOM = 'Move to bottom'
 export const MOVE_TO_TOP = 'Move to top'
 export const MOVE_UP = 'Move up'
-
-interface Move {
-  itemId: string
-  targetId: string
-  /** Which side of the target the tune was sent to, decided once, when the move was made. */
-  side: 'before' | 'after'
-}
-
-interface Pending {
-  move: Move
-  /** The items on screen, and the order the store held, when this move's write settled. */
-  settled?: { items: readonly ListItemView[]; order: readonly string[] }
-}
-
-// Replaying a side rather than a direction is what makes this safe to run twice: an order that
-// already holds the move comes back unchanged, so a read landing mid-flight cannot flip it back.
-const apply = (order: readonly string[], move: Move): string[] =>
-  placeBeside(order, (id) => id, move.itemId, move.targetId, move.side)
-
-/**
- * Whether two orders agree, comparing only the items both carry. A list view drops an item whose
- * tune rows have not arrived yet, which a read of the stored order still counts, so one list is
- * a superset of the other across a sync page boundary.
- */
-const sameOrder = (a: readonly string[], b: readonly string[]): boolean => {
-  const inB = new Set(b)
-  const inA = new Set(a)
-  const left = a.filter((id) => inB.has(id))
-  const right = b.filter((id) => inA.has(id))
-  return left.length === right.length && left.every((id, index) => id === right[index])
-}
-
-/**
- * A move is replayed onto the stored order until its own write settles and the first read after
- * that decides, the rule usePendingWrite follows, including its second half: a read that landed
- * before the write settled decides straight away, which the order the store held just after the
- * write answers. Nothing is inferred from the order alone, because a tune beside its target says
- * nothing about which move put it there. A move whose tune or target has left the list stops
- * early, having nothing left to say.
- */
-const replaying = (
-  pending: Pending,
-  order: readonly string[],
-  items: readonly ListItemView[],
-): boolean =>
-  order.includes(pending.move.itemId) &&
-  order.includes(pending.move.targetId) &&
-  (pending.settled === undefined ||
-    (pending.settled.items === items && !sameOrder(order, pending.settled.order)))
-
-/**
- * Everything the screen wears while these rows select: the mode, the count the toolbar titles
- * itself with, the bulk actions, and the controls that open and close the mode. The rows own it
- * because they own the ordered, filtered array the selection is made over.
- */
-export interface ListSelectionState {
-  active: boolean
-  selection: TuneSelection
-  actions: readonly BulkAction[]
-  more: readonly MenuItem[]
-  /** A failed bulk write, for the screen's error line. */
-  error: string | null
-  enter: () => void
-  exit: () => void
-  /** Names the control the mode opens from, so focus can return to it. */
-  selectRef: (node: HTMLElement | null) => void
-}
-
-/** How a screen hosts selection over these rows. */
-export interface ListSelectionHost {
-  /** Named in the toast a bulk action raises. */
-  listName: string
-  /** False while a sheet owns the screen, so a long press cannot open the mode behind it. */
-  enabled: boolean
-  onChange: (state: ListSelectionState | null) => void
-}
 
 /** Where each menu item sends the tune, read against the rows on screen when it is pressed. */
 const PLACES = {
@@ -156,11 +67,7 @@ export function ListTunes({
   /** A failed move, for the page's error line. */
   onError: (message: string) => void
 }) {
-  const db = useDb()
   const openMenu = useMenu()
-  const [announcement, setAnnouncement] = useState('')
-  const [moving, setMoving] = useState<readonly Pending[]>([])
-  const writes = useRef(Promise.resolve())
   // The screen owns the forwarded ref for its own keyboard shortcut, so entering selection
   // needs a second handle on the same element to close whatever row a swipe left open.
   const list = useRef<HTMLIonListElement>(null)
@@ -173,16 +80,12 @@ export function ListTunes({
     [ref],
   )
 
-  // Every move still in flight is replayed onto the order the store holds, in the order they
-  // were made, which is the order the store applies them in. A failed move drops out and the
-  // moves after it land where the store puts them, with no later read to correct.
-  const storedOrder = items.map((view) => view.item.id)
-  const inFlight = moving.filter((pending) => replaying(pending, storedOrder, items))
-  if (inFlight.length !== moving.length) setMoving(inFlight)
-  const order = inFlight.reduce((current, pending) => apply(current, pending.move), storedOrder)
-
-  const byId = new Map(items.map((view) => [view.item.id, view]))
-  const ordered = order.flatMap((id) => byId.get(id) ?? [])
+  const { ordered, move, announcement } = useReplayedOrder({
+    listId,
+    items,
+    onMoveStart,
+    onError,
+  })
   const visible = ordered.filter((view) => showArchived || view.userTune.archived_at === null)
 
   // The position column holds the widest number it will show, so a list that runs into three
@@ -191,162 +94,23 @@ export function ListTunes({
   const positionWidth = `max(1.5rem, ${String(visible.length).length}ch)`
 
   // The rows a menu item acts on are the ones on screen when it is pressed, not when it opened.
-  const onScreen = useRef(visible)
-  // A layout effect runs in the same task as the commit, so a write that settles later always
-  // finds the items that are on screen, never an older read.
-  const shownItems = useRef(items)
-  useLayoutEffect(() => {
-    onScreen.current = visible
-    shownItems.current = items
-  })
+  const onScreenRef = useLatest(visible)
 
-  // `visible` is a fresh array every render, and both useSelection's selectAll and the toolbar
-  // published below turn on the identity of the ids, so the last array is kept until the ids in
-  // it actually change. Held as state rather than a ref: a render must not write one.
-  const ids = visible.map((view) => view.userTune.id)
-  const [lastIds, setLastIds] = useState<readonly string[]>(ids)
-  const sameIds = lastIds.length === ids.length && lastIds.every((id, at) => id === ids[at])
-  if (!sameIds) setLastIds(ids)
-  const visibleIds = sameIds ? lastIds : ids
   const closeOpenRow = useCallback(() => void list.current?.closeSlidingItems(), [])
-  const {
-    active,
-    selection: tunes,
-    selectRef,
-    enter,
-    exit,
-    rowSelection,
-    onClickCapture,
-  } = useSelection(visibleIds, closeOpenRow)
-  const { isSelected } = tunes
-  // Every item, not just the visible ones, keyed by the id the selection speaks in.
-  const viewByUserTune = useMemo(
-    () => new Map(items.map((view) => [view.userTune.id, view])),
-    [items],
-  )
-  // Walked in the order the list shows, so an action reads the tunes the way they read on
-  // screen. Read from the ids rather than the row array, which is rebuilt every render and
-  // would leave every bulk action behind this recomputing through each replayed move.
-  const selected = useMemo(
-    () => visibleIds.flatMap((id) => (isSelected(id) ? (viewByUserTune.get(id) ?? []) : [])),
-    [visibleIds, isSelected, viewByUserTune],
-  )
-  // Memoized: useBulkActions keys its own memo on this map's identity.
-  const itemIdByUserTune = useMemo(
-    () => new Map(items.map((view) => [view.userTune.id, view.item.id])),
-    [items],
-  )
-  const bulk = useBulkActions({
-    entries: selected,
+  const { active, rowSelection, onClickCapture, sheets } = useListSelection({
+    listId,
+    items,
+    visible,
     instruments,
-    context: {
-      kind: 'list',
-      listId,
-      listName: selection?.listName ?? '',
-      itemIdByUserTune,
-    },
-    onExit: exit,
+    host: selection,
+    closeOpenRow,
   })
-
-  // Everything the screen's toolbar reads, compared part by part. A publish carries the closures
-  // of the render it ran in, so this has to name every value that changes what one of them would
-  // do, including the visible ids, which toggleAll closes over.
-  const digest: readonly unknown[] = [
-    active,
-    tunes.count,
-    tunes.allSelected,
-    bulk.error,
-    bulk.actions.map((action) => action.label).join(','),
-    bulk.more.map((item) => `${item.label}:${item.tone ?? ''}`).join(','),
-    visibleIds,
-  ]
-  const state: ListSelectionState = {
-    active,
-    selection: tunes,
-    actions: bulk.actions,
-    more: bulk.more,
-    error: bulk.error,
-    enter,
-    exit,
-    selectRef,
-  }
-  const publish = selection?.onChange
-  const published = useRef<readonly unknown[] | null>(null)
-  useLayoutEffect(() => {
-    const last = published.current
-    if (
-      !publish ||
-      (last && last.length === digest.length && last.every((v, at) => v === digest[at]))
-    )
-      return
-    published.current = digest
-    publish(state)
-  })
-  // The screen's toolbar outlives these rows, so it has to hear when the last one goes. Forgetting
-  // what was published with it is what lets the next mount publish again, which a StrictMode
-  // double-invoke depends on: the ref survives the remount it simulates, the state does not.
-  useLayoutEffect(
-    () => () => {
-      published.current = null
-      publish?.(null)
-    },
-    [publish],
-  )
-
-  const move = (rows: readonly ListItemView[], from: number, to: number) => {
-    const tune = rows[from]
-    const target = rows[to]
-    if (!tune || !target || from === to) return
-    // A hidden archived tune keeps its place because the target is a visible neighbor.
-    const next: Pending = {
-      move: {
-        itemId: tune.item.id,
-        targetId: target.item.id,
-        side: from < to ? 'after' : 'before',
-      },
-    }
-    const said = `Moved ${tune.tune.title} to position ${to + 1} of ${rows.length}`
-    setAnnouncement(said)
-    onMoveStart()
-    setMoving((current) => [...current, next])
-    writes.current = writes.current
-      .then(() => moveItem(db, listId, next.move.itemId, next.move.targetId))
-      .then(
-        async () => {
-          // Read before the await, or a commit landing inside it would leave these two
-          // describing different moments and neither of them able to retire the move.
-          const shown = shownItems.current
-          const stored = await activeItems(db, listId).then(
-            (rows) => rows.map((item) => item.id),
-            () => null,
-          )
-          setMoving((current) =>
-            stored === null
-              ? // The write landed, so the store holds the move. With no read to say when the
-                // screen catches up, following the store now beats waiting on an answer that
-                // is not coming.
-                current.filter((queued) => queued !== next)
-              : current.map((queued) =>
-                  queued === next
-                    ? { ...queued, settled: { items: shown, order: stored } }
-                    : queued,
-                ),
-          )
-        },
-        (caught: unknown) => {
-          setMoving((current) => current.filter((queued) => queued !== next))
-          // The tune is back where it was, so this move's announcement would still claim it moved.
-          setAnnouncement((current) => (current === said ? '' : current))
-          onError(messageFor(caught))
-        },
-      )
-  }
 
   const moveMenu = (event: ReactMouseEvent, view: ListItemView) => {
     const index = visible.indexOf(view)
     const last = visible.length - 1
     const go = (place: (index: number, last: number) => number) => () => {
-      const rows = onScreen.current
+      const rows = onScreenRef.current
       const at = rows.findIndex((row) => row.item.id === view.item.id)
       if (at >= 0) move(rows, at, place(at, rows.length - 1))
     }
@@ -447,7 +211,7 @@ export function ListTunes({
         {announcement}
       </p>
       {/* Never behind the mode: a successful edit ends it while the sheet is still dismissing. */}
-      {bulk.sheets}
+      {sheets}
     </>
   )
 }
