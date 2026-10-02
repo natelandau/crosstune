@@ -7,7 +7,7 @@ import type { SyncEngine } from '../../sync/types'
 export const UNSYNCED_RECORDINGS_ERROR =
   'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.'
 
-/** The catalog is the user's private data on a possibly shared phone: gone with the session. */
+/** The catalog is the user's private data on a possibly shared phone: gone with a sign-out. */
 export async function forgetLocalData({
   db,
   userId,

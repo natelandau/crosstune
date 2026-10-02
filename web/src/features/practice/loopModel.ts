@@ -13,13 +13,6 @@ export type PlacedLoop = Span & { id: string; color: number }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
-/** Pulls a span inside the bounds; null when less than the minimum length remains. */
-export function clampLoop(span: Span, bounds: Bounds): Span | null {
-  const startMs = Math.max(span.startMs, bounds.startMs)
-  const endMs = Math.min(span.endMs, bounds.endMs)
-  return endMs - startMs < MIN_LOOP_MS ? null : { startMs, endMs }
-}
-
 /** The span between an anchor and a pointer, widened to the minimum length and held inside the bounds. */
 export function spanFromDrag(anchorMs: number, pointerMs: number, bounds: Bounds): Span {
   const lo = clamp(Math.min(anchorMs, pointerMs), bounds.startMs, bounds.endMs)

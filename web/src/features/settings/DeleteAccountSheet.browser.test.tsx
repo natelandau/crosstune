@@ -8,6 +8,7 @@ import { createTune } from '../../commands/tunes'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
+import { DELETING } from '../../ui/Confirm'
 import { forceTouch } from '../../test/pointer'
 import { countAccountData, deleteAccountAndForget } from './deleteAccount'
 import {
@@ -19,7 +20,6 @@ import {
   DELETE_CONFIRMATION_TEXT,
   DELETE_FAILED,
   DELETE_UNCONFIRMED,
-  DELETING,
   SETTINGS_LINE,
   UNSYNCED_LINE,
 } from './deleteAccountCopy'

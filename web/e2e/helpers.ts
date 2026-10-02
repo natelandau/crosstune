@@ -1,5 +1,6 @@
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import { expect, type Locator, type Page } from '@playwright/test'
+import { MORE_KEYS } from '../src/features/tune/KeyChooser'
 
 export function unique(name: string): string {
   return `${name} ${Date.now().toString(36)}`
@@ -163,7 +164,7 @@ export async function addTune(page: Page, title: string, key: string): Promise<v
     await expectSettled(pill)
     await pill.click()
   } else {
-    await keys.getByRole('button', { name: 'More keys…', exact: true }).click()
+    await keys.getByRole('button', { name: MORE_KEYS, exact: true }).click()
     const choices = page.locator('ion-action-sheet, ion-popover').last()
     await expect(choices).toBeVisible()
     await choices.getByText(key, { exact: true }).click()
