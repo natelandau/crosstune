@@ -11,7 +11,14 @@ import pytest
 from botocore.stub import Stubber
 
 from crosstune.storage import store as store_module
-from crosstune.storage.r2 import ObjectDeleteError, R2Store, s3_client
+from crosstune.storage.r2 import (
+    CONNECT_TIMEOUT_SECONDS,
+    READ_TIMEOUT_SECONDS,
+    TOTAL_ATTEMPTS,
+    ObjectDeleteError,
+    R2Store,
+    s3_client,
+)
 from crosstune.storage.store import (
     ListedObject,
     ObjectStore,
@@ -132,6 +139,15 @@ def test_s3_client_signs_for_auto_on_r2_and_us_east_1_elsewhere() -> None:
     local = s3_client("http://localhost:9000", "k", "s")
     assert r2.meta.region_name == "auto"
     assert local.meta.region_name == "us-east-1"
+
+
+def test_s3_client_fails_fast_on_a_stalled_endpoint() -> None:
+    config = s3_client("https://acct.r2.cloudflarestorage.com", "k", "s").meta.config
+    assert (config.connect_timeout, config.read_timeout) == (
+        CONNECT_TIMEOUT_SECONDS,
+        READ_TIMEOUT_SECONDS,
+    )
+    assert config.retries == {"mode": "standard", "total_max_attempts": TOTAL_ATTEMPTS}
 
 
 async def test_fake_store_round_trips(tmp_path) -> None:
