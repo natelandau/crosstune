@@ -3,8 +3,8 @@ import Testing
 
 /// Every sheet, dialog, and file picker in the UI covers the shell while it is up, so the record
 /// dome hides and the menu commands stand down. A sheet's root view marks itself with
-/// `.shellSheet()` or `.partHeightSheet()`; a dialog, alert, or file picker has no root view of
-/// its own, so the view presenting it carries `.coversShell(_:)` on the line before.
+/// `.shellSheet()` or `.partHeightSheet()`; a dialog, alert, file picker, or share sheet has no
+/// root view of its own, so the view presenting it carries `.coversShell(_:)` on the line before.
 @Suite struct PresentationClaimTests {
     /// Presentations nested inside a sheet that already covers the shell, by file, modifier, and
     /// text on the modifier's line or the next that names the one presentation.
@@ -46,7 +46,10 @@ import Testing
             for (index, line) in source.lines.enumerated() {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard
-                    let modifier = [".confirmationDialog(", ".alert(", ".fileImporter("].first(where: trimmed.hasPrefix)
+                    let modifier = [
+                        ".confirmationDialog(", ".alert(", ".fileImporter(", ".fileExporter(", ".shareSheet(",
+                    ]
+                    .first(where: trimmed.hasPrefix)
                 else { continue }
                 if Self.isNested(source, line: index, modifier: modifier) { continue }
                 let previous = source.lines[..<index].last { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }

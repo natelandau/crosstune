@@ -1,4 +1,5 @@
 import CrosstuneAuth
+import CrosstuneExport
 import CrosstuneUI
 import SwiftUI
 
@@ -11,6 +12,8 @@ struct CrosstuneApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Before any window can start an export, so only zips a past run left behind go.
+        ExportArchive.removeLeftovers()
         let configuration = AppConfiguration.main
         _session = State(
             initialValue: AccountSession(

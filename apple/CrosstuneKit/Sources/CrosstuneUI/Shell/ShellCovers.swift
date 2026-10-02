@@ -48,7 +48,8 @@ extension View {
     }
 
     /// Covers the shell while `isPresenting` is true and this view shows. Put it on the view that
-    /// presents a dialog, alert, or file picker, which have no root view of their own to mark.
+    /// presents a dialog, alert, file picker, or share sheet, which have no root view of their own
+    /// to mark.
     func coversShell(_ isPresenting: Bool) -> some View {
         modifier(Covers(cover: \.domeCover, isCovering: isPresenting))
             .modifier(Covers(cover: \.openSheets, isCovering: isPresenting))
