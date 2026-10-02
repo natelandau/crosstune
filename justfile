@@ -101,6 +101,6 @@ commit *args:
 bump *args:
     uv run --project api cz bump {{ args }}
 
-# Upgrade dependencies and hook versions
-update: api::update web::update
+# Upgrade every dependency and hook version across all modules
+update: api::update web::update site::update apple::update
     uv run --project api prek autoupdate --config .pre-commit-config.yaml
