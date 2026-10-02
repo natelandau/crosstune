@@ -67,6 +67,8 @@ for Android and every browser. The parts that matter:
   web, the device's size shifted up or down on Apple. Per device.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
+- Export. One zip from Settings: tunes and lists as spreadsheets, plus the
+  recordings on the device.
 
 ## Designed for, not built
 

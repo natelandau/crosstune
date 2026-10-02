@@ -7,6 +7,7 @@ import { renderIonic } from '../../test/ionic'
 import { fakeEngine, testSession } from '../../test/providers'
 import { AccountGroup, ACCOUNT_OFFLINE, SIGN_OUT, SIGNED_IN_OFFLINE } from './AccountGroup'
 import { DELETE_ACCOUNT, DELETE_ACCOUNT_TITLE } from './deleteAccountCopy'
+import { EXPORT_DATA, EXPORT_TITLE } from './export/exportCopy'
 import { signOutAndForget } from './signOut'
 
 const clerk = vi.hoisted(() => ({
@@ -64,6 +65,19 @@ describe('AccountGroup', () => {
     await expect.element(page.getByText(ACCOUNT_OFFLINE)).toBeVisible()
     await expect.element(signOutRow()).toBeDisabled()
     await expect.element(deleteAccountRow()).toBeDisabled()
+  })
+
+  it('Export data stays enabled offline', async () => {
+    clerk.user = null
+    show({ offline: true })
+    await expect.element(page.getByRole('button', { name: EXPORT_DATA })).toBeEnabled()
+    await expect.element(signOutRow()).toBeDisabled()
+  })
+
+  it('opens the export sheet from its row', async () => {
+    show()
+    await page.getByRole('button', { name: EXPORT_DATA }).click()
+    await expect.element(page.getByRole('heading', { name: EXPORT_TITLE })).toBeVisible()
   })
 
   it('opens the delete account sheet from its row', async () => {

@@ -8,6 +8,8 @@ import { useSyncEngine } from '../../sync/SyncProvider'
 import { Group } from '../../ui/Group'
 import { DeleteAccountSheet } from './DeleteAccountSheet'
 import { DELETE_ACCOUNT } from './deleteAccountCopy'
+import { EXPORT_DATA } from './export/exportCopy'
+import { ExportSheet } from './export/ExportSheet'
 import { signOutAndForget } from './signOut'
 
 export const SIGN_OUT = 'Sign out'
@@ -27,6 +29,7 @@ export function AccountGroup() {
   const engine = useSyncEngine()
   const { error, pending, run } = useAction()
   const [deleting, setDeleting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   // Clerk is not loaded in an offline session, so the email is the first choice and the raw id
   // the last resort.
   const identity = user?.primaryEmailAddress?.emailAddress ?? (offline ? SIGNED_IN_OFFLINE : userId)
@@ -46,6 +49,10 @@ export function AccountGroup() {
         >
           <IonLabel color="danger">{SIGN_OUT}</IonLabel>
         </IonItem>
+        {/* Reads only the local store, so it needs no connection. */}
+        <IonItem button detail={false} disabled={pending} onClick={() => setExporting(true)}>
+          <IonLabel>{EXPORT_DATA}</IonLabel>
+        </IonItem>
         <IonItem
           button
           detail={false}
@@ -55,6 +62,7 @@ export function AccountGroup() {
           <IonLabel color="danger">{DELETE_ACCOUNT}</IonLabel>
         </IonItem>
       </Group>
+      <ExportSheet open={exporting} onClose={() => setExporting(false)} />
       <DeleteAccountSheet open={deleting} onClose={() => setDeleting(false)} />
     </>
   )

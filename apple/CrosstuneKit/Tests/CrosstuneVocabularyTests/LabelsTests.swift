@@ -6,6 +6,7 @@ import Testing
     #expect(Set(Vocabulary.instrumentLabels.keys) == Set(Vocabulary.instruments))
     #expect(Set(Vocabulary.statusLabels.keys) == Set(Vocabulary.statuses))
     #expect(Set(Vocabulary.modeAbbreviations.keys) == Set(Vocabulary.modes))
+    #expect(Set(Vocabulary.modeLabels.keys) == Set(Vocabulary.modes))
     #expect(Set(Vocabulary.providerLabels.keys) == Set(Vocabulary.providers))
     #expect(Set(Vocabulary.audioQualityNames.keys) == Set(Vocabulary.audioQualities))
     #expect(Set(Vocabulary.audioBitrates.keys) == Set(Vocabulary.audioQualities))
@@ -18,6 +19,7 @@ import Testing
     #expect(Vocabulary.instrumentLabels["violin"] == "Violin")
     #expect(Vocabulary.statusLabels["want_to_learn"] == "Unknown")
     #expect(Vocabulary.statusLabels["known"] == "Known")
+    #expect(Vocabulary.modeLabels["mixolydian"] == "Mixolydian")
     #expect(Vocabulary.modeAbbreviations["dorian"] == " dor")
     #expect(Vocabulary.modeAbbreviations["mixolydian"] == " mix")
     #expect(Vocabulary.modeAbbreviations["major"] == "")
@@ -30,6 +32,11 @@ import Testing
     #expect(Vocabulary.audioBitrates["high"] == 128_000)
     #expect(Vocabulary.standardTunings["five_string_banjo"] == "Open G (gDGBD)")
     #expect(Vocabulary.standardTunings["violin"] == "Standard (GDAE)")
+}
+
+@Test func labelsAnInstrumentThisBuildDoesNotKnowByItsRawValue() {
+    #expect(Vocabulary.instrumentLabel("tenor_banjo") == "Tenor banjo")
+    #expect(Vocabulary.instrumentLabel("hardanger") == "hardanger")
 }
 
 @Test func offersSuggestionsForEveryInstrumentAndEachStandardFirst() {

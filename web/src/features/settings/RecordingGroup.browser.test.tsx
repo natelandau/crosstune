@@ -11,12 +11,12 @@ import { renderIonic } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import type { SyncEngine } from '../../sync/types'
 import {
-  KEEP_OFFLINE_LABEL,
   QUALITY_FOOTER,
   RecordingGroup,
   REMOVE_DOWNLOADS,
   REMOVE_DOWNLOADS_FOOTER,
 } from './RecordingGroup'
+import { KEEP_OFFLINE_LABEL } from './recordingCopy'
 
 vi.mock('../../commands/settings', { spy: true })
 vi.mock('../../commands/recordings', { spy: true })

@@ -43,11 +43,11 @@ public enum TuneFieldLabels {
     public static let clearDate = "Clear date"
 
     public static func tuning(_ instrument: String) -> String {
-        "\(TuningText.instrumentLabel(instrument)) tuning"
+        "\(Vocabulary.instrumentLabel(instrument)) tuning"
     }
 
     public static func capo(_ instrument: String) -> String {
-        "\(TuningText.instrumentLabel(instrument)) capo"
+        "\(Vocabulary.instrumentLabel(instrument)) capo"
     }
 
     /// The text field Other reveals, "Other genre".

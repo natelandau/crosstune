@@ -33,7 +33,8 @@ public struct AccountView: View {
     }
 }
 
-/// The account's section of a form: who is signed in, sign-out, and account deletion.
+/// The account's section of a form: who is signed in, sign-out, data export, and account
+/// deletion.
 ///
 /// Not Clerk's `UserProfileView`, which always offers its own sign-out and so would skip the
 /// guard that keeps unsent changes from being deleted with the catalog.
@@ -51,6 +52,7 @@ public struct AccountSections: View {
     @State private var signOutFailure: String?
     @State private var countsState: DeleteAccountSheet.CountsState = .loading
     @State private var showsDeleteSheet = false
+    @State private var showsExportSheet = false
 
     public init(session: AccountSession) {
         self.session = session
@@ -63,6 +65,11 @@ public struct AccountSections: View {
                 run(failure: $signOutFailure) { try await session.signOut() }
             }
             .disabled(pending || session.isOffline)
+            Button(ExportDataSheet.title) { showsExportSheet = true }
+                .disabled(session.store == nil)
+                .sheet(isPresented: $showsExportSheet) {
+                    ExportDataSheet(store: session.store)
+                }
             Button(DeleteAccountSheet.title, role: .destructive) { openDeleteSheet() }
                 .disabled(pending || session.isOffline)
                 .sheet(isPresented: $showsDeleteSheet) {

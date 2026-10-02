@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "CrosstuneAudio", targets: ["CrosstuneAudio"]),
         .library(name: "CrosstuneAuth", targets: ["CrosstuneAuth"]),
         .library(name: "CrosstuneCommands", targets: ["CrosstuneCommands"]),
+        .library(name: "CrosstuneExport", targets: ["CrosstuneExport"]),
         .library(name: "CrosstuneStore", targets: ["CrosstuneStore"]),
         .library(name: "CrosstuneSync", targets: ["CrosstuneSync"]),
         .library(name: "CrosstuneUI", targets: ["CrosstuneUI"]),
@@ -65,6 +66,13 @@ let package = Package(
             ]
         ),
         .target(
+            name: "CrosstuneExport",
+            dependencies: [
+                "CrosstuneStore", "CrosstuneVocabulary", "CrosstuneCommands",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
+        ),
+        .target(
             name: "CrosstuneSync",
             dependencies: [
                 "CrosstuneAPI",
@@ -77,8 +85,8 @@ let package = Package(
         .target(
             name: "CrosstuneUI",
             dependencies: [
-                "CrosstuneAudio", "CrosstuneAuth", "CrosstuneCommands", "CrosstuneStore", "CrosstuneSync",
-                "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
+                "CrosstuneAudio", "CrosstuneAuth", "CrosstuneCommands", "CrosstuneExport", "CrosstuneStore",
+                "CrosstuneSync", "CrosstuneVocabulary", .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
         .target(name: "CrosstuneVocabulary"),
@@ -125,6 +133,13 @@ let package = Package(
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+            ]
+        ),
+        .testTarget(
+            name: "CrosstuneExportTests",
+            dependencies: [
+                "CrosstuneExport", "CrosstuneStore", "CrosstuneTestSupport",
+                .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
         .testTarget(

@@ -247,6 +247,8 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The Apple app excludes a downloaded recording's file from the device
   backup; a captured file is not excluded, since it is the only copy until
   it uploads.
+- A data export reads only the local store and the audio files the device
+  holds. It never fetches audio.
 - The original upload is a backup. It is never modified, no endpoint serves
   it, and it never counts against a user's quota. A trim cuts from it.
 - A saved trim is clamped on push to the recording's current playback

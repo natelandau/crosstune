@@ -98,7 +98,7 @@ struct BulkEditSheet: View {
         case .tuning(let instrument):
             BulkChoiceRow(
                 field: field, form: $form, options: Vocabulary.tuningSuggestions[instrument] ?? [],
-                rowLabel: TuningText.instrumentLabel(instrument), emptyChoice: BulkEditForm.clear,
+                rowLabel: Vocabulary.instrumentLabel(instrument), emptyChoice: BulkEditForm.clear,
                 allowsOther: true, maxLength: Vocabulary.Limits.Tune.tuning)
         case .genre:
             BulkChoiceRow(

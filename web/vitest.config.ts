@@ -1,4 +1,6 @@
 import { playwright } from '@vitest/browser-playwright'
+import { fileURLToPath } from 'node:url'
+import { searchForWorkspaceRoot } from 'vite'
 import { defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.ts'
 
@@ -10,7 +12,16 @@ export default defineConfig((env) =>
     defineConfig({
       // The dev server's strict port would reach each browser project's server, so a second
       // run in the same checkout would fail instead of taking the next port.
-      server: { strictPort: false },
+      // The export tests read the golden fixture the Apple tests share, at the repository root.
+      server: {
+        strictPort: false,
+        fs: {
+          allow: [
+            searchForWorkspaceRoot(process.cwd()),
+            fileURLToPath(new URL('../fixtures', import.meta.url)),
+          ],
+        },
+      },
       test: {
         restoreMocks: true,
         // Node re-reads TZ per Date/Intl call, so this makes a test that formats a date

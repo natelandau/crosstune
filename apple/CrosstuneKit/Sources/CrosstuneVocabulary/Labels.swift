@@ -14,6 +14,11 @@ extension Vocabulary {
         "mountain_dulcimer": "Mountain dulcimer",
     ]
 
+    /// The instrument's display name, or its raw value for one this build does not know.
+    public static func instrumentLabel(_ instrument: String) -> String {
+        instrumentLabels[instrument] ?? instrument
+    }
+
     /// The tuning an instrument is in unless a tune says otherwise, which a row leaves unsaid.
     /// An instrument with no standard tuning always shows the one a tune holds.
     public static let standardTunings: [String: String] = [
@@ -27,6 +32,15 @@ extension Vocabulary {
         "known": "Known",
         "learning": "Learning",
         "want_to_learn": "Unknown",
+    ]
+
+    public static let modeLabels: [String: String] = [
+        "major": "Major",
+        "minor": "Minor",
+        "mixolydian": "Mixolydian",
+        "dorian": "Dorian",
+        "modal": "Modal",
+        "other": "Other",
     ]
 
     /// What follows a key on a row. Major reads as the key alone, as players write it.
