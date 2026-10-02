@@ -40,8 +40,12 @@ struct CatalogFilterBar: View {
     /// The space before a rail's first chip, matching the list's own margin.
     private static let inset: CGFloat = 16
 
+    /// The bar's controls stay at the default text size, since larger chips push their labels off
+    /// the screen and make the rails hard to use.
+    private static let textSize = DynamicTypeSize.large
+    private static let spacing = Spacing(textSize)
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .subheadline) private var chipHeight = defaultChipHeight
 
     private var filters: CatalogFilters { results.filters }
 
@@ -52,12 +56,10 @@ struct CatalogFilterBar: View {
     }
 
     var body: some View {
-        let spacing = Self.barSpacing(dynamicTypeSize)
+        let spacing = Self.spacing
         VStack(alignment: .leading, spacing: spacing.stackGap) {
             controls
-                // Past this size the bar would fill the first screen. The chips scroll or wrap, so
-                // no word is lost.
-                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+                .dynamicTypeSize(Self.textSize)
             ForEach(errors, id: \.self) { error in
                 Text(error)
                     .font(.footnote)
@@ -66,20 +68,14 @@ struct CatalogFilterBar: View {
             }
         }
         // The list cell takes no touches past its bounds, so the chips' tap targets need room.
-        .padding(.top, max(spacing.filterBarPadding, tapOutset(visibleHeight: chipHeight)))
-        .padding(.bottom, max(spacing.filterBarBottom, tapOutset(visibleHeight: chipHeight)))
-    }
-
-    /// The bar's spacing, which stops growing where its chips do.
-    static func barSpacing(_ size: DynamicTypeSize) -> Spacing {
-        Spacing(min(size, .accessibility1))
+        .padding(.top, max(spacing.filterBarPadding, tapOutset(visibleHeight: defaultChipHeight)))
+        .padding(.bottom, max(spacing.filterBarBottom, tapOutset(visibleHeight: defaultChipHeight)))
     }
 
     @ViewBuilder private var controls: some View {
         let railsOnScreen = Self.railsOnScreen(dynamicTypeSize)
-        let spacing = Self.barSpacing(dynamicTypeSize)
-        // At the default size and above, 12 between lines keeps neighboring chips' 44 point
-        // targets apart. Smaller sizes let them overlap a little rather than spread the bar out.
+        let spacing = Self.spacing
+        // 12 between lines keeps neighboring chips' 44 point targets apart.
         VStack(alignment: .leading, spacing: spacing(12)) {
             StatusRail(
                 filter: Binding {

@@ -473,6 +473,8 @@ equivalent below.
   whole Dynamic Type steps from the system's size, and reads "System" or
   body text's size as a percentage of the system's. Spacing scales with the
   text. System alerts and confirmation dialogs follow the system's size.
+  The catalog's filter bar stays at the default size, because larger chips
+  push their labels off the screen.
   The Mac has no text size row, because Mac text does not scale with
   Dynamic Type. The light, dark, and system appearance setting carries
   over unchanged.
