@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 
 from crosstune.db.base import next_server_seq
 from crosstune.models import RecordingLoop
+from crosstune.recordings.trim import effective_end
 from crosstune.vocabulary import MIN_LOOP_MS
 
 if TYPE_CHECKING:
@@ -65,10 +66,7 @@ def loop_bounds(recording: Recording) -> tuple[int, int | None]:
         tuple[int, int | None]: The trim start and the trim end, falling back to the
             source duration, which is None while the server doesn't know the length.
     """
-    end = (
-        recording.trim_end_ms if recording.trim_end_ms is not None else recording.source_duration_ms
-    )
-    return recording.trim_start_ms, end
+    return recording.trim_start_ms, effective_end(recording)
 
 
 async def reclamp_recording_loops(

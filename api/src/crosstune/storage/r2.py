@@ -36,7 +36,7 @@ def s3_client(endpoint_url: str, access_key_id: str, secret_access_key: str) -> 
 
 
 class R2Store:
-    """An ObjectStore backed by one bucket."""
+    """An ObjectStore for one bucket. Presigned URLs are signed locally and can be rehosted for the browser."""
 
     def __init__(
         self,

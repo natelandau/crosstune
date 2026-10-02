@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, overload
 
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -89,6 +89,14 @@ async def slot_for(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot
     return await session.get(UploadSlot, recording_id)
 
 
+@overload
+async def enqueue_job(
+    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRIM]
+) -> Job | None: ...
+@overload
+async def enqueue_job(
+    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRANSCODE, JobKind.PEAKS]
+) -> Job: ...
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.
 
@@ -123,8 +131,7 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
 
 async def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
     """Add a transcode job for the recording and wake the runner once the request commits."""
-    # Only a TRIM insert can be skipped as a duplicate; this call always queues one.
-    return cast("Job", await enqueue_job(session, recording, JobKind.TRANSCODE))
+    return await enqueue_job(session, recording, JobKind.TRANSCODE)
 
 
 async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:

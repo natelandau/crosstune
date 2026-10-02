@@ -36,7 +36,7 @@ from crosstune.vocabulary import (
 )
 
 if TYPE_CHECKING:
-    from crosstune.schemas.common import TableName
+    from crosstune.vocabulary import TableName
 
 
 TUNE = LIMITS["tunes"]

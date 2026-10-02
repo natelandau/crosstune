@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, replace
@@ -169,4 +170,5 @@ async def _open_graph(
             if read >= MAX_PAGE_BYTES:
                 break
     body = b"".join(chunks)[:MAX_PAGE_BYTES]
-    return parse_open_graph(body.decode("utf-8", errors="replace"))
+    # Up to MAX_PAGE_BYTES of pure-Python parsing, kept off the event loop.
+    return await asyncio.to_thread(parse_open_graph, body.decode("utf-8", errors="replace"))

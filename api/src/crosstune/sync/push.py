@@ -26,9 +26,9 @@ from crosstune.models import (
 from crosstune.recordings.loops import clamp_loop, clamp_span, loop_bounds, reclamp_recording_loops
 from crosstune.recordings.service import ensure_trim_job
 from crosstune.recordings.trim import clamp_trim
-from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult, TableName
+from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
-from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING
+from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING, TableName
 
 if TYPE_CHECKING:
     import uuid

@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from sqlalchemy import ColumnElement
 
     from crosstune.db.base import Base
-    from crosstune.schemas.common import TableName
+    from crosstune.vocabulary import TableName
 
 
 @dataclass(frozen=True)
