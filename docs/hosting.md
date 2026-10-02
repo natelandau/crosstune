@@ -386,16 +386,16 @@ job that uses it would wait for its own approval.
 
 - Squash merges only, with the PR title and body as the commit message.
   Head branches are deleted after merge.
-- A ruleset named `main` requires a pull request, the six workflow jobs (`API lint`,
-  `API test`, `API contract`, `Web check`, `Web contract`, `Site check`) as
-  status checks, and linear history, and blocks force pushes and deletion.
-  GitHub enforces rulesets on private repositories only on paid plans, so on
-  the free plan it exists and does nothing.
+- A ruleset named `main`, enforced, requires a pull request, the five workflow
+  jobs (`API lint`, `API test`, `API contract`, `Web check`, `Web contract`)
+  as status checks, and linear history, and blocks force pushes and deletion.
+  `Web check` is a gate job that passes when the web lint and test shards
+  pass or skip, so the shards can change without editing the ruleset.
 
-> **Note:** Before turning enforcement on, remove the `paths` filter from
-> the `pull_request` trigger in both workflows. A required check that never
-> starts blocks the merge. `Apple` stays out of the ruleset, so its filter
-> stays.
+> **Note:** A required check that never starts blocks the merge, so the
+> `API` and `Web` workflows have no `paths` filter on `pull_request`; their
+> `changes` job skips the work instead. `Apple` stays out of the ruleset, so
+> its filter stays.
 
 ## App Store Connect
 

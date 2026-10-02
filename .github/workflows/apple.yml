@@ -51,6 +51,16 @@ jobs:
         timeout-minutes: 15
       - run: just build
         if: ${{ !inputs.skip_build }}
+      # A build from another Swift compiler cannot be reused, so the compiler is in the key.
+      - name: read the Swift compiler version
+        id: swift
+        run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      # The contract tools compile the OpenAPI generator, which changes only with the lockfile.
+      - uses: actions/cache@v6
+        with:
+          path: apple/Tools/.build
+          key: apple-tools-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/Tools/Package.resolved') }}
+          restore-keys: apple-tools-${{ steps.swift.outputs.version }}-
       - run: just contract
       - name: fail if the committed Swift client or vocabulary is stale
         working-directory: .

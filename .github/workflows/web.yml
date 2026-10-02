@@ -48,12 +48,12 @@ jobs:
             echo "relevant=false" >> "$GITHUB_OUTPUT"
           fi
 
-  check:
+  lint:
     needs: changes
     if: >-
       needs.changes.outputs.relevant == 'true' &&
       (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
-    name: Web check
+    name: Web lint and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -71,12 +71,60 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v4
       - run: pnpm install --frozen-lockfile
+      - run: just lint
+      - run: just build
+
+  # The Chromium tests are most of the suite's time, and Linux runners cost a
+  # public repository nothing, so the files split across parallel runners.
+  test:
+    needs: changes
+    if: >-
+      needs.changes.outputs.relevant == 'true' &&
+      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
+    name: Web test ${{ matrix.shard }}/3
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.node-version
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: extractions/setup-just@v4
+      - run: pnpm install --frozen-lockfile
       # The component tests run in real Chromium, because Ionic is web
       # components with shadow DOM that jsdom does not render.
       - run: pnpm exec playwright install --with-deps chromium
-      - run: just lint
-      - run: just test
-      - run: just build
+      - run: just test --shard=${{ matrix.shard }}/3
+
+  # The required status check, so the shards can change without touching the
+  # ruleset. It runs even when they skip, and a skip passes.
+  check:
+    needs: [changes, lint, test]
+    if: always()
+    name: Web check
+    runs-on: ubuntu-latest
+    steps:
+      - name: require every web job to pass or skip
+        env:
+          RESULTS: ${{ needs.changes.result }} ${{ needs.lint.result }} ${{ needs.test.result }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::a web job ended $result"; exit 1 ;;
+            esac
+          done
 
   contract:
     needs: changes
