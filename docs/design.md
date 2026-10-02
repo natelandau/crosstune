@@ -449,7 +449,9 @@ describes Ionic's web chrome, the Apple app replaces it with the native
 equivalent below.
 
 - iPhone: a tab bar (Catalog, Lists, Recordings, Settings) with the record
-  dome centered over its middle, replacing the web's tab bar. iPad and Mac
+  dome centered over its middle, replacing the web's tab bar. The dome is
+  the bar's own glass with a solid recording-red dot filling most of it,
+  the web dome's shape, not a red button. iPad and Mac
   use a split view (sidebar, content, detail) instead; an iPad in a compact
   window falls back to the iPhone layout.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an

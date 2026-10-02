@@ -94,7 +94,7 @@ enum TabSlot: Hashable {
 
         /// Where the dome's bottom edge sits against the bottom safe area. Its top rises a few
         /// points above the bar and stays clear of the bottom accessory above it.
-        private static let domeLift: CGFloat = -7
+        private static let domeLift: CGFloat = -4
 
         private var domeDiameter: CGFloat { RecordDome.diameter(forWidth: width) }
 
