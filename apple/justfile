@@ -40,38 +40,57 @@ fix:
 test *args:
     swift test --package-path CrosstuneKit {{ args }}
 
+# The compilation cache is keyed on content rather than file dates, so CI restores it into a
+# fresh checkout and still hits.
+
 # Build the app for the iOS Simulator and for macOS, unsigned
 [group('build')]
 build:
     for destination in 'generic/platform=iOS Simulator' 'generic/platform=macOS'; do \
         xcodebuild build -quiet -project Crosstune.xcodeproj -scheme Crosstune \
-            -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO; \
+            -destination "$destination" -derivedDataPath {{ derived_data }} CODE_SIGNING_ALLOWED=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES; \
     done
 
-# Reads ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the environment or apple/.env: an
-# App Store Connect API key with the Admin role, which cloud signing needs.
+# The release recipes read ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the environment
+# or apple/.env: an App Store Connect API key with the Admin role, which cloud signing needs.
 
-# Archive the Release build for iOS and macOS and upload both to App Store Connect
+asc_auth := '-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"'
+archives := ".build/archives"
+
+# Archive the signed Release build for iOS and macOS, ready for `just upload`
 [group('release')]
-testflight build_number:
+archive build_number:
     #!/usr/bin/env bash
     set -euo pipefail
     : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
     # A .env file does not expand `~`.
     ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
-    auth=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH"
-        -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+    rm -rf {{ archives }}
     for platform in iOS macOS; do
-        archive=".build/archives/$platform.xcarchive"
-        rm -rf "$archive" ".build/export/$platform"
         xcodebuild archive -quiet -project Crosstune.xcodeproj -scheme Crosstune \
             -configuration Release -destination "generic/platform=$platform" \
-            -derivedDataPath {{ derived_data }} -archivePath "$archive" \
-            CURRENT_PROJECT_VERSION='{{ build_number }}' "${auth[@]}"
-        xcodebuild -exportArchive -archivePath "$archive" \
-            -exportOptionsPlist Config/ExportOptions.plist \
-            -exportPath ".build/export/$platform" "${auth[@]}"
+            -derivedDataPath {{ derived_data }} -archivePath "{{ archives }}/$platform.xcarchive" \
+            CURRENT_PROJECT_VERSION='{{ build_number }}' {{ asc_auth }}
     done
+
+# Upload the archives `just archive` made to App Store Connect
+[group('release')]
+upload:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${ASC_KEY_PATH:?the path of the .p8 key file}" "${ASC_KEY_ID:?the key ID}" "${ASC_ISSUER_ID:?the issuer ID}"
+    ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
+    for platform in iOS macOS; do
+        rm -rf ".build/export/$platform"
+        xcodebuild -exportArchive -archivePath "{{ archives }}/$platform.xcarchive" \
+            -exportOptionsPlist Config/ExportOptions.plist \
+            -exportPath ".build/export/$platform" {{ asc_auth }}
+    done
+
+# Archive the Release build for iOS and macOS and upload both to App Store Connect
+[group('release')]
+testflight build_number: (archive build_number) upload
 
 # Regenerate the Swift client and vocabulary from the committed OpenAPI contract
 [group('contract')]

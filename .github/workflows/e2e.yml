@@ -5,7 +5,19 @@ name: E2E
 # instance, so a Clerk outage would block unrelated merges if this gated pull requests.
 on:
   pull_request:
-    paths: ["web/**", "api/**", "scripts/ci-media-tools.sh", ".github/workflows/e2e.yml"]
+    # The suite drives the built app and the running API, so a change to their unit or
+    # browser tests alone cannot change its result.
+    paths:
+      - "web/**"
+      - "api/**"
+      - "scripts/ci-media-tools.sh"
+      - ".github/workflows/e2e.yml"
+      - "!api/tests/**"
+      - "!web/**/*.test.ts"
+      - "!web/**/*.test.tsx"
+      - "!web/src/test/**"
+      - "!web/vitest.config.ts"
+      - "!**/*.md"
   workflow_dispatch:
 
 # Each run spends sign-ins against the Clerk development instance's usage limits.

@@ -22,38 +22,30 @@ env:
   UV_LOCKED: "1"
   CI: "true"
 
-# A bump commit on `main` skips these jobs, because the Release workflow runs
-# them on the tag it makes. The called jobs see the tag ref, so they run there.
 jobs:
   # The checks are required, so they run on every pull request and skip when it touches
   # nothing they cover; a skipped job passes a required check, a missing one blocks it.
   changes:
     name: Web changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ steps.changes.outputs.relevant }}
     steps:
       - uses: actions/checkout@v7
-        if: github.event_name == 'pull_request'
         with:
-          fetch-depth: 0
-      - id: filter
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if [ -z "$BASE" ] || git diff --name-only "$BASE...$HEAD" | grep -qE '^(web/|brand/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
-          fi
+          sparse-checkout: .github/actions
+      - id: changes
+        uses: ./.github/actions/changes
+        with:
+          pattern: '^(web/|brand/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'
 
-  check:
+  lint:
     needs: changes
-    if: >-
-      needs.changes.outputs.relevant == 'true' &&
-      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
-    name: Web check
+    if: needs.changes.outputs.relevant == 'true'
+    name: Web lint and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -71,18 +63,62 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v4
       - run: pnpm install --frozen-lockfile
+      - run: just lint
+      - run: just build
+
+  # The Chromium tests are most of the suite's time, and Linux runners cost a
+  # public repository nothing, so the files split across parallel runners.
+  test:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
+    name: Web test ${{ matrix.shard }}/3
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.node-version
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: extractions/setup-just@v4
+      - run: pnpm install --frozen-lockfile
       # The component tests run in real Chromium, because Ionic is web
       # components with shadow DOM that jsdom does not render.
       - run: pnpm exec playwright install --with-deps chromium
-      - run: just lint
-      - run: just test
-      - run: just build
+      - run: just test --shard=${{ matrix.shard }}/3
+
+  # The required status check, so the shards can change without touching the
+  # ruleset. It runs even when they skip, and a skip passes.
+  check:
+    needs: [changes, lint, test]
+    if: always()
+    name: Web check
+    runs-on: ubuntu-latest
+    steps:
+      - name: require every web job to pass or skip
+        env:
+          RESULTS: ${{ needs.changes.result }} ${{ needs.lint.result }} ${{ needs.test.result }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::a web job ended $result"; exit 1 ;;
+            esac
+          done
 
   contract:
     needs: changes
-    if: >-
-      needs.changes.outputs.relevant == 'true' &&
-      (github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'bump(release):'))
+    if: needs.changes.outputs.relevant == 'true'
     name: Web contract
     runs-on: ubuntu-latest
     defaults:

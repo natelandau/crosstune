@@ -1,0 +1,44 @@
+---
+name: Changes
+description: Decide whether a workflow's checks need to run for this event
+
+inputs:
+  pattern:
+    description: Extended regular expression matched against each changed path
+    required: true
+
+outputs:
+  relevant:
+    description: "'true' when the checks need to run"
+    value: ${{ steps.decide.outputs.relevant }}
+
+# A pull request runs the checks when a changed path matches. A bump commit on a branch
+# skips them, because the Release workflow runs them on the tag it makes. Every other
+# event runs them.
+runs:
+  using: composite
+  steps:
+    - id: decide
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        EVENT: ${{ github.event_name }}
+        PR: ${{ github.event.pull_request.number }}
+        REF_TYPE: ${{ github.ref_type }}
+        MESSAGE: ${{ github.event.head_commit.message }}
+        PATTERN: ${{ inputs.pattern }}
+      run: |
+        relevant=true
+        if [[ "$EVENT" == pull_request ]]; then
+          # A skipped required check passes, so a failed lookup runs the checks.
+          # A rename lists its old path too, so moving a file out of an area counts.
+          if files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)'); then
+            grep -qE "$PATTERN" <<< "$files" || relevant=false
+          else
+            echo "::warning::could not list the pull request's files; running every check"
+          fi
+        elif [[ "$REF_TYPE" == branch && "$MESSAGE" == "bump(release):"* ]]; then
+          relevant=false
+        fi
+        printf 'relevant=%s\n' "$relevant" >> "$GITHUB_OUTPUT"

@@ -167,16 +167,17 @@ and fails instead in CI, where the `API` workflow always starts it.
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
   Worker config with a dry run.
-  All three are required checks, so they start on every PR and skip their jobs
-  when it touches nothing they cover. A skipped job passes a required
-  check.
+  All three start on every PR and skip their jobs when it touches nothing
+  they cover. `API` and `Web` are required checks, and a skipped job passes
+  a required check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
   package tests, builds for the iOS Simulator and macOS, and checks the
   generated Swift client and vocabulary file. It runs only when `apple/` or
   the contract changes, and no host deploys from it. It is not a required
   check, because a required check must run on every PR and macOS minutes
-  cost more. `E2E`
-  runs Playwright on a PR that touches `web/` or `api/`, and on demand. It
+  cost more. `E2E` runs Playwright on a PR that changes `web/` or `api/`
+  beyond their unit and browser tests, test helpers, and Markdown, and on
+  demand. It
   is not a required check, because a Clerk outage would block unrelated
   merges. It skips fork and Dependabot PRs, which cannot sign in.
 - A workflow from a fork runs only after you approve it on the PR.
@@ -216,18 +217,18 @@ git push --follow-tags origin main
 - The tag push runs the `API`, `Web`, and `Apple` workflows on the tagged
   commit, checks that it is on `main`, and force-pushes `production`. The
   bump commit itself skips CI on `main`, so each release runs the checks
-  once. Every release rebuilds both services. A failing `Apple` check holds
-  the whole release.
-- After `production` moves, the **Upload to TestFlight** job waits for your
-  approval: open the run, click **Review deployments**, select
-  **app-store**, and approve. It uploads the iOS and macOS builds with build
-  number `<run number>.<attempt>`, and the internal testers get them once
-  Apple processes them. A job that waits blocks the next `Release` run, so
-  approve or cancel it.
-- A failed upload does not undo production. Re-run the failed job, which
-  raises the attempt. The same upload runs from a Mac with
-  `just apple::testflight <build number>` and the key in `apple/.env`. Use
-  a build number higher than every uploaded build.
+  once. Every release rebuilds both services. A failing `Apple` check or
+  **Archive the Apple apps** job holds the whole release.
+- The archive job signs the iOS and macOS release builds with build number
+  `<run number>.<attempt>` beside the checks. After `production` moves, the
+  **Upload to TestFlight** job uploads those archives, and the internal
+  testers get them once Apple processes them.
+- A failed upload does not undo production. Re-run the **Archive the Apple
+  apps** job, which raises the attempt and re-runs the jobs after it. A
+  re-run of the upload alone sends the same build number, which App Store
+  Connect refuses once it has that build. The same release runs from a Mac
+  with `just apple::testflight <build number>` and the key in `apple/.env`.
+  Use a build number higher than every uploaded build.
 - Each version is its side's Sentry release tag.
 - A home-screen install keeps the icon it was installed with. A release that
   changes the icon says so.

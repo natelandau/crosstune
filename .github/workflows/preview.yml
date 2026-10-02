@@ -47,22 +47,19 @@ jobs:
     name: Preview changes
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ steps.changes.outputs.relevant }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
-      - id: filter
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          if git diff --name-only "$BASE...$HEAD" | grep -qE '^(api/|\.github/workflows/preview\.yml$)'; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
-          fi
+          sparse-checkout: .github/actions
+      - id: changes
+        uses: ./.github/actions/changes
+        with:
+          pattern: '^(api/|\.github/workflows/preview\.yml$)'
 
   up:
     name: Create or refresh the preview environment
