@@ -2,6 +2,7 @@
 
 import importlib.util
 import re
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from crosstune.db.locks import advisory_lock_key
 
 pytestmark = pytest.mark.anyio
 
@@ -1427,3 +1430,122 @@ async def test_downgrade_to_0018_restores_the_link_label_and_upgrade_drops_it(
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
     async with engine.connect() as conn:
         assert (await conn.execute(query)).scalar_one() == 0
+
+
+async def test_0020_cuts_overlapping_loops_and_resequences_only_those(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    rec = "018f0000-0000-7000-8000-000000000021"
+    loops = {
+        "n1": ("018f0000-0000-7000-8000-000000000031", 1000, 9000),
+        "n2": ("018f0000-0000-7000-8000-000000000032", 3000, 5000),
+        "c1": ("018f0000-0000-7000-8000-000000000033", 10000, 14000),
+        "c2": ("018f0000-0000-7000-8000-000000000034", 12000, 16000),
+        "i1": ("018f0000-0000-7000-8000-000000000035", 20000, 22000),
+        "i2": ("018f0000-0000-7000-8000-000000000036", 20000, 22000),
+        "ok": ("018f0000-0000-7000-8000-000000000037", 30000, 31000),
+        "t1": ("018f0000-0000-7000-8000-000000000038", 40000, 44000),
+        "t2": ("018f0000-0000-7000-8000-000000000039", 41000, 44300),
+        "t3": ("018f0000-0000-7000-8000-00000000003a", 44100, 45000),
+        "a": ("018f0000-0000-7000-8000-00000000003b", 50000, 54000),
+        "b": ("018f0000-0000-7000-8000-00000000003c", 52000, 56000),
+        "c": ("018f0000-0000-7000-8000-00000000003d", 53000, 58000),
+    }
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0019")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, recorded_at, state, "
+                    "created_at, updated_at) values "
+                    "(:rec, :user, 'microphone', now(), 'ready', now(), now())"
+                ),
+                {"rec": rec, "user": user},
+            )
+            for id_, start_ms, end_ms in loops.values():
+                await conn.execute(
+                    text(
+                        "insert into recording_loops (id, user_id, recording_id, start_ms, "
+                        "end_ms, color, created_at, updated_at) values "
+                        "(:id, :user, :rec, :start_ms, :end_ms, 0, now(), now())"
+                    ),
+                    {"id": id_, "user": user, "rec": rec, "start_ms": start_ms, "end_ms": end_ms},
+                )
+            before = dict(
+                (await conn.execute(text("select id::text, server_seq from recording_loops")))
+                .tuples()
+                .all()
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text(
+                    "select id::text as id, start_ms, end_ms, deleted_at is not null as deleted, "
+                    "server_seq from recording_loops"
+                )
+            )
+        }
+
+    def state(name: str) -> tuple[int, int, bool]:
+        row = rows[loops[name][0]]
+        return (row.start_ms, row.end_ms, row.deleted)
+
+    def resequenced(name: str) -> bool:
+        id_ = loops[name][0]
+        return rows[id_].server_seq > before[id_]
+
+    assert state("n1") == (1000, 9000, False)
+    assert state("n2") == (3000, 5000, True)
+    assert state("c1") == (10000, 14000, False)
+    assert state("c2") == (14000, 16000, False)
+    assert state("i1") == (20000, 22000, False)
+    assert state("i2") == (20000, 22000, True)
+    assert state("ok") == (30000, 31000, False)
+    assert state("t1") == (40000, 44000, False)
+    assert state("t2") == (41000, 44300, True)
+    # The tombstoned t2 leaves the kept end at 44000, so t3 starts clear of it.
+    assert state("t3") == (44100, 45000, False)
+    assert state("a") == (50000, 54000, False)
+    assert state("b") == (54000, 56000, False)
+    assert state("c") == (56000, 58000, False)
+    assert {name for name in loops if resequenced(name)} == {"n2", "c2", "i2", "t2", "b", "c"}
+
+
+MIGRATION_0020 = (
+    Path(__file__).parents[1] / "src/crosstune/db/migrations/versions/0020_loops_never_overlap.py"
+)
+
+
+@pytest.mark.parametrize(
+    "user_id",
+    [
+        "018f0000-0000-7000-8000-000000000001",
+        "018f0000-0000-7000-ffff-ffffffffffff",
+        "018f0000-0000-7000-7fff-ffffffffffff",
+    ],
+)
+async def test_0020_locks_each_user_with_the_app_advisory_key(
+    session: AsyncSession, user_id: str
+) -> None:
+    spec = importlib.util.spec_from_file_location("migration_0020", MIGRATION_0020)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    expression = module.LOCK_KEY_SQL.format(column="cast(:user_id as uuid)")
+
+    key = (await session.execute(text(f"select {expression}"), {"user_id": user_id})).scalar_one()
+
+    assert key == advisory_lock_key(uuid.UUID(user_id))

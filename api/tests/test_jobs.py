@@ -1939,7 +1939,7 @@ async def test_transcode_reclamps_loops_to_the_measured_length(
     user = await make_user(session)
     rec = await make_uploaded(session, store, user, media_fixtures["m4a"], "audio/mp4")
     long, outside = (
-        await add_loop(session, rec, 500, 60_000),
+        await add_loop(session, rec, 500, 30_000),
         await add_loop(session, rec, 30_000, 40_000),
     )
     await transcode(session, store, rec, tmp_path)

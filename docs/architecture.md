@@ -259,8 +259,12 @@ same triggers. A return to the foreground stands in for a visible tab.
   push, and any job that writes a trim or a measured length, re-clamps each
   loop to the new range and tombstones any loop left outside it. Deleting a
   recording tombstones its loops, and a loop pushed for a deleted recording
-  is stored deleted rather than refused. Loop selection and Repeat are
-  device state and never sync.
+  is stored deleted rather than refused. Loop selection is device state
+  and never syncs.
+- Loops of one recording never overlap. Spans are half-open. A push that
+  overlaps a live loop cuts the pushed loop to the largest free stretch of
+  its span, or stores it deleted when that stretch is under 500 ms. An
+  exclusion constraint in the database enforces the rule.
 - The trim job cuts the kept range from the original, never from the
   current playback file. It uploads a new revisioned playback file and a
   new revisioned peaks file, and deletes the superseded objects only once

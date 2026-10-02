@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.anyio
 
@@ -108,7 +115,9 @@ async def test_101st_live_loop_is_invalid(client, auth_headers) -> None:
         *(loop(i, rec, start_ms=n * 1000, end_ms=n * 1000 + 600) for n, i in enumerate(ids)),
     )
     assert {r["status"] for r in results} == {"applied"}
-    [result] = await push(client, auth_headers("user_a"), loop(uid(), rec))
+    [result] = await push(
+        client, auth_headers("user_a"), loop(uid(), rec, start_ms=200000, end_ms=201000)
+    )
     assert result["status"] == "invalid"
     assert result["reason"] == "loop limit reached"
     [again] = await push(
@@ -185,7 +194,13 @@ async def test_moving_a_live_loop_onto_a_full_recording_is_invalid(client, auth_
         *(loop(uid(), full, start_ms=n * 1000, end_ms=n * 1000 + 600) for n in range(100)),
     )
     await push(client, headers, loop(mover, other))
-    [result] = await push(client, headers, change("recording_loops", mover, T1, **_fields(full)))
+    [result] = await push(
+        client,
+        headers,
+        change(
+            "recording_loops", mover, T1, **_fields(full) | {"start_ms": 200000, "end_ms": 201000}
+        ),
+    )
     assert result["status"] == "invalid"
     assert result["reason"] == "loop limit reached"
 
@@ -256,11 +271,11 @@ async def _fill_to_cap(client, headers, rec: str, first: str) -> None:
     await push(
         client,
         headers,
-        loop(first, rec),
+        loop(first, rec, start_ms=200000, end_ms=201000),
         *(loop(i, rec, start_ms=n * 1000, end_ms=n * 1000 + 600) for n, i in enumerate(others)),
     )
     await push(client, headers, change("recording_loops", first, T1, op="delete"))
-    [last] = await push(client, headers, loop(uid(), rec))
+    [last] = await push(client, headers, loop(uid(), rec, start_ms=200000, end_ms=201000))
     assert last["status"] == "applied"
 
 
@@ -279,7 +294,10 @@ async def test_newer_restore_at_the_cap_is_invalid(client, auth_headers) -> None
     headers = auth_headers("user_a")
     await push(client, headers, recording(rec))
     await _fill_to_cap(client, headers, rec, first)
-    [result] = await push(client, headers, change("recording_loops", first, T2, **_fields(rec)))
+    restore = change(
+        "recording_loops", first, T2, **_fields(rec) | {"start_ms": 300000, "end_ms": 301000}
+    )
+    [result] = await push(client, headers, restore)
     assert result["status"] == "invalid"
     assert result["reason"] == "loop limit reached"
 
@@ -292,3 +310,162 @@ async def test_loop_for_a_deleted_recording_is_stored_deleted(client, auth_heade
     [result] = await push(client, headers, loop(loop_id, rec))
     assert result["status"] == "applied"
     assert result["row"]["deleted_at"] is not None
+
+
+async def test_push_cuts_an_overlapping_loop_to_the_free_stretch(client, auth_headers) -> None:
+    rec = uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    await push(client, headers, loop(uid(), rec, start_ms=10000, end_ms=20000))
+    [result] = await push(client, headers, loop(uid(), rec, start_ms=15000, end_ms=30000))
+    assert result["status"] == "applied"
+    assert (result["row"]["start_ms"], result["row"]["end_ms"]) == (20000, 30000)
+
+
+async def test_push_stores_a_loop_with_no_free_stretch_as_deleted(client, auth_headers) -> None:
+    rec = uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    await push(client, headers, loop(uid(), rec, start_ms=10000, end_ms=20000))
+    [result] = await push(client, headers, loop(uid(), rec, start_ms=12000, end_ms=18000))
+    assert result["status"] == "applied"
+    assert result["row"]["deleted_at"] is not None
+
+
+async def test_second_overlapping_loop_in_one_batch_is_cut(client, auth_headers) -> None:
+    rec = uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    first, second = await push(
+        client,
+        headers,
+        loop(uid(), rec, start_ms=10000, end_ms=20000),
+        loop(uid(), rec, start_ms=15000, end_ms=30000),
+    )
+    assert (first["row"]["start_ms"], first["row"]["end_ms"]) == (10000, 20000)
+    assert (second["row"]["start_ms"], second["row"]["end_ms"]) == (20000, 30000)
+    assert second["row"]["deleted_at"] is None
+
+
+async def test_restoring_a_loop_onto_a_live_loop_cuts_it(client, auth_headers) -> None:
+    rec, restored = uid(), uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    await push(client, headers, loop(restored, rec, start_ms=10000, end_ms=20000))
+    await push(client, headers, change("recording_loops", restored, T1, op="delete"))
+    await push(client, headers, loop(uid(), rec, start_ms=5000, end_ms=15000))
+    [result] = await push(
+        client,
+        headers,
+        change(
+            "recording_loops", restored, T2, **_fields(rec) | {"start_ms": 10000, "end_ms": 20000}
+        ),
+    )
+    assert result["status"] == "applied"
+    assert result["row"]["deleted_at"] is None
+    assert (result["row"]["start_ms"], result["row"]["end_ms"]) == (15000, 20000)
+
+
+async def test_overlap_check_ignores_deleted_loops_and_the_loop_itself(
+    client, auth_headers
+) -> None:
+    rec, mover, gone = uid(), uid(), uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    await push(client, headers, loop(mover, rec, start_ms=10000, end_ms=20000))
+    [result] = await push(
+        client,
+        headers,
+        change("recording_loops", mover, T1, **_fields(rec) | {"start_ms": 12000, "end_ms": 18000}),
+    )
+    assert (result["row"]["start_ms"], result["row"]["end_ms"]) == (12000, 18000)
+
+    await push(client, headers, loop(gone, rec, start_ms=30000, end_ms=40000))
+    await push(client, headers, change("recording_loops", gone, T1, op="delete"))
+    [result] = await push(client, headers, loop(uid(), rec, start_ms=30000, end_ms=40000))
+    assert (result["row"]["start_ms"], result["row"]["end_ms"]) == (30000, 40000)
+    assert result["row"]["deleted_at"] is None
+
+
+async def test_overlap_check_runs_after_the_trim_clamp(client, auth_headers) -> None:
+    rec = uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, trimmed(rec))
+    await push(client, headers, loop(uid(), rec, start_ms=1000, end_ms=5000))
+    [result] = await push(client, headers, loop(uid(), rec, start_ms=0, end_ms=9000))
+    assert (result["row"]["start_ms"], result["row"]["end_ms"]) == (5000, 9000)
+
+
+async def test_database_refuses_overlapping_live_loops(session: AsyncSession) -> None:
+    user, rec = uid(), uid()
+    await session.execute(
+        text(
+            "insert into users (id, clerk_user_id, created_at, updated_at) "
+            "values (:id, 'user_a', now(), now())"
+        ),
+        {"id": user},
+    )
+    await session.execute(
+        text(
+            "insert into recordings (id, user_id, source, recorded_at, state, created_at, "
+            "updated_at) values (:rec, :user, 'microphone', now(), 'ready', now(), now())"
+        ),
+        {"rec": rec, "user": user},
+    )
+    insert = text(
+        "insert into recording_loops (id, user_id, recording_id, start_ms, end_ms, color, "
+        "created_at, updated_at, deleted_at) values "
+        "(:id, :user, :rec, :start_ms, :end_ms, 0, now(), now(), :deleted_at)"
+    )
+    first = {"user": user, "rec": rec, "start_ms": 1000, "end_ms": 5000, "deleted_at": None}
+    await session.execute(insert, {**first, "id": uid()})
+    # Half-open spans: a loop that starts where another ends does not overlap it.
+    await session.execute(insert, {**first, "id": uid(), "start_ms": 5000, "end_ms": 6000})
+    await session.execute(insert, {**first, "id": uid(), "deleted_at": T0})
+    with pytest.raises(IntegrityError):
+        async with session.begin_nested():
+            await session.execute(insert, {**first, "id": uid(), "start_ms": 4000})
+
+
+async def test_loop_waits_for_a_delete_later_in_the_batch(client, auth_headers) -> None:
+    rec, grown, gone = uid(), uid(), uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    await push(
+        client,
+        headers,
+        loop(gone, rec, start_ms=0, end_ms=10000),
+        loop(grown, rec, start_ms=20000, end_ms=30000),
+    )
+    # The grown loop's entry is older than the delete that freed its room, so it comes first.
+    moved, deleted = await push(
+        client,
+        headers,
+        change("recording_loops", grown, T1, **_fields(rec) | {"start_ms": 0, "end_ms": 30000}),
+        change("recording_loops", gone, T1, op="delete"),
+    )
+    assert deleted["status"] == "applied"
+    assert moved["row"]["deleted_at"] is None
+    assert (moved["row"]["start_ms"], moved["row"]["end_ms"]) == (0, 30000)
+
+
+async def test_loop_waits_for_a_shrink_later_in_the_batch(client, auth_headers) -> None:
+    rec, grown, shrunk = uid(), uid(), uid()
+    headers = auth_headers("user_a")
+    await push(client, headers, recording(rec))
+    await push(
+        client,
+        headers,
+        loop(grown, rec, start_ms=0, end_ms=10000),
+        loop(shrunk, rec, start_ms=10000, end_ms=20000),
+    )
+    first, second = await push(
+        client,
+        headers,
+        change("recording_loops", grown, T1, **_fields(rec) | {"start_ms": 0, "end_ms": 12000}),
+        change(
+            "recording_loops", shrunk, T1, **_fields(rec) | {"start_ms": 12000, "end_ms": 20000}
+        ),
+    )
+    assert (first["row"]["start_ms"], first["row"]["end_ms"]) == (0, 12000)
+    assert (second["row"]["start_ms"], second["row"]["end_ms"]) == (12000, 20000)

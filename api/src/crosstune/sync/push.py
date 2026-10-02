@@ -23,12 +23,18 @@ from crosstune.models import (
     RecordingLoop,
     UserTune,
 )
-from crosstune.recordings.loops import clamp_loop, clamp_span, loop_bounds, reclamp_recording_loops
+from crosstune.recordings.loops import (
+    clamp_loop,
+    clamp_span,
+    largest_free_stretch,
+    loop_bounds,
+    reclamp_recording_loops,
+)
 from crosstune.recordings.service import ensure_trim_job
 from crosstune.recordings.trim import clamp_trim
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
-from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING, TableName
+from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING, MIN_LOOP_MS, TableName
 
 if TYPE_CHECKING:
     import uuid
@@ -68,12 +74,68 @@ async def apply_push(
     results: dict[int, ChangeResult] = {}
     for table in TABLE_ORDER:
         spec = TABLES[table]
-        for index, change in grouped.get(table, []):
+        entries = grouped.get(table, [])
+        if table == "recording_loops":
+            await _apply_loops(session, spec, user_id, entries, results)
+            continue
+        for index, change in entries:
             if change.op == "upsert":
                 results[index] = await _upsert(session, spec, user_id, change, resolved_links)
             else:
                 results[index] = await _delete(session, spec, user_id, change)
     return [results[i] for i in range(len(changes))]
+
+
+async def _apply_loops(
+    session: AsyncSession,
+    spec: TableSpec,
+    user_id: uuid.UUID,
+    entries: list[tuple[int, Change]],
+    results: dict[int, ChangeResult],
+) -> None:
+    """Apply a batch's loop changes so a loop never loses room another change in it frees.
+
+    An outbox entry keeps its first position when its row is written again, so a loop can
+    arrive ahead of the delete or the shrink that made room for it. Deletes go first, then
+    each upsert that still overlaps a live loop waits while the others land; once a pass
+    makes no progress, the rest are applied and cut to their free stretch.
+    """
+    for index, change in entries:
+        if change.op != "upsert":
+            results[index] = await _delete(session, spec, user_id, change)
+    pending = [(index, change) for index, change in entries if change.op == "upsert"]
+    while pending:
+        waiting: list[tuple[int, Change]] = []
+        for index, change in pending:
+            if await _overlaps_live_loop(session, user_id, change):
+                waiting.append((index, change))
+            else:
+                results[index] = await _upsert(session, spec, user_id, change, None)
+        if len(waiting) == len(pending):
+            for index, change in waiting:
+                results[index] = await _upsert(session, spec, user_id, change, None)
+            return
+        pending = waiting
+
+
+async def _overlaps_live_loop(session: AsyncSession, user_id: uuid.UUID, change: Change) -> bool:
+    """Whether a pushed loop's span, before any clamp, overlaps another of the user's live loops."""
+    data, rejection = _validated(TABLES["recording_loops"].data_schema, change)
+    if rejection:
+        return False
+    hit = await session.scalar(
+        select(RecordingLoop.id)
+        .where(
+            RecordingLoop.recording_id == data["recording_id"],
+            RecordingLoop.user_id == user_id,
+            RecordingLoop.deleted_at.is_(None),
+            RecordingLoop.id != change.id,
+            RecordingLoop.start_ms < data["end_ms"],
+            RecordingLoop.end_ms > data["start_ms"],
+        )
+        .limit(1)
+    )
+    return hit is not None
 
 
 def _invalid(change: Change, reason: str) -> ChangeResult:
@@ -181,12 +243,16 @@ async def _clamp_recording_trim(
     data["trim_start_ms"], data["trim_end_ms"] = start, end
 
 
-async def _clamp_loop(session: AsyncSession, data: dict[str, Any]) -> bool:
-    """Keep a pushed loop inside its recording's trim, in place.
+async def _clamp_loop(
+    session: AsyncSession, user_id: uuid.UUID, loop_id: uuid.UUID, data: dict[str, Any]
+) -> bool:
+    """Keep a pushed loop inside its recording's trim and off its other live loops, in place.
 
     Returns:
-        bool: False when too little of the loop remains or its recording is deleted, in
-            which case `data` holds the clamped span and the loop must be stored deleted.
+        bool: True when the loop fits, in which case `data` holds the longest stretch of the
+            clamped span that no other live loop takes. False when too little of the loop
+            remains or its recording is deleted, in which case `data` holds the clamped span
+            and the loop must be stored deleted.
     """
     recording = await session.get(Recording, data["recording_id"])
     if recording is None:
@@ -198,7 +264,23 @@ async def _clamp_loop(session: AsyncSession, data: dict[str, Any]) -> bool:
     data["start_ms"], data["end_ms"] = clamp_span(
         data["start_ms"], data["end_ms"], low=low, high=high
     )
-    return fits
+    if not fits:
+        return False
+    taken = await session.execute(
+        select(RecordingLoop.start_ms, RecordingLoop.end_ms).where(
+            RecordingLoop.recording_id == data["recording_id"],
+            RecordingLoop.user_id == user_id,
+            RecordingLoop.deleted_at.is_(None),
+            RecordingLoop.id != loop_id,
+        )
+    )
+    free = largest_free_stretch(
+        data["start_ms"], data["end_ms"], [(start, end) for start, end in taken]
+    )
+    if free is None or free[1] - free[0] < MIN_LOOP_MS:
+        return False
+    data["start_ms"], data["end_ms"] = free
+    return True
 
 
 async def _loop_cap_reached(
@@ -225,7 +307,7 @@ async def _prepare_loop(
 
     A loop that no longer fits gets `deleted_at` set in `data`, so it is stored deleted.
     """
-    fits = await _clamp_loop(session, data)
+    fits = await _clamp_loop(session, user_id, change.id, data)
     if not fits:
         data["deleted_at"] = change.updated_at
         return None
