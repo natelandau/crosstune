@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
 import json
 import os
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -25,6 +27,12 @@ INPUT_GUARD = (
     "-format_whitelist",
     "mov,mp4,m4a,matroska,webm,ogg,wav,mp3,flac,aiff,aac",
 )
+# A file that makes a decoder balloon fails its job instead of exhausting the API's
+# container. Linux enforces no resident-memory limit, so this caps address space, which
+# MALLOC_ARENA_MAX and -filter_threads hold near 400 MB whatever the host's core count.
+MEMORY_LIMIT_BYTES = 1 << 30
+FILE_LIMIT_BYTES = 1 << 30
+_PR_SET_DUMPABLE = 4
 
 
 class MediaError(Exception):
@@ -80,7 +88,7 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncIterator[asyncio.subproc
         *argv,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env={"PATH": os.environ.get("PATH", "")},
+        env={"PATH": os.environ.get("PATH", ""), "MALLOC_ARENA_MAX": "2"},
     )
     try:
         yield process
@@ -90,9 +98,73 @@ async def _media_process(argv: tuple[str, ...]) -> AsyncIterator[asyncio.subproc
             await process.wait()
 
 
+def _limited(*argv: str) -> tuple[str, ...]:
+    """Run `argv` under memory, CPU, and file-size limits.
+
+    Only on Linux, which production and CI run: macOS cannot limit address space.
+    """
+    if sys.platform != "linux":
+        return argv
+    return (
+        "prlimit",
+        f"--as={MEMORY_LIMIT_BYTES}",
+        f"--cpu={int(SUBPROCESS_TIMEOUT_SECONDS)}",
+        f"--fsize={FILE_LIMIT_BYTES}",
+        "--",
+        *argv,
+    )
+
+
+def ffmpeg(*args: str) -> tuple[str, ...]:
+    """Build an ffmpeg command line, limited like every tool that opens an upload.
+
+    Args:
+        args: The options and files after the binary name.
+
+    Returns:
+        tuple[str, ...]: The full command line for `run_media_tool` or `stream_media_tool`.
+    """
+    return _limited("ffmpeg", "-filter_threads", "1", *args)
+
+
+def ffprobe(*args: str) -> tuple[str, ...]:
+    """Build an ffprobe command line, limited like every tool that opens an upload.
+
+    Args:
+        args: The options and files after the binary name.
+
+    Returns:
+        tuple[str, ...]: The full command line for `run_media_tool`.
+    """
+    return _limited("ffprobe", *args)
+
+
+def hide_from_media_tools() -> None:
+    """Stop a child running as the same user from reading this process through /proc.
+
+    Without this, code run through a decoder bug could read the API's credentials from
+    the parent's /proc entries, whatever environment the child itself was given. Only
+    Linux has the flag, and execve resets it, so the tools themselves are unaffected.
+
+    Raises:
+        OSError: The kernel refused the change.
+    """
+    if sys.platform != "linux":
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(_PR_SET_DUMPABLE, 0, 0, 0, 0) != 0:
+        errno = ctypes.get_errno()
+        raise OSError(errno, os.strerror(errno))
+
+
+def _tool(argv: tuple[str, ...]) -> str:
+    """Name the tool `argv` runs, looking past a `_limited` prefix."""
+    return argv[argv.index("--") + 1] if argv[0] == "prlimit" else argv[0]
+
+
 def _check_exit(argv: tuple[str, ...], returncode: int | None, stderr: bytes) -> None:
     if returncode != 0:
-        msg = f"{argv[0]} failed: {stderr.decode(errors='replace')[-500:]}"
+        msg = f"{_tool(argv)} failed: {stderr.decode(errors='replace')[-500:]}"
         raise MediaError(msg)
 
 
@@ -110,7 +182,7 @@ async def run_media_tool(*argv: str) -> bytes:
             async with asyncio.timeout(SUBPROCESS_TIMEOUT_SECONDS):
                 stdout, stderr = await process.communicate()
         except TimeoutError:
-            msg = f"{argv[0]} timed out"
+            msg = f"{_tool(argv)} timed out"
             raise MediaError(msg) from None
     _check_exit(argv, process.returncode, stderr)
     return stdout
@@ -129,7 +201,7 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
     async with _media_process(argv) as process:
         stdout, stderr_pipe = process.stdout, process.stderr
         if stdout is None or stderr_pipe is None:
-            msg = f"{argv[0]} started without its output pipes"
+            msg = f"{_tool(argv)} started without its output pipes"
             raise MediaError(msg)
         # Drained alongside stdout, or a tool that fills the stderr pipe blocks forever.
         stderr_read = asyncio.create_task(stderr_pipe.read())
@@ -140,7 +212,7 @@ async def stream_media_tool(*argv: str, on_stdout: Callable[[bytes], None]) -> N
                 stderr = await stderr_read
                 await process.wait()
         except TimeoutError:
-            msg = f"{argv[0]} timed out"
+            msg = f"{_tool(argv)} timed out"
             raise MediaError(msg) from None
         finally:
             stderr_read.cancel()
@@ -160,15 +232,16 @@ async def probe(path: Path) -> Probe:
         MediaError: ffprobe failed, or the file has no audio stream or no duration.
     """
     raw = await run_media_tool(
-        "ffprobe",
-        "-v",
-        "error",
-        "-print_format",
-        "json",
-        "-show_format",
-        "-show_streams",
-        *INPUT_GUARD,
-        str(path),
+        *ffprobe(
+            "-v",
+            "error",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            *INPUT_GUARD,
+            str(path),
+        )
     )
     try:
         report = json.loads(raw)
@@ -246,21 +319,22 @@ async def _to_mp4(
             a demuxer-level seek.
     """
     await run_media_tool(
-        "ffmpeg",
-        "-v",
-        "error",
-        "-y",
-        *INPUT_GUARD,
-        *pre_input_args,
-        "-i",
-        str(source),
-        "-vn",
-        *codec_args,
-        "-movflags",
-        "+faststart",
-        "-f",
-        "mp4",
-        str(target),
+        *ffmpeg(
+            "-v",
+            "error",
+            "-y",
+            *INPUT_GUARD,
+            *pre_input_args,
+            "-i",
+            str(source),
+            "-vn",
+            *codec_args,
+            "-movflags",
+            "+faststart",
+            "-f",
+            "mp4",
+            str(target),
+        )
     )
 
 

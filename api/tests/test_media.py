@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
+import sys
 
 import pytest
 
@@ -13,6 +15,8 @@ from crosstune.jobs.media import (
     Probe,
     cut,
     encode,
+    ffmpeg,
+    ffprobe,
     needs_encode,
     probe,
     remux,
@@ -249,6 +253,46 @@ async def test_run_hands_the_tools_none_of_the_apis_environment(
     monkeypatch.setenv("CROSSTUNE_STORAGE_SECRET_ACCESS_KEY", "do-not-leak")
     output = await run_media_tool("env")
     assert b"do-not-leak" not in output
+
+
+linux_only = pytest.mark.skipif(sys.platform != "linux", reason="the limits are Linux-only")
+
+
+def test_media_tools_run_under_limits_on_linux(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("crosstune.jobs.media.sys.platform", "linux")
+    for argv in (ffmpeg("-i", "x"), ffprobe("x")):
+        prefix, tool = argv[: argv.index("--")], argv[argv.index("--") + 1]
+        assert prefix[0] == "prlimit"
+        assert {flag.split("=")[0] for flag in prefix[1:]} == {"--as", "--cpu", "--fsize"}
+        assert tool in {"ffmpeg", "ffprobe"}
+
+
+@linux_only
+async def test_probe_fails_on_a_file_that_needs_more_memory_than_allowed(
+    media_fixtures, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("crosstune.jobs.media.MEMORY_LIMIT_BYTES", 16 * 1024 * 1024)
+    with pytest.raises(MediaError, match=r"^ffprobe failed"):
+        await probe(media_fixtures["m4a"])
+
+
+@linux_only
+def test_hiding_stops_a_child_reading_the_parents_proc_entries() -> None:
+    # A fresh interpreter, so the flag never sticks to the test process.
+    script = (
+        "import os, subprocess\n"
+        "from crosstune.jobs.media import hide_from_media_tools\n"
+        "def child_reads():\n"
+        "    target = f'/proc/{os.getpid()}/environ'\n"
+        "    return subprocess.run(['cat', target], capture_output=True).returncode == 0\n"
+        "before = child_reads()\n"
+        "hide_from_media_tools()\n"
+        "print(before, child_reads())\n"
+    )
+    result = subprocess.run(  # noqa: S603 -- a fixed script run by this interpreter
+        [sys.executable, "-c", script], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.split() == ["True", "False"]
 
 
 async def test_probe_refuses_audio_in_a_container_outside_the_allowlist(tmp_path) -> None:

@@ -6,7 +6,7 @@ import array
 import sys
 from typing import TYPE_CHECKING
 
-from crosstune.jobs.media import INPUT_GUARD, stream_media_tool
+from crosstune.jobs.media import INPUT_GUARD, ffmpeg, stream_media_tool
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -34,19 +34,20 @@ async def build_peaks(source: Path) -> bytes:
     """
     reducer = _PeakReducer()
     await stream_media_tool(
-        "ffmpeg",
-        "-v",
-        "error",
-        *INPUT_GUARD,
-        "-i",
-        str(source),
-        "-ac",
-        "1",
-        "-ar",
-        str(_SAMPLE_RATE),
-        "-f",
-        "s16le",
-        "-",
+        *ffmpeg(
+            "-v",
+            "error",
+            *INPUT_GUARD,
+            "-i",
+            str(source),
+            "-ac",
+            "1",
+            "-ar",
+            str(_SAMPLE_RATE),
+            "-f",
+            "s16le",
+            "-",
+        ),
         on_stdout=reducer.feed,
     )
     return encode_peaks(reducer.finish())
