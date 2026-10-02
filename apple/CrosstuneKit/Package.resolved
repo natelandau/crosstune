@@ -1,5 +1,5 @@
 {
-  "originHash" : "08e85aa499fa9b6344a94e246fb87b710281115cf9ae3a10146f349ba3f04d27",
+  "originHash" : "947ff7405ff43a1c132cde010da28088cf5938ef4a9d3486e4bd3bf3bb5fae15",
   "pins" : [
     {
       "identity" : "clerk-ios",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections",
       "state" : {
-        "revision" : "a0cb0954ecb21e4e31b0070e6ed5674e8556685a",
-        "version" : "1.6.0"
+        "revision" : "98ef3c98609a1e31b7e157b5b619579001a789d6",
+        "version" : "1.7.1"
       }
     },
     {
