@@ -20,7 +20,12 @@ struct SplitShell: View {
     /// Nil until the first read, so a list chosen before the lists load is not taken for a deleted one.
     @State private var lists: LiveQuery<[ListSummary]?>?
     @State private var deleting: ListSummary?
-    @State private var playerHeight: CGFloat = 0
+    @State private var playerFrame = CGRect.zero
+    /// The sidebar's trailing edge across the shell, which the player panel keeps to the right of.
+    @State private var sidebarEdge: CGFloat = 0
+    @State private var columns = NavigationSplitViewVisibility.automatic
+
+    private static let shellSpace = "SplitShell"
 
     /// The lists the sidebar shows, in the musician's order.
     nonisolated static func sidebarLists(_ db: Database) throws -> [ListSummary] {
@@ -28,16 +33,27 @@ struct SplitShell: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             sidebar
-                .safeAreaPadding(.bottom, playerHeight)
+                #if os(macOS)
+                    .safeAreaBar(edge: .bottom) {
+                        SidebarRecordButton(action: onRecord)
+                        .disabled(!recordShows)
+                        .padding(12)
+                    }
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.frame(in: .named(Self.shellSpace)).maxX
+                    } action: {
+                        sidebarEdge = $0
+                    }
+                #endif
+                .clearsPlayer(playerFrame)
         } content: {
             content
-                .safeAreaPadding(.bottom, playerHeight)
+                .clearsPlayer(playerFrame)
                 .navigationSplitViewColumnWidth(min: 300, ideal: 340)
                 .toolbar {
-                    // A selecting screen's toolbar holds only what acts on the selection.
-                    if selecting?.isCovered != true {
+                    if recordShows && !sidebarHoldsRecord {
                         ToolbarItem(placement: .navigation) {
                             RecordToolbarButton(action: onRecord)
                         }
@@ -54,11 +70,12 @@ struct SplitShell: View {
                     TuneDetailPlaceholder()
                 }
             }
-            .safeAreaPadding(.bottom, playerHeight)
+            .clearsPlayer(playerFrame)
             .environment(\.detailTune, $place.detailTune)
             .environment(\.sidebarSelection, $place.sidebar)
         }
-        .playerBar(player, stage: stage, height: $playerHeight)
+        .coordinateSpace(.named(Self.shellSpace))
+        .playerBar(player, stage: stage, frame: $playerFrame, leading: sidebarHoldsRecord ? sidebarEdge : 0)
         .sheet(
             isPresented: Binding {
                 player.showsExpanded(in: window) && player.item?.kind == .recording
@@ -84,6 +101,19 @@ struct SplitShell: View {
             guard let loaded = lists?.value ?? nil else { return }
             place.sidebar = place.sidebar.kept(among: loaded.map(\.list))
         }
+    }
+
+    /// A selecting screen's toolbar holds only what acts on the selection.
+    private var recordShows: Bool { selecting?.isCovered != true }
+
+    /// True while the Mac sidebar is open, so its own record button stands in for the
+    /// toolbar's, and the player panel stays clear of it, leaving the button at the sidebar's foot.
+    private var sidebarHoldsRecord: Bool {
+        #if os(macOS)
+            columns != .doubleColumn && columns != .detailOnly
+        #else
+            false
+        #endif
     }
 
     private var sidebar: some View {

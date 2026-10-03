@@ -384,17 +384,50 @@ struct EmbedParking: ViewModifier {
 
 extension View {
     /// The player panel floating at the bottom of the window while something is loaded.
-    /// `height` reports the room it takes, 0 when nothing is loaded, for the columns under it to
-    /// clear, since a split view's columns do not take a safe area inset from outside.
-    func playerBar(_ player: PlayerModel, stage: EmbedStage, height: Binding<CGFloat>) -> some View {
-        modifier(PlayerBarModifier(player: player, stage: stage, height: height))
+    /// `frame` reports the room it takes in global space, empty when nothing is loaded, for the
+    /// columns under it to clear with ``clearsPlayer(_:)``, since a split view's columns do not
+    /// take a safe area inset from outside.
+    /// The panel centers in the width past `leading`, so a column there stays uncovered.
+    func playerBar(
+        _ player: PlayerModel, stage: EmbedStage, frame: Binding<CGRect>, leading: CGFloat = 0
+    ) -> some View {
+        modifier(PlayerBarModifier(player: player, stage: stage, frame: frame, leading: leading))
+    }
+
+    /// Lifts this column's bottom edge clear of the player panel at `panel`, a frame from
+    /// ``playerBar(_:stage:frame:leading:)``, while the panel overlaps the column. The panel is narrower
+    /// than a wide window, so a column beside it keeps its full height.
+    func clearsPlayer(_ panel: CGRect) -> some View {
+        modifier(ClearsPlayer(panel: panel))
+    }
+}
+
+private struct ClearsPlayer: ViewModifier {
+    let panel: CGRect
+
+    @State private var frame = CGRect.zero
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaPadding(.bottom, clearance)
+            .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .global)
+            } action: {
+                frame = $0
+            }
+    }
+
+    private var clearance: CGFloat {
+        guard !panel.isEmpty, panel.minX < frame.maxX, frame.minX < panel.maxX else { return 0 }
+        return max(0, frame.maxY - panel.minY)
     }
 }
 
 private struct PlayerBarModifier: ViewModifier {
     let player: PlayerModel
     let stage: EmbedStage
-    @Binding var height: CGFloat
+    @Binding var frame: CGRect
+    let leading: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Unmeasured until the first layout, which shows the player at its own size rather than
@@ -415,12 +448,14 @@ private struct PlayerBarModifier: ViewModifier {
                         .modifier(GlassPanel())
                         .padding(.horizontal, 16)
                         .padding(.bottom, 12)
-                        .onGeometryChange(for: CGFloat.self) {
-                            $0.size.height
+                        .onGeometryChange(for: CGRect.self) {
+                            $0.frame(in: .global)
                         } action: {
-                            height = $0
+                            frame = $0
                         }
-                        .onDisappear { height = 0 }
+                        .onDisappear { frame = .zero }
+                        .frame(maxWidth: .infinity)
+                        .padding(.leading, leading)
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
             }
