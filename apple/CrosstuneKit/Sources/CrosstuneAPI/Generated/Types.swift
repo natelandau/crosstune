@@ -18,6 +18,13 @@ public protocol APIProtocol: Sendable {
     /// - Remark: HTTP `POST /v1/links/resolve`.
     /// - Remark: Generated from `#/paths//v1/links/resolve/post(resolve_v1_links_resolve_post)`.
     func resolveV1LinksResolvePost(_ input: Operations.ResolveV1LinksResolvePost.Input) async throws -> Operations.ResolveV1LinksResolvePost.Output
+    /// Search
+    ///
+    /// Recordings matching the text on each requested service, grouped by service.
+    ///
+    /// - Remark: HTTP `GET /v1/links/search`.
+    /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)`.
+    func searchV1LinksSearchGet(_ input: Operations.SearchV1LinksSearchGet.Input) async throws -> Operations.SearchV1LinksSearchGet.Output
     /// Me
     ///
     /// The calling user's profile and storage figures.
@@ -113,6 +120,21 @@ extension APIProtocol {
         try await resolveV1LinksResolvePost(Operations.ResolveV1LinksResolvePost.Input(
             headers: headers,
             body: body
+        ))
+    }
+    /// Search
+    ///
+    /// Recordings matching the text on each requested service, grouped by service.
+    ///
+    /// - Remark: HTTP `GET /v1/links/search`.
+    /// - Remark: Generated from `#/paths//v1/links/search/get(search_v1_links_search_get)`.
+    public func searchV1LinksSearchGet(
+        query: Operations.SearchV1LinksSearchGet.Input.Query,
+        headers: Operations.SearchV1LinksSearchGet.Input.Headers = .init()
+    ) async throws -> Operations.SearchV1LinksSearchGet.Output {
+        try await searchV1LinksSearchGet(Operations.SearchV1LinksSearchGet.Input(
+            query: query,
+            headers: headers
         ))
     }
     /// Me

@@ -18,6 +18,9 @@ from crosstune.http import public_only_client
 from crosstune.jobs.media import hide_from_media_tools
 from crosstune.jobs.runner import JobRunner
 from crosstune.links.router import router as links_router
+from crosstune.links.search.backoff import Backoff
+from crosstune.links.search.registry import SearchTokens
+from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
 from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
@@ -172,6 +175,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.pool_closer = None
     app.state.link_resolve_limiter = RateLimiter(
         limit=settings.link_resolves_per_minute, window_seconds=60.0
+    )
+    app.state.link_search_limiter = RateLimiter(
+        limit=settings.link_searches_per_minute, window_seconds=60.0
+    )
+    app.state.search_tokens = SearchTokens.from_settings(settings)
+    app.state.search_backoff = Backoff()
+    app.state.search_adapters = search_adapters(
+        settings, app.state.search_tokens, app.state.search_backoff
     )
 
     install_error_handlers(app)

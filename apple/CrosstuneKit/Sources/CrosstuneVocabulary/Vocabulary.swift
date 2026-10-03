@@ -12,6 +12,7 @@ public enum Vocabulary {
     ]
     public static let recordingSources: [String] = ["microphone", "upload"]
     public static let recordingStates: [String] = ["pending_upload", "uploaded", "processing", "ready", "failed"]
+    public static let searchStatuses: [String] = ["results", "unavailable", "search_only"]
     public static let timeSignatures: [String] = ["4/4", "2/4", "2/2", "3/4", "3/2", "6/8", "9/8", "12/8", "other"]
     public static let statuses: [String] = ["known", "learning", "want_to_learn"]
 

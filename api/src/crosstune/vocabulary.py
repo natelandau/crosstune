@@ -81,6 +81,26 @@ class Provider(StrEnum):
     OTHER = "other"
 
 
+# Every provider a user can search, in the order results groups follow.
+SEARCHABLE_PROVIDERS: Final[tuple[Provider, ...]] = (
+    Provider.APPLE_MUSIC,
+    Provider.TIDAL,
+    Provider.INTERNET_ARCHIVE,
+    Provider.YOUTUBE,
+    Provider.SPOTIFY,
+    Provider.BANDCAMP,
+    Provider.SOUNDCLOUD,
+)
+
+
+class SearchStatus(StrEnum):
+    """How one service answered a search."""
+
+    RESULTS = "results"
+    UNAVAILABLE = "unavailable"
+    SEARCH_ONLY = "search_only"
+
+
 class AudioQuality(StrEnum):
     """A capture bitrate preset."""
 

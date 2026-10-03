@@ -2153,6 +2153,113 @@ extension Components {
                 case url
             }
         }
+        /// One service's answer to a search, and its own search page as the fallback.
+        ///
+        /// - Remark: Generated from `#/components/schemas/SearchGroup`.
+        public struct SearchGroup: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/SearchGroup/provider`.
+            public var provider: Components.Schemas.Provider
+            /// - Remark: Generated from `#/components/schemas/SearchGroup/results`.
+            public var results: [Components.Schemas.SearchResult]
+            /// - Remark: Generated from `#/components/schemas/SearchGroup/search_url`.
+            public var searchUrl: Swift.String
+            /// - Remark: Generated from `#/components/schemas/SearchGroup/status`.
+            public var status: Components.Schemas.SearchStatus
+            /// Creates a new `SearchGroup`.
+            ///
+            /// - Parameters:
+            ///   - provider:
+            ///   - results:
+            ///   - searchUrl:
+            ///   - status:
+            public init(
+                provider: Components.Schemas.Provider,
+                results: [Components.Schemas.SearchResult],
+                searchUrl: Swift.String,
+                status: Components.Schemas.SearchStatus
+            ) {
+                self.provider = provider
+                self.results = results
+                self.searchUrl = searchUrl
+                self.status = status
+            }
+            public enum CodingKeys: String, CodingKey {
+                case provider
+                case results
+                case searchUrl = "search_url"
+                case status
+            }
+        }
+        /// One group per requested service, inline services first.
+        ///
+        /// - Remark: Generated from `#/components/schemas/SearchResponse`.
+        public struct SearchResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/SearchResponse/groups`.
+            public var groups: [Components.Schemas.SearchGroup]
+            /// Creates a new `SearchResponse`.
+            ///
+            /// - Parameters:
+            ///   - groups:
+            public init(groups: [Components.Schemas.SearchGroup]) {
+                self.groups = groups
+            }
+            public enum CodingKeys: String, CodingKey {
+                case groups
+            }
+        }
+        /// One recording a service found, in the form a paste of its URL would store.
+        ///
+        /// - Remark: Generated from `#/components/schemas/SearchResult`.
+        public struct SearchResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/SearchResult/artwork_url`.
+            public var artworkUrl: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/SearchResult/provider`.
+            public var provider: Components.Schemas.Provider
+            /// - Remark: Generated from `#/components/schemas/SearchResult/provider_ref`.
+            public var providerRef: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/SearchResult/subtitle`.
+            public var subtitle: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/SearchResult/title`.
+            public var title: Swift.String
+            /// - Remark: Generated from `#/components/schemas/SearchResult/url`.
+            public var url: Swift.String
+            /// Creates a new `SearchResult`.
+            ///
+            /// - Parameters:
+            ///   - artworkUrl:
+            ///   - provider:
+            ///   - providerRef:
+            ///   - subtitle:
+            ///   - title:
+            ///   - url:
+            public init(
+                artworkUrl: Swift.String? = nil,
+                provider: Components.Schemas.Provider,
+                providerRef: Swift.String? = nil,
+                subtitle: Swift.String? = nil,
+                title: Swift.String,
+                url: Swift.String
+            ) {
+                self.artworkUrl = artworkUrl
+                self.provider = provider
+                self.providerRef = providerRef
+                self.subtitle = subtitle
+                self.title = title
+                self.url = url
+            }
+            public enum CodingKeys: String, CodingKey {
+                case artworkUrl = "artwork_url"
+                case provider
+                case providerRef = "provider_ref"
+                case subtitle
+                case title
+                case url
+            }
+        }
+        /// How one service answered a search.
+        ///
+        /// - Remark: Generated from `#/components/schemas/SearchStatus`.
+        public typealias SearchStatus = Swift.String
         /// A presigned URL and when it stops working.
         ///
         /// - Remark: Generated from `#/components/schemas/SignedUrl`.
@@ -2760,6 +2867,8 @@ extension Components {
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/instruments`.
             public var instruments: [Components.Schemas.Instrument]?
+            /// - Remark: Generated from `#/components/schemas/UserSettingsRow/search_providers`.
+            public var searchProviders: [Components.Schemas.Provider]?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/server_seq`.
             public var serverSeq: Swift.Int
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/updated_at`.
@@ -2776,6 +2885,7 @@ extension Components {
             ///   - deletedAt:
             ///   - id:
             ///   - instruments:
+            ///   - searchProviders:
             ///   - serverSeq:
             ///   - updatedAt:
             ///   - userId:
@@ -2786,6 +2896,7 @@ extension Components {
                 deletedAt: Foundation.Date? = nil,
                 id: Swift.String,
                 instruments: [Components.Schemas.Instrument]? = nil,
+                searchProviders: [Components.Schemas.Provider]? = nil,
                 serverSeq: Swift.Int,
                 updatedAt: Foundation.Date,
                 userId: Swift.String,
@@ -2796,6 +2907,7 @@ extension Components {
                 self.deletedAt = deletedAt
                 self.id = id
                 self.instruments = instruments
+                self.searchProviders = searchProviders
                 self.serverSeq = serverSeq
                 self.updatedAt = updatedAt
                 self.userId = userId
@@ -2807,6 +2919,7 @@ extension Components {
                 case deletedAt = "deleted_at"
                 case id
                 case instruments
+                case searchProviders = "search_providers"
                 case serverSeq = "server_seq"
                 case updatedAt = "updated_at"
                 case userId = "user_id"
@@ -2833,6 +2946,10 @@ extension Components {
                     [Components.Schemas.Instrument].self,
                     forKey: .instruments
                 )
+                self.searchProviders = try container.decodeIfPresent(
+                    [Components.Schemas.Provider].self,
+                    forKey: .searchProviders
+                )
                 self.serverSeq = try container.decode(
                     Swift.Int.self,
                     forKey: .serverSeq
@@ -2851,6 +2968,7 @@ extension Components {
                     "deleted_at",
                     "id",
                     "instruments",
+                    "search_providers",
                     "server_seq",
                     "updated_at",
                     "user_id"
@@ -2877,6 +2995,10 @@ extension Components {
                 try container.encodeIfPresent(
                     self.instruments,
                     forKey: .instruments
+                )
+                try container.encodeIfPresent(
+                    self.searchProviders,
+                    forKey: .searchProviders
                 )
                 try container.encode(
                     self.serverSeq,

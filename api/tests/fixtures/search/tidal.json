@@ -1,0 +1,160 @@
+{
+  "data": [
+    {
+      "id": "CVKbT4Dxym7xH6JNieIXFp8EsfhZZBNXbFUKvqDI9GlpFBjN7ej5g4eSGIr1GB",
+      "type": "searchResults",
+      "attributes": {
+        "query": "silver spear",
+        "trackingId": "0e3f9c40-51ef-42e9-9e0e-5e9cfae3e0b6"
+      },
+      "relationships": {
+        "tracks": {
+          "data": [
+            {
+              "id": "51934576",
+              "type": "tracks"
+            },
+            {
+              "id": "118240370",
+              "type": "tracks"
+            },
+            {
+              "id": "2984411",
+              "type": "tracks"
+            }
+          ],
+          "links": {
+            "self": "/searchResults/CVKbT4Dxym7xH6JNieIXFp8EsfhZZBNXbFUKvqDI9GlpFBjN7ej5g4eSGIr1GB/relationships/tracks?countryCode=US",
+            "next": "/searchResults/CVKbT4Dxym7xH6JNieIXFp8EsfhZZBNXbFUKvqDI9GlpFBjN7ej5g4eSGIr1GB/relationships/tracks?countryCode=US&page%5Bcursor%5D=3nI1Esi",
+            "meta": {
+              "nextCursor": "3nI1Esi"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "links": {
+    "self": "/searchResults?countryCode=US&filter%5Bquery%5D=silver%20spear&include=tracks"
+  },
+  "included": [
+    {
+      "id": "51934576",
+      "type": "tracks",
+      "attributes": {
+        "title": "Silver Spear",
+        "duration": "PT3M41S",
+        "explicit": false,
+        "isrc": "USAB10900001",
+        "key": "UNKNOWN",
+        "keyScale": "UNKNOWN",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.21,
+        "copyright": {
+          "text": "(P) Record label"
+        },
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/51934576",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ]
+      },
+      "relationships": {
+        "artists": {
+          "links": {
+            "self": "/tracks/51934576/relationships/artists?countryCode=US"
+          }
+        },
+        "albums": {
+          "links": {
+            "self": "/tracks/51934576/relationships/albums?countryCode=US"
+          }
+        }
+      }
+    },
+    {
+      "id": "118240370",
+      "type": "tracks",
+      "attributes": {
+        "title": "The Silver Spear",
+        "duration": "PT4M12S",
+        "explicit": false,
+        "isrc": "GBAB11700002",
+        "key": "UNKNOWN",
+        "keyScale": "UNKNOWN",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.12,
+        "copyright": {
+          "text": "(P) Record label"
+        },
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/118240370",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "version": "Live"
+      },
+      "relationships": {
+        "artists": {
+          "links": {
+            "self": "/tracks/118240370/relationships/artists?countryCode=US"
+          }
+        },
+        "albums": {
+          "links": {
+            "self": "/tracks/118240370/relationships/albums?countryCode=US"
+          }
+        }
+      }
+    },
+    {
+      "id": "2984411",
+      "type": "tracks",
+      "attributes": {
+        "title": "Silver Spear / The Mason's Apron",
+        "duration": "PT5M03S",
+        "explicit": false,
+        "isrc": "IEAB10200003",
+        "key": "UNKNOWN",
+        "keyScale": "UNKNOWN",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.08,
+        "copyright": {
+          "text": "(P) Record label"
+        },
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/2984411",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ]
+      },
+      "relationships": {
+        "artists": {
+          "links": {
+            "self": "/tracks/2984411/relationships/artists?countryCode=US"
+          }
+        },
+        "albums": {
+          "links": {
+            "self": "/tracks/2984411/relationships/albums?countryCode=US"
+          }
+        }
+      }
+    }
+  ]
+}

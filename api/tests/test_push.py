@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import event, func, select
 
 from crosstune.models import ListItem, RecordingLink, Tune, UserTune
-from tests.helpers import T0, T1, T2, change, push, uid
+from tests.helpers import T0, T1, T2, change, pull, push, uid
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -351,6 +351,19 @@ async def test_user_settings_upsert_applies_and_a_second_row_is_invalid(
     )
     assert results[0]["status"] == "invalid"
     assert "constraint violation" in results[0]["reason"]
+
+
+async def test_push_user_settings_with_search_providers_round_trips(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    results = await push(
+        client, headers, change("user_settings", uid(), T0, search_providers=["tidal"])
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["search_providers"] == ["tidal"]
+    rows = (await pull(client, headers))["rows"]
+    assert [r["row"]["search_providers"] for r in rows if r["table"] == "user_settings"] == [
+        ["tidal"]
+    ]
 
 
 async def test_user_settings_newer_write_wins(client, auth_headers) -> None:

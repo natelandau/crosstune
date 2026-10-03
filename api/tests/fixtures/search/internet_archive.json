@@ -1,0 +1,23 @@
+{
+  "response": {
+    "numFound": 3,
+    "start": 0,
+    "docs": [
+      {
+        "creator": "David Larkin",
+        "identifier": "202603111200-larkin-about",
+        "title": "Larkin About March 11th, 2026"
+      },
+      {
+        "creator": "Árd Rí Ceili Band",
+        "identifier": "lp_dublin-dance-date_rd-r-ceili-band",
+        "title": "Dublin Dance Date"
+      },
+      {
+        "creator": "Dab Hand",
+        "identifier": "lp_high-rock-and-low-glen_dab-hand",
+        "title": "High Rock And Low Glen"
+      }
+    ]
+  }
+}

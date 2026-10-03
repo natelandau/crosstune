@@ -1,0 +1,108 @@
+{
+  "results": {
+    "songs": {
+      "href": "/v1/catalog/us/search?limit=10&term=silver+spear&types=songs",
+      "data": [
+        {
+          "id": "866245632",
+          "type": "songs",
+          "href": "/v1/catalog/us/songs/866245632",
+          "attributes": {
+            "albumName": "Celtic Celebration",
+            "genreNames": [
+              "Celtic",
+              "Music"
+            ],
+            "trackNumber": 2,
+            "durationInMillis": 240777,
+            "releaseDate": "2014-04-18",
+            "artwork": {
+              "width": 3000,
+              "height": 3000,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Features4/v4/c7/30/db/c730dbf0-ee6e-211f-b502-1c9a2e6e4c2e/dj.nivrcowd.jpg/{w}x{h}bb.jpg"
+            },
+            "playParams": {
+              "id": "866245632",
+              "kind": "song"
+            },
+            "url": "https://music.apple.com/us/album/silver-spear/866245573?i=866245632",
+            "discNumber": 1,
+            "name": "Silver Spear",
+            "previews": [
+              {
+                "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/6e/e1/ed/6ee1ed97-e487-c420-c6b9-cf3f50b4d0f5/mzaf_13189016652665930126.plus.aac.p.m4a"
+              }
+            ],
+            "artistName": "Slainte"
+          }
+        },
+        {
+          "id": "1799342597",
+          "type": "songs",
+          "href": "/v1/catalog/us/songs/1799342597",
+          "attributes": {
+            "albumName": "Blueprint",
+            "genreNames": [
+              "Folk",
+              "Music"
+            ],
+            "trackNumber": 11,
+            "durationInMillis": 256840,
+            "releaseDate": "2003-01-01",
+            "artwork": {
+              "width": 3000,
+              "height": 3000,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/d9/ba/46/d9ba46bc-8186-e435-a91c-6779615e6c96/011661705623_cover.jpg/{w}x{h}bb.jpg"
+            },
+            "playParams": {
+              "id": "1799342597",
+              "kind": "song"
+            },
+            "url": "https://music.apple.com/us/album/silver-spear/1799342143?i=1799342597",
+            "discNumber": 1,
+            "name": "Silver Spear",
+            "previews": [
+              {
+                "url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/dc/46/51/dc465123-35cf-3637-d07f-d5a78ec94301/mzaf_7327781705154885022.plus.aac.p.m4a"
+              }
+            ],
+            "artistName": "Natalie MacMaster"
+          }
+        },
+        {
+          "id": "494280020",
+          "type": "songs",
+          "href": "/v1/catalog/us/songs/494280020",
+          "attributes": {
+            "albumName": "Dance Of The Piper - Scottish Pipes and Bagpipes",
+            "genreNames": [
+              "Worldwide",
+              "Music"
+            ],
+            "trackNumber": 7,
+            "durationInMillis": 281640,
+            "releaseDate": "2000-01-01",
+            "artwork": {
+              "width": 3000,
+              "height": 3000,
+              "url": "https://is1-ssl.mzstatic.com/image/thumb/Music/13/df/23/mzi.hbjwcfaj.jpg/{w}x{h}bb.jpg"
+            },
+            "playParams": {
+              "id": "494280020",
+              "kind": "song"
+            },
+            "url": "https://music.apple.com/us/album/silver-spear/494280013?i=494280020",
+            "discNumber": 1,
+            "name": "Silver Spear",
+            "previews": [
+              {
+                "url": "https://audio-ssl.itunes.apple.com/itunes-assets/Music2/v4/d3/35/e5/d335e560-13de-1be9-f261-9ba918d6dda9/mzaf_2464650419911321097.plus.aac.p.m4a"
+              }
+            ],
+            "artistName": "Ballycastle Players"
+          }
+        }
+      ]
+    }
+  }
+}

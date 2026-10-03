@@ -24,11 +24,33 @@ reopens one without new information. Add a new entry at the end.
 - The API is the boundary. The Swift client uses the same endpoints and
   generates its types from the OpenAPI schema.
 
-## Paste a link, no in-app search
+## Paste any link, search where an API allows it
 
-- Users paste a streaming URL and the API resolves its metadata.
-- In-app search of Spotify, Apple Music, and YouTube needs developer keys,
-  quotas, and terms of service, and adds nothing to the data model.
+- Users paste a streaming URL and the API resolves its metadata. Paste
+  accepts every provider. The Music services setting limits only search.
+- Find recordings lists results from Apple Music, TIDAL, and the Internet
+  Archive inside the app. Apple Music and TIDAL use the app's own
+  credentials, so no user signs in to a music service.
+- YouTube, Spotify, Bandcamp, and SoundCloud get a row that opens the
+  service's own search page:
+  - YouTube: the Data API quota allows about 100 searches a day for the
+    whole project.
+  - Spotify: a new app in Development Mode allows 5 users and needs the
+    owner's Premium subscription. Wider access needs a registered business
+    with 250,000 monthly active users.
+  - SoundCloud: API access is granted case by case and needs an Artist Pro
+    account.
+  - Bandcamp: no public API.
+- Apple Music search uses the Apple Music API with a developer token. iTunes
+  Search was rejected: it allows about 20 calls a minute per IP address, and
+  every search leaves from the API's one address.
+- The API decides which services answer inside the app and builds every
+  search page URL. A service that gains or loses an API changes one adapter
+  and no client.
+- A result is linked only on a tap. Traditional tunes usually sit inside sets, so
+  automatic matches are unreliable.
+- Matching one recording across services was rejected: Odesli (song.link)
+  closed its keyless API and stopped issuing keys.
 
 ## Per-user catalog, shared catalog designed in
 

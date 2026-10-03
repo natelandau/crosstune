@@ -1549,3 +1549,45 @@ async def test_0020_locks_each_user_with_the_app_advisory_key(
     key = (await session.execute(text(f"select {expression}"), {"user_id": user_id})).scalar_one()
 
     assert key == advisory_lock_key(uuid.UUID(user_id))
+
+
+async def test_0021_fills_search_providers_for_existing_rows(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000031"
+    settings = "018f0000-0000-7000-8000-000000000032"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0020")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into user_settings "
+                    "(id, user_id, instruments, audio_quality, created_at, updated_at) "
+                    "values (:id, :user, '{}', 'standard', now(), now())"
+                ),
+                {"id": settings, "user": user},
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        stored = (
+            await conn.execute(text("select search_providers from user_settings"))
+        ).scalar_one()
+    assert stored == [
+        "apple_music",
+        "tidal",
+        "internet_archive",
+        "youtube",
+        "spotify",
+        "bandcamp",
+        "soundcloud",
+    ]
