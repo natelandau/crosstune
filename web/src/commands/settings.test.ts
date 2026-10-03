@@ -7,6 +7,7 @@ import { SEARCHABLE_PROVIDERS, storedSearchProviders, type LocalUserSettings } f
 import {
   setAudioQuality,
   setInstruments,
+  setPlayFirst,
   settingsId,
   toggleInstrumentSetting,
   toggleSearchProvider,
@@ -23,6 +24,23 @@ beforeEach(() => {
 afterEach(async () => {
   vi.useRealTimers()
 })
+
+/** Store a pulled settings row for user_1, as a newer server might send it. */
+async function putStoredRow(fields: Record<string, unknown>): Promise<void> {
+  const at = '2026-09-11T09:00:00.000Z'
+  await db.user_settings.put({
+    id: settingsId('user_1'),
+    created_at: at,
+    updated_at: at,
+    deleted_at: null,
+    server_seq: 1,
+    instruments: [],
+    audio_quality: 'standard',
+    play_first: 'recordings',
+    search_providers: [],
+    ...fields,
+  } as never)
+}
 
 describe('settingsId', () => {
   it('is stable for one user and distinct across users', () => {
@@ -88,6 +106,7 @@ describe('toggleInstrumentSetting', () => {
       server_seq: 0,
       instruments: ['violin', 'harmonica'],
       audio_quality: 'standard',
+      play_first: 'recordings',
     })
     await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -103,6 +122,7 @@ describe('toggleInstrumentSetting', () => {
       server_seq: 0,
       instruments: ['violin', 'harmonica', 'harmonica'],
       audio_quality: 'standard',
+      play_first: 'recordings',
     })
     await toggleInstrumentSetting(db, 'user_1', 'five_string_banjo', true)
     const row = await db.user_settings.get(settingsId('user_1'))
@@ -137,6 +157,62 @@ describe('toggleInstrumentSetting', () => {
     expect(row?.instruments).toContain('five_string_banjo')
     expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
       audio_quality: 'high',
+    })
+  })
+})
+
+describe('setPlayFirst', () => {
+  it('sets play_first and keeps the other choices', async () => {
+    await setAudioQuality(db, 'user_1', 'high')
+    await toggleSearchProvider(db, 'user_1', 'youtube', false)
+    await setPlayFirst(db, 'user_1', 'apple_music')
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row?.play_first).toBe('apple_music')
+    expect(row?.audio_quality).toBe('high')
+    expect(row?.search_providers).not.toContain('youtube')
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      play_first: 'apple_music',
+    })
+  })
+
+  it('survives other settings edits', async () => {
+    await setPlayFirst(db, 'user_1', 'apple_music')
+    await setAudioQuality(db, 'user_1', 'high')
+    expect((await db.user_settings.get(settingsId('user_1')))?.play_first).toBe('apple_music')
+  })
+
+  it('keeps a value this client does not know through other settings edits', async () => {
+    await putStoredRow({ play_first: 'future_choice' })
+    await setInstruments(db, 'user_1', ['violin'])
+    expect((await db.user_settings.get(settingsId('user_1')))?.play_first).toBe('future_choice')
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      play_first: 'future_choice',
+    })
+  })
+})
+
+describe('setAudioQuality', () => {
+  it('keeps a value this client does not know through other settings edits', async () => {
+    await putStoredRow({ audio_quality: 'lossless' })
+    await setInstruments(db, 'user_1', ['violin'])
+    expect((await db.user_settings.get(settingsId('user_1')))?.audio_quality).toBe('lossless')
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      audio_quality: 'lossless',
+    })
+  })
+})
+
+describe('writeSettings', () => {
+  it('keeps a server field this client does not know and pushes it back', async () => {
+    await putStoredRow({ future_field: 'kept' })
+    await setInstruments(db, 'user_1', ['violin'])
+    const row = (await db.user_settings.get(settingsId('user_1'))) as unknown as Record<
+      string,
+      unknown
+    >
+    expect(row.future_field).toBe('kept')
+    expect((await pendingFor(db, 'user_settings', settingsId('user_1')))?.data).toMatchObject({
+      future_field: 'kept',
     })
   })
 })
@@ -217,6 +293,7 @@ describe('toggleSearchProvider', () => {
       server_seq: 1,
       instruments: [],
       audio_quality: 'standard',
+      play_first: 'recordings',
       search_providers: ['tidal', 'future_service'],
     } as never)
     await toggleSearchProvider(db, 'user_1', 'spotify', true)
@@ -255,6 +332,7 @@ describe('toggleSearchProvider', () => {
       server_seq: 1,
       instruments: [],
       audio_quality: 'standard',
+      play_first: 'recordings',
       search_providers: stored,
     } as never)
     await setInstruments(db, 'user_1', ['violin'])

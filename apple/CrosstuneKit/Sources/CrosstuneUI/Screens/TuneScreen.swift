@@ -404,11 +404,16 @@ private struct TuneMediaSection: View {
         let view = RecordingView(
             recording: entry.recording, file: entry.file, tuneID: detail.tune.id, tuneTitle: detail.tune.title)
         // The screen's own title above already names the tune.
-        return RecordingItem(view: view, tuneNamedAbove: true) { kind in
-            retry(view.id, kind)
+        let pinned = detail.userTune.playRecordingID == view.id
+        return HStack {
+            RecordingItem(view: view, tuneNamedAbove: true) { kind in
+                retry(view.id, kind)
+            }
+            if pinned { PinnedMark() }
         }
         .recordingRowActions(
-            filed: true,
+            filed: true, pinned: pinned,
+            onTogglePin: { Task { await model.setPlaySource(.recording(id: view.id), pinned: pinned) } },
             onRename: { renaming = view },
             // Every recording here is already filed under the tune being looked at.
             onAddToTune: nil,
@@ -429,18 +434,29 @@ private struct TuneMediaSection: View {
         let row = LinkRowContent(
             link: link, embeddable: Embed.for(link) != nil, loaded: player?.holds(.link, id: link.id) ?? false,
             playBlocked: recorders?.isCapturing ?? false)
+        let pinned = detail.userTune.playLinkID == link.id
+        let togglePin: () -> Void = { Task { await model.setPlaySource(.link(id: link.id), pinned: pinned) } }
         let remove = Button(TuneScreen.remove, systemImage: "trash", role: .destructive) {
             Task { await model.removeLink(link.id) }
         }
-        return MediaRow(link: row) { tap in
-            switch tap {
-            case .play: if let item = PlayerItem.link(link) { player?.play(item) }
-            case .close: player?.close()
-            case .open(let url): openURL(url)
+        return HStack {
+            MediaRow(link: row) { tap in
+                switch tap {
+                case .play: if let item = PlayerItem.link(link) { player?.play(item) }
+                case .close: player?.close()
+                case .open(let url): openURL(url)
+                }
             }
+            if pinned { PinnedMark() }
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) { remove }
-        .contextMenu { remove }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            remove
+            PinAction(pinned: pinned, onTogglePin: togglePin, short: true).tint(.indigo)
+        }
+        .contextMenu {
+            PinAction(pinned: pinned, onTogglePin: togglePin)
+            remove
+        }
     }
 }
 

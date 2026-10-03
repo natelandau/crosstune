@@ -1,5 +1,6 @@
 import type { Mode, TuneStatus, TimeSignature } from '../api/vocabulary'
 import type { CrosstuneDb } from '../db/schema'
+import type { PlayerItem } from '../features/player/usePlayer'
 import type { TuningsMap } from '../features/settings/instruments'
 import { TUNE_NOT_FOUND } from './messages'
 import { tombstoneTuneRecordings } from './recordings'
@@ -140,6 +141,24 @@ export async function setArchived(
       ...userTune,
       archived_at: archived ? at : null,
       updated_at: at,
+    })
+  })
+}
+
+/** Pin one recording or link as what the tune plays in a list, or pass null to clear the pin. */
+export async function setPlaySource(
+  db: CrosstuneDb,
+  userTuneId: string,
+  source: PlayerItem | null,
+): Promise<void> {
+  await writeTx(db, async () => {
+    const userTune = await db.user_tunes.get(userTuneId)
+    if (!userTune || userTune.deleted_at) throw new Error(TUNE_NOT_FOUND)
+    await putRow(db, 'user_tunes', {
+      ...userTune,
+      play_recording_id: source?.kind === 'recording' ? source.id : null,
+      play_link_id: source?.kind === 'link' ? source.id : null,
+      updated_at: now(),
     })
   })
 }

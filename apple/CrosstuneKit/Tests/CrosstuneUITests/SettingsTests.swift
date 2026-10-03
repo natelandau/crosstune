@@ -232,6 +232,23 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(model.audioQuality == "low")
     }
 
+    @Test func storesAChosenPlayFirst() async throws {
+        let store = try await SampleCatalog.makeStore()
+        let model = try await loadedModel(store)
+        #expect(model.playFirst == UserSettings.defaultPlayFirst)
+        model.setPlayFirst(UserSettings.playFirstAppleMusic)
+        #expect(model.playFirst == UserSettings.playFirstAppleMusic)
+        try await eventually { try await storedSettings(store)?.playFirst == UserSettings.playFirstAppleMusic }
+        model.setPlayFirst(UserSettings.playFirstRecordings)
+        try await eventually { try await storedSettings(store)?.playFirst == UserSettings.playFirstRecordings }
+        #expect(model.playFirst == UserSettings.playFirstRecordings)
+    }
+
+    @Test func namesEachPlayFirstChoice() {
+        for choice in Vocabulary.playFirsts { #expect(PlayFirstText.names[choice] != nil) }
+        #expect(Set(Vocabulary.playFirsts) == [UserSettings.playFirstRecordings, UserSettings.playFirstAppleMusic])
+    }
+
     @Test func downloadsEverythingAndStartsATransferWhenTurnedOn() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

@@ -1,5 +1,6 @@
 import CrosstuneCommands
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Observation
@@ -10,6 +11,24 @@ public struct ListEntry: Hashable, Sendable, Identifiable {
     public let item: ListItem
     public let tune: Tune
     public let userTune: UserTune
+    /// The tune's live recordings and links in the order its screen shows them, which the row's
+    /// play button chooses from.
+    public let recordings: [Recording]
+    /// This device's file for each recording that has one, by recording id.
+    public let files: [String: RecordingFile]
+    public let links: [RecordingLink]
+
+    public init(
+        item: ListItem, tune: Tune, userTune: UserTune, recordings: [Recording], files: [String: RecordingFile],
+        links: [RecordingLink]
+    ) {
+        self.item = item
+        self.tune = tune
+        self.userTune = userTune
+        self.recordings = recordings
+        self.files = files
+        self.links = links
+    }
 
     public var id: String { item.id }
     public var isArchived: Bool { userTune.archivedAt != nil }
@@ -29,11 +48,28 @@ public struct ListContents: Hashable, Sendable {
         let userTunesByID = Dictionary(userTunes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let tunes = try Tune.fetchAll(db, keys: userTunes.map(\.tuneID))
         let tunesByID = Dictionary(tunes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let tuneIDs = tunes.map(\.id)
+        let recordings = Dictionary(
+            grouping: activeByPosition(
+                try Recording.filter(tuneIDs.contains(Recording.CodingKeys.tuneID)).fetchAll(db)),
+            by: \.tuneID)
+        let links = Dictionary(
+            grouping: activeByPosition(
+                try RecordingLink.filter(tuneIDs.contains(RecordingLink.CodingKeys.tuneID)).fetchAll(db)),
+            by: \.tuneID)
+        let files = Dictionary(
+            try RecordingFile.fetchAll(db, keys: recordings.values.joined().map(\.id)).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first })
         let entries = items.compactMap { item -> ListEntry? in
             guard let userTune = userTunesByID[item.userTuneID], userTune.deletedAt == nil,
                 let tune = tunesByID[userTune.tuneID], tune.deletedAt == nil
             else { return nil }
-            return ListEntry(item: item, tune: tune, userTune: userTune)
+            let tuneRecordings = recordings[tune.id] ?? []
+            return ListEntry(
+                item: item, tune: tune, userTune: userTune, recordings: tuneRecordings,
+                files: Dictionary(
+                    uniqueKeysWithValues: tuneRecordings.compactMap { r in files[r.id].map { (r.id, $0) } }),
+                links: links[tune.id] ?? [])
         }
         return ListContents(list: list, entries: entries)
     }
@@ -71,6 +107,7 @@ public final class ListModel {
     private let contents: LiveQuery<ListContents??>
     private let storedShowArchived: LiveQuery<Bool?>
     private let storedInstruments: LiveQuery<Set<String>?>
+    private let storedPlayFirst: LiveQuery<String?>
     private var moves = PendingMoves()
     /// Counts each read of the list, so a settled move can tell whether a read has landed since.
     private var revision = 0
@@ -92,6 +129,9 @@ public final class ListModel {
         storedInstruments = LiveQuery(store, initial: nil) { db in
             guard let row = try UserSettings.fetchOne(db, key: settingsRow), row.deletedAt == nil else { return [] }
             return Set(row.instruments)
+        }
+        storedPlayFirst = LiveQuery(store, initial: nil) { db in
+            CrosstuneCommands.storedPlayFirst(try UserSettings.fetchOne(db, key: settingsRow))
         }
         let contents = contents
         following = Task { [weak self] in
@@ -127,6 +167,9 @@ public final class ListModel {
 
     /// The instruments the musician plays, empty until read.
     public var instruments: Set<String> { storedInstruments.value ?? [] }
+
+    /// Which version a row plays when a tune has both and none is pinned.
+    public var playFirst: String { storedPlayFirst.value ?? UserSettings.defaultPlayFirst }
 
     /// Every tune in the list, archived included, in stored order with the moves in flight
     /// replayed.

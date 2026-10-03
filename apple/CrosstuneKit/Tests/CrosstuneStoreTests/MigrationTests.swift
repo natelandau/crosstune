@@ -216,10 +216,6 @@ private struct V4Fixture {
         let rows = try Row.fetchAll(db, sql: "SELECT search_providers, extra FROM user_settings ORDER BY id")
         #expect(rows.map { $0["search_providers"] as String } == [everyService, #"["tidal"]"#])
         #expect(rows.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
-        let decoded = try #require(try UserSettings.fetchOne(db, key: "s-2"))
-        #expect(decoded.searchProviders == ["tidal"])
-        #expect(decoded.extra == ["theme": .string("dark")])
-        #expect(decoded.instruments == [])
 
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
@@ -229,6 +225,103 @@ private struct V4Fixture {
                 nil,
                 // No row to read, so the queued change takes the default.
                 #"{"instruments":[],"search_providers":"# + everyService + "}",
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}
+
+/// Same promise as `v4`'s, for the migration that adds search providers.
+@Test func theV7MigrationNeverChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v6")
+    try Schema.migrator.migrate(queue, upTo: "v7")
+    let schema = try queue.read { db in
+        try Row.fetchAll(
+            db,
+            sql: """
+                SELECT name, sql FROM sqlite_master
+                WHERE tbl_name = 'user_settings' AND type = 'table'
+                """
+        )
+        .map { row -> String in
+            let sql: String = row["sql"]
+            return sql.replacingOccurrences(of: ", ", with: ",\n  ")
+        }
+        .joined(separator: "\n")
+    }
+    #expect(schema == v7UserSettingsSchema)
+}
+
+@Test func theV8MigrationAddsPlaySourcesAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v7")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        // Rows pulled after the server added the fields kept them in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO user_tunes
+                    (id, created_at, updated_at, server_seq, tune_id, status, extra)
+                VALUES
+                    ('ut-1', ?, ?, 0, 't-1', 'learning', '{}'),
+                    ('ut-2', ?, ?, 3, 't-1', 'learning', '{"play_link_id":"link-1","theme":"dark"}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO user_settings
+                    (id, created_at, updated_at, server_seq, audio_quality, instruments, extra)
+                VALUES
+                    ('s-1', ?, ?, 0, 'high', '[]', '{}'),
+                    ('s-2', ?, ?, 3, 'standard', '[]', '{"play_first":"apple_music","theme":"dark"}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('user_tunes', 'ut-1', 'upsert', ?, '{"status":"learning"}'),
+                    ('user_tunes', 'ut-2', 'upsert', ?, '{"play_link_id":"link-1","status":"learning"}'),
+                    ('user_tunes', 'ut-3', 'delete', ?, NULL),
+                    ('user_settings', 's-1', 'upsert', ?, '{"instruments":[]}'),
+                    ('user_settings', 's-2', 'upsert', ?, '{"play_first":"apple_music","theme":"dark"}'),
+                    ('user_settings', 's-3', 'upsert', ?, '{"instruments":["violin"]}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time, time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v8")
+
+    try queue.read { db in
+        let tunes = try Row.fetchAll(
+            db, sql: "SELECT play_recording_id, play_link_id, extra FROM user_tunes ORDER BY id")
+        #expect(tunes.map { $0["play_recording_id"] as String? } == [nil, nil])
+        #expect(tunes.map { $0["play_link_id"] as String? } == [nil, "link-1"])
+        #expect(tunes.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
+        let pinned = try #require(try UserTune.fetchOne(db, key: "ut-2"))
+        #expect(pinned.playLinkID == "link-1")
+        #expect(pinned.extra == ["theme": .string("dark")])
+
+        let settings = try Row.fetchAll(db, sql: "SELECT play_first, extra FROM user_settings ORDER BY id")
+        #expect(settings.map { $0["play_first"] as String } == ["recordings", "apple_music"])
+        #expect(settings.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
+        let first = try #require(try UserSettings.fetchOne(db, key: "s-1"))
+        #expect(first.playFirst == UserSettings.defaultPlayFirst)
+        #expect(first.audioQuality == "high")
+        let chosen = try #require(try UserSettings.fetchOne(db, key: "s-2"))
+        #expect(chosen.playFirst == UserSettings.playFirstAppleMusic)
+        #expect(chosen.extra == ["theme": .string("dark")])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"status":"learning","play_recording_id":null,"play_link_id":null}"#,
+                #"{"play_link_id":"link-1","status":"learning","play_recording_id":null}"#,
+                nil,
+                #"{"instruments":[],"play_first":"recordings"}"#,
+                #"{"play_first":"apple_music","theme":"dark"}"#,
+                // No row to read, so the queued change takes the default.
+                #"{"instruments":["violin"],"play_first":"recordings"}"#,
                 #"{"title":"Jam"}"#,
             ])
     }
@@ -377,4 +470,16 @@ private let v4Schema = """
       "archived_at" TEXT,
       "extra" TEXT NOT NULL)
     index user_tunes_on_tune_id: CREATE INDEX "user_tunes_on_tune_id" ON "user_tunes"("tune_id")
+    """
+
+private let v7UserSettingsSchema = """
+    CREATE TABLE "user_settings" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "audio_quality" TEXT NOT NULL,
+      "instruments" TEXT NOT NULL,
+      "extra" TEXT NOT NULL,
+      "search_providers" TEXT NOT NULL DEFAULT '["apple_music","tidal","internet_archive","youtube","spotify","bandcamp","soundcloud"]')
     """

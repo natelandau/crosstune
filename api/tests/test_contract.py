@@ -79,6 +79,7 @@ def test_openapi_publishes_every_vocabulary_as_a_named_enum() -> None:
         vocabulary.TimeSignature,
         vocabulary.Provider,
         vocabulary.AudioQuality,
+        vocabulary.PlayFirst,
         vocabulary.RecordingSource,
         vocabulary.RecordingState,
     ):

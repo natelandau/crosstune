@@ -1,18 +1,20 @@
 import { IonButton, IonLabel, IonSpinner } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CloudDownload } from 'lucide-react'
-import { useState } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { OFFLINE } from '../../sync/labels'
-import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
+import { useOnline } from '../../sync/SyncProvider'
 import { InlineError } from '../../ui/InlineError'
 import { Row, type RowAction } from '../../ui/Row'
+import { PinnedMark } from '../tune/PinnedMark'
 import { CLOSE_PLAYER } from '../player/transportCopy'
 import { PlayGlyph, Slot, StopGlyph } from '../../ui/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, formatDuration } from '../recording/format'
+import { DOWNLOAD, downloadingName, PLAY } from './recordingNames'
 import { recordingMeta, recordingTitle, retryKind, rowControl, titleIsDate } from './recordingRow'
+import { useDownload } from './useDownload'
 import type { RecordingView } from './useRecordings'
 
 /**
@@ -25,9 +27,12 @@ export function RecordingItem({
   actions,
   error,
   tuneNamedAbove = false,
+  pinned = false,
   onRetry,
 }: {
   view: RecordingView
+  /** True for the recording a list plays for its tune. */
+  pinned?: boolean
   actions?: readonly RowAction[]
   /** Shown under the meta line, for a stuck upload or a failed download. */
   error?: string | null
@@ -37,13 +42,9 @@ export function RecordingItem({
 }) {
   const { recording, file } = view
   const db = useDb()
-  const engine = useSyncEngine()
   const player = usePlayer()
   const online = useOnline()
-  // A tap's download is tracked here because a recording with no file row yet has nowhere
-  // durable to carry that state. Distinguishing a failure from idle is what lets a failed
-  // download say so, the way a stuck upload does.
-  const [fetch, setFetch] = useState<'idle' | 'fetching' | 'failed'>('idle')
+  const { fetch, download } = useDownload(recording.id)
   const title = recordingTitle(view, { tuneNamedAbove })
   const item = { kind: 'recording' as const, id: recording.id }
   const loaded = isPlaying(player, item)
@@ -68,16 +69,11 @@ export function RecordingItem({
     : recordingMeta(view, storage ?? null, { dateInTitle: titleIsDate(view, { tuneNamedAbove }) })
   const meta = metaParts.join(' · ')
 
-  const download = () => {
-    setFetch('fetching')
-    void engine.download(recording.id).then((blob) => setFetch(blob ? 'idle' : 'failed'))
-  }
-
   const open =
     control === 'close'
       ? { onOpen: () => player.close(), openName: CLOSE_PLAYER }
       : control === 'play'
-        ? { onOpen: () => player.play(item), openName: 'Play' }
+        ? { onOpen: () => player.play(item), openName: PLAY }
         : control === 'download'
           ? {
               // Refused rather than disabled while offline, so the control keeps its tap and
@@ -85,7 +81,7 @@ export function RecordingItem({
               onOpen: () => {
                 if (online) download()
               },
-              openName: 'Download',
+              openName: DOWNLOAD,
             }
           : undefined
 
@@ -103,7 +99,7 @@ export function RecordingItem({
     )
   } else if (control === 'downloading') {
     start = (
-      <div slot="start" role="status" aria-label={`Downloading ${title}`}>
+      <div slot="start" role="status" aria-label={downloadingName(title)}>
         <Slot>
           <IonSpinner aria-hidden="true" />
         </Slot>
@@ -138,7 +134,10 @@ export function RecordingItem({
     >
       <IonLabel className="my-2.5 overflow-hidden">
         {/* A level below the heading of the group this row sits in, which is a tune's own row. */}
-        <h3 className="type-headline truncate">{title}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="type-headline truncate">{title}</h3>
+          {pinned ? <PinnedMark /> : null}
+        </div>
         <p className="type-subheadline truncate tabular-nums">{meta}</p>
       </IonLabel>
     </Row>

@@ -559,3 +559,144 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(titles == ["Ashokan Farewell", "Rove Riley"])
     }
 }
+
+@Suite struct ListRowPlayTests {
+    private let root = TemporaryRoot()
+    private let now = SampleCatalog.now
+
+    private func entry(_ title: String, in store: CrosstuneStore) async throws -> ListEntry {
+        try await store.read { db in
+            try ListContents.fetch(db, listID: session.id)!.entries.first { $0.tune.title == title }!
+        }
+    }
+
+    @Test func fetchesTheLiveRecordingsAndLinksOfEachTune() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let joy = try await entry("Soldier's Joy", in: store)
+        #expect(joy.links.map(\.id) == ["sample_link_youtube", "sample_link_spotify"])
+        #expect(joy.recordings.map(\.tuneID) == [joy.tune.id])
+        try await Commands(store: store).removeLink("sample_link_youtube", at: later(1000, than: now))
+        let after = try await entry("Soldier's Joy", in: store)
+        #expect(after.links.map(\.id) == ["sample_link_spotify"])
+    }
+
+    @Test func playsAPinnedLinkInTheItemTheTuneScreenLoads() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let joy = try await entry("Soldier's Joy", in: store)
+        let pinned = joy.links[0]
+        try await Commands(store: store).setPlaySource(joy.userTune.id, to: .link(id: pinned.id))
+        let pinnedEntry = try await entry("Soldier's Joy", in: store)
+        #expect(
+            ListRowPlay.action(for: pinnedEntry, playFirst: UserSettings.playFirstRecordings)
+                == .play(PlayerItem.link(pinned)!))
+    }
+
+    @Test func playsTheFirstRecordingByDefault() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let joy = try await entry("Soldier's Joy", in: store)
+        let recording = try #require(joy.recordings.first)
+        #expect(
+            ListRowPlay.action(for: joy, playFirst: UserSettings.playFirstRecordings)
+                == .play(PlayerItem.recording(recording, tuneTitle: joy.tune.title)))
+    }
+
+    @Test func opensALinkThatHasNoPlayer() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let hen = try await entry("Cluck Old Hen", in: store)
+        let linkOnly = ListEntry(
+            item: hen.item, tune: hen.tune, userTune: hen.userTune, recordings: [], files: [:], links: hen.links)
+        let url = try #require(LinkText.outboundURL(hen.links[0].url))
+        let action = ListRowPlay.action(for: linkOnly, playFirst: UserSettings.playFirstRecordings)
+        #expect(action == .open(url, linkTitle: LinkText.title(hen.links[0])))
+        let open = try #require(action)
+        #expect(ListRowPlay.symbol(for: open, loaded: false) == "arrow.up.right")
+        #expect(
+            ListRowText.label(for: open, tuneTitle: hen.tune.title, loaded: false)
+                == "\(LinkText.open) \(LinkText.title(hen.links[0]))")
+    }
+
+    @Test func leavesAChosenLinkThatCanNeitherPlayNorOpenInert() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let hen = try await entry("Cluck Old Hen", in: store)
+        var link = hen.links[0]
+        link.url = "javascript:alert(1)"
+        link.provider = "other"
+        #expect(LinkText.outboundURL(link.url) == nil)
+        let inertLink = ListEntry(
+            item: hen.item, tune: hen.tune, userTune: hen.userTune, recordings: [], files: [:], links: [link])
+        #expect(ListRowPlay.action(for: inertLink, playFirst: UserSettings.playFirstRecordings) == .inert)
+    }
+
+    @Test func playsADownloadedRecordingAndFetchesOneOnlyTheServerHolds() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let joy = try await entry("Soldier's Joy", in: store)
+        #expect(joy.files[joy.recordings[0].id] != nil)
+        let hen = try await entry("Cluck Old Hen", in: store)
+        let serverOnly = try #require(hen.recordings.first)
+        #expect(hen.files[serverOnly.id] == nil)
+        #expect(
+            ListRowPlay.action(for: hen, playFirst: UserSettings.playFirstRecordings)
+                == .play(PlayerItem.recording(serverOnly, tuneTitle: hen.tune.title)))
+    }
+
+    @Test func showsASpinnerWhileTheChosenRecordingDownloads() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let hen = try await entry("Cluck Old Hen", in: store)
+        let serverOnly = try #require(hen.recordings.first)
+        #expect(
+            ListRowPlay.action(
+                for: hen, playFirst: UserSettings.playFirstRecordings, downloading: { $0 == serverOnly.id })
+                == .downloading)
+    }
+
+    @Test func keepsStopForTheLoadedRecordingWhileThePlayerFetchesIt() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let hen = try await entry("Cluck Old Hen", in: store)
+        let serverOnly = try #require(hen.recordings.first)
+        #expect(
+            ListRowPlay.action(
+                for: hen, playFirst: UserSettings.playFirstRecordings, loaded: { $0 == serverOnly.id },
+                downloading: { $0 == serverOnly.id })
+                == .play(PlayerItem.recording(serverOnly, tuneTitle: hen.tune.title)))
+    }
+
+    @Test func leavesARecordingWithNoAudioAnywhereInert() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let tam = try await entry("Tam Lin", in: store)
+        let processing = Recording(
+            id: "r_processing", tuneID: tam.tune.id, source: "upload", recordedAt: now, state: "processing")
+        let silent = ListEntry(
+            item: tam.item, tune: tam.tune, userTune: tam.userTune, recordings: [processing], files: [:],
+            links: [])
+        #expect(ListRowPlay.action(for: silent, playFirst: UserSettings.playFirstRecordings) == .inert)
+    }
+
+    @Test func blocksOnlyPlayWhileATakeIsRecorded() {
+        let item = PlayerItem(kind: .recording, id: "r1", title: "x")
+        let url = URL(string: "https://example.com")!
+        #expect(ListRowPlay.isBlocked(.play(item), capturing: true))
+        #expect(!ListRowPlay.isBlocked(.play(item), capturing: false))
+        #expect(!ListRowPlay.isBlocked(.open(url, linkTitle: "x"), capturing: true))
+    }
+
+    @Test func offersNothingForATuneWithNoSources() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let tam = try await entry("Tam Lin", in: store)
+        #expect(tam.recordings.isEmpty && tam.links.isEmpty)
+        #expect(ListRowPlay.action(for: tam, playFirst: UserSettings.playFirstRecordings) == nil)
+    }
+
+    @Test func namesTheButtonAfterTheTune() {
+        #expect(ListRowText.playLabel(tuneTitle: "Tam Lin", loaded: false) == "\(MediaText.play) Tam Lin")
+        #expect(ListRowText.playLabel(tuneTitle: "Tam Lin", loaded: true).contains("Tam Lin"))
+        #expect(ListRowText.playLabel(tuneTitle: "Tam Lin", loaded: true).hasPrefix(MediaText.closePlayer))
+    }
+
+    @Test func showsStopForTheLoadedItem() {
+        let item = PlayerItem(kind: .recording, id: "r1", title: "x")
+        #expect(ListRowPlay.isLoaded(.play(item), holds: { $0 == .recording && $1 == "r1" }))
+        #expect(!ListRowPlay.isLoaded(.play(item), holds: { _, _ in false }))
+        #expect(
+            !ListRowPlay.isLoaded(.open(URL(string: "https://example.com")!, linkTitle: "x"), holds: { _, _ in true }))
+    }
+}

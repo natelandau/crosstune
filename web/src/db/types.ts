@@ -9,7 +9,13 @@ import type {
   UserSettingsRow,
   UserTuneRow,
 } from '../api/types'
-import { INSTRUMENTS, type Instrument, type Provider } from '../api/vocabulary'
+import {
+  INSTRUMENTS,
+  PLAY_FIRST,
+  type Instrument,
+  type PlayFirst,
+  type Provider,
+} from '../api/vocabulary'
 
 export type { TableName }
 
@@ -95,6 +101,21 @@ export function storedSearchProviderValues(row: LocalUserSettings | null | undef
 export function storedSearchProviders(row: LocalUserSettings | null | undefined): Provider[] {
   const values = new Set(storedSearchProviderValues(row))
   return SEARCHABLE_PROVIDERS.filter((provider) => values.has(provider))
+}
+
+/** The play-first choice a settings row holds, or recordings when there is no usable value. */
+export function storedPlayFirst(row: LocalUserSettings | null | undefined): PlayFirst {
+  return PLAY_FIRST.find((value) => value === row?.play_first) ?? 'recordings'
+}
+
+/**
+ * The play-first value to write back: the stored one even when this client does not know it,
+ * so a newer client's choice survives a write, or recordings when there is none.
+ */
+export function storedPlayFirstValue(row: LocalUserSettings | null | undefined): string {
+  return row && !row.deleted_at && typeof row.play_first === 'string'
+    ? row.play_first
+    : storedPlayFirst(null)
 }
 
 export interface LocalRows {

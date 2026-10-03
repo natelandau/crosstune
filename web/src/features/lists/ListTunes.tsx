@@ -4,7 +4,9 @@ import { useCallback, useRef, type MouseEvent as ReactMouseEvent, type Ref } fro
 import type { Instrument } from '../../api/vocabulary'
 import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useLatest } from '../../ui/useLatest'
-import { TuneItem } from '../catalog/TuneItem'
+import { storedPlayFirst } from '../../db/types'
+import { useSettingsRow } from '../settings/useSettingsRow'
+import { ListTuneRow } from './ListRowPlay'
 import { useListSelection, type ListSelectionHost } from './useListSelection'
 import type { ListItemView } from './useLists'
 import { useReplayedOrder } from './useReplayedOrder'
@@ -68,6 +70,8 @@ export function ListTunes({
   onError: (message: string) => void
 }) {
   const openMenu = useMenu()
+  const settings = useSettingsRow()
+  const playFirst = settings === undefined ? undefined : storedPlayFirst(settings)
   // The screen owns the forwarded ref for its own keyboard shortcut, so entering selection
   // needs a second handle on the same element to close whatever row a swipe left open.
   const list = useRef<HTMLIonListElement>(null)
@@ -148,9 +152,10 @@ export function ListTunes({
           {visible.map((view, index) => {
             const row = rowSelection(view.userTune.id)
             return (
-              <TuneItem
+              <ListTuneRow
                 key={view.item.id}
                 entry={view}
+                playFirst={playFirst}
                 instruments={instruments}
                 selection={active ? row : undefined}
                 onOpen={() => onOpen(view.tune.id)}
@@ -165,7 +170,7 @@ export function ListTunes({
                     {index + 1}
                   </span>
                 }
-                end={
+                trailing={
                   !active && visible.length > 1 ? (
                     <>
                       {/* The menu button comes first so the grip, which the drag needs to find,

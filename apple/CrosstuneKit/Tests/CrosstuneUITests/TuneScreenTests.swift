@@ -207,6 +207,20 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.shown?.lists.isEmpty == true }
     }
 
+    @Test func pinsALinkAndAnotherRowTakesThePinOverThenClearsIt() async throws {
+        let root = TemporaryRoot()
+        let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)
+        try await eventually { model.shown != nil }
+        await model.setPlaySource(.link(id: "sample_link_spotify"), pinned: false)
+        try await eventually { model.shown?.userTune.playLinkID == "sample_link_spotify" }
+        let recordingID = try #require(model.shown?.recordings.first?.id)
+        await model.setPlaySource(.recording(id: recordingID), pinned: false)
+        try await eventually { model.shown?.userTune.playRecordingID == recordingID }
+        #expect(model.shown?.userTune.playLinkID == nil)
+        await model.setPlaySource(.recording(id: recordingID), pinned: true)
+        try await eventually { model.shown?.userTune.playRecordingID == nil }
+    }
+
     @Test func reportsAFailedWriteBesideTheControlThatMadeIt() async throws {
         let root = TemporaryRoot()
         let store = try await SampleCatalog.makeStore(root: root.url)

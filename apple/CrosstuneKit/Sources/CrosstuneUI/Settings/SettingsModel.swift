@@ -14,6 +14,7 @@ struct StoredSettings: Equatable, Sendable {
     /// Every service the settings row searches, known to this build or not.
     var searchProviders: Set<String>
     var audioQuality: String
+    var playFirst: String
     var keepsOffline: Bool
     var invalidChanges: Int
     var storage: StorageFigures?
@@ -27,6 +28,7 @@ struct StoredSettings: Equatable, Sendable {
             instruments: Set(row?.instruments ?? []),
             searchProviders: Set(row?.searchProviders ?? searchableProviders),
             audioQuality: quality ?? SettingsModel.defaultQuality,
+            playFirst: storedPlayFirst(row),
             // Anything but a stored true reads as off, as the web reads it.
             keepsOffline: (try? MetaKey.keepOffline.value(in: db, as: Bool.self)) == true,
             invalidChanges: (try? MetaKey.invalidChanges.value(in: db, as: Int.self)) ?? 0,
@@ -86,6 +88,7 @@ public final class SettingsModel {
     public private(set) var searchProvidersFailure: String?
     /// Why the last quality choice failed, cleared by the next one.
     public private(set) var qualityFailure: String?
+    public private(set) var playFirstFailure: String?
     /// Why the last download choice failed, cleared by the next one.
     public private(set) var keepOfflineFailure: String?
     /// Why the last removal of downloaded audio failed, cleared by the next one.
@@ -101,6 +104,7 @@ public final class SettingsModel {
     private var pendingInstruments: [String: PendingWrite<Bool>] = [:]
     private var pendingSearchProviders: [String: PendingWrite<Bool>] = [:]
     private var pendingQuality = PendingWrite<String>()
+    private var pendingPlayFirst = PendingWrite<String>()
     private var pendingKeepOffline = PendingWrite<Bool>()
     @ObservationIgnored private var lastWrite: Task<Void, Never>?
     @ObservationIgnored private var following: Task<Void, Never>?
@@ -206,6 +210,29 @@ public final class SettingsModel {
     /// Forgets a refusal from the last visit to the music services sheet.
     public func clearSearchProvidersFailure() {
         searchProvidersFailure = nil
+    }
+
+    // MARK: Playing
+
+    /// Which version a list plays when a tune has both: `recordings` or `apple_music`.
+    public var playFirst: String {
+        pendingPlayFirst.value ?? stored.value?.playFirst ?? UserSettings.defaultPlayFirst
+    }
+
+    public func setPlayFirst(_ choice: String) {
+        playFirstFailure = nil
+        let token = pendingPlayFirst.begin(choice)
+        let store = store
+        enqueue {
+            try await Commands(store: store).setPlayFirst(clerkUserID: store.userID, playFirst: choice)
+        } settled: { model, error in
+            if let error {
+                model.pendingPlayFirst.fail(token)
+                model.playFirstFailure = Self.message(error)
+            } else {
+                model.pendingPlayFirst.land(token, stored: model.stored.value?.playFirst)
+            }
+        }
     }
 
     // MARK: Recording
@@ -377,6 +404,7 @@ public final class SettingsModel {
             pendingSearchProviders[provider]?.storeChanged()
         }
         pendingQuality.storeChanged()
+        pendingPlayFirst.storeChanged()
         pendingKeepOffline.storeChanged()
     }
 

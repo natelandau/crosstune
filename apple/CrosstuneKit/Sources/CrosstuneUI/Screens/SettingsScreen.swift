@@ -116,14 +116,25 @@ public struct SettingsScreen: View {
         }
     }
 
+    /// The services searched, and which version a list plays first, under one footer as the
+    /// web groups them.
     private func musicServicesSection(_ model: SettingsModel) -> some View {
-        sheetRowSection(
-            SettingsModel.musicServices, value: model.searchProvidersSummary, help: SettingsModel.musicServicesHelp,
-            failure: musicServicesShowing ? nil : model.searchProvidersFailure
-        ) {
-            model.clearSearchProvidersFailure()
-            musicServicesShowing = true
-            showsMusicServices = true
+        Section {
+            SettingsFieldRow(title: SettingsModel.musicServices, value: model.searchProvidersSummary) {
+                model.clearSearchProvidersFailure()
+                musicServicesShowing = true
+                showsMusicServices = true
+            }
+            Picker(
+                PlayFirstText.label,
+                selection: Binding(get: { model.playFirst }, set: { model.setPlayFirst($0) })
+            ) {
+                ForEach(Vocabulary.playFirsts, id: \.self) { Text(PlayFirstText.names[$0] ?? $0).tag($0) }
+            }
+        } footer: {
+            SettingsFooter(
+                help: "\(SettingsModel.musicServicesHelp) \(PlayFirstText.help)",
+                failure: (musicServicesShowing ? nil : model.searchProvidersFailure) ?? model.playFirstFailure)
         }
     }
 

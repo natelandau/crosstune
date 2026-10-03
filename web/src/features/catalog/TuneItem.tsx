@@ -101,6 +101,7 @@ export function TuneItem({
   actions,
   selection,
   onLongPress,
+  description,
   start,
   end,
 }: {
@@ -118,6 +119,8 @@ export function TuneItem({
   selection?: RowSelection
   /** Enters selection on touch, for a screen that hosts it. */
   onLongPress?: () => void
+  /** What assistive technology reads after the tune's name. */
+  description?: string
   start?: ReactNode
   end?: ReactNode
 }) {
@@ -135,6 +138,7 @@ export function TuneItem({
       selected={selection?.selected}
       openId={selecting ? selectionCheckboxId(userTune.id) : undefined}
       onLongPress={selecting ? undefined : onLongPress}
+      description={description}
       start={start}
       end={end}
     >

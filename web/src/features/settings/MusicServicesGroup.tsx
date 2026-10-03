@@ -1,12 +1,18 @@
 import { IonButton, IonCheckbox, IonItem, IonLabel } from '@ionic/react'
-import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo, useState } from 'react'
 import { useAuthSession } from '../../auth/AuthContext'
-import { toggleSearchProvider } from '../../commands/settings'
+import { settingsId, setPlayFirst, toggleSearchProvider } from '../../commands/settings'
 import { PROVIDER_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
+import { storedPlayFirst } from '../../db/types'
+import { ChoiceRow } from '../../ui/ChoiceRow'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import { useAction } from '../../ui/useAction'
+import { usePendingWrite } from '../../ui/usePendingWrite'
+import type { PlayFirst } from '../../api/vocabulary'
+import { PLAY_FIRST, PLAY_FIRST_HELP, PLAY_FIRST_LABEL, PLAY_FIRST_LABELS } from './playFirst'
 import {
   MUSIC_SERVICES,
   MUSIC_SERVICES_HELP,
@@ -28,6 +34,14 @@ export function MusicServicesGroup() {
   // The sheet's rows stay mounted through its dismiss animation, so a refusal can only move to
   // the row once they are gone; `open` alone would put one refusal in two alert regions.
   const [showing, setShowing] = useState(false)
+  const playFirstAction = useAction()
+  const settings = useLiveQuery(() => db.user_settings.get(settingsId(userId)), [db, userId])
+  // usePendingWrite tells a landed write by identity, so the stored value has to outlive a render.
+  const storedFirst = useMemo(() => ({ first: storedPlayFirst(settings) }), [settings])
+  const [playFirst, writePlayFirst] = usePendingWrite<{ first: PlayFirst }, { first: PlayFirst }>(
+    storedFirst,
+    ({ first }) => setPlayFirst(db, userId, first),
+  )
 
   if (!chosenSet) return null
 
@@ -39,9 +53,9 @@ export function MusicServicesGroup() {
     <>
       <Group
         header={MUSIC_SERVICES}
-        footer={MUSIC_SERVICES_HELP}
+        footer={`${MUSIC_SERVICES_HELP} ${PLAY_FIRST_HELP}`}
         // While the sheet is up it holds the checkboxes, so a refusal reports there instead.
-        error={showing ? null : error}
+        error={showing ? null : (error ?? playFirstAction.error)}
       >
         <IonItem
           button
@@ -59,6 +73,13 @@ export function MusicServicesGroup() {
             {summary}
           </IonLabel>
         </IonItem>
+        <ChoiceRow
+          label={PLAY_FIRST_LABEL}
+          value={playFirst?.first ?? 'recordings'}
+          options={PLAY_FIRST}
+          labels={PLAY_FIRST_LABELS}
+          onChange={(next) => playFirstAction.run(() => writePlayFirst({ first: next }))}
+        />
       </Group>
       <Sheet
         open={open}

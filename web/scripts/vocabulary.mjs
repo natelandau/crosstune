@@ -15,6 +15,7 @@ const ARRAY_NAMES = {
   TimeSignature: 'TIME_SIGNATURES',
   Provider: 'PROVIDERS',
   AudioQuality: 'AUDIO_QUALITIES',
+  PlayFirst: 'PLAY_FIRST',
   RecordingSource: 'RECORDING_SOURCES',
   RecordingState: 'RECORDING_STATES',
   SearchStatus: 'SEARCH_STATUSES',

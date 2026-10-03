@@ -181,6 +181,60 @@ import Testing
         #expect(userTune.archivedAt == nil)
     }
 
+    @Test func setPlaySourceSetsOneAndClearsTheOther() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let (_, userTuneID) = try await commands.createTune(
+            TuneInput(title: "X"), userTune: UserTuneInput(status: "known"), at: noon)
+
+        try await commands.setPlaySource(userTuneID, to: .recording(id: "r1"), at: later(1))
+        var userTune = try #require(try await store.read { db in try UserTune.fetchOne(db, key: userTuneID) })
+        #expect(userTune.playRecordingID == "r1")
+        #expect(userTune.playLinkID == nil)
+        #expect(userTune.updatedAt == later(1))
+
+        try await commands.setPlaySource(userTuneID, to: .link(id: "l1"), at: later(2))
+        userTune = try #require(try await store.read { db in try UserTune.fetchOne(db, key: userTuneID) })
+        #expect(userTune.playRecordingID == nil)
+        #expect(userTune.playLinkID == "l1")
+
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["play_link_id"] == .string("l1"))
+        #expect(entry.data?["play_recording_id"] == .null)
+    }
+
+    @Test func setPlaySourceNilClearsBoth() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let (_, userTuneID) = try await commands.createTune(
+            TuneInput(title: "X"), userTune: UserTuneInput(status: "known"), at: noon)
+        try await commands.setPlaySource(userTuneID, to: .recording(id: "r1"), at: later(1))
+
+        try await commands.setPlaySource(userTuneID, to: nil, at: later(2))
+
+        let userTune = try #require(try await store.read { db in try UserTune.fetchOne(db, key: userTuneID) })
+        #expect(userTune.playRecordingID == nil)
+        #expect(userTune.playLinkID == nil)
+    }
+
+    @Test func setPlaySourceRejectsAMissingOrDeletedUserTune() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let (tuneID, userTuneID) = try await commands.createTune(
+            TuneInput(title: "X"), userTune: UserTuneInput(status: "known"), at: noon)
+        try await store.write { writer in try writer.tombstoneTune(tuneID, at: later(1)) }
+
+        await #expect(throws: CommandError.tuneNotFound) {
+            try await commands.setPlaySource(userTuneID, to: .link(id: "l1"))
+        }
+        await #expect(throws: CommandError.tuneNotFound) {
+            try await commands.setPlaySource("missing", to: nil)
+        }
+    }
+
     @Test func rejectsATitleThatTrimsToNothing() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

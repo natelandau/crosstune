@@ -512,6 +512,15 @@
         "title": "PeaksUrl",
         "type": "object"
       },
+      "PlayFirst": {
+        "description": "Which kind of source a list plays first when a tune has both and none is pinned.",
+        "enum": [
+          "recordings",
+          "apple_music"
+        ],
+        "title": "PlayFirst",
+        "type": "string"
+      },
       "Problem": {
         "description": "An RFC 9457 problem details body, the shape of every error this API returns.",
         "properties": {
@@ -2175,6 +2184,10 @@
             "title": "Instruments",
             "type": "array"
           },
+          "play_first": {
+            "$ref": "#/components/schemas/PlayFirst",
+            "default": "recordings"
+          },
           "search_providers": {
             "items": {
               "$ref": "#/components/schemas/Provider"
@@ -2351,6 +2364,30 @@
               }
             ],
             "title": "Notes"
+          },
+          "play_link_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Link Id"
+          },
+          "play_recording_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Play Recording Id"
           },
           "server_seq": {
             "title": "Server Seq",

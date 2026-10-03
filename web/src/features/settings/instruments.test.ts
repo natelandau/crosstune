@@ -26,6 +26,7 @@ const row = {
   server_seq: 0,
   instruments: ['five_string_banjo', 'kazoo'],
   audio_quality: 'standard',
+  play_first: 'recordings',
 }
 
 describe('instrumentsFrom', () => {

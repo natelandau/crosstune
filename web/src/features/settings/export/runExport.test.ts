@@ -84,6 +84,7 @@ test('reads the chosen instruments from the settings row', async () => {
     server_seq: 0,
     instruments: ['violin'],
     audio_quality: 'standard',
+    play_first: 'recordings',
   })
   const { input } = await readExportInput(db, USER, ZONE)
   expect(input.instruments).toEqual(['violin'])

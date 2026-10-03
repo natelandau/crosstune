@@ -35,6 +35,10 @@ class UserTune(SyncColumns, Base):
         CheckConstraint(
             in_list("status", tuple(TuneStatus), nullable=False), name="ck_user_tunes_status"
         ),
+        CheckConstraint(
+            "num_nonnulls(play_recording_id, play_link_id) <= 1",
+            name="ck_user_tunes_one_play_source",
+        ),
         Index("ix_user_tunes_user_id_server_seq", "user_id", "server_seq"),
     )
 
@@ -52,3 +56,6 @@ class UserTune(SyncColumns, Base):
     learned_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # No foreign keys: clients ignore a pin whose row is missing, deleted, or under another tune.
+    play_recording_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    play_link_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

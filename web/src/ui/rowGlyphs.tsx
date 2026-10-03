@@ -1,4 +1,4 @@
-import { Play, Square } from 'lucide-react'
+import { CircleSlash, Play, Square } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 /** The playable part of a recording or link row: a slot, then the title block, at the row's touch height. */
@@ -24,4 +24,9 @@ export function PlayGlyph() {
 /** A solid stop square. A row can only unload the player, so its loaded state reads as stop, not pause. */
 export function StopGlyph() {
   return <Square aria-hidden="true" fill="currentColor" className="size-4 shrink-0" />
+}
+
+/** Stands where a play control would be, for a tune with nothing to play. */
+export function NotPlayableGlyph() {
+  return <CircleSlash aria-hidden="true" className="size-5 shrink-0 opacity-60" />
 }

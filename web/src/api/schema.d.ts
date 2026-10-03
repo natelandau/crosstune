@@ -496,6 +496,12 @@ export interface components {
             url: string;
         };
         /**
+         * PlayFirst
+         * @description Which kind of source a list plays first when a tune has both and none is pinned.
+         * @enum {string}
+         */
+        PlayFirst: "recordings" | "apple_music";
+        /**
          * Problem
          * @description An RFC 9457 problem details body, the shape of every error this API returns.
          */
@@ -1175,6 +1181,8 @@ export interface components {
              * @default []
              */
             instruments: components["schemas"]["Instrument"][];
+            /** @default recordings */
+            play_first: components["schemas"]["PlayFirst"];
             /** Search Providers */
             search_providers?: components["schemas"]["Provider"][];
             /** Server Seq */
@@ -1251,6 +1259,10 @@ export interface components {
             learned_on?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Play Link Id */
+            play_link_id?: string | null;
+            /** Play Recording Id */
+            play_recording_id?: string | null;
             /** Server Seq */
             server_seq: number;
             status: components["schemas"]["TuneStatus"];

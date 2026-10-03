@@ -109,6 +109,13 @@ class AudioQuality(StrEnum):
     HIGH = "high"
 
 
+class PlayFirst(StrEnum):
+    """Which kind of source a list plays first when a tune has both and none is pinned."""
+
+    RECORDINGS = "recordings"
+    APPLE_MUSIC = "apple_music"
+
+
 class RecordingSource(StrEnum):
     """How a recording's audio arrived."""
 

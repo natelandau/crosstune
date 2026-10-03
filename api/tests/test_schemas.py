@@ -306,3 +306,37 @@ def test_user_settings_search_providers_rejects_other_and_repeats(value: list[st
 
 def test_user_settings_search_providers_may_be_empty() -> None:
     assert UserSettingsData(search_providers=[], created_at=NOW).search_providers == []
+
+
+def test_user_tune_accepts_one_play_source() -> None:
+    tune = "018f0000-0000-7000-8000-000000000002"
+    pin = "018f0000-0000-7000-8000-000000000003"
+    by_recording = UserTuneData(tune_id=tune, status="known", play_recording_id=pin, created_at=NOW)
+    by_link = UserTuneData(tune_id=tune, status="known", play_link_id=pin, created_at=NOW)
+    assert str(by_recording.play_recording_id) == pin
+    assert str(by_link.play_link_id) == pin
+
+
+def test_user_tune_rejects_two_play_sources() -> None:
+    with pytest.raises(ValidationError):
+        UserTuneData(
+            tune_id="018f0000-0000-7000-8000-000000000002",
+            status="known",
+            play_recording_id="018f0000-0000-7000-8000-000000000003",
+            play_link_id="018f0000-0000-7000-8000-000000000004",
+            created_at=NOW,
+        )
+
+
+def test_user_settings_play_first_defaults_to_recordings() -> None:
+    assert UserSettingsData(created_at=NOW).play_first == "recordings"
+
+
+def test_user_settings_rejects_unknown_play_first() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(play_first="spotify", created_at=NOW)
+
+
+def test_user_settings_rejects_a_null_play_first() -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(play_first=None, created_at=NOW)

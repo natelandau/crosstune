@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import event, func, select
 
 from crosstune.models import ListItem, RecordingLink, Tune, UserTune
-from tests.helpers import T0, T1, T2, change, pull, push, uid
+from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -364,6 +364,74 @@ async def test_push_user_settings_with_search_providers_round_trips(client, auth
     assert [r["row"]["search_providers"] for r in rows if r["table"] == "user_settings"] == [
         ["tidal"]
     ]
+
+
+async def test_push_user_settings_play_first_round_trips(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    results = await push(
+        client, headers, change("user_settings", uid(), T0, play_first="apple_music")
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["play_first"] == "apple_music"
+    rows = (await pull(client, headers))["rows"]
+    assert [r["row"]["play_first"] for r in rows if r["table"] == "user_settings"] == [
+        "apple_music"
+    ]
+
+
+async def test_push_user_tune_pin_round_trips(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    tune_id, us_id, rec_id = uid(), uid(), uid()
+    results = await push(
+        client,
+        headers,
+        change("tunes", tune_id, T0, title="Sally Ann"),
+        recording(rec_id, tune_id=tune_id),
+        change("user_tunes", us_id, T0, tune_id=tune_id, status="known", play_recording_id=rec_id),
+    )
+    assert [r["status"] for r in results] == ["applied"] * 3
+    assert results[2]["row"]["play_recording_id"] == rec_id
+    assert results[2]["row"]["play_link_id"] is None
+    rows = (await pull(client, headers))["rows"]
+    pinned = [r["row"]["play_recording_id"] for r in rows if r["table"] == "user_tunes"]
+    assert pinned == [rec_id]
+
+
+async def test_push_user_tune_keeps_a_pin_to_a_deleted_recording(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    tune_id, us_id, rec_id = uid(), uid(), uid()
+    await push(
+        client,
+        headers,
+        change("tunes", tune_id, T0, title="Sally Ann"),
+        recording(rec_id, tune_id=tune_id),
+        change(
+            "user_tunes", us_id, T0, tune_id=tune_id, status="learning", play_recording_id=rec_id
+        ),
+    )
+    await push(client, headers, change("recordings", rec_id, T1, op="delete"))
+    results = await push(
+        client,
+        headers,
+        change("user_tunes", us_id, T2, tune_id=tune_id, status="known", play_recording_id=rec_id),
+    )
+    assert results[0]["status"] == "applied"
+    assert results[0]["row"]["play_recording_id"] == rec_id
+    rows = (await pull(client, headers))["rows"]
+    pinned = [r["row"]["play_recording_id"] for r in rows if r["table"] == "user_tunes"]
+    assert pinned == [rec_id]
+
+
+async def test_push_creates_a_recording_and_pins_it_in_one_batch(client, auth_headers) -> None:
+    tune_id, us_id, rec_id = uid(), uid(), uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune_id, T0, title="Sally Ann"),
+        change("user_tunes", us_id, T0, tune_id=tune_id, status="known", play_recording_id=rec_id),
+        recording(rec_id, tune_id=tune_id),
+    )
+    assert [r["status"] for r in results] == ["applied"] * 3
 
 
 async def test_user_settings_newer_write_wins(client, auth_headers) -> None:

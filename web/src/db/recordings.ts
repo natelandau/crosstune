@@ -11,6 +11,18 @@ export function storedAudioQuality(
   return isAudioQuality(row?.audio_quality) ? row.audio_quality : 'standard'
 }
 
+/**
+ * The audio quality a write keeps: the stored value even when this client does not know it, so
+ * a newer client's choice survives, or standard when there is none.
+ */
+export function storedAudioQualityValue(
+  row: { audio_quality?: unknown; deleted_at?: string | null } | null | undefined,
+): string {
+  return row && !row.deleted_at && typeof row.audio_quality === 'string'
+    ? row.audio_quality
+    : storedAudioQuality(null)
+}
+
 export const CHUNK_MS = 5000
 
 // iOS records AAC in MP4 and Android Opus in WebM; the server transcodes whichever arrives.

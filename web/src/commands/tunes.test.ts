@@ -10,6 +10,7 @@ import {
   createTune,
   deleteTune,
   setArchived,
+  setPlaySource,
   updateTune,
   updateTuneEntry,
   updateUserTune,
@@ -185,5 +186,44 @@ describe('deleteTune', () => {
       ['tunes', 'delete'],
       ['lists', 'upsert'],
     ])
+  })
+})
+
+describe('setPlaySource', () => {
+  it('writes one column, clears the other, and queues the user tune', async () => {
+    const { userTuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    await db.outbox.clear()
+    await setPlaySource(db, userTuneId, { kind: 'recording', id: 'rec-1' })
+    expect(await db.user_tunes.get(userTuneId)).toMatchObject({
+      play_recording_id: 'rec-1',
+      play_link_id: null,
+    })
+    expect(await pendingFor(db, 'user_tunes', userTuneId)).toBeDefined()
+
+    await setPlaySource(db, userTuneId, { kind: 'link', id: 'link-1' })
+    expect(await db.user_tunes.get(userTuneId)).toMatchObject({
+      play_recording_id: null,
+      play_link_id: 'link-1',
+    })
+
+    await setPlaySource(db, userTuneId, null)
+    expect(await db.user_tunes.get(userTuneId)).toMatchObject({
+      play_recording_id: null,
+      play_link_id: null,
+    })
+  })
+
+  it('throws for a missing user tune', async () => {
+    await expect(setPlaySource(db, 'nope', null)).rejects.toThrow(TUNE_NOT_FOUND)
+  })
+
+  it('throws for a soft-deleted user tune and leaves it unqueued', async () => {
+    const { userTuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
+    await db.user_tunes.update(userTuneId, { deleted_at: '2026-09-11T09:00:00.000Z' })
+    await db.outbox.clear()
+    await expect(setPlaySource(db, userTuneId, { kind: 'recording', id: 'rec-1' })).rejects.toThrow(
+      TUNE_NOT_FOUND,
+    )
+    expect(await pendingFor(db, 'user_tunes', userTuneId)).toBeUndefined()
   })
 })

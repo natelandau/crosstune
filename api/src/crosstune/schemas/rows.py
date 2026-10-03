@@ -29,6 +29,7 @@ from crosstune.vocabulary import (
     AudioQuality,
     Instrument,
     Mode,
+    PlayFirst,
     Provider,
     RecordingSource,
     RecordingState,
@@ -138,6 +139,15 @@ class UserTuneData(_Data):
     learned_on: date | None = None
     notes: str | None = Field(default=None, max_length=USER_TUNE["notes"])
     archived_at: datetime | None = None
+    play_recording_id: uuid.UUID | None = None
+    play_link_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _one_play_source(self) -> UserTuneData:
+        if self.play_recording_id is not None and self.play_link_id is not None:
+            msg = "a tune can pin a recording or a link, not both"
+            raise ValueError(msg)
+        return self
 
 
 class _RecordingLinkFields(_Data):
@@ -225,6 +235,7 @@ class UserSettingsData(_Data):
     instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
     # The default is validated too, so it is stored as a plain string like a sent value.
     audio_quality: AudioQuality = Field(default=AudioQuality.STANDARD, validate_default=True)
+    play_first: PlayFirst = Field(default=PlayFirst.RECORDINGS, validate_default=True)
     search_providers: Annotated[
         list[Provider], AfterValidator(_distinct), AfterValidator(_no_other)
     ] = Field(default_factory=lambda: list(SEARCHABLE_PROVIDERS))
