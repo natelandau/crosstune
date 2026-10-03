@@ -60,6 +60,28 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
+    public func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+        let input = Operations.SearchV1LinksSearchGet.Input(
+            query: .init(q: q, providers: providers, country: country))
+        switch try await client.searchV1LinksSearchGet(input) {
+        case .ok(let response):
+            return SearchResponse(
+                groups: try response.body.json.groups.map { group in
+                    SearchGroup(
+                        provider: group.provider, status: SearchGroup.Status(wire: group.status),
+                        results: group.results.map { result in
+                            SearchResult(
+                                url: result.url, provider: result.provider, providerRef: result.providerRef,
+                                title: result.title, subtitle: result.subtitle, artworkURL: result.artworkUrl)
+                        }, searchURL: group.searchUrl)
+                })
+        case .unprocessableContent: throw APIStatusError(status: 422)
+        case .tooManyRequests(let response):
+            throw APIStatusError(status: 429, retryAfterSeconds: Self.seconds(response.headers.retryAfter))
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
     public func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
         let input = Operations.UploadSlotV1RecordingsRecordingIdUploadSlotPost.Input(
             path: .init(recordingId: recordingID),
@@ -170,6 +192,15 @@ public struct LiveSyncAPI: SyncAPI {
             throw InvalidSignedURL(value: value)
         }
         return url
+    }
+
+    /// A `Retry-After` given in whole seconds. The HTTP-date form, which this API never sends,
+    /// reads as none.
+    static func seconds(_ retryAfter: String?) -> Int? {
+        guard let value = retryAfter?.trimmingCharacters(in: .whitespaces), !value.isEmpty,
+            value.allSatisfy(\.isASCII), value.allSatisfy(\.isNumber)
+        else { return nil }
+        return Int(value)
     }
 
     private static func refusal(_ status: Int, _ problem: Components.Schemas.Problem?) -> APIStatusError {

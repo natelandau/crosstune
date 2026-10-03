@@ -182,6 +182,58 @@ private struct V4Fixture {
     }
 }
 
+@Test func theV7MigrationAddsSearchProvidersAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v6")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        // `s-2` was pulled after the server added the field, so this build kept it in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO user_settings
+                    (id, created_at, updated_at, server_seq, audio_quality, instruments, extra)
+                VALUES
+                    ('s-1', ?, ?, 0, 'high', '["violin"]', '{}'),
+                    ('s-2', ?, ?, 3, 'standard', '[]', '{"search_providers":["tidal"],"theme":"dark"}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('user_settings', 's-1', 'upsert', ?, '{"instruments":["violin"]}'),
+                    ('user_settings', 's-2', 'upsert', ?, '{"search_providers":["tidal"],"theme":"dark"}'),
+                    ('user_settings', 's-3', 'delete', ?, NULL),
+                    ('user_settings', 's-4', 'upsert', ?, '{"instruments":[]}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v7")
+
+    let everyService = #"["apple_music","tidal","internet_archive","youtube","spotify","bandcamp","soundcloud"]"#
+    try queue.read { db in
+        let rows = try Row.fetchAll(db, sql: "SELECT search_providers, extra FROM user_settings ORDER BY id")
+        #expect(rows.map { $0["search_providers"] as String } == [everyService, #"["tidal"]"#])
+        #expect(rows.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
+        let decoded = try #require(try UserSettings.fetchOne(db, key: "s-2"))
+        #expect(decoded.searchProviders == ["tidal"])
+        #expect(decoded.extra == ["theme": .string("dark")])
+        #expect(decoded.instruments == [])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"instruments":["violin"],"search_providers":"# + everyService + "}",
+                #"{"search_providers":["tidal"],"theme":"dark"}"#,
+                nil,
+                // No row to read, so the queued change takes the default.
+                #"{"instruments":[],"search_providers":"# + everyService + "}",
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}
+
 private let v5LoopsSchema = """
     table recording_loops: CREATE TABLE "recording_loops" ("id" TEXT PRIMARY KEY NOT NULL,
       "created_at" TEXT NOT NULL,

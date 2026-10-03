@@ -31,9 +31,12 @@
         /// The user the sample store opens for.
         public static let userID = "sample_user"
 
+        /// The services the sample musician searches: some of each kind, so both show.
+        public static let searchProviders = ["apple_music", "tidal", "internet_archive", "youtube", "spotify"]
+
         public static let settings = UserSettings(
             id: settingsID(clerkUserID: userID), createdAt: now, audioQuality: "standard",
-            instruments: instruments.sorted())
+            instruments: instruments.sorted(), searchProviders: searchProviders)
 
         /// The account's storage, as the last sync would have left it.
         public static let storage = StorageFigures(

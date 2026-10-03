@@ -1,3 +1,4 @@
+import CrosstuneAuth
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
@@ -22,7 +23,7 @@ public struct TuneScreen: View {
     public static let notInList = "Not in any list yet."
     public static let openLyrics = "Open lyrics"
     public static let noMediaTitle = "Nothing recorded yet"
-    public static let noMediaHint = "Record one, or paste a link to one."
+    public static let noMediaHint = "Record one, find one, or paste a link to one."
     public static let moreActions = "More actions"
     public static let remove = "Remove"
 
@@ -321,6 +322,9 @@ private struct TuneMediaSection: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
+    @Environment(\.playerWindow) private var window
+    @Environment(AccountSession.self) private var session: AccountSession?
+    @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Binding var renaming: RecordingView?
     @Binding var deleting: RecordingView?
 
@@ -352,10 +356,11 @@ private struct TuneMediaSection: View {
                         actions.addLink?(detail.tune.id)
                     }
                     .disabled(actions.addLink == nil)
+                    findRecordings
                 } label: {
                     Label(TuneScreen.addRecording, systemImage: "plus")
                 }
-                .disabled(actions.record == nil && actions.addLink == nil)
+                .disabled(actions.record == nil && actions.addLink == nil && actions.findRecordings == nil)
             }
         } footer: {
             if let failure = model.failure(at: .media) {
@@ -363,6 +368,36 @@ private struct TuneMediaSection: View {
             }
         }
         .headerProminence(.increased)
+    }
+
+    /// Refused rather than disabled while offline, so the item keeps its name and its reason
+    /// shows beneath it.
+    private var findRecordings: some View {
+        let offline = session?.isOffline ?? false
+        let entry = FindRecordingsEntry(providers: detail.searchProviders)
+        return Button {
+            var search: FindRecordingsModel.Search?
+            if let engine {
+                search = { q, providers, country in
+                    await engine.searchRecordings(q: q, providers: providers, country: country)
+                }
+            }
+            let tuneID = detail.tune.id
+            let query = FindRecordingsSnapshot.prefill(detail.tune)
+            Task {
+                await model.chooseFindRecordings(
+                    entry, tuneID: tuneID, query: query, offline: offline, search: search,
+                    openSheet: actions.findRecordings, open: { openURL($0) })
+            }
+        } label: {
+            Label {
+                Text(entry.label)
+                if offline { Text(FindRecordingsModel.searchNeedsConnection) }
+            } icon: {
+                Image(systemName: "magnifyingglass")
+            }
+        }
+        .disabled(entry.isDisabled(sheetAvailable: actions.findRecordings != nil))
     }
 
     private func recordingRow(_ entry: TuneRecording) -> some View {

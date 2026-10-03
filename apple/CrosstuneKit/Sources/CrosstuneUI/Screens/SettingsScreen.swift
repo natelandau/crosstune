@@ -24,6 +24,9 @@ public struct SettingsScreen: View {
     @State private var showsInstruments = false
     /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
     @State private var instrumentsShowing = false
+    @State private var showsMusicServices = false
+    /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
+    @State private var musicServicesShowing = false
 
     /// - Parameter version: The app's marketing version, which the About row names.
     public init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
@@ -46,6 +49,7 @@ public struct SettingsScreen: View {
         Form {
             if let model, model.isLoaded {
                 instrumentsSection(model)
+                musicServicesSection(model)
             }
             Section {
                 Picker(Appearance.title, selection: $appearance) {
@@ -88,6 +92,9 @@ public struct SettingsScreen: View {
         .sheet(isPresented: $showsInstruments, onDismiss: { instrumentsShowing = false }) {
             if let model { InstrumentsSheet(model: model) }
         }
+        .sheet(isPresented: $showsMusicServices, onDismiss: { musicServicesShowing = false }) {
+            if let model { MusicServicesSheet(model: model) }
+        }
         .navigationTitle(Destination.settings.title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
@@ -95,14 +102,35 @@ public struct SettingsScreen: View {
     }
 
     private func instrumentsSection(_ model: SettingsModel) -> some View {
+        sheetRowSection(
+            SettingsModel.instruments, value: model.instrumentSummary, help: SettingsModel.instrumentsHelp,
+            failure: instrumentsShowing ? nil : model.instrumentsFailure
+        ) {
+            model.clearInstrumentsFailure()
+            instrumentsShowing = true
+            showsInstruments = true
+        }
+    }
+
+    private func musicServicesSection(_ model: SettingsModel) -> some View {
+        sheetRowSection(
+            SettingsModel.musicServices, value: model.searchProvidersSummary, help: SettingsModel.musicServicesHelp,
+            failure: musicServicesShowing ? nil : model.searchProvidersFailure
+        ) {
+            model.clearSearchProvidersFailure()
+            musicServicesShowing = true
+            showsMusicServices = true
+        }
+    }
+
+    /// A field row that opens a sheet holding the choices, with the setting's help below.
+    private func sheetRowSection(
+        _ title: String, value: String, help: String, failure: String?, open: @escaping () -> Void
+    ) -> some View {
         Section {
-            Button {
-                model.clearInstrumentsFailure()
-                instrumentsShowing = true
-                showsInstruments = true
-            } label: {
+            Button(action: open) {
                 HStack {
-                    LabeledContent(SettingsModel.instruments, value: model.instrumentSummary)
+                    LabeledContent(title, value: value)
                     Image(systemName: "chevron.forward")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.tertiary)
@@ -112,8 +140,7 @@ public struct SettingsScreen: View {
             }
             .buttonStyle(.plain)
         } footer: {
-            SettingsFooter(
-                help: SettingsModel.instrumentsHelp, failure: instrumentsShowing ? nil : model.instrumentsFailure)
+            SettingsFooter(help: help, failure: failure)
         }
     }
 

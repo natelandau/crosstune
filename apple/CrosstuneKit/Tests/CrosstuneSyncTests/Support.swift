@@ -77,6 +77,23 @@ final class FakeSyncAPI: SyncAPI {
         return ResolvedLink(provider: "other", url: url, title: "Resolved")
     }
 
+    /// One search request as the engine sent it.
+    struct Search: Equatable {
+        var q: String
+        var providers: [String]
+        var country: String
+    }
+
+    var searches: [Search] = []
+    /// The groups every search answers with.
+    var searchGroups: [SearchGroup] = []
+
+    func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+        searches.append(Search(q: q, providers: providers, country: country))
+        if let failure { throw failure }
+        return SearchResponse(groups: searchGroups)
+    }
+
     // MARK: Transfers
 
     /// Every transfer request in order, as `slot r1`, `put r1`, `confirm r1`, `url r1`, `get r1`,

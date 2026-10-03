@@ -388,6 +388,10 @@ final class CountingSyncAPI: SyncAPI {
         ResolvedLink(provider: "other", url: url)
     }
 
+    func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+        SearchResponse(groups: [])
+    }
+
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
         throw URLError(.badURL)
     }

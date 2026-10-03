@@ -45,10 +45,12 @@ public struct TuneDetail: Hashable, Sendable {
     public let lists: [TuneMembership]
     /// The instruments the musician plays.
     public let instruments: Set<String>
+    /// The music services the musician searches for recordings, in the order they list.
+    public let searchProviders: [String]
 
     public init(
         tune: Tune, userTune: UserTune, links: [RecordingLink] = [], recordings: [TuneRecording] = [],
-        lists: [TuneMembership] = [], instruments: Set<String> = []
+        lists: [TuneMembership] = [], instruments: Set<String> = [], searchProviders: [String] = searchableProviders
     ) {
         self.tune = tune
         self.userTune = userTune
@@ -56,6 +58,7 @@ public struct TuneDetail: Hashable, Sendable {
         self.recordings = recordings
         self.lists = lists
         self.instruments = instruments
+        self.searchProviders = searchProviders
     }
 
     public var isArchived: Bool { userTune.archivedAt != nil }
@@ -166,7 +169,8 @@ public struct TuneDetail: Hashable, Sendable {
             lists: lists.compactMap { list in
                 itemByList[list.id].map { TuneMembership(list: list, itemID: $0) }
             },
-            instruments: settings?.deletedAt == nil ? Set(settings?.instruments ?? []) : [])
+            instruments: settings?.deletedAt == nil ? Set(settings?.instruments ?? []) : [],
+            searchProviders: chosenSearchProviders(settings))
     }
 }
 

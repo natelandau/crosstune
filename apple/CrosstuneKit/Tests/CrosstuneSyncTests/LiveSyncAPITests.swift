@@ -15,11 +15,16 @@ final class RecordingTransport: ClientTransport {
     let status: HTTPResponse.Status
     let body: String
     let failure: (any Error & Sendable)?
+    let headers: HTTPFields
 
-    init(status: HTTPResponse.Status = .ok, body: String = "{}", failure: (any Error & Sendable)? = nil) {
+    init(
+        status: HTTPResponse.Status = .ok, body: String = "{}", failure: (any Error & Sendable)? = nil,
+        headers: HTTPFields = [:]
+    ) {
         self.status = status
         self.body = body
         self.failure = failure
+        self.headers = headers
     }
 
     var requests: [(request: HTTPRequest, body: Data?)] { sent.withLock { $0 } }
@@ -32,7 +37,7 @@ final class RecordingTransport: ClientTransport {
         let captured = data
         sent.withLock { $0.append((request, captured)) }
         if let failure { throw failure }
-        var response = HTTPResponse(status: status)
+        var response = HTTPResponse(status: status, headerFields: headers)
         response.headerFields[.contentType] = status == .ok ? "application/json" : "application/problem+json"
         return (response, HTTPBody(body))
     }
@@ -151,6 +156,58 @@ private func json(_ data: Data?) throws -> JSONObject {
 
         #expect(link == ResolvedLink(provider: "youtube", url: "https://youtu.be/x", providerRef: "x", title: "Tune"))
         #expect(try json(transport.requests.first?.body) == ["url": .string("https://youtu.be/x")])
+    }
+
+    @Test func searchesEachServiceAndMapsTheGroups() async throws {
+        let transport = RecordingTransport(
+            body: """
+                {"groups": [
+                  {"provider": "apple_music", "status": "results", "search_url": "https://music.apple.com/us/search?term=x",
+                   "results": [{"url": "https://music.apple.com/us/album/a?i=1", "provider": "apple_music",
+                                "provider_ref": "1", "title": "Tune", "subtitle": "Player · Album",
+                                "artwork_url": "https://art.test/a.jpg"}]},
+                  {"provider": "tidal", "status": "unavailable", "results": [], "search_url": "https://tidal.com/search?q=x"},
+                  {"provider": "spotify", "status": "search_only", "results": [], "search_url": "https://open.spotify.com/search/x"}
+                ]}
+                """)
+
+        let response = try await api(transport).searchRecordings(
+            q: "Soldier's Joy Reel", providers: ["apple_music", "tidal", "spotify"], country: "IE")
+
+        let path = try #require(transport.requests.first?.request.path)
+        let query = try #require(URLComponents(string: path)?.queryItems)
+        #expect(path.hasPrefix("/v1/links/search?"))
+        #expect(query.filter { $0.name == "q" }.map(\.value) == ["Soldier's Joy Reel"])
+        #expect(query.filter { $0.name == "providers" }.map(\.value) == ["apple_music", "tidal", "spotify"])
+        #expect(query.filter { $0.name == "country" }.map(\.value) == ["IE"])
+        #expect(
+            response.groups == [
+                SearchGroup(
+                    provider: "apple_music", status: .results,
+                    results: [
+                        SearchResult(
+                            url: "https://music.apple.com/us/album/a?i=1", provider: "apple_music", providerRef: "1",
+                            title: "Tune", subtitle: "Player · Album", artworkURL: "https://art.test/a.jpg")
+                    ], searchURL: "https://music.apple.com/us/search?term=x"),
+                SearchGroup(
+                    provider: "tidal", status: .unavailable, results: [], searchURL: "https://tidal.com/search?q=x"),
+                SearchGroup(
+                    provider: "spotify", status: .searchOnly, results: [],
+                    searchURL: "https://open.spotify.com/search/x"),
+            ])
+    }
+
+    @Test(arguments: [("7", 7), (" 12 ", 12), (nil, nil), ("Wed, 21 Oct 2026 07:28:00 GMT", nil), ("-3", nil)])
+    func throwsARateLimitedSearchWithTheWaitItNames(header: String?, seconds: Int?) async throws {
+        var headers = HTTPFields()
+        if let header { headers[.retryAfter] = header }
+        let transport = RecordingTransport(
+            status: .tooManyRequests, body: #"{"type": "about:blank", "title": "x", "status": 429, "detail": "x"}"#,
+            headers: headers)
+
+        await #expect(throws: APIStatusError(status: 429, retryAfterSeconds: seconds)) {
+            try await api(transport).searchRecordings(q: "x", providers: ["tidal"], country: "US")
+        }
     }
 
     @Test(arguments: [(HTTPResponse.Status.internalServerError, 500), (.unprocessableContent, 422)])

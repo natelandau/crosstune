@@ -121,30 +121,39 @@ private struct LinkForm: View {
     }
 }
 
-/// A tune to paste a link onto, as the sheet's identity.
-private struct PasteLinkRequest: Identifiable {
+/// A tune a sheet opens for, as the sheet's identity.
+private struct TuneSheetRequest: Identifiable {
     let tuneID: String
+    /// The one service the sheet opens straight on, if any.
+    var service: String?
 
-    var id: String { tuneID }
+    var id: String { "\(tuneID) \(service ?? "")" }
 }
 
-/// The paste link sheet the tune screen asks for, presented once, over the whole shell.
+/// The paste link and Find recordings sheets the tune screen asks for, each presented once,
+/// over the whole shell.
 struct LinkSheets: ViewModifier {
-    @State private var request: PasteLinkRequest?
+    @State private var pasting: TuneSheetRequest?
+    @State private var finding: TuneSheetRequest?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
 
     func body(content: Content) -> some View {
         content
-            .environment(\.tuneScreenActions, withPasteLink)
-            .sheet(item: $request) { request in
+            .environment(\.tuneScreenActions, withLinkSheets)
+            .sheet(item: $pasting) { request in
                 LinkSheet(tuneID: request.tuneID)
+            }
+            .sheet(item: $finding) { request in
+                FindRecordingsSheet(tuneID: request.tuneID, service: request.service)
             }
     }
 
-    /// The tune screen's actions as set further out, with Add link opening the sheet.
-    private var withPasteLink: TuneScreenActions {
+    /// The tune screen's actions as set further out, with Add link and Find recordings opening
+    /// their sheets.
+    private var withLinkSheets: TuneScreenActions {
         var actions = tuneScreenActions
-        actions.addLink = { tuneID in request = PasteLinkRequest(tuneID: tuneID) }
+        actions.addLink = { tuneID in pasting = TuneSheetRequest(tuneID: tuneID) }
+        actions.findRecordings = { tuneID, service in finding = TuneSheetRequest(tuneID: tuneID, service: service) }
         return actions
     }
 }

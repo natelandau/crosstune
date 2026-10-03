@@ -1,5 +1,6 @@
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Testing
 
@@ -197,5 +198,143 @@ import Testing
 
         try await commands.setAudioQuality(clerkUserID: store.userID, quality: "low")
         #expect(try await commands.captureBitrate() == 48_000)
+    }
+}
+
+private let everyService = [
+    "apple_music", "tidal", "internet_archive", "youtube", "spotify", "bandcamp", "soundcloud",
+]
+
+@Suite struct SearchableProvidersTests {
+    @Test func isEveryProviderButOtherInResultGroupOrder() {
+        #expect(searchableProviders == everyService)
+        #expect(Set(searchableProviders) == Set(Vocabulary.providers).subtracting(["other"]))
+        #expect(searchableProviders.count == Set(searchableProviders).count)
+        #expect(UserSettings.defaultSearchProviders == searchableProviders)
+    }
+}
+
+@Suite struct ToggleSearchProviderTests {
+    private func row(_ store: CrosstuneStore) async throws -> UserSettings {
+        let id = settingsID(clerkUserID: "user_1")
+        return try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+    }
+
+    private func seed(_ store: CrosstuneStore, _ providers: [String]) async throws {
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(UserSettings(id: id, createdAt: noon, searchProviders: providers), at: noon)
+        }
+    }
+
+    @Test func turnsOneOffFromNoRowAndQueuesTheRest() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+
+        try await commands.toggleSearchProvider(clerkUserID: "user_1", provider: "spotify", on: false, at: noon)
+
+        let rest = everyService.filter { $0 != "spotify" }
+        #expect(try await row(store).searchProviders == rest)
+        let batch = try await store.pendingChanges(limit: 10)
+        #expect(batch.count == 1)
+        #expect(batch[0].tableName == .userSettings)
+        #expect(batch[0].op == .upsert)
+        #expect(batch[0].data?["search_providers"] == .array(rest.map(JSONValue.string)))
+    }
+
+    @Test func turnsOneOnInCanonicalOrder() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store, ["tidal"])
+
+        try await Commands(store: store).toggleSearchProvider(clerkUserID: "user_1", provider: "youtube", on: true)
+
+        #expect(try await row(store).searchProviders == ["tidal", "youtube"])
+    }
+
+    @Test func neverStoresOther() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store, ["tidal"])
+
+        try await Commands(store: store).toggleSearchProvider(clerkUserID: "user_1", provider: "other", on: true)
+
+        #expect(try await row(store).searchProviders == ["tidal"])
+    }
+
+    @Test func keepsAServiceThisClientDoesNotRecognizeAfterTheKnownOnes() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store, ["mixcloud", "tidal", "mixcloud"])
+
+        try await Commands(store: store).toggleSearchProvider(clerkUserID: "user_1", provider: "youtube", on: true)
+
+        #expect(try await row(store).searchProviders == ["tidal", "youtube", "mixcloud"])
+    }
+
+    @Test func turningTheLastOneOffLeavesNone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store, ["tidal"])
+
+        try await Commands(store: store).toggleSearchProvider(clerkUserID: "user_1", provider: "tidal", on: false)
+
+        #expect(try await row(store).searchProviders == [])
+    }
+
+    @Test func aDeletedRowSearchesEveryService() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store, ["tidal"])
+        try await store.write { writer in
+            try writer.tombstone(UserSettings.self, id: settingsID(clerkUserID: "user_1"), at: later(1))
+        }
+
+        try await Commands(store: store).toggleSearchProvider(
+            clerkUserID: "user_1", provider: "youtube", on: false, at: later(2))
+
+        let stored = try await row(store)
+        #expect(stored.deletedAt == nil)
+        #expect(stored.searchProviders == everyService.filter { $0 != "youtube" })
+    }
+}
+
+@Suite struct SettingsWritesKeepOtherFieldsTests {
+    @Test func settingInstrumentsKeepsSearchProvidersAndFieldsThisBuildDoesNotModel() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(
+                UserSettings(id: id, createdAt: noon, searchProviders: ["tidal"], extra: ["theme": .string("dark")]),
+                at: noon)
+        }
+
+        try await Commands(store: store).setInstruments(clerkUserID: "user_1", instruments: ["violin"], at: later(1))
+
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.instruments == ["violin"])
+        #expect(row.searchProviders == ["tidal"])
+        #expect(row.extra == ["theme": .string("dark")])
+        let entry = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == id })
+        #expect(entry.data?["search_providers"] == .array([.string("tidal")]))
+        #expect(entry.data?["theme"] == .string("dark"))
+    }
+
+    @Test func togglingAServiceKeepsInstrumentsAndAudioQuality() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.setInstruments(clerkUserID: "user_1", instruments: ["guitar"], at: noon)
+        try await commands.setAudioQuality(clerkUserID: "user_1", quality: "high", at: later(1))
+
+        try await commands.toggleSearchProvider(clerkUserID: "user_1", provider: "tidal", on: false, at: later(2))
+
+        let id = settingsID(clerkUserID: "user_1")
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.instruments == ["guitar"])
+        #expect(row.audioQuality == "high")
+        #expect(!row.searchProviders.contains("tidal"))
     }
 }
