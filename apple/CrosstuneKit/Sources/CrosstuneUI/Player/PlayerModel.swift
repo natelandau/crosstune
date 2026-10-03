@@ -437,7 +437,7 @@ public final class PlayerModel {
             let wasPaused = linkAudio == .native && music?.isPlaying == false
             stopAudio()
             item = next
-            startLink(next, autoplay: !wasPaused)
+            startLink(next, autoplay: !wasPaused, expandsOnFallBack: wasExpanded)
             isExpanded = wasExpanded
             return
         }
@@ -617,8 +617,9 @@ public final class PlayerModel {
     }
 
     /// Plays a just-loaded link: through MusicKit when it can, otherwise in its embed, in full.
-    /// `autoplay` false leaves a MusicKit track paused at its start.
-    private func startLink(_ item: PlayerItem, autoplay: Bool = true) {
+    /// `autoplay` false leaves a MusicKit track paused at its start, and `expandsOnFallBack`
+    /// false leaves the player as it is shown when the embed plays instead.
+    private func startLink(_ item: PlayerItem, autoplay: Bool = true, expandsOnFallBack: Bool = true) {
         guard let kind = item.link?.appleMusic, let appleMusic else {
             linkAudio = .embed
             isExpanded = item.link != nil
@@ -627,23 +628,27 @@ public final class PlayerModel {
         linkAudio = .deciding
         isExpanded = false
         let id = item.id
-        startDeadline(id)
+        let expands = expandsOnFallBack
+        startDeadline(id, expanding: expands)
         deciding = Task { [weak self] in
             var access = await appleMusic.access.current()
             guard let self, isDeciding(id) else { return }
             if access == .notAsked {
                 deadline?.cancel()
-                access = await appleMusic.access.request()
+                _ = await appleMusic.access.request()
                 guard isDeciding(id) else { return }
-                startDeadline(id)
+                startDeadline(id, expanding: expands)
+                // Read again under the deadline: the subscription lookup needs the network.
+                access = await appleMusic.access.current()
+                guard isDeciding(id) else { return }
             }
             guard access == .fullTracks else {
-                fallBack(emptyingQueue: false)
+                fallBack(emptyingQueue: false, expanding: expands)
                 return
             }
             guard await appleMusic.player.load(kind), isDeciding(id) else {
                 guard isDeciding(id) else { return }
-                fallBack()
+                fallBack(expanding: expands)
                 return
             }
             guard !isCapturing() else {
@@ -654,7 +659,7 @@ public final class PlayerModel {
             if autoplay {
                 guard await appleMusic.player.start(), isDeciding(id) else {
                     guard isDeciding(id) else { return }
-                    fallBack()
+                    fallBack(expanding: expands)
                     return
                 }
             }
@@ -668,22 +673,24 @@ public final class PlayerModel {
         !Task.isCancelled && holds(.link, id: id) && linkAudio == .deciding
     }
 
-    private func startDeadline(_ id: String) {
+    private func startDeadline(_ id: String, expanding: Bool) {
         deadline?.cancel()
         let timeout = decisionTimeout
         deadline = Task { [weak self] in
             try? await Task.sleep(for: timeout)
             guard let self, isDeciding(id) else { return }
-            fallBack()
+            fallBack(expanding: expanding)
         }
     }
 
-    /// Ends the decision with the link's embed, in full. `emptyingQueue` clears whatever a load
-    /// left in the MusicKit queue; a decision that never loaded has nothing to clear.
-    private func fallBack(emptyingQueue: Bool = true) {
+    /// Ends the decision with the link's embed, in full unless `expanding` is false.
+    /// `emptyingQueue` clears whatever a load left in the MusicKit queue; a decision that never
+    /// loaded has nothing to clear.
+    private func fallBack(emptyingQueue: Bool = true, expanding: Bool) {
         finishDeciding()
         if emptyingQueue { appleMusic?.player.stop() }
         linkAudio = .embed
+        guard expanding else { return }
         expandedWindow = nil
         isExpanded = true
     }

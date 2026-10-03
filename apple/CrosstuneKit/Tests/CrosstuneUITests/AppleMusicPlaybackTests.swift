@@ -16,6 +16,9 @@ final class FakeAccess: AppleMusicAccess {
     var state: AppleMusicAccessState
     var answer: AppleMusicAccessState
     var holdsRequests = false
+    /// Once a request has been answered, every later read of the state waits until cancelled, as
+    /// a subscription lookup can on a stalled network.
+    var stallsAfterRequest = false
     private(set) var requests = 0
     private var held: CheckedContinuation<Void, Never>?
 
@@ -31,7 +34,12 @@ final class FakeAccess: AppleMusicAccess {
         held = nil
     }
 
-    func current() async -> AppleMusicAccessState { state }
+    func current() async -> AppleMusicAccessState {
+        if stallsAfterRequest && requests > 0 {
+            try? await Task.sleep(for: .seconds(3600))
+        }
+        return state
+    }
 
     func request() async -> AppleMusicAccessState {
         guard state == .notAsked else { return state }
@@ -392,6 +400,17 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(!player.isExpanded)
     }
 
+    @Test func aSyncedAddressChangeThatFallsBackLeavesTheCollapsedPlayerCollapsed() async throws {
+        let (player, _, _) = model(.noSubscription)
+        try await play(player)
+        player.isExpanded = false
+        player.linkChanged(
+            id: "l1", to: appleLink(url: "https://music.apple.com/us/song/the-mason-s-apron/1440833095"))
+        try await eventually { player.linkAudio == .embed }
+        #expect(!player.isExpanded)
+        #expect(player.embed != nil)
+    }
+
     @Test func aDecidingBarShowsOnlyTheTitle() async throws {
         let (player, _, music) = model(.fullTracks)
         music.holdsLoads = true
@@ -412,5 +431,16 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         row.title = "Reels"
         try await play(player, row)
         #expect(PlayerBar.showLabel(player) == "Show player, Reels, The Mason's Apron")
+    }
+
+    @Test func aStalledSubscriptionReadAfterThePromptFallsBackToTheEmbed() async throws {
+        let (player, access, music) = model(.notAsked)
+        access.stallsAfterRequest = true
+        player.decisionTimeout = .milliseconds(50)
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { player.linkAudio == .embed }
+        #expect(access.requests == 1)
+        #expect(!music.calls.contains("load"))
+        #expect(!music.calls.contains("play"))
     }
 }
