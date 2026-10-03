@@ -139,6 +139,25 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         #expect(audio.isPlaying)
     }
 
+    @Test func controlsARecordingOnlyOnceItsAudioPlays() async throws {
+        let audio = FakeAudio()
+        let source = HeldSource()
+        let player = PlayerModel(audio: audio)
+        player.audioSource = source.fetch
+        #expect(player.transport == nil)
+
+        player.play(.recording(recording(), tuneTitle: nil))
+        try await eventually { source.asked == ["r1"] }
+        #expect(player.transport == nil)
+
+        source.answer("r1", with: audioURL)
+        try await eventually { player.recordingAudio == .loaded }
+        #expect(player.transport === audio)
+
+        audio.hasFailed = true
+        #expect(player.transport == nil)
+    }
+
     @Test func saysARecordingIsUnavailableWhenNothingIsFetchedAndTriesAgain() async throws {
         let audio = FakeAudio()
         let source = HeldSource()

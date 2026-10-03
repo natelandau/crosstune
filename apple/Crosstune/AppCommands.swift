@@ -13,6 +13,14 @@ struct AppCommands: Commands {
     @FocusedValue(\.recordAction) private var record
     @FocusedValue(\.syncNowAction) private var syncNow
     @FocusedValue(\.findAction) private var find
+    @FocusedValue(\.playPauseAction) private var playPause
+    @FocusedValue(\.isPlaying) private var isPlaying
+    @FocusedValue(\.skipBackAction) private var skipBack
+    @FocusedValue(\.skipForwardAction) private var skipForward
+    @FocusedValue(\.goToRecordingAction) private var goToRecording
+    @FocusedValue(\.closePlayerAction) private var closePlayer
+    @FocusedValue(\.showCatalogAction) private var showCatalog
+    @FocusedValue(\.showRecordingsAction) private var showRecordings
 
     var body: some Commands {
         // Command-N is New tune, so New Window keeps its place with Option.
@@ -31,6 +39,25 @@ struct AppCommands: Commands {
             // Command-R is Record, so Sync takes Option.
             item(MenuCommand.syncNow, syncNow)
                 .keyboardShortcut("r", modifiers: [.command, .option])
+        }
+        CommandGroup(before: .sidebar) {
+            item(Destination.catalogTitle, showCatalog)
+                .keyboardShortcut("1")
+            item(Destination.recordingsTitle, showRecordings)
+                .keyboardShortcut("2")
+            Divider()
+        }
+        // Space and Command-Left and Command-Right are heard by the shell, which leaves them to a
+        // focused field, so their items carry no shortcut.
+        CommandMenu(MenuCommand.controls) {
+            item(isPlaying == true ? RecordingPlayerText.pause : RecordingPlayerText.play, playPause)
+            item(MenuCommand.skipBack, skipBack)
+            item(MenuCommand.skipForward, skipForward)
+            Divider()
+            item(MenuCommand.goToRecording, goToRecording)
+                .keyboardShortcut("l")
+            item(PlayerBar.close, closePlayer)
+                .keyboardShortcut(".")
         }
         #if os(iOS)
             // iPadOS has no system Find for a screen's search, so Command-F runs the focused

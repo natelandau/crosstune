@@ -172,6 +172,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(player.playsInBar)
         #expect(player.embed == nil)
         #expect(player.music === music)
+        #expect(player.transport === music)
     }
 
     @Test(arguments: [AppleMusicAccessState.noSubscription, .declined])
@@ -183,6 +184,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(player.embed != nil)
         #expect(!player.playsInBar)
         #expect(player.music == nil)
+        #expect(player.transport == nil)
         #expect(music.calls.isEmpty)
     }
 

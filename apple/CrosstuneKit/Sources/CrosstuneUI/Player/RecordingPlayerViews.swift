@@ -58,22 +58,20 @@ struct RecordingPlayButton: View {
     var font: Font = .title3
 
     var body: some View {
-        if let music = player.music {
-            TransportToggle(transport: music, font: font)
+        if let transport = player.transport {
+            TransportToggle(transport: transport, font: font)
         } else {
-            recordingButton
+            standIn
         }
     }
 
-    @ViewBuilder private var recordingButton: some View {
+    @ViewBuilder private var standIn: some View {
         switch player.recordingAudio {
         case .fetching:
             ProgressView()
                 .controlSize(.small)
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel(RecordingText.downloading)
-        case .loaded where !player.audio.hasFailed:
-            TransportToggle(transport: player.audio, font: font)
         default:
             Image(systemName: "exclamationmark.circle")
                 .font(font)

@@ -70,6 +70,11 @@ public struct AppShell: View {
             .environment(\.playerWindow, playerWindow)
             .focusedSceneValue(\.recordAction, canRecord ? MenuAction(record) : nil)
             .focusedSceneValue(\.syncNowAction, engine.map { engine in MenuAction { Task { await engine.sync() } } })
+            .modifier(
+                ShellControls(
+                    player: player, window: playerWindow,
+                    isActive: MenuGates.controls(sheetsOpen: openSheets.isCovered), show: show(_:))
+            )
             // Made here rather than by the catalog screen, which a Mac or iPad sidebar tears down,
             // so the search lasts the app session and leaves with the signed-in shell.
             .task(id: ObjectIdentifier(store)) {
@@ -96,6 +101,16 @@ public struct AppShell: View {
         MenuGates.record(
             sheetsOpen: openSheets.isCovered, selecting: selecting.isCovered,
             takePending: !RecordTake.mayReplace(take), capturing: recorders.isCapturing)
+    }
+
+    private func show(_ destination: Destination) {
+        #if os(iOS)
+            if usesTabs == true {
+                place.tab = destination
+                return
+            }
+        #endif
+        place.sidebar = destination == .recordings ? .recordings : .catalog
     }
 
     private func record() {

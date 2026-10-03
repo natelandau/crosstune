@@ -5,8 +5,8 @@ import SwiftUI
 /// pauses; the arrows move the playhead a second (five with Shift), or nudge a focused handle;
 /// `[` and `]` set the selected loop's edges at the playhead; N adds a loop; Delete removes the
 /// selected loop and Return names it; Escape closes a name field, then deselects, then closes
-/// the screen. A focused text field, slider, or button keeps these keys, so they are heard only
-/// when nothing inside wants them. While the screen cannot be used yet, only Escape works.
+/// the screen. Every key but Escape stands down while a name field is being typed in, and a
+/// focused slider or button keeps these keys too. While the screen cannot be used yet, only Escape works.
 struct PracticeKeys: ViewModifier {
     let model: PracticeModel
     var focus: FocusState<PracticeFocus?>.Binding
@@ -18,7 +18,7 @@ struct PracticeKeys: ViewModifier {
     /// Modifiers that make a key some other command, which these keys leave alone.
     private static let commandModifiers: EventModifiers = [.command, .control, .option]
 
-    private var isReady: Bool { !isBlocked && model.isLoaded }
+    private var isReady: Bool { !isBlocked && model.isLoaded && !TextEntry.isActive }
 
     func body(content: Content) -> some View {
         content
@@ -38,7 +38,9 @@ struct PracticeKeys: ViewModifier {
             }
             // Held arrows repeat, sweeping the handle, as a slider does; letting go writes it once.
             .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow], phases: .all) { press in
-                guard !isBlocked, press.modifiers.isDisjoint(with: Self.commandModifiers) else { return .ignored }
+                guard !isBlocked, !TextEntry.isActive, press.modifiers.isDisjoint(with: Self.commandModifiers) else {
+                    return .ignored
+                }
                 let back = press.key == .leftArrow || press.key == .downArrow
                 let large = press.modifiers.contains(.shift)
                 if case .handle(let edge) = focus.wrappedValue {
@@ -64,7 +66,7 @@ struct PracticeKeys: ViewModifier {
                 return .handled
             }
             .onKeyPress(.return, phases: .down) { _ in
-                guard !isBlocked else { return .ignored }
+                guard !isBlocked, !TextEntry.isActive else { return .ignored }
                 return model.renameSelected() ? .handled : .ignored
             }
             .onKeyPress(.escape, phases: .down) { _ in

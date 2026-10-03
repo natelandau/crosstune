@@ -197,4 +197,10 @@ enum MenuGates {
     static func record(sheetsOpen: Bool, selecting: Bool, takePending: Bool, capturing: Bool) -> Bool {
         !sheetsOpen && !selecting && !takePending && !capturing
     }
+
+    /// The player's commands and the destination commands act unless a sheet or dialog is up,
+    /// which leaves the keys to it. The recording screen carries its own.
+    static func controls(sheetsOpen: Bool) -> Bool {
+        !sheetsOpen
+    }
 }

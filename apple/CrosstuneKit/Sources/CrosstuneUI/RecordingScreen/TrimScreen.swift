@@ -106,23 +106,26 @@ struct TrimScreen: View {
         .focusEffectDisabled()
         .focused($keyboard, equals: .screen)
         .defaultFocus($keyboard, .screen)
-        // A focused text field or button keeps these keys, so this hears them only when nothing
-        // inside wants them.
+        // These stand down while text is typed, and a focused button keeps them.
         .onKeyPress(.space, phases: .down) { _ in
-            guard ready else { return .ignored }
+            guard ready, !TextEntry.isActive else { return .ignored }
             toggle()
             return .handled
         }
         // Held arrows repeat, sweeping the handle, as a slider does.
         .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
-            guard ready, press.modifiers.isDisjoint(with: Self.commandModifiers) else { return .ignored }
+            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: Self.commandModifiers) else {
+                return .ignored
+            }
             let step = press.modifiers.contains(.shift) ? TrimModel.largeNudgeMs : TrimModel.nudgeMs
             let back = press.key == .leftArrow || press.key == .downArrow
             model.nudge(model.focus, by: back ? -step : step)
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "[]"), phases: .down) { press in
-            guard ready, press.modifiers.isDisjoint(with: Self.commandModifiers) else { return .ignored }
+            guard ready, !TextEntry.isActive, press.modifiers.isDisjoint(with: Self.commandModifiers) else {
+                return .ignored
+            }
             setAtPlayhead(press.characters == "[" ? .start : .end)
             return .handled
         }

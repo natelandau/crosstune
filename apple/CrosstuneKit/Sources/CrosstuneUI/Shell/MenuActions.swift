@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import SwiftUI
 
 /// Something a menu command does, published by the screen or shell that can do it. A command
@@ -20,6 +21,11 @@ public enum MenuCommand {
     public static let newList = SidebarItem.newList
     public static let syncNow = "Sync now"
     public static let find = "Find"
+    /// The menu of player commands, named as in Music.
+    public static let controls = "Controls"
+    public static let goToRecording = "Go to recording"
+    public static let skipBack = RecordingPlayerText.skipBack(AudioPlayer.skipInterval)
+    public static let skipForward = RecordingPlayerText.skipForward(AudioPlayer.skipInterval)
 }
 
 extension FocusedValues {
@@ -34,4 +40,21 @@ extension FocusedValues {
     /// Focuses the search field of the screen that has one. Read on iPadOS only; on the Mac the
     /// system Find items reach a screen through its `.searchable` field.
     @Entry public var findAction: MenuAction?
+    /// Plays or pauses the loaded item. Published by the shell while something it can play is
+    /// loaded.
+    @Entry public var playPauseAction: MenuAction?
+    /// Whether the loaded item plays now, which names the play and pause command.
+    @Entry public var isPlaying: Bool?
+    /// Skips the loaded item back. Published by the shell with ``playPauseAction``.
+    @Entry public var skipBackAction: MenuAction?
+    /// Skips the loaded item forward. Published by the shell with ``playPauseAction``.
+    @Entry public var skipForwardAction: MenuAction?
+    /// Opens the loaded recording's screen. Published by the shell while a recording is loaded.
+    @Entry public var goToRecordingAction: MenuAction?
+    /// Unloads the player. Published by the shell while something is loaded.
+    @Entry public var closePlayerAction: MenuAction?
+    /// Shows the catalog. Published by the shell.
+    @Entry public var showCatalogAction: MenuAction?
+    /// Shows the recordings. Published by the shell.
+    @Entry public var showRecordingsAction: MenuAction?
 }
