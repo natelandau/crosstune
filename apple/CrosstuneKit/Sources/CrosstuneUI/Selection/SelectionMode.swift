@@ -46,9 +46,15 @@ private struct SelectionMode: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .toolbar {
-                if selection.isActive, let bulk { toolbar(bulk) }
-            }
+            #if os(iOS)
+                .toolbar {
+                    if selection.isActive, let bulk { toolbar(bulk) }
+                }
+            #else
+                .paneBar {
+                    if selection.isActive, let bulk { paneControls(bulk) }
+                }
+            #endif
             #if os(iOS)
                 .environment(\.editMode, .constant(selection.isActive ? .active : .inactive))
                 .toolbar(selection.isActive ? .hidden : .automatic, for: .tabBar)
@@ -106,9 +112,9 @@ private struct SelectionMode: ViewModifier {
             .onChange(of: undoManager) { bulk?.undoManager = undoManager }
     }
 
-    @ToolbarContentBuilder private func toolbar(_ bulk: BulkActions) -> some ToolbarContent {
-        let count = selected.count
-        #if os(iOS)
+    #if os(iOS)
+        @ToolbarContentBuilder private func toolbar(_ bulk: BulkActions) -> some ToolbarContent {
+            let count = selected.count
             ToolbarItem(placement: .topBarLeading) {
                 let allSelected = selection.allSelected(visible: visibleIDs)
                 Button(allSelected ? TuneSelection.deselectAll : TuneSelection.selectAll) {
@@ -148,17 +154,8 @@ private struct SelectionMode: ViewModifier {
                 moreMenu(bulk, selectsAll: false) { actionLabel(BulkActionText.more, "ellipsis", worded: worded) }
                     .disabled(count == 0)
             }
-        #else
-            ToolbarItemGroup(placement: .primaryAction) {
-                actionButtons(bulk, count: count)
-                // Live at any count, since Select all lives in it and the mode opens at zero.
-                moreMenu(bulk, selectsAll: true) { Label(BulkActionText.more, systemImage: "ellipsis") }
-                doneButton
-            }
-        #endif
-    }
+        }
 
-    #if os(iOS)
         /// A bottom bar action's label: its word, or its glyph named by the word.
         @ViewBuilder private func actionLabel(_ title: String, _ systemImage: String, worded: Bool) -> some View {
             if worded {
@@ -171,14 +168,22 @@ private struct SelectionMode: ViewModifier {
     #endif
 
     #if os(macOS)
-        /// Status, Edit, and Add to list as glyph buttons named in words.
-        @ViewBuilder private func actionButtons(_ bulk: BulkActions, count: Int) -> some View {
-            statusMenu(bulk) { Label(BulkActionText.status, systemImage: "tag") }
+        /// Status, Edit, Add to list, and More as glyph buttons named in words, then Done.
+        @ViewBuilder private func paneControls(_ bulk: BulkActions) -> some View {
+            let count = selected.count
+            statusMenu(bulk) { Label(BulkActionText.status, systemImage: "tag").labelStyle(.iconOnly) }
                 .disabled(count == 0)
             Button(BulkActionText.edit, systemImage: TuneRowActions.editSystemImage) { edit() }
+                .labelStyle(.iconOnly)
                 .disabled(count == 0)
             Button(BulkActionText.addToList, systemImage: "text.badge.plus") { addToList(bulk) }
+                .labelStyle(.iconOnly)
                 .disabled(count == 0 || listSheets == nil)
+            // Live at any count, since Select all lives in it and the mode opens at zero.
+            moreMenu(bulk, selectsAll: true) {
+                Label(BulkActionText.more, systemImage: "ellipsis").labelStyle(.iconOnly)
+            }
+            doneButton
         }
     #endif
 

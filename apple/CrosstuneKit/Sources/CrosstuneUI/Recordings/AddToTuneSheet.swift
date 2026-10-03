@@ -198,10 +198,8 @@ private struct AddToTuneContent: View {
         }
         .interactiveDismissDisabled(model.isFiling)
         .onAppear { searchFocused = true }
-        #if os(iOS)
-            // The screen under this sheet stands its Find down, so Command-F reaches this search.
-            .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
-        #endif
+        // The screen under this sheet stands its Find down, so Command-F reaches this search.
+        .focusedSceneValue(\.findAction, MenuAction { searchFocused = true })
     }
 
     private static var searchPlacement: SearchFieldPlacement {

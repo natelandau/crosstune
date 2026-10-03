@@ -59,16 +59,12 @@ struct AppCommands: Commands {
             item(PlayerBar.close, closePlayer)
                 .keyboardShortcut(".")
         }
-        #if os(iOS)
-            // iPadOS has no system Find for a screen's search, so Command-F runs the focused
-            // screen's `findAction`. On the Mac the system Edit > Find items stay, and each
-            // screen's toolbar `.searchable` field answers them, with `.searchFocused(_:)` where
-            // a screen moves focus itself.
-            CommandGroup(after: .textEditing) {
-                item(MenuCommand.find, find)
-                    .keyboardShortcut("f")
-            }
-        #endif
+        // Command-F runs the focused screen's `findAction`: iPadOS has no system Find for a
+        // screen's search, and the catalog's own field on the Mac is not a `.searchable` one.
+        CommandGroup(after: .textEditing) {
+            item(MenuCommand.find, find)
+                .keyboardShortcut("f")
+        }
     }
 
     private func item(_ title: String, _ action: MenuAction?) -> some View {

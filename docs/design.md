@@ -487,9 +487,14 @@ equivalent below.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
   Undo button replaces the web's toast.
 - Native search replaces the web's toolbar search field, except on the
-  catalog on iPhone and iPad. There the field is the app's own, pinned under
-  the navigation bar with the filter control at its trailing edge, because
-  the system field takes no accessory.
+  catalog. There the field is the app's own, pinned under the navigation
+  bar with the filter control at its trailing edge, because the system
+  field takes no accessory.
+- On the Mac, a control sits over the pane it acts on. A Mac toolbar puts
+  a content column's trailing items over the detail column, so the
+  content column's own actions, selection's included, sit in a bar
+  across the top of the column instead; the catalog's share its search
+  field's row.
 - On iPhone, a top-level screen's large title shares a row with its
   toolbar buttons and stays in place on scroll, instead of sitting in its
   own row under them.

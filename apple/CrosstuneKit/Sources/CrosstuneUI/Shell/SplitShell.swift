@@ -34,6 +34,7 @@ struct SplitShell: View {
         } content: {
             content
                 .safeAreaPadding(.bottom, playerHeight)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 340)
                 .toolbar {
                     // A selecting screen's toolbar holds only what acts on the selection.
                     if selecting?.isCovered != true {

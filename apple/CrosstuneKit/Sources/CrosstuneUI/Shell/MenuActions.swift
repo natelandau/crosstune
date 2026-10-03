@@ -37,8 +37,7 @@ extension FocusedValues {
     @Entry public var recordAction: MenuAction?
     /// Runs a sync now. Published by the shell while a store is open.
     @Entry public var syncNowAction: MenuAction?
-    /// Focuses the search field of the screen that has one. Read on iPadOS only; on the Mac the
-    /// system Find items reach a screen through its `.searchable` field.
+    /// Focuses the search field of the screen or sheet that has one.
     @Entry public var findAction: MenuAction?
     /// Plays or pauses the loaded item. Published by the shell while something it can play is
     /// loaded.

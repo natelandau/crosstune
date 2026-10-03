@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The catalog's search field on iPhone and iPad, with the filters control at its trailing edge.
+/// The catalog's search field, with the filters control at its trailing edge.
 /// It stands in for the system search field, which takes no accessory.
 struct CatalogSearchField: View {
     nonisolated static let clearSearch = "Clear search"
@@ -12,7 +12,14 @@ struct CatalogSearchField: View {
     let onSubmit: () -> Void
     let onFilters: () -> Void
 
-    @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
+    #if os(iOS)
+        @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
+        private let hitTarget: CGFloat = 44
+    #else
+        // The height of a large control, which the buttons beside it are.
+        @ScaledMetric(relativeTo: .body) private var height: CGFloat = 32
+        private let hitTarget: CGFloat = 24
+    #endif
 
     var body: some View {
         HStack(spacing: 6) {
@@ -26,6 +33,8 @@ struct CatalogSearchField: View {
                 .onSubmit(onSubmit)
                 #if os(iOS)
                     .textInputAutocapitalization(.never)
+                #else
+                    .textFieldStyle(.plain)
                 #endif
             if !query.isEmpty {
                 Button {
@@ -33,7 +42,7 @@ struct CatalogSearchField: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
-                        .frame(minWidth: 44, minHeight: 44)
+                        .frame(minWidth: hitTarget, minHeight: hitTarget)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.borderless)
