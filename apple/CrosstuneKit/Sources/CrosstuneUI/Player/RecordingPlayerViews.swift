@@ -91,7 +91,7 @@ struct RecordingPlayButton: View {
 /// The loaded recording's position: a slider to scrub with, the time played, and the time left.
 /// While it is dragged the times follow the thumb, and playback moves once it is let go.
 struct PlaybackScrubber: View {
-    let audio: any AudioPlayback
+    let audio: any PlaybackTransport
 
     @State private var isEditing = false
     @State private var dragged: TimeInterval?
