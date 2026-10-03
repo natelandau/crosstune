@@ -7,6 +7,7 @@ public enum Vocabulary {
         "violin", "five_string_banjo", "tenor_banjo", "guitar", "mandolin", "bouzouki", "mountain_dulcimer",
     ]
     public static let modes: [String] = ["major", "minor", "mixolydian", "dorian", "modal", "other"]
+    public static let playFirsts: [String] = ["recordings", "apple_music"]
     public static let providers: [String] = [
         "youtube", "spotify", "apple_music", "bandcamp", "soundcloud", "tidal", "internet_archive", "other",
     ]

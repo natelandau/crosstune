@@ -103,6 +103,9 @@ Push:
   a client that predates the field resets it. A new client against an old
   API fails on the unknown field. `operations.md` says how to release a
   schema change.
+- A tune record's play pin names a recording or link with no foreign key,
+  and push never checks it as a parent. Clients ignore a pin whose row is
+  missing, deleted, or filed under another tune.
 
 Pull:
 

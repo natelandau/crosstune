@@ -11,7 +11,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.locks import advisory_lock_key
@@ -1591,3 +1591,55 @@ async def test_0021_fills_search_providers_for_existing_rows(
         "bandcamp",
         "soundcloud",
     ]
+
+
+async def test_0022_adds_play_sources_and_play_first(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000031"
+    settings = "018f0000-0000-7000-8000-000000000032"
+    tune = "018f0000-0000-7000-8000-000000000033"
+    pin_a = "018f0000-0000-7000-8000-000000000034"
+    pin_b = "018f0000-0000-7000-8000-000000000035"
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0021")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into user_settings "
+                    "(id, user_id, instruments, audio_quality, created_at, updated_at) "
+                    "values (:id, :user, '{}', 'standard', now(), now())"
+                ),
+                {"id": settings, "user": user},
+            )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.begin() as conn:
+        stored = (await conn.execute(text("select play_first from user_settings"))).scalar_one()
+        await conn.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, created_at, updated_at) "
+                "values (:id, :user, 'Sally Ann', now(), now())"
+            ),
+            {"id": tune, "user": user},
+        )
+    assert stored == "recordings"
+    with pytest.raises(IntegrityError):
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into user_tunes (id, user_id, tune_id, status, play_recording_id, "
+                    "play_link_id, created_at, updated_at) "
+                    "values (:id, :user, :tune, 'known', :a, :b, now(), now())"
+                ),
+                {"id": pin_a, "user": user, "tune": tune, "a": pin_a, "b": pin_b},
+            )

@@ -684,6 +684,10 @@ extension Components {
                 case url
             }
         }
+        /// Which kind of source a list plays first when a tune has both and none is pinned.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlayFirst`.
+        public typealias PlayFirst = Swift.String
         /// An RFC 9457 problem details body, the shape of every error this API returns.
         ///
         /// - Remark: Generated from `#/components/schemas/Problem`.
@@ -2867,6 +2871,8 @@ extension Components {
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/instruments`.
             public var instruments: [Components.Schemas.Instrument]?
+            /// - Remark: Generated from `#/components/schemas/UserSettingsRow/play_first`.
+            public var playFirst: Components.Schemas.PlayFirst?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/search_providers`.
             public var searchProviders: [Components.Schemas.Provider]?
             /// - Remark: Generated from `#/components/schemas/UserSettingsRow/server_seq`.
@@ -2885,6 +2891,7 @@ extension Components {
             ///   - deletedAt:
             ///   - id:
             ///   - instruments:
+            ///   - playFirst:
             ///   - searchProviders:
             ///   - serverSeq:
             ///   - updatedAt:
@@ -2896,6 +2903,7 @@ extension Components {
                 deletedAt: Foundation.Date? = nil,
                 id: Swift.String,
                 instruments: [Components.Schemas.Instrument]? = nil,
+                playFirst: Components.Schemas.PlayFirst? = nil,
                 searchProviders: [Components.Schemas.Provider]? = nil,
                 serverSeq: Swift.Int,
                 updatedAt: Foundation.Date,
@@ -2907,6 +2915,7 @@ extension Components {
                 self.deletedAt = deletedAt
                 self.id = id
                 self.instruments = instruments
+                self.playFirst = playFirst
                 self.searchProviders = searchProviders
                 self.serverSeq = serverSeq
                 self.updatedAt = updatedAt
@@ -2919,6 +2928,7 @@ extension Components {
                 case deletedAt = "deleted_at"
                 case id
                 case instruments
+                case playFirst = "play_first"
                 case searchProviders = "search_providers"
                 case serverSeq = "server_seq"
                 case updatedAt = "updated_at"
@@ -2946,6 +2956,10 @@ extension Components {
                     [Components.Schemas.Instrument].self,
                     forKey: .instruments
                 )
+                self.playFirst = try container.decodeIfPresent(
+                    Components.Schemas.PlayFirst.self,
+                    forKey: .playFirst
+                )
                 self.searchProviders = try container.decodeIfPresent(
                     [Components.Schemas.Provider].self,
                     forKey: .searchProviders
@@ -2968,6 +2982,7 @@ extension Components {
                     "deleted_at",
                     "id",
                     "instruments",
+                    "play_first",
                     "search_providers",
                     "server_seq",
                     "updated_at",
@@ -2995,6 +3010,10 @@ extension Components {
                 try container.encodeIfPresent(
                     self.instruments,
                     forKey: .instruments
+                )
+                try container.encodeIfPresent(
+                    self.playFirst,
+                    forKey: .playFirst
                 )
                 try container.encodeIfPresent(
                     self.searchProviders,
@@ -3109,6 +3128,10 @@ extension Components {
             public var learnedOn: Swift.String?
             /// - Remark: Generated from `#/components/schemas/UserTuneRow/notes`.
             public var notes: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/UserTuneRow/play_link_id`.
+            public var playLinkId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/UserTuneRow/play_recording_id`.
+            public var playRecordingId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/UserTuneRow/server_seq`.
             public var serverSeq: Swift.Int
             /// - Remark: Generated from `#/components/schemas/UserTuneRow/status`.
@@ -3131,6 +3154,8 @@ extension Components {
             ///   - learnedFrom:
             ///   - learnedOn:
             ///   - notes:
+            ///   - playLinkId:
+            ///   - playRecordingId:
             ///   - serverSeq:
             ///   - status:
             ///   - tuneId:
@@ -3145,6 +3170,8 @@ extension Components {
                 learnedFrom: Swift.String? = nil,
                 learnedOn: Swift.String? = nil,
                 notes: Swift.String? = nil,
+                playLinkId: Swift.String? = nil,
+                playRecordingId: Swift.String? = nil,
                 serverSeq: Swift.Int,
                 status: Components.Schemas.TuneStatus,
                 tuneId: Swift.String,
@@ -3159,6 +3186,8 @@ extension Components {
                 self.learnedFrom = learnedFrom
                 self.learnedOn = learnedOn
                 self.notes = notes
+                self.playLinkId = playLinkId
+                self.playRecordingId = playRecordingId
                 self.serverSeq = serverSeq
                 self.status = status
                 self.tuneId = tuneId
@@ -3174,6 +3203,8 @@ extension Components {
                 case learnedFrom = "learned_from"
                 case learnedOn = "learned_on"
                 case notes
+                case playLinkId = "play_link_id"
+                case playRecordingId = "play_recording_id"
                 case serverSeq = "server_seq"
                 case status
                 case tuneId = "tune_id"
@@ -3210,6 +3241,14 @@ extension Components {
                     Swift.String.self,
                     forKey: .notes
                 )
+                self.playLinkId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .playLinkId
+                )
+                self.playRecordingId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .playRecordingId
+                )
                 self.serverSeq = try container.decode(
                     Swift.Int.self,
                     forKey: .serverSeq
@@ -3238,6 +3277,8 @@ extension Components {
                     "learned_from",
                     "learned_on",
                     "notes",
+                    "play_link_id",
+                    "play_recording_id",
                     "server_seq",
                     "status",
                     "tune_id",
@@ -3274,6 +3315,14 @@ extension Components {
                 try container.encodeIfPresent(
                     self.notes,
                     forKey: .notes
+                )
+                try container.encodeIfPresent(
+                    self.playLinkId,
+                    forKey: .playLinkId
+                )
+                try container.encodeIfPresent(
+                    self.playRecordingId,
+                    forKey: .playRecordingId
                 )
                 try container.encode(
                     self.serverSeq,

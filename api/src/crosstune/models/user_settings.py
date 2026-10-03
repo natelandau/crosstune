@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-from crosstune.vocabulary import SEARCHABLE_PROVIDERS, AudioQuality
+from crosstune.vocabulary import SEARCHABLE_PROVIDERS, AudioQuality, PlayFirst
 
 
 class UserSettings(SyncColumns, Base):
@@ -27,6 +27,10 @@ class UserSettings(SyncColumns, Base):
             in_list("audio_quality", tuple(AudioQuality), nullable=False),
             name="ck_user_settings_audio_quality",
         ),
+        CheckConstraint(
+            in_list("play_first", tuple(PlayFirst), nullable=False),
+            name="ck_user_settings_play_first",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
@@ -39,4 +43,7 @@ class UserSettings(SyncColumns, Base):
     )
     search_providers: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), nullable=False, default=lambda: list(SEARCHABLE_PROVIDERS)
+    )
+    play_first: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=PlayFirst.RECORDINGS.value
     )

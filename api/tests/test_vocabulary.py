@@ -32,6 +32,7 @@ CHECKS = {
         vocabulary.AudioQuality,
         False,
     ),
+    (UserSettings, "ck_user_settings_play_first"): ("play_first", vocabulary.PlayFirst, False),
     (Job, "ck_jobs_kind"): ("kind", vocabulary.JobKind, False),
 }
 
