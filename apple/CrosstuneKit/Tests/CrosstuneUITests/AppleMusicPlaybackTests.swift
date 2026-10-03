@@ -254,4 +254,23 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(player.linkAudio == .native)
         #expect(music.calls == ["load", "play"])
     }
+
+    @Test func namesTheAlbumTrackUnderTheLinkTitle() async throws {
+        let (player, _, music) = model(.fullTracks)
+        music.hasAlbum = true
+        music.trackTitle = "The Mason's Apron"
+        try await play(player, appleLink(url: "https://music.apple.com/us/album/reels/1440833081"))
+        #expect(PlayerBar.subtitle(player) == "The Mason's Apron")
+    }
+
+    @Test func namesNoTrackForASongOrAnEmbed() async throws {
+        let (player, access, music) = model(.fullTracks)
+        music.trackTitle = "The Silver Spear"
+        try await play(player)
+        #expect(PlayerBar.subtitle(player) == nil)
+        player.close()
+        access.state = .declined
+        try await play(player)
+        #expect(PlayerBar.subtitle(player) == nil)
+    }
 }

@@ -51,13 +51,21 @@ public enum RecordingPlayerText {
     }
 }
 
-/// Play or pause for the loaded recording, or what stands in for it while its audio is fetched
-/// or missing. The glyph morphs between play and pause.
+/// Play or pause for the loaded recording or the Apple Music link MusicKit plays, or what stands
+/// in for it while a recording's audio is fetched or missing.
 struct RecordingPlayButton: View {
     let player: PlayerModel
     var font: Font = .title3
 
     var body: some View {
+        if let music = player.music {
+            TransportToggle(transport: music, font: font)
+        } else {
+            recordingButton
+        }
+    }
+
+    @ViewBuilder private var recordingButton: some View {
         switch player.recordingAudio {
         case .fetching:
             ProgressView()
@@ -65,19 +73,7 @@ struct RecordingPlayButton: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityLabel(RecordingText.downloading)
         case .loaded where !player.audio.hasFailed:
-            let playing = player.audio.isPlaying
-            Button {
-                player.audio.toggle()
-            } label: {
-                Image(systemName: playing ? "pause.fill" : "play.fill")
-                    .font(font)
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
-            .help(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
+            TransportToggle(transport: player.audio, font: font)
         default:
             Image(systemName: "exclamationmark.circle")
                 .font(font)
@@ -88,15 +84,40 @@ struct RecordingPlayButton: View {
     }
 }
 
+/// Play or pause, whose glyph morphs between the two.
+struct TransportToggle: View {
+    let transport: any PlaybackTransport
+    let font: Font
+
+    var body: some View {
+        let playing = transport.isPlaying
+        Button {
+            transport.toggle()
+        } label: {
+            Image(systemName: playing ? "pause.fill" : "play.fill")
+                .font(font)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
+        .help(playing ? RecordingPlayerText.pause : RecordingPlayerText.play)
+    }
+}
+
 /// The loaded recording's position: a slider to scrub with, the time played, and the time left.
 /// While it is dragged the times follow the thumb, and playback moves once it is let go.
 struct PlaybackScrubber: View {
     let audio: any PlaybackTransport
+    /// A new value redraws the position, for a transport that does not announce it.
+    var tick: Date?
 
     @State private var isEditing = false
     @State private var dragged: TimeInterval?
 
     var body: some View {
+        let _ = tick
         let duration = audio.duration
         let position = dragged ?? audio.elapsed
         VStack(spacing: 2) {

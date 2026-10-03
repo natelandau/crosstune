@@ -6,7 +6,7 @@ import SwiftUI
 @main
 struct CrosstuneApp: App {
     @State private var session: AccountSession
-    @State private var player = PlayerModel()
+    @State private var player = PlayerModel.device()
     @State private var stage = EmbedStage()
     @State private var recorders = RecorderHost()
     @Environment(\.scenePhase) private var scenePhase

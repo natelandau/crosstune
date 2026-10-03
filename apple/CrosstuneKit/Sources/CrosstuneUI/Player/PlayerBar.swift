@@ -26,21 +26,29 @@ public struct PlayerBar: View {
         self.isPanel = isPanel
     }
 
+    /// The track playing from an Apple Music album link, shown under the link's title; nil for
+    /// anything else, whose title already names what plays.
+    static func subtitle(_ player: PlayerModel) -> String? {
+        guard let music = player.music, music.hasAlbum else { return nil }
+        return music.trackTitle
+    }
+
     public var body: some View {
         let isRecording = player.item?.kind == .recording
+        let inBar = player.playsInBar
         HStack(spacing: 4) {
-            if isRecording {
+            if inBar {
                 RecordingPlayButton(player: player)
             }
             // The panel shows a link's player under the bar; a recording opens its screen.
             if isPanel && !isRecording {
-                itemLabel(glyph: true)
+                itemLabel(glyph: !inBar)
             } else {
                 Button {
                     player.expand(in: window)
                 } label: {
                     HStack(spacing: 8) {
-                        itemLabel(glyph: !isRecording)
+                        itemLabel(glyph: !inBar)
                         // The tap shows the player in full, which rises from here.
                         Image(systemName: "chevron.up")
                             .font(.footnote.weight(.semibold))
@@ -73,7 +81,7 @@ public struct PlayerBar: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(.rect)
         }
-        .padding(.leading, isRecording ? 6 : 16)
+        .padding(.leading, inBar ? 6 : 16)
         .padding(.trailing, 4)
     }
 
@@ -97,6 +105,12 @@ public struct PlayerBar: View {
                 Text(player.title ?? "")
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
+                if let subtitle = Self.subtitle(player) {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 // The panel shows the failure in its body under the bar instead.
                 if !isPanel, let failure = player.failure {
                     PlayerFailureText(failure).lineLimit(1)
@@ -242,7 +256,7 @@ struct PlayerPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             PlayerBar(player: player, isPanel: true)
-            if let embed = player.item?.link?.embed {
+            if let embed = player.embed {
                 let size = Self.embedSize(embed, windowHeight: windowHeight)
                 EmbedView(stage: stage, embed: embed, prominence: prominence)
                     .frame(width: size.width, height: size.height)
@@ -250,6 +264,10 @@ struct PlayerPanel: View {
                     .clipShape(.rect(cornerRadius: 12))
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
+            } else if let music = player.music {
+                MusicPlayerBody(music: music)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
             } else if player.item?.kind == .recording {
                 #if os(iOS)
                     HStack(spacing: 8) {
@@ -279,16 +297,30 @@ struct LinkPlayerSheet: View {
         NavigationStack {
             VStack(spacing: 20) {
                 if let link = player.item?.link {
-                    Group {
-                        if link.embed.height == .video {
-                            EmbedView(stage: stage, embed: link.embed)
-                                .aspectRatio(16 / 9, contentMode: .fit)
-                        } else {
-                            EmbedView(stage: stage, embed: link.embed)
-                                .frame(height: CGFloat(link.embed.points))
+                    if let embed = player.embed {
+                        Group {
+                            if embed.height == .video {
+                                EmbedView(stage: stage, embed: embed)
+                                    .aspectRatio(16 / 9, contentMode: .fit)
+                            } else {
+                                EmbedView(stage: stage, embed: embed)
+                                    .frame(height: CGFloat(embed.points))
+                            }
+                        }
+                        .clipShape(.rect(cornerRadius: 12))
+                    } else if let music = player.music {
+                        MusicArtwork(music: music)
+                        if let subtitle = PlayerBar.subtitle(player) {
+                            Text(subtitle)
+                                .font(.headline)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                        }
+                        HStack(spacing: 8) {
+                            RecordingPlayButton(player: player, font: .title)
+                            MusicPlayerBody(music: music)
                         }
                     }
-                    .clipShape(.rect(cornerRadius: 12))
                     if let url = link.providerURL {
                         Link(destination: url) {
                             Label(PlayerBar.openIn(link.providerName), systemImage: "arrow.up.right")
@@ -323,7 +355,7 @@ struct EmbedParking: ViewModifier {
 
     func body(content: Content) -> some View {
         content.background(alignment: .bottom) {
-            if let embed = player.item?.link?.embed {
+            if let embed = player.embed {
                 EmbedView(stage: stage, embed: embed, prominence: .parked)
                     .frame(width: 1, height: 1)
                     .allowsHitTesting(false)
