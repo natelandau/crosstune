@@ -4,6 +4,12 @@ import { searchForWorkspaceRoot } from 'vite'
 import { defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.ts'
 
+// Chromium tests share a CI runner's few cores with Vite and each other, so a race the code
+// does not have can still fail one there. A retry keeps that from failing the run, and the
+// github-actions reporter lists every test that needed one in the job summary, so each stays
+// visible until it is fixed. Locally a failure is never retried.
+const browserRetry = process.env.CI ? 2 : 0
+
 // Logic runs under jsdom. Anything that renders an Ionic component runs in Chromium, because
 // Ionic is web components with shadow DOM and jsdom does not render them.
 export default defineConfig((env) =>
@@ -55,6 +61,7 @@ export default defineConfig((env) =>
               include: ['src/**/*.browser.test.tsx'],
               exclude: ['**/node_modules/**', 'src/**/*.ios.browser.test.tsx'],
               setupFiles: ['./src/test/browser.ts'],
+              retry: browserRetry,
               browser: {
                 enabled: true,
                 headless: true,
@@ -70,6 +77,7 @@ export default defineConfig((env) =>
               name: 'browser-ios',
               include: ['src/**/*.ios.browser.test.tsx'],
               setupFiles: ['./src/test/browser-ios.ts'],
+              retry: browserRetry,
               browser: {
                 enabled: true,
                 headless: true,
