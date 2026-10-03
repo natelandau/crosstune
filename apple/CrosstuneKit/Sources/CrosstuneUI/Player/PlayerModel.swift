@@ -42,12 +42,26 @@ public struct LinkPlayback: Hashable, Sendable {
     public let providerName: String
     /// The provider's page for the link, or nil when the stored URL must not be opened.
     public let providerURL: URL?
+    /// What MusicKit can play in place of the embed, nil for anything but an Apple Music song or
+    /// album.
+    public let appleMusic: AppleMusicKind?
 
-    public init(embed: Embed, providerName: String, providerURL: URL?) {
+    public init(embed: Embed, providerName: String, providerURL: URL?, appleMusic: AppleMusicKind? = nil) {
         self.embed = embed
         self.providerName = providerName
         self.providerURL = providerURL
+        self.appleMusic = appleMusic
     }
+}
+
+/// How a loaded link plays.
+public enum LinkAudio: Equatable, Sendable {
+    /// Asking for Apple Music access or finding the track, with nothing playing yet.
+    case deciding
+    /// In full through MusicKit, from the bar like a recording.
+    case native
+    /// In the provider's embed.
+    case embed
 }
 
 extension PlayerItem {
@@ -70,7 +84,8 @@ extension PlayerItem {
             kind: .link, id: link.id, title: LinkText.title(link),
             link: LinkPlayback(
                 embed: embed, providerName: LinkText.providerLabel(link.provider),
-                providerURL: LinkText.outboundURL(link.url)))
+                providerURL: LinkText.outboundURL(link.url),
+                appleMusic: link.provider == "apple_music" ? appleMusicKind(link.url) : nil))
     }
 }
 
@@ -192,6 +207,10 @@ public final class PlayerModel {
     public private(set) var failure: String?
     /// Plays a loaded recording's audio.
     public let audio: any AudioPlayback
+    /// Plays Apple Music links in full; nil plays every link in its embed.
+    public let appleMusic: AppleMusic?
+    /// How the loaded link plays; nil unless a link is loaded.
+    public private(set) var linkAudio: LinkAudio?
     /// Where a recording's audio comes from. The shell sets it once it has a store; until then
     /// a recording has no audio to play, and a recording loaded before it arrives looks again.
     @ObservationIgnored public var audioSource: AudioSource? {
@@ -212,6 +231,8 @@ public final class PlayerModel {
     @ObservationIgnored var settleDelay: Duration = .seconds(1)
 
     @ObservationIgnored private var fetch: Task<Void, Never>?
+    /// Asking for access and finding the loaded Apple Music link's track.
+    @ObservationIgnored private var deciding: Task<Void, Never>?
     /// The file the audio player holds, and its full length before any window.
     @ObservationIgnored private var loadedFile: (audio: RecordingAudioFile, duration: TimeInterval?)?
     /// Changes made here that the row does not hold yet. Each wins over the row until the row
@@ -231,14 +252,26 @@ public final class PlayerModel {
 
     public var isLoaded: Bool { item != nil }
 
+    /// The loaded link's embed, only while the embed is what plays it.
+    public var embed: Embed? { linkAudio == .embed ? item?.link?.embed : nil }
+
+    /// The MusicKit player while it plays the loaded link.
+    public var music: (any MusicPlayback)? { linkAudio == .native ? appleMusic?.player : nil }
+
+    /// Whether the bar carries play and pause: a recording, or a link MusicKit plays.
+    public var playsInBar: Bool { item?.kind == .recording || linkAudio == .native }
+
     /// The loaded recording's speed, with a change made here ahead of its row.
     public var speedPercent: Int { setting(.speed) }
     /// The loaded recording's pitch shift in cents, with a change made here ahead of its row.
     public var pitchCents: Int { setting(.pitch) }
 
-    /// - Parameter audio: Plays recordings; nil is the device's player.
-    public init(audio: (any AudioPlayback)? = nil) {
+    /// - Parameters:
+    ///   - audio: Plays recordings; nil is the device's player.
+    ///   - appleMusic: Plays Apple Music links in full; nil plays every link in its embed.
+    public init(audio: (any AudioPlayback)? = nil, appleMusic: AppleMusic? = nil) {
         self.audio = audio ?? AudioPlayer()
+        self.appleMusic = appleMusic
         loops = LoopPlayback(audio: self.audio)
     }
 
@@ -248,19 +281,28 @@ public final class PlayerModel {
     }
 
     /// Loads an item and starts it, in place of whatever was loaded. Only a play tap calls this:
-    /// opening a screen never loads the player. A link opens in full, since its provider's player
-    /// is what plays it; a recording plays from the bar. Refused, returning false, while a take
-    /// is being recorded.
+    /// opening a screen never loads the player. A link in its embed opens in full, since its
+    /// provider's player is what plays it; a recording and a link MusicKit plays play from the
+    /// bar, and a tap on the one already loaded resumes it. Refused, returning false, while a
+    /// take is being recorded.
     @discardableResult
     public func play(_ item: PlayerItem) -> Bool {
         guard !isCapturing() else { return false }
         let same = holds(item.kind, id: item.id)
+        if same, let music {
+            music.play()
+            return true
+        }
         stopAudio()
         loops.reset(forgettingRows: !same)
         self.item = item
         expandedWindow = nil
-        isExpanded = item.link != nil
-        if item.kind == .recording { loadAudio(item) }
+        if item.kind == .recording {
+            isExpanded = false
+            loadAudio(item)
+        } else {
+            startLink(item)
+        }
         return true
     }
 
@@ -381,6 +423,13 @@ public final class PlayerModel {
         guard holds(.link, id: id) else { return }
         guard let row, let next = PlayerItem.link(row) else {
             close()
+            return
+        }
+        guard next.link?.appleMusic == item?.link?.appleMusic else {
+            // A new address can mean another track, or one MusicKit cannot play.
+            stopAudio()
+            item = next
+            startLink(next)
             return
         }
         if next != item { item = next }
@@ -558,10 +607,50 @@ public final class PlayerModel {
         edits = [:]
     }
 
+    /// Plays a just-loaded link: through MusicKit when it can, otherwise in its embed, in full.
+    private func startLink(_ item: PlayerItem) {
+        guard let kind = item.link?.appleMusic, let appleMusic else {
+            linkAudio = .embed
+            isExpanded = item.link != nil
+            return
+        }
+        linkAudio = .deciding
+        isExpanded = false
+        let id = item.id
+        deciding = Task { [weak self] in
+            let access = await appleMusic.access.request()
+            guard let self, isDeciding(id) else { return }
+            let found = access == .fullTracks ? await appleMusic.player.load(kind) : false
+            guard isDeciding(id) else {
+                // A queue set for a link that is gone would answer the headphones' play button.
+                if found && linkAudio != .native && linkAudio != .deciding { appleMusic.player.stop() }
+                return
+            }
+            deciding = nil
+            if found {
+                linkAudio = .native
+                if !isCapturing() { appleMusic.player.play() }
+            } else {
+                linkAudio = .embed
+                expandedWindow = nil
+                isExpanded = true
+            }
+        }
+    }
+
+    /// Whether the decision for link `id` still stands: not cancelled, and the link still loaded.
+    private func isDeciding(_ id: String) -> Bool {
+        !Task.isCancelled && holds(.link, id: id) && linkAudio == .deciding
+    }
+
     private func stopAudio() {
         flushSettings()
         fetch?.cancel()
         fetch = nil
+        deciding?.cancel()
+        deciding = nil
+        if linkAudio == .native || linkAudio == .deciding { appleMusic?.player.stop() }
+        linkAudio = nil
         if recordingAudio == .loaded { audio.unload() }
         recordingAudio = nil
         loadedFile = nil
