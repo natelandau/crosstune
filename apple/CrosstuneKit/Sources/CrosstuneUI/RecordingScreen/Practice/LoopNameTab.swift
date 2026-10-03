@@ -127,7 +127,7 @@ struct LoopSuggestions: View {
                     }
                 }
             }
-            .scrollIndicators(.hidden)
+            .scrollIndicators(.never)
             .accessibilityLabel(PracticeText.suggestions)
         } else {
             ChoiceCapsule(chosen: false) {

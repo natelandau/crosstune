@@ -127,13 +127,13 @@ private struct RecordingsContent: View {
                     .padding(.vertical, spacing.stackGap)
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { importing = true }
-                    .help(RecordingImport.uploadAudio)
-                    .accessibilityLabel(RecordingImport.uploadAudio)
+        #if os(iOS)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) { uploadButton }
             }
-        }
+        #else
+            .paneBar { uploadButton.labelStyle(.iconOnly) }
+        #endif
         .coversShell(importing)
         .fileImporter(isPresented: $importing, allowedContentTypes: [.audio]) { result in
             switch result {
@@ -186,6 +186,12 @@ private struct RecordingsContent: View {
         } message: { _ in
             Text(RecordingsModel.deleteUnsyncedNote)
         }
+    }
+
+    private var uploadButton: some View {
+        Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { importing = true }
+            .help(RecordingImport.uploadAudio)
+            .accessibilityLabel(RecordingImport.uploadAudio)
     }
 
     private func row(_ view: RecordingView, tuneNamedAbove: Bool) -> some View {

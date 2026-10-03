@@ -30,6 +30,7 @@ struct CrosstuneApp: App {
                 .followsDisplaySettings()
         }
         .commands {
+            SidebarCommands()
             AppCommands()
         }
         .onChange(of: scenePhase, initial: true) {

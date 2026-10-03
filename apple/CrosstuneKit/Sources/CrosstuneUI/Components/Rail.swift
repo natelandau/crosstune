@@ -49,7 +49,7 @@ public struct Rail<ID: Hashable, Content: View>: View {
                         .padding(.vertical, tapOutset(visibleHeight: chipHeight))
                 }
                 .contentMargins(.horizontal, inset, for: .scrollContent)
-                .scrollIndicators(.hidden)
+                .scrollIndicators(.never)
                 .onScrollGeometryChange(for: Overflow.self) { geometry in
                     // At rest the offset is minus the leading margin; at the far end the trailing
                     // margin shows past the content.

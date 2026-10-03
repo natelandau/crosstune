@@ -51,38 +51,37 @@ private struct CatalogContent: View {
         let results = model.results
         list(results)
             .listStyle(.plain)
-            #if os(iOS)
-                .safeAreaBar(edge: .top) {
+            .safeAreaBar(edge: .top) {
+                HStack(spacing: spacing.stackGap) {
                     CatalogSearchField(
                         query: $model.query, isFocused: $searchFocused,
                         filterCount: selection.isActive ? nil : results.map(filterCount),
                         onSubmit: submitSearch
                     ) { showsFilters = true }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, spacing.stackGap)
-                }
-            #else
-                .modifier(SystemSearch(query: $model.query, isFocused: $searchFocused, onSubmit: submitSearch))
-            #endif
-            .toolbar {
-                if !selection.isActive {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(CatalogScreen.addTune, systemImage: "plus") { form = model.newTune() }
-                    }
                     #if os(macOS)
-                        if let results {
-                            ToolbarItem(placement: .primaryAction) {
-                                CatalogFiltersButton(setCount: filterCount(results)) { showsFilters = true }
+                        // The catalog's own actions share its search's bar, as a pane bar's.
+                        if !selection.isActive {
+                            Group {
+                                addButton.labelStyle(.iconOnly)
+                                if results?.visible.isEmpty == false { selectButton }
                             }
+                            .paneControls()
                         }
                     #endif
-                    if results?.visible.isEmpty == false {
-                        ToolbarItem(placement: .secondaryAction) {
-                            Button(TuneRowActions.select) { selection.enter() }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, spacing.stackGap)
+            }
+            #if os(iOS)
+                .toolbar {
+                    if !selection.isActive {
+                        ToolbarItem(placement: .primaryAction) { addButton }
+                        if results?.visible.isEmpty == false {
+                            ToolbarItem(placement: .secondaryAction) { selectButton }
                         }
                     }
                 }
-            }
+            #endif
             .navigationTitle(
                 selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
             )
@@ -114,6 +113,14 @@ private struct CatalogContent: View {
             // on each keystroke of a search, which it would talk over, and never on first load.
             .onChange(of: results?.filters, initial: true) { announceCount() }
             .onChange(of: model.catalogRevision) { announceCount() }
+    }
+
+    private var addButton: some View {
+        Button(CatalogScreen.addTune, systemImage: "plus") { form = model.newTune() }
+    }
+
+    private var selectButton: some View {
+        Button(TuneRowActions.select) { selection.enter() }
     }
 
     private func announceCount() {
@@ -250,20 +257,6 @@ private struct CatalogContent: View {
         case .create(let title): createFromSearch(title)
         case .dismiss: searchFocused = false
         }
-    }
-}
-
-/// The system search field in the Mac toolbar, where it answers the system Find.
-private struct SystemSearch: ViewModifier {
-    @Binding var query: String
-    let isFocused: FocusState<Bool>.Binding
-    let onSubmit: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .searchable(text: $query, placement: .toolbar, prompt: CatalogScreen.searchPrompt)
-            .searchFocused(isFocused)
-            .onSubmit(of: .search, onSubmit)
     }
 }
 

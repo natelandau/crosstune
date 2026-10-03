@@ -135,9 +135,18 @@ private struct ListTunes: View {
                         .padding(.vertical, spacing.stackGap)
                 }
             }
-            .toolbar {
-                if !selection.isActive { toolbar(rows) }
-            }
+            #if os(iOS)
+                .toolbar {
+                    if !selection.isActive { toolbar(rows) }
+                }
+            #else
+                .paneBar {
+                    if !selection.isActive {
+                        addTunesButton.labelStyle(.iconOnly)
+                        if let showArchived = model.showArchived { moreMenu(rows, showArchived: showArchived) }
+                    }
+                }
+            #endif
             .navigationTitle(selection.isActive ? TuneSelection.title(selection.ids.count) : list.name)
             .selectionMode(
                 $selection, rows: rows.map(\.catalogEntry), instruments: model.instruments,
@@ -199,33 +208,38 @@ private struct ListTunes: View {
     }
 
     @ToolbarContentBuilder private func toolbar(_ rows: [ListEntry]) -> some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Button(ListScreen.addTunes, systemImage: "plus") { picking = true }
-        }
+        ToolbarItem(placement: .primaryAction) { addTunesButton }
         // The menu states the archived setting, so it waits until the setting is read.
         if let showArchived = model.showArchived {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    if !rows.isEmpty {
-                        Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
-                    }
-                    Button(ListScreen.rename, systemImage: "pencil") {
-                        listSheets?.name(.rename(listID: list.id, name: list.name))
-                    }
-                    .disabled(listSheets == nil)
-                    Toggle(
-                        ListScreen.showArchived, systemImage: "archivebox",
-                        isOn: Binding {
-                            showArchived
-                        } set: { show in
-                            Task { await model.setShowArchived(show) }
-                        })
-                    Divider()
-                    Button(ListScreen.deleteList, systemImage: "trash", role: .destructive) { confirmsDelete = true }
-                } label: {
-                    Label(TuneScreen.moreActions, systemImage: "ellipsis")
-                }
+            ToolbarItem(placement: .primaryAction) { moreMenu(rows, showArchived: showArchived) }
+        }
+    }
+
+    private var addTunesButton: some View {
+        Button(ListScreen.addTunes, systemImage: "plus") { picking = true }
+    }
+
+    private func moreMenu(_ rows: [ListEntry], showArchived: Bool) -> some View {
+        Menu {
+            if !rows.isEmpty {
+                Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
             }
+            Button(ListScreen.rename, systemImage: "pencil") {
+                listSheets?.name(.rename(listID: list.id, name: list.name))
+            }
+            .disabled(listSheets == nil)
+            Toggle(
+                ListScreen.showArchived, systemImage: "archivebox",
+                isOn: Binding {
+                    showArchived
+                } set: { show in
+                    Task { await model.setShowArchived(show) }
+                })
+            Divider()
+            Button(ListScreen.deleteList, systemImage: "trash", role: .destructive) { confirmsDelete = true }
+        } label: {
+            Label(TuneScreen.moreActions, systemImage: "ellipsis")
+                .labelStyle(.iconOnly)
         }
     }
 

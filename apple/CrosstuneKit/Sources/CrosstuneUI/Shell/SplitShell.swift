@@ -20,7 +20,12 @@ struct SplitShell: View {
     /// Nil until the first read, so a list chosen before the lists load is not taken for a deleted one.
     @State private var lists: LiveQuery<[ListSummary]?>?
     @State private var deleting: ListSummary?
-    @State private var playerHeight: CGFloat = 0
+    @State private var playerFrame = CGRect.zero
+    /// The sidebar's trailing edge across the shell, which the player panel keeps to the right of.
+    @State private var sidebarEdge: CGFloat = 0
+    @State private var columns = NavigationSplitViewVisibility.automatic
+
+    private nonisolated static let shellSpace = "SplitShell"
 
     /// The lists the sidebar shows, in the musician's order.
     nonisolated static func sidebarLists(_ db: Database) throws -> [ListSummary] {
@@ -28,15 +33,27 @@ struct SplitShell: View {
     }
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             sidebar
-                .safeAreaPadding(.bottom, playerHeight)
+                #if os(macOS)
+                    .safeAreaBar(edge: .bottom) {
+                        SidebarRecordButton(action: onRecord)
+                        .disabled(!recordShows)
+                        .padding(12)
+                    }
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.frame(in: .named(Self.shellSpace)).maxX
+                    } action: {
+                        sidebarEdge = $0
+                    }
+                #endif
+                .clearsPlayer(playerFrame)
         } content: {
             content
-                .safeAreaPadding(.bottom, playerHeight)
+                .clearsPlayer(playerFrame)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 340)
                 .toolbar {
-                    // A selecting screen's toolbar holds only what acts on the selection.
-                    if selecting?.isCovered != true {
+                    if recordShows && !sidebarHoldsRecord {
                         ToolbarItem(placement: .navigation) {
                             RecordToolbarButton(action: onRecord)
                         }
@@ -53,11 +70,12 @@ struct SplitShell: View {
                     TuneDetailPlaceholder()
                 }
             }
-            .safeAreaPadding(.bottom, playerHeight)
+            .clearsPlayer(playerFrame)
             .environment(\.detailTune, $place.detailTune)
             .environment(\.sidebarSelection, $place.sidebar)
         }
-        .playerBar(player, stage: stage, height: $playerHeight)
+        .coordinateSpace(.named(Self.shellSpace))
+        .playerBar(player, stage: stage, frame: $playerFrame, leading: sidebarHoldsRecord ? sidebarEdge : 0)
         .sheet(
             isPresented: Binding {
                 player.showsExpanded(in: window) && player.item?.kind == .recording
@@ -85,6 +103,19 @@ struct SplitShell: View {
         }
     }
 
+    /// A selecting screen's toolbar holds only what acts on the selection.
+    private var recordShows: Bool { selecting?.isCovered != true }
+
+    /// True while the Mac sidebar is open, so its own record button stands in for the
+    /// toolbar's, and the player panel stays clear of it, leaving the button at the sidebar's foot.
+    private var sidebarHoldsRecord: Bool {
+        #if os(macOS)
+            columns != .doubleColumn && columns != .detailOnly
+        #else
+            false
+        #endif
+    }
+
     private var sidebar: some View {
         // A row is always chosen: clearing the selection, as a Mac allows, chooses the catalog
         // the content column falls back to anyway.
@@ -97,26 +128,61 @@ struct SplitShell: View {
         ) {
             row(.catalog).tag(SidebarItem.catalog)
             row(.recordings).tag(SidebarItem.recordings)
-            Section(Destination.lists.title) {
-                ForEach(lists?.value ?? nil ?? []) { list in
-                    Label(list.name, systemImage: Destination.lists.systemImage)
-                        .badge(list.count)
-                        .tag(SidebarItem.list(id: list.id))
-                        .listRowActions(
-                            onEdit: { listSheets?.name(.rename(listID: list.id, name: list.name)) },
-                            onDelete: { deleting = list })
-                }
-                Button(SidebarItem.newList, systemImage: "plus") { listSheets?.name(.new) }
-                    .disabled(listSheets == nil)
-            }
+            listsSection
             #if os(iOS)
                 Section {
                     row(.settings).tag(SidebarItem.settings)
                 }
             #endif
         }
+        #if os(macOS)
+            // Right-clicking the sidebar's empty space starts a list; a list row keeps its own menu.
+            .contextMenu(forSelectionType: SidebarItem.self) { items in
+                if items.isEmpty { newListButton }
+            }
+        #endif
         .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         .confirmsListDelete($deleting)
+    }
+
+    /// The lists, nil until the first read.
+    private var loadedLists: [ListSummary]? { lists?.value ?? nil }
+
+    private var listsSection: some View {
+        Section {
+            ForEach(loadedLists ?? []) { list in
+                listRow(list)
+            }
+            #if os(iOS)
+                newListButton
+            #endif
+        } header: {
+            #if os(macOS)
+                SidebarSectionHeader(Destination.lists.title, add: SidebarItem.newList, onAdd: newList)
+                    .disabled(listSheets == nil)
+                    .contextMenu { newListButton }
+            #else
+                Text(Destination.lists.title)
+            #endif
+        }
+    }
+
+    private func listRow(_ list: ListSummary) -> some View {
+        Label(list.name, systemImage: Destination.lists.systemImage)
+            .badge(list.count)
+            .tag(SidebarItem.list(id: list.id))
+            .listRowActions(
+                onEdit: { listSheets?.name(.rename(listID: list.id, name: list.name)) },
+                onDelete: { deleting = list })
+    }
+
+    private var newListButton: some View {
+        Button(SidebarItem.newList, systemImage: "plus", action: newList)
+            .disabled(listSheets == nil)
+    }
+
+    private func newList() {
+        listSheets?.name(.new)
     }
 
     private func row(_ destination: Destination) -> some View {

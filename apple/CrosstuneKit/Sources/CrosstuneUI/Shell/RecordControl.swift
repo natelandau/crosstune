@@ -5,8 +5,8 @@ import SwiftUI
 public enum RecordControl {
     /// What a record control is called for VoiceOver and in help tags.
     public static let label = "Start a new recording"
-    /// The short name, for menus and toolbars.
-    public static let title = "Record"
+    /// The short name, for menus and toolbars. It says the press starts recording at once.
+    public static let title = "Start recording"
     public static let systemImage = "record.circle"
 }
 
@@ -71,7 +71,8 @@ public struct RecordDome: View {
     }
 }
 
-/// The record button that leads the iPad and Mac toolbar.
+/// The record button that leads the iPad toolbar, and the Mac toolbar while the sidebar, which
+/// holds the Mac's own, is collapsed.
 public struct RecordToolbarButton: View {
     private let action: @MainActor () -> Void
 
@@ -83,13 +84,50 @@ public struct RecordToolbarButton: View {
     }
 
     public var body: some View {
-        Button(RecordControl.title, systemImage: RecordControl.systemImage) {
+        Button {
             presses += 1
             action()
+        } label: {
+            Label {
+                Text(RecordControl.title)
+            } icon: {
+                // A toolbar draws its glyphs in the label color whatever the tint.
+                Image(systemName: RecordControl.systemImage)
+                    .foregroundStyle(Color.recordingRed)
+            }
         }
         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
-        .tint(Color.recordingRed)
         .accessibilityLabel(RecordControl.label)
         .help(RecordControl.label)
     }
 }
+
+#if os(macOS)
+    /// The record button pinned to the foot of the Mac sidebar, as in Voice Memos: always in
+    /// view, whatever the content column shows.
+    struct SidebarRecordButton: View {
+        let action: @MainActor () -> Void
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @State private var presses = 0
+
+        var body: some View {
+            Button {
+                presses += 1
+                action()
+            } label: {
+                Label {
+                    Text(RecordControl.title)
+                } icon: {
+                    Image(systemName: "circle.fill")
+                        .foregroundStyle(Color.recordingRed)
+                        .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glass)
+            .controlSize(.extraLarge)
+            .help(RecordControl.label)
+        }
+    }
+#endif
