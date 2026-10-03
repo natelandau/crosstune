@@ -148,7 +148,8 @@ Everywhere the app lists tunes it uses one row.
 - An archived row is dimmed as a whole.
 - A tap opens the tune. While selecting, a tap toggles the row.
 - In a list, the row gains a position number, a Reorder button, and a drag
-  grip.
+  grip. A row that plays carries its play control first in its trailing
+  edge, and a tune with nothing to play shows the not-playable glyph there.
 
 ## Keys, modes, and tunings
 
@@ -422,7 +423,9 @@ Recordings and links share one row shape.
 - A recording's screen opens only from the dock. Its title line up to Close
   is one control ending in an up chevron, and the screen closes with a down
   chevron. A recording row's actions are Rename, Add to tune or Remove from
-  tune, and Delete.
+  tune, Play first in lists, and Delete. On a tune's own rows, a recording or
+  link can be pinned to play first in lists, and the pinned row shows a pin
+  mark.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.
 
