@@ -1,21 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import { settingsId } from '../../commands/settings'
 import { PROVIDER_LABELS } from '../../constants'
+import { pendingBatch } from '../../db/outbox'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { openPickerRow } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import { MusicServicesGroup } from './MusicServicesGroup'
+import { PLAY_FIRST_LABEL, PLAY_FIRST_LABELS } from './playFirst'
 import { MUSIC_SERVICES, NO_SERVICES, SEARCHABLE_PROVIDERS } from './searchProviders'
 
 let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const show = () => renderIonic(<MusicServicesGroup />, { db })
@@ -70,5 +69,17 @@ describe('MusicServicesGroup', () => {
     await expect
       .element(page.getByRole('button', { name: `${MUSIC_SERVICES} ${NO_SERVICES}`, exact: true }))
       .toBeVisible()
+  })
+
+  it('chooses Apple Music to play first', async () => {
+    show()
+    await openPickerRow(`${PLAY_FIRST_LABEL}, ${PLAY_FIRST_LABELS.recordings}`)
+    await page.getByRole('radio', { name: PLAY_FIRST_LABELS.apple_music }).click()
+    await expect
+      .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.play_first)
+      .toBe('apple_music')
+    await expect
+      .poll(async () => (await pendingBatch(db, 10)).map((entry) => entry.table))
+      .toEqual(['user_settings'])
   })
 })

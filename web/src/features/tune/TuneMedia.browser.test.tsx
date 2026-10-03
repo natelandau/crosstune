@@ -9,7 +9,7 @@ import { openTestDb } from '../../test/db'
 import { menuItem } from '../../test/dialogs'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderScreen } from '../../test/ionic'
-import { recordingRow } from '../../test/rows'
+import { linkRow, recordingRow } from '../../test/rows'
 import type { Provider } from '../../api/vocabulary'
 import { toggleSearchProvider } from '../../commands/settings'
 import type { SyncEngine } from '../../sync/types'
@@ -31,6 +31,7 @@ import { DELETE_SYNCED_NOTE } from '../recordings/recordingRow'
 import { RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
 import { DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
+import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS, PLAYS_FIRST } from './playSourceText'
 import { ADD_RECORDING, NO_MEDIA_HINT, NO_MEDIA_TITLE, TuneMedia } from './TuneMedia'
 import { useTune } from './useTune'
 
@@ -293,6 +294,52 @@ describe('TuneMedia', () => {
       expect((await db.recording_links.get(linkId))?.deleted_at).not.toBeNull(),
     )
     await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
+  })
+
+  describe('play first in lists', () => {
+    const pins = async () => {
+      const userTune = (await db.user_tunes.where('tune_id').equals(tuneId).toArray())[0]!
+      return { recording: userTune.play_recording_id, link: userTune.play_link_id }
+    }
+
+    it('pins a link to play first in lists', async () => {
+      await db.recording_links.put(linkRow('l1', tuneId, { title: 'Jam session' }))
+      show()
+      await page.getByRole('button', { name: `${PLAY_FIRST_IN_LISTS} Jam session` }).click()
+      await expect.poll(pins).toEqual({ recording: null, link: 'l1' })
+      await expect.element(page.getByLabelText(PLAYS_FIRST)).toBeVisible()
+    })
+
+    it("unpins with Don't play first", async () => {
+      await db.recording_links.put(linkRow('l1', tuneId, { title: 'Jam session' }))
+      show()
+      await page.getByRole('button', { name: `${PLAY_FIRST_IN_LISTS} Jam session` }).click()
+      await expect.poll(pins).toEqual({ recording: null, link: 'l1' })
+      await page.getByRole('button', { name: `${DONT_PLAY_FIRST} Jam session` }).click()
+      await expect.poll(pins).toEqual({ recording: null, link: null })
+      await expect.poll(() => page.getByLabelText(PLAYS_FIRST).elements()).toHaveLength(0)
+    })
+
+    it('marks a pinned recording and unpins it', async () => {
+      await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam session' }))
+      show()
+      await page.getByRole('button', { name: `${PLAY_FIRST_IN_LISTS} Jam session` }).click()
+      await expect.poll(pins).toEqual({ recording: 'r1', link: null })
+      await expect.element(page.getByLabelText(PLAYS_FIRST)).toBeVisible()
+      await page.getByRole('button', { name: `${DONT_PLAY_FIRST} Jam session` }).click()
+      await expect.poll(pins).toEqual({ recording: null, link: null })
+      await expect.poll(() => page.getByLabelText(PLAYS_FIRST).elements()).toHaveLength(0)
+    })
+
+    it('pins a recording, clearing a pinned link', async () => {
+      await db.recording_links.put(linkRow('l1', tuneId, { title: 'Slow version' }))
+      await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam session' }))
+      show()
+      await page.getByRole('button', { name: `${PLAY_FIRST_IN_LISTS} Slow version` }).click()
+      await expect.poll(pins).toEqual({ recording: null, link: 'l1' })
+      await page.getByRole('button', { name: `${PLAY_FIRST_IN_LISTS} Jam session` }).click()
+      await expect.poll(pins).toEqual({ recording: 'r1', link: null })
+    })
   })
 
   it('records from a tune with nothing recorded yet', async () => {

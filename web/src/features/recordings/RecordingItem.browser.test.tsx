@@ -15,6 +15,7 @@ import { CLOSE_PLAYER } from '../player/transportCopy'
 import type { Player } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import { RecordingItem } from './RecordingItem'
+import { downloadingName } from './recordingNames'
 import type { RecordingView } from './useRecordings'
 
 function view(
@@ -132,7 +133,7 @@ describe('RecordingItem', () => {
     show(view({ recording: { state: 'ready' } }), { engine: fakeEngine({ download }) })
     await openControl('Download Jam recording').click()
     await expect
-      .element(page.getByRole('status', { name: 'Downloading Jam recording' }))
+      .element(page.getByRole('status', { name: downloadingName('Jam recording') }))
       .toBeVisible()
     release(new Blob(['x']))
   })
@@ -145,7 +146,7 @@ describe('RecordingItem', () => {
       }),
     )
     await expect
-      .element(page.getByRole('status', { name: 'Downloading Jam recording' }))
+      .element(page.getByRole('status', { name: downloadingName('Jam recording') }))
       .toBeVisible()
   })
 

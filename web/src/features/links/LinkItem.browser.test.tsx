@@ -9,7 +9,9 @@ import { fakePlayer } from '../../test/providers'
 import { linkRow } from '../../test/rows'
 import type { RowAction } from '../../ui/Row'
 import type { Player } from '../player/usePlayer'
+import { playName } from '../recordings/recordingNames'
 import { LinkItem } from './LinkItem'
+import { closeLinkName, openLinkName } from './linkNames'
 
 function show(
   link: ReturnType<typeof linkRow>,
@@ -33,7 +35,7 @@ describe('LinkItem', () => {
       title: 'Jam session',
     })
     show(link, { player })
-    await page.getByRole('button', { name: 'Play Jam session', exact: false }).click()
+    await page.getByRole('button', { name: playName('Jam session'), exact: false }).click()
     await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'link', id: 'l1' })
   })
 
@@ -47,9 +49,9 @@ describe('LinkItem', () => {
     })
     show(link, { player })
     await expect
-      .element(page.getByRole('button', { name: 'Close Jam session player', exact: true }))
+      .element(page.getByRole('button', { name: closeLinkName('Jam session'), exact: true }))
       .toBeVisible()
-    await page.getByRole('button', { name: 'Close Jam session player', exact: true }).click()
+    await page.getByRole('button', { name: closeLinkName('Jam session'), exact: true }).click()
     await expect.poll(() => player.close).toHaveBeenCalled()
   })
 
@@ -113,7 +115,7 @@ describe('LinkItem', () => {
       title: 'Jam session',
     })
     show(link, { player })
-    await page.getByRole('button', { name: 'Open Jam session', exact: true }).click()
+    await page.getByRole('button', { name: openLinkName('Jam session'), exact: true }).click()
     await expect
       .poll(() => opened)
       .toHaveBeenCalledWith('https://example.com/x', '_blank', 'noopener,noreferrer')
@@ -130,9 +132,9 @@ describe('LinkItem', () => {
     })
     show(link)
     await expect.element(page.getByText('Jam session')).toBeVisible()
-    expect(page.getByRole('button', { name: 'Open Jam session', exact: true }).elements()).toEqual(
-      [],
-    )
+    expect(
+      page.getByRole('button', { name: openLinkName('Jam session'), exact: true }).elements(),
+    ).toEqual([])
     expect(page.getByRole('link').elements()).toEqual([])
     expect(opened).not.toHaveBeenCalled()
     opened.mockRestore()

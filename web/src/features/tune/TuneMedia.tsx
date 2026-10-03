@@ -3,6 +3,7 @@ import { AudioLines, CircleDot, Link, Plus, Search, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { removeLink } from '../../commands/links'
+import { setPlaySource } from '../../commands/tunes'
 import { PROVIDER_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
 import type { Provider } from '../../api/vocabulary'
@@ -28,6 +29,7 @@ import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
 import { useSearchProviders } from '../settings/searchProviders'
+import { pinRowAction } from './playSourceText'
 
 export const ADD_RECORDING = 'Add recording'
 export const NO_MEDIA_TITLE = 'Nothing recorded yet'
@@ -57,7 +59,19 @@ export function TuneMedia({
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   const [finding, setFinding] = useState(false)
   // No Add to tune: every recording here is already filed under the tune being looked at.
-  const { error, run, retry, actionsFor } = useRecordingActions({ onRename: setRenaming })
+  // The pin is read here rather than passed down, so the rows that show it are the ones that
+  // change it. A pin naming a row of another tune never matches one of this tune's rows.
+  const userTune = useLiveQuery(
+    async () =>
+      (await db.user_tunes.where('tune_id').equals(tuneId).toArray()).find((u) => !u.deleted_at),
+    [db, tuneId],
+  )
+  const pinnedRecordingId = userTune?.play_recording_id ?? null
+  const pinnedLinkId = userTune?.play_link_id ?? null
+  const { error, run, retry, actionsFor } = useRecordingActions({
+    onRename: setRenaming,
+    pin: userTune ? { userTuneId: userTune.id, recordingId: pinnedRecordingId } : undefined,
+  })
 
   // One chosen service skips the list of services: the item names it and goes straight there.
   const only = providers?.size === 1 ? [...providers][0]! : null
@@ -123,6 +137,7 @@ export function TuneMedia({
               <RecordingItem
                 key={view.recording.id}
                 view={view}
+                pinned={view.recording.id === pinnedRecordingId}
                 actions={actionsFor(view)}
                 error={retryKind(view) === 'upload' ? view.file?.error : null}
                 // The screen's own heading above this already names the tune.
@@ -130,20 +145,37 @@ export function TuneMedia({
                 onRetry={(kind) => retry(view, kind)}
               />
             ))}
-            {links.map((link) => (
-              <LinkItem
-                key={link.id}
-                link={link}
-                actions={[
-                  {
-                    label: 'Remove',
-                    icon: Trash2,
-                    tone: 'error',
-                    onPress: () => run(() => removeLink(db, link.id)),
-                  },
-                ]}
-              />
-            ))}
+            {links.map((link) => {
+              const pinned = link.id === pinnedLinkId
+              return (
+                <LinkItem
+                  key={link.id}
+                  link={link}
+                  pinned={pinned}
+                  actions={[
+                    ...(userTune
+                      ? [
+                          pinRowAction(pinned, () =>
+                            run(() =>
+                              setPlaySource(
+                                db,
+                                userTune.id,
+                                pinned ? null : { kind: 'link', id: link.id },
+                              ),
+                            ),
+                          ),
+                        ]
+                      : []),
+                    {
+                      label: 'Remove',
+                      icon: Trash2,
+                      tone: 'error',
+                      onPress: () => run(() => removeLink(db, link.id)),
+                    },
+                  ]}
+                />
+              )
+            })}
           </>
         )}
       </Group>

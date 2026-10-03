@@ -1,6 +1,7 @@
 import { FolderInput, FolderOutput, Pencil, Scissors, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
+import { setPlaySource } from '../../commands/tunes'
 import { useAction } from '../../ui/useAction'
 import { useDb } from '../../db/DbProvider'
 import { useSyncEngine } from '../../sync/SyncProvider'
@@ -8,6 +9,7 @@ import { DELETE, useConfirm } from '../../ui/Confirm'
 import type { MenuItem } from '../../ui/Menu'
 import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
+import { pinRowAction } from '../tune/playSourceText'
 import { TRIM } from '../recording-screen/TrimView'
 import { RENAME } from './recordingCopy'
 import { deleteRecordingMessage } from './recordingRow'
@@ -41,6 +43,7 @@ export function useRecordingActions({
   trimBlocked,
   onAddToTune,
   onDeleted,
+  pin,
 }: {
   /** Left out where nothing offers Rename. */
   onRename?: (view: RecordingView) => void
@@ -53,6 +56,8 @@ export function useRecordingActions({
   onDeleted?: () => void
   /** Left out by a list where every recording is already filed under the tune it belongs to. */
   onAddToTune?: (view: RecordingView) => void
+  /** Left out where nothing offers pinning; only a tune's own list does. */
+  pin?: { userTuneId: string; recordingId: string | null }
 }): RecordingActions {
   const db = useDb()
   const engine = useSyncEngine()
@@ -133,8 +138,17 @@ export function useRecordingActions({
       ? { label: RENAME, icon: Pencil, tone: 'neutral', onPress: () => onRename(view) }
       : null
 
+  const pinAction = (view: RecordingView): RowAction | null => {
+    if (!pin) return null
+    const id = view.recording.id
+    const pinned = pin.recordingId === id
+    return pinRowAction(pinned, () =>
+      run(() => setPlaySource(db, pin.userTuneId, pinned ? null : { kind: 'recording', id })),
+    )
+  }
+
   const actionsFor = (view: RecordingView): RowAction[] =>
-    [renameAction(view), filing(view), deleteAction(view)].filter(
+    [renameAction(view), filing(view), pinAction(view), deleteAction(view)].filter(
       (action): action is RowAction => action !== null,
     )
 

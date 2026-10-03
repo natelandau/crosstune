@@ -2,10 +2,13 @@ import { IonLabel } from '@ionic/react'
 import { ArrowUpRight } from 'lucide-react'
 import type { LocalRecordingLink } from '../../db/types'
 import { Row, type RowAction } from '../../ui/Row'
-import { embedFor } from '../player/embed'
+import { PinnedMark } from '../tune/PinnedMark'
 import { PlayGlyph, Slot, StopGlyph } from '../../ui/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
-import { displayTitle, outboundUrl, providerLabel } from './display'
+import { displayTitle, providerLabel } from './display'
+import { PLAY } from '../recordings/recordingNames'
+import { CLOSE, OPEN } from './linkNames'
+import { linkControl } from './linkControl'
 
 /**
  * A linked recording as a row shaped like an audio recording's: the row plays it when the
@@ -16,30 +19,30 @@ import { displayTitle, outboundUrl, providerLabel } from './display'
 export function LinkItem({
   link,
   actions,
+  pinned = false,
 }: {
   link: LocalRecordingLink
+  /** True for the link a list plays for this tune. */
+  pinned?: boolean
   actions?: readonly RowAction[]
 }) {
   const player = usePlayer()
   const title = displayTitle(link)
   const provider = providerLabel(link)
-  const embed = embedFor(link)
-  const href = outboundUrl(link)
   const item = { kind: 'link' as const, id: link.id }
   const loaded = isPlaying(player, item)
+  const { control, href } = linkControl(link, loaded)
 
   let open: { onOpen: () => void; openName: string } | undefined
   let glyph
-  if (!embed) {
+  if (control === 'open') {
     // Nothing to load in the dock, so the row is the outbound link, like the one under the title.
-    open = href
-      ? { onOpen: () => window.open(href, '_blank', 'noopener,noreferrer'), openName: 'Open' }
-      : undefined
-  } else if (loaded) {
-    open = { onOpen: () => player.close(), openName: 'Close' }
+    open = { onOpen: () => window.open(href!, '_blank', 'noopener,noreferrer'), openName: OPEN }
+  } else if (control === 'close') {
+    open = { onOpen: () => player.close(), openName: CLOSE }
     glyph = <StopGlyph />
-  } else {
-    open = { onOpen: () => player.play(item), openName: 'Play' }
+  } else if (control === 'play') {
+    open = { onOpen: () => player.play(item), openName: PLAY }
     glyph = <PlayGlyph />
   }
 
@@ -71,7 +74,10 @@ export function LinkItem({
       {...open}
     >
       <IonLabel className="mt-2.5 mb-0 overflow-hidden">
-        <h3 className="type-headline truncate">{title}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="type-headline truncate">{title}</h3>
+          {pinned ? <PinnedMark /> : null}
+        </div>
         {/* sr-only: composes with the open verb into "Close <title> player" without changing the visible title. */}
         {loaded ? <p className="sr-only">player</p> : null}
       </IonLabel>

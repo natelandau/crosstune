@@ -60,6 +60,7 @@ export function Row({
   selected,
   current,
   openId,
+  description,
   onLongPress,
   start,
   end,
@@ -99,6 +100,8 @@ export function Row({
    * else in the row takes it: the open control is what carries the row's role and its state.
    */
   openId?: string
+  /** Read after the row's name by assistive technology, for what the row cannot show as text. */
+  description?: string
   /** Enters selection on touch. Never wired on a mouse, which has the Select control instead. */
   onLongPress?: () => void
   start?: ReactNode
@@ -197,6 +200,7 @@ export function Row({
         button={Boolean(onOpen) && !useOverlay}
         detail={false}
         className={itemClassName}
+        aria-description={description}
         onClick={(event) => {
           if (!onOpen || useOverlay) return
           const target = event.target as HTMLElement
@@ -249,7 +253,7 @@ export function Row({
   }
 
   return (
-    <IonItem detail={false} className={itemClassName ?? 'group'}>
+    <IonItem detail={false} className={itemClassName ?? 'group'} aria-description={description}>
       {overlay}
       {check}
       {start}

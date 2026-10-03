@@ -9,7 +9,14 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
 import { forceTouch } from '../../test/pointer'
+import { fakeEngine, fakePlayer } from '../../test/providers'
+import { linkRow, recordingFile, recordingRow } from '../../test/rows'
+import { closeLinkName } from '../links/linkNames'
+import type { Player } from '../player/usePlayer'
+import { closeRecordingName, downloadName, playName } from '../recordings/recordingNames'
+import { NOT_PLAYABLE } from './ListRowPlay'
 import { ListTunes, MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './ListTunes'
+import type { ListSelectionHost } from './useListSelection'
 import { useListView } from './useLists'
 
 vi.mock('../../commands/lists', { spy: true })
@@ -35,7 +42,9 @@ function Host({
   onMoveStart = () => {},
   onError = () => {},
   onOpen = () => {},
+  selection,
 }: {
+  selection?: ListSelectionHost
   showArchived?: boolean
   onMoveStart?: () => void
   onError?: (message: string) => void
@@ -49,6 +58,7 @@ function Host({
       items={view.items}
       showArchived={showArchived}
       instruments={violin}
+      selection={selection}
       onOpen={onOpen}
       onEdit={() => {}}
       onRemove={() => {}}
@@ -554,5 +564,117 @@ describe('ListTunes on touch', () => {
       expect(document.querySelector('.action-sheet-title')?.textContent).toBe("Move Soldier's Joy"),
     )
     expect(onOpen).not.toHaveBeenCalled()
+  })
+})
+
+describe('ListTunes row play', () => {
+  const SPEAR = 'The Silver Spear'
+  const YOUTUBE = {
+    url: 'https://youtu.be/dQw4w9WgXcQ',
+    provider: 'youtube',
+    provider_ref: 'dQw4w9WgXcQ',
+    title: 'Jam session',
+  } as const
+
+  async function addSpear() {
+    const { tuneId, userTuneId } = await createTune(db, { title: SPEAR }, { status: 'known' })
+    await addToList(db, listId, userTuneId)
+    return { tuneId, userTuneId }
+  }
+
+  const addRecording = async (tuneId: string, held: boolean) => {
+    await db.recordings.put(recordingRow('rec1', { tune_id: tuneId }))
+    await db.recording_files.put(
+      recordingFile('rec1', held ? { blob: new Blob(['x'], { type: 'audio/mp4' }) } : {}),
+    )
+  }
+
+  const addLink = (tuneId: string) => db.recording_links.put(linkRow('link1', tuneId, YOUTUBE))
+
+  const show = (player: Player, engine = fakeEngine()) =>
+    renderIonic(<Host />, { db, player, engine })
+
+  const spearRow = () =>
+    Array.from(document.querySelectorAll('ion-reorder-group ion-item')).find(
+      (item) => item.querySelector('h2')?.textContent === SPEAR,
+    )
+
+  it("plays a row's pinned link", async () => {
+    const { tuneId, userTuneId } = await addSpear()
+    await addRecording(tuneId, true)
+    await addLink(tuneId)
+    await db.user_tunes.update(userTuneId, { play_link_id: 'link1' })
+    const player = fakePlayer()
+    show(player)
+    await page.getByRole('button', { name: playName(SPEAR) }).click()
+    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'link', id: 'link1' })
+  })
+
+  it('plays the first recording when nothing is pinned', async () => {
+    const { tuneId } = await addSpear()
+    await addRecording(tuneId, true)
+    await addLink(tuneId)
+    const player = fakePlayer()
+    show(player)
+    await page.getByRole('button', { name: playName(SPEAR) }).click()
+    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'rec1' })
+  })
+
+  it('shows stop for a loaded recording', async () => {
+    const { tuneId } = await addSpear()
+    await addRecording(tuneId, true)
+    const player = fakePlayer({ item: { kind: 'recording', id: 'rec1' } })
+    show(player)
+    await page.getByRole('button', { name: closeRecordingName(SPEAR) }).click()
+    await expect.poll(() => player.close).toHaveBeenCalled()
+  })
+
+  it('shows stop for a loaded link, named as the tune screen names it', async () => {
+    const { tuneId, userTuneId } = await addSpear()
+    await addLink(tuneId)
+    await db.user_tunes.update(userTuneId, { play_link_id: 'link1' })
+    const player = fakePlayer({ item: { kind: 'link', id: 'link1' } })
+    show(player)
+    await page.getByRole('button', { name: closeLinkName('Jam session'), exact: true }).click()
+    await expect.poll(() => player.close).toHaveBeenCalled()
+  })
+
+  it('marks a tune with nothing to play', async () => {
+    await addSpear()
+    show(fakePlayer())
+    await expect.poll(() => spearRow()?.getAttribute('aria-description')).toBe(NOT_PLAYABLE)
+    expect(page.getByRole('button', { name: playName(SPEAR) }).elements()).toHaveLength(0)
+  })
+
+  it('offers download for an undownloaded recording', async () => {
+    const { tuneId } = await addSpear()
+    await addRecording(tuneId, false)
+    const download = vi.fn(async () => null)
+    show(fakePlayer(), fakeEngine({ download }))
+    await page.getByRole('button', { name: downloadName(SPEAR) }).click()
+    await expect.poll(() => download).toHaveBeenCalledWith('rec1')
+  })
+
+  it('hides the play slot while selecting', async () => {
+    forceTouch()
+    const { tuneId } = await addSpear()
+    await addRecording(tuneId, true)
+    renderIonic(
+      <Host selection={{ listName: 'Tuesday jam', enabled: true, onChange: () => {} }} />,
+      { db, player: fakePlayer() },
+    )
+    const play = page.getByRole('button', { name: playName(SPEAR) })
+    await expect.element(play).toBeVisible()
+    spearRow()!.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        isPrimary: true,
+        button: 0,
+        clientX: 20,
+        clientY: 20,
+      }),
+    )
+    await expect.element(page.getByRole('checkbox').first()).toBeVisible()
+    await expect.poll(() => play.elements()).toHaveLength(0)
   })
 })

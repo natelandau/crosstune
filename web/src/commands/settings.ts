@@ -1,10 +1,17 @@
 import { v5 as uuidv5 } from 'uuid'
-import { INSTRUMENTS, type AudioQuality, type Instrument, type Provider } from '../api/vocabulary'
-import { storedAudioQuality } from '../db/recordings'
+import {
+  INSTRUMENTS,
+  type AudioQuality,
+  type Instrument,
+  type PlayFirst,
+  type Provider,
+} from '../api/vocabulary'
+import { storedAudioQualityValue } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import {
   isInstrument,
   storedInstruments,
+  storedPlayFirstValue,
   SEARCHABLE_PROVIDERS,
   storedSearchProviderValues,
   type LocalUserSettings,
@@ -36,17 +43,20 @@ async function writeSettings(
     instruments?: readonly string[]
     audio_quality?: AudioQuality
     search_providers?: readonly string[]
+    play_first?: PlayFirst
   },
 ): Promise<void> {
   const at = now()
   await putRow(db, 'user_settings', {
+    ...existing,
     id,
     created_at: existing?.created_at ?? at,
     updated_at: at,
     deleted_at: null,
     server_seq: existing?.server_seq ?? 0,
     instruments: normalizeInstruments(patch.instruments ?? storedInstruments(existing) ?? []),
-    audio_quality: patch.audio_quality ?? storedAudioQuality(existing),
+    audio_quality: patch.audio_quality ?? storedAudioQualityValue(existing),
+    play_first: patch.play_first ?? storedPlayFirstValue(existing),
     search_providers: [...(patch.search_providers ?? storedSearchProviderValues(existing))],
   })
 }
@@ -91,6 +101,17 @@ export async function setAudioQuality(
   const id = settingsId(clerkUserId)
   await writeTx(db, async () => {
     await writeSettings(db, id, await db.user_settings.get(id), { audio_quality: quality })
+  })
+}
+
+export async function setPlayFirst(
+  db: CrosstuneDb,
+  clerkUserId: string,
+  playFirst: PlayFirst,
+): Promise<void> {
+  const id = settingsId(clerkUserId)
+  await writeTx(db, async () => {
+    await writeSettings(db, id, await db.user_settings.get(id), { play_first: playFirst })
   })
 }
 
