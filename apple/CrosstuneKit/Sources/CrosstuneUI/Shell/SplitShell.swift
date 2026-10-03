@@ -25,7 +25,7 @@ struct SplitShell: View {
     @State private var sidebarEdge: CGFloat = 0
     @State private var columns = NavigationSplitViewVisibility.automatic
 
-    private static let shellSpace = "SplitShell"
+    private nonisolated static let shellSpace = "SplitShell"
 
     /// The lists the sidebar shows, in the musician's order.
     nonisolated static func sidebarLists(_ db: Database) throws -> [ListSummary] {
@@ -128,26 +128,61 @@ struct SplitShell: View {
         ) {
             row(.catalog).tag(SidebarItem.catalog)
             row(.recordings).tag(SidebarItem.recordings)
-            Section(Destination.lists.title) {
-                ForEach(lists?.value ?? nil ?? []) { list in
-                    Label(list.name, systemImage: Destination.lists.systemImage)
-                        .badge(list.count)
-                        .tag(SidebarItem.list(id: list.id))
-                        .listRowActions(
-                            onEdit: { listSheets?.name(.rename(listID: list.id, name: list.name)) },
-                            onDelete: { deleting = list })
-                }
-                Button(SidebarItem.newList, systemImage: "plus") { listSheets?.name(.new) }
-                    .disabled(listSheets == nil)
-            }
+            listsSection
             #if os(iOS)
                 Section {
                     row(.settings).tag(SidebarItem.settings)
                 }
             #endif
         }
+        #if os(macOS)
+            // Right-clicking the sidebar's empty space starts a list; a list row keeps its own menu.
+            .contextMenu(forSelectionType: SidebarItem.self) { items in
+                if items.isEmpty { newListButton }
+            }
+        #endif
         .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         .confirmsListDelete($deleting)
+    }
+
+    /// The lists, nil until the first read.
+    private var loadedLists: [ListSummary]? { lists?.value ?? nil }
+
+    private var listsSection: some View {
+        Section {
+            ForEach(loadedLists ?? []) { list in
+                listRow(list)
+            }
+            #if os(iOS)
+                newListButton
+            #endif
+        } header: {
+            #if os(macOS)
+                SidebarSectionHeader(Destination.lists.title, add: SidebarItem.newList, onAdd: newList)
+                    .disabled(listSheets == nil)
+                    .contextMenu { newListButton }
+            #else
+                Text(Destination.lists.title)
+            #endif
+        }
+    }
+
+    private func listRow(_ list: ListSummary) -> some View {
+        Label(list.name, systemImage: Destination.lists.systemImage)
+            .badge(list.count)
+            .tag(SidebarItem.list(id: list.id))
+            .listRowActions(
+                onEdit: { listSheets?.name(.rename(listID: list.id, name: list.name)) },
+                onDelete: { deleting = list })
+    }
+
+    private var newListButton: some View {
+        Button(SidebarItem.newList, systemImage: "plus", action: newList)
+            .disabled(listSheets == nil)
+    }
+
+    private func newList() {
+        listSheets?.name(.new)
     }
 
     private func row(_ destination: Destination) -> some View {
