@@ -435,12 +435,17 @@ job that uses it would wait for its own approval.
 
 ## Apple Developer
 
-The API signs its Apple Music searches with a MusicKit key from
-**Certificates, Identifiers & Profiles**. One key serves every environment.
+Two settings in **Certificates, Identifiers & Profiles** serve Apple Music.
+The app's App ID lets the app play. The media identifier and its key let
+the API search. The app reads no environment variable for either.
 
-- Media identifier `media.app.crosstune`, with MusicKit on. Apple shows its
-  description, `Crosstune`, as the app name if a user is asked for Apple
-  Music access.
+- App ID `app.crosstune.Crosstune`, with MusicKit on under **App
+  Services**. The app plays Apple Music in full only with it. The system
+  prompt for access shows the app's name and its
+  `NSAppleMusicUsageDescription` text.
+- Media identifier `media.app.crosstune`, with MusicKit on. One key serves
+  every environment. Apple shows its description, `Crosstune`, as the app
+  name only where MusicKit runs on the web.
 - Key `Crosstune MusicKit`, with Media Services on for that identifier. Its
   `.p8` file downloads once and is kept in the password manager. A media
   identifier holds two keys, so a new key can go live before the old one is

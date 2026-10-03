@@ -26,21 +26,50 @@ public struct PlayerBar: View {
         self.isPanel = isPanel
     }
 
+    /// The track playing from an Apple Music album link, shown under the link's title; nil for
+    /// anything else, whose title already names what plays.
+    static func subtitle(_ player: PlayerModel) -> String? {
+        guard let music = player.music, music.hasAlbum else { return nil }
+        return music.trackTitle
+    }
+
+    /// Whether the bar leads with a static play glyph: only for a link in its embed, whose
+    /// controls are the provider's.
+    static func showsGlyph(_ player: PlayerModel) -> Bool {
+        player.linkAudio == .embed
+    }
+
+    /// Whether a tap on the item shows its player in full. A link still deciding how to play
+    /// has no player to show yet.
+    static func canExpand(_ player: PlayerModel) -> Bool {
+        player.linkAudio != .deciding
+    }
+
+    /// Show player and the item's name, an album's track, then a recording's speed and pitch
+    /// when either is away from its default, since the button's name replaces the label's.
+    static func showLabel(_ player: PlayerModel) -> String {
+        let badge =
+            player.item?.kind == .recording
+            ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
+        return [show, player.title ?? "", subtitle(player), badge].compactMap(\.self).joined(separator: ", ")
+    }
+
     public var body: some View {
         let isRecording = player.item?.kind == .recording
+        let glyph = Self.showsGlyph(player)
         HStack(spacing: 4) {
-            if isRecording {
+            if player.playsInBar {
                 RecordingPlayButton(player: player)
             }
             // The panel shows a link's player under the bar; a recording opens its screen.
-            if isPanel && !isRecording {
-                itemLabel(glyph: true)
+            if (isPanel && !isRecording) || !Self.canExpand(player) {
+                itemLabel(glyph: glyph)
             } else {
                 Button {
                     player.expand(in: window)
                 } label: {
                     HStack(spacing: 8) {
-                        itemLabel(glyph: !isRecording)
+                        itemLabel(glyph: glyph)
                         // The tap shows the player in full, which rises from here.
                         Image(systemName: "chevron.up")
                             .font(.footnote.weight(.semibold))
@@ -50,7 +79,7 @@ public struct PlayerBar: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(showLabel(isRecording: isRecording))
+                .accessibilityLabel(Self.showLabel(player))
             }
             if isRecording, player.loops.isRepeating, let name = player.loops.selectedName {
                 RepeatBadge(player: player, name: name)
@@ -73,17 +102,8 @@ public struct PlayerBar: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(.rect)
         }
-        .padding(.leading, isRecording ? 6 : 16)
+        .padding(.leading, player.playsInBar ? 6 : 16)
         .padding(.trailing, 4)
-    }
-
-    /// Show player and the item's name, then a recording's speed and pitch when either is
-    /// away from its default, since the button's name replaces the badge's.
-    private func showLabel(isRecording: Bool) -> String {
-        let badge =
-            isRecording
-            ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
-        return [Self.show, player.title ?? "", badge].compactMap(\.self).joined(separator: ", ")
     }
 
     private func itemLabel(glyph: Bool) -> some View {
@@ -97,6 +117,12 @@ public struct PlayerBar: View {
                 Text(player.title ?? "")
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
+                if let subtitle = Self.subtitle(player) {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 // The panel shows the failure in its body under the bar instead.
                 if !isPanel, let failure = player.failure {
                     PlayerFailureText(failure).lineLimit(1)
@@ -224,10 +250,21 @@ struct PlayerPanel: View {
     /// keeps its aspect ratio as it shrinks; `width` nil means the panel's full width.
     nonisolated static func embedSize(_ embed: Embed, windowHeight: CGFloat) -> (width: CGFloat?, height: CGFloat) {
         let natural = CGFloat(embed.points)
-        let room = max(0, windowHeight * maxShare - chrome)
-        let height = min(natural, room)
+        let height = fitted(natural, windowHeight: windowHeight)
         guard embed.height == .video else { return (nil, height) }
         return (videoWidth * height / natural, height)
+    }
+
+    /// How tall the Apple Music card is drawn: as the Apple Music embed it plays in place of, so
+    /// the panel keeps its size whichever one plays.
+    nonisolated static func cardHeight(windowHeight: CGFloat) -> CGFloat {
+        fitted(MusicPlayerCard.height, windowHeight: windowHeight)
+    }
+
+    /// `natural` when the window has room, otherwise as tall as keeps the panel within
+    /// ``maxShare`` of the window.
+    private nonisolated static func fitted(_ natural: CGFloat, windowHeight: CGFloat) -> CGFloat {
+        min(natural, max(0, windowHeight * maxShare - chrome))
     }
 
     /// Every open window shows the panel, and the one web view plays in the window in use.
@@ -242,7 +279,7 @@ struct PlayerPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             PlayerBar(player: player, isPanel: true)
-            if let embed = player.item?.link?.embed {
+            if let embed = player.embed {
                 let size = Self.embedSize(embed, windowHeight: windowHeight)
                 EmbedView(stage: stage, embed: embed, prominence: prominence)
                     .frame(width: size.width, height: size.height)
@@ -250,6 +287,14 @@ struct PlayerPanel: View {
                     .clipShape(.rect(cornerRadius: 12))
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
+            } else if let music = player.music {
+                let height = Self.cardHeight(windowHeight: windowHeight)
+                if height > 0 {
+                    // The bar above carries play and pause.
+                    MusicPlayerCard(player: player, music: music, fixedHeight: height)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
+                }
             } else if player.item?.kind == .recording {
                 #if os(iOS)
                     HStack(spacing: 8) {
@@ -279,16 +324,20 @@ struct LinkPlayerSheet: View {
         NavigationStack {
             VStack(spacing: 20) {
                 if let link = player.item?.link {
-                    Group {
-                        if link.embed.height == .video {
-                            EmbedView(stage: stage, embed: link.embed)
-                                .aspectRatio(16 / 9, contentMode: .fit)
-                        } else {
-                            EmbedView(stage: stage, embed: link.embed)
-                                .frame(height: CGFloat(link.embed.points))
+                    if let embed = player.embed {
+                        Group {
+                            if embed.height == .video {
+                                EmbedView(stage: stage, embed: embed)
+                                    .aspectRatio(16 / 9, contentMode: .fit)
+                            } else {
+                                EmbedView(stage: stage, embed: embed)
+                                    .frame(height: CGFloat(embed.points))
+                            }
                         }
+                        .clipShape(.rect(cornerRadius: 12))
+                    } else if let music = player.music {
+                        MusicPlayerCard(player: player, music: music, showsPlay: true)
                     }
-                    .clipShape(.rect(cornerRadius: 12))
                     if let url = link.providerURL {
                         Link(destination: url) {
                             Label(PlayerBar.openIn(link.providerName), systemImage: "arrow.up.right")
@@ -323,7 +372,7 @@ struct EmbedParking: ViewModifier {
 
     func body(content: Content) -> some View {
         content.background(alignment: .bottom) {
-            if let embed = player.item?.link?.embed {
+            if let embed = player.embed {
                 EmbedView(stage: stage, embed: embed, prominence: .parked)
                     .frame(width: 1, height: 1)
                     .allowsHitTesting(false)

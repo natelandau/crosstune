@@ -20,6 +20,7 @@ public struct SettingsScreen: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.store) private var store
+    @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var model: SettingsModel?
     @State private var showsInstruments = false
     /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
@@ -50,6 +51,9 @@ public struct SettingsScreen: View {
             if let model, model.isLoaded {
                 instrumentsSection(model)
                 musicServicesSection(model)
+            }
+            if let access = player?.appleMusic?.access {
+                AppleMusicSection(access: access)
             }
             Section {
                 Picker(Appearance.title, selection: $appearance) {
@@ -128,17 +132,7 @@ public struct SettingsScreen: View {
         _ title: String, value: String, help: String, failure: String?, open: @escaping () -> Void
     ) -> some View {
         Section {
-            Button(action: open) {
-                HStack {
-                    LabeledContent(title, value: value)
-                    Image(systemName: "chevron.forward")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
+            SettingsFieldRow(title: title, value: value, action: open)
         } footer: {
             SettingsFooter(help: help, failure: failure)
         }

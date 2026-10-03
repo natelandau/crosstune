@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -384,5 +385,26 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 
         try await eventually { model.removeDownloadsFailure != nil }
         #expect(!model.isRemovingDownloads)
+    }
+}
+
+@Suite struct AppleMusicRowTests {
+    @Test(
+        arguments: [
+            (AppleMusicAccessState.notAsked, "Previews", AppleMusicRowAction.request),
+            (.fullTracks, "Full tracks", .none),
+            (.noSubscription, "Previews", .none),
+            (.declined, "Previews", .openSystemSettings),
+        ] as [(AppleMusicAccessState, String, AppleMusicRowAction)]
+    )
+    func showsTheValueAndTapForEachState(state: AppleMusicAccessState, value: String, action: AppleMusicRowAction) {
+        #expect(AppleMusicText.value(state) == value)
+        #expect(AppleMusicRowAction.make(state) == action)
+    }
+
+    @Test func hintsWhatATapDoes() {
+        #expect(AppleMusicRowAction.request.hint == AppleMusicText.askHint)
+        #expect(AppleMusicRowAction.openSystemSettings.hint == AppleMusicText.settingsHint)
+        #expect(AppleMusicRowAction.none.hint == nil)
     }
 }

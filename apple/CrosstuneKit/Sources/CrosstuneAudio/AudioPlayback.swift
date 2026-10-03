@@ -13,15 +13,25 @@ public struct NowPlaying: Equatable, Sendable {
     }
 }
 
-/// Plays one audio file at a time. ``AudioPlayer`` is the device's; a test stands in its own.
+/// Play, pause, and a place in the audio: what a scrubber and a play button need from any player.
 @MainActor
-public protocol AudioPlayback: AnyObject {
+public protocol PlaybackTransport: AnyObject {
     /// Whether audio is playing now, as opposed to loaded and paused or not loaded.
     var isPlaying: Bool { get }
-    /// Seconds into the playback window, so 0 is the trim start.
+    /// Seconds into what plays; for a recording, into the playback window, so 0 is the trim start.
     var elapsed: TimeInterval { get }
-    /// The playback window's length, nil until the loaded audio's length is known.
+    /// The length of what plays, nil until it is known.
     var duration: TimeInterval? { get }
+
+    func play()
+    func pause()
+    /// Moves to `seconds` into what plays, kept within its length.
+    func seek(to seconds: TimeInterval)
+}
+
+/// Plays one audio file at a time. ``AudioPlayer`` is the device's; a test stands in its own.
+@MainActor
+public protocol AudioPlayback: PlaybackTransport {
     /// True once the loaded file turns out not to play.
     var hasFailed: Bool { get }
     /// Whether reaching the loop end from inside the loop goes back to its start.
@@ -47,10 +57,6 @@ public protocol AudioPlayback: AnyObject {
     func setPitch(cents: Int)
     /// Renames the loaded audio on the Now Playing surfaces.
     func retitle(_ nowPlaying: NowPlaying)
-    func play()
-    func pause()
-    /// Moves to `seconds` into the playback window, kept within its length.
-    func seek(to seconds: TimeInterval)
     /// Stops and lets go of the loaded audio and the system's playback controls.
     func unload()
 }
@@ -59,7 +65,9 @@ extension AudioPlayback {
     public func load(_ url: URL, nowPlaying: NowPlaying) {
         load(url, nowPlaying: nowPlaying, keepLoop: false)
     }
+}
 
+extension PlaybackTransport {
     public func toggle() {
         if isPlaying { pause() } else { play() }
     }

@@ -23,6 +23,8 @@ public struct Embed: Hashable, Sendable {
     }
 
     public static let videoHeight = 200
+    /// Apple Music's player, and the native card that plays in its place.
+    public static let appleMusicHeight = 175
 
     public let src: String
     public let height: Height
@@ -83,7 +85,7 @@ public struct Embed: Hashable, Sendable {
             // A web address's path is never empty, as a browser's URL parser reads it.
             if components.percentEncodedPath.isEmpty { components.percentEncodedPath = "/" }
             guard let src = components.string else { return nil }
-            return Embed(src: src, height: .points(175), allow: appleAllow, sandbox: appleSandbox)
+            return Embed(src: src, height: .points(appleMusicHeight), allow: appleAllow, sandbox: appleSandbox)
         case "tidal":
             guard let match = ref.wholeMatch(of: tidalRefPattern) else { return nil }
             let height: Height =

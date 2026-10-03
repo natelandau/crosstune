@@ -72,6 +72,28 @@ private func appleRef(_ url: URL) -> String? {
     return !last.isEmpty && last.allSatisfy({ $0.isASCII && $0.isNumber }) ? last : nil
 }
 
+/// What an Apple Music link plays: one song, or an album from its first track.
+public enum AppleMusicKind: Hashable, Sendable {
+    case song(id: String)
+    case album(id: String)
+}
+
+/// What the Apple Music link `raw` plays, or nil for a video, playlist, artist, or any other
+/// URL. The ID is always the one ``detectProvider(_:)`` stores as the link's reference.
+public func appleMusicKind(_ raw: String) -> AppleMusicKind? {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let url = URL(string: trimmed), url.scheme != nil, host(of: url) == "music.apple.com",
+        let id = appleRef(url)
+    else { return nil }
+    if queryItem("i", in: url)?.isEmpty == false { return .song(id: id) }
+    // music.apple.com/{storefront}/{kind}/{slug}/{id}, where some links leave out the storefront.
+    switch url.path.split(separator: "/").prefix(2).first(where: { $0 == "song" || $0 == "album" }) {
+    case "song": return .song(id: id)
+    case "album": return .album(id: id)
+    default: return nil
+    }
+}
+
 /// What `raw` points to: a known provider's site, with a `type:id` reference where the link
 /// names one track, album, or item, or `other` for anything else, including text that does not
 /// parse as an absolute URL.

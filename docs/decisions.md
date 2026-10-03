@@ -171,6 +171,17 @@ reopens one without new information. Add a new entry at the end.
 - The check constraints stay. A value change is one edit plus a migration,
   which is also where existing rows are reshaped when a value is retired.
 
+## Full Apple Music playback on Apple only
+
+- The Apple app plays Apple Music links in full through MusicKit for
+  subscribers. The web client plays the Apple Music embed for everyone.
+- MusicKit on Apple platforms uses the Apple Account signed in on the
+  device. Nothing about it reaches the Crosstune API.
+- MusicKit JS on the web was rejected. It needs a second sign-in flow and a
+  new script origin in the Content-Security-Policy.
+- `SystemMusicPlayer` was rejected. It replaces the Music app's own queue
+  and keeps playing after Crosstune closes.
+
 ## GRDB for the Apple app's local store
 
 - The Apple app keeps each user's catalog in SQLite through GRDB.
