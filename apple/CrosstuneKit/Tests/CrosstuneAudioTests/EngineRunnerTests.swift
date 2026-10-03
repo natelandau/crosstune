@@ -22,4 +22,11 @@ import Testing
         queue.resume()
         _ = await (activate.value, stop.value, deactivate.value)
     }
+
+    #if os(macOS)
+        @Test func readsTheInputChannelCountFromALiveEngine() async {
+            let runner = EngineRunner()
+            for _ in 0..<20 { #expect(await runner.inputChannelCount() >= 0) }
+        }
+    #endif
 }
