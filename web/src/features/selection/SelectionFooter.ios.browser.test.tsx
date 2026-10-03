@@ -2,7 +2,7 @@ import { IonButton } from '@ionic/react'
 import { screen } from '@testing-library/react'
 import { ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -109,26 +109,25 @@ beforeEach(() => {
   db = openTestDb()
 })
 
-afterEach(async () => {
-  await db.delete()
-})
-
 describe('SelectionFooter on iOS', () => {
   it('shows the four actions as text buttons in order', async () => {
     show(2)
     await expect.element(control('Status')).toBeVisible()
     const footer = document.querySelector('ion-footer')!
-    const labels = Array.from(footer.querySelectorAll('ion-button')).map((button) =>
-      button.textContent?.trim(),
-    )
-    expect(labels).toEqual(NAMES)
+    await expect
+      .poll(() =>
+        Array.from(footer.querySelectorAll('ion-button')).map((button) =>
+          button.textContent?.trim(),
+        ),
+      )
+      .toEqual(NAMES)
     expect(footer.querySelector('svg')).toBeNull()
     await control('Status').click()
-    expect(onStatus).toHaveBeenCalledOnce()
+    await expect.poll(() => onStatus).toHaveBeenCalledOnce()
     for (const name of NAMES) {
-      const box = host(name).getBoundingClientRect()
-      expect(box.height).toBeGreaterThanOrEqual(44)
-      expect(box.width).toBeGreaterThanOrEqual(44)
+      const box = () => host(name).getBoundingClientRect()
+      await expect.poll(() => box().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => box().width).toBeGreaterThanOrEqual(44)
     }
   })
 
@@ -155,7 +154,7 @@ describe('SelectionFooter on iOS', () => {
     await vi.waitFor(() => expect(document.querySelector('ion-footer')).toBeNull(), {
       timeout: 3000,
     })
-    expect(selecting()).toBe('false')
+    await expect.poll(selecting).toBe('false')
   })
 
   it('keeps the tab bar hidden until the last of two footers is gone', async () => {
@@ -175,6 +174,6 @@ describe('SelectionFooter on iOS', () => {
     await vi.waitFor(() => expect(document.querySelector('ion-footer')).toBeNull(), {
       timeout: 3000,
     })
-    expect(selecting()).toBe('false')
+    await expect.poll(selecting).toBe('false')
   })
 })

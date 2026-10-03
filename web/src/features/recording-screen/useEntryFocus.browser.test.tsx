@@ -40,8 +40,7 @@ describe('useEntryFocus', () => {
     const { back, refs, ready } = screenWithBack()
     renderHook(() => useEntryFocus(refs.target, refs.modal))
     ready()
-    await nextFrames()
-    expect(document.activeElement).toBe(back)
+    await expect.poll(() => document.activeElement).toBe(back)
   })
 
   it('leaves focus on a control the musician reached before Back was ready', async () => {
@@ -60,8 +59,7 @@ describe('useEntryFocus', () => {
     renderHook(() => useEntryFocus(refs.target, refs.modal))
     outside.focus()
     ready()
-    await nextFrames()
-    expect(document.activeElement).toBe(back)
+    await expect.poll(() => document.activeElement).toBe(back)
   })
 
   it('does nothing once the screen has gone', async () => {

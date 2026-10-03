@@ -75,6 +75,9 @@ function Host({
   )
 }
 
+const disabledRow = () =>
+  document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')?.textContent
+
 const sheetDismissed = () =>
   vi.waitFor(() => expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull())
 
@@ -130,10 +133,9 @@ describe('ListPicker', () => {
     await addToList(db, jam, b)
     renderIonic(<Host userTuneIds={[a, b]} />, { db })
     await expect.element(page.getByText('all in it')).toBeVisible()
-    expect(page.getByRole('button', { name: /Tuesday jam/ }).elements()).toHaveLength(0)
-    const row = document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')
-    expect(row?.textContent).toContain('Tuesday jam')
-    expect(row?.textContent).toContain('all in it')
+    await expect.element(page.getByRole('button', { name: /Tuesday jam/ })).not.toBeInTheDocument()
+    await expect.poll(disabledRow).toContain('Tuesday jam')
+    await expect.poll(disabledRow).toContain('all in it')
   })
 
   it('reads an empty list as none in it', async () => {
@@ -157,8 +159,13 @@ describe('ListPicker', () => {
     await vi.waitFor(() =>
       expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({ added: 1 })),
     )
-    const items = await db.list_items.where('list_id').equals(jam).toArray()
-    expect(items.filter((item) => !item.deleted_at)).toHaveLength(2)
+    await expect
+      .poll(async () =>
+        (await db.list_items.where('list_id').equals(jam).toArray()).filter(
+          (item) => !item.deleted_at,
+        ),
+      )
+      .toHaveLength(2)
   })
 
   it('creates a list holding every selected tune', async () => {
@@ -185,7 +192,7 @@ describe('ListPicker', () => {
     await createList(db, 'Square dance set')
     renderIonic(<Host userTuneIds={[userTuneId]} excludeListId={jam} />, { db })
     await expect.element(page.getByText('Square dance set')).toBeVisible()
-    expect(page.getByText('Tuesday jam').elements()).toHaveLength(0)
+    await expect.element(page.getByText('Tuesday jam')).not.toBeInTheDocument()
   })
 
   it('disables every row until membership has loaded', async () => {
@@ -197,9 +204,8 @@ describe('ListPicker', () => {
     try {
       renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
       await expect.element(page.getByText('Tuesday jam')).toBeVisible()
-      expect(page.getByText('none in it').elements()).toHaveLength(0)
-      const row = document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')
-      expect(row?.textContent).toContain('Tuesday jam')
+      await expect.element(page.getByText('none in it')).not.toBeInTheDocument()
+      await expect.poll(disabledRow).toContain('Tuesday jam')
       wait.open()
       await expect.element(page.getByText('none in it')).toBeVisible()
       await expect.element(page.getByRole('button', { name: /Tuesday jam/ })).toBeEnabled()
@@ -233,10 +239,11 @@ describe('ListPicker', () => {
     await addToList(db, set, userTuneId)
     renderIonic(<Host userTuneIds={[userTuneId]} />, { db })
     await expect.element(page.getByText('all in it')).toBeVisible()
-    expect(page.getByRole('button', { name: /Square dance set/ }).elements()).toHaveLength(0)
-    const row = document.querySelector('ion-item[aria-disabled="true"], ion-item[disabled]')
-    expect(row?.textContent).toContain('Square dance set')
-    expect(row?.textContent).toContain('all in it')
+    await expect
+      .element(page.getByRole('button', { name: /Square dance set/ }))
+      .not.toBeInTheDocument()
+    await expect.poll(disabledRow).toContain('Square dance set')
+    await expect.poll(disabledRow).toContain('all in it')
   })
 
   it('picks a list once from two clicks in the same tick', async () => {
@@ -345,6 +352,6 @@ describe('ListPicker', () => {
     await sheetDismissed()
     await page.getByRole('button', { name: 'Reopen' }).click()
     await expect.element(page.getByRole('button', { name: NEW_LIST_ITEM })).toBeVisible()
-    expect(page.getByLabelText(NEW_LIST_NAME_LABEL).elements()).toHaveLength(0)
+    await expect.element(page.getByLabelText(NEW_LIST_NAME_LABEL)).not.toBeInTheDocument()
   })
 })

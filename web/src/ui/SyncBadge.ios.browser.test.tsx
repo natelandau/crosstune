@@ -44,12 +44,12 @@ async function renderTop(status: SyncStatus) {
     expect(node).toBeTruthy()
     text = node!
   })
-  const badge = toolbar.querySelector('[data-testid="sync-status"]')
   return {
     view,
-    bar: toolbar.getBoundingClientRect(),
-    title: text.getBoundingClientRect(),
-    badge: badge?.getBoundingClientRect() ?? null,
+    bar: () => toolbar.getBoundingClientRect(),
+    title: () => text.getBoundingClientRect(),
+    badge: () =>
+      toolbar.querySelector('[data-testid="sync-status"]')?.getBoundingClientRect() ?? null,
   }
 }
 
@@ -57,10 +57,13 @@ async function renderTop(status: SyncStatus) {
 async function expectTitleClearOfWidestBadge() {
   forceFrame(false)
   const { bar, title, badge } = await renderTop('unauthorized')
-  expect(badge!.width).toBeGreaterThan(0)
-  expect(title.left).toBeGreaterThanOrEqual(badge!.right + 8)
-  const offCenter = (title.left + title.right) / 2 - (bar.left + bar.right) / 2
-  expect(Math.abs(offCenter)).toBeLessThanOrEqual(1)
+  await expect.poll(() => badge()!.width).toBeGreaterThan(0)
+  await expect.poll(() => title().left - (badge()!.right + 8)).toBeGreaterThanOrEqual(0)
+  const offCenter = () => {
+    const [t, b] = [title(), bar()]
+    return (t.left + t.right) / 2 - (b.left + b.right) / 2
+  }
+  await expect.poll(() => Math.abs(offCenter())).toBeLessThanOrEqual(1)
 }
 
 // On iOS the title is positioned across the whole toolbar rather than laid out beside what
@@ -84,12 +87,13 @@ describe('SyncBadge on iOS', () => {
   it('gives the title the whole bar back while the sync is quiet', async () => {
     forceFrame(true)
     const bare = await renderTop('idle')
-    expect(bare.badge).toBeNull()
+    await expect.poll(bare.badge).toBeNull()
+    const bareTitle = bare.title()
     bare.view.unmount()
     forceFrame(false)
     const quiet = await renderTop('idle')
-    expect(quiet.badge!.width).toBe(0)
-    expect(quiet.title.left).toBe(bare.title.left)
-    expect(quiet.title.width).toBe(bare.title.width)
+    await expect.poll(() => quiet.badge()!.width).toBe(0)
+    await expect.poll(() => quiet.title().left).toBe(bareTitle.left)
+    await expect.poll(() => quiet.title().width).toBe(bareTitle.width)
   })
 })

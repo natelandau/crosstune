@@ -18,15 +18,16 @@ function Host({ initial = 'want_to_learn' }: { initial?: TuneStatus }) {
 
 const state = () => document.querySelector('[data-state]')!.textContent
 const chip = (name: string) => page.getByRole('button', { name, exact: true })
+const labels = () =>
+  Array.from(document.querySelectorAll('[role="group"][aria-label="Status"] button')).map(
+    (button) => button.textContent!.trim(),
+  )
 
 describe('StatusChooser', () => {
   it('offers the three statuses in order, named as a group', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(chip('Known')).toBeVisible()
-    const labels = Array.from(
-      document.querySelectorAll('[role="group"][aria-label="Status"] button'),
-    ).map((button) => button.textContent!.trim())
-    expect(labels).toEqual(['Known', 'Learning', 'Unknown'])
+    await expect.poll(labels).toEqual(['Known', 'Learning', 'Unknown'])
   })
 
   it('presses the current status', async () => {
@@ -53,17 +54,19 @@ describe('StatusChooser', () => {
   it('pairs each label with its dot, and keeps the dot visible when chosen', async () => {
     renderIonic(<Host initial="known" />, { db: openTestDb() })
     await expect.element(chip('Known')).toBeVisible()
-    const dots = document.querySelectorAll('[role="group"][aria-label="Status"] [data-status-dot]')
-    expect(dots).toHaveLength(3)
-    const chosen = document.querySelector(
-      'button[aria-pressed="true"] [data-status-dot]',
-    ) as HTMLElement
-    const capsule = chosen.parentElement as HTMLElement
+    await expect
+      .poll(() =>
+        document.querySelectorAll('[role="group"][aria-label="Status"] [data-status-dot]'),
+      )
+      .toHaveLength(3)
+    const chosen = () =>
+      document.querySelector('button[aria-pressed="true"] [data-status-dot]') as HTMLElement
+    const capsule = () => chosen().parentElement as HTMLElement
     // The chosen capsule fills with primary, and success is that same slate, so a dot that kept
     // its resting color would disappear into the fill it sits on.
-    expect(getComputedStyle(chosen).backgroundColor).not.toBe(
-      getComputedStyle(capsule).backgroundColor,
-    )
+    await expect
+      .poll(() => getComputedStyle(chosen()).backgroundColor)
+      .not.toBe(getComputedStyle(capsule()).backgroundColor)
   })
 
   it('leads with All where it filters rather than edits', async () => {
@@ -78,10 +81,7 @@ describe('StatusChooser', () => {
     }
     renderIonic(<Filter />, { db: openTestDb() })
     await expect.element(chip('All')).toBeVisible()
-    const labels = Array.from(
-      document.querySelectorAll('[role="group"][aria-label="Status"] button'),
-    ).map((button) => button.textContent!.trim())
-    expect(labels).toEqual(['All', 'Known', 'Learning', 'Unknown'])
+    await expect.poll(labels).toEqual(['All', 'Known', 'Learning', 'Unknown'])
     await expect.element(chip('All')).toHaveAttribute('aria-pressed', 'true')
     await chip('Learning').click()
     await expect.poll(state).toBe('learning')
@@ -96,9 +96,13 @@ describe('StatusChooser', () => {
     await expect.element(chip('Known')).toBeVisible()
     const group = document.querySelector('[role="group"][aria-label="Status"]')!
     for (const button of group.querySelectorAll('button')) {
-      const box = button.getBoundingClientRect()
-      expect(box.height, button.textContent ?? '').toBeGreaterThanOrEqual(44)
-      expect(box.width, button.textContent ?? '').toBeGreaterThanOrEqual(44)
+      const message = button.textContent ?? ''
+      await expect
+        .poll(() => button.getBoundingClientRect().height, { message })
+        .toBeGreaterThanOrEqual(44)
+      await expect
+        .poll(() => button.getBoundingClientRect().width, { message })
+        .toBeGreaterThanOrEqual(44)
     }
   })
 })

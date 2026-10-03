@@ -129,7 +129,7 @@ describe('ListPage', () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Tuesday jam', level: 1 })).toBeVisible()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
-    expect(document.querySelectorAll('h1')).toHaveLength(1)
+    await expect.poll(() => document.querySelectorAll('h1')).toHaveLength(1)
   })
 
   it('names an empty list and opens the picker from its button', async () => {
@@ -205,14 +205,14 @@ describe('ListPage', () => {
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await vi.waitFor(async () => expect((await db.lists.get(listId))?.deleted_at).not.toBeNull())
     await expect.element(page.getByRole('heading', { name: 'Lists probe' })).toBeVisible()
-    expect(page.getByText(LIST_GONE).elements()).toHaveLength(0)
+    await expect.element(page.getByText(LIST_GONE)).not.toBeInTheDocument()
   })
 
   it('says a missing list is gone, under a named toolbar', async () => {
     show('missing')
     await expect.element(page.getByText(LIST_GONE)).toBeVisible()
-    expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
-    expect(document.querySelector('ion-title')?.textContent).toBe('List')
+    await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).not.toBeInTheDocument()
+    await expect.poll(() => document.querySelector('ion-title')?.textContent).toBe('List')
   })
 
   it('keeps the list named while its delete is running', async () => {
@@ -227,8 +227,8 @@ describe('ListPage', () => {
     await more(DELETE_LIST)
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent(DELETING)
-    expect(document.querySelector('ion-title')?.textContent).toBe('Tuesday jam')
-    expect(document.querySelector('h1')?.textContent).toBe('Tuesday jam')
+    await expect.poll(() => document.querySelector('ion-title')?.textContent).toBe('Tuesday jam')
+    await expect.poll(() => document.querySelector('h1')?.textContent).toBe('Tuesday jam')
     finish()
   })
 
@@ -244,8 +244,8 @@ describe('ListPage', () => {
       await expect
         .element(page.getByRole('heading', { name: 'Tuesday jam', level: 1 }))
         .toBeVisible()
-      expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
-      expect(page.getByRole('button', { name: ADD_TUNES }).elements()).toHaveLength(0)
+      await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).not.toBeInTheDocument()
+      await expect.element(page.getByRole('button', { name: ADD_TUNES })).not.toBeInTheDocument()
     } finally {
       unread.mockRestore()
     }
@@ -299,16 +299,16 @@ describe('ListPage', () => {
     await addAngeline()
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
+    await expect.poll(() => document.querySelectorAll('[data-row-open]')).toHaveLength(2)
     const opens = document.querySelectorAll<HTMLElement>('[data-row-open]')
-    expect(opens).toHaveLength(2)
     await vi.waitFor(() => {
       opens[0]!.focus()
       expect(document.activeElement).toBe(opens[0])
     })
     await userEvent.keyboard('{ArrowDown}')
-    expect(document.activeElement).toBe(opens[1])
+    await expect.poll(() => document.activeElement).toBe(opens[1])
     await userEvent.keyboard('{ArrowUp}')
-    expect(document.activeElement).toBe(opens[0])
+    await expect.poll(() => document.activeElement).toBe(opens[0])
   })
 
   it('opens a tune in the Lists stack', async () => {
@@ -331,9 +331,9 @@ describe('ListPage selection', () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
     for (const name of [ADD_TUNES, MORE_ACTIONS]) {
-      const box = buttonHost(name).getBoundingClientRect()
-      expect(box.height).toBeGreaterThanOrEqual(44)
-      expect(box.width).toBeGreaterThanOrEqual(44)
+      const box = () => buttonHost(name).getBoundingClientRect()
+      await expect.poll(() => box().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => box().width).toBeGreaterThanOrEqual(44)
     }
   })
 
@@ -354,9 +354,9 @@ describe('ListPage selection', () => {
     await addToList(db, listId, joy.userTuneId)
     show()
     await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
-    expect(document.querySelector('ion-back-button')).not.toBeNull()
+    await expect.poll(() => document.querySelector('ion-back-button')).not.toBeNull()
     await startSelecting()
-    expect(document.querySelector('ion-back-button')).toBeNull()
+    await expect.poll(() => document.querySelector('ion-back-button')).toBeNull()
     await leaveSelection().click()
     await expect.poll(() => document.querySelector('ion-back-button')).not.toBeNull()
   })
@@ -367,21 +367,23 @@ describe('ListPage selection', () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
     await expect.element(page.getByRole('button', { name: "Reorder Soldier's Joy" })).toBeVisible()
-    expect(document.querySelectorAll('ion-reorder')).toHaveLength(2)
-    expect(reorderGroup().disabled).toBe(false)
+    await expect.poll(() => document.querySelectorAll('ion-reorder')).toHaveLength(2)
+    await expect.poll(() => reorderGroup().disabled).toBe(false)
 
     await startSelecting()
-    expect(page.getByRole('button', { name: "Reorder Soldier's Joy" }).elements()).toHaveLength(0)
-    expect(document.querySelectorAll('ion-reorder')).toHaveLength(0)
-    expect(reorderGroup().disabled).toBe(true)
-    expect(page.getByRole('button', { name: ADD_TUNES }).elements()).toHaveLength(0)
-    expect(positions()).toEqual(['1', '2'])
-    expect(document.querySelectorAll('[data-row-check]')).toHaveLength(2)
+    await expect
+      .element(page.getByRole('button', { name: "Reorder Soldier's Joy" }))
+      .not.toBeInTheDocument()
+    await expect.poll(() => document.querySelectorAll('ion-reorder')).toHaveLength(0)
+    await expect.poll(() => reorderGroup().disabled).toBe(true)
+    await expect.element(page.getByRole('button', { name: ADD_TUNES })).not.toBeInTheDocument()
+    await expect.poll(positions).toEqual(['1', '2'])
+    await expect.poll(() => document.querySelectorAll('[data-row-check]')).toHaveLength(2)
 
     await page.getByRole('button', { name: MORE_ACTIONS }).click()
     await expect.element(page.getByText(SELECT_ALL, { exact: true })).toBeVisible()
-    expect(page.getByText('Rename', { exact: true }).elements()).toHaveLength(0)
-    expect(page.getByText(DELETE_LIST, { exact: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByText('Rename', { exact: true })).not.toBeInTheDocument()
+    await expect.element(page.getByText(DELETE_LIST, { exact: true })).not.toBeInTheDocument()
   })
 
   it('shows the reorder controls again after leaving', async () => {
@@ -390,13 +392,13 @@ describe('ListPage selection', () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Angeline the Baker' })).toBeVisible()
     await startSelecting()
-    expect(document.querySelectorAll('ion-reorder')).toHaveLength(0)
+    await expect.poll(() => document.querySelectorAll('ion-reorder')).toHaveLength(0)
     await leaveSelection().click()
     await expect.element(page.getByRole('button', { name: "Reorder Soldier's Joy" })).toBeVisible()
     await vi.waitFor(() => expect(document.querySelectorAll('ion-reorder')).toHaveLength(2), {
       timeout: 3000,
     })
-    expect(reorderGroup().disabled).toBe(false)
+    await expect.poll(() => reorderGroup().disabled).toBe(false)
   })
 
   it('refuses selection while the rename sheet is open, including from a long press', async () => {
@@ -430,7 +432,7 @@ describe('ListPage selection', () => {
     // can be asserted is that the mode asks, which is what the list's own ref is there for.
     const closeOpenRows = vi.spyOn(document.querySelector('ion-list')!, 'closeSlidingItems')
     await startSelecting()
-    expect(closeOpenRows).toHaveBeenCalled()
+    await expect.poll(() => closeOpenRows).toHaveBeenCalled()
   })
 
   it('offers Select under StrictMode, which double-invokes the publish', async () => {
@@ -494,7 +496,7 @@ describe('ListPage selection', () => {
     vi.mocked(bulkModule.removeTunesFromList).mockRejectedValueOnce(new Error(BULK_REMOVE_FAILED))
     await pickFromMore('Remove 1 from list')
     await expect.element(page.getByRole('alert')).toHaveTextContent(BULK_REMOVE_FAILED)
-    expect(screenTitle()).toBe('1 selected')
+    await expect.poll(screenTitle).toBe('1 selected')
     await expect.element(leaveSelection()).toBeVisible()
   })
 
@@ -541,6 +543,6 @@ describe('ListPage selection', () => {
     await expect.element(page.getByRole('button', { name: /Square dance set/ })).toBeVisible()
     // The open list would be offered as a row reading "all in it", since it already holds the
     // tune; it is the only list that could read that way.
-    expect(page.getByText('all in it', { exact: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByText('all in it', { exact: true })).not.toBeInTheDocument()
   })
 })

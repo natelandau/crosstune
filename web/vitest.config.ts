@@ -30,6 +30,7 @@ export default defineConfig((env) =>
       },
       test: {
         restoreMocks: true,
+        mockReset: true,
         // Node re-reads TZ per Date/Intl call, so this makes a test that formats a date
         // through the runtime's default zone read the same everywhere this suite runs. Locale
         // has no equivalent pin: Node resolves ICU's default locale once at process start, so a

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { openTestDb } from '../test/db'
 import { renderIonic } from '../test/ionic'
-import { useToast } from './Toast'
+import { ANCHOR_WAIT_MS, useToast } from './Toast'
 
 function Host({ undo }: { undo?: () => void }) {
   const toast = useToast()
@@ -113,12 +113,14 @@ describe('useToast', () => {
     await page.viewport(1024, 768)
     try {
       renderIonic(<ReturningChrome comesBack={false} />, { db: openTestDb() })
-      await userEvent.click(await screen.findByText('Act'))
+      const act = await screen.findByText('Act')
+      // Started before the click, so a toast that sat through the whole wait reads at least
+      // ANCHOR_WAIT_MS however long the click itself takes to land.
       const started = performance.now()
+      await userEvent.click(act)
       await expect.element(page.getByText('Set 2 tunes to Known')).toBeVisible()
-      // Comfortably inside the wait a phone frame allows its tab bar, which this frame has no
-      // reason to sit through.
-      expect(performance.now() - started).toBeLessThan(1000)
+      // A phone frame would sit through the whole wait for its tab bar; this one waits for none.
+      expect(performance.now() - started).toBeLessThan(ANCHOR_WAIT_MS)
     } finally {
       await page.viewport(390, 844)
     }

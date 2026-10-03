@@ -25,7 +25,6 @@ beforeEach(() => {
 
 afterEach(async () => {
   vi.useRealTimers()
-  await db.delete()
 })
 
 describe('createTune', () => {

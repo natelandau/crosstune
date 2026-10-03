@@ -54,19 +54,23 @@ describe('ChoiceRow', () => {
     renderIonic(<Host />, { db: openTestDb() })
     await openPicker()
     await expect.element(page.getByRole('radio', { name: 'Compact' })).toBeVisible()
-    expect(
-      page
-        .getByRole('radio')
-        .elements()
-        .map((option) => option.textContent?.trim()),
-    ).toEqual(['Compact', 'Regular', 'Roomy'])
+    await expect
+      .poll(() =>
+        page
+          .getByRole('radio')
+          .elements()
+          .map((option) => option.textContent?.trim()),
+      )
+      .toEqual(['Compact', 'Regular', 'Roomy'])
   })
 
   it('names the field it is setting in its own picker', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await openPicker()
     await expect.element(page.getByRole('radio', { name: 'Compact' })).toBeVisible()
-    expect(document.querySelector('ion-popover')?.textContent).toContain('Text size')
+    await expect
+      .poll(() => document.querySelector('ion-popover')?.textContent)
+      .toContain('Text size')
   })
 
   it('reports a choice once and shows it in the row', async () => {
@@ -82,6 +86,6 @@ describe('ChoiceRow', () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(page.getByText('Text size')).toBeVisible()
     const item = document.querySelector('ion-item')!
-    expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
   })
 })

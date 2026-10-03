@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
@@ -27,10 +27,6 @@ let db: CrosstuneDb
 beforeEach(() => {
   db = openTestDb()
   clerk.user = { primaryEmailAddress: { emailAddress: 'nate@example.com' } }
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 function show(options: { engine?: SyncEngine; offline?: boolean } = {}) {
@@ -111,7 +107,7 @@ describe('AccountGroup', () => {
     // The closed delete sheet still holds its own rows offscreen behind a hidden modal.
     for (const item of document.querySelectorAll('ion-item')) {
       if (item.closest('.overlay-hidden')) continue
-      expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

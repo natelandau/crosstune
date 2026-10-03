@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { ApiError, NetworkError } from '../../api/client'
 import { createList } from '../../commands/lists'
@@ -35,10 +35,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 function show(onClose: () => void = () => {}) {
@@ -80,7 +76,7 @@ describe('DeleteAccountSheet', () => {
     const modal = document.querySelector<HTMLIonModalElement>('ion-modal')
     if (!modal) throw new Error('No sheet is mounted')
     await vi.waitFor(() => expect(modal.initialBreakpoint).toBe(1))
-    expect(modal.breakpoints).toEqual([0, 1])
+    await expect.poll(() => modal.breakpoints).toEqual([0, 1])
     // Closed cleanly, rather than left mid-present, so touch's extra sheet-gesture setup
     // never resolves against a component the next test has already unmounted.
     await page.getByRole('button', { name: 'Cancel' }).click()
@@ -96,7 +92,7 @@ describe('DeleteAccountSheet', () => {
       expect(dialog?.getAttribute('aria-label')).toBe(DELETE_ACCOUNT)
     })
     await expect.element(page.getByRole('heading', { name: DELETE_ACCOUNT_TITLE })).toBeVisible()
-    expect(screen.getAllByText(DELETE_ACCOUNT_TITLE)).toHaveLength(1)
+    await expect.poll(() => screen.queryAllByText(DELETE_ACCOUNT_TITLE)).toHaveLength(1)
   })
 
   it('hides the count list until counts resolve, and keeps delete disabled', async () => {
@@ -114,8 +110,8 @@ describe('DeleteAccountSheet', () => {
     await expect.element(page.getByText(UNSYNCED_LINE)).toBeVisible()
     await expect.element(page.getByText(DELETE_ACCOUNT_LEAD)).toBeVisible()
     await expect.element(page.getByText(CANNOT_UNDO)).toBeVisible()
-    expect(screen.queryByText(SETTINGS_LINE)).toBeNull()
-    expect(document.querySelector('ion-modal ul')).toBeNull()
+    await expect.element(page.getByText(SETTINGS_LINE)).not.toBeInTheDocument()
+    await expect.poll(() => document.querySelector('ion-modal ul')).toBeNull()
     await confirmField().fill('DELETE')
     await expect.element(deleteButton()).toBeEnabled()
   })

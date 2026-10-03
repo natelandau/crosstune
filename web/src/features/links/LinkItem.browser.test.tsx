@@ -34,7 +34,7 @@ describe('LinkItem', () => {
     })
     show(link, { player })
     await page.getByRole('button', { name: 'Play Jam session', exact: false }).click()
-    expect(player.play).toHaveBeenCalledWith({ kind: 'link', id: 'l1' })
+    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'link', id: 'l1' })
   })
 
   it('closes the loaded link from a button named for its player', async () => {
@@ -50,7 +50,7 @@ describe('LinkItem', () => {
       .element(page.getByRole('button', { name: 'Close Jam session player', exact: true }))
       .toBeVisible()
     await page.getByRole('button', { name: 'Close Jam session player', exact: true }).click()
-    expect(player.close).toHaveBeenCalled()
+    await expect.poll(() => player.close).toHaveBeenCalled()
   })
 
   it('names the provider once, in the link under the title', async () => {
@@ -62,9 +62,9 @@ describe('LinkItem', () => {
     show(link)
     const anchor = page.getByRole('link', { name: 'Open Jam session on Spotify' })
     await expect.element(anchor).toBeVisible()
-    expect(anchor.element().textContent).toBe('Spotify')
+    await expect.poll(() => anchor.element().textContent).toBe('Spotify')
     // The row says the provider in the link and nowhere else.
-    expect(page.getByText('Spotify', { exact: true }).elements()).toHaveLength(1)
+    await expect.poll(() => page.getByText('Spotify', { exact: true }).elements()).toHaveLength(1)
   })
 
   it('falls back to the host when the link has no title', async () => {
@@ -114,7 +114,9 @@ describe('LinkItem', () => {
     })
     show(link, { player })
     await page.getByRole('button', { name: 'Open Jam session', exact: true }).click()
-    expect(opened).toHaveBeenCalledWith('https://example.com/x', '_blank', 'noopener,noreferrer')
+    await expect
+      .poll(() => opened)
+      .toHaveBeenCalledWith('https://example.com/x', '_blank', 'noopener,noreferrer')
     expect(player.play).not.toHaveBeenCalled()
     opened.mockRestore()
   })
@@ -145,7 +147,7 @@ describe('LinkItem', () => {
     show(link)
     const anchor = page.getByRole('link', { name: 'Open Jam session on Link' })
     await expect.element(anchor).toBeVisible()
-    expect(anchor.element().textContent).toBe('Open')
+    await expect.poll(() => anchor.element().textContent).toBe('Open')
   })
 
   it('lets the link take its own tap on touch, where the row is the play control', async () => {
@@ -178,6 +180,6 @@ describe('LinkItem', () => {
     const remove = page.getByRole('button', { name: 'Remove Jam session' })
     await expect.element(remove).toBeVisible()
     await remove.click()
-    expect(onPress).toHaveBeenCalledOnce()
+    await expect.poll(() => onPress).toHaveBeenCalledOnce()
   })
 })

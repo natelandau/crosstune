@@ -83,6 +83,11 @@ function ManyKeysHost() {
   )
 }
 
+const keyNames = () =>
+  [...document.querySelectorAll('[aria-label="Key"] button')].map(
+    (button) => button.getAttribute('aria-label') ?? button.textContent,
+  )
+
 async function railElement() {
   const rail = document.querySelector<HTMLElement>('[role=group][aria-label=Key]')!
   await expect.element(page.getByRole('group', { name: 'Key' })).toBeVisible()
@@ -96,17 +101,17 @@ async function railElement() {
 async function expectNoStatusLabelOverflow() {
   // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
   await expect.element(page.getByRole('button', { name: 'Unknown', exact: true })).toBeVisible()
-  const group = document.querySelector('[role="group"][aria-label="Status"]') as HTMLElement
-  const buttons = [...group.querySelectorAll('button')]
-  expect(buttons.length).toBe(4)
-  for (const button of buttons) {
+  const buttons = () => [
+    ...document.querySelectorAll<HTMLElement>('[role="group"][aria-label="Status"] button'),
+  ]
+  await expect.poll(() => buttons().length).toBe(4)
+  for (const button of buttons()) {
     const label = button.querySelector(':scope > span')!
-    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+    await expect.poll(() => label.scrollWidth - label.clientWidth).toBeLessThanOrEqual(1)
   }
   // One line, whatever the text size: a capsule past the edge scrolls into reach rather than
   // dropping onto a second row.
-  const tops = new Set(buttons.map((button) => button.offsetTop))
-  expect(tops.size).toBe(1)
+  await expect.poll(() => new Set(buttons().map((button) => button.offsetTop)).size).toBe(1)
 }
 
 describe('CatalogFilters', () => {
@@ -129,8 +134,8 @@ describe('CatalogFilters', () => {
     renderIonic(<Host />, { db: openTestDb() })
     const rail = await railElement()
     await vi.waitFor(() => expect(rail.scrollWidth).toBeGreaterThan(0))
-    expect(rail.scrollWidth).toBeLessThanOrEqual(rail.clientWidth)
-    expect(getComputedStyle(rail).maskImage).toBe('none')
+    await expect.poll(() => rail.scrollWidth - rail.clientWidth).toBeLessThanOrEqual(0)
+    await expect.poll(() => getComputedStyle(rail).maskImage).toBe('none')
   })
 
   it('fades the key rail at its inline end and clears the fade once scrolled there', async () => {
@@ -190,7 +195,7 @@ describe('CatalogFilters', () => {
     await page.getByRole('button', { name: 'D', exact: true }).click()
     await expect.poll(() => state().key).toBe('D')
     await expect.poll(() => pill().hasAttribute('data-chosen')).toBe(true)
-    expect(getComputedStyle(pill()).backgroundColor).not.toBe(resting)
+    await expect.poll(() => getComputedStyle(pill()).backgroundColor).not.toBe(resting)
     await expect
       .element(page.getByRole('button', { name: 'D', exact: true }))
       .toHaveAttribute('aria-pressed', 'true')
@@ -199,11 +204,11 @@ describe('CatalogFilters', () => {
   it('gives two spellings of one pitch the same hue', async () => {
     renderIonic(<Host keys={['Bb', 'A#']} />, { db: openTestDb() })
     await expect.element(page.getByRole('button', { name: 'Bb', exact: true })).toBeVisible()
-    const pills = document.querySelectorAll('.key-pill[data-pitch="10"]')
-    expect(pills).toHaveLength(2)
-    expect(getComputedStyle(pills[0]!).backgroundColor).toBe(
-      getComputedStyle(pills[1]!).backgroundColor,
-    )
+    const pills = () => document.querySelectorAll('.key-pill[data-pitch="10"]')
+    await expect.poll(pills).toHaveLength(2)
+    await expect
+      .poll(() => new Set([...pills()].map((pill) => getComputedStyle(pill).backgroundColor)).size)
+      .toBe(1)
   })
 
   it('shows a set sheet filter as a removable pill, and Archived shown', async () => {
@@ -247,10 +252,7 @@ describe('CatalogFilters', () => {
     renderIonic(<Host keys={[NO_KEY, 'A', 'D']} />, { db: openTestDb() })
     const unknown = page.getByRole('button', { name: UNKNOWN_KEY, exact: true })
     await expect.element(unknown).toHaveTextContent('?')
-    const names = [...document.querySelectorAll('[aria-label="Key"] button')].map(
-      (button) => button.getAttribute('aria-label') ?? button.textContent,
-    )
-    expect(names.slice(0, 3)).toEqual([ALL_KEYS_LABEL, UNKNOWN_KEY, 'A'])
+    await expect.poll(() => keyNames().slice(0, 3)).toEqual([ALL_KEYS_LABEL, UNKNOWN_KEY, 'A'])
     await unknown.click()
     await expect.poll(() => state().key).toBe(NO_KEY)
     await expect.element(unknown).toHaveAttribute('aria-pressed', 'true')
@@ -263,10 +265,7 @@ describe('CatalogFilters', () => {
     await expect
       .element(page.getByRole('button', { name: UNKNOWN_KEY, exact: true }))
       .toHaveAttribute('aria-pressed', 'true')
-    const names = [...document.querySelectorAll('[aria-label="Key"] button')].map(
-      (button) => button.getAttribute('aria-label') ?? button.textContent,
-    )
-    expect(names.slice(0, 2)).toEqual([ALL_KEYS_LABEL, UNKNOWN_KEY])
+    await expect.poll(() => keyNames().slice(0, 2)).toEqual([ALL_KEYS_LABEL, UNKNOWN_KEY])
   })
 
   it('keeps a set key the catalog no longer holds as its own pressed chip', async () => {
@@ -309,11 +308,12 @@ describe('CatalogFilterSheet', () => {
   it('gives each facet row the shared field shape and the text inset', async () => {
     renderIonic(<Host sheet />, { db: openTestDb() })
     await expect.element(page.getByText('Filters')).toBeVisible()
-    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
-    const labels = Array.from(open.querySelectorAll('[data-row-label]')).map((e) => e.textContent)
-    expect(labels).toEqual(['Mode', FACET_LABELS['tuning:violin'], 'Genre'])
-    const count = open.querySelector('[aria-live="polite"]') as HTMLElement
-    expect(Number.parseFloat(getComputedStyle(count).paddingLeft)).toBe(32)
+    const open = () => document.querySelector('ion-modal:not(.overlay-hidden)')!
+    await expect
+      .poll(() => Array.from(open().querySelectorAll('[data-row-label]')).map((e) => e.textContent))
+      .toEqual(['Mode', FACET_LABELS['tuning:violin'], 'Genre'])
+    const count = () => open().querySelector('[aria-live="polite"]') as HTMLElement
+    await expect.poll(() => Number.parseFloat(getComputedStyle(count()).paddingLeft)).toBe(32)
   })
 
   it('shows the live count, a select per sheet facet, and the archived switch with its count', async () => {
@@ -329,10 +329,12 @@ describe('CatalogFilterSheet', () => {
         .toBeVisible()
     }
     // Scoped to the sheet: the catalog's own Key rail is also labeled "Key".
-    expect(page.getByRole('dialog').getByLabelText('Key').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('dialog').getByLabelText('Key')).not.toBeInTheDocument()
     await expect.element(page.getByText('2 archived tunes')).toBeVisible()
     // The archived count is tabular, like every other count in the catalog.
-    expect(document.querySelector('ion-modal p.type-footnote span')).toHaveClass('tabular-nums')
+    await expect
+      .poll(() => document.querySelector('ion-modal p.type-footnote span'))
+      .toHaveClass('tabular-nums')
   })
 
   it('shows a stale sheet-facet value that is no longer in the facet list', async () => {

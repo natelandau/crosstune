@@ -59,7 +59,7 @@ export function typeRoleTests(mode: string) {
       for (const role of ROLES) {
         const outside = document.querySelector(`[data-outside] .${role}`)!
         const inside = label.querySelector(`.${role}`)!
-        expect(look(inside), role).toBe(look(outside))
+        await expect.poll(() => look(inside), { message: role }).toBe(look(outside))
       }
     })
 
@@ -90,9 +90,9 @@ export function typeRoleTests(mode: string) {
       const label = document.querySelector('ion-label')!
       await vi.waitFor(() => expect(label.classList.contains('hydrated')).toBe(true))
       const color = (selector: string) => getComputedStyle(document.querySelector(selector)!).color
-      expect(color('[data-probe]')).not.toBe(color('[data-plain]'))
-      expect(color('[data-on-role]')).toBe(color('[data-plain]'))
-      expect(color('[data-on-span]')).toBe(color('[data-probe]'))
+      await expect.poll(() => color('[data-probe]')).not.toBe(color('[data-plain]'))
+      await expect.poll(() => color('[data-on-role]')).toBe(color('[data-plain]'))
+      await expect.poll(() => color('[data-on-span]')).toBe(color('[data-probe]'))
     })
 
     it('keep tabular numerals set on a role inside an ion-label', async () => {
@@ -109,7 +109,7 @@ export function typeRoleTests(mode: string) {
       const label = document.querySelector('ion-label')!
       await vi.waitFor(() => expect(label.classList.contains('hydrated')).toBe(true))
       const numerals = label.querySelector('p')!
-      expect(getComputedStyle(numerals).fontVariantNumeric).toBe('tabular-nums')
+      await expect.poll(() => getComputedStyle(numerals).fontVariantNumeric).toBe('tabular-nums')
     })
   })
 }

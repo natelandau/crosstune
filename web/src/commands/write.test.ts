@@ -34,7 +34,6 @@ describe('writes to one row in one millisecond', () => {
 
   afterEach(async () => {
     vi.useRealTimers()
-    await db.delete()
   })
 
   it('stamps each upsert and delete later than the last', async () => {

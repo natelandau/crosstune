@@ -19,7 +19,6 @@ beforeEach(() => {
 
 afterEach(async () => {
   vi.restoreAllMocks()
-  await db.delete()
 })
 
 function Harness({ speed = 100, pitch = 0 }: { speed?: number; pitch?: number }) {
@@ -67,27 +66,28 @@ describe('ModeSelector and ModeControls', () => {
     renderIonic(<Harness />, { db })
     const block = () => document.querySelector('[data-mode-controls]')!.getBoundingClientRect()
     await expect.element(page.getByText('loops body')).toBeVisible()
+    const tallest = () =>
+      Math.max(
+        ...Array.from(
+          document.querySelectorAll('[data-mode-panel]'),
+          (panel) => panel.getBoundingClientRect().height,
+        ),
+      )
+    await expect.poll(() => block().height - tallest()).toBe(0)
     const height = block().height
-    const tallest = Math.max(
-      ...Array.from(
-        document.querySelectorAll('[data-mode-panel]'),
-        (panel) => panel.getBoundingClientRect().height,
-      ),
-    )
-    expect(height).toBe(tallest)
     for (const name of [SPEED, PITCH, LOOPS_LABEL]) {
       await segment(name).click({ force: true })
       await expect.element(segment(name)).toHaveAttribute('aria-selected', 'true')
-      expect(block().height).toBe(height)
+      await expect.poll(() => block().height).toBe(height)
     }
     // Only the chosen panel's controls can be reached.
-    expect(page.getByRole('slider', { name: SPEED }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('slider', { name: SPEED })).not.toBeInTheDocument()
   })
 
   it('remembers the last mode', async () => {
     const first = renderIonic(<Harness />, { db })
     await segment(PITCH).click({ force: true })
-    expect(localStorage.getItem(MODE_KEY)).toBe('pitch')
+    await expect.poll(() => localStorage.getItem(MODE_KEY)).toBe('pitch')
     first.unmount()
     renderIonic(<Harness />, { db })
     await expect.element(segment(PITCH)).toHaveAttribute('aria-selected', 'true')

@@ -80,7 +80,6 @@ afterEach(async () => {
   // Resets call counts and any one-off rejection a failed test left unconsumed; a spied module
   // falls back to its real implementation.
   vi.resetAllMocks()
-  await db.delete()
 })
 
 /**
@@ -128,7 +127,7 @@ describe('TuneScreen', () => {
     }
     await expect.element(page.getByText('Learned from Jim')).toBeVisible()
     await expect.element(page.getByText('Watch the B part.')).toBeVisible()
-    expect(page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
+    await expect.poll(() => page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
   })
 
   it('holds every facet in one row under the title, the key first', async () => {
@@ -136,17 +135,12 @@ describe('TuneScreen', () => {
     await expect.element(title()).toBeVisible()
     const row = document.querySelector('[data-tune-facets]')!
     const pill = row.querySelector('.key-pill')!
-    expect(pill.getAttribute('data-pitch')).toBe('2')
-    expect(pill.textContent).toBe('D')
+    await expect.poll(() => pill.getAttribute('data-pitch')).toBe('2')
+    await expect.poll(() => pill.textContent).toBe('D')
     // Every facet is a child of this one row, so none of them sits on a line of its own.
-    expect(Array.from(row.children).map((child) => child.textContent)).toEqual([
-      'D',
-      'major',
-      'Learning',
-      'Violin: Standard (GDAE)',
-      'Crooked',
-      'Old-time',
-    ])
+    await expect
+      .poll(() => Array.from(row.children).map((child) => child.textContent))
+      .toEqual(['D', 'major', 'Learning', 'Violin: Standard (GDAE)', 'Crooked', 'Old-time'])
   })
 
   it('lists every part mode in order and the composer', async () => {
@@ -166,8 +160,8 @@ describe('TuneScreen', () => {
       .element(page.getByRole('heading', { name: 'The Bucks of Oranmore', level: 1 }))
       .toBeVisible()
     const facets = document.querySelector('[data-tune-facets]')!
-    expect(facets.textContent).toMatch(/major.*minor/)
-    expect(facets.textContent).toContain('Reel')
+    await expect.poll(() => facets.textContent).toMatch(/major.*minor/)
+    await expect.poll(() => facets.textContent).toContain('Reel')
     await expect.element(page.getByText(`${COMPOSER_LABEL}: Ed Reavy`)).toBeInTheDocument()
   })
 
@@ -175,7 +169,7 @@ describe('TuneScreen', () => {
     show()
     await expect.element(title()).toBeVisible()
     const content = title().element().closest('ion-content')!
-    expect(content.classList.contains('grouped')).toBe(true)
+    await expect.poll(() => content.classList.contains('grouped')).toBe(true)
     await vi.waitFor(() => {
       expect(content.querySelector('ion-list')!.classList.contains('list-inset')).toBe(true)
     })
@@ -214,7 +208,7 @@ describe('TuneScreen', () => {
     await expect
       .element(page.getByRole('heading', { name: 'Cluck Old Hen', level: 1 }))
       .toBeVisible()
-    expect(page.getByText('Crooked', { exact: true }).elements()).toHaveLength(2)
+    await expect.poll(() => page.getByText('Crooked', { exact: true }).elements()).toHaveLength(2)
     expect(errors.mock.calls.flat().join(' ')).not.toContain('same key')
   })
 
@@ -263,18 +257,16 @@ describe('TuneScreen', () => {
     await expect
       .element(page.getByRole('heading', { name: 'Jam recording', level: 3 }))
       .toBeVisible()
-    expect(Array.from(document.querySelectorAll('h2')).map((h) => h.textContent)).toEqual([
-      'Recordings',
-      'Lists',
-      'Notes',
-    ])
-    expect(page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
+    await expect
+      .poll(() => Array.from(document.querySelectorAll('h2')).map((h) => h.textContent))
+      .toEqual(['Recordings', 'Lists', 'Notes'])
+    await expect.poll(() => page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
   })
 
   it('points Back at the parent', async () => {
     show()
     await expect.element(title()).toBeVisible()
-    expect(document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
+    await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
   })
 
   it('lists the lists the tune is in and removes it from one', async () => {
@@ -296,7 +288,7 @@ describe('TuneScreen', () => {
     button.click()
     button.click()
     await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
-    expect(listsModule.removeFromList).toHaveBeenCalledTimes(1)
+    await expect.poll(() => listsModule.removeFromList).toHaveBeenCalledTimes(1)
   })
 
   it('removes the same list item again after it is restored', async () => {
@@ -308,7 +300,7 @@ describe('TuneScreen', () => {
     await db.list_items.update(itemId, { deleted_at: null })
     await page.getByRole('button', { name: 'Remove Tuesday jam' }).click()
     await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
-    expect(listsModule.removeFromList).toHaveBeenCalledTimes(2)
+    await expect.poll(() => listsModule.removeFromList).toHaveBeenCalledTimes(2)
   })
 
   it('shows a failed removal', async () => {
@@ -353,7 +345,7 @@ describe('TuneScreen', () => {
     await vi.waitFor(() =>
       expect(document.querySelector('ion-alert:not(.overlay-hidden)')).toBeNull(),
     )
-    expect((await db.tunes.get(ids.tuneId))?.deleted_at).toBeNull()
+    await expect.poll(async () => (await db.tunes.get(ids.tuneId))?.deleted_at).toBeNull()
     await openMenuItem('Delete')
     await (await alertButton('Delete')).click()
     await vi.waitFor(async () =>
@@ -371,8 +363,8 @@ describe('TuneScreen', () => {
     button.click()
     button.click()
     await expect.element(page.getByRole('heading', { name: 'Catalog probe' })).toBeVisible()
-    expect(tunesModule.deleteTune).toHaveBeenCalledTimes(1)
-    expect(page.getByText(TUNE_GONE).elements()).toHaveLength(0)
+    await expect.poll(() => tunesModule.deleteTune).toHaveBeenCalledTimes(1)
+    await expect.element(page.getByText(TUNE_GONE)).not.toBeInTheDocument()
   })
 
   it('asks once when the Delete menu item is pressed twice', async () => {
@@ -385,7 +377,7 @@ describe('TuneScreen', () => {
     item.click()
     item.click()
     await expect.element(await alertButton(CANCEL)).toBeVisible()
-    expect(confirmCalls).toBe(1)
+    await expect.poll(() => confirmCalls).toBe(1)
   })
 
   it('shows that a slow delete is in progress', async () => {
@@ -399,7 +391,7 @@ describe('TuneScreen', () => {
     await (await alertButton('Delete')).click()
     await expect.element(page.getByText(DELETING)).toBeVisible()
     await expect.element(title()).toBeVisible()
-    expect(page.getByRole('button', { name: MORE_ACTIONS }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).not.toBeInTheDocument()
     write.open()
     await expect.element(page.getByRole('heading', { name: 'Catalog probe' })).toBeVisible()
   })
@@ -422,7 +414,7 @@ describe('TuneScreen', () => {
   it('says the tune is gone for an unknown id', async () => {
     show('missing')
     await expect.element(page.getByText(TUNE_GONE)).toBeVisible()
-    expect(document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
+    await expect.poll(() => document.querySelector('ion-back-button')?.defaultHref).toBe('/catalog')
   })
 
   it('says the tune is gone when it is deleted elsewhere while open', async () => {
@@ -461,7 +453,7 @@ describe('TuneScreen', () => {
     await expect
       .element(page.elementLocator(lists).getByRole('button', { name: ADD_TO_LIST }))
       .toBeVisible()
-    expect(document.querySelector('ion-list[aria-label="Lists"]')).toBeNull()
+    await expect.poll(() => document.querySelector('ion-list[aria-label="Lists"]')).toBeNull()
     await expect.element(page.getByText(NOT_IN_LIST)).toBeVisible()
   })
 
@@ -474,7 +466,9 @@ describe('TuneScreen', () => {
     // A filled block button rather than a card row: the one bold control on the screen.
     const host = document.querySelector<HTMLElement>('ion-button[expand="block"]')!
     expect(host.textContent).toContain(OPEN_LYRICS)
-    expect(Math.round(host.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
+    await expect
+      .poll(() => Math.round(host.getBoundingClientRect().height))
+      .toBeGreaterThanOrEqual(44)
     expect(host.closest('ion-list')).toBeNull()
   })
 

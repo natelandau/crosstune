@@ -89,7 +89,6 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks()
-  await db.delete()
 })
 
 const show = () => renderScreen(<CatalogPage />, { db, path: '/catalog' })
@@ -244,7 +243,7 @@ describe('CatalogPage', () => {
     await search().fill('cluck')
     await expect.poll(() => row("Soldier's Joy").elements().length).toBe(0)
     await expect.element(row('Cluck Old Hen')).toBeVisible()
-    expect(readSearchQuery()).toBe('cluck')
+    await expect.poll(readSearchQuery).toBe('cluck')
   })
 
   it('persists a status filter in the meta table, not the session query', async () => {
@@ -261,28 +260,29 @@ describe('CatalogPage', () => {
   })
 
   it('writes the status filter once per tap and shows it while the write is in flight', async () => {
-    const warn = vi.spyOn(console, 'warn')
     const write = gate()
     holdFilterWrites([{ before: write.opened }])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
+    const warn = vi.spyOn(console, 'warn')
     const known = page.getByRole('button', { name: 'Known', exact: true })
     await known.click({ force: true })
     await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     // A tune arriving mid-write re-renders the filters with the stored status.
     await createTune(db, { title: 'Angeline the Baker' }, { status: 'known' })
     await expect.element(row('Angeline the Baker')).toBeVisible()
-    expect(known.element().getAttribute('aria-pressed')).toBe('true')
+    await expect.element(known).toHaveAttribute('aria-pressed', 'true')
     write.open()
     await expect.poll(async () => storedStatus()).toBe('known')
     await expect.poll(() => row('Cluck Old Hen').elements().length).toBe(0)
     await expect.element(known).toHaveAttribute('aria-pressed', 'true')
-    const filterWrites = vi
-      .mocked(metaModule.setMeta)
-      .mock.calls.filter(([, key]) => key === META_CATALOG_FILTERS)
-    expect(filterWrites).toHaveLength(1)
+    await expect
+      .poll(() =>
+        vi.mocked(metaModule.setMeta).mock.calls.filter(([, key]) => key === META_CATALOG_FILTERS),
+      )
+      .toHaveLength(1)
     expect(warn).not.toHaveBeenCalled()
-    expect(page.getByRole('alert').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows the stored status filter again and says so when its write fails', async () => {
@@ -306,12 +306,12 @@ describe('CatalogPage', () => {
   })
 
   it('keeps a later status filter showing when an earlier write fails', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const first = gate()
     const second = gate()
     holdFilterWrites([{ before: first.opened, fail: true }, { before: second.opened }])
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     const learning = page.getByRole('button', { name: 'Learning', exact: true })
     await learning.click({ force: true })
@@ -320,7 +320,7 @@ describe('CatalogPage', () => {
     await expect.element(page.getByRole('alert')).toBeVisible()
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     expect(learning.element().getAttribute('aria-pressed')).toBe('true')
-    expect(warn).toHaveBeenCalledTimes(1)
+    await expect.poll(() => warn).toHaveBeenCalledTimes(1)
     second.open()
     await expect.poll(async () => storedStatus()).toBe('learning')
     await expect.poll(() => page.getByRole('alert').elements().length).toBe(0)
@@ -367,7 +367,7 @@ describe('CatalogPage', () => {
     const archiveError = page.getByText(TUNE_NOT_FOUND)
     await expect.element(archiveError).toBeVisible()
     await expect.element(filterError).toBeVisible()
-    expect(page.getByRole('alert').elements()).toHaveLength(2)
+    await expect.poll(() => page.getByRole('alert').elements()).toHaveLength(2)
     await page.getByRole('button', { name: 'Known', exact: true }).click({ force: true })
     await expect.poll(async () => storedStatus()).toBe('known')
     await expect.poll(() => filterError.elements().length).toBe(0)
@@ -409,6 +409,7 @@ describe('CatalogPage', () => {
     try {
       show()
       await search().fill('Sally Goodin')
+      await expect.poll(readSearchQuery).toBe('Sally Goodin')
       await userEvent.keyboard('{Enter}')
       await new Promise((resolve) => setTimeout(resolve, 300))
       expect(readSearchQuery()).toBe('Sally Goodin')
@@ -443,11 +444,14 @@ describe('CatalogPage', () => {
     await expect.element(page.getByText('"Soldier\'s Joy" is archived.')).toBeVisible()
     const open = page.getByRole('link', { name: "Open Soldier's Joy" })
     await expect.element(open).toBeVisible()
-    const target = open.element().getBoundingClientRect()
-    expect(target.height).toBeGreaterThanOrEqual(44)
-    expect(target.width).toBeGreaterThanOrEqual(44)
+    await expect
+      .poll(() => open.element().getBoundingClientRect().height)
+      .toBeGreaterThanOrEqual(44)
+    await expect.poll(() => open.element().getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
     // The larger target must not push the sentence onto a taller line.
-    expect(open.element().closest('p')!.getBoundingClientRect().height).toBeLessThan(44)
+    await expect
+      .poll(() => open.element().closest('p')!.getBoundingClientRect().height)
+      .toBeLessThan(44)
     await open.click()
     await expect
       .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
@@ -472,33 +476,29 @@ describe('CatalogPage', () => {
     await search().fill('cluck')
     await search().fill('')
     await expect.element(row('Cluck Old Hen')).toBeVisible()
-    expect(row("Soldier's Joy").elements()).toHaveLength(0)
-    expect((await getMeta<{ status: string } | null>(db, META_CATALOG_FILTERS, null))?.status).toBe(
-      'learning',
-    )
+    await expect.poll(() => row("Soldier's Joy").elements()).toHaveLength(0)
+    await expect.poll(storedStatus).toBe('learning')
   })
 
   it('shows a tune key as a colored pill, still named for a screen reader', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
     // The rows sort by title, so Cluck Old Hen's own key pill comes first in the document.
-    const meta = row("Soldier's Joy")
-      .element()
-      .closest('ion-item')!
-      .querySelector('[data-tune-meta]')!
-    const pill = meta.querySelector('.key-pill')!
-    expect(pill.getAttribute('data-pitch')).toBe('2')
-    expect(pill.textContent).toBe('D')
-    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key D')
+    const meta = () =>
+      row("Soldier's Joy").element().closest('ion-item')!.querySelector('[data-tune-meta]')!
+    const pill = () => meta().querySelector('.key-pill')!
+    await expect.poll(() => pill().getAttribute('data-pitch')).toBe('2')
+    await expect.poll(() => pill().textContent).toBe('D')
+    await expect.poll(() => meta().querySelector('.sr-only')!.textContent).toBe('Key D')
   })
 
   it('puts Filters in the search row and leaves the toolbar to Add tune and More actions', async () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
-    const searchRow = search().element().closest('ion-toolbar')!
-    expect(searchRow.contains(buttonHost('Filters'))).toBe(true)
+    const searchRow = () => search().element().closest('ion-toolbar')!
+    await expect.poll(() => searchRow().contains(buttonHost('Filters'))).toBe(true)
     for (const name of [ADD_TUNE, MORE_ACTIONS]) {
-      expect(searchRow.contains(buttonHost(name)), name).toBe(false)
+      await expect.poll(() => searchRow().contains(buttonHost(name)), { message: name }).toBe(false)
     }
   })
 
@@ -533,7 +533,7 @@ describe('CatalogPage', () => {
     show()
     await expect.element(page.getByText(NO_TUNES_TITLE)).toBeVisible()
     await expect.element(page.getByText(NO_TUNES_HINT)).toBeVisible()
-    expect(page.getByText(/\d+ tunes?$/).elements()).toHaveLength(0)
+    await expect.poll(() => page.getByText(/\d+ tunes?$/).elements()).toHaveLength(0)
   })
 
   it('opens the new tune form with the query as its title from Enter and clears the search', async () => {
@@ -542,12 +542,13 @@ describe('CatalogPage', () => {
     await userEvent.keyboard('{Enter}')
     await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue('Sally Goodin')
-    expect(readSearchQuery()).toBe('')
+    await expect.poll(readSearchQuery).toBe('')
   })
 
   it('does not act on Enter while an input method is composing', async () => {
     show()
     await search().fill('Sally Goodin')
+    await expect.poll(readSearchQuery).toBe('Sally Goodin')
     search()
       .element()
       .dispatchEvent(
@@ -564,10 +565,8 @@ describe('CatalogPage', () => {
     await search().fill('cluck')
     await page.getByRole('button', { name: CLEAR_SEARCH }).click()
     await expect.element(search()).toHaveValue('')
-    expect(readSearchQuery()).toBe('')
-    expect((await getMeta<{ status: string } | null>(db, META_CATALOG_FILTERS, null))?.status).toBe(
-      'learning',
-    )
+    await expect.poll(readSearchQuery).toBe('')
+    await expect.poll(storedStatus).toBe('learning')
   })
 
   it('opens the only visible tune from Enter', async () => {
@@ -611,10 +610,13 @@ describe('CatalogPage', () => {
     await page.getByRole('button', { name: 'Archive Cluck Old Hen' }).click()
     const alert = page.getByRole('alert')
     await expect.element(alert).toHaveTextContent(TUNE_NOT_FOUND)
-    const list = document.querySelector('ion-list')!
-    expect(
-      alert.element().compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    await expect
+      .poll(
+        () =>
+          alert.element().compareDocumentPosition(document.querySelector('ion-list')!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      .toBeTruthy()
   })
 
   it('unarchives an archived row', async () => {
@@ -656,14 +658,18 @@ describe('CatalogPage', () => {
     await expect
       .poll(async () => getMeta<Record<string, unknown> | null>(db, META_CATALOG_FILTERS, null))
       .toMatchObject({ status: 'known', 'tuning:violin': 'all' })
-    const stored = await getMeta<Record<string, unknown>>(db, META_CATALOG_FILTERS, {})
-    expect('violin_tuning' in stored).toBe(false)
+    await expect
+      .poll(
+        async () =>
+          'violin_tuning' in (await getMeta<Record<string, unknown>>(db, META_CATALOG_FILTERS, {})),
+      )
+      .toBe(false)
   })
 
   it('focuses search with / on a mouse', async () => {
     show()
     await expect.element(row("Soldier's Joy")).toBeVisible()
-    expect(await pressSlash()).toBe(true)
+    await expect.poll(pressSlash).toBe(true)
     await vi.waitFor(() => expect(document.activeElement?.closest('ion-searchbar')).not.toBeNull())
   })
 
@@ -717,7 +723,7 @@ describe('CatalogPage', () => {
     const opens = document.querySelectorAll<HTMLElement>('[data-row-open]')
     opens[0]!.focus()
     await userEvent.keyboard('{ArrowDown}')
-    expect(document.activeElement).toBe(opens[1])
+    await expect.poll(() => document.activeElement).toBe(opens[1])
   })
 
   it('syncs when pulled to refresh on touch', async () => {
@@ -725,11 +731,13 @@ describe('CatalogPage', () => {
     const sync = vi.fn(async () => {})
     renderScreen(<CatalogPage />, { db, path: '/catalog', engine: fakeEngine({ sync }) })
     await expect.element(row("Soldier's Joy")).toBeVisible()
+    await expect
+      .poll(() => document.querySelector('ion-refresher')?.parentElement?.tagName)
+      .toBe('ION-CONTENT')
     const refresher = document.querySelector('ion-refresher')!
-    expect(refresher.parentElement?.tagName).toBe('ION-CONTENT')
     const complete = vi.fn()
     refresher.dispatchEvent(new CustomEvent('ionRefresh', { detail: { complete } }))
-    expect(sync).toHaveBeenCalledOnce()
+    await expect.poll(() => sync).toHaveBeenCalledOnce()
     await expect.poll(() => complete.mock.calls.length).toBe(1)
   })
 
@@ -745,9 +753,12 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
     for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
-      const box = buttonHost(name).getBoundingClientRect()
-      expect(box.height).toBeGreaterThanOrEqual(44)
-      expect(box.width).toBeGreaterThanOrEqual(44)
+      await expect
+        .poll(() => buttonHost(name).getBoundingClientRect().height)
+        .toBeGreaterThanOrEqual(44)
+      await expect
+        .poll(() => buttonHost(name).getBoundingClientRect().width)
+        .toBeGreaterThanOrEqual(44)
     }
   })
 
@@ -757,16 +768,22 @@ describe('CatalogPage selection', () => {
       show()
       await expect.element(more()).toBeVisible()
       for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
-        const box = buttonHost(name).getBoundingClientRect()
-        expect(box.height, name).toBeGreaterThanOrEqual(44)
-        expect(box.width, name).toBeGreaterThanOrEqual(44)
+        await expect
+          .poll(() => buttonHost(name).getBoundingClientRect().height, { message: name })
+          .toBeGreaterThanOrEqual(44)
+        await expect
+          .poll(() => buttonHost(name).getBoundingClientRect().width, { message: name })
+          .toBeGreaterThanOrEqual(44)
       }
       await search().fill('zzz')
       await expect.element(more()).not.toBeInTheDocument()
       for (const name of ['Filters', ADD_TUNE]) {
-        const box = buttonHost(name).getBoundingClientRect()
-        expect(box.height, name).toBeGreaterThanOrEqual(44)
-        expect(box.width, name).toBeGreaterThanOrEqual(44)
+        await expect
+          .poll(() => buttonHost(name).getBoundingClientRect().height, { message: name })
+          .toBeGreaterThanOrEqual(44)
+        await expect
+          .poll(() => buttonHost(name).getBoundingClientRect().width, { message: name })
+          .toBeGreaterThanOrEqual(44)
       }
     } finally {
       await page.viewport(390, 844)
@@ -782,7 +799,7 @@ describe('CatalogPage selection', () => {
     for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
       await expect.element(page.getByRole('button', { name })).toBeVisible()
     }
-    expect(page.getByRole('button', { name: 'Status' }).elements()).toHaveLength(0)
+    await expect.poll(() => page.getByRole('button', { name: 'Status' }).elements()).toHaveLength(0)
   })
 
   it('enters selection from the More menu and leaves from the toolbar', async () => {
@@ -801,7 +818,7 @@ describe('CatalogPage selection', () => {
     await expect.element(row('Cluck Old Hen')).toBeVisible()
     await longPressRow(0)
     await expect.element(rowCheckbox(/^Deselect Cluck Old Hen/)).toBeChecked()
-    expect(screenTitle()).toBe('1 selected')
+    await expect.poll(screenTitle).toBe('1 selected')
   })
 
   it('releases the click guard, so the next tap selects a second row', async () => {
@@ -809,7 +826,7 @@ describe('CatalogPage selection', () => {
     show()
     await expect.element(row('Cluck Old Hen')).toBeVisible()
     await longPressRow(0)
-    expect(screenTitle()).toBe('1 selected')
+    await expect.poll(screenTitle).toBe('1 selected')
     await rowCheckbox(/^Select Soldier's Joy/).click()
     await expect.poll(screenTitle).toBe('2 selected')
   })
@@ -948,7 +965,7 @@ describe('CatalogPage selection', () => {
     await userEvent.keyboard('{Escape}')
     await expect.element(search()).toHaveValue('')
     await expect.element(leaveSelection()).toBeVisible()
-    expect(readSearchQuery()).toBe('')
+    await expect.poll(readSearchQuery).toBe('')
   })
 
   it('sets the status of a selection from the toolbar', async () => {

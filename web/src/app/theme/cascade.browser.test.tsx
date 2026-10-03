@@ -24,8 +24,8 @@ describe('stylesheet cascade', () => {
     renderIonic(<h2 className="m-0">Heading</h2>, { db: openTestDb() })
     const heading = await screen.findByRole('heading', { name: 'Heading' })
     const style = getComputedStyle(heading)
-    expect(style.marginTop).toBe('0px')
-    expect(style.marginBottom).toBe('0px')
+    await expect.poll(() => style.marginTop).toBe('0px')
+    await expect.poll(() => style.marginBottom).toBe('0px')
   })
 
   it('sets the root size from the text size setting', () => {

@@ -2,7 +2,7 @@ import { IonContent, IonPage, IonRouterOutlet, IonTabs } from '@ionic/react'
 import { IonReactMemoryRouter } from '@ionic/react-router'
 import { StrictMode } from 'react'
 import { Route } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { PhoneTabBar } from '../../app/PhoneTabBar'
 import { RECORD_LABEL } from '../../app/tabs'
@@ -27,6 +27,7 @@ import { Screen } from '../../ui/Screen'
 import { loopRow } from '../../test/rows'
 import { loopHolds } from '../practice/useLoopFollow'
 import { DOWNLOAD_FAILED } from '../recording/format'
+import { NEW_RECORDING } from '../recording/RecordModal'
 import { RecordProvider, useRecord } from '../recording/useRecord'
 import { Dock, PLAY_FAILED } from './Dock'
 import { PlaybackEngine, type EngineClock } from './playbackEngine'
@@ -62,10 +63,6 @@ let tuneId: string
 beforeEach(async () => {
   db = openTestDb()
   tuneId = (await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })).tuneId
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 function addYouTube() {
@@ -338,7 +335,7 @@ describe('Dock', () => {
 
     await badge.click()
     await expect.element(page.getByRole('dialog', { name: 'Jam recording' })).toBeVisible()
-    expect(engine.getState().repeat).toBe(true)
+    await expect.poll(() => engine.getState().repeat).toBe(true)
   })
 
   describe('with Practice closed', () => {
@@ -366,9 +363,9 @@ describe('Dock', () => {
       await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'bbbbbbbb', 500)
       // The loop's source times, now in seconds into a blob that starts 500 ms in.
       await expect.poll(() => engine.loopRange).toMatchObject({ fromS: 0, toS: 2 })
-      expect(engine.getState().repeat).toBe(true)
+      await expect.poll(() => engine.getState().repeat).toBe(true)
       element.currentTime = 1
-      await new Promise((resolve) => setTimeout(resolve, 120))
+      await expect.poll(() => engine.getState().positionMs).toBe(1000)
       element.currentTime = 2.1
       await expect.poll(() => element.currentTime).toBe(0)
     })
@@ -380,7 +377,7 @@ describe('Dock', () => {
         .toBeVisible()
       await removeLoop(db, loop)
       await expect.poll(() => engine.getState().repeat).toBe(false)
-      expect(engine.getState().loop).toBeNull()
+      await expect.poll(() => engine.getState().loop).toBeNull()
       await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
     })
 
@@ -390,7 +387,7 @@ describe('Dock', () => {
       await expect
         .element(dock().getByRole('button', { name: REPEATING_BADGE('Bridge') }))
         .toBeVisible()
-      expect(engine.loopRange?.label).toBe('Bridge')
+      await expect.poll(() => engine.loopRange?.label).toBe('Bridge')
     })
   })
 
@@ -419,12 +416,12 @@ describe('Dock', () => {
       engine.setRepeat(true)
       await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).not.toBeNull()
       const wrapper = dockElement()!.querySelector<HTMLElement>('[data-repeat-badge]')!
-      const box = wrapper.getBoundingClientRect()
+      const box = () => wrapper.getBoundingClientRect()
       for (const target of wrapper.querySelectorAll('button')) {
-        const rect = target.getBoundingClientRect()
-        expect(rect.width).toBeGreaterThanOrEqual(44)
-        expect(rect.left).toBeGreaterThanOrEqual(box.left - 0.5)
-        expect(rect.right).toBeLessThanOrEqual(box.right + 0.5)
+        const rect = () => target.getBoundingClientRect()
+        await expect.poll(() => rect().width).toBeGreaterThanOrEqual(44)
+        await expect.poll(() => rect().left - box().left).toBeGreaterThanOrEqual(-0.5)
+        await expect.poll(() => rect().right - box().right).toBeLessThanOrEqual(0.5)
       }
     } finally {
       await page.viewport(390, 844)
@@ -452,8 +449,8 @@ describe('Dock', () => {
       .click()
     await expect.poll(() => engine.getState().repeat).toBe(false)
     await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
-    expect(engine.getState().loop).toBeNull()
-    expect(loopHolds(engine).get()).toBeNull()
+    await expect.poll(() => engine.getState().loop).toBeNull()
+    await expect.poll(() => loopHolds(engine).get()).toBeNull()
   })
 
   it('formats the pitch badge in semitones, one decimal only off a whole semitone', () => {
@@ -503,7 +500,7 @@ describe('Dock', () => {
     await updateRecording(db, id, { speed_percent: 75, pitch_cents: -100 })
     await expect.poll(() => setSpeed.mock.calls.length).toBe(1)
     expect(setSpeed.mock.calls[0]![0]).toBe(75)
-    expect(setPitch.mock.calls[0]![0]).toBe(-100)
+    await expect.poll(() => setPitch.mock.calls[0]?.[0]).toBe(-100)
 
     expect(load).toHaveBeenCalledTimes(1)
   })
@@ -579,10 +576,10 @@ describe('Dock', () => {
     expect(create).toHaveBeenCalledTimes(2)
     const secondSrc = create.mock.results[1]!.value as string
     expect(secondSrc).not.toBe(firstSrc)
-    expect(revoke).toHaveBeenCalledWith(firstSrc)
+    await expect.poll(() => revoke).toHaveBeenCalledWith(firstSrc)
     expect(load.mock.calls[1]![0]).toBe(secondSrc)
     expect(load.mock.calls[1]![4]).toEqual({ keepLoop: true })
-    expect(engine.getState().repeat).toBe(true)
+    await expect.poll(() => engine.getState().repeat).toBe(true)
     // The reload alone applies the new span; setWindow never ran against the old, superseded
     // blob in between.
     expect(setWindow).not.toHaveBeenCalled()
@@ -603,7 +600,7 @@ describe('Dock', () => {
     await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'bbbbbbbb', 0)
     await expect.poll(() => load.mock.calls.length).toBe(2)
     await expect.element(dock().getByRole('button', { name: PLAY })).toBeVisible()
-    expect(engine.getState()).toMatchObject({ playing: false, positionMs: 1500 })
+    await expect.poll(() => engine.getState()).toMatchObject({ playing: false, positionMs: 1500 })
   })
 
   it('keeps a playing recording playing, at its place, when a trim replaces its blob', async () => {
@@ -619,7 +616,7 @@ describe('Dock', () => {
 
     await storeDownloadedBlob(db, id, new Blob(['xyz']), 'audio/mp4', 'bbbbbbbb', 0)
     await expect.poll(() => load.mock.calls.length).toBe(2)
-    expect(engine.getState()).toMatchObject({ playing: true, positionMs: 1500 })
+    await expect.poll(() => engine.getState()).toMatchObject({ playing: true, positionMs: 1500 })
   })
 
   it('plays a stale blob while fetching the current revision, then swaps it in', async () => {
@@ -652,7 +649,7 @@ describe('Dock', () => {
 
     release()
     await expect.poll(() => load.mock.calls.length).toBe(2)
-    expect(engine.getState()).toMatchObject({ playing: true, positionMs: 1000 })
+    await expect.poll(() => engine.getState()).toMatchObject({ playing: true, positionMs: 1000 })
     expect(download).toHaveBeenCalledTimes(1)
   })
 
@@ -667,15 +664,17 @@ describe('Dock', () => {
 
     await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
     await expect.poll(() => dockElement()).toBeNull()
-    expect(engine.getState()).toEqual({
-      playing: false,
-      positionMs: 0,
-      lengthMs: 0,
-      failed: false,
-      pitchUnavailable: false,
-      loop: null,
-      repeat: false,
-    })
+    await expect
+      .poll(() => engine.getState())
+      .toEqual({
+        playing: false,
+        positionMs: 0,
+        lengthMs: 0,
+        failed: false,
+        pitchUnavailable: false,
+        loop: null,
+        repeat: false,
+      })
   })
 
   it('unloads the engine when starting a recording closes the player', async () => {
@@ -702,7 +701,8 @@ describe('Dock', () => {
 
       await page.getByRole('button', { name: 'Start recording' }).click()
       await expect.poll(() => dockElement()).toBeNull()
-      expect(engine.getState().playing).toBe(false)
+      await expect.poll(() => engine.getState().playing).toBe(false)
+      await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeVisible()
     } finally {
       for (const [key, descriptor] of owned) {
         if (descriptor) Object.defineProperty(navigator, key, descriptor)
@@ -768,7 +768,7 @@ describe('Dock', () => {
     const remaining = dock().getByRole('timer', { name: /^Remaining /, exact: false })
     await expect.element(remaining).toBeVisible()
     // The visible text keeps its minus sign; only the accessible name drops it.
-    expect(await remaining.element().getAttribute('aria-label')).not.toContain('-')
+    await expect.poll(() => remaining.element().getAttribute('aria-label')).not.toContain('-')
     await expect.element(dock().getByText(SPEED_LABEL, { exact: false })).toBeVisible()
     await expect.element(dock().getByText(PITCH_LABEL, { exact: false })).toBeVisible()
   })
@@ -807,7 +807,7 @@ describe('Dock', () => {
     // minted, by a kept pass or a discarded one, is revoked exactly once.
     const minted = create.mock.results.map((result) => result.value as string)
     expect(minted.length).toBeGreaterThanOrEqual(2)
-    expect(revoke).toHaveBeenCalledTimes(minted.length)
+    await expect.poll(() => revoke).toHaveBeenCalledTimes(minted.length)
     for (const url of minted) expect(revoke).toHaveBeenCalledWith(url)
   })
 
@@ -833,15 +833,15 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play second' }).click()
     await expect.element(page.getByText('Second recording')).toBeVisible()
     await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
-    expect(create).toHaveBeenCalledTimes(2)
+    await expect.poll(() => create).toHaveBeenCalledTimes(2)
     const secondSrc = create.mock.results[1]!.value as string
     expect(secondSrc).not.toBe(firstSrc)
 
     // Keyed by recording id, RecordingBody remounts rather than being reused across the
     // switch, so its own load never runs with a url the switch already revoked: each call's
     // src is exactly the one minted for that recording, never the other's.
-    expect(load.mock.calls.map((call) => call[0])).toEqual([firstSrc, secondSrc])
-    expect(revoke).toHaveBeenCalledWith(firstSrc)
+    await expect.poll(() => load.mock.calls.map((call) => call[0])).toEqual([firstSrc, secondSrc])
+    await expect.poll(() => revoke).toHaveBeenCalledWith(firstSrc)
   })
 
   it('keeps one object url while the recording is read again', async () => {
@@ -974,10 +974,10 @@ describe('Dock', () => {
     }
     expect(removed.some((node) => node === section || node.contains(section))).toBe(false)
     expect(dockElement()).toBe(section)
-    expect(section!.querySelectorAll('iframe')).toHaveLength(1)
-    expect(section!.querySelector('iframe')!.src).toBe(
-      'https://open.spotify.com/embed/track/403iATVGis7FqKA0BcTSRt',
-    )
+    await expect.poll(() => section!.querySelectorAll('iframe')).toHaveLength(1)
+    await expect
+      .poll(() => section!.querySelector('iframe')?.src)
+      .toBe('https://open.spotify.com/embed/track/403iATVGis7FqKA0BcTSRt')
   })
 
   it('publishes its offset for floating controls and clears it on close', async () => {
@@ -989,11 +989,11 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play link' }).click()
     await expect.element(dock()).toBeVisible()
     // The video player's 200px plus the dock's own 56px of chrome.
-    expect(published()).toBe('calc(256px + var(--tab-bar-cap))')
+    await expect.poll(published).toBe('calc(256px + var(--tab-bar-cap))')
 
     await dock().getByRole('button', { name: CLOSE_PLAYER }).click()
     await expect.poll(() => dockElement()).toBeNull()
-    expect(published()).toBe('')
+    await expect.poll(published).toBe('')
   })
 
   it('returns focus to the control that opened it', async () => {
@@ -1013,7 +1013,7 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play link' }).click()
     await expect.element(dock()).toBeVisible()
     focusClose()
-    expect(dockElement()!.contains(document.activeElement)).toBe(true)
+    await expect.poll(() => dockElement()!.contains(document.activeElement)).toBe(true)
 
     await removeLink(db, linkId)
     await expect.poll(() => dockElement()).toBeNull()
@@ -1029,7 +1029,7 @@ describe('Dock', () => {
 
     await removeLink(db, linkId)
     await expect.poll(() => dockElement()).toBeNull()
-    expect(document.activeElement).toBe(document.body)
+    await expect.poll(() => document.activeElement).toBe(document.body)
   })
 
   it('sits above the tab bar, clear of the record button, without covering the page', async () => {
@@ -1038,16 +1038,15 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play link' }).click()
     await expect.element(dock()).toBeVisible()
 
-    const section = dockElement()!.getBoundingClientRect()
-    const bar = document.querySelector('ion-tab-bar')!.getBoundingClientRect()
-    const dome = document
-      .querySelector(`button[aria-label="${RECORD_LABEL}"]`)!
-      .getBoundingClientRect()
-    const outlet = document.querySelector('ion-router-outlet')!.getBoundingClientRect()
-    expect(section.bottom).toBeLessThanOrEqual(bar.top)
-    expect(section.bottom).toBeLessThanOrEqual(dome.top)
-    expect(outlet.bottom).toBeLessThanOrEqual(section.top)
-    expect(section.height).toBe(256)
+    const section = () => dockElement()!.getBoundingClientRect()
+    const bar = () => document.querySelector('ion-tab-bar')!.getBoundingClientRect()
+    const dome = () =>
+      document.querySelector(`button[aria-label="${RECORD_LABEL}"]`)!.getBoundingClientRect()
+    const outlet = () => document.querySelector('ion-router-outlet')!.getBoundingClientRect()
+    await expect.poll(() => section().bottom - bar().top).toBeLessThanOrEqual(0)
+    await expect.poll(() => section().bottom - dome().top).toBeLessThanOrEqual(0)
+    await expect.poll(() => outlet().bottom - section().top).toBeLessThanOrEqual(0)
+    await expect.poll(() => section().height).toBe(256)
   })
 
   it('paints the clearance below its surface opaque, not the page behind it', async () => {
@@ -1057,9 +1056,11 @@ describe('Dock', () => {
     await expect.element(dock()).toBeVisible()
 
     const frame = dockElement()!.parentElement!
+    await expect
+      .poll(() => getComputedStyle(dockElement()!).backgroundColor)
+      .not.toBe('rgba(0, 0, 0, 0)')
     const surface = getComputedStyle(dockElement()!).backgroundColor
-    expect(getComputedStyle(frame).backgroundColor).toBe(surface)
-    expect(surface).not.toBe('rgba(0, 0, 0, 0)')
+    await expect.poll(() => getComputedStyle(frame).backgroundColor).toBe(surface)
   })
 
   it('hands the progress bar the dark face in dark mode', async () => {
@@ -1070,7 +1071,7 @@ describe('Dock', () => {
       await page.getByRole('button', { name: 'Play recording' }).click()
       await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
       const progress = dockElement()!.querySelector('progress')!
-      expect(getComputedStyle(progress).colorScheme).toBe('dark')
+      await expect.poll(() => getComputedStyle(progress).colorScheme).toBe('dark')
     } finally {
       document.documentElement.classList.remove('ion-palette-dark')
     }
@@ -1082,24 +1083,30 @@ describe('Dock', () => {
     await page.getByRole('button', { name: 'Play link' }).click()
     await expect.element(dock()).toBeVisible()
     const section = dockElement()!
-    const box = section.getBoundingClientRect()
-    const under = document.elementFromPoint(box.left + 8, box.top + 8)
-    expect(section.contains(under)).toBe(true)
+    const under = () => {
+      const box = section.getBoundingClientRect()
+      return document.elementFromPoint(box.left + 8, box.top + 8)
+    }
+    await expect.poll(() => section.contains(under())).toBe(true)
     const close = section.querySelector('ion-button')!
-    const closeBox = close.getBoundingClientRect()
-    const onClose = document.elementFromPoint(
-      closeBox.left + closeBox.width / 2,
-      closeBox.top + closeBox.height / 2,
-    )
-    expect(onClose?.closest('ion-button')).toBe(close)
+    const onClose = () => {
+      const closeBox = close.getBoundingClientRect()
+      return document.elementFromPoint(
+        closeBox.left + closeBox.width / 2,
+        closeBox.top + closeBox.height / 2,
+      )
+    }
+    await expect.poll(() => onClose()?.closest('ion-button')).toBe(close)
     // The bar and its dome still come out on top of the player below them.
     const dome = document.querySelector(`button[aria-label="${RECORD_LABEL}"]`)!
-    const domeBox = dome.getBoundingClientRect()
-    const onDome = document.elementFromPoint(
-      domeBox.left + domeBox.width / 2,
-      domeBox.top + domeBox.height / 2,
-    )
-    expect(dome.contains(onDome)).toBe(true)
+    const onDome = () => {
+      const domeBox = dome.getBoundingClientRect()
+      return document.elementFromPoint(
+        domeBox.left + domeBox.width / 2,
+        domeBox.top + domeBox.height / 2,
+      )
+    }
+    await expect.poll(() => dome.contains(onDome())).toBe(true)
   })
 
   it('lines its name up with the text gutter the page uses on the wide frame', async () => {
@@ -1110,13 +1117,13 @@ describe('Dock', () => {
       await page.getByRole('button', { name: 'Play link' }).click()
       await expect.element(dock()).toBeVisible()
       const section = dockElement()!
-      const title = section.querySelector('span.type-headline')!.getBoundingClientRect()
+      const title = () => section.querySelector('span.type-headline')!.getBoundingClientRect()
       const paragraph = document.querySelector('[data-page-text]')!
       // A padding box, so where the page's text starts is the box plus its own gutter.
-      const line =
+      const line = () =>
         paragraph.getBoundingClientRect().left + parseFloat(getComputedStyle(paragraph).paddingLeft)
-      expect(line).toBeGreaterThan(0)
-      expect(title.left).toBe(line)
+      await expect.poll(line).toBeGreaterThan(0)
+      await expect.poll(() => title().left - line()).toBe(0)
     } finally {
       await page.viewport(390, 844)
     }
@@ -1134,15 +1141,14 @@ describe('Dock', () => {
       await expect
         .poll(() => document.querySelector('ion-router-outlet')!.getBoundingClientRect().height)
         .toBeLessThan(tall)
-      const section = dockElement()!.getBoundingClientRect()
-      const bar = document.querySelector('ion-tab-bar')!.getBoundingClientRect()
-      const dome = document
-        .querySelector(`button[aria-label="${RECORD_LABEL}"]`)!
-        .getBoundingClientRect()
-      expect(section.height).toBe(256)
-      expect(section.bottom).toBeLessThanOrEqual(bar.top)
-      expect(section.bottom).toBeLessThanOrEqual(dome.top)
-      expect(bar.bottom).toBeLessThanOrEqual(420)
+      const section = () => dockElement()!.getBoundingClientRect()
+      const bar = () => document.querySelector('ion-tab-bar')!.getBoundingClientRect()
+      const dome = () =>
+        document.querySelector(`button[aria-label="${RECORD_LABEL}"]`)!.getBoundingClientRect()
+      await expect.poll(() => section().height).toBe(256)
+      await expect.poll(() => section().bottom - bar().top).toBeLessThanOrEqual(0)
+      await expect.poll(() => section().bottom - dome().top).toBeLessThanOrEqual(0)
+      await expect.poll(() => bar().bottom).toBeLessThanOrEqual(420)
     } finally {
       await page.viewport(390, 844)
     }

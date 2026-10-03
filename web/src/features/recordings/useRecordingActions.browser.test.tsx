@@ -102,17 +102,20 @@ describe('useRecordingActions', () => {
       { db: openTestDb() },
     )
     await expect.element(page.getByRole('button', { name: `Row ${EDIT_RECORDING}` })).toBeVisible()
-    const labels = page
-      .getByRole('button')
-      .elements()
-      .map((element) => element.textContent)
-    expect(labels).not.toContain(`Row ${TRIM}`)
-    expect(labels.indexOf(`Menu ${TRIM}`)).toBe(labels.indexOf(`Menu ${RENAME}`) - 1)
+    const labels = () =>
+      page
+        .getByRole('button')
+        .elements()
+        .map((element) => element.textContent)
+    await expect.poll(labels).not.toContain(`Row ${TRIM}`)
+    await expect
+      .poll(() => labels().indexOf(`Menu ${RENAME}`) - labels().indexOf(`Menu ${TRIM}`))
+      .toBe(1)
     const blocked = page.getByRole('button', { name: `Blocked menu ${TRIM}` })
     await expect.element(blocked).toBeDisabled()
     await expect.element(blocked).toHaveAttribute('title', 'Offline')
     await page.getByRole('button', { name: `Menu ${TRIM}` }).click()
-    expect(onTrim).toHaveBeenCalledOnce()
+    await expect.poll(() => onTrim).toHaveBeenCalledOnce()
     expect(screen.open).not.toHaveBeenCalled()
   })
 })

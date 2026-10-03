@@ -48,7 +48,7 @@ describe('Waveform', () => {
     const slider = page.getByRole('slider', { name: SEEK_LABEL })
     const width = slider.element().getBoundingClientRect().width
     await slider.click({ position: { x: width * 0.75, y: 10 } })
-    expect(onSeek).toHaveBeenCalled()
+    await expect.poll(() => onSeek).toHaveBeenCalled()
     const ms = onSeek.mock.lastCall![0] as number
     expect(ms).toBeGreaterThan(44_000)
     expect(ms).toBeLessThan(46_000)
@@ -60,14 +60,14 @@ describe('Waveform', () => {
     const slider = page.getByRole('slider', { name: SEEK_LABEL })
     ;(slider.element() as HTMLElement).focus()
     await userEvent.keyboard('{ArrowRight}')
-    expect(onSeek).toHaveBeenLastCalledWith(25_000)
+    await expect.poll(() => onSeek).toHaveBeenLastCalledWith(25_000)
     await userEvent.keyboard('{ArrowLeft}')
     await userEvent.keyboard('{ArrowLeft}')
-    expect(onSeek).toHaveBeenLastCalledWith(15_000)
+    await expect.poll(() => onSeek).toHaveBeenLastCalledWith(15_000)
     await userEvent.keyboard('{Home}')
-    expect(onSeek).toHaveBeenLastCalledWith(0)
+    await expect.poll(() => onSeek).toHaveBeenLastCalledWith(0)
     await userEvent.keyboard('{ArrowLeft}')
-    expect(onSeek).toHaveBeenLastCalledWith(0)
+    await expect.poll(() => onSeek).toHaveBeenLastCalledWith(0)
   })
 
   it('neither seeks nor offers to while there is no audio', async () => {

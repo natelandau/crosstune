@@ -50,7 +50,7 @@ describe('Group', () => {
       </Group>,
     )
     await expect.element(page.getByRole('alert')).toHaveTextContent('A title is required')
-    expect(page.getByText('Help text.').elements()).toHaveLength(0)
+    await expect.element(page.getByText('Help text.')).not.toBeInTheDocument()
   })
 
   it('names its list and takes a rendered header', async () => {
@@ -82,7 +82,7 @@ describe('Capsule', () => {
     const d = page.getByRole('button', { name: 'D' })
     await expect.element(d).toHaveAttribute('aria-pressed', 'true')
     await d.click()
-    expect(onPress).toHaveBeenCalledOnce()
+    await expect.poll(() => onPress).toHaveBeenCalledOnce()
     expect(page.getByRole('button', { name: 'Crooked' }).elements()).toHaveLength(0)
   })
 
@@ -93,10 +93,10 @@ describe('Capsule', () => {
       </Capsule>,
       { db: openTestDb() },
     )
-    const button = page.getByRole('button', { name: 'D' }).element()
-    const style = getComputedStyle(button)
-    expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)')
-    expect(style.borderTopWidth).toBe('0px')
+    const button = page.getByRole('button', { name: 'D' })
+    const style = () => getComputedStyle(button.element())
+    await expect.poll(() => style().backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    await expect.poll(() => style().borderTopWidth).toBe('0px')
   })
 
   it('gives a pressed capsule the tint text color and a 44px tap target', async () => {
@@ -112,18 +112,19 @@ describe('Capsule', () => {
     )
     const d = page.getByRole('button', { name: 'D' })
     await vi.waitFor(() => expect(d.element()).toBeTruthy())
-    const inner = d.element().querySelector('span')!
-    expect(getComputedStyle(inner).color).toBe(computedColor('--ion-color-primary-contrast'))
-    expect(d.element().getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
+    await expect
+      .poll(() => getComputedStyle(d.element().querySelector('span')!).color)
+      .toBe(computedColor('--ion-color-primary-contrast'))
+    await expect.poll(() => d.element().getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
   })
 
   it('gives a warning capsule the warning contrast text color', async () => {
     renderIonic(<Capsule tone="warning">Archived</Capsule>, { db: openTestDb() })
     const badge = page.getByText('Archived')
     await expect.element(badge).toBeVisible()
-    expect(getComputedStyle(badge.element()).color).toBe(
-      computedColor('--ion-color-warning-contrast'),
-    )
+    await expect
+      .poll(() => getComputedStyle(badge.element()).color)
+      .toBe(computedColor('--ion-color-warning-contrast'))
   })
 
   it('fills a neutral capsule with the tertiary fill of the light or dark palette', async () => {
@@ -131,11 +132,11 @@ describe('Capsule', () => {
     const badge = page.getByText('Crooked')
     await expect.element(badge).toBeVisible()
     const fill = () => getComputedStyle(badge.element()).backgroundColor
+    await expect.poll(fill).toBe(computedBackground('--fill-tertiary'))
     const light = fill()
-    expect(light).toBe(computedBackground('--fill-tertiary'))
     document.documentElement.classList.add('ion-palette-dark')
     try {
-      expect(fill()).toBe(computedBackground('--fill-tertiary'))
+      await expect.poll(fill).toBe(computedBackground('--fill-tertiary'))
       expect(fill()).not.toBe(light)
     } finally {
       document.documentElement.classList.remove('ion-palette-dark')
@@ -149,7 +150,9 @@ describe('InlineError', () => {
     const alert = page.getByRole('alert')
     await expect.element(alert).toHaveTextContent('Tune not found')
     await vi.waitFor(() => expect(alert.element()).toBeTruthy())
-    expect(getComputedStyle(alert.element()).color).toBe(computedColor('--ion-color-danger'))
+    await expect
+      .poll(() => getComputedStyle(alert.element()).color)
+      .toBe(computedColor('--ion-color-danger'))
   })
 })
 
@@ -178,7 +181,7 @@ describe('shortcuts on a mouse', () => {
     const onFocus = vi.fn()
     renderIonic(<ShortcutHost onFocus={onFocus} />, { db: openTestDb() })
     await userEvent.keyboard('/')
-    expect(onFocus).toHaveBeenCalledOnce()
+    await expect.poll(() => onFocus).toHaveBeenCalledOnce()
     await page.getByLabelText('Other field').click()
     await userEvent.keyboard('/')
     expect(onFocus).toHaveBeenCalledOnce()
@@ -193,9 +196,9 @@ describe('shortcuts on a mouse', () => {
       expect(document.activeElement).toBe(opens[0])
     })
     await userEvent.keyboard('{ArrowDown}')
-    expect(document.activeElement).toBe(opens[1])
+    await expect.poll(() => document.activeElement).toBe(opens[1])
     await userEvent.keyboard('{ArrowUp}')
-    expect(document.activeElement).toBe(opens[0])
+    await expect.poll(() => document.activeElement).toBe(opens[0])
   })
 
   // The rows arrive with a query, so the list they sit in is not there on the first render.
@@ -211,7 +214,7 @@ describe('shortcuts on a mouse', () => {
       expect(document.activeElement).toBe(opens[0])
     })
     await userEvent.keyboard('{ArrowDown}')
-    expect(document.activeElement).toBe(opens[1])
+    await expect.poll(() => document.activeElement).toBe(opens[1])
   })
 
   it('leaves an arrow key with a modifier to the browser', async () => {
@@ -246,6 +249,6 @@ describe('shortcuts on a mouse', () => {
     )
     await expect.element(page.getByText('Saved')).toBeVisible()
     await userEvent.keyboard('/')
-    expect(onFocus).toHaveBeenCalledOnce()
+    await expect.poll(() => onFocus).toHaveBeenCalledOnce()
   })
 })

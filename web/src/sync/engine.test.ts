@@ -20,7 +20,6 @@ beforeEach(() => {
 
 afterEach(async () => {
   vi.useRealTimers()
-  await db.delete()
 })
 
 function trackStatuses(engine: { subscribe: (l: (s: SyncStatus) => void) => () => void }) {

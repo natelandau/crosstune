@@ -48,7 +48,7 @@ describe('ListNameSheet', () => {
     renderIonic(<Host initial={{ kind: 'new' }} />, { db: openTestDb() })
     await expect.element(page.getByText(NEW_LIST_TITLE)).toBeVisible()
     const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
-    expect(open.querySelectorAll('h2')).toHaveLength(0)
+    await expect.poll(() => open.querySelectorAll('h2')).toHaveLength(0)
     // Ionic hoists both onto the native input and leaves neither on the host.
     await vi.waitFor(() => {
       const input = open.querySelector('ion-input input')
@@ -98,7 +98,7 @@ describe('ListNameSheet', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
-    expect(await db.lists.count()).toBe(1)
+    await expect.poll(() => db.lists.count()).toBe(1)
   })
 
   it('discards the name on Cancel and reports the close once', async () => {
@@ -108,7 +108,7 @@ describe('ListNameSheet', () => {
     await page.getByLabelText(LIST_NAME_LABEL).fill('Draft')
     await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
-    expect(onClose).toHaveBeenCalledOnce()
+    await expect.poll(() => onClose.mock.calls.length).toBe(1)
     expect(await db.lists.count()).toBe(0)
   })
 
@@ -137,9 +137,11 @@ describe('ListNameSheet', () => {
     }
     renderIonic(<SwapHost registerSwap={(fn) => (swap = fn)} />, { db })
     await expect.element(page.getByText(NEW_LIST_TITLE)).toBeVisible()
-    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     // The parent opens a new target immediately, while the cancelled sheet is still animating closed.
-    swap()
+    document
+      .querySelector('ion-modal:not(.overlay-hidden)')!
+      .addEventListener('ionModalWillDismiss', () => swap(), { once: true })
+    await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await expect.element(page.getByText(RENAME_LIST_TITLE)).toBeVisible()
     // Long enough for the cancelled sheet's dismiss event to arrive after the swap.
     await new Promise((resolve) => setTimeout(resolve, 500))

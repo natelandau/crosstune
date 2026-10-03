@@ -55,7 +55,7 @@ describe('SearchField', () => {
     )
     expect(onEnter).not.toHaveBeenCalled()
     await userEvent.keyboard('{Enter}')
-    expect(onEnter).toHaveBeenCalledOnce()
+    await expect.poll(() => onEnter).toHaveBeenCalledOnce()
   })
 
   it('takes focus through its handle', async () => {

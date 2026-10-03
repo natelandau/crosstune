@@ -70,7 +70,6 @@ afterEach(async () => {
   restore?.()
   restore = null
   vi.resetAllMocks()
-  await db.delete()
 })
 
 /** Reads this tune's rows and hands them down, the way the tune screen mounts the section. */
@@ -110,11 +109,11 @@ describe('TuneMedia', () => {
     const control = page.getByRole('button', { name: ADD_RECORDING, exact: true })
     await expect.element(control).toBeVisible()
     const host = (control.element().getRootNode() as ShadowRoot).host
-    expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     // A glyph out of the accessibility tree, since the control's own name says what it does.
-    const glyph = host.querySelector('svg')
-    expect(glyph, 'Add recording carries no glyph').not.toBeNull()
-    expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+    const glyph = () => host.querySelector('svg')
+    await expect.poll(glyph, { message: 'Add recording carries no glyph' }).not.toBeNull()
+    await expect.poll(() => glyph()?.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('titles an unlabeled recording by its date rather than repeating the page title', async () => {
@@ -127,7 +126,7 @@ describe('TuneMedia', () => {
     const row = page.getByRole('heading', { name: 'Recording, ', exact: false, level: 3 })
     await expect.element(row).toBeVisible()
     expect(row.element().textContent).not.toContain("Soldier's Joy")
-    expect(sectionHeaders()).toEqual(['Recordings'])
+    await expect.poll(sectionHeaders).toEqual(['Recordings'])
   })
 
   it('opens the record modal for this tune', async () => {
@@ -136,7 +135,7 @@ describe('TuneMedia', () => {
     await page.getByRole('button', { name: ADD_RECORDING, exact: true }).click()
     await (await menuItem(NEW_RECORDING)).click()
     await expect.element(page.getByRole('dialog', { name: NEW_RECORDING })).toBeInTheDocument()
-    expect(starts).toEqual([tuneId])
+    await expect.poll(() => starts).toEqual([tuneId])
   })
 
   it('adds a pasted link as a row of its own', async () => {
@@ -156,8 +155,8 @@ describe('TuneMedia', () => {
     await addLink(db, tuneId, { ...youtube, title: 'Slow version' })
     show()
     await expect.element(page.getByRole('heading', { name: 'Slow version' })).toBeVisible()
-    expect(sectionHeaders()).toEqual(['Recordings'])
-    expect(rowTitles()).toEqual(['Jam recording', 'Slow version'])
+    await expect.poll(sectionHeaders).toEqual(['Recordings'])
+    await expect.poll(rowTitles).toEqual(['Jam recording', 'Slow version'])
     const list = page.getByRole('list', { name: 'Recordings' })
     await expect.element(list.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     await expect.element(list.getByRole('heading', { name: 'Slow version' })).toBeVisible()
@@ -207,9 +206,13 @@ describe('TuneMedia', () => {
     expect(line.element().closest('ion-item')).toBeNull()
     // It sits under the cards, so it lines up with their text rather than starting short of it.
     const header = document.querySelector('[data-section-header]')!
-    expect(Number.parseFloat(getComputedStyle(line.element()).paddingLeft)).toBe(
-      Number.parseFloat(getComputedStyle(header).paddingLeft),
-    )
+    await expect
+      .poll(
+        () =>
+          Number.parseFloat(getComputedStyle(line.element()).paddingLeft) -
+          Number.parseFloat(getComputedStyle(header).paddingLeft),
+      )
+      .toBe(0)
   })
 
   it('offers Edit, Remove from tune, and Delete on a row, and no Rename', async () => {
@@ -224,7 +227,9 @@ describe('TuneMedia', () => {
     await expect
       .element(page.getByRole('button', { name: 'Delete Jam recording' }))
       .toBeInTheDocument()
-    expect(page.getByRole('button', { name: 'Rename Jam recording' }).elements()).toHaveLength(0)
+    await expect
+      .element(page.getByRole('button', { name: 'Rename Jam recording' }))
+      .not.toBeInTheDocument()
   })
 
   it('asks before deleting a recording, saying what it costs', async () => {
@@ -297,16 +302,16 @@ describe('TuneMedia', () => {
     try {
       show()
       await expect.element(page.getByRole('button', { name: ADD_RECORDING })).toBeVisible()
-      const line = document.querySelector<HTMLElement>('[data-section-header]')!
-      const heading = line.querySelector<HTMLElement>('h2')!
-      const controls = Array.from(line.querySelectorAll<HTMLElement>('ion-button'))
-      expect(controls).toHaveLength(1)
+      const line = () => document.querySelector<HTMLElement>('[data-section-header]')!
+      const heading = () => line().querySelector<HTMLElement>('h2')!
+      const controls = () => Array.from(line().querySelectorAll<HTMLElement>('ion-button'))
+      await expect.poll(controls).toHaveLength(1)
       // Flex alone keeps these from overlapping, so what this pins is that the heading is not
       // ellipsised away and the control is not pushed off the screen to do it.
-      expect(heading.scrollWidth).toBeLessThanOrEqual(heading.clientWidth)
-      const box = controls[0]!.getBoundingClientRect()
-      expect(Math.round(box.width)).toBeGreaterThanOrEqual(44)
-      expect(Math.round(box.right)).toBeLessThanOrEqual(320)
+      await expect.poll(() => heading().scrollWidth - heading().clientWidth).toBeLessThanOrEqual(0)
+      const box = () => controls()[0]!.getBoundingClientRect()
+      await expect.poll(() => Math.round(box().width)).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => Math.round(box().right)).toBeLessThanOrEqual(320)
     } finally {
       await page.viewport(390, 844)
     }

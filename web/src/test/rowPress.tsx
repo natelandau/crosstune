@@ -39,9 +39,10 @@ export function rowPressTests(mode: Mode) {
 
     it('ripples exactly where Ionic ripples an item it owns', async () => {
       const { plain, open } = await render()
-      const ionic = Boolean(plain.shadowRoot!.querySelector('ion-ripple-effect'))
-      expect(ionic).toBe(mode === 'md')
-      expect(Boolean(open.querySelector('ion-ripple-effect'))).toBe(ionic)
+      await expect
+        .poll(() => Boolean(plain.shadowRoot!.querySelector('ion-ripple-effect')))
+        .toBe(mode === 'md')
+      await expect.poll(() => Boolean(open.querySelector('ion-ripple-effect'))).toBe(mode === 'md')
     })
 
     it('tints the whole row while it is held, in either mode', async () => {
@@ -52,7 +53,7 @@ export function rowPressTests(mode: Mode) {
         return { content: style.content, background: style.backgroundColor }
       }
       const resting = { content: 'none', background: 'rgba(0, 0, 0, 0)' }
-      expect(tint()).toEqual(resting)
+      await expect.poll(tint).toEqual(resting)
       let held = tint()
       // :active only holds while the button is down, so the press is read from inside it.
       const read = () => {

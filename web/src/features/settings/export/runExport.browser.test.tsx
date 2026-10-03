@@ -1,5 +1,5 @@
 import { unzipSync } from 'fflate'
-import { afterEach, beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test } from 'vitest'
 import type { CrosstuneDb } from '../../../db/schema'
 import { openTestDb } from '../../../test/db'
 import { recordingFile, recordingRow } from '../../../test/rows'
@@ -13,10 +13,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const audio = new Uint8Array([1, 2, 3, 4, 5])

@@ -23,15 +23,15 @@ function narrowRail(chosen?: string) {
 }
 
 describe('Rail', () => {
-  it('keeps every chip on one line when they do not fit', () => {
+  it('keeps every chip on one line when they do not fit', async () => {
     const { rail, chips } = narrowRail()
-    expect(rail.scrollWidth).toBeGreaterThan(rail.clientWidth)
-    expect(new Set(chips.map((chip) => chip.offsetTop)).size).toBe(1)
+    await expect.poll(() => rail.scrollWidth - rail.clientWidth).toBeGreaterThan(0)
+    await expect.poll(() => new Set(chips.map((chip) => chip.offsetTop)).size).toBe(1)
   })
 
   it('fades the end while there is more to scroll to, and stops once there is not', async () => {
     const { rail } = narrowRail()
-    expect(rail.dataset.fade).toBe('true')
+    await expect.poll(() => rail.dataset.fade).toBe('true')
     rail.scrollLeft = rail.scrollWidth - rail.clientWidth
     rail.dispatchEvent(new Event('scroll'))
     await expect.poll(() => rail.dataset.fade).toBeUndefined()
@@ -46,13 +46,13 @@ describe('Rail', () => {
     expect((container.firstElementChild as HTMLElement).dataset.fade).toBeUndefined()
   })
 
-  it('scrolls the chosen chip into view', () => {
+  it('scrolls the chosen chip into view', async () => {
     const { rail, chips } = narrowRail('Sixth')
-    expect(rail.scrollLeft).toBeGreaterThan(0)
-    const last = chips[chips.length - 1]!.getBoundingClientRect()
-    const box = rail.getBoundingClientRect()
-    expect(last.right).toBeLessThanOrEqual(box.right + 1)
-    expect(last.left).toBeGreaterThanOrEqual(box.left - 1)
+    await expect.poll(() => rail.scrollLeft).toBeGreaterThan(0)
+    const last = () => chips[chips.length - 1]!.getBoundingClientRect()
+    const box = () => rail.getBoundingClientRect()
+    await expect.poll(() => last().right - box().right).toBeLessThanOrEqual(1)
+    await expect.poll(() => last().left - box().left).toBeGreaterThanOrEqual(-1)
   })
 
   it('fades once the chips grow past the rail with no render behind it', async () => {
@@ -94,8 +94,8 @@ describe('Rail', () => {
     expect(rail.dataset.fade).toBeUndefined()
   })
 
-  it('leaves the rail at its start when the chosen chip is already in view', () => {
+  it('leaves the rail at its start when the chosen chip is already in view', async () => {
     const { rail } = narrowRail('First')
-    expect(rail.scrollLeft).toBe(0)
+    await expect.poll(() => rail.scrollLeft).toBe(0)
   })
 })

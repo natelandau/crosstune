@@ -172,7 +172,6 @@ beforeEach(() => {
 afterEach(async () => {
   window.matchMedia = originalMatchMedia
   vi.unstubAllGlobals()
-  await db.delete()
 })
 
 describe('useSelection', () => {
@@ -181,8 +180,8 @@ describe('useSelection', () => {
     await expect.element(control('Select')).toBeVisible()
     await startSelecting()
     await settle(() => expect(checkFor('u1')).not.toBeNull())
-    expect(document.activeElement).toBe(checkFor('u1'))
-    expect(document.activeElement).toHaveAttribute('data-row-open')
+    await settle(() => expect(document.activeElement).toBe(checkFor('u1')))
+    await settle(() => expect(document.activeElement).toHaveAttribute('data-row-open'))
   })
 
   it('tells the caller it is entering, once per entry and never on leaving', async () => {
@@ -190,12 +189,12 @@ describe('useSelection', () => {
     show(onEnter)
     await expect.element(control('Select')).toBeVisible()
     await startSelecting()
-    expect(onEnter).toHaveBeenCalledOnce()
+    await settle(() => expect(onEnter).toHaveBeenCalledOnce())
     await userEvent.keyboard('{Escape}')
     await settle(() => expect(isActive()).toBe(false))
     expect(onEnter).toHaveBeenCalledOnce()
     await startSelecting()
-    expect(onEnter).toHaveBeenCalledTimes(2)
+    await settle(() => expect(onEnter).toHaveBeenCalledTimes(2))
   })
 
   it('enters with a row selected when a long press names it', async () => {
@@ -204,7 +203,7 @@ describe('useSelection', () => {
     await expect.element(page.getByRole('heading', { name: 'Cluck Old Hen' })).toBeVisible()
     await longPressRow(1)
     await expect.element(rowCheckbox(/^Deselect Cluck Old Hen/)).toBeChecked()
-    expect(count()).toBe(1)
+    await settle(() => expect(count()).toBe(1))
     await settle(() => expect(document.activeElement).toBe(checkFor('u2')))
   })
 
@@ -310,13 +309,15 @@ describe('useSelection', () => {
     await expect.element(control('Select')).toBeVisible()
     expect(registerBack().find((entry) => entry.priority === 50)).toBeUndefined()
     await startSelecting()
+    await settle(() => expect(registerBack().find((entry) => entry.priority === 50)).toBeDefined())
     const mine = registerBack().find((entry) => entry.priority === 50)
-    expect(mine).toBeDefined()
     const next = vi.fn()
     mine!.handler(next)
     await settle(() => expect(isActive()).toBe(false))
     expect(next).not.toHaveBeenCalled()
-    expect(registerBack().find((entry) => entry.priority === 50)).toBeUndefined()
+    await settle(() =>
+      expect(registerBack().find((entry) => entry.priority === 50)).toBeUndefined(),
+    )
   })
 
   it('drops a tune the visible set no longer holds', async () => {
@@ -353,7 +354,7 @@ describe('useSelection', () => {
     await userEvent.keyboard('{Escape}')
     await settle(() => expect(isActive()).toBe(false))
     await startSelecting()
-    expect(count()).toBe(0)
+    await settle(() => expect(count()).toBe(0))
   })
 
   it('keeps a selection made before the mode opens', async () => {
@@ -363,7 +364,7 @@ describe('useSelection', () => {
     await settle(() => expect(count()).toBe(1))
     await startSelecting()
     await expect.element(rowCheckbox(/^Deselect Cluck Old Hen/)).toBeChecked()
-    expect(count()).toBe(1)
+    await settle(() => expect(count()).toBe(1))
   })
 
   it('returns focus to the Select control on leaving', async () => {
@@ -374,7 +375,7 @@ describe('useSelection', () => {
     await settle(() => expect(isActive()).toBe(false))
     const { host, native } = selectControl()
     await settle(() => expect(document.activeElement).toBe(host))
-    expect(host.shadowRoot!.activeElement).toBe(native)
+    await settle(() => expect(host.shadowRoot!.activeElement).toBe(native))
   })
 
   it('moves focus to the page when the Select control is gone on leaving', async () => {
@@ -397,7 +398,7 @@ describe('useSelection', () => {
     await settle(() => expect(document.activeElement).toBe(selectControl().host))
     window.dispatchEvent(new Event(HIDE_SELECT))
     await settle(() => expect(document.querySelector('ion-toolbar ion-button')).toBeNull())
-    expect(document.activeElement).toBe(document.querySelector('main'))
+    await settle(() => expect(document.activeElement).toBe(document.querySelector('main')))
   })
 
   it('leaves the mode when the view goes away', async () => {

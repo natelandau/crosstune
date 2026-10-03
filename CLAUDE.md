@@ -72,3 +72,28 @@ every label. The glossary in `docs/product.md` has the reasons.
   presenting it carries `.coversShell(_:)` on the line before. A test in
   `CrosstuneUITests` enforces both, so the record dome hides and the shell's
   menu commands stand down behind every presentation.
+
+## Web tests
+
+Browser tests share a slow CI runner, so a race a fast Mac never loses
+fails there at random. Every web test follows these rules:
+
+- An assertion on anything still settling retries: `expect.element(locator)`
+  or `expect.poll(() => value)`. That covers focus, DOM order, visibility,
+  engine and store state, and mock call counts. A plain `expect` reads only
+  a value that can no longer change, such as a pure function's result or a
+  mock call's arguments once a poll has seen the call.
+- Never wait a fixed time for something to happen. A fixed wait proves only
+  that something did not happen, after a poll has seen the thing that did.
+- Behavior driven by elapsed time or animation frames takes its clock or
+  frame source as an input, or the test uses fake timers. No assertion
+  depends on how many frames a runner renders.
+- A test passes alone and in any order. It awaits every write it starts and
+  leaves no timer, listener, overlay, or module-level state for the next
+  test. A test database comes from `openTestDb()`, which deletes it after
+  the tree unmounts; never delete it in an `afterEach`, which runs while
+  the tree is still mounted. Before committing a new or changed test file,
+  run `just web::stress 5 <file>`, which shuffles the tests on each run.
+- Never raise a timeout or add a retry to make a test pass. CI retries a
+  failed browser test so one race doesn't fail the run, and the job summary
+  lists every test that needed a retry. A listed test is a bug to fix.

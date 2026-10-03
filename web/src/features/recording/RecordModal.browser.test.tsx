@@ -124,7 +124,7 @@ describe('RecordModal', () => {
       },
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
-    expect(close).toHaveBeenCalledOnce()
+    await expect.poll(() => close).toHaveBeenCalledOnce()
   })
 
   it('stays closed until asked, and closes again from its footer', async () => {
@@ -138,7 +138,7 @@ describe('RecordModal', () => {
     // Ionic hydrates asynchronously, so the modal only carries its hidden class once it has.
     const record = page.getByRole('button', { name: RECORD_LABEL })
     await expect.element(record).toBeVisible()
-    expect(shown()).toBe(false)
+    await expect.poll(shown).toBe(false)
     await record.click()
     await expect.element(page.getByText(NEW_RECORDING)).toBeVisible()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
@@ -176,10 +176,10 @@ describe('RecordModal capture', () => {
     media.muteTrack()
     const banner = page.getByText('Recording interrupted.', { exact: false })
     await expect.element(banner).toBeVisible()
-    const line = banner.element().getBoundingClientRect()
-    const modal = document.querySelector('ion-modal')!.getBoundingClientRect()
-    expect(line.left - modal.left).toBeGreaterThanOrEqual(12)
-    expect(modal.right - line.right).toBeGreaterThanOrEqual(12)
+    const line = () => banner.element().getBoundingClientRect()
+    const modal = () => document.querySelector('ion-modal')!.getBoundingClientRect()
+    await expect.poll(() => line().left - modal().left).toBeGreaterThanOrEqual(12)
+    await expect.poll(() => modal().right - line().right).toBeGreaterThanOrEqual(12)
     media.unmuteTrack()
   })
 
@@ -194,7 +194,7 @@ describe('RecordModal capture', () => {
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     await expect.element(page.getByRole('timer')).toHaveTextContent('0:00')
-    expect(document.querySelector('ion-modal canvas')).not.toBeNull()
+    await expect.poll(() => document.querySelector('ion-modal canvas')).not.toBeNull()
   })
 
   it('draws the waveform in the palette rather than in the body text color', async () => {
@@ -207,14 +207,17 @@ describe('RecordModal capture', () => {
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
+    await expect.poll(() => document.querySelector('ion-modal canvas')).not.toBeNull()
     const canvas = document.querySelector('ion-modal canvas')!
     // A probe beside the canvas resolves the palette color, so the palette itself can change.
     const probe = document.createElement('span')
     probe.style.color = 'var(--ion-color-primary)'
     canvas.parentElement!.append(probe)
     try {
-      expect(getComputedStyle(canvas).color).toBe(getComputedStyle(probe).color)
-      expect(getComputedStyle(canvas).color).not.toBe(getComputedStyle(canvas.parentElement!).color)
+      await expect.poll(() => getComputedStyle(canvas).color).toBe(getComputedStyle(probe).color)
+      await expect
+        .poll(() => getComputedStyle(canvas).color)
+        .not.toBe(getComputedStyle(canvas.parentElement!).color)
     } finally {
       probe.remove()
     }
@@ -299,7 +302,7 @@ describe('RecordModal capture', () => {
     // The landing pushes a route, which re-memoizes the router the saved handler reads.
     await expect.element(page.getByRole('heading', { name: 'Tune probe' })).toBeVisible()
     await vi.waitFor(() => expect(shown()).toBe(false))
-    expect(toasts).toEqual([PARTIAL_SAVE])
+    await expect.poll(() => toasts).toEqual([PARTIAL_SAVE])
   })
 
   it('asks before discarding once recording has started, and keeps the recording when it is refused', async () => {
@@ -362,14 +365,18 @@ describe('RecordModal capture', () => {
     )
     await page.getByRole('button', { name: RECORD_LABEL }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
-    const stop = page.getByRole('button', { name: 'Stop' }).element()
+    const stop = page.getByRole('button', { name: 'Stop' })
     const probe = document.createElement('span')
     probe.style.backgroundColor = 'var(--color-record)'
     document.querySelector('ion-modal')!.append(probe)
     try {
-      expect(getComputedStyle(stop).backgroundColor).toBe(getComputedStyle(probe).backgroundColor)
+      await expect
+        .poll(() => getComputedStyle(stop.element()).backgroundColor)
+        .toBe(getComputedStyle(probe).backgroundColor)
       // White on the record red passes contrast only as large text, 24px and up.
-      expect(parseFloat(getComputedStyle(stop).fontSize)).toBeGreaterThanOrEqual(24)
+      await expect
+        .poll(() => parseFloat(getComputedStyle(stop.element()).fontSize))
+        .toBeGreaterThanOrEqual(24)
     } finally {
       probe.remove()
     }
@@ -387,9 +394,11 @@ describe('RecordModal capture', () => {
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     const cancel = page.getByRole('button', { name: CANCEL, exact: true })
     await expect.element(cancel).toBeVisible()
-    expect(
-      (cancel.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,
-    ).toBeGreaterThanOrEqual(44)
+    await expect
+      .poll(
+        () => (cancel.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,
+      )
+      .toBeGreaterThanOrEqual(44)
   })
 
   it('says the microphone was refused and offers a way out', async () => {
@@ -408,9 +417,9 @@ describe('RecordModal capture', () => {
       .toHaveAttribute('role', 'alert')
     const done = page.getByRole('button', { name: 'Done', exact: true })
     await expect.element(done).toBeVisible()
-    expect(
-      (done.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,
-    ).toBeGreaterThanOrEqual(44)
+    await expect
+      .poll(() => (done.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height)
+      .toBeGreaterThanOrEqual(44)
     await done.click()
     await vi.waitFor(() => expect(shown()).toBe(false))
   })
@@ -463,8 +472,8 @@ describe('RecordModal capture', () => {
     await expect.element(page.getByRole('status')).toHaveTextContent('Recording')
     const modal = document.querySelector('ion-modal') as HTMLIonModalElement
     const canDismiss = modal.canDismiss as (data?: unknown, role?: string) => Promise<boolean>
-    expect(await canDismiss(undefined, 'gesture')).toBe(false)
-    expect(await canDismiss(undefined, undefined)).toBe(true)
+    await expect.poll(() => canDismiss(undefined, 'gesture')).toBe(false)
+    await expect.poll(() => canDismiss(undefined, undefined)).toBe(true)
   })
 
   it('ignores a second start for another tune while a recording is already live', async () => {

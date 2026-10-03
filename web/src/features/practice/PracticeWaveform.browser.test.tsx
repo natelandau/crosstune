@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { useState, type RefObject } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
@@ -196,7 +196,7 @@ const B: LaneLoop = {
 describe('PracticeWaveform', () => {
   it('the playhead stays centered while the audio scrolls under it', async () => {
     const { seek } = setup()
-    expect(viewStart()).toBe(18_000)
+    await expect.poll(viewStart).toBe(18_000)
     pointer(surface(), 'pointerdown', 200)
     pointer(surface(), 'pointermove', 250)
     pointer(surface(), 'pointermove', 300)
@@ -212,9 +212,9 @@ describe('PracticeWaveform', () => {
     await expect.element(slider).toHaveAttribute('aria-valuetext', '0:20 of 1:00')
     ;(slider.element() as HTMLElement).focus()
     await userEvent.keyboard('{ArrowRight}')
-    expect(seek).toHaveBeenLastCalledWith(21_000)
+    await expect.poll(() => seek.mock.lastCall).toEqual([21_000])
     await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
-    expect(seek).toHaveBeenLastCalledWith(16_000)
+    await expect.poll(() => seek.mock.lastCall).toEqual([16_000])
   })
 
   it('a scrub held at 0:00 stops there and draws the empty half blank', async () => {
@@ -223,11 +223,14 @@ describe('PracticeWaveform', () => {
     pointer(surface(), 'pointermove', 250)
     pointer(surface(), 'pointermove', 390)
     await expect.poll(viewStart).toBe(-2_000)
-    const bars = waveform().querySelector<HTMLElement>('[data-bars]')!
-    expect(bars.style.marginLeft).toBe(`${WIDTH_PX / 2}px`)
-    const ticks = [...waveform().querySelectorAll<HTMLElement>('[data-tick]')]
-    expect(ticks.length).toBeGreaterThan(0)
-    for (const tick of ticks) expect(parseFloat(tick.style.left)).toBeGreaterThanOrEqual(200)
+    await expect
+      .poll(() => waveform().querySelector<HTMLElement>('[data-bars]')!.style.marginLeft)
+      .toBe(`${WIDTH_PX / 2}px`)
+    const ticks = () => [...waveform().querySelectorAll<HTMLElement>('[data-tick]')]
+    await expect.poll(() => ticks().length).toBeGreaterThan(0)
+    await expect
+      .poll(() => Math.min(...ticks().map((tick) => parseFloat(tick.style.left))))
+      .toBeGreaterThanOrEqual(200)
     pointer(surface(), 'pointerup', 390)
     await expect.poll(() => seek.mock.calls).toEqual([[0]])
   })
@@ -271,7 +274,7 @@ describe('PracticeWaveform', () => {
     pointer(surface(), 'pointerdown', 200)
     pointer(surface(), 'pointermove', 203)
     pointer(surface(), 'pointerup', 203)
-    expect(spies.onTap).toHaveBeenCalledTimes(1)
+    await expect.poll(() => spies.onTap.mock.calls.length).toBe(1)
     expect(pause).not.toHaveBeenCalled()
     expect(play).not.toHaveBeenCalled()
     expect(engine.getState().playing).toBe(true)
@@ -297,13 +300,13 @@ describe('PracticeWaveform', () => {
     pointer(surface(), 'pointerdown', 200)
     expect(pause).not.toHaveBeenCalled()
     pointer(surface(), 'pointermove', 180)
-    expect(pause).toHaveBeenCalledTimes(1)
+    await expect.poll(() => pause.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(false)
     pointer(surface(), 'pointermove', 150)
     pointer(surface(), 'pointerup', 150)
     await expect.poll(() => engine.getState().playing).toBe(true)
-    expect(seek.mock.calls).toEqual([[20_500]])
-    expect(play).toHaveBeenCalledTimes(1)
+    await expect.poll(() => seek.mock.calls).toEqual([[20_500]])
+    await expect.poll(() => play.mock.calls.length).toBe(1)
     expect(seek.mock.invocationCallOrder[0]!).toBeLessThan(play.mock.invocationCallOrder[0]!)
   })
 
@@ -311,12 +314,12 @@ describe('PracticeWaveform', () => {
     const { seek, spies } = setup({ loops: [A, B] })
     pointer(surface(), 'pointerdown', xAt(19_500, 20_000))
     pointer(surface(), 'pointerup', xAt(19_500, 20_000))
-    expect(spies.onTap).toHaveBeenLastCalledWith(19_500)
+    await expect.poll(() => spies.onTap.mock.lastCall).toEqual([19_500])
     await expect.element(page.getByRole('slider', { name: LOOP_END })).toBeInTheDocument()
 
     pointer(surface(), 'pointerdown', xAt(18_500, 20_000))
     pointer(surface(), 'pointerup', xAt(18_500, 20_000))
-    expect(spies.onTap).toHaveBeenLastCalledWith(18_500)
+    await expect.poll(() => spies.onTap.mock.lastCall).toEqual([18_500])
     await expect.poll(() => page.getByRole('slider', { name: LOOP_END }).elements()).toHaveLength(0)
     expect(seek).not.toHaveBeenCalled()
   })
@@ -324,35 +327,36 @@ describe('PracticeWaveform', () => {
   it("the selected loop's handles show grab tabs centered just outside its edges", async () => {
     setup({ loops: [A, B], selected: 'a' })
     await expect.element(page.getByRole('slider', { name: LOOP_END })).toBeInTheDocument()
-    const box = waveform().getBoundingClientRect()
+    const box = () => waveform().getBoundingClientRect()
     const grip = (edge: 'start' | 'end') =>
       document.querySelector(`[data-handle="${edge}"] [data-grip]`)!.getBoundingClientRect()
+    const middle = (rect: DOMRect) => rect.top + rect.height / 2
 
     for (const edge of ['start', 'end'] as const) {
-      const tab = grip(edge)
-      expect(tab.width).toBeGreaterThanOrEqual(14)
-      expect(tab.height).toBeGreaterThanOrEqual(40)
-      expect(Math.abs(tab.top + tab.height / 2 - (box.top + box.height / 2))).toBeLessThanOrEqual(
-        24,
-      )
+      await expect.poll(() => grip(edge).width).toBeGreaterThanOrEqual(14)
+      await expect.poll(() => grip(edge).height).toBeGreaterThanOrEqual(40)
+      await expect.poll(() => Math.abs(middle(grip(edge)) - middle(box()))).toBeLessThanOrEqual(24)
     }
-    expect(grip('start').right - box.left).toBeLessThanOrEqual(xAt(A.startMs, 20_000) + 1)
-    expect(grip('end').left - box.left).toBeGreaterThanOrEqual(xAt(A.endMs, 20_000) - 1)
+    await expect
+      .poll(() => grip('start').right - box().left)
+      .toBeLessThanOrEqual(xAt(A.startMs, 20_000) + 1)
+    await expect
+      .poll(() => grip('end').left - box().left)
+      .toBeGreaterThanOrEqual(xAt(A.endMs, 20_000) - 1)
   })
 
   it('draws a visible playhead line at the center', async () => {
     setup()
     const line = await vi.waitUntil(() => waveform().querySelector<HTMLElement>('[data-playhead]'))
-    const { backgroundColor } = getComputedStyle(line)
-    expect(backgroundColor).not.toBe('rgba(0, 0, 0, 0)')
-    expect(backgroundColor).not.toBe('transparent')
+    await expect.poll(() => getComputedStyle(line).backgroundColor).not.toBe('rgba(0, 0, 0, 0)')
+    await expect.poll(() => getComputedStyle(line).backgroundColor).not.toBe('transparent')
   })
 
   it('a tap on the seam selects the loop starting there', async () => {
     const { spies } = setup({ loops: [A, B] })
     pointer(surface(), 'pointerdown', xAt(20_500, 20_000))
     pointer(surface(), 'pointerup', xAt(20_500, 20_000))
-    expect(spies.onTap).toHaveBeenLastCalledWith(20_500)
+    await expect.poll(() => spies.onTap.mock.lastCall).toEqual([20_500])
     await expect
       .element(page.getByRole('slider', { name: LOOP_END }))
       .toHaveAttribute('aria-valuetext', 'B part end, 0:23')
@@ -363,7 +367,7 @@ describe('PracticeWaveform', () => {
     const handle = page.getByRole('slider', { name: LOOP_START }).element()
     pointer(handle, 'pointerdown', xAt(18_900, 20_000))
     pointer(handle, 'pointerup', xAt(18_900, 20_000))
-    expect(spies.onTap).toHaveBeenLastCalledWith(18_900)
+    await expect.poll(() => spies.onTap.mock.lastCall).toEqual([18_900])
     await expect.poll(() => page.getByRole('slider', { name: LOOP_END }).elements()).toHaveLength(0)
     expect(spies.onCommit).not.toHaveBeenCalled()
   })
@@ -373,7 +377,7 @@ describe('PracticeWaveform', () => {
     const handle = page.getByRole('slider', { name: LOOP_END }).element()
     pointer(handle, 'pointerdown', xAt(20_500, 20_000))
     pointer(handle, 'pointerup', xAt(20_500, 20_000))
-    expect(spies.onTap).toHaveBeenLastCalledWith(20_500)
+    await expect.poll(() => spies.onTap.mock.lastCall).toEqual([20_500])
     await expect
       .element(page.getByRole('slider', { name: LOOP_END }))
       .toHaveAttribute('aria-valuetext', 'B part end, 0:23')
@@ -435,31 +439,34 @@ describe('PracticeWaveform', () => {
     expect(seek.mock.calls[0]![0]).toBeGreaterThan(19_500)
     expect(seek.mock.calls.at(-1)![0]).toBeGreaterThan(seek.mock.calls[0]![0])
     pointer(handle, 'pointerup', WIDTH_PX - 2)
-    expect(spies.onCommit).toHaveBeenCalledTimes(1)
+    await expect.poll(() => spies.onCommit.mock.calls.length).toBe(1)
   })
 
   it('a press that catches a glide takes over from where it got to', async () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] })
     const { seek } = setup({ positionMs: 20_000 })
-    // A real wait renders without running the faked frames; a poll would advance them.
-    const rendered = () => new Promise((resolve) => setTimeout(resolve, 50))
+    // act commits each render before it returns. A poll would advance the faked frames.
     const touch = { pointerType: 'touch' }
-    pointer(surface(), 'pointerdown', 300, touch)
-    vi.advanceTimersByTime(16)
-    pointer(surface(), 'pointermove', 250, touch)
-    vi.advanceTimersByTime(16)
-    pointer(surface(), 'pointermove', 200, touch)
-    pointer(surface(), 'pointerup', 200, touch)
-    vi.advanceTimersByTime(GLIDE_TAU_MS)
-    await rendered()
+    await act(async () => {
+      pointer(surface(), 'pointerdown', 300, touch)
+      vi.advanceTimersByTime(16)
+      pointer(surface(), 'pointermove', 250, touch)
+      vi.advanceTimersByTime(16)
+      pointer(surface(), 'pointermove', 200, touch)
+      pointer(surface(), 'pointerup', 200, touch)
+      vi.advanceTimersByTime(GLIDE_TAU_MS)
+    })
     const caughtStart = viewStart()
     expect(caughtStart).toBeGreaterThan(19_000)
-    pointer(surface(), 'pointerdown', 200)
-    pointer(surface(), 'pointermove', 150)
-    await rendered()
+    await act(async () => {
+      pointer(surface(), 'pointerdown', 200)
+      pointer(surface(), 'pointermove', 150)
+    })
     expect(viewStart()).toBeCloseTo(caughtStart + 500, 0)
-    pointer(surface(), 'pointerup', 150)
-    vi.advanceTimersByTime(4 * GLIDE_TAU_MS)
+    await act(async () => {
+      pointer(surface(), 'pointerup', 150)
+      vi.advanceTimersByTime(4 * GLIDE_TAU_MS)
+    })
     expect(seek).toHaveBeenCalledTimes(1)
     expect(seek.mock.calls[0]![0]).toBeCloseTo(caughtStart + 2000 + 500, 0)
   })
@@ -471,14 +478,14 @@ describe('PracticeWaveform', () => {
     await expect.element(field).toHaveValue('A part')
     await field.fill('Intro')
     await userEvent.keyboard('{Enter}')
-    expect(spies.onRenameCommit.mock.calls).toEqual([['a', 'Intro']])
+    await expect.poll(() => spies.onRenameCommit.mock.calls).toEqual([['a', 'Intro']])
     await expect.poll(() => page.getByRole('textbox').elements()).toHaveLength(0)
 
     await page.getByRole('button', { name: 'A part' }).click()
     await field.fill('Outro')
     await userEvent.keyboard('{Escape}')
     await expect.poll(() => page.getByRole('textbox').elements()).toHaveLength(0)
-    expect(spies.onRenameCancel).toHaveBeenCalledTimes(1)
+    await expect.poll(() => spies.onRenameCancel.mock.calls.length).toBe(1)
     expect(spies.onRenameCommit).toHaveBeenCalledTimes(1)
   })
 
@@ -488,8 +495,12 @@ describe('PracticeWaveform', () => {
     await page.getByRole('button', { name: 'B part' }).click()
     const field = page.getByRole('textbox', { name: LOOP_NAME })
     await expect.element(field).toBeVisible()
-    const box = field.element().getBoundingClientRect()
-    expect(box.right).toBeLessThanOrEqual(waveform().getBoundingClientRect().right + 0.5)
+    await expect
+      .poll(
+        () =>
+          field.element().getBoundingClientRect().right - waveform().getBoundingClientRect().right,
+      )
+      .toBeLessThanOrEqual(0.5)
   })
 
   it('opens the name field empty for an unnamed loop and commits it empty', async () => {
@@ -500,6 +511,6 @@ describe('PracticeWaveform', () => {
     await expect.element(field).toHaveValue('')
     ;(field.element() as HTMLElement).focus()
     await userEvent.keyboard('{Enter}')
-    expect(spies.onRenameCommit.mock.calls).toEqual([['a', '']])
+    await expect.poll(() => spies.onRenameCommit.mock.calls).toEqual([['a', '']])
   })
 })

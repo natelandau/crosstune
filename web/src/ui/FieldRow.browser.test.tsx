@@ -15,9 +15,11 @@ describe('FieldRow', () => {
   it('puts the label at the leading edge and the value at the trailing edge', async () => {
     renderIonic(<FieldRow label="Genre">{value('Old-time')}</FieldRow>, { db: openTestDb() })
     await expect.element(page.getByText('Genre')).toBeVisible()
-    const label = document.querySelector('[data-row-label]')!.getBoundingClientRect()
-    const trailing = document.querySelector('[data-row-value]')!.getBoundingClientRect()
-    expect(label.left).toBeLessThan(trailing.left)
+    const label = document.querySelector('[data-row-label]')!
+    const trailing = document.querySelector('[data-row-value]')!
+    await expect
+      .poll(() => label.getBoundingClientRect().left - trailing.getBoundingClientRect().left)
+      .toBeLessThan(0)
   })
 
   it('names the detail field it edits', async () => {
@@ -44,8 +46,8 @@ describe('FieldRow', () => {
     const label = document.querySelector('[data-row-label]') as HTMLElement
     const trailing = document.querySelector('[data-row-value]') as HTMLElement
     // The value gives up its width first, so the label is never the thing that gets clipped.
-    expect(trailing.scrollWidth).toBeGreaterThan(trailing.clientWidth)
-    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+    await expect.poll(() => trailing.scrollWidth - trailing.clientWidth).toBeGreaterThan(0)
+    await expect.poll(() => label.scrollWidth - label.clientWidth).toBeLessThanOrEqual(1)
   })
 
   it('mirrors in right-to-left text', async () => {
@@ -56,9 +58,11 @@ describe('FieldRow', () => {
       { db: openTestDb() },
     )
     await expect.element(page.getByText('Genre')).toBeVisible()
-    const label = document.querySelector('[data-row-label]')!.getBoundingClientRect()
-    const trailing = document.querySelector('[data-row-value]')!.getBoundingClientRect()
-    expect(label.left).toBeGreaterThan(trailing.left)
+    const label = document.querySelector('[data-row-label]')!
+    const trailing = document.querySelector('[data-row-value]')!
+    await expect
+      .poll(() => label.getBoundingClientRect().left - trailing.getBoundingClientRect().left)
+      .toBeGreaterThan(0)
   })
 
   it('pushes a select\u2019s value to the trailing edge, clear of its label', async () => {
@@ -105,6 +109,6 @@ describe('FieldRow', () => {
     renderIonic(<FieldRow label="Genre">{value('Old-time')}</FieldRow>, { db: openTestDb() })
     await expect.element(page.getByText('Genre')).toBeVisible()
     const item = document.querySelector('ion-item')!
-    expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
   })
 })

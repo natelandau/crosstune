@@ -1,6 +1,6 @@
 import { IonButton } from '@ionic/react'
 import { screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { Instrument } from '../../api/vocabulary'
 import * as bulk from '../../commands/bulk'
@@ -28,10 +28,6 @@ const onExit = vi.fn()
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 async function seed(tune: TuneInput, userTune: Partial<UserTuneInput> = {}): Promise<CatalogEntry> {
@@ -149,7 +145,7 @@ describe('useBulkActions', () => {
       expect(await statusOf(one.userTune.id)).toBe('want_to_learn')
       expect(await statusOf(two.userTune.id)).toBe('want_to_learn')
     })
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
 
     await undo()
     await vi.waitFor(async () => {
@@ -173,7 +169,7 @@ describe('useBulkActions', () => {
     await tap('Status')
     await pick('Known')
     await expect.element(page.getByText('Set 2 tunes to Known')).toBeVisible()
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
   })
 
   it('writes an edit to only the selected tunes and undoes', async () => {
@@ -191,7 +187,7 @@ describe('useBulkActions', () => {
       expect(await tuningOf(two.tune.id)).toBe('Cross A (AEAE)')
     })
     expect(await tuningOf(unselected.tune.id)).toBeNull()
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
     await sheetsClosed()
 
     await undo()
@@ -212,7 +208,7 @@ describe('useBulkActions', () => {
       expect(await archivedAt(one.userTune.id)).not.toBeNull()
       expect(await archivedAt(two.userTune.id)).not.toBeNull()
     })
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
 
     await undo()
     await vi.waitFor(async () => {
@@ -228,9 +224,9 @@ describe('useBulkActions', () => {
       await archive(await seed({ title: 'Ducks on the Millpond' })),
     ]
     show(entries)
-    expect(probe().getAttribute('data-more')).toBe(
-      'Archive 1 tune|Unarchive 2 tunes|Delete 3 tunes',
-    )
+    await expect
+      .poll(() => probe().getAttribute('data-more'))
+      .toBe('Archive 1 tune|Unarchive 2 tunes|Delete 3 tunes')
     await tap('More')
     await expect.element(page.getByText('Archive 1 tune', { exact: true })).toBeVisible()
     await expect.element(page.getByText('Unarchive 2 tunes', { exact: true })).toBeVisible()
@@ -247,7 +243,7 @@ describe('useBulkActions', () => {
       expect(await archivedAt(one.userTune.id)).toBeNull()
       expect(await archivedAt(two.userTune.id)).toBeNull()
     })
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
 
     await undo()
     await vi.waitFor(async () => {
@@ -262,10 +258,12 @@ describe('useBulkActions', () => {
       await archive(await seed({ title: 'Lost Indian' })),
     ]
     show(entries)
-    expect(probe().getAttribute('data-more')).toBe('Unarchive 2 tunes|Delete 2 tunes')
+    await expect
+      .poll(() => probe().getAttribute('data-more'))
+      .toBe('Unarchive 2 tunes|Delete 2 tunes')
     await tap('More')
     await expect.element(page.getByText('Unarchive 2 tunes', { exact: true })).toBeVisible()
-    expect(page.getByText('Archive 2 tunes', { exact: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByText('Archive 2 tunes', { exact: true })).not.toBeInTheDocument()
   })
 
   it('removes from a list and undoes into the original positions', async () => {
@@ -290,7 +288,7 @@ describe('useBulkActions', () => {
     await pick('Remove 2 from list')
     await expect.element(page.getByText('Removed 2 tunes from Tuesday jam')).toBeVisible()
     await vi.waitFor(async () => expect(await order(listId)).toEqual([second.userTune.id]))
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
 
     await undo()
     await vi.waitFor(async () => expect(await order(listId)).toEqual(before))
@@ -299,10 +297,14 @@ describe('useBulkActions', () => {
   it('offers no Remove item on the catalog', async () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     show(entries)
-    expect(probe().getAttribute('data-more')).toBe('Archive 2 tunes|Delete 2 tunes')
+    await expect
+      .poll(() => probe().getAttribute('data-more'))
+      .toBe('Archive 2 tunes|Delete 2 tunes')
     await tap('More')
     await expect.element(page.getByText('Archive 2 tunes', { exact: true })).toBeVisible()
-    expect(page.getByText('Remove 2 from list', { exact: true }).elements()).toHaveLength(0)
+    await expect
+      .element(page.getByText('Remove 2 from list', { exact: true }))
+      .not.toBeInTheDocument()
   })
 
   it('keeps the mode and the selection and reports the error when a write fails', async () => {
@@ -343,7 +345,7 @@ describe('useBulkActions', () => {
     await vi.waitFor(async () =>
       expect(await order(listId)).toEqual([one.userTune.id, two.userTune.id]),
     )
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
     await sheetsClosed()
 
     await undo()
@@ -365,13 +367,15 @@ describe('useBulkActions', () => {
       expect(list?.name).toBe('Violin club')
       return list!.id
     })
-    expect(await order(listId)).toEqual([one.userTune.id, two.userTune.id])
-    expect(onExit).toHaveBeenCalledOnce()
+    await vi.waitFor(async () =>
+      expect(await order(listId)).toEqual([one.userTune.id, two.userTune.id]),
+    )
+    await vi.waitFor(() => expect(onExit).toHaveBeenCalledOnce())
     await sheetsClosed()
 
     await undo()
     await vi.waitFor(async () => expect((await db.lists.get(listId))!.deleted_at).not.toBeNull())
-    expect(await order(listId)).toEqual([])
+    await vi.waitFor(async () => expect(await order(listId)).toEqual([]))
   })
 
   it('keeps the picker open and the mode alive when an add fails', async () => {
@@ -505,9 +509,11 @@ describe('useBulkActions', () => {
     await tap('More')
     await pick('Delete 2 tunes')
 
-    expect((await alertEl()).textContent).toContain(
-      'Delete 2 tunes? This removes their links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',
-    )
+    await expect
+      .poll(async () => (await alertEl()).textContent)
+      .toContain(
+        'Delete 2 tunes? This removes their links, list entries, and 2 recordings. Some recordings have not uploaded, so they cannot be recovered.',
+      )
     await (await alertButton(CANCEL)).click()
   })
 
@@ -517,16 +523,16 @@ describe('useBulkActions', () => {
     await tap('More')
     await pick('Delete 1 tune')
 
-    expect((await alertEl()).textContent).toContain(
-      'Delete "Say Old Man"? This removes its links and list entries.',
-    )
+    await expect
+      .poll(async () => (await alertEl()).textContent)
+      .toContain('Delete "Say Old Man"? This removes its links and list entries.')
     await (await alertButton(CANCEL)).click()
   })
 
   it('keeps every action but offers no More items when nothing is selected', async () => {
     show([])
     await vi.waitFor(() => expect(document.querySelector('[data-probe]')).not.toBeNull())
-    expect(probe().getAttribute('data-actions')).toBe('Status|Edit|Add to list')
-    expect(probe().getAttribute('data-more')).toBe('')
+    await expect.poll(() => probe().getAttribute('data-actions')).toBe('Status|Edit|Add to list')
+    await expect.poll(() => probe().getAttribute('data-more')).toBe('')
   })
 })

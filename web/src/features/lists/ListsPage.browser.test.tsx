@@ -21,7 +21,6 @@ beforeEach(() => {
 
 afterEach(async () => {
   window.matchMedia = original
-  await db.delete()
 })
 
 const show = (engine = fakeEngine()) =>
@@ -45,8 +44,9 @@ describe('ListsPage', () => {
     await addToList(db, jam, userTuneId)
     show()
     await expect.element(page.getByText('1 tune · Edited today')).toBeVisible()
-    const names = Array.from(document.querySelectorAll('ion-list h2')).map((h) => h.textContent)
-    expect(names).toEqual(['Tuesday jam', 'Square dance set'])
+    await expect
+      .poll(() => Array.from(document.querySelectorAll('ion-list h2')).map((h) => h.textContent))
+      .toEqual(['Tuesday jam', 'Square dance set'])
   })
 
   it('renames a list from its row', async () => {
@@ -85,8 +85,10 @@ describe('ListsPage', () => {
     const sync = vi.spyOn(engine, 'sync')
     show(engine)
     await expect.element(page.getByText(NO_LISTS_TITLE)).toBeVisible()
+    await expect
+      .poll(() => document.querySelector('ion-refresher')?.parentElement?.tagName)
+      .toBe('ION-CONTENT')
     const refresher = document.querySelector('ion-refresher')!
-    expect(refresher.parentElement?.tagName).toBe('ION-CONTENT')
     const complete = vi.fn()
     refresher.dispatchEvent(new CustomEvent('ionRefresh', { detail: { complete } }))
     await vi.waitFor(() => expect(complete).toHaveBeenCalledOnce())
@@ -97,7 +99,7 @@ describe('ListsPage', () => {
     show()
     await vi.waitFor(() => expect(document.querySelectorAll('h1')).toHaveLength(1))
     await expect.element(page.getByText(NO_LISTS_TITLE)).toBeVisible()
-    expect(document.querySelectorAll('h1')).toHaveLength(1)
+    await expect.poll(() => document.querySelectorAll('h1')).toHaveLength(1)
   })
 
   it('walks the rows with the arrow keys on a mouse', async () => {
@@ -105,15 +107,15 @@ describe('ListsPage', () => {
     await createList(db, 'Square dance set')
     show()
     await expect.element(page.getByRole('heading', { name: 'Square dance set' })).toBeVisible()
+    await expect.poll(() => document.querySelectorAll('[data-row-open]')).toHaveLength(2)
     const opens = document.querySelectorAll<HTMLElement>('[data-row-open]')
-    expect(opens).toHaveLength(2)
     await vi.waitFor(() => {
       opens[0]!.focus()
       expect(document.activeElement).toBe(opens[0])
     })
     await userEvent.keyboard('{ArrowDown}')
-    expect(document.activeElement).toBe(opens[1])
+    await expect.poll(() => document.activeElement).toBe(opens[1])
     await userEvent.keyboard('{ArrowUp}')
-    expect(document.activeElement).toBe(opens[0])
+    await expect.poll(() => document.activeElement).toBe(opens[0])
   })
 })

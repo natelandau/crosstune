@@ -86,7 +86,9 @@ describe('TuneSearch', () => {
     renderIonic(<Host taken={new Set([joy.userTuneId])} takenLabel="Already filed" />, { db })
     await search().fill('soldier')
     await expect.element(page.getByText('Already filed')).toBeVisible()
-    expect(page.getByRole('button', { name: "Add to Soldier's Joy" }).elements()).toHaveLength(0)
+    await expect
+      .element(page.getByRole('button', { name: "Add to Soldier's Joy" }))
+      .not.toBeInTheDocument()
   })
 
   it('reports a taken tune neither from a tap nor from Enter', async () => {

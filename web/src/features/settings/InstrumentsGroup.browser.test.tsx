@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { INSTRUMENTS } from '../../api/vocabulary'
 import { setInstruments, settingsId, toggleInstrumentSetting } from '../../commands/settings'
@@ -17,10 +17,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const show = () => renderIonic(<InstrumentsGroup />, { db })
@@ -69,7 +65,7 @@ describe('InstrumentsGroup', () => {
     await setInstruments(db, 'user_1', ['violin'])
     show()
     await expect.element(row()).toBeVisible()
-    expect(page.getByRole('checkbox').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('checkbox')).not.toBeInTheDocument()
 
     await openSheet()
     await expect.element(box('Violin')).toBeChecked()
@@ -85,7 +81,9 @@ describe('InstrumentsGroup', () => {
     await box('5-string banjo').click()
     await expect.poll(stored).toEqual(['violin', 'five_string_banjo'])
     await expect.element(box('5-string banjo')).toBeChecked()
-    expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
+    await expect
+      .poll(async () => (await pendingBatch(db, 10)).map((entry) => entry.table))
+      .toEqual(['user_settings'])
 
     // The row it was opened from follows the set it holds now.
     await closeSheet()
@@ -107,7 +105,7 @@ describe('InstrumentsGroup', () => {
 
     await closeSheet()
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
-    expect(page.getByText(INSTRUMENTS_HELP).elements()).toHaveLength(0)
+    await expect.element(page.getByText(INSTRUMENTS_HELP)).not.toBeInTheDocument()
   })
 
   it('drops a refusal from the last visit when the sheet opens again', async () => {
@@ -119,7 +117,7 @@ describe('InstrumentsGroup', () => {
     await closeSheet()
 
     await openSheet()
-    expect(page.getByRole('alert').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
     await closeSheet()
     await expect.element(page.getByText(INSTRUMENTS_HELP)).toBeVisible()
   })
@@ -129,7 +127,7 @@ describe('InstrumentsGroup', () => {
     await openSheet()
     await expect.element(box(INSTRUMENT_LABELS[INSTRUMENTS[INSTRUMENTS.length - 1]!])).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
-      expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

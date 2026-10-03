@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import openapi from '../../../api/openapi.json'
 import { openTestDb } from '../test/db'
 import { linkRow, recordingRow } from '../test/rows'
@@ -28,10 +28,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const tune: LocalTune = {
@@ -84,15 +80,11 @@ describe('schema', () => {
 
   it('opens at the current version with the recording tables', async () => {
     const db = openTestDb()
-    try {
-      await db.open()
-      expect(db.tables.map((t) => t.name)).toEqual(
-        expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
-      )
-      expect(db.verno).toBe(9)
-    } finally {
-      await db.delete()
-    }
+    await db.open()
+    expect(db.tables.map((t) => t.name)).toEqual(
+      expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
+    )
+    expect(db.verno).toBe(9)
   })
 
   const CURRENT_STORES = [
@@ -367,15 +359,11 @@ describe('schema', () => {
 
   it('opens again after a close that came during the newer check', async () => {
     const reopened = openTestDb()
-    try {
-      const first = reopened.open()
-      reopened.close()
-      await expect(first).rejects.toThrow(Dexie.DatabaseClosedError)
-      await reopened.open()
-      expect(reopened.isOpen()).toBe(true)
-    } finally {
-      await reopened.delete()
-    }
+    const first = reopened.open()
+    reopened.close()
+    await expect(first).rejects.toThrow(Dexie.DatabaseClosedError)
+    await reopened.open()
+    expect(reopened.isOpen()).toBe(true)
   })
 
   it('rejects queries that auto-opened during the newer check on close', async () => {
@@ -394,7 +382,6 @@ describe('schema', () => {
       await expect(Promise.race([transaction, hung])).rejects.toThrow(Dexie.DatabaseClosedError)
     } finally {
       clearTimeout(timer)
-      await closing.delete()
     }
   })
 })

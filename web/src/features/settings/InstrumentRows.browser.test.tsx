@@ -40,12 +40,14 @@ describe('InstrumentRows', () => {
   it('lists the listed instruments in their fixed order', async () => {
     show([])
     await expect.element(box('Violin')).toBeVisible()
-    expect(
-      page
-        .getByRole('checkbox')
-        .elements()
-        .map((element) => element.textContent?.trim()),
-    ).toEqual(LABELS)
+    await expect
+      .poll(() =>
+        page
+          .getByRole('checkbox')
+          .elements()
+          .map((element) => element.textContent?.trim()),
+      )
+      .toEqual(LABELS)
   })
 
   it('checks only the instruments in the value', async () => {
@@ -58,7 +60,7 @@ describe('InstrumentRows', () => {
     const onToggle = vi.fn()
     show([], onToggle)
     await box('5-string banjo').click()
-    expect(onToggle).toHaveBeenCalledOnce()
+    await expect.poll(() => onToggle).toHaveBeenCalledOnce()
     expect(onToggle).toHaveBeenCalledWith('five_string_banjo', true)
   })
 
@@ -66,17 +68,16 @@ describe('InstrumentRows', () => {
     const onToggle = vi.fn()
     show(['violin'], onToggle)
     await box('Violin').click()
-    expect(onToggle).toHaveBeenCalledOnce()
+    await expect.poll(() => onToggle).toHaveBeenCalledOnce()
     expect(onToggle).toHaveBeenCalledWith('violin', false)
   })
 
   it('gives every row a tap target a finger can hit', async () => {
     show([])
     await expect.element(box(LAST_LABEL)).toBeVisible()
-    const items = document.querySelectorAll('ion-item')
-    expect(items).toHaveLength(LABELS.length)
-    for (const item of items) {
-      expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => document.querySelectorAll('ion-item')).toHaveLength(LABELS.length)
+    for (const item of document.querySelectorAll('ion-item')) {
+      await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

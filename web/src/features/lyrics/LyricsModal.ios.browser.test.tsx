@@ -20,16 +20,18 @@ describe('LyricsModal on iOS', () => {
     await page.viewport(320, 640)
     try {
       await show(LONG_TITLE)
-      const modal = openModal()
-      const titleInner = modal
-        .querySelector('ion-title')!
-        .shadowRoot!.querySelector('.toolbar-title')!
-      const title = titleInner.getBoundingClientRect()
-      const controls = modal.querySelector('ion-buttons[slot="end"]')!.getBoundingClientRect()
-      expect(title.right).toBeLessThanOrEqual(controls.left)
+      const titleInner = () =>
+        openModal().querySelector('ion-title')!.shadowRoot!.querySelector('.toolbar-title')!
+      const controls = () =>
+        openModal().querySelector('ion-buttons[slot="end"]')!.getBoundingClientRect()
+      await expect
+        .poll(() => titleInner().getBoundingClientRect().right - controls().left)
+        .toBeLessThanOrEqual(0)
       // The title box is narrower than its own text, so it cleared the controls by eliding,
       // not by fitting the long title in whole.
-      expect(titleInner.scrollWidth).toBeGreaterThan(titleInner.clientWidth)
+      await expect
+        .poll(() => titleInner().scrollWidth - titleInner().clientWidth)
+        .toBeGreaterThan(0)
     } finally {
       await page.viewport(390, 844)
     }
