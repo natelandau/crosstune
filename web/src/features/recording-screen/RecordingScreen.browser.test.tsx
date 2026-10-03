@@ -39,6 +39,7 @@ import {
   TRIM_WHILE_DOWNLOADING,
   TRIM_WHILE_RECORDING,
 } from './RecordingScreen'
+import { ZOOM_IN } from './panel'
 import { SPEED } from './SpeedPanel'
 import { PITCH } from './PitchPanel'
 import { TRIM } from './TrimView'
@@ -217,6 +218,26 @@ describe('RecordingScreen', () => {
     } finally {
       await page.viewport(390, 844)
     }
+  })
+
+  it('centers the play controls on a phone, with the clock and zoom on one line above', async () => {
+    await localRecording('Jam recording')
+    await openFromRows('Jam recording')
+    const screen = await modal()
+    await expect.element(await waveform()).toBeVisible()
+    const row = screen.element().querySelector<HTMLElement>('[data-practice-transport]')!
+    const play = screen
+      .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
+      .element()
+      .getBoundingClientRect()
+    const box = row.getBoundingClientRect()
+    expect(Math.abs(play.left + play.width / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(2)
+
+    const zoomIn = screen.getByRole('button', { name: ZOOM_IN }).element().getBoundingClientRect()
+    const clock = row.querySelector<HTMLElement>('[data-practice-clock]')!
+    expect(zoomIn.bottom).toBeLessThanOrEqual(play.top)
+    expect(Math.abs(zoomIn.top - clock.getBoundingClientRect().top)).toBeLessThanOrEqual(24)
+    expect(parseFloat(getComputedStyle(clock).fontSize)).toBeLessThanOrEqual(32)
   })
 
   it('shows a speed and pitch away from the default on their segments', async () => {

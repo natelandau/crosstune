@@ -385,16 +385,19 @@ export function Practice({
         <div inert={!!blocked} className={`mx-auto w-full max-w-(--measure) ${off}`}>
           <ModeSelector mode={mode} onMode={setMode} speedPercent={speed} pitchCents={pitch} />
         </div>
-        {/* Three columns from a tablet up, so the play controls sit at the row's middle, not beside
-            the clock; a phone wraps instead. */}
+        {/* The play controls always sit at the row's middle. Equal side columns keep them there
+            from a tablet up; a phone gives them a line of their own under the clock and zoom. */}
         <div
           data-practice-transport
-          className="flex flex-wrap items-start justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]"
+          className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 sm:grid-cols-[1fr_auto_1fr] sm:items-start"
         >
-          <p className="type-timer m-0 flex min-h-16 min-w-24 items-center tabular-nums">
+          <p
+            data-practice-clock
+            className="type-timer col-start-1 row-start-1 m-0 flex min-h-11 items-center tabular-nums max-sm:text-[2rem] sm:min-h-16"
+          >
             {blocked ?? formatPreciseDuration(shownMs)}
           </p>
-          <div className="flex flex-col items-center">
+          <div className="col-span-2 row-start-2 flex flex-col items-center justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
             <div className="flex items-center gap-2">
               <IonButton
                 fill="clear"
@@ -446,7 +449,7 @@ export function Practice({
               announce={announce}
             />
           </div>
-          <div className="ml-auto flex min-h-16 items-center gap-1 sm:justify-self-end">
+          <div className="col-start-2 row-start-1 flex min-h-11 items-center gap-1 justify-self-end sm:col-start-3 sm:min-h-16">
             <button
               type="button"
               aria-label={ZOOM_OUT}
