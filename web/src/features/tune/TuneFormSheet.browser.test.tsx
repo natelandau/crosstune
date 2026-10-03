@@ -688,8 +688,14 @@ describe('TuneFormSheet', () => {
     const type = page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, ${NOT_SET}` })
     await expect.element(genre).toBeInTheDocument()
     await expect.element(type).toBeInTheDocument()
-    const order = genre.element().compareDocumentPosition(type.element())
-    expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // A re-render between the two lookups can leave one node detached, so read both together.
+    await expect
+      .poll(
+        () =>
+          genre.element().compareDocumentPosition(type.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      .toBeTruthy()
   })
 
   it('adds a B part mode row once the first mode is set', async () => {
