@@ -1,8 +1,5 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 
-/** The row action that opens the recording screen. */
-export const EDIT_RECORDING = 'Edit'
-
 /** Speed and pitch the screen is playing but has not yet written; null where it matches the row. */
 export interface HeldSettings {
   speedPercent: number | null

@@ -1,6 +1,6 @@
 import { IonButton, IonButtons, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Ellipsis, X } from 'lucide-react'
+import { ChevronDown, Ellipsis } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
@@ -324,7 +324,7 @@ function Loaded({
         <IonToolbar>
           <IonButtons slot="start">
             <IonButton className="toolbar-control" aria-label={CLOSE_RECORDING} onClick={onClose}>
-              <X aria-hidden="true" className="size-6" />
+              <ChevronDown aria-hidden="true" className="size-6" />
             </IonButton>
           </IonButtons>
           <IonTitle>

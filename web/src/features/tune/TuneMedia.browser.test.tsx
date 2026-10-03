@@ -14,8 +14,9 @@ import { ADD_LINK, PASTE_LINK } from '../links/PasteLinkSheet'
 import { NEW_RECORDING } from '../recording/RecordModal'
 import type * as RecordModule from '../recording/useRecord'
 import { RecordProvider } from '../recording/useRecord'
+import { RECORDING_NAME_LABEL, RENAME } from '../recordings/recordingCopy'
 import { DELETE_SYNCED_NOTE } from '../recordings/recordingRow'
-import { EDIT_RECORDING } from '../recording-screen/useRecordingScreen'
+import { RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
 import { DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { ADD_RECORDING, NO_MEDIA_HINT, NO_MEDIA_TITLE, TuneMedia } from './TuneMedia'
@@ -215,11 +216,11 @@ describe('TuneMedia', () => {
       .toBe(0)
   })
 
-  it('offers Edit, Remove from tune, and Delete on a row, and no Rename', async () => {
+  it('offers Rename, Remove from tune, and Delete on a row', async () => {
     await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam recording' }))
     show()
     await expect
-      .element(page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }))
+      .element(page.getByRole('button', { name: `${RENAME} Jam recording` }))
       .toBeInTheDocument()
     await expect
       .element(page.getByRole('button', { name: 'Remove from tune Jam recording' }))
@@ -227,9 +228,17 @@ describe('TuneMedia', () => {
     await expect
       .element(page.getByRole('button', { name: 'Delete Jam recording' }))
       .toBeInTheDocument()
-    await expect
-      .element(page.getByRole('button', { name: 'Rename Jam recording' }))
-      .not.toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
+  })
+
+  it('renames a recording from its own row', async () => {
+    await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam recording' }))
+    show()
+    await page.getByRole('button', { name: `${RENAME} Jam recording` }).click()
+    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
+    await page.getByRole('textbox', { name: RECORDING_NAME_LABEL }).fill('Barn dance')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.label).toBe('Barn dance'))
   })
 
   it('asks before deleting a recording, saying what it costs', async () => {

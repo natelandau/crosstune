@@ -44,7 +44,7 @@ import { RESET, ZOOM_IN } from './panel'
 import { SPEED } from './SpeedPanel'
 import { CENTS, PITCH } from './PitchPanel'
 import { TRIM } from './TrimView'
-import { EDIT_RECORDING, useRecordingScreen } from './useRecordingScreen'
+import { useRecordingScreen } from './useRecordingScreen'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -78,8 +78,8 @@ async function remoteRecording(label: string, extra: Partial<LocalRecording> = {
   )
 }
 
-/** The Recordings tab with the dock and the screen, opened through a row's Edit action. */
-async function openFromRows(
+/** The Recordings tab with the dock and the screen, opened by playing a row, then the dock's title. */
+async function openFromDock(
   label: string,
   {
     syncEngine,
@@ -96,12 +96,19 @@ async function openFromRows(
     recordingScreen: true,
     dock: true,
   })
-  await page.getByRole('button', { name: `${EDIT_RECORDING} ${label}` }).click()
+  await page.getByRole('button', { name: `Play ${label}`, exact: false }).click()
+  await page.getByRole('button', { name: OPEN_RECORDING(label) }).click()
   return { engine, load }
 }
 
-/** The screen opened on `id` by a caller of `open`. */
-async function openById(id: string, { syncEngine }: { syncEngine?: SyncEngine } = {}) {
+/** The screen opened on `id` by a caller of `open`, for a recording no row could play yet. */
+async function openById(
+  id: string,
+  {
+    syncEngine,
+    engine = fakePlaybackEngine(),
+  }: { syncEngine?: SyncEngine; engine?: PlaybackEngine } = {},
+) {
   function Opener() {
     const { open } = useRecordingScreen()
     return (
@@ -113,11 +120,12 @@ async function openById(id: string, { syncEngine }: { syncEngine?: SyncEngine } 
   renderIonic(<Opener />, {
     db,
     engine: syncEngine,
-    playbackEngine: fakePlaybackEngine(),
+    playbackEngine: engine,
     recordingScreen: true,
     dock: true,
   })
   await page.getByRole('button', { name: 'Open recording' }).click()
+  return { engine }
 }
 
 /** Opens the ⋯ menu and returns a reader of its labels, in order. */
@@ -165,19 +173,11 @@ function press(key: string, init: KeyboardEventInit = {}) {
 }
 
 describe('RecordingScreen', () => {
-  it("opens from the row's Edit action and starts that recording in the player", async () => {
-    await localRecording('Jam recording')
+  it('opens on any recording and starts it in the player', async () => {
+    const id = await localRecording('Jam recording')
     const engine = fakePlaybackEngine()
     const load = vi.spyOn(engine, 'load')
-    renderScreen(<RecordingsPage />, {
-      db,
-      path: '/recordings',
-      route: '/recordings',
-      playbackEngine: engine,
-      recordingScreen: true,
-      dock: true,
-    })
-    await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
+    await openById(id, { engine })
     await expect.element(page.getByRole('dialog', { name: 'Jam recording' })).toBeVisible()
     await expect.element(await waveform()).toBeVisible()
     await expect.poll(() => load.mock.calls.length).toBe(1)
@@ -189,7 +189,7 @@ describe('RecordingScreen', () => {
 
   it('opens on the waveform with the Loops mode', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     const screen = await modal()
     await expect.element(await waveform()).toBeVisible()
     await expect
@@ -243,7 +243,7 @@ describe('RecordingScreen', () => {
     await page.viewport(1440, 1200)
     try {
       await localRecording('Jam recording')
-      await openFromRows('Jam recording')
+      await openFromDock('Jam recording')
       const screen = await modal()
       await expect.element(await waveform()).toBeVisible()
       await screen.getByRole('tab', { name: SPEED, exact: true }).click({ force: true })
@@ -257,7 +257,7 @@ describe('RecordingScreen', () => {
 
   it('centers the play controls on a phone, with the clock and zoom over the waveform', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await expect.element(await waveform()).toBeVisible()
     await expectPlayCentered()
     await expectOverlaidOnWaveform()
@@ -265,7 +265,7 @@ describe('RecordingScreen', () => {
 
   it('fits Speed and Pitch on a phone without scrolling', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     const screen = await modal()
     await expect.element(await waveform()).toBeVisible()
     const inView = (element: Element) => {
@@ -291,7 +291,7 @@ describe('RecordingScreen', () => {
 
   it('shows the date and length under the title, not in the body', async () => {
     const id = await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     const screen = await modal()
     await expect.element(await waveform()).toBeVisible()
     const recording = (await db.recordings.get(id))!
@@ -306,7 +306,7 @@ describe('RecordingScreen', () => {
   it('shows a speed and pitch away from the default on their segments', async () => {
     await localRecording('Jam recording')
     await db.recordings.toCollection().modify({ speed_percent: 75, pitch_cents: 200 })
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     const screen = await modal()
     await expect
       .element(screen.getByRole('tab', { name: SEGMENT_LABEL(SPEED, '75%') }))
@@ -318,7 +318,7 @@ describe('RecordingScreen', () => {
 
   it('the ⋯ menu offers Trim, Rename, Add to tune, and Delete', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await expect.poll(await menuLabels()).toEqual([TRIM, RENAME, ADD_TO_TUNE, DELETE])
   })
 
@@ -331,7 +331,7 @@ describe('RecordingScreen', () => {
 
   it('Trim returns to the screen', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await (await trimItem()).click()
     await (await modal()).getByRole('button', { name: CANCEL }).click()
     await expect.element(await waveform()).toBeVisible()
@@ -339,7 +339,7 @@ describe('RecordingScreen', () => {
 
   it('a recording still downloading disables the waveform, transport, and modes with the reason', async () => {
     await remoteRecording('Remote take')
-    await openFromRows('Remote take', { syncEngine: fakeEngine({ download: () => never }) })
+    await openById('r1', { syncEngine: fakeEngine({ download: () => never }) })
     const screen = await modal()
     await expect.element(screen.getByText(TRIM_WHILE_DOWNLOADING, { exact: true })).toBeVisible()
     await expectDisabled()
@@ -347,7 +347,7 @@ describe('RecordingScreen', () => {
 
   it('a recording still capturing disables the waveform, transport, and modes with the reason', async () => {
     const id = await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await expect.element(await waveform()).toBeVisible()
     await db.recording_files.update(id, { local_state: 'capturing' })
     const screen = await modal()
@@ -398,7 +398,7 @@ describe('RecordingScreen', () => {
       }),
     )
     await storeDownloadedBlob(db, 'r1', new Blob(['abc']), 'audio/mp4', 'aaaa1111', 0)
-    await openFromRows('Server take')
+    await openFromDock('Server take')
     await expect.element(await waveform()).toBeVisible()
     await expect
       .poll(() => presentedModal()!.querySelector('[data-practice-waveform]')!.closest('[inert]'))
@@ -420,7 +420,7 @@ describe('RecordingScreen', () => {
       }),
     )
     await storeDownloadedBlob(db, 'r1', new Blob(['abc']), 'audio/mp4', 'aaaa1111', 0)
-    await openFromRows('Server take')
+    await openFromDock('Server take')
     const item = await trimItem()
     await expect.poll(() => item.disabled).toBe(true)
     await expect.poll(() => item.textContent).toContain(TRIM_BUSY)
@@ -431,41 +431,41 @@ describe('RecordingScreen', () => {
 
   it('Trim waits for a recording that is still downloading', async () => {
     await remoteRecording('Remote take')
-    await openFromRows('Remote take', { syncEngine: fakeEngine({ download: () => never }) })
+    await openById('r1', { syncEngine: fakeEngine({ download: () => never }) })
     await expectTrimBlocked(TRIM_WHILE_DOWNLOADING)
   })
 
   it("Trim says so when the recording's download failed", async () => {
     await remoteRecording('Remote take')
-    await openFromRows('Remote take', { syncEngine: fakeEngine({ download: async () => null }) })
+    await openById('r1', { syncEngine: fakeEngine({ download: async () => null }) })
     await expect.poll(async () => (await trimItem()).textContent).toContain(DOWNLOAD_FAILED)
   })
 
   it('Trim says the device is offline when it holds no audio and cannot fetch any', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     await remoteRecording('Remote take')
-    await openFromRows('Remote take')
+    await openById('r1')
     await expectTrimBlocked(OFFLINE)
   })
 
   it('Trim says why it waits for a recording with no audio that is not ready', async () => {
     await remoteRecording('Remote take', { state: 'processing', playback_rev: null })
     const download = vi.fn(async () => null)
-    await openFromRows('Remote take', { syncEngine: fakeEngine({ download }) })
+    await openById('r1', { syncEngine: fakeEngine({ download }) })
     await expectTrimBlocked('Processing')
   })
 
   it('Trim waits for the upload of an imported file whose length could not be read', async () => {
     const file = new File(['webm'], 'Session.webm', { type: 'audio/webm' })
     await addUploadedFile(db, file, { tuneId: null, label: 'Session', durationMs: null })
-    await openFromRows('Session')
+    await openFromDock('Session')
     await expectTrimBlocked(NOT_AVAILABLE)
   })
 
   it('Trim opens on an imported file measured at import', async () => {
     const file = new File(['m4a'], 'Session.m4a', { type: 'audio/mp4' })
     await addUploadedFile(db, file, { tuneId: null, label: 'Session', durationMs: 42_000 })
-    await openFromRows('Session')
+    await openFromDock('Session')
     const item = await trimItem()
     await expect.poll(() => item.disabled).toBe(false)
   })
@@ -474,15 +474,7 @@ describe('RecordingScreen', () => {
     await remoteRecording('Remote take', { playback_rev: 'bbbbbbbb' })
     await storeDownloadedBlob(db, 'r1', new Blob(['old']), 'audio/mp4', 'aaaaaaaa', 0)
     const download = vi.fn(() => never)
-    renderScreen(<RecordingsPage />, {
-      db,
-      engine: fakeEngine({ download }),
-      path: '/recordings',
-      route: '/recordings',
-      playbackEngine: fakePlaybackEngine(),
-      recordingScreen: true,
-    })
-    await page.getByRole('button', { name: `${EDIT_RECORDING} Remote take` }).click()
+    await openById('r1', { syncEngine: fakeEngine({ download }) })
     await vi.waitFor(() => expect(download).toHaveBeenCalledWith('r1'))
     const item = await trimItem()
     await expect.poll(() => item.disabled).toBe(false)
@@ -511,7 +503,7 @@ describe('RecordingScreen', () => {
 
   it('plays and pauses with Space, except on a focused button', async () => {
     await localRecording('Jam recording')
-    const { engine, load } = await openFromRows('Jam recording')
+    const { engine, load } = await openFromDock('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(true)
     await screenShown()
@@ -530,20 +522,9 @@ describe('RecordingScreen', () => {
     await expect.element((await modal()).getByRole('button', { name: PAUSE })).toBeVisible()
   })
 
-  it('returns focus to the row on close', async () => {
-    await localRecording('Jam recording')
-    await openFromRows('Jam recording')
-    const edit = page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` })
-    await (await modal()).getByRole('button', { name: CLOSE_RECORDING }).click()
-    await expect.poll(presentedModal).toBeNull()
-    // The row's Edit is an Ionic button, which takes focus on its host.
-    const host = (edit.element().getRootNode() as ShadowRoot).host
-    await expect.poll(() => document.activeElement).toBe(host)
-  })
-
   it('renames from its menu', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(RENAME)).click()
     await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
@@ -554,7 +535,7 @@ describe('RecordingScreen', () => {
 
   it('files an unfiled recording from its menu', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(ADD_TO_TUNE)).click()
     await expect.element(page.getByText(ADD_TO_TUNE_TITLE)).toBeVisible()
@@ -562,7 +543,7 @@ describe('RecordingScreen', () => {
 
   it('deletes from its menu after asking, and closes', async () => {
     const id = await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await (await menuItem(DELETE)).click()
     await expect.element(page.getByText(DELETE_RECORDING_TITLE)).toBeVisible()
@@ -578,7 +559,7 @@ describe('RecordingScreen', () => {
 
   it('moves the playhead with the arrow keys, except on a focused button', async () => {
     await localRecording('Jam recording')
-    const { engine, load } = await openFromRows('Jam recording')
+    const { engine, load } = await openFromDock('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await screenShown()
     // A playing engine would advance between presses.
@@ -598,7 +579,7 @@ describe('RecordingScreen', () => {
 
   it('leaves the keys alone for a held Space or a menu stacked on the screen', async () => {
     await localRecording('Jam recording')
-    const { engine, load } = await openFromRows('Jam recording')
+    const { engine, load } = await openFromDock('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await expect.poll(() => engine.getState().playing).toBe(true)
     await screenShown()
@@ -614,7 +595,7 @@ describe('RecordingScreen', () => {
 
   it('does nothing with the keys before the audio has loaded', async () => {
     await remoteRecording('Remote take')
-    const { engine } = await openFromRows('Remote take', {
+    const { engine } = await openById('r1', {
       syncEngine: fakeEngine({ download: () => never }),
     })
     await expect.element(await waveform()).toBeInTheDocument()
@@ -627,7 +608,7 @@ describe('RecordingScreen', () => {
 
   it('moves focus into the trim view and back onto More actions', async () => {
     await localRecording('Jam recording')
-    await openFromRows('Jam recording')
+    await openFromDock('Jam recording')
     await (await trimItem()).click()
     await expect
       .poll(() => (document.activeElement as HTMLElement | null)?.textContent)
@@ -643,7 +624,7 @@ describe('RecordingScreen', () => {
   it('Escape cancels a rename, then deselects, then closes', async () => {
     const id = await localRecording('Jam recording')
     const loop = await seedLoop(db, id, 10_000, 20_000)
-    const { engine, load } = await openFromRows('Jam recording')
+    const { engine, load } = await openFromDock('Jam recording')
     await expect.poll(() => load.mock.calls.length).toBe(1)
     await (await modal()).getByRole('button', { name: NEXT_LOOP }).click()
     await expect.poll(() => engine.getState().loop).not.toBeNull()

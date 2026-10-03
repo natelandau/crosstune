@@ -4,8 +4,6 @@ import Foundation
 
 /// Words the recording screen and its tools show.
 public enum RecordingScreenText {
-    /// The row action that opens the recording screen.
-    public static let edit = "Edit"
     public static let close = "Close"
     public static let trim = "Trim"
     public static let speed = "Speed"

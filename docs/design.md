@@ -414,6 +414,10 @@ Recordings and links share one row shape.
   somewhere, the whole line opens it.
 - The dock opens only from a play tap. Opening a tune never loads a player.
   At most one item is loaded, and it stays loaded while the musician browses.
+- A recording's screen opens only from the dock. Its title line up to Close
+  is one control ending in an up chevron, and the screen closes with a down
+  chevron. A recording row's actions are Rename, Add to tune or Remove from
+  tune, and Delete.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.
 

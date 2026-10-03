@@ -245,6 +245,23 @@ describe('Dock', () => {
     expect(frame.getAttribute('height')).toBe('200')
   })
 
+  it("marks a recording's title as the way into its screen, and a link's as plain text", async () => {
+    const id = await localRecording('Jam recording')
+    const linkId = await addYouTube()
+    renderDock([
+      { label: 'Play recording', item: { kind: 'recording', id } },
+      { label: 'Play link', item: { kind: 'link', id: linkId } },
+    ])
+    await page.getByRole('button', { name: 'Play recording' }).click()
+    const opener = dock().getByRole('button', { name: OPEN_RECORDING('Jam recording') })
+    await expect.element(opener).toBeVisible()
+    await expect.poll(() => opener.element().querySelector('svg.lucide-chevron-up')).not.toBeNull()
+
+    await page.getByRole('button', { name: 'Play link' }).click()
+    await expect.element(page.getByText('Cluck Old Hen on YouTube')).toBeVisible()
+    await expect.poll(() => dockElement()?.querySelector('svg.lucide-chevron-up')).toBeNull()
+  })
+
   it('closes itself when the loaded link has no player', async () => {
     const linkId = await addLink(db, tuneId, {
       url: 'https://example.com/cluck-old-hen',
