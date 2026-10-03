@@ -432,12 +432,15 @@ public final class PlayerModel {
         }
         guard next.link?.appleMusic == item?.link?.appleMusic else {
             // A new address can mean another track, or one MusicKit cannot play. The player
-            // stays as the musician left it: shown or not, and paused or not.
+            // stays as the musician left it: shown or not, and playing or not. A sync never
+            // starts MusicKit or its access prompt; only a play tap still being decided does.
             let wasExpanded = isExpanded
-            let wasPaused = linkAudio == .native && music?.isPlaying == false
+            let wasDeciding = linkAudio == .deciding
+            let wasPlaying = music?.isPlaying == true
             stopAudio()
             item = next
-            startLink(next, autoplay: !wasPaused, expandsOnFallBack: wasExpanded)
+            startLink(
+                next, autoplay: wasDeciding || wasPlaying, asksAccess: wasDeciding, expandsOnFallBack: wasExpanded)
             isExpanded = wasExpanded
             return
         }
@@ -617,9 +620,12 @@ public final class PlayerModel {
     }
 
     /// Plays a just-loaded link: through MusicKit when it can, otherwise in its embed, in full.
-    /// `autoplay` false leaves a MusicKit track paused at its start, and `expandsOnFallBack`
-    /// false leaves the player as it is shown when the embed plays instead.
-    private func startLink(_ item: PlayerItem, autoplay: Bool = true, expandsOnFallBack: Bool = true) {
+    /// `autoplay` false leaves a MusicKit track paused at its start, `asksAccess` false plays the
+    /// embed rather than show the access prompt, and `expandsOnFallBack` false leaves the player
+    /// as it is shown when the embed plays instead.
+    private func startLink(
+        _ item: PlayerItem, autoplay: Bool = true, asksAccess: Bool = true, expandsOnFallBack: Bool = true
+    ) {
         guard let kind = item.link?.appleMusic, let appleMusic else {
             linkAudio = .embed
             isExpanded = item.link != nil
@@ -633,7 +639,7 @@ public final class PlayerModel {
         deciding = Task { [weak self] in
             var access = await appleMusic.access.current()
             guard let self, isDeciding(id) else { return }
-            if access == .notAsked {
+            if access == .notAsked && asksAccess {
                 deadline?.cancel()
                 _ = await appleMusic.access.request()
                 guard isDeciding(id) else { return }
@@ -658,7 +664,12 @@ public final class PlayerModel {
             }
             if autoplay {
                 guard await appleMusic.player.start(), isDeciding(id) else {
-                    guard isDeciding(id) else { return }
+                    guard isDeciding(id) else {
+                        // A start that lands after the deadline or a close would play under the
+                        // embed, or with no player shown, unless another link now owns MusicKit.
+                        if linkAudio != .native && linkAudio != .deciding { appleMusic.player.stop() }
+                        return
+                    }
                     fallBack(expanding: expands)
                     return
                 }

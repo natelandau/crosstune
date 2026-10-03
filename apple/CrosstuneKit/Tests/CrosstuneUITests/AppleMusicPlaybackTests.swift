@@ -65,6 +65,9 @@ final class FakeMusic: MusicPlayback {
     var found = true
     var starts = true
     var holdsLoads = false
+    /// Each start waits until ``releaseStart()``, as MusicKit's play waits on buffering.
+    var holdsStarts = false
+    private var heldStart: CheckedContinuation<Void, Never>?
     private(set) var loaded: [AppleMusicKind] = []
     private(set) var cancelledLoads: [AppleMusicKind] = []
     private(set) var calls: [String] = []
@@ -90,7 +93,15 @@ final class FakeMusic: MusicPlayback {
     var heldLoads: Int { held.count }
     var isHoldingLoad: Bool { !held.isEmpty }
 
+    var isHoldingStart: Bool { heldStart != nil }
+
+    func releaseStart() {
+        heldStart?.resume()
+        heldStart = nil
+    }
+
     func start() async -> Bool {
+        if holdsStarts { await withCheckedContinuation { heldStart = $0 } }
         calls.append("play")
         isPlaying = starts
         return starts
@@ -412,6 +423,23 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(player.embed != nil)
     }
 
+    @Test func aSyncedChangeFromAnEmbedLoadsTheTrackPaused() async throws {
+        let (player, _, music) = model(.fullTracks)
+        try await play(player, appleLink(url: "https://music.apple.com/us/music-video/x/1440833099"))
+        player.linkChanged(id: "l1", to: appleLink())
+        try await eventually { player.linkAudio == .native }
+        #expect(music.calls == ["load"])
+    }
+
+    @Test func aSyncedChangeFromAnEmbedNeverAsksForAccess() async throws {
+        let (player, access, music) = model(.notAsked)
+        try await play(player, appleLink(url: "https://music.apple.com/us/music-video/x/1440833099"))
+        player.linkChanged(id: "l1", to: appleLink())
+        try await eventually { player.linkAudio == .embed }
+        #expect(access.requests == 0)
+        #expect(!music.calls.contains("load"))
+    }
+
     @Test func aDecidingBarShowsOnlyTheTitle() async throws {
         let (player, _, music) = model(.fullTracks)
         music.holdsLoads = true
@@ -443,5 +471,18 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(access.requests == 1)
         #expect(!music.calls.contains("load"))
         #expect(!music.calls.contains("play"))
+    }
+
+    @Test func aTrackThatStartsAfterTheDeadlineIsStoppedAgain() async throws {
+        let (player, _, music) = model(.fullTracks)
+        player.decisionTimeout = .milliseconds(50)
+        music.holdsStarts = true
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { music.isHoldingStart }
+        try await eventually { player.linkAudio == .embed }
+        music.releaseStart()
+        try await eventually { music.calls.last == "stop" && music.calls.contains("play") }
+        #expect(player.linkAudio == .embed)
+        #expect(!music.isPlaying)
     }
 }
