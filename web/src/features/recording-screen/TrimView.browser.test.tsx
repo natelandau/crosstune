@@ -8,7 +8,7 @@ import { renderScreen } from '../../test/ionic'
 import { FakeAudioElement, fakePlaybackEngine } from '../../test/providers'
 import { captureRecording } from '../../test/recordings'
 import { CANCEL } from '../../ui/Confirm'
-import { PAUSE } from '../player/transportCopy'
+import { OPEN_RECORDING, PAUSE } from '../player/transportCopy'
 import { PlaybackEngine, type EngineClock } from '../player/playbackEngine'
 import { usePlayer } from '../player/usePlayer'
 import { RecordingsPage } from '../recordings/RecordingsPage'
@@ -30,7 +30,6 @@ import {
   TRIM_CONFIRM_TITLE,
 } from './TrimView'
 import { ZOOM_IN } from './panel'
-import { EDIT_RECORDING } from './useRecordingScreen'
 
 vi.mock('../../commands/recordings', { spy: true })
 
@@ -74,7 +73,8 @@ async function openScreen(label: string, engine: PlaybackEngine = fakePlaybackEn
     recordingScreen: true,
     dock: true,
   })
-  await page.getByRole('button', { name: `${EDIT_RECORDING} ${label}` }).click()
+  await page.getByRole('button', { name: `Play ${label}`, exact: false }).click()
+  await page.getByRole('button', { name: OPEN_RECORDING(label) }).click()
   await expect.poll(() => load.mock.calls.length).toBe(1)
   return { engine, load }
 }
@@ -282,7 +282,8 @@ describe('TrimView', () => {
         dock: true,
       },
     )
-    await page.getByRole('button', { name: `${EDIT_RECORDING} Jam recording` }).click()
+    await page.getByRole('button', { name: 'Play Jam recording', exact: false }).click()
+    await page.getByRole('button', { name: OPEN_RECORDING('Jam recording') }).click()
     await expect.poll(() => load.mock.calls.length).toBe(1)
     const jam = player!.item!
     await enterTrim()

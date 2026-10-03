@@ -3,10 +3,10 @@ import { LOOP_NAME, LOOPS_LABEL, NEW_LOOP } from '../src/features/practice/pract
 import {
   expectSynced,
   nudgeSync,
+  openRecordingScreen,
   recordUnfiled,
   renameRecording,
   signIn,
-  swipeLeft,
   unique,
   waitForReady,
 } from './helpers'
@@ -16,17 +16,9 @@ import { PAUSE, PLAY, REPEAT_LOOP } from '../src/features/player/transportCopy'
 // check never sees it stable. Reduced motion turns the pulse off.
 test.use({ reducedMotion: 'reduce' })
 
-/** Opens `row`'s recording screen from its Edit swipe action, on the Loops segment. */
+/** Opens `row`'s recording screen from the dock, on the Loops segment. */
 async function openPractice(page: Page, row: Locator): Promise<Locator> {
-  await swipeLeft(page, row)
-  // The swipe actions are a sibling of the row inside ion-item-sliding, not a descendant of it.
-  await row
-    .locator('xpath=..')
-    .getByRole('button', { name: /^Edit / })
-    .click()
-  // ion-modal names its shadow dialog asynchronously and unreliably, so the modal element
-  // itself is the scope.
-  const screen = page.locator('ion-modal.show-modal')
+  const screen = await openRecordingScreen(page, row)
   // The screen waits while a second device fetches the audio.
   await expect(screen.getByRole('tab', { name: LOOPS_LABEL, exact: true })).toHaveAttribute(
     'aria-selected',

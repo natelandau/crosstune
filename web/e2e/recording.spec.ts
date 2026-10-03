@@ -4,6 +4,7 @@ import {
   DEFAULT_LABEL,
   expectNoOverlay,
   nudgeSync,
+  openRecordingScreen,
   recordUnfiled,
   renameRecording,
   signIn,
@@ -139,15 +140,7 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
 
   const unfiled = await recordUnfiled(page, 6)
   await waitForReady(page, unfiled)
-  // ion-modal names its shadow dialog asynchronously and unreliably, so the modal element
-  // itself is the scope, the same way every sheet in this file is scoped.
-  const screen = page.locator('ion-modal.show-modal')
-
-  await swipeLeft(page, unfiled)
-  await unfiled
-    .locator('xpath=..')
-    .getByRole('button', { name: /^Edit / })
-    .click()
+  const screen = await openRecordingScreen(page, unfiled)
 
   // Opening the recording starts it playing; pausing (whichever state it lands in) keeps the
   // playhead from drifting past the range this test is about to trim.

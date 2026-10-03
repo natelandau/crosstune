@@ -319,6 +319,25 @@ export async function waitForReady(
 }
 
 /**
+ * Open `row`'s recording screen the way a musician does: play the row, fetching its audio first
+ * on a device that does not hold it, then open the screen from the dock's title.
+ */
+export async function openRecordingScreen(page: Page, row: Locator): Promise<Locator> {
+  const play = row.getByRole('button', { name: /^Play / })
+  const download = row.getByRole('button', { name: /^Download / })
+  await expect(play.or(download)).toBeVisible({ timeout: 30_000 })
+  if (await download.isVisible()) await download.click()
+  await play.click({ timeout: 30_000 })
+  await page
+    .getByRole('region', { name: 'Player', exact: true })
+    .getByRole('button', { name: /^Open / })
+    .click()
+  // ion-modal names its shadow dialog asynchronously and unreliably, so the modal element
+  // itself is the scope.
+  return page.locator('ion-modal.show-modal')
+}
+
+/**
  * Rename the recording open on `screen` from its menu. A recording's default label is only
  * minute-precise, so a second device can find the row by a `unique()` name where two recordings
  * made in the same minute would share a label.

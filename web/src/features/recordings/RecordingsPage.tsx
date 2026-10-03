@@ -10,6 +10,7 @@ import { useRowArrowKeys } from '../../ui/useShortcut'
 import { AddToTuneSheet } from './AddToTuneSheet'
 import { RecordingItem } from './RecordingItem'
 import { retryKind } from './recordingRow'
+import { RenameRecordingSheet } from './RenameRecordingSheet'
 import { Storage } from './Storage'
 import { UploadButton } from './UploadButton'
 import { useRecordingActions } from './useRecordingActions'
@@ -48,7 +49,9 @@ export function RecordingsPage() {
   const ready = loadedViews !== undefined
   const router = useIonRouter()
   const [filing, setFiling] = useState<RecordingView | null>(null)
+  const [renaming, setRenaming] = useState<RecordingView | null>(null)
   const { error, setUploadError, retry, actionsFor } = useRecordingActions({
+    onRename: setRenaming,
     onAddToTune: setFiling,
   })
   const groupsRef = useRef<HTMLDivElement>(null)
@@ -106,6 +109,7 @@ export function RecordingsPage() {
           {error ? <InlineError className="px-(--form-inset) py-2">{error}</InlineError> : null}
         </>
       ) : null}
+      <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
       <AddToTuneSheet view={filing} onClose={() => setFiling(null)} />
     </Screen>
   )

@@ -39,7 +39,15 @@ public struct PlayerBar: View {
                 Button {
                     player.expand(in: window)
                 } label: {
-                    itemLabel(glyph: !isRecording).contentShape(.rect)
+                    HStack(spacing: 8) {
+                        itemLabel(glyph: !isRecording)
+                        // The tap shows the player in full, which rises from here.
+                        Image(systemName: "chevron.up")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                    }
+                    .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(showLabel(isRecording: isRecording))

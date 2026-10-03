@@ -1,6 +1,6 @@
 import { IonButton } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pause, Play, Repeat, X } from 'lucide-react'
+import { ChevronUp, Pause, Play, Repeat, X } from 'lucide-react'
 import {
   useCallback,
   useEffect,
@@ -486,13 +486,18 @@ export function Dock() {
         <div className="mx-auto flex h-full w-full max-w-(--measure) flex-col px-5">
           <div className="flex h-11 shrink-0 items-center gap-2">
             {next.kind === 'recording' ? (
+              // The whole line up to Close opens the screen, and the chevron says it rises from here.
               <button
                 type="button"
                 aria-label={OPEN_RECORDING(title)}
-                className="type-headline min-w-0 flex-1 truncate text-left"
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
                 onClick={() => recordingScreen.open(next.recording.id)}
               >
-                {title}
+                <span className="type-headline min-w-0 flex-1 truncate">{title}</span>
+                <ChevronUp
+                  aria-hidden="true"
+                  className="size-5 shrink-0 text-(--ion-color-medium)"
+                />
               </button>
             ) : (
               <span className="type-headline min-w-0 flex-1 truncate">{title}</span>

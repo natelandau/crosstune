@@ -6,11 +6,7 @@ import { renderIonic } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
 import { InlineError } from '../../ui/InlineError'
 import { TRIM } from '../recording-screen/TrimView'
-import {
-  EDIT_RECORDING,
-  RecordingScreenContext,
-  type RecordingScreen,
-} from '../recording-screen/useRecordingScreen'
+import { DELETE } from '../../ui/Confirm'
 import { RENAME } from './recordingCopy'
 import { useRecordingActions } from './useRecordingActions'
 import type { RecordingView } from './useRecordings'
@@ -50,13 +46,6 @@ describe('useRecordingActions', () => {
   })
 
   it('offers Trim first, only in the menu, disabled with its reason while blocked', async () => {
-    const screen: RecordingScreen = {
-      open: vi.fn(),
-      close: () => {},
-      held: () => null,
-      hold: () => {},
-      subscribe: () => () => {},
-    }
     const view: RecordingView = {
       recording: recordingRow('r1', { label: 'Jam recording' }),
       file: undefined,
@@ -95,19 +84,21 @@ describe('useRecordingActions', () => {
       )
     }
     renderIonic(
-      <RecordingScreenContext.Provider value={screen}>
+      <>
         <Actions />
         <Actions blocked="Offline" />
-      </RecordingScreenContext.Provider>,
+      </>,
       { db: openTestDb() },
     )
-    await expect.element(page.getByRole('button', { name: `Row ${EDIT_RECORDING}` })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: `Row ${RENAME}` })).toBeVisible()
     const labels = () =>
       page
         .getByRole('button')
         .elements()
         .map((element) => element.textContent)
-    await expect.poll(labels).not.toContain(`Row ${TRIM}`)
+    await expect
+      .poll(() => labels().filter((label) => label?.startsWith('Row ')))
+      .toEqual([`Row ${RENAME}`, `Row ${DELETE}`])
     await expect
       .poll(() => labels().indexOf(`Menu ${RENAME}`) - labels().indexOf(`Menu ${TRIM}`))
       .toBe(1)
@@ -116,6 +107,5 @@ describe('useRecordingActions', () => {
     await expect.element(blocked).toHaveAttribute('title', 'Offline')
     await page.getByRole('button', { name: `Menu ${TRIM}` }).click()
     await expect.poll(() => onTrim).toHaveBeenCalledOnce()
-    expect(screen.open).not.toHaveBeenCalled()
   })
 })

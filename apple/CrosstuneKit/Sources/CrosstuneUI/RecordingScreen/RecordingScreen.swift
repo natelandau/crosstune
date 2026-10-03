@@ -71,7 +71,7 @@ public struct RecordingScreen: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(RecordingScreenText.close, systemImage: "xmark") { player.isExpanded = false }
+                    Button(RecordingScreenText.close, systemImage: "chevron.down") { player.isExpanded = false }
                         .help(RecordingScreenText.close)
                         // Escape belongs to the screen's chain, which closes the name field and
                         // deselects before it closes the screen.
