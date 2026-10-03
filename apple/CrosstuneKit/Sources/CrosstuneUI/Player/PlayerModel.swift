@@ -266,6 +266,14 @@ public final class PlayerModel {
     /// Whether the bar carries play and pause: a recording, or a link MusicKit plays.
     public var playsInBar: Bool { item?.kind == .recording || linkAudio == .native }
 
+    /// What play, pause, and skip act on: the link MusicKit plays, or the loaded recording once
+    /// its audio plays. Nil while nothing here can be played, such as a link in its embed.
+    public var transport: (any PlaybackTransport)? {
+        if let music { return music }
+        guard recordingAudio == .loaded, !audio.hasFailed else { return nil }
+        return audio
+    }
+
     /// The loaded recording's speed, with a change made here ahead of its row.
     public var speedPercent: Int { setting(.speed) }
     /// The loaded recording's pitch shift in cents, with a change made here ahead of its row.

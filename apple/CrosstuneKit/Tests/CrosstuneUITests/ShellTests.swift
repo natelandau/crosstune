@@ -227,6 +227,11 @@ import Testing
         #expect(!MenuGates.record(sheetsOpen: false, selecting: false, takePending: true, capturing: false))
         #expect(!MenuGates.record(sheetsOpen: false, selecting: false, takePending: false, capturing: true))
     }
+
+    @Test func controlsStandDownUnderASheet() {
+        #expect(MenuGates.controls(sheetsOpen: false))
+        #expect(!MenuGates.controls(sheetsOpen: true))
+    }
 }
 
 @MainActor
