@@ -50,3 +50,31 @@ import Testing
         #expect(youtubeID(provider: "spotify", providerRef: "track:x") == nil)
     }
 }
+
+@Suite struct AppleMusicKindTests {
+    @Test(
+        arguments: [
+            ("https://music.apple.com/us/album/the-silver-spear/1440833081?i=1440833090", .song(id: "1440833090")),
+            ("https://music.apple.com/gb/song/the-silver-spear/1440833090", .song(id: "1440833090")),
+            ("https://music.apple.com/us/album/reels/1440833081", .album(id: "1440833081")),
+            ("https://music.apple.com/us/album/reels/1440833081/", .album(id: "1440833081")),
+            ("https://music.apple.com/us/music-video/x/1440833099", nil),
+            ("https://music.apple.com/us/playlist/x/pl.u-abc", nil),
+            ("https://music.apple.com/us/artist/x/12345", nil),
+            ("https://open.spotify.com/track/abc", nil),
+            ("not a url", nil),
+        ] as [(String, AppleMusicKind?)]
+    )
+    func readsTheKind(url: String, expected: AppleMusicKind?) {
+        #expect(appleMusicKind(url) == expected)
+    }
+
+    @Test func agreesWithTheStoredReference() {
+        let url = "https://music.apple.com/us/album/reels/1440833081?i=1440833090"
+        guard case .song(let id) = appleMusicKind(url) else {
+            Issue.record("not a song")
+            return
+        }
+        #expect(id == detectProvider(url).providerRef)
+    }
+}
