@@ -55,14 +55,14 @@ async function openConfirm() {
 describe('useConfirm in ios', () => {
   it('paints the alert on a mouse in the danger color', async () => {
     const { destructive, cancel } = await openConfirm()
-    expect(getComputedStyle(destructive).color).toBe(dangerColor())
-    expect(getComputedStyle(cancel).color).not.toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(destructive).color).toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(cancel).color).not.toBe(dangerColor())
   })
 
   it('paints the action sheet on touch in the danger color', async () => {
     forceTouch()
     const { destructive, cancel } = await openConfirm()
-    expect(getComputedStyle(destructive).color).toBe(dangerColor())
-    expect(getComputedStyle(cancel).color).not.toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(destructive).color).toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(cancel).color).not.toBe(dangerColor())
   })
 })

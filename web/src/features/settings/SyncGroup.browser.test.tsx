@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { countInvalidChanges } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
@@ -15,10 +15,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const show = (engine?: SyncEngine) => renderIonic(<SyncGroup />, { db, engine })
@@ -66,15 +62,19 @@ describe('SyncGroup', () => {
     await expect.element(page.getByText(ONE_REJECTED)).toBeVisible()
     const rejected = page.getByText(ONE_REJECTED).element()
     const reference = document.querySelector('[data-reference]')!
-    expect(getComputedStyle(rejected).fontSize).toBe(getComputedStyle(reference).fontSize)
-    expect(getComputedStyle(rejected).fontWeight).toBe(getComputedStyle(reference).fontWeight)
+    await expect
+      .poll(() => getComputedStyle(rejected).fontSize)
+      .toBe(getComputedStyle(reference).fontSize)
+    await expect
+      .poll(() => getComputedStyle(rejected).fontWeight)
+      .toBe(getComputedStyle(reference).fontWeight)
   })
 
   it('says nothing about rejections with none recorded', async () => {
     show()
     await expect.element(syncButton()).toBeVisible()
-    expect(page.getByText(ONE_REJECTED).elements()).toHaveLength(0)
-    expect(page.getByText(/rejected by the server/).elements()).toHaveLength(0)
+    await expect.element(page.getByText(ONE_REJECTED)).not.toBeInTheDocument()
+    await expect.element(page.getByText(/rejected by the server/)).not.toBeInTheDocument()
   })
 
   it('syncs once and disables the button while the call is in flight', async () => {
@@ -82,7 +82,7 @@ describe('SyncGroup', () => {
     const sync = vi.fn(() => new Promise<void>((resolve) => (release = resolve)))
     show(fakeEngine({ sync }))
     await syncButton().click()
-    expect(sync).toHaveBeenCalledOnce()
+    await expect.poll(() => sync).toHaveBeenCalledOnce()
     await expect.element(syncButton()).toBeDisabled()
     release()
     await expect.element(syncButton()).toBeEnabled()
@@ -99,7 +99,7 @@ describe('SyncGroup', () => {
     show()
     await expect.element(syncButton()).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
-      expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

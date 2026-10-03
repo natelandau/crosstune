@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { CrosstuneDb } from '../../../db/schema'
 import { openTestDb } from '../../../test/db'
@@ -22,10 +22,6 @@ let db: CrosstuneDb
 beforeEach(() => {
   db = openTestDb()
   vi.mocked(downloadBlob).mockImplementation(() => {})
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const blob = () => new Blob([new Uint8Array([1])], { type: 'audio/mp4' })

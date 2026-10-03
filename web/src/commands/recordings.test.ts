@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
@@ -27,10 +27,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const AT = '2026-09-14T20:00:00.000Z'

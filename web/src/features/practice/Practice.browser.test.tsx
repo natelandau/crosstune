@@ -54,7 +54,6 @@ beforeEach(() => {
 afterEach(async () => {
   document.documentElement.classList.remove('ios')
   vi.restoreAllMocks()
-  await db.delete()
 })
 
 /** A recording captured on this device, so its blob is already held locally. */
@@ -144,14 +143,22 @@ function onWaveform(type: string, dx: number, pointerType = 'mouse') {
     )
 }
 
-/** A touch flung toward later in the take, which leaves a glide running. */
-async function fling() {
-  onWaveform('pointerdown', 0, 'touch')
-  for (const dx of [-30, -60, -90]) {
-    await wait(16)
-    onWaveform('pointermove', dx, 'touch')
+/**
+ * A touch flung toward later in the take, which leaves a glide running. The release speed is
+ * read off the clock, so the clock steps exactly one frame per move however busy the runner is.
+ */
+function fling() {
+  vi.useFakeTimers({ toFake: ['performance'] })
+  try {
+    onWaveform('pointerdown', 0, 'touch')
+    for (const dx of [-30, -60, -90]) {
+      vi.advanceTimersByTime(16)
+      onWaveform('pointermove', dx, 'touch')
+    }
+    onWaveform('pointerup', -90, 'touch')
+  } finally {
+    vi.useRealTimers()
   }
-  onWaveform('pointerup', -90, 'touch')
 }
 
 /** The playhead the waveform shows, on the trimmed timeline. */
@@ -170,7 +177,7 @@ describe('Practice', () => {
   it('opening shows 30 s around the playhead when no loop is selected', async () => {
     const id = await localRecording({ durationMs: 120_000 })
     await openRecording(id)
-    expect(pxPerS()).toBeCloseTo(widthPx() / (OPENING_SPAN_MS / 1000), 5)
+    await expect.poll(pxPerS).toBeCloseTo(widthPx() / (OPENING_SPAN_MS / 1000), 5)
   })
 
   it('opening fits the selected loop', async () => {
@@ -184,9 +191,9 @@ describe('Practice', () => {
     await expect.poll(presentedModal).toBeNull()
     await page.getByRole('button', { name: 'Open recording' }).click()
     await expect.poll(() => waveform()?.dataset.pxPerS).toBeTruthy()
-    expect(engine.getState().loop).not.toBeNull()
+    await expect.poll(() => engine.getState().loop).not.toBeNull()
     // Centered on the playhead, the farther end shows with its margin.
-    expect(pxPerS()).toBeCloseTo(widthPx() / 2 / 6, 5)
+    await expect.poll(pxPerS).toBeCloseTo(widthPx() / 2 / 6, 5)
   })
 
   it('Fit frames the selected loop and moves an outside playhead to its start', async () => {
@@ -201,13 +208,13 @@ describe('Practice', () => {
     await expect
       .poll(pxPerS)
       .toBeCloseTo(fitScale({ startMs: 10_000, endMs: 20_000 }, 10_000, widthPx()), 5)
-    expect(engine.getState().positionMs).toBe(10_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000)
 
     // A playhead inside the loop stays put, and the scale makes room for the farther end.
     engine.seek(18_000)
     await screen.getByRole('button', { name: FIT, exact: true }).click()
     await expect.poll(pxPerS).toBeCloseTo(widthPx() / 2 / 9, 5)
-    expect(engine.getState().positionMs).toBe(18_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(18_000)
 
     // With nothing selected, Fit shows the whole take and leaves the playhead alone.
     press('Escape')
@@ -215,7 +222,7 @@ describe('Practice', () => {
     engine.seek(50_000)
     await screen.getByRole('button', { name: FIT, exact: true }).click()
     await expect.poll(pxPerS).toBeCloseTo(minPxPerS(widthPx(), 120_000), 5)
-    expect(engine.getState().positionMs).toBe(50_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(50_000)
   })
 
   it('the play button names the repeat', async () => {
@@ -228,8 +235,8 @@ describe('Practice', () => {
     await selectNext(engine)
     const repeat = screen.getByRole('button', { name: REPEAT_LOOP('B part'), exact: true })
     await repeat.click()
-    expect(engine.getState().playing).toBe(true)
-    expect(engine.getState().positionMs).toBe(10_000)
+    await expect.poll(() => engine.getState().playing).toBe(true)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000)
     await expect.element(screen.getByRole('button', { name: PAUSE, exact: true })).toBeVisible()
   })
 
@@ -248,7 +255,7 @@ describe('Practice', () => {
     const loops = (await modal()).getByRole('tab', { name: LOOPS_LABEL, exact: true })
     await expect.element(loops).toHaveAttribute('aria-selected', 'true')
     await (await modal()).getByRole('tab', { name: SPEED, exact: true }).click({ force: true })
-    expect(localStorage.getItem(MODE_KEY)).toBe('speed')
+    await expect.poll(() => localStorage.getItem(MODE_KEY)).toBe('speed')
     rendered.unmount()
     await openRecording(id)
     await expect
@@ -267,7 +274,7 @@ describe('Practice', () => {
     await expect.poll(() => engine.getState().loop?.id).toBeTruthy()
     await expect.poll(announced).toBe(LOOP_SELECTED('B part'))
     // Selecting moved the playhead to the loop's start.
-    expect(engine.getState().positionMs).toBe(10_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000)
     await expect.poll(() => slider().element().getAttribute('aria-valuenow')).toBe('10000')
     tapAt(5000, 10_000)
     await expect.poll(() => engine.getState().loop).toBeNull()
@@ -317,7 +324,7 @@ describe('Practice', () => {
       engine.pause()
       engine.seek(30_000)
       await expect.poll(shownMs).toBe(30_000)
-      await fling()
+      fling()
       await expect.poll(shownMs).toBeGreaterThan(35_000)
       press('n')
       const at = engine.getState().positionMs
@@ -335,7 +342,7 @@ describe('Practice', () => {
       engine.pause()
       engine.seek(30_000)
       await expect.poll(shownMs).toBe(30_000)
-      await fling()
+      fling()
       await expect.poll(shownMs).toBeGreaterThan(35_000)
       await (await modal()).getByRole('button', { name: SKIP_BACK }).click()
       const at = engine.getState().positionMs
@@ -350,7 +357,7 @@ describe('Practice', () => {
       engine.pause()
       engine.seek(30_000)
       await expect.poll(shownMs).toBe(30_000)
-      await fling()
+      fling()
       await expect.poll(shownMs).toBeGreaterThan(35_000)
       const overview = presentedModal()!.querySelector<HTMLElement>('[data-overview]')!
       const rect = overview.getBoundingClientRect()
@@ -361,8 +368,8 @@ describe('Practice', () => {
       overview.dispatchEvent(
         new PointerEvent('pointerup', { ...tap, clientX: rect.left + 1, clientY: rect.top + 4 }),
       )
+      await expect.poll(() => engine.getState().positionMs).toBeLessThan(5000)
       const at = engine.getState().positionMs
-      expect(at).toBeLessThan(5000)
       await wait(GLIDE_DONE_MS)
       expect(engine.getState().positionMs).toBe(at)
     })
@@ -397,7 +404,7 @@ describe('Practice', () => {
     await expect.poll(shownMs).toBe(15_000)
     await (await modal()).getByRole('button', { name: PREVIOUS_LOOP }).click()
     await expect.poll(() => engine.getState().loop?.label).toBe('B part')
-    expect(engine.getState().positionMs).toBe(10_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000)
   })
 
   it('the switcher under the play button names the loop and steps to the next one', async () => {
@@ -411,10 +418,10 @@ describe('Practice', () => {
     await expect.poll(() => switcher()?.textContent).toContain(NO_LOOP)
     await selectNext(engine)
     await expect.poll(() => switcher().textContent).toContain('B part')
-    expect(engine.getState().positionMs).toBe(10_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000)
     await (await modal()).getByRole('button', { name: NEXT_LOOP }).click()
     await expect.poll(() => switcher().textContent).toContain('Loop 0:40')
-    expect(engine.getState().positionMs).toBe(40_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(40_000)
   })
 
   describe('keys', () => {
@@ -423,9 +430,9 @@ describe('Practice', () => {
       const { engine } = await openRecording(id)
       await expect.poll(() => engine.getState().playing).toBe(true)
       press(' ')
-      expect(engine.getState().playing).toBe(false)
+      await expect.poll(() => engine.getState().playing).toBe(false)
       press(' ')
-      expect(engine.getState().playing).toBe(true)
+      await expect.poll(() => engine.getState().playing).toBe(true)
     })
 
     it('Space plays and pauses with the waveform focused', async () => {
@@ -439,9 +446,9 @@ describe('Practice', () => {
           new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }),
         )
       space()
-      expect(engine.getState().playing).toBe(false)
+      await expect.poll(() => engine.getState().playing).toBe(false)
       space()
-      expect(engine.getState().playing).toBe(true)
+      await expect.poll(() => engine.getState().playing).toBe(true)
     })
 
     it('the arrows move the playhead a second, and five with Shift', async () => {
@@ -449,13 +456,15 @@ describe('Practice', () => {
       const { engine } = await openRecording(id)
       engine.seek(10_000)
       press('ArrowRight')
-      expect(engine.getState().positionMs).toBe(10_000 + ARROW_STEP_MS)
+      await expect.poll(() => engine.getState().positionMs).toBe(10_000 + ARROW_STEP_MS)
       press('ArrowRight', { shiftKey: true })
-      expect(engine.getState().positionMs).toBe(10_000 + ARROW_STEP_MS + ARROW_LARGE_STEP_MS)
+      await expect
+        .poll(() => engine.getState().positionMs)
+        .toBe(10_000 + ARROW_STEP_MS + ARROW_LARGE_STEP_MS)
       press('ArrowLeft')
-      expect(engine.getState().positionMs).toBe(10_000 + ARROW_LARGE_STEP_MS)
+      await expect.poll(() => engine.getState().positionMs).toBe(10_000 + ARROW_LARGE_STEP_MS)
       press('ArrowLeft', { shiftKey: true })
-      expect(engine.getState().positionMs).toBe(10_000)
+      await expect.poll(() => engine.getState().positionMs).toBe(10_000)
     })
 
     it('[ and ] set the selected loop’s start and end at the playhead, clamped', async () => {
@@ -552,7 +561,7 @@ describe('Practice', () => {
     await expect.poll(async () => (await db.recording_loops.get(loop))?.label).toBe('B part')
     await wait(100)
     expect(vi.mocked(updateLoop)).toHaveBeenCalledOnce()
-    expect(page.getByRole('textbox', { name: LOOP_NAME }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('textbox', { name: LOOP_NAME })).not.toBeInTheDocument()
   })
 
   it('moves focus to the waveform after Delete', async () => {
@@ -605,22 +614,28 @@ describe('Practice', () => {
       const { engine } = await openRecording(id)
       engine.pause()
       const screen = presentedModal()!
-      const [selector, transport, controls] = [
-        '[data-mode-selector]',
-        '[data-practice-transport]',
-        '[data-mode-controls]',
-      ].map((selector) => screen.querySelector(selector)!.getBoundingClientRect())
-      expect(selector!.top).toBeGreaterThan(waveform()!.getBoundingClientRect().bottom)
-      expect(transport!.top).toBeGreaterThanOrEqual(selector!.bottom)
-      expect(controls!.top).toBeGreaterThanOrEqual(transport!.bottom)
+      const box = (selector: string) => screen.querySelector(selector)!.getBoundingClientRect()
+      await expect
+        .poll(() => box('[data-mode-selector]').top - waveform()!.getBoundingClientRect().bottom)
+        .toBeGreaterThan(0)
+      await expect
+        .poll(() => box('[data-practice-transport]').top - box('[data-mode-selector]').bottom)
+        .toBeGreaterThanOrEqual(0)
+      await expect
+        .poll(() => box('[data-mode-controls]').top - box('[data-practice-transport]').bottom)
+        .toBeGreaterThanOrEqual(0)
       const play = (await modal()).getByRole('button', { name: PLAY, exact: true })
       await expect.element(play).toBeVisible()
-      const switcher = screen.querySelector('[data-loop-switcher]')!.getBoundingClientRect()
-      const button = play.element().getBoundingClientRect()
-      expect(switcher.top).toBeGreaterThanOrEqual(button.bottom)
-      expect(
-        Math.abs(switcher.left + switcher.width / 2 - (button.left + button.width / 2)),
-      ).toBeLessThan(2)
+      const button = () => play.element().getBoundingClientRect()
+      await expect
+        .poll(() => box('[data-loop-switcher]').top - button().bottom)
+        .toBeGreaterThanOrEqual(0)
+      await expect
+        .poll(() => {
+          const switcher = box('[data-loop-switcher]')
+          return Math.abs(switcher.left + switcher.width / 2 - (button().left + button().width / 2))
+        })
+        .toBeLessThan(2)
     })
 
     it('gives the waveform a large share of a phone', async () => {
@@ -640,6 +655,7 @@ describe('Practice', () => {
         await wait(100)
         return height()
       }
+      await expect.poll(height).toBeGreaterThan(159)
       const start = await settled()
       expect(start).toBeGreaterThan(159)
       await screen.getByRole('tab', { name: SPEED, exact: true }).click({ force: true })
@@ -688,14 +704,22 @@ describe('Practice', () => {
         page.getByRole('button', { name: ZOOM_IN }).element() as HTMLElement,
       ]
       for (const target of targets) {
-        const box = target.getBoundingClientRect()
         // Each sits over the waveform, on top of it where it is pressed.
-        const wave = waveform()!.getBoundingClientRect()
-        expect(box.bottom).toBeLessThanOrEqual(wave.bottom + 1)
-        expect(box.top).toBeGreaterThanOrEqual(wave.top)
-        const x = box.left + box.width / 2
-        const y = box.top + box.height / 2
-        expect(document.elementFromPoint(x, y)?.closest('[data-practice-waveform]')).toBeNull()
+        const wave = () => waveform()!.getBoundingClientRect()
+        await expect
+          .poll(() => target.getBoundingClientRect().bottom - (wave().bottom + 1))
+          .toBeLessThanOrEqual(0)
+        await expect
+          .poll(() => target.getBoundingClientRect().top - wave().top)
+          .toBeGreaterThanOrEqual(0)
+        const center = () => {
+          const box = target.getBoundingClientRect()
+          return [box.left + box.width / 2, box.top + box.height / 2] as const
+        }
+        await expect
+          .poll(() => document.elementFromPoint(...center())?.closest('[data-practice-waveform]'))
+          .toBeNull()
+        const [x, y] = center()
         const at = (type: string, dx: number) =>
           target.dispatchEvent(
             new PointerEvent(type, {
@@ -742,10 +766,12 @@ describe('Practice', () => {
         await openRecording(id)
         const panel = () => presentedModal()!.querySelector('[data-mode-controls]')!
         await expect.poll(() => panel().getBoundingClientRect().width).toBeLessThan(641)
-        expect(panel().getBoundingClientRect().top).toBeGreaterThan(
-          waveform()!.getBoundingClientRect().bottom,
-        )
-        expect(widthPx()).toBeGreaterThan(700)
+        await expect
+          .poll(
+            () => panel().getBoundingClientRect().top - waveform()!.getBoundingClientRect().bottom,
+          )
+          .toBeGreaterThan(0)
+        await expect.poll(widthPx).toBeGreaterThan(700)
       } finally {
         await page.viewport(390, 844)
       }
@@ -767,7 +793,7 @@ describe('Practice', () => {
       const screen = await speedMode()
       await screen.getByRole('button', { name: FASTER }).click()
       await screen.getByRole('button', { name: FASTER }).click()
-      expect(element.playbackRate).toBe(1.1)
+      await expect.poll(() => element.playbackRate).toBe(1.1)
       await expect
         .element(screen.getByRole('tab', { name: SEGMENT_LABEL(SPEED, '110%') }))
         .toBeVisible()
@@ -779,8 +805,9 @@ describe('Practice', () => {
         id,
         { speed_percent: 110 },
       ])
-      const entries = await db.outbox.where({ table: 'recordings', row_id: id }).toArray()
-      expect(entries).toHaveLength(1)
+      await expect
+        .poll(() => db.outbox.where({ table: 'recordings', row_id: id }).toArray())
+        .toHaveLength(1)
     })
 
     it('writes a pitch change still settling when the screen closes', async () => {

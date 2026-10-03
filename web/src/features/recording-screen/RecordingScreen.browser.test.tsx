@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { addUploadedFile, storeDownloadedBlob, updateRecording } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
@@ -52,10 +52,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 /** A recording captured on this device, so its blob is already held locally. */
@@ -124,14 +120,16 @@ async function openById(id: string, { syncEngine }: { syncEngine?: SyncEngine } 
   await page.getByRole('button', { name: 'Open recording' }).click()
 }
 
-/** The ⋯ menu's labels, in order. */
+/** Opens the ⋯ menu and returns a reader of its labels, in order. */
 async function menuLabels() {
   await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
   await menuItem(DELETE)
-  const menu = document.querySelector('ion-popover:not(.overlay-hidden)')!
-  return Array.from(menu.querySelectorAll('ion-item')).map(
-    (item) => item.querySelector('[data-menu-label]')?.textContent ?? item.textContent,
-  )
+  return () => {
+    const menu = document.querySelector('ion-popover:not(.overlay-hidden)')
+    return Array.from(menu?.querySelectorAll('ion-item') ?? []).map(
+      (item) => item.querySelector('[data-menu-label]')?.textContent ?? item.textContent,
+    )
+  }
 }
 
 /** Trim in the ⋯ menu, which this opens. */
@@ -144,16 +142,19 @@ async function trimItem(): Promise<HTMLIonItemElement> {
 
 async function expectTrimBlocked(reason: string) {
   const item = await trimItem()
-  expect(item.disabled).toBe(true)
-  expect(item.textContent).toContain(reason)
+  await expect.poll(() => item.disabled).toBe(true)
+  await expect.poll(() => item.textContent).toContain(reason)
 }
 
 const waveform = async () => (await modal()).getByRole('slider', { name: LANES_LABEL })
 
 /** Waits for the screen's own content, which mounts its keys and can lag both the load and the
- * modal it shows in. */
+ * modal it shows in, and for its transport to take input, since the keys stand down until then. */
 async function screenShown() {
   await expect.element(await waveform()).toBeVisible()
+  await expect
+    .element((await modal()).getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) }))
+    .toBeEnabled()
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -200,34 +201,36 @@ describe('RecordingScreen', () => {
   async function expectPlayCentered() {
     const screen = await modal()
     const row = screen.element().querySelector<HTMLElement>('[data-practice-transport]')!
-    const play = screen
-      .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
-      .element()
-      .getBoundingClientRect()
-    const box = row.getBoundingClientRect()
-    expect(Math.abs(play.left + play.width / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(2)
-    expect(row.querySelector('[data-practice-clock]')).toBeNull()
-    expect(row.querySelector(`[aria-label="${ZOOM_IN}"]`)).toBeNull()
+    const center = (box: DOMRect) => box.left + box.width / 2
+    const play = () =>
+      screen
+        .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
+        .element()
+        .getBoundingClientRect()
+    await expect
+      .poll(() => Math.abs(center(play()) - center(row.getBoundingClientRect())))
+      .toBeLessThanOrEqual(2)
+    await expect.poll(() => row.querySelector('[data-practice-clock]')).toBeNull()
+    await expect.poll(() => row.querySelector(`[aria-label="${ZOOM_IN}"]`)).toBeNull()
   }
 
   /** The clock in the waveform's bottom-left corner, and zoom in its bottom-right. */
   async function expectOverlaidOnWaveform() {
     const screen = await modal()
-    const wave = screen
-      .element()
-      .querySelector<HTMLElement>('[data-practice-waveform]')!
-      .getBoundingClientRect()
-    const clock = screen
-      .element()
-      .querySelector<HTMLElement>('[data-practice-clock]')!
-      .getBoundingClientRect()
-    const zoomIn = screen.getByRole('button', { name: ZOOM_IN }).element().getBoundingClientRect()
+    const rect = (selector: string) =>
+      screen.element().querySelector<HTMLElement>(selector)!.getBoundingClientRect()
+    const wave = () => rect('[data-practice-waveform]')
+    const clock = () => rect('[data-practice-clock]')
+    const zoomIn = () =>
+      screen.getByRole('button', { name: ZOOM_IN }).element().getBoundingClientRect()
     for (const box of [clock, zoomIn]) {
-      expect(box.top).toBeGreaterThanOrEqual(wave.top + wave.height / 2)
-      expect(box.bottom).toBeLessThanOrEqual(wave.bottom + 1)
+      await expect
+        .poll(() => box().top - (wave().top + wave().height / 2))
+        .toBeGreaterThanOrEqual(0)
+      await expect.poll(() => box().bottom - wave().bottom).toBeLessThanOrEqual(1)
     }
-    expect(clock.left - wave.left).toBeLessThanOrEqual(8)
-    expect(wave.right - zoomIn.right).toBeLessThanOrEqual(8)
+    await expect.poll(() => clock().left - wave().left).toBeLessThanOrEqual(8)
+    await expect.poll(() => wave().right - zoomIn().right).toBeLessThanOrEqual(8)
   }
 
   /** The region under the waveform holds everything without scrolling. */
@@ -274,14 +277,16 @@ describe('RecordingScreen', () => {
     await expectBelowFits()
     const reset = screen.getByRole('button', { name: RESET })
     await expect.element(reset).toBeVisible()
-    expect(inView(reset.element())).toBe(true)
+    await expect.poll(() => inView(reset.element())).toBe(true)
 
     await screen.getByRole('tab', { name: PITCH, exact: true }).click({ force: true })
     await expectBelowFits()
     const cents = screen.getByRole('slider', { name: CENTS })
     await expect.element(cents).toBeVisible()
-    expect(inView(cents.element())).toBe(true)
-    expect(inView(screen.getByRole('button', { name: RESET }).element())).toBe(true)
+    await expect.poll(() => inView(cents.element())).toBe(true)
+    await expect
+      .poll(() => inView(screen.getByRole('button', { name: RESET }).element()))
+      .toBe(true)
   })
 
   it('shows the date and length under the title, not in the body', async () => {
@@ -293,7 +298,9 @@ describe('RecordingScreen', () => {
     const line = `${recordedAtLabel(recording.recorded_at)} · ${formatDuration(recording.duration_ms)}`
     const header = screen.element().querySelector('ion-header')!
     await expect.poll(() => header.textContent).toContain(line)
-    expect(screen.element().querySelector('ion-content')!.textContent).not.toContain(line)
+    await expect
+      .poll(() => screen.element().querySelector('ion-content')!.textContent)
+      .not.toContain(line)
   })
 
   it('shows a speed and pitch away from the default on their segments', async () => {
@@ -312,14 +319,14 @@ describe('RecordingScreen', () => {
   it('the ⋯ menu offers Trim, Rename, Add to tune, and Delete', async () => {
     await localRecording('Jam recording')
     await openFromRows('Jam recording')
-    expect(await menuLabels()).toEqual([TRIM, RENAME, ADD_TO_TUNE, DELETE])
+    await expect.poll(await menuLabels()).toEqual([TRIM, RENAME, ADD_TO_TUNE, DELETE])
   })
 
   it('the ⋯ menu offers Remove from tune for a filed recording', async () => {
     await db.tunes.put(tuneRow('t1', 'Tune'))
     const id = await captureRecording(db, { tuneId: 't1', label: 'Jam recording' })
     await openById(id)
-    expect(await menuLabels()).toEqual([TRIM, RENAME, REMOVE_FROM_TUNE, DELETE])
+    await expect.poll(await menuLabels()).toEqual([TRIM, RENAME, REMOVE_FROM_TUNE, DELETE])
   })
 
   it('Trim returns to the screen', async () => {
@@ -359,7 +366,7 @@ describe('RecordingScreen', () => {
     const bar = (selector: string) =>
       presentedModal()?.querySelector(`${selector}[data-timeline-bar] canvas`) ?? null
     await expect.poll(() => bar('[data-practice-waveform]')).not.toBeNull()
-    expect(bar('[data-overview]')).not.toBeNull()
+    await expect.poll(() => bar('[data-overview]')).not.toBeNull()
     await expectDisabled()
   })
 
@@ -369,9 +376,9 @@ describe('RecordingScreen', () => {
     const inert = (selector: string) =>
       presentedModal()!.querySelector(selector)?.closest('[inert]') ?? null
     await expect.poll(() => inert('[data-practice-waveform]')).not.toBeNull()
-    expect(inert('[data-overview]')).not.toBeNull()
-    expect(inert('[data-mode-selector]')).not.toBeNull()
-    expect(inert('[data-mode-controls]')).not.toBeNull()
+    await expect.poll(() => inert('[data-overview]')).not.toBeNull()
+    await expect.poll(() => inert('[data-mode-selector]')).not.toBeNull()
+    await expect.poll(() => inert('[data-mode-controls]')).not.toBeNull()
     await expect
       .element(screen.getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) }))
       .toBeDisabled()
@@ -393,9 +400,9 @@ describe('RecordingScreen', () => {
     await storeDownloadedBlob(db, 'r1', new Blob(['abc']), 'audio/mp4', 'aaaa1111', 0)
     await openFromRows('Server take')
     await expect.element(await waveform()).toBeVisible()
-    expect(
-      presentedModal()!.querySelector('[data-practice-waveform]')!.closest('[inert]'),
-    ).toBeNull()
+    await expect
+      .poll(() => presentedModal()!.querySelector('[data-practice-waveform]')!.closest('[inert]'))
+      .toBeNull()
     await expectTrimBlocked(TRIM_BUSY)
   })
 
@@ -415,8 +422,8 @@ describe('RecordingScreen', () => {
     await storeDownloadedBlob(db, 'r1', new Blob(['abc']), 'audio/mp4', 'aaaa1111', 0)
     await openFromRows('Server take')
     const item = await trimItem()
-    expect(item.disabled).toBe(true)
-    expect(item.textContent).toContain(TRIM_BUSY)
+    await expect.poll(() => item.disabled).toBe(true)
+    await expect.poll(() => item.textContent).toContain(TRIM_BUSY)
     item.click()
     await wait(300)
     expect(page.getByRole('button', { name: CANCEL }).elements()).toHaveLength(0)
@@ -459,7 +466,8 @@ describe('RecordingScreen', () => {
     const file = new File(['m4a'], 'Session.m4a', { type: 'audio/mp4' })
     await addUploadedFile(db, file, { tuneId: null, label: 'Session', durationMs: 42_000 })
     await openFromRows('Session')
-    expect((await trimItem()).disabled).toBe(false)
+    const item = await trimItem()
+    await expect.poll(() => item.disabled).toBe(false)
   })
 
   it('fetches the current audio for a stale blob and keeps playing the held one', async () => {
@@ -476,7 +484,8 @@ describe('RecordingScreen', () => {
     })
     await page.getByRole('button', { name: `${EDIT_RECORDING} Remote take` }).click()
     await vi.waitFor(() => expect(download).toHaveBeenCalledWith('r1'))
-    expect((await trimItem()).disabled).toBe(false)
+    const item = await trimItem()
+    await expect.poll(() => item.disabled).toBe(false)
   })
 
   it("opens from the dock's title without reloading what the dock plays", async () => {
@@ -517,7 +526,7 @@ describe('RecordingScreen', () => {
     const fit = (await modal()).getByRole('button', { name: FIT, exact: true })
     ;(fit.element() as HTMLElement).focus()
     await userEvent.keyboard(' ')
-    expect(engine.getState().playing).toBe(true)
+    await expect.poll(() => engine.getState().playing).toBe(true)
     await expect.element((await modal()).getByRole('button', { name: PAUSE })).toBeVisible()
   })
 
@@ -576,15 +585,15 @@ describe('RecordingScreen', () => {
     engine.pause()
     engine.seek(10_000)
     press('ArrowRight')
-    expect(engine.getState().positionMs).toBe(10_000 + ARROW_STEP_MS)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000 + ARROW_STEP_MS)
     press('ArrowLeft')
-    expect(engine.getState().positionMs).toBe(10_000)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000)
     press('ArrowLeft')
-    expect(engine.getState().positionMs).toBe(10_000 - ARROW_STEP_MS)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000 - ARROW_STEP_MS)
     const fit = (await modal()).getByRole('button', { name: FIT, exact: true })
     ;(fit.element() as HTMLElement).focus()
     await userEvent.keyboard('{ArrowRight}')
-    expect(engine.getState().positionMs).toBe(10_000 - ARROW_STEP_MS)
+    await expect.poll(() => engine.getState().positionMs).toBe(10_000 - ARROW_STEP_MS)
   })
 
   it('leaves the keys alone for a held Space or a menu stacked on the screen', async () => {
@@ -594,13 +603,13 @@ describe('RecordingScreen', () => {
     await expect.poll(() => engine.getState().playing).toBe(true)
     await screenShown()
     press(' ', { repeat: true })
-    expect(engine.getState().playing).toBe(true)
+    await expect.poll(() => engine.getState().playing).toBe(true)
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
     await menuItem(RENAME)
     press(' ')
     press('ArrowRight')
-    expect(engine.getState().playing).toBe(true)
-    expect(engine.getState().positionMs).toBe(0)
+    await expect.poll(() => engine.getState().playing).toBe(true)
+    await expect.poll(() => engine.getState().positionMs).toBe(0)
   })
 
   it('does nothing with the keys before the audio has loaded', async () => {
@@ -613,7 +622,7 @@ describe('RecordingScreen', () => {
     press(' ')
     press('ArrowRight')
     expect(play).not.toHaveBeenCalled()
-    expect(engine.getState().positionMs).toBe(0)
+    await expect.poll(() => engine.getState().positionMs).toBe(0)
   })
 
   it('moves focus into the trim view and back onto More actions', async () => {

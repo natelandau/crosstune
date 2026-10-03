@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   activeItems,
   addToList,
@@ -29,10 +29,6 @@ beforeEach(async () => {
   }
   await db.lists.update(listId, { updated_at: OLD })
   await db.list_items.where('list_id').equals(listId).modify({ updated_at: OLD })
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 function wrapper({ children }: { children: ReactNode }) {

@@ -59,8 +59,7 @@ beforeEach(() => {
   db = openTestDb()
 })
 
-afterEach(async () => {
-  await db.delete()
+afterEach(() => {
   Reflect.deleteProperty(navigator, 'audioSession')
 })
 

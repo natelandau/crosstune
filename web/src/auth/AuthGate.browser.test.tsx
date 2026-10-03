@@ -72,7 +72,7 @@ describe('AuthGate in the Ionic app', () => {
     )
     const form = await screen.findByText('Clerk sign-in form')
     const scroller = form.closest('main')!.parentElement!
-    expect(scroller.scrollHeight).toBeGreaterThan(scroller.clientHeight)
+    await expect.poll(() => scroller.scrollHeight - scroller.clientHeight).toBeGreaterThan(0)
     scroller.scrollTop = 500
     expect(scroller.scrollTop).toBe(500)
   })
@@ -123,7 +123,7 @@ describe('AuthGate in the Ionic app', () => {
       </IonApp>,
     )
     await screen.findByText('signed in')
-    expect(hasAccountDeletedNotice()).toBe(false)
+    await expect.poll(hasAccountDeletedNotice).toBe(false)
   })
 
   it('ends a session Clerk still holds for a locally signed-out user instead of showing sign-in', async () => {

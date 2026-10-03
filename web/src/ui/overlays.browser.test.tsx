@@ -219,9 +219,9 @@ describe('useMenu on a mouse', () => {
     const destructive = (await screen.findByText('Delete')).closest('ion-item')!
     const plain = screen.getByText('Rename').closest('ion-item')!
     await waitFor(() => expect(itemBackground(destructive)).toBe(itemBackground(plain)))
-    expect(getComputedStyle(screen.getByText('Delete')).color).toBe(
-      resolved('var(--ion-color-danger)'),
-    )
+    await expect
+      .poll(() => getComputedStyle(screen.getByText('Delete')).color)
+      .toBe(resolved('var(--ion-color-danger)'))
   })
 })
 
@@ -245,7 +245,9 @@ describe('Sheet', () => {
     await expect.element(page.getByRole('dialog', { name: 'Edit 2 tunes' })).toBeVisible()
     await userEvent.click(await screen.findByText('Select another'))
     await expect.element(page.getByRole('dialog', { name: 'Edit 3 tunes' })).toBeVisible()
-    expect(page.getByRole('dialog', { name: 'Edit 2 tunes' }).elements()).toHaveLength(0)
+    await expect
+      .poll(() => page.getByRole('dialog', { name: 'Edit 2 tunes' }).elements())
+      .toHaveLength(0)
   })
 
   it('shows its body inside the dialog on a mouse', async () => {
@@ -297,7 +299,9 @@ describe('useMenu', () => {
     renderIonic(<MenuHost onDelete={() => {}} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('More'))
     const deleteItem = (await screen.findByText('Delete')).closest('ion-item')
-    expect(deleteItem?.previousElementSibling?.tagName.toLowerCase()).toBe('ion-item-divider')
+    await expect
+      .poll(() => deleteItem?.previousElementSibling?.tagName.toLowerCase())
+      .toBe('ion-item-divider')
   })
 
   it('reopens after a selection, even with the same items reference', async () => {
@@ -344,8 +348,8 @@ describe('useConfirm', () => {
     await userEvent.click(await screen.findByText('Delete tune'))
     await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
     const { destructive, cancel } = confirmButtons()
-    expect(getComputedStyle(destructive).color).toBe(dangerColor())
-    expect(getComputedStyle(cancel).color).not.toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(destructive).color).toBe(dangerColor())
+    await expect.poll(() => getComputedStyle(cancel).color).not.toBe(dangerColor())
   })
 
   it('presents a confirmation asked while the previous one is still dismissing', async () => {
@@ -364,7 +368,7 @@ describe('useConfirm', () => {
     renderIonic(<DoubleConfirmHost onResult={onResult} />, { db: openTestDb() })
     await userEvent.click(await screen.findByText('Delete twice'))
     await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
-    expect(screen.getAllByText('This removes 3 recordings.')).toHaveLength(1)
+    await expect.poll(() => screen.getAllByText('This removes 3 recordings.')).toHaveLength(1)
     await userEvent.click(screen.getByText('Delete'))
     await waitFor(() =>
       expect(screen.queryByText('This removes 3 recordings.')).not.toBeInTheDocument(),
@@ -372,7 +376,7 @@ describe('useConfirm', () => {
     // A second dialog queued behind the first would present once that one finishes dismissing.
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(screen.queryByText('This removes 3 recordings.')).not.toBeInTheDocument()
-    expect(onResult.mock.calls).toEqual([[false], [true]])
+    await expect.poll(() => onResult.mock.calls).toEqual([[false], [true]])
   })
 
   it('keeps the guard up for the question now on screen, not the one before it', async () => {
@@ -436,17 +440,22 @@ describe('on touch', () => {
       await userEvent.click(await screen.findByText('More'))
       const deleteButton = (await screen.findByText('Delete')).closest('button')!
       const renameButton = screen.getByText('Rename').closest('button')!
-      expect(
-        deleteButton.compareDocumentPosition(renameButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy()
-      expect(deleteButton.classList.contains('menu-destructive')).toBe(true)
+      await expect
+        .poll(
+          () =>
+            deleteButton.compareDocumentPosition(renameButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+        )
+        .toBeTruthy()
+      await expect.poll(() => deleteButton.classList.contains('menu-destructive')).toBe(true)
     })
 
     it('tints a destructive item red, which md gives no color of its own', async () => {
       renderIonic(<MixedMenuHost />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('More'))
       const deleteButton = (await screen.findByText('Delete')).closest('button')!
-      expect(getComputedStyle(deleteButton).color).toBe(resolved('var(--ion-color-danger)'))
+      await expect
+        .poll(() => getComputedStyle(deleteButton).color)
+        .toBe(resolved('var(--ion-color-danger)'))
     })
 
     it('rules off the destructive group with the dark palette step color in dark mode', async () => {
@@ -455,9 +464,9 @@ describe('on touch', () => {
         renderIonic(<MixedMenuHost />, { db: openTestDb() })
         await userEvent.click(await screen.findByText('More'))
         const deleteButton = (await screen.findByText('Delete')).closest('button')!
-        expect(getComputedStyle(deleteButton).borderTopColor).toBe(
-          resolved('var(--ion-background-color-step-150)'),
-        )
+        await expect
+          .poll(() => getComputedStyle(deleteButton).borderTopColor)
+          .toBe(resolved('var(--ion-background-color-step-150)'))
       } finally {
         document.documentElement.classList.remove('ion-palette-dark')
       }
@@ -467,7 +476,7 @@ describe('on touch', () => {
       renderIonic(<WarningMenuHost onArchive={() => {}} />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('More'))
       const button = (await screen.findByText('Archive')).closest('button')
-      expect(button?.classList.contains('menu-warning')).toBe(true)
+      await expect.poll(() => button?.classList.contains('menu-warning')).toBe(true)
     })
 
     it('opens a menu asked for while the previous one is still dismissing', async () => {
@@ -502,8 +511,8 @@ describe('on touch', () => {
       await userEvent.click(await screen.findByText('Delete tune'))
       await expect.element(await screen.findByText('This removes 3 recordings.')).toBeVisible()
       const { destructive, cancel } = confirmButtons()
-      expect(getComputedStyle(destructive).color).toBe(dangerColor())
-      expect(getComputedStyle(cancel).color).not.toBe(dangerColor())
+      await expect.poll(() => getComputedStyle(destructive).color).toBe(dangerColor())
+      await expect.poll(() => getComputedStyle(cancel).color).not.toBe(dangerColor())
     })
   })
 })

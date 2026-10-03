@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -21,10 +21,6 @@ beforeEach(() => {
   setTextSize('regular')
 })
 
-afterEach(async () => {
-  await db.delete()
-})
-
 const show = () => renderIonic(<AppearanceGroup />, { db })
 
 /** The name a screen reader announces for a row: the field and the option it holds. */
@@ -39,10 +35,12 @@ describe('AppearanceGroup', () => {
   it('holds both settings as rows of one card', async () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Appearance', level: 2 })).toBeVisible()
-    expect(document.querySelectorAll('ion-list')).toHaveLength(1)
-    expect(
-      Array.from(document.querySelectorAll('[data-row-label]')).map((label) => label.textContent),
-    ).toEqual(['Theme', TEXT_SIZE_LABEL])
+    await expect.poll(() => document.querySelectorAll('ion-list')).toHaveLength(1)
+    await expect
+      .poll(() =>
+        Array.from(document.querySelectorAll('[data-row-label]')).map((label) => label.textContent),
+      )
+      .toEqual(['Theme', TEXT_SIZE_LABEL])
   })
 
   it('starts the theme on System with no data-theme set', async () => {
@@ -55,8 +53,10 @@ describe('AppearanceGroup', () => {
     show()
     await choose('Theme, System', 'Dark')
     await expect.poll(() => document.documentElement.getAttribute('data-theme')).toBe('dark')
-    expect(document.documentElement.classList.contains('ion-palette-dark')).toBe(true)
-    expect(localStorage.getItem('crosstune.appearance')).toBe('dark')
+    await expect
+      .poll(() => document.documentElement.classList.contains('ion-palette-dark'))
+      .toBe(true)
+    await expect.poll(() => localStorage.getItem('crosstune.appearance')).toBe('dark')
     await expect.element(named('Theme, Dark')).toBeInTheDocument()
 
     await choose('Theme, Dark', 'System')
@@ -73,7 +73,7 @@ describe('AppearanceGroup', () => {
     show()
     await choose('Text size, Regular', 'Roomy')
     await expect.poll(() => document.documentElement.getAttribute('data-text-size')).toBe('roomy')
-    expect(localStorage.getItem('crosstune.textSize')).toBe('roomy')
+    await expect.poll(() => localStorage.getItem('crosstune.textSize')).toBe('roomy')
     await expect.element(named('Text size, Roomy')).toBeInTheDocument()
 
     await choose('Text size, Roomy', 'Regular')
@@ -89,7 +89,7 @@ describe('AppearanceGroup', () => {
     show()
     await expect.element(named('Theme, System')).toBeInTheDocument()
     for (const item of document.querySelectorAll('ion-item')) {
-      expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

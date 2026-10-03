@@ -8,7 +8,7 @@ export const TOAST_MS = 8000
 // The tab bar comes back within a frame or two of the mode ending. The cap is only there so
 // that a bar which never returns cannot hold a message forever, not as a budget a slow device
 // has to meet.
-const ANCHOR_WAIT_MS = 1500
+export const ANCHOR_WAIT_MS = 1500
 
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
 

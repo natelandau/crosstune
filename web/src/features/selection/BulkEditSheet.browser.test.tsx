@@ -81,15 +81,18 @@ describe('BulkEditSheet', () => {
     const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
     renderIonic(<Host entries={entries} />, { db })
     await expect.element(page.getByText('Edit 2 tunes')).toBeVisible()
-    const open = document.querySelector('ion-modal:not(.overlay-hidden)')!
-    const details = Array.from(open.querySelectorAll('section')).find(
-      (section) => section.querySelector('h2')?.textContent === 'Details',
-    )!
-    const rows = Array.from(details.querySelectorAll('ion-item'))
+    const rowLabel = (label: string) => {
+      const open = document.querySelector('ion-modal:not(.overlay-hidden)')
+      const details = Array.from(open?.querySelectorAll('section') ?? []).find(
+        (section) => section.querySelector('h2')?.textContent === 'Details',
+      )
+      const rows = Array.from(details?.querySelectorAll('ion-item') ?? [])
+      const row = rows.find((item) => item.getAttribute('data-detail') === label)
+      return row?.querySelector('[data-row-label]')?.textContent
+    }
     // Learned from is a text row and Learned on a date row; both read like the select rows.
     for (const label of [DETAIL_LABELS.learned_from, DETAIL_LABELS.learned_on]) {
-      const row = rows.find((item) => item.getAttribute('data-detail') === label)
-      expect(row?.querySelector('[data-row-label]')?.textContent, label).toBe(label)
+      await expect.poll(() => rowLabel(label), { message: label }).toBe(label)
     }
   })
 
@@ -258,10 +261,13 @@ describe('BulkEditSheet', () => {
     renderIonic(<Host entries={entries} />, { db })
     await openRow('Status, Known')
     await expect.element(page.getByRole('radio', { name: 'Known', exact: true })).toBeVisible()
-    const options = Array.from(document.querySelectorAll('ion-popover [role="radio"]')).map(
-      (option) => option.textContent?.trim(),
-    )
-    expect(options).toEqual(['Known', 'Learning', 'Unknown'])
+    await expect
+      .poll(() =>
+        Array.from(document.querySelectorAll('ion-popover [role="radio"]')).map((option) =>
+          option.textContent?.trim(),
+        ),
+      )
+      .toEqual(['Known', 'Learning', 'Unknown'])
   })
 
   it('hides a tuning nobody plays and shows one some tune already has', async () => {
@@ -356,8 +362,8 @@ describe('BulkEditSheet', () => {
     // Clears one part of the date, which is how a date reads mid-edit: empty, but not blank.
     await userEvent.keyboard('{Backspace}')
     const input = page.getByLabelText(DETAIL_LABELS.learned_on).element() as HTMLInputElement
-    expect(input.value).toBe('')
-    expect(input.validity.badInput).toBe(true)
+    await expect.poll(() => input.value).toBe('')
+    await expect.poll(() => input.validity.badInput).toBe(true)
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
   })
 })

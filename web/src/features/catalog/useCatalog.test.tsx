@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTune } from '../../commands/tunes'
 import { DbContext } from '../../db/DbProvider'
 import type { CrosstuneDb } from '../../db/schema'
@@ -12,10 +12,6 @@ let db: CrosstuneDb
 beforeEach(async () => {
   db = openTestDb()
   await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 function wrapper({ children }: { children: ReactNode }) {

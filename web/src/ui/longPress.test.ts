@@ -142,6 +142,25 @@ describe('useLongPress', () => {
     target.remove()
   })
 
+  it('lets the next press click before the guard would have timed out', () => {
+    const onLongPress = vi.fn()
+    const { result, unmount } = renderHook(() => useLongPress(onLongPress))
+    const target = document.createElement('div')
+    document.body.append(target)
+    const onClick = vi.fn()
+    target.addEventListener('click', onClick)
+
+    act(() => result.current.onPointerDown?.(down()))
+    stepTimers(500)
+    unmount()
+
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(onClick).toHaveBeenCalledTimes(1)
+
+    target.remove()
+  })
+
   it.each([
     ['touch', true],
     ['mouse', false],

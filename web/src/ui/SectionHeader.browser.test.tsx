@@ -28,9 +28,9 @@ describe('SectionHeader', () => {
     const control = page.getByRole('button', { name: 'Add to list' })
     await expect.element(control).toBeVisible()
     const host = document.querySelector('ion-button')!
-    const box = host.getBoundingClientRect()
-    expect(Math.round(box.height)).toBeGreaterThanOrEqual(44)
-    expect(Math.round(box.width)).toBeGreaterThanOrEqual(44)
+    const box = () => host.getBoundingClientRect()
+    await expect.poll(() => Math.round(box().height)).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => Math.round(box().width)).toBeGreaterThanOrEqual(44)
   })
 
   it('sets a card off by the same distance with an action and without one', async () => {
@@ -42,12 +42,11 @@ describe('SectionHeader', () => {
       { db: openTestDb() },
     )
     await expect.element(page.getByRole('button', { name: 'Add to list' })).toBeVisible()
-    const lines = document.querySelectorAll<HTMLElement>('[data-section-header]')
-    expect(lines).toHaveLength(2)
-    expect(Math.round(lines[0]!.getBoundingClientRect().height)).toBe(
-      Math.round(lines[1]!.getBoundingClientRect().height),
-    )
-    expect(Math.round(lines[0]!.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44)
+    const lines = () => document.querySelectorAll<HTMLElement>('[data-section-header]')
+    const height = (index: number) => Math.round(lines()[index]!.getBoundingClientRect().height)
+    await expect.poll(lines).toHaveLength(2)
+    await expect.poll(() => height(0)).toBe(height(1))
+    await expect.poll(() => height(0)).toBeGreaterThanOrEqual(44)
   })
 
   it('keeps the compact line inside a sheet, so a form section does not grow', async () => {
@@ -61,7 +60,7 @@ describe('SectionHeader', () => {
     )
     await expect.element(page.getByText('Status')).toBeVisible()
     const line = document.querySelector<HTMLElement>('ion-modal [data-section-header]')!
-    expect(px(getComputedStyle(line).minHeight)).toBeLessThan(44)
+    await expect.poll(() => px(getComputedStyle(line).minHeight)).toBeLessThan(44)
   })
 
   it('carries a control on a naming header too, not only on a labeling one', async () => {

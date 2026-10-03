@@ -29,7 +29,6 @@ beforeEach(() => {
 
 afterEach(async () => {
   vi.unstubAllGlobals()
-  await db.delete()
 })
 
 const show = (engine?: SyncEngine) => renderIonic(<RecordingGroup />, { db, engine })
@@ -99,12 +98,14 @@ describe('RecordingGroup', () => {
     show()
     await openQuality('Standard, 64 kbps')
     await expect.element(page.getByRole('radio', { name: 'Low, 48 kbps' })).toBeVisible()
-    expect(
-      page
-        .getByRole('radio')
-        .elements()
-        .map((option) => option.textContent?.trim()),
-    ).toEqual(['Low, 48 kbps', 'Standard, 64 kbps', 'High, 128 kbps'])
+    await expect
+      .poll(() =>
+        page
+          .getByRole('radio')
+          .elements()
+          .map((option) => option.textContent?.trim()),
+      )
+      .toEqual(['Low, 48 kbps', 'Standard, 64 kbps', 'High, 128 kbps'])
   })
 
   it('stores a chosen quality and queues one settings change', async () => {
@@ -114,7 +115,9 @@ describe('RecordingGroup', () => {
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
       .toBe('high')
     await expect.element(qualityRow('High, 128 kbps')).toBeInTheDocument()
-    expect((await pendingBatch(db, 10)).map((entry) => entry.table)).toEqual(['user_settings'])
+    await expect
+      .poll(async () => (await pendingBatch(db, 10)).map((entry) => entry.table))
+      .toEqual(['user_settings'])
   })
 
   it('starts with downloads off and removal available', async () => {
@@ -131,8 +134,8 @@ describe('RecordingGroup', () => {
     await keepToggle().click()
     await expect.poll(() => getKeepOffline(db)).toBe(true)
     await expect.element(keepToggle()).toBeChecked()
-    expect(transfer).toHaveBeenCalledOnce()
-    expect(persist).toHaveBeenCalledOnce()
+    await expect.poll(() => transfer).toHaveBeenCalledOnce()
+    await expect.poll(() => persist).toHaveBeenCalledOnce()
     // Removing downloads while every recording is kept offline would only re-download them.
     await expect.element(clearButton()).toBeDisabled()
   })
@@ -149,8 +152,8 @@ describe('RecordingGroup', () => {
     await keepToggle().click()
     await expect.poll(() => getKeepOffline(db)).toBe(false)
     await expect.element(clearButton()).toBeEnabled()
-    expect(transfer).toHaveBeenCalledOnce()
-    expect(persist).toHaveBeenCalledOnce()
+    await expect.poll(() => transfer).toHaveBeenCalledOnce()
+    await expect.poll(() => persist).toHaveBeenCalledOnce()
     expect((await db.recording_files.get('r1'))?.blob).not.toBeNull()
   })
 
@@ -200,10 +203,9 @@ describe('RecordingGroup', () => {
       show()
       await expect.element(keepToggle()).toBeVisible()
       // Ionic renders the label inside the toggle's shadow root, where the clipping lives.
-      const label = document
-        .querySelector('ion-toggle')!
-        .shadowRoot!.querySelector('[part~=label]')!
-      expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+      const label = () =>
+        document.querySelector('ion-toggle')!.shadowRoot!.querySelector('[part~=label]')!
+      await expect.poll(() => label().scrollWidth - label().clientWidth).toBeLessThanOrEqual(1)
     } finally {
       await page.viewport(390, 844)
     }
@@ -213,7 +215,7 @@ describe('RecordingGroup', () => {
     show()
     await expect.element(clearButton()).toBeVisible()
     for (const item of document.querySelectorAll('ion-item')) {
-      expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     }
   })
 })

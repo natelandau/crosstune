@@ -33,7 +33,7 @@ describe('ListItem', () => {
     )
     const name = page.getByRole('heading', { name: 'Tuesday jam' })
     await expect.element(name).toBeVisible()
-    expect(name.element().classList.contains('type-headline')).toBe(true)
+    await expect.element(name).toHaveClass('type-headline')
     await expect.element(page.getByText('3 tunes · Edited today')).toBeVisible()
   })
 

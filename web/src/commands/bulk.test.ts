@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
@@ -19,10 +19,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 async function tune(title: string, extra: Parameters<typeof createTune>[1] = { title }) {

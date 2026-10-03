@@ -28,7 +28,6 @@ export function listPositionTests(mode: string) {
 
     afterEach(async () => {
       delete document.documentElement.dataset.textSize
-      await db.delete()
     })
 
     function Host() {
@@ -57,7 +56,7 @@ export function listPositionTests(mode: string) {
       renderIonic(<Host />, { db })
       const positions = () => Array.from(document.querySelectorAll('[data-position]'))
       await vi.waitFor(() => expect(positions()).toHaveLength(2))
-      expect(positions().map((span) => span.textContent)).toEqual(['1', '2'])
+      await expect.poll(() => positions().map((span) => span.textContent)).toEqual(['1', '2'])
       for (const span of positions()) {
         expect(span.closest('[aria-hidden="true"]')).toBeNull()
         expect(span.closest('button')).toBeNull()
@@ -77,14 +76,15 @@ export function listPositionTests(mode: string) {
       renderIonic(<Host />, { db })
       const titles = () => document.querySelectorAll('ion-reorder-group h2')
       await vi.waitFor(() => expect(titles()).toHaveLength(TUNES))
-      const numbers = Array.from(document.querySelectorAll('[data-position]')).map(
-        (span) => span.textContent,
-      )
-      expect([numbers[8], numbers[98], numbers[99]]).toEqual(['9', '99', '100'])
+      const numbers = () =>
+        Array.from(document.querySelectorAll('[data-position]')).map((span) => span.textContent)
+      await expect
+        .poll(() => [numbers()[8], numbers()[98], numbers()[99]])
+        .toEqual(['9', '99', '100'])
       const left = (index: number) => titles()[index]!.getBoundingClientRect().left
-      expect(left(98)).toBe(left(8))
-      expect(left(99)).toBe(left(8))
-      expect(left(TUNES - 1)).toBe(left(8))
+      await expect.poll(() => left(98)).toBe(left(8))
+      await expect.poll(() => left(99)).toBe(left(8))
+      await expect.poll(() => left(TUNES - 1)).toBe(left(8))
     }, 30000)
   })
 }

@@ -1,6 +1,6 @@
 import { ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -72,10 +72,6 @@ beforeEach(() => {
   db = openTestDb()
 })
 
-afterEach(async () => {
-  await db.delete()
-})
-
 describe('useSelectionToolbar on iOS', () => {
   it("reads the count in Apple's capitalization", async () => {
     show(2)
@@ -87,16 +83,16 @@ describe('useSelectionToolbar on iOS', () => {
     show(2)
     await expect.element(control(SELECT_ALL_IOS)).toBeVisible()
     await control(SELECT_ALL_IOS).click()
-    expect(toggleAll).toHaveBeenCalledOnce()
+    await expect.poll(() => toggleAll).toHaveBeenCalledOnce()
     await expect.element(control(DESELECT_ALL_IOS)).toBeVisible()
-    expect(control(SELECT_ALL_IOS).elements()).toHaveLength(0)
+    await expect.element(control(SELECT_ALL_IOS)).not.toBeInTheDocument()
   })
 
   it('trails with Done, which exits', async () => {
     show(2)
     await expect.element(control('Done')).toBeVisible()
     await control('Done').click()
-    expect(onExit).toHaveBeenCalledOnce()
+    await expect.poll(() => onExit).toHaveBeenCalledOnce()
   })
 
   it('puts no action icons in the toolbar', async () => {
@@ -112,10 +108,10 @@ describe('useSelectionToolbar on iOS', () => {
     show(2)
     await expect.element(control('Done')).toBeVisible()
     // Ionic parks an empty clone of the large title on the body to animate the collapse.
-    const titles = Array.from(document.querySelectorAll('ion-title:not(.ion-cloned-element)'))
-    expect(titles).toHaveLength(2)
-    for (const title of titles) {
-      expect(getComputedStyle(title).fontVariantNumeric).toBe('tabular-nums')
+    const titles = () => Array.from(document.querySelectorAll('ion-title:not(.ion-cloned-element)'))
+    await expect.poll(titles).toHaveLength(2)
+    for (const title of titles()) {
+      await expect.poll(() => getComputedStyle(title).fontVariantNumeric).toBe('tabular-nums')
     }
   })
 
@@ -126,18 +122,24 @@ describe('useSelectionToolbar on iOS', () => {
       await expect.element(control(SELECT_ALL_IOS)).toBeVisible()
       await control(SELECT_ALL_IOS).click()
       await expect.element(control(DESELECT_ALL_IOS)).toBeVisible()
-      const title = document
-        .querySelector('ion-header ion-title')!
-        .shadowRoot!.querySelector('.toolbar-title')!
+      const title = () =>
+        document.querySelector('ion-header ion-title')!.shadowRoot!.querySelector('.toolbar-title')!
       // An iOS title is laid across the whole bar, so a wide leading control sits under it
       // unless the count is given the room the controls leave.
       for (const size of ['regular', 'roomy'] as const) {
         if (size === 'roomy') document.documentElement.dataset.textSize = 'roomy'
-        expect(title.getBoundingClientRect().left, size).toBeGreaterThanOrEqual(
-          host(DESELECT_ALL_IOS).getBoundingClientRect().right,
-        )
-        const digits = document.querySelector('.selection-title-count')!
-        expect(digits.scrollWidth, size).toBeLessThanOrEqual(digits.clientWidth)
+        await expect
+          .poll(
+            () =>
+              title().getBoundingClientRect().left -
+              host(DESELECT_ALL_IOS).getBoundingClientRect().right,
+            { message: size },
+          )
+          .toBeGreaterThanOrEqual(0)
+        const digits = () => document.querySelector('.selection-title-count')!
+        await expect
+          .poll(() => digits().scrollWidth - digits().clientWidth, { message: size })
+          .toBeLessThanOrEqual(0)
       }
     } finally {
       delete document.documentElement.dataset.textSize
@@ -149,9 +151,8 @@ describe('useSelectionToolbar on iOS', () => {
     show(2)
     await expect.element(control('Done')).toBeVisible()
     for (const name of [SELECT_ALL_IOS, 'Done']) {
-      const box = host(name).getBoundingClientRect()
-      expect(box.height).toBeGreaterThanOrEqual(44)
-      expect(box.width).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => host(name).getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => host(name).getBoundingClientRect().width).toBeGreaterThanOrEqual(44)
     }
   })
 })

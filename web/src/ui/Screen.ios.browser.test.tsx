@@ -15,7 +15,9 @@ describe('Screen on iOS', () => {
       { db: openTestDb(), path: '/catalog' },
     )
     expect(await screen.findByText('Body')).toBeInTheDocument()
-    expect(document.querySelector('ion-header.header-collapse-condense')).not.toBeNull()
+    await expect
+      .poll(() => document.querySelector('ion-header.header-collapse-condense'))
+      .not.toBeNull()
   })
   it('lines the large title and search field up with the rows on the wide frame', async () => {
     await page.viewport(1024, 768)

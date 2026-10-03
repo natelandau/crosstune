@@ -102,9 +102,9 @@ describe('RenameRecordingSheet', () => {
           ?.getAttribute('placeholder'),
       ).toBe(RECORDING_NAME_PLACEHOLDER),
     )
-    expect(
-      document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'),
-    ).toHaveLength(0)
+    await expect
+      .poll(() => document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'))
+      .toHaveLength(0)
     await expect.element(nameField()).toHaveValue('Jam recording')
   })
 
@@ -118,7 +118,7 @@ describe('RenameRecordingSheet', () => {
     )
     await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.label).toBe('Barn dance'))
     await closed()
-    expect(onClose).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
   it('stores nothing at all for a blank name', async () => {
@@ -137,7 +137,7 @@ describe('RenameRecordingSheet', () => {
     await expect.element(nameField()).toBeVisible()
     await page.getByRole('button', { name: CANCEL }).click()
     await closed()
-    expect(onClose).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(onClose).toHaveBeenCalledOnce()
   })
@@ -151,7 +151,7 @@ describe('RenameRecordingSheet', () => {
     save.element().dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))
     save.element().dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))
     await closed()
-    expect(vi.mocked(updateRecording)).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(vi.mocked(updateRecording)).toHaveBeenCalledOnce())
   })
 })
 
@@ -167,7 +167,7 @@ describe('AddToTuneSheet', () => {
     )
     await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.tune_id).toBe(tuneId))
     await closed()
-    expect(onClose).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
   it('opens under its own title with the shared tune search', async () => {
@@ -189,7 +189,7 @@ describe('AddToTuneSheet', () => {
       expect(vi.mocked(updateRecording)).toHaveBeenCalledWith(db, 'r1', { tune_id: tune.id }),
     )
     await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.tune_id).toBe(tune.id))
-    expect(onClose).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
   it('reports a backdrop dismissal once and opens again for another recording', async () => {
@@ -210,7 +210,7 @@ describe('AddToTuneSheet', () => {
     const sheet = document.querySelector<HTMLIonModalElement>('ion-modal:not(.overlay-hidden)')!
     await sheet.dismiss(undefined, 'backdrop')
     await closed()
-    expect(onClose).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     // Ionic ignores a present that lands while the previous dismissal is still settling, so the
     // next open waits for the close to reach the modal, not only for its hidden class.
     await vi.waitFor(() => expect(sheet.isOpen).toBe(false))
@@ -224,12 +224,14 @@ describe('AddToTuneSheet', () => {
     renderIonic(<Host sheet="add" target={view()} onClose={onClose} />, { db })
     const cancel = page.getByRole('button', { name: CANCEL })
     await expect.element(cancel).toBeVisible()
-    expect(
-      (cancel.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,
-    ).toBeGreaterThanOrEqual(44)
+    await expect
+      .poll(
+        () => (cancel.element().getRootNode() as ShadowRoot).host.getBoundingClientRect().height,
+      )
+      .toBeGreaterThanOrEqual(44)
     await cancel.click()
     await closed()
-    expect(onClose).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
   })
 
@@ -271,7 +273,7 @@ describe('AddToTuneSheet', () => {
     // The tune is saved and both sheets are gone, so the only surface left is the app's toast.
     fail(new Error(RECORDING_NOT_FOUND))
     await expect.element(page.getByText(ADD_TO_TUNE_ERROR)).toBeVisible()
-    expect(await db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
+    await expect.poll(() => db.tunes.where('title').equals('Sally Goodin').count()).toBe(1)
   })
 })
 
@@ -283,7 +285,7 @@ describe('UploadButton', () => {
     const control = page.getByRole('button', { name: 'Upload' })
     await expect.element(control).toBeVisible()
     const host = (control.element().getRootNode() as ShadowRoot).host
-    expect(host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => host.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
     expect(picker()).toHaveAttribute('type', 'file')
     expect(picker()).toHaveAttribute('accept', 'audio/*')
   })
@@ -329,7 +331,7 @@ describe('UploadButton', () => {
         durationMs: null,
       }),
     )
-    expect(page.getByRole('alert').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
   })
 
   it('stores the length it measured from the file', async () => {
@@ -358,7 +360,7 @@ describe('UploadButton', () => {
     await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(NOT_AUDIO_ERROR))
     // The pick itself drops whatever the last one left behind, before it can fail again.
     expect(onError.mock.calls[0]).toEqual([null])
-    expect(page.getByRole('alert').elements()).toHaveLength(0)
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
   })
 })
 

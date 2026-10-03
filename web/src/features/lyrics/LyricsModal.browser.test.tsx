@@ -75,10 +75,10 @@ it('steps the text size, remembers it, and clamps at the top', async () => {
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe('5'))
   await larger.click()
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe(String(LYRICS_STEPS)))
-  expect(localStorage.getItem(LYRICS_SIZE_KEY)).toBe(String(LYRICS_STEPS))
+  await expect.poll(() => localStorage.getItem(LYRICS_SIZE_KEY)).toBe(String(LYRICS_STEPS))
   await expect.element(larger).toHaveAttribute('aria-disabled', 'true')
   // A control out of scale still reads as unavailable, dimmed as a disabled one is.
-  expect(Number(getComputedStyle(buttonHost(LARGER_TEXT)).opacity)).toBeLessThan(1)
+  await expect.poll(() => Number(getComputedStyle(buttonHost(LARGER_TEXT)).opacity)).toBeLessThan(1)
 })
 
 it('keeps focus on the control that reached the end of the scale', async () => {
@@ -89,7 +89,7 @@ it('keeps focus on the control that reached the end of the scale', async () => {
   await larger.click()
   await vi.waitFor(() => expect(body()?.dataset.lyricsSize).toBe(String(LYRICS_STEPS)))
   // The control that ran out of scale still holds focus, so the next Tab goes on from it.
-  expect(focused()).toBe(larger.element())
+  await expect.poll(focused).toBe(larger.element())
 })
 
 it('reports the step to a screen reader only after a press', async () => {
@@ -110,7 +110,7 @@ it('says nothing about the last step when it opens again', async () => {
   await vi.waitFor(() =>
     expect(document.querySelector('ion-modal:not(.overlay-hidden)')).not.toBeNull(),
   )
-  expect(status()?.textContent).toBe('')
+  await expect.poll(() => status()?.textContent).toBe('')
 })
 
 it('closes from its own control', async () => {
@@ -143,23 +143,23 @@ it('pulls a line back to the margin by exactly its own hanging indent', async ()
     return p
   })
   const style = getComputedStyle(line)
-  const padding = Number.parseFloat(style.paddingLeft)
-  const indent = Number.parseFloat(style.textIndent)
+  const padding = () => Number.parseFloat(style.paddingLeft)
+  const indent = () => Number.parseFloat(style.textIndent)
   // The padding offsets every line, including a wrap; the negative indent pulls only the first
   // line back by the same amount, so a wrap sits at the padding and a new line starts at 0.
-  expect(padding).toBeGreaterThan(0)
-  expect(indent).toBeCloseTo(-padding, 5)
+  await expect.poll(padding).toBeGreaterThan(0)
+  await expect.poll(indent).toBeCloseTo(-padding(), 5)
 })
 
 it('gives every toolbar control a 44px tap target', async () => {
   show()
   await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible()
   for (const name of [SMALLER_TEXT, LARGER_TEXT, 'Close']) {
-    const box = buttonHost(name).getBoundingClientRect()
+    const box = () => buttonHost(name).getBoundingClientRect()
     // A control sized to the exact 44px minimum can render a few thousandths of a pixel under
     // it, from float rounding in the layout engine rather than from the rule itself.
-    expect(Math.round(box.height), name).toBeGreaterThanOrEqual(44)
-    expect(Math.round(box.width), name).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => Math.round(box().height), { message: name }).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => Math.round(box().width), { message: name }).toBeGreaterThanOrEqual(44)
   }
 })
 
@@ -205,9 +205,9 @@ it('edits the words from the end of them, and writes without a form', async () =
   await expect.element(edit).toBeVisible()
   const lastLine = Array.from(document.querySelectorAll<HTMLElement>('[data-verse] p')).at(-1)!
   const host = document.querySelector<HTMLElement>('ion-button[expand="block"]')!
-  expect(host.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-    lastLine.getBoundingClientRect().bottom,
-  )
+  await expect
+    .poll(() => host.getBoundingClientRect().top - lastLine.getBoundingClientRect().bottom)
+    .toBeGreaterThanOrEqual(0)
 
   await edit.click()
   const field = page.getByRole('textbox', { name: 'Lyrics' })
@@ -280,7 +280,7 @@ it('opens on the words after a close that left the editor up', async () => {
   await vi.waitFor(() => expect(document.querySelector('[data-lyrics-size]')).toBeNull())
   toggle.click()
   await expect.element(page.getByRole('button', { name: EDIT_LYRICS })).toBeVisible()
-  expect(document.querySelector('ion-textarea')).toBeNull()
+  await expect.poll(() => document.querySelector('ion-textarea')).toBeNull()
 })
 
 it('names the dialog for the title the tune carries now', async () => {

@@ -87,17 +87,18 @@ Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
-| Command                   | Runs                                                                                                |
-| ------------------------- | --------------------------------------------------------------------------------------------------- |
-| `just lint`               | Every linter in every module, then a spell check.                                                   |
-| `just test`               | API tests in their own Postgres container, web unit and browser tests, and the Swift package tests. |
-| `just api::test [args]`   | API tests. Args narrow the run and drop coverage.                                                   |
-| `just web::test [args]`   | Web tests. Args go to vitest.                                                                       |
-| `just site::test [args]`  | Builds the site, then runs its tests against the output. Args go to vitest.                         |
-| `just apple::test [args]` | Swift package tests on the Mac. Args go to `swift test`.                                            |
-| `just apple::build`       | The app for the iOS Simulator and macOS, unsigned.                                                  |
-| `just typos [paths]`      | Spell check.                                                                                        |
-| `just e2e [args]`         | The Playwright suite. Args go to Playwright.                                                        |
+| Command                       | Runs                                                                                                  |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `just lint`                   | Every linter in every module, then a spell check.                                                     |
+| `just test`                   | API tests in their own Postgres container, web unit and browser tests, and the Swift package tests.   |
+| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                     |
+| `just web::test [args]`       | Web tests. Args go to vitest.                                                                         |
+| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one. |
+| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                           |
+| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                              |
+| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                    |
+| `just typos [paths]`          | Spell check.                                                                                          |
+| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                          |
 
 The end-to-end suite:
 
@@ -117,6 +118,9 @@ The end-to-end suite:
 - Queries by accessible name. A renamed label, heading, or group needs
   `web/e2e/` checked, and only this suite catches it.
 - Runs the recording specs in `web/e2e/`, the only place they run.
+
+In CI, a failed browser test reruns up to twice before it fails the run.
+The job summary lists every test that passed only on a rerun.
 
 An API test that reads or writes RustFS skips locally when RustFS is down
 and fails instead in CI, where the `API` workflow always starts it.

@@ -16,16 +16,15 @@ async function expectNoStatusLabelOverflow() {
   // Waits for real layout: a freshly hydrated label has zero width and would pass trivially.
   await expect.element(page.getByRole('button', { name: 'Unknown', exact: true })).toBeVisible()
   const group = document.querySelector('[role="group"][aria-label="Status"]') as HTMLElement
+  await expect.poll(() => group.querySelectorAll('button').length).toBe(4)
   const buttons = [...group.querySelectorAll('button')]
-  expect(buttons.length).toBe(4)
   for (const button of buttons) {
     const label = button.firstElementChild as HTMLElement
-    expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1)
+    await expect.poll(() => label.scrollWidth - label.clientWidth).toBeLessThanOrEqual(1)
   }
   // One line, whatever the text size: a capsule past the edge scrolls into reach rather than
   // dropping onto a second row.
-  const tops = new Set(buttons.map((button) => button.offsetTop))
-  expect(tops.size).toBe(1)
+  await expect.poll(() => new Set(buttons.map((button) => button.offsetTop)).size).toBe(1)
 }
 
 describe('CatalogFilters on iOS', () => {

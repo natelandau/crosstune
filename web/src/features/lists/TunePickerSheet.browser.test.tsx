@@ -66,7 +66,9 @@ describe('TunePickerSheet', () => {
     renderIonic(<Host />, { db })
     await search().fill('soldier')
     await expect.element(page.getByText(IN_THIS_LIST)).toBeVisible()
-    expect(page.getByRole('button', { name: "Add Soldier's Joy" }).elements()).toHaveLength(0)
+    await expect
+      .element(page.getByRole('button', { name: "Add Soldier's Joy" }))
+      .not.toBeInTheDocument()
   })
 
   it('starts every result title on the same line, taken or offered', async () => {
@@ -77,10 +79,10 @@ describe('TunePickerSheet', () => {
     await expect.element(page.getByText(IN_THIS_LIST)).toBeVisible()
     // An offered row keeps its lines out of the accessibility tree, so the titles are read
     // from the DOM rather than by role.
-    const titles = Array.from(document.querySelectorAll('ion-modal ion-item h2'))
-    expect(titles.map((title) => title.textContent)).toContain('Cluck Old Hen')
-    const lefts = new Set(titles.map((title) => title.getBoundingClientRect().left))
-    expect(lefts.size).toBe(1)
+    const titles = () => Array.from(document.querySelectorAll('ion-modal ion-item h2'))
+    await expect.poll(() => titles().map((title) => title.textContent)).toContain('Cluck Old Hen')
+    const lefts = () => new Set(titles().map((title) => title.getBoundingClientRect().left))
+    await expect.poll(() => lefts().size).toBe(1)
   })
 
   it('finds archived tunes and says so in the row name', async () => {
@@ -90,7 +92,9 @@ describe('TunePickerSheet', () => {
     await expect
       .element(page.getByRole('button', { name: 'Add Cluck Old Hen, archived' }))
       .toBeVisible()
-    expect(page.getByRole('button', { name: 'Add Cluck Old Hen' }).elements()).toHaveLength(0)
+    await expect
+      .element(page.getByRole('button', { name: 'Add Cluck Old Hen' }))
+      .not.toBeInTheDocument()
   })
 
   it('adds the only match from Enter, and does nothing for a lone match already in the list', async () => {

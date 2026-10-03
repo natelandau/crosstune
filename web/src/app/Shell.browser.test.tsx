@@ -179,8 +179,7 @@ describe('Shell', () => {
     try {
       renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
       await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
-      const outlet = document.querySelector('ion-router-outlet')!
-      expect(outlet.animated).toBe(false)
+      await expect.poll(() => document.querySelector('ion-router-outlet')!.animated).toBe(false)
     } finally {
       await page.viewport(390, 844)
     }
@@ -190,7 +189,7 @@ describe('Shell', () => {
     renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
     // A programmatic open() ignores swipeGesture, so the setting itself is what can be checked.
-    expect(document.querySelector('ion-menu')!.swipeGesture).toBe(false)
+    await expect.poll(() => document.querySelector('ion-menu')!.swipeGesture).toBe(false)
   })
 
   it('stays on the current page when the record button is tapped', async () => {
@@ -237,29 +236,40 @@ describe('Shell', () => {
     renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
     const record = page.getByRole('button', { name: RECORD_LABEL })
     await expect.element(record).toBeVisible()
-    const dome = record.element().getBoundingClientRect()
-    const bar = document.querySelector('ion-tab-bar')!.getBoundingClientRect()
-    expect(dome.top).toBeLessThan(bar.top)
-    expect(dome.height).toBeGreaterThan(bar.height)
-    expect(Math.abs(dome.left + dome.width / 2 - (bar.left + bar.width / 2))).toBeLessThan(1)
+    const dome = () => record.element().getBoundingClientRect()
+    const bar = () => document.querySelector('ion-tab-bar')!.getBoundingClientRect()
+    const middle = (box: DOMRect) => box.left + box.width / 2
+    await expect.poll(() => dome().top - bar().top).toBeLessThan(0)
+    await expect.poll(() => dome().height - bar().height).toBeGreaterThan(0)
+    await expect.poll(() => Math.abs(middle(dome()) - middle(bar()))).toBeLessThan(1)
     // Beside the dome, just above the bar, the page is what a tap reaches.
-    const beside = document.elementFromPoint(bar.left + 8, bar.top - 4)
-    expect(beside?.closest('ion-router-outlet')).not.toBeNull()
-    expect(page.getByRole('tab').elements()).toHaveLength(4)
-    const slots = Array.from(document.querySelectorAll('ion-tab-bar > ion-tab-button'))
-    const center = slots[2]!.getBoundingClientRect()
-    expect(slots).toHaveLength(5)
-    expect(Math.abs(center.left + center.width / 2 - (dome.left + dome.width / 2))).toBeLessThan(1)
-    const labels = Array.from(document.querySelectorAll('ion-tab-bar ion-label'))
-    expect(labels.filter((label) => label.scrollWidth > label.clientWidth)).toEqual([])
+    await expect
+      .poll(() =>
+        document.elementFromPoint(bar().left + 8, bar().top - 4)?.closest('ion-router-outlet'),
+      )
+      .not.toBeNull()
+    await expect.poll(() => page.getByRole('tab').elements()).toHaveLength(4)
+    const slots = () => Array.from(document.querySelectorAll('ion-tab-bar > ion-tab-button'))
+    await expect.poll(slots).toHaveLength(5)
+    await expect
+      .poll(() => Math.abs(middle(slots()[2]!.getBoundingClientRect()) - middle(dome())))
+      .toBeLessThan(1)
+    await expect
+      .poll(() =>
+        Array.from(document.querySelectorAll('ion-tab-bar ion-label')).filter(
+          (label) => label.scrollWidth > label.clientWidth,
+        ),
+      )
+      .toEqual([])
   })
 
   it('lets the last of a screen scroll clear of the record button', async () => {
     renderIonic(<Shell initialPath="/catalog" />, { db: openTestDb() })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
-    const cap = getComputedStyle(document.documentElement).getPropertyValue('--tab-bar-cap').trim()
-    expect(cap).not.toBe('')
-    expect(cap).not.toBe('0px')
+    const cap = () =>
+      getComputedStyle(document.documentElement).getPropertyValue('--tab-bar-cap').trim()
+    await expect.poll(cap).not.toBe('')
+    await expect.poll(cap).not.toBe('0px')
   })
 
   it('keeps the record button clearance on a landscape phone and drops it on the wide frame', async () => {
@@ -267,9 +277,9 @@ describe('Shell', () => {
       getComputedStyle(document.documentElement).getPropertyValue('--tab-bar-cap').trim()
     await page.viewport(844, 390)
     try {
-      expect(readCap()).not.toBe('0px')
+      await expect.poll(readCap).not.toBe('0px')
       await page.viewport(1024, 768)
-      expect(readCap()).toBe('0px')
+      await expect.poll(readCap).toBe('0px')
     } finally {
       await page.viewport(390, 844)
     }

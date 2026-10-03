@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { getMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -10,10 +10,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 describe('useListShowArchived', () => {

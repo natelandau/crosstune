@@ -32,7 +32,7 @@ describe('Screen', () => {
     expect(await screen.findByText('Body')).toBeInTheDocument()
     expect(screen.getAllByText('Catalog').length).toBeGreaterThan(0)
     await expect.element(page.getByLabelText('Add tune')).toBeInTheDocument()
-    expect(screen.getByLabelText('Search tunes')).toBeInTheDocument()
+    await vi.waitFor(() => expect(screen.getByLabelText('Search tunes')).toBeInTheDocument())
   })
 
   it('puts a search-row control after the field, inside the same toolbar', async () => {
@@ -57,8 +57,8 @@ describe('Screen', () => {
     // leaves, so the host is what shares a toolbar with the field.
     const host = (name: string) =>
       (page.getByLabelText(name).element().getRootNode() as ShadowRoot).host
-    expect(row.contains(host('Filters'))).toBe(true)
-    expect(row.contains(host('Add tune'))).toBe(false)
+    await expect.poll(() => row.contains(host('Filters'))).toBe(true)
+    await expect.poll(() => row.contains(host('Add tune'))).toBe(false)
     await vi.waitFor(() => {
       const field = searchbar.getBoundingClientRect()
       const control = host('Filters').getBoundingClientRect()
@@ -114,7 +114,9 @@ describe('Screen', () => {
       { db: openTestDb(), path: '/catalog' },
     )
     expect(await screen.findByText('Body')).toBeInTheDocument()
-    expect(document.querySelector('ion-refresher')?.parentElement?.tagName).toBe('ION-CONTENT')
+    await expect
+      .poll(() => document.querySelector('ion-refresher')?.parentElement?.tagName)
+      .toBe('ION-CONTENT')
   })
 
   it('gives a pushed screen a back button', async () => {
@@ -125,7 +127,7 @@ describe('Screen', () => {
       { db: openTestDb(), path: '/catalog/1' },
     )
     expect(await screen.findByText('Body')).toBeInTheDocument()
-    expect(document.querySelector('ion-back-button')).not.toBeNull()
+    await expect.poll(() => document.querySelector('ion-back-button')).not.toBeNull()
   })
 
   it('drops the back button while the screen wears a selection toolbar', async () => {
@@ -150,7 +152,7 @@ describe('Screen', () => {
         { db: openTestDb(), path: '/catalog' },
       )
       const column = (await screen.findByText('Body')).parentElement!
-      expect(getComputedStyle(column).maxWidth).toBe('640px')
+      await expect.poll(() => getComputedStyle(column).maxWidth).toBe('640px')
     } finally {
       await page.viewport(390, 844)
     }

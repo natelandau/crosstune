@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { updateRecording } from '../../commands/recordings'
 import type { CrosstuneDb } from '../../db/schema'
@@ -38,10 +38,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 /** A 30 second recording captured on this device, so its blob is already held locally. */
@@ -87,19 +83,22 @@ async function enterTrim() {
   await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
   await (await menuItem(TRIM)).click()
   await expect.element((await modal()).getByRole('slider', { name: START_HANDLE })).toBeVisible()
+  await expect.poll(() => document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull()
 }
 
 /** The recording screen switched to the trim view once its audio loaded. */
 async function openTrim(label: string, engine?: PlaybackEngine) {
   const opened = await openScreen(label, engine)
   await enterTrim()
+  // The trim keys do nothing until the engine knows the audio's length.
+  await expect.poll(() => opened.engine.getState().lengthMs).toBeGreaterThan(0)
   return opened.engine
 }
 
 /** Back on the recording view: its scrubber shows and the trim view's handles are gone. */
 async function expectRecordingView() {
   await expect.element((await modal()).getByRole('slider', { name: LANES_LABEL })).toBeVisible()
-  expect(page.getByRole('slider', { name: START_HANDLE }).elements()).toHaveLength(0)
+  await expect.element(page.getByRole('slider', { name: START_HANDLE })).not.toBeInTheDocument()
 }
 
 async function handle(name: string) {
@@ -166,12 +165,13 @@ describe('TrimView', () => {
       id,
       { trim_start_ms: 5000, trim_end_ms: null },
     ])
-    const entries = await db.outbox.where({ table: 'recordings', row_id: id }).toArray()
-    expect(entries).toHaveLength(1)
+    await expect
+      .poll(() => db.outbox.where({ table: 'recordings', row_id: id }).toArray())
+      .toHaveLength(1)
     await expectRecordingView()
     // The recording's own speed plays again once the trim is saved.
     await expect.poll(() => element.playbackRate).toBe(0.75)
-    expect(page.getByText(TRIM_CHANGED_ELSEWHERE).elements()).toHaveLength(0)
+    await expect.element(page.getByText(TRIM_CHANGED_ELSEWHERE)).not.toBeInTheDocument()
   })
 
   it('Cancel on the confirmation writes nothing', async () => {
@@ -213,15 +213,15 @@ describe('TrimView', () => {
     const element = new FakeAudioElement()
     const engine = fakePlaybackEngine(element as unknown as HTMLAudioElement)
     await openScreen('Jam recording', engine)
-    expect(element.playbackRate).toBe(0.75)
+    await expect.poll(() => element.playbackRate).toBe(0.75)
 
     await enterTrim()
     await expect.poll(() => element.playbackRate).toBe(1)
-    expect(engine.pitchCents).toBe(0)
+    await expect.poll(() => engine.pitchCents).toBe(0)
 
     await (await modal()).getByRole('button', { name: CANCEL }).click()
     await expect.poll(() => element.playbackRate).toBe(0.75)
-    expect(engine.pitchCents).toBe(200)
+    await expect.poll(() => engine.pitchCents).toBe(200)
     await expect
       .element((await modal()).getByRole('tab', { name: SEGMENT_LABEL(SPEED, '75%') }))
       .toBeVisible()
@@ -243,7 +243,7 @@ describe('TrimView', () => {
     await expect.poll(presentedModal).toBeNull()
     // The screen unmounts once Ionic has finished dismissing it, which can trail the modal.
     await expect.poll(() => element.playbackRate).toBe(0.75)
-    expect(engine.pitchCents).toBe(200)
+    await expect.poll(() => engine.pitchCents).toBe(200)
   })
 
   it("lets the dock follow the row's speed again once the screen closes", async () => {
@@ -351,8 +351,8 @@ describe('TrimView', () => {
     await expect.element(await handle(END_HANDLE)).toHaveAttribute('aria-valuenow', '20000')
 
     await (await modal()).getByRole('button', { name: PLAY_SELECTION }).click()
-    expect(engine.getState().playing).toBe(true)
-    expect(engine.getState().positionMs).toBe(0)
+    await expect.poll(() => engine.getState().playing).toBe(true)
+    await expect.poll(() => engine.getState().positionMs).toBe(0)
     // The fake element never advances on its own, so the test moves it along.
     element.currentTime = 19.97
     tick()
@@ -408,8 +408,8 @@ describe('TrimView', () => {
     )
     engine.pause()
     await (await modal()).getByRole('button', { name: PREVIEW_END }).click()
-    expect(engine.getState().playing).toBe(true)
-    expect(engine.getState().positionMs).toBe(27_000)
+    await expect.poll(() => engine.getState().playing).toBe(true)
+    await expect.poll(() => engine.getState().positionMs).toBe(27_000)
 
     // One tick runs from short of the handle straight past the range end.
     element.currentTime = 30
@@ -431,9 +431,9 @@ describe('TrimView', () => {
     engine.pause()
     await (await modal()).getByRole('button', { name: PREVIEW_END }).click()
     await (await modal()).getByRole('button', { name: PAUSE }).click()
-    expect(engine.getState().playing).toBe(false)
+    await expect.poll(() => engine.getState().playing).toBe(false)
     await (await modal()).getByRole('button', { name: GO_TO_START }).click()
-    expect(engine.getState().positionMs).toBe(0)
+    await expect.poll(() => engine.getState().positionMs).toBe(0)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(engine.getState().positionMs).toBe(0)
   })

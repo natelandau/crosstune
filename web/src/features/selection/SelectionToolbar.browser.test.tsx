@@ -2,7 +2,7 @@ import { IonButton } from '@ionic/react'
 import { screen } from '@testing-library/react'
 import { ListPlus, SquarePen, Tag } from 'lucide-react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
@@ -98,10 +98,6 @@ beforeEach(() => {
   db = openTestDb()
 })
 
-afterEach(async () => {
-  await db.delete()
-})
-
 describe('useSelectionToolbar on md', () => {
   it('reads the count in the title', async () => {
     show(2)
@@ -112,7 +108,7 @@ describe('useSelectionToolbar on md', () => {
     show(2)
     await expect.element(control(CANCEL_SELECTION)).toBeVisible()
     await control(CANCEL_SELECTION).click()
-    expect(onExit).toHaveBeenCalledOnce()
+    await expect.poll(() => onExit).toHaveBeenCalledOnce()
   })
 
   it('shows an icon button per action, each named', async () => {
@@ -123,7 +119,7 @@ describe('useSelectionToolbar on md', () => {
       expect(host(name).textContent).toBe('')
     }
     await control('Status').click()
-    expect(onStatus).toHaveBeenCalledOnce()
+    await expect.poll(() => onStatus).toHaveBeenCalledOnce()
   })
 
   it('dims every action at zero selected and keeps the overflow live', async () => {
@@ -150,9 +146,9 @@ describe('useSelectionToolbar on md', () => {
     show(2)
     await expect.element(control(CANCEL_SELECTION)).toBeVisible()
     for (const name of [CANCEL_SELECTION, ...NAMES]) {
-      const box = host(name).getBoundingClientRect()
-      expect(box.height).toBeGreaterThanOrEqual(44)
-      expect(box.width).toBeGreaterThanOrEqual(44)
+      const box = () => host(name).getBoundingClientRect()
+      await expect.poll(() => box().height).toBeGreaterThanOrEqual(44)
+      await expect.poll(() => box().width).toBeGreaterThanOrEqual(44)
     }
   })
 
@@ -177,7 +173,7 @@ describe('useSelectionToolbar on md', () => {
     await expect.element(control('Select everything')).toBeVisible()
     const region = document.querySelector('p[aria-live="polite"]')!
     expect(region.className).toContain('sr-only')
-    expect(region.textContent).toBe('2 selected')
+    await expect.poll(() => region.textContent).toBe('2 selected')
     const before = region.firstElementChild
     await control('Select everything').click()
     await vi.waitFor(() => expect(region.textContent).toBe('3 selected'), { timeout: 3000 })
@@ -190,9 +186,9 @@ describe('useSelectionToolbar on md', () => {
     show(2)
     await expect.element(page.getByText('2 selected').first()).toBeVisible()
     const title = document.querySelector('ion-toolbar ion-title')!
-    expect(getComputedStyle(title).fontVariantNumeric).toBe('tabular-nums')
+    await expect.poll(() => getComputedStyle(title).fontVariantNumeric).toBe('tabular-nums')
     const announced = document.querySelector('p[aria-live="polite"] span')!
-    expect(getComputedStyle(announced).fontVariantNumeric).toBe('tabular-nums')
+    await expect.poll(() => getComputedStyle(announced).fontVariantNumeric).toBe('tabular-nums')
   })
 
   it.each([
@@ -213,10 +209,15 @@ describe('useSelectionToolbar on md', () => {
         for (const size of ['regular', 'roomy'] as const) {
           if (size === 'roomy') document.documentElement.dataset.textSize = 'roomy'
           const digits = document.querySelector('.selection-title-count')!
-          expect(digits.scrollWidth, size).toBeLessThanOrEqual(digits.clientWidth)
-          expect(digits.getBoundingClientRect().right, size).toBeLessThanOrEqual(
-            titleBox().getBoundingClientRect().right + 0.5,
-          )
+          await expect
+            .poll(() => digits.scrollWidth - digits.clientWidth, { message: size })
+            .toBeLessThanOrEqual(0)
+          await expect
+            .poll(
+              () => digits.getBoundingClientRect().right - titleBox().getBoundingClientRect().right,
+              { message: size },
+            )
+            .toBeLessThanOrEqual(0.5)
           expect(digits.textContent, size).toBe(String(count))
         }
       } finally {
@@ -229,7 +230,7 @@ describe('useSelectionToolbar on md', () => {
   it('renders no footer toolbar', async () => {
     show(2)
     await expect.element(page.getByText('Body')).toBeVisible()
-    expect(document.querySelector('ion-footer')).toBeNull()
-    expect(selecting()).toBe('false')
+    await expect.poll(() => document.querySelector('ion-footer')).toBeNull()
+    await expect.poll(selecting).toBe('false')
   })
 })

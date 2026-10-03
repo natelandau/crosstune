@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError } from '../api/client'
 import {
   appendChunk,
@@ -41,10 +41,6 @@ let fake: ReturnType<typeof createFakeApi>
 beforeEach(() => {
   db = openTestDb()
   fake = createFakeApi()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const AT = '2026-09-14T20:00:00.000Z'

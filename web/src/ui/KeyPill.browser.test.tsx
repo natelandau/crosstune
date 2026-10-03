@@ -9,6 +9,8 @@ const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 const pills = () => Array.from(document.querySelectorAll('.key-pill'))
 
+const fill = (pill: Element) => getComputedStyle(pill).backgroundColor
+
 afterEach(() => document.documentElement.classList.remove('ion-palette-dark'))
 
 describe('KeyPill', () => {
@@ -28,7 +30,7 @@ describe('KeyPill', () => {
     )
     await expect.element(page.getByText('Bb', { exact: true })).toBeVisible()
     const [flat, sharp] = pills()
-    expect(getComputedStyle(flat!).backgroundColor).toBe(getComputedStyle(sharp!).backgroundColor)
+    await expect.poll(() => fill(flat!)).toBe(fill(sharp!))
   })
 
   it.each(['light', 'dark'])('marks a chosen pill with no pitch in %s', async (theme) => {
@@ -45,10 +47,8 @@ describe('KeyPill', () => {
     expect(chosen!.hasAttribute('data-pitch')).toBe(false)
     // Sharing the resting fill would leave the one pill holding the key looking untaken, and
     // a tap meant to select it would clear it instead.
-    expect(getComputedStyle(chosen!).backgroundColor).not.toBe(
-      getComputedStyle(resting!).backgroundColor,
-    )
-    expect(glyphContrast(chosen!)).toBeGreaterThanOrEqual(4.5)
+    await expect.poll(() => fill(chosen!)).not.toBe(fill(resting!))
+    await expect.poll(() => glyphContrast(chosen!)).toBeGreaterThanOrEqual(4.5)
   })
 
   it('keeps the pill but drops the pitch for text that is not a key', async () => {
@@ -66,8 +66,12 @@ describe('KeyPill', () => {
       { db: openTestDb() },
     )
     await expect.element(page.getByText('D', { exact: true }).first()).toBeVisible()
-    const [full, compact] = pills().map((pill) => pill.getBoundingClientRect().height)
-    expect(full).toBeGreaterThan(compact!)
+    await expect
+      .poll(() => {
+        const [full, compact] = pills().map((pill) => pill.getBoundingClientRect().height)
+        return full! - compact!
+      })
+      .toBeGreaterThan(0)
   })
 
   it('renders nothing for an empty value', () => {
@@ -87,9 +91,11 @@ describe('KeyPill', () => {
       { db: openTestDb() },
     )
     await expect.element(page.getByText('C', { exact: true })).toBeVisible()
-    expect(pills()).toHaveLength(KEYS.length)
+    await expect.poll(pills).toHaveLength(KEYS.length)
     for (const pill of pills())
-      expect(glyphContrast(pill), `${theme} ${pill.textContent}`).toBeGreaterThanOrEqual(4.5)
+      await expect
+        .poll(() => glyphContrast(pill), { message: `${theme} ${pill.textContent}` })
+        .toBeGreaterThanOrEqual(4.5)
   })
 
   it.each(['light', 'dark'])('clears 4.5:1 when chosen in %s', async (theme) => {
@@ -103,17 +109,19 @@ describe('KeyPill', () => {
       { db: openTestDb() },
     )
     await expect.element(page.getByText('C', { exact: true })).toBeVisible()
-    expect(pills()).toHaveLength(KEYS.length)
+    await expect.poll(pills).toHaveLength(KEYS.length)
     for (const pill of pills())
-      expect(glyphContrast(pill), `${theme} ${pill.textContent}`).toBeGreaterThanOrEqual(4.5)
+      await expect
+        .poll(() => glyphContrast(pill), { message: `${theme} ${pill.textContent}` })
+        .toBeGreaterThanOrEqual(4.5)
   })
 
   it('follows a theme change after it has rendered', async () => {
     renderIonic(<KeyPill value="D" />, { db: openTestDb() })
     await expect.element(page.getByText('D', { exact: true })).toBeVisible()
     const pill = pills()[0]!
-    const light = getComputedStyle(pill).backgroundColor
+    const light = fill(pill)
     document.documentElement.classList.add('ion-palette-dark')
-    expect(getComputedStyle(pill).backgroundColor).not.toBe(light)
+    await expect.poll(() => fill(pill)).not.toBe(light)
   })
 })

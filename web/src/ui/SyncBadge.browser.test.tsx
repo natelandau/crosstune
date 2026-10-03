@@ -65,8 +65,8 @@ describe('SyncBadge in a screen toolbar', () => {
     const badge = page.getByText(SYNC_STATUS_LABELS.error)
     await expect.element(badge).toBeVisible()
     const toolbar = await settledToolbar()
-    expect(toolbar.contains(badge.element())).toBe(true)
-    expect(badge.element().getBoundingClientRect().width).toBeGreaterThan(0)
+    await expect.poll(() => toolbar.contains(badge.element())).toBe(true)
+    await expect.poll(() => badge.element().getBoundingClientRect().width).toBeGreaterThan(0)
   })
 
   it('takes no room in the toolbar while the sync is quiet', async () => {
@@ -77,9 +77,11 @@ describe('SyncBadge in a screen toolbar', () => {
     forceFrame(false)
     renderScreenWithSync('top', 'idle')
     const toolbar = await settledToolbar()
-    expect(toolbar.querySelector('[data-testid="sync-status"]')).not.toBeNull()
-    expect(toolbar.querySelector('div[slot="start"]')!.getBoundingClientRect().width).toBe(0)
-    expect(await titleLeft()).toBe(bare)
+    await expect.poll(() => toolbar.querySelector('[data-testid="sync-status"]')).not.toBeNull()
+    await expect
+      .poll(() => toolbar.querySelector('div[slot="start"]')!.getBoundingClientRect().width)
+      .toBe(0)
+    await expect.poll(titleLeft).toBe(bare)
   })
 
   it('leaves a pushed screen to its back button', async () => {
@@ -104,15 +106,17 @@ describe('SyncBadge across the shell', () => {
       engine: fakeEngine({ status: () => 'error' }),
     })
     await expect.element(page.getByRole('heading', { name: 'Catalog', level: 1 })).toBeVisible()
+    await expect
+      .poll(() => document.querySelectorAll('[data-testid="sync-status"]').length)
+      .toBeGreaterThan(1)
     const badges = Array.from(document.querySelectorAll('[data-testid="sync-status"]'))
-    expect(badges.length).toBeGreaterThan(1)
-    expect(badges.map((badge) => badge.getAttribute('data-status'))).toEqual(
-      badges.map(() => 'error'),
-    )
+    await expect
+      .poll(() => badges.map((badge) => badge.getAttribute('data-status')))
+      .toEqual(badges.map(() => 'error'))
     // The sidebar comes first in the document and is hidden on a phone, so a client that watches
     // the first match is watching a badge nobody can see. It reports the same state regardless.
     expect(badges[0]!.closest('ion-menu')).not.toBeNull()
-    expect(badges[0]!.getBoundingClientRect().width).toBe(0)
+    await expect.poll(() => badges[0]!.getBoundingClientRect().width).toBe(0)
   })
 })
 
@@ -127,11 +131,11 @@ describe('SyncBadge in the sidebar', () => {
       const sidebar = page.getByRole('navigation', { name: 'Sidebar' })
       const badge = sidebar.getByText(SYNC_STATUS_LABELS.error)
       await expect.element(badge).toBeVisible()
-      const record = sidebar.getByText('Record').element().getBoundingClientRect()
-      const box = badge.element().getBoundingClientRect()
-      expect(box.top).toBeGreaterThan(record.bottom)
-      const lockup = sidebar.getByText('Crosstune').element().getBoundingClientRect()
-      expect(box.left).toBe(lockup.left)
+      const record = () => sidebar.getByText('Record').element().getBoundingClientRect()
+      const box = () => badge.element().getBoundingClientRect()
+      await expect.poll(() => box().top - record().bottom).toBeGreaterThan(0)
+      const lockup = () => sidebar.getByText('Crosstune').element().getBoundingClientRect()
+      await expect.poll(() => box().left - lockup().left).toBe(0)
     } finally {
       await page.viewport(390, 844)
     }

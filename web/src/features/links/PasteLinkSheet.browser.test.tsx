@@ -149,7 +149,7 @@ describe('PasteLinkSheet', () => {
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
-    expect(await db.recording_links.count()).toBe(1)
+    await expect.poll(() => db.recording_links.count()).toBe(1)
   })
 
   it('closes once per dismissal', async () => {
@@ -160,7 +160,7 @@ describe('PasteLinkSheet', () => {
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: ADD_LINK, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
-    expect(onClose).toHaveBeenCalledOnce()
+    await expect.poll(() => onClose).toHaveBeenCalledOnce()
   })
 
   it('discards a half-typed link on Cancel and reports the close once', async () => {
@@ -171,7 +171,7 @@ describe('PasteLinkSheet', () => {
     await page.getByLabelText('Link').fill('https://youtu.be/dQw4w9WgXcQ')
     await page.getByRole('button', { name: CANCEL, exact: true }).click()
     await vi.waitFor(() => expect(sheetOpen()).toBe(false))
-    expect(onClose).toHaveBeenCalledOnce()
+    await expect.poll(() => onClose).toHaveBeenCalledOnce()
     expect(await db.recording_links.count()).toBe(0)
   })
 

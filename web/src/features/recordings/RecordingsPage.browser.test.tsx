@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
@@ -28,10 +28,6 @@ let db: CrosstuneDb
 
 beforeEach(() => {
   db = openTestDb()
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 function show(
@@ -79,7 +75,7 @@ describe('RecordingsPage', () => {
     )
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
-    expect(groupNames()).toEqual(['Unfiled', "Soldier's Joy"])
+    await expect.poll(groupNames).toEqual(['Unfiled', "Soldier's Joy"])
   })
 
   it("heads a tune's group with its name alone, above its recordings", async () => {
@@ -89,15 +85,21 @@ describe('RecordingsPage', () => {
     const heading = page.getByRole('heading', { name: "Soldier's Joy", level: 2 })
     await expect.element(heading).toBeVisible()
     // The name and nothing else: the key, the status, and the tunings stay on the catalog's row.
-    expect(heading.element().textContent).toBe("Soldier's Joy")
-    expect(document.querySelectorAll('[data-tune-meta]')).toHaveLength(0)
+    await expect.poll(() => heading.element().textContent).toBe("Soldier's Joy")
+    await expect.poll(() => document.querySelectorAll('[data-tune-meta]')).toHaveLength(0)
     // The heading sits above the group rather than inside it, and its recordings a level under.
     await expect.element(page.getByRole('heading', { name: 'Filed take', level: 3 })).toBeVisible()
-    const group = page.getByRole('list', { name: "Soldier's Joy" }).element()
-    expect(Array.from(group.querySelectorAll('h2, h3')).map((h) => h.tagName)).toEqual(['H3'])
-    expect(
-      heading.element().compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    const group = page.getByRole('list', { name: "Soldier's Joy" })
+    await expect
+      .poll(() => Array.from(group.element().querySelectorAll('h2, h3')).map((h) => h.tagName))
+      .toEqual(['H3'])
+    await expect
+      .poll(
+        () =>
+          heading.element().compareDocumentPosition(group.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      .toBeTruthy()
   })
 
   it('lays its groups out as cards on the grouped surface', async () => {
@@ -105,7 +107,9 @@ describe('RecordingsPage', () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     const item = document.querySelector('ion-item')!
-    expect(document.querySelector('ion-content')!.classList.contains('grouped')).toBe(true)
+    await expect
+      .poll(() => document.querySelector('ion-content')!.classList.contains('grouped'))
+      .toBe(true)
     await vi.waitFor(() => {
       expect(item.closest('ion-list')!.classList.contains('list-inset')).toBe(true)
     })
@@ -139,7 +143,7 @@ describe('RecordingsPage', () => {
     await db.recordings.put(recordingRow('r1', { tune_id: 's1', label: 'Jam recording' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
-    expect(groupNames()).toEqual(['Unfiled'])
+    await expect.poll(groupNames).toEqual(['Unfiled'])
     expect(page.getByRole('button', { name: "Soldier's Joy" }).elements()).toHaveLength(0)
   })
 
@@ -191,7 +195,7 @@ describe('RecordingsPage', () => {
     const line = page.getByRole('alert')
     await expect.element(line).toHaveTextContent('The tune would not let go.')
     // Under the groups, not inside the row that failed.
-    expect(line.element().closest('ion-item')).toBeNull()
+    await expect.poll(() => line.element().closest('ion-item')).toBeNull()
   })
 
   it('warns that a recording held only here cannot be recovered, and asks first', async () => {
@@ -223,7 +227,7 @@ describe('RecordingsPage', () => {
     await page.getByRole('button', { name: 'Delete Jam recording' }).click()
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await vi.waitFor(() => expect(vi.mocked(deleteRecording)).toHaveBeenCalled())
-    expect(player.close).toHaveBeenCalledOnce()
+    await expect.poll(() => player.close).toHaveBeenCalledOnce()
     expect(vi.mocked(player.close).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(deleteRecording).mock.invocationCallOrder[0]!,
     )
@@ -261,15 +265,15 @@ describe('RecordingsPage', () => {
     await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
     const upload = page.getByRole('button', { name: 'Upload' })
     await expect.element(upload).toBeVisible()
-    expect(
-      (upload.element().getRootNode() as ShadowRoot).host.closest('ion-toolbar'),
-    ).not.toBeNull()
+    await expect
+      .poll(() => (upload.element().getRootNode() as ShadowRoot).host.closest('ion-toolbar'))
+      .not.toBeNull()
     await userEvent.upload(
       page.getByLabelText(UPLOAD_AUDIO).element() as HTMLInputElement,
       new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }),
     )
     await expect.element(page.getByRole('heading', { name: 'jam' })).toBeVisible()
-    expect(groupNames()).toEqual(['Unfiled'])
+    await expect.poll(groupNames).toEqual(['Unfiled'])
   })
 
   it('shows a refused upload where the toolbar cannot', async () => {
@@ -286,8 +290,8 @@ describe('RecordingsPage', () => {
     const line = page.getByRole('alert')
     await expect.element(line).toHaveTextContent(NOT_AUDIO_ERROR)
     // The toolbar clips its own contents, so a message there would be a few characters wide.
-    expect(line.element().closest('ion-toolbar')).toBeNull()
-    expect(line.element().getBoundingClientRect().width).toBeGreaterThan(200)
+    await expect.poll(() => line.element().closest('ion-toolbar')).toBeNull()
+    await expect.poll(() => line.element().getBoundingClientRect().width).toBeGreaterThan(200)
   })
 
   it('pulls to refresh on touch and completes the refresher', async () => {
@@ -296,12 +300,14 @@ describe('RecordingsPage', () => {
     const sync = vi.spyOn(engine, 'sync')
     show({ engine })
     await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
+    await expect
+      .poll(() => document.querySelector('ion-refresher')?.parentElement?.tagName)
+      .toBe('ION-CONTENT')
     const refresher = document.querySelector('ion-refresher')!
-    expect(refresher.parentElement?.tagName).toBe('ION-CONTENT')
     const complete = vi.fn()
     refresher.dispatchEvent(new CustomEvent('ionRefresh', { detail: { complete } }))
     await vi.waitFor(() => expect(complete).toHaveBeenCalledOnce())
-    expect(sync).toHaveBeenCalledOnce()
+    await expect.poll(() => sync).toHaveBeenCalledOnce()
   })
 
   it("opens a group's tune from its heading, and leaves Unfiled's heading inert", async () => {
@@ -339,6 +345,6 @@ describe('RecordingsPage', () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
-    expect(document.querySelectorAll('h1')).toHaveLength(1)
+    await expect.poll(() => document.querySelectorAll('h1')).toHaveLength(1)
   })
 })

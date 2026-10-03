@@ -31,6 +31,8 @@ function show(
   )
 }
 
+const metaText = () => document.querySelector('[data-tune-meta]')!.textContent
+
 /** One row carrying both swipe actions and a selection that can be switched on. */
 function SelectableRow() {
   const [selecting, setSelecting] = useState(false)
@@ -59,7 +61,7 @@ describe('TuneItem', () => {
     show()
     const title = page.getByRole('heading', { name: "Soldier's Joy" })
     await expect.element(title).toBeVisible()
-    expect(title.element().classList.contains('type-headline')).toBe(true)
+    await expect.poll(() => title.element().classList.contains('type-headline')).toBe(true)
   })
 
   it('ends a title too long for the row with an ellipsis inside the row', async () => {
@@ -69,14 +71,13 @@ describe('TuneItem', () => {
     const heading = title.element() as HTMLElement
     // Ionic's label styles make a heading inherit its overflow from the label.
     await expect.poll(() => getComputedStyle(heading).overflow).toBe('hidden')
-    expect(getComputedStyle(heading).textOverflow).toBe('ellipsis')
-    expect(heading.scrollWidth).toBeGreaterThan(heading.clientWidth)
+    await expect.poll(() => getComputedStyle(heading).textOverflow).toBe('ellipsis')
+    await expect.poll(() => heading.scrollWidth - heading.clientWidth).toBeGreaterThan(0)
   })
 
   it('shows the key, the status with its label, and tunings for played instruments in order', async () => {
     show()
-    const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe(
+    await expect.poll(metaText).toBe(
       // The sr-only span speaks the full key ("Key D") and the aria-hidden pill still shows in
       // raw textContent, so the key's own text appears twice; a screen reader only hears the
       // sr-only span, and a sighted reader only sees the pill.
@@ -86,8 +87,7 @@ describe('TuneItem', () => {
 
   it('leaves the instrument unsaid when only one is played', async () => {
     show(undefined, undefined, new Set<Instrument>(['violin']))
-    const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Key DD, Known, Cross A (AEAE)')
+    await expect.poll(metaText).toBe('Key DD, Known, Cross A (AEAE)')
   })
 
   it('leaves a standard tuning unsaid and shows a capo', async () => {
@@ -100,8 +100,7 @@ describe('TuneItem', () => {
         },
       }),
     )
-    const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Key DD, Known, 5-string banjo: Open G (gDGBD), capo 2')
+    await expect.poll(metaText).toBe('Key DD, Known, 5-string banjo: Open G (gDGBD), capo 2')
   })
 
   it('shows a capo with no tuning', async () => {
@@ -110,22 +109,21 @@ describe('TuneItem', () => {
       userTuneRow('u1', 's1', { status: 'known' }),
       new Set<Instrument>(['guitar']),
     )
-    const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Known, Capo 3')
+    await expect.poll(metaText).toBe('Known, Capo 3')
   })
 
   it('shows the key with its first mode and reads the full name', async () => {
     show(tuneRow('s1', "Soldier's Joy", { key: 'E', modes: ['dorian', 'major'] }))
-    const meta = document.querySelector('[data-tune-meta]')!
-    const pill = meta.querySelector('.key-pill')!
-    expect(pill.textContent).toBe('E dor')
-    expect(pill.closest('[aria-hidden="true"]')).not.toBeNull()
-    expect(meta.querySelector('.sr-only')!.textContent).toBe('Key E dorian')
+    const meta = () => document.querySelector('[data-tune-meta]')!
+    const pill = () => meta().querySelector('.key-pill')!
+    await expect.poll(() => pill().textContent).toBe('E dor')
+    await expect.poll(() => pill().closest('[aria-hidden="true"]')).not.toBeNull()
+    await expect.poll(() => meta().querySelector('.sr-only')!.textContent).toBe('Key E dorian')
   })
 
   it('shows no mode for a tune with no key', async () => {
     show(tuneRow('s1', "Soldier's Joy", { key: null, modes: ['dorian'] }))
-    expect(document.querySelector('[data-tune-meta]')!.textContent).not.toContain('dorian')
+    await expect.poll(metaText).not.toContain('dorian')
   })
 
   it('leaves out a missing key and a tuning for an instrument not played', async () => {
@@ -136,8 +134,7 @@ describe('TuneItem', () => {
       userTuneRow('u1', 's1', { status: 'learning' }),
       new Set<Instrument>(['violin']),
     )
-    const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Learning')
+    await expect.poll(metaText).toBe('Learning')
   })
 
   it('marks an archived tune and dims its row', async () => {
@@ -146,9 +143,8 @@ describe('TuneItem', () => {
       userTuneRow('u1', 's1', { status: 'known', archived_at: '2026-01-01T00:00:00Z' }),
     )
     await expect.element(page.getByText('Archived')).toBeVisible()
-    expect(document.querySelector('.opacity-60')).not.toBeNull()
-    const line = document.querySelector('[data-tune-meta]')!
-    expect(line.textContent).toBe('Known, Archived')
+    await expect.poll(() => document.querySelector('.opacity-60')).not.toBeNull()
+    await expect.poll(metaText).toBe('Known, Archived')
   })
 
   it('labels an unrecognized status as Unknown', async () => {
@@ -180,8 +176,8 @@ describe('TuneItem', () => {
     await expect
       .element(page.getByRole('checkbox', { name: /^Deselect Soldier's Joy/ }))
       .toBeChecked()
-    expect(document.querySelector('[data-row-check]')).not.toBeNull()
-    expect(document.getElementById('select-u1')).toHaveAttribute('data-row-open')
+    await expect.poll(() => document.querySelector('[data-row-check]')).not.toBeNull()
+    await expect.poll(() => document.getElementById('select-u1')).toHaveAttribute('data-row-open')
   })
 
   it('takes the row actions away as soon as it is given a selection', async () => {
@@ -192,7 +188,7 @@ describe('TuneItem', () => {
     await expect
       .element(page.getByRole('checkbox', { name: /^Select Soldier's Joy/ }))
       .toBeVisible()
-    expect(edit.elements()).toHaveLength(0)
+    await expect.element(edit).not.toBeInTheDocument()
   })
 
   it('carries a long press through to the row', async () => {

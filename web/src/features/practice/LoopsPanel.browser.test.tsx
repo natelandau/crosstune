@@ -30,7 +30,6 @@ beforeEach(() => {
 })
 afterEach(async () => {
   vi.restoreAllMocks()
-  await db.delete()
 })
 
 const BOUNDS = { startMs: 0, endMs: 60_000 }
@@ -87,9 +86,13 @@ function describedBy(name: string): HTMLElement | null {
 }
 
 /** Clipped to nothing on screen while a screen reader still reads it. */
-function expectHidden(element: HTMLElement) {
-  const { width, height } = element.getBoundingClientRect()
-  expect(width * height).toBeLessThanOrEqual(1)
+async function expectHidden(element: HTMLElement) {
+  await expect
+    .poll(() => {
+      const { width, height } = element.getBoundingClientRect()
+      return width * height
+    })
+    .toBeLessThanOrEqual(1)
 }
 
 /** The color `--ion-color-danger` resolves to here. */
@@ -120,15 +123,15 @@ describe('LoopsPanel', () => {
     const t = setup({ loops: [row('a', 20_000, 40_000, 'B part')] })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
-    expect(describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('B part'))
-    expectHidden(describedBy(NEW_LOOP)!)
+    await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('B part'))
+    await expectHidden(describedBy(NEW_LOOP)!)
   })
 
   it('names an unnamed loop by its time', async () => {
     const t = setup({ loops: [row('a', 20_000, 40_000)] })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
-    expect(describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('Loop 0:20'))
+    await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(INSIDE_LOOP('Loop 0:20'))
   })
 
   it('disables New loop with no room and tells assistive tech', async () => {
@@ -138,8 +141,8 @@ describe('LoopsPanel', () => {
     })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
-    expect(describedBy(NEW_LOOP)?.textContent).toBe(NO_ROOM)
-    expectHidden(describedBy(NEW_LOOP)!)
+    await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(NO_ROOM)
+    await expectHidden(describedBy(NEW_LOOP)!)
   })
 
   it('disables New loop at 100 loops and tells assistive tech', async () => {
@@ -147,8 +150,8 @@ describe('LoopsPanel', () => {
     const t = setup({ loops, playheadMs: 150_000, bounds: { startMs: 0, endMs: 200_000 } })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeDisabled()
-    expect(describedBy(NEW_LOOP)?.textContent).toBe(LOOP_LIMIT)
-    expectHidden(describedBy(NEW_LOOP)!)
+    await expect.poll(() => describedBy(NEW_LOOP)?.textContent).toBe(LOOP_LIMIT)
+    await expectHidden(describedBy(NEW_LOOP)!)
   })
 
   it('creates a loop, selects it, and announces Loop created', async () => {
@@ -225,7 +228,7 @@ describe('LoopsPanel', () => {
       { db },
     )
     await expect.element(button(NEW_LOOP)).toBeDisabled()
-    expect(button(NEW_LOOP).element().getAttribute('aria-describedby')).toBeNull()
+    await expect.element(button(NEW_LOOP)).not.toHaveAttribute('aria-describedby')
     await expect.element(page.getByText(LOOPS_EMPTY_HINT)).not.toBeVisible()
   })
 
@@ -243,14 +246,18 @@ describe('LoopsPanel', () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).toBeDisabled()
-    expect(getComputedStyle(button(DELETE_LOOP).element()).color).not.toBe(dangerColor())
+    await expect
+      .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
+      .not.toBe(dangerColor())
   })
 
   it('shows Delete loop enabled and red with a loop selected', async () => {
     const t = setup({ loops: [row('a', 1000, 5000)], selectedId: 'a' })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(DELETE_LOOP)).toBeEnabled()
-    expect(getComputedStyle(button(DELETE_LOOP).element()).color).toBe(dangerColor())
+    await expect
+      .poll(() => getComputedStyle(button(DELETE_LOOP).element()).color)
+      .toBe(dangerColor())
   })
 
   it('leaves stepping between loops to the switcher', async () => {
@@ -260,8 +267,8 @@ describe('LoopsPanel', () => {
     })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeVisible()
-    expect(button(PREVIOUS_LOOP).elements()).toHaveLength(0)
-    expect(button(NEXT_LOOP).elements()).toHaveLength(0)
+    await expect.element(button(PREVIOUS_LOOP)).not.toBeInTheDocument()
+    await expect.element(button(NEXT_LOOP)).not.toBeInTheDocument()
   })
 
   it('offers part suggestions while a rename is open', async () => {
@@ -280,6 +287,6 @@ describe('LoopsPanel', () => {
     const t = setup({ loops: [row('a', 1000, 5000)], partStructure: 'AABB' })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeVisible()
-    expect(document.body.textContent).not.toContain('A part')
+    await expect.poll(() => document.body.textContent).not.toContain('A part')
   })
 })

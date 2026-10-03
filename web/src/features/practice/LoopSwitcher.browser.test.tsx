@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { CrosstuneDb } from '../../db/schema'
 import type { LocalRecordingLoop } from '../../db/types'
@@ -12,9 +12,6 @@ import type { LoopPlayback } from './useLoopPlayback'
 let db: CrosstuneDb
 beforeEach(() => {
   db = openTestDb()
-})
-afterEach(async () => {
-  await db.delete()
 })
 
 function row(id: string, start_ms: number, end_ms: number, label: string | null = null) {
@@ -54,7 +51,7 @@ describe('LoopSwitcher', () => {
   it('shows the selected loop’s name as plain text', async () => {
     setup({ loops: [row('a', 1000, 5000, 'B part')], selectedId: 'a' })
     await expect.element(page.getByText('B part', { exact: true })).toBeVisible()
-    expect(page.getByRole('button', { name: 'B part' }).elements()).toHaveLength(0)
+    await expect.element(page.getByRole('button', { name: 'B part' })).not.toBeInTheDocument()
   })
 
   it('names an unnamed loop by its time', async () => {
@@ -69,11 +66,11 @@ describe('LoopSwitcher', () => {
 
   it('is hidden with no loops but keeps its room', async () => {
     setup()
-    const switcher = document.querySelector<HTMLElement>('[data-loop-switcher]')!
-    expect(getComputedStyle(switcher).visibility).toBe('hidden')
-    expect(switcher.inert).toBe(true)
-    expect(switcher.getBoundingClientRect().height).toBeGreaterThan(0)
-    expect(page.getByRole('button', { name: NEXT_LOOP }).elements()).toHaveLength(0)
+    const switcher = () => document.querySelector<HTMLElement>('[data-loop-switcher]')!
+    await expect.poll(() => getComputedStyle(switcher()).visibility).toBe('hidden')
+    await expect.poll(() => switcher().inert).toBe(true)
+    await expect.poll(() => switcher().getBoundingClientRect().height).toBeGreaterThan(0)
+    await expect.element(page.getByRole('button', { name: NEXT_LOOP })).not.toBeInTheDocument()
   })
 
   it('Next selects the next loop, settles first, reveals it, and announces it', async () => {
@@ -82,10 +79,10 @@ describe('LoopSwitcher', () => {
       loops: [row('a', 1000, 5000), row('b', 20_000, 25_000, 'B part')],
     })
     await button(NEXT_LOOP).click()
-    expect(t.onCommand).toHaveBeenCalledOnce()
-    expect(t.playback.select).toHaveBeenCalledWith('b')
-    expect(t.onReveal).toHaveBeenCalledWith({ startMs: 20_000, endMs: 25_000 })
-    expect(t.announce).toHaveBeenCalledWith(LOOP_SELECTED('B part'))
+    await expect.poll(() => t.onCommand).toHaveBeenCalledOnce()
+    await expect.poll(() => t.playback.select).toHaveBeenCalledWith('b')
+    await expect.poll(() => t.onReveal).toHaveBeenCalledWith({ startMs: 20_000, endMs: 25_000 })
+    await expect.poll(() => t.announce).toHaveBeenCalledWith(LOOP_SELECTED('B part'))
   })
 
   it('Previous selects the previous loop', async () => {
@@ -94,8 +91,8 @@ describe('LoopSwitcher', () => {
       loops: [row('a', 1000, 5000), row('b', 20_000, 25_000)],
     })
     await button(PREVIOUS_LOOP).click()
-    expect(t.playback.select).toHaveBeenCalledWith('a')
-    expect(t.onReveal).toHaveBeenCalledWith({ startMs: 1000, endMs: 5000 })
+    await expect.poll(() => t.playback.select).toHaveBeenCalledWith('a')
+    await expect.poll(() => t.onReveal).toHaveBeenCalledWith({ startMs: 1000, endMs: 5000 })
   })
 
   it('steps from the selected loop to its neighbor', async () => {
@@ -105,9 +102,9 @@ describe('LoopSwitcher', () => {
       loops: [row('a', 1000, 5000), row('b', 20_000, 25_000), row('c', 30_000, 35_000)],
     })
     await button(NEXT_LOOP).click()
-    expect(t.playback.select).toHaveBeenCalledWith('c')
+    await expect.poll(() => t.playback.select).toHaveBeenCalledWith('c')
     await button(PREVIOUS_LOOP).click()
-    expect(t.playback.select).toHaveBeenLastCalledWith('a')
+    await expect.poll(() => t.playback.select).toHaveBeenLastCalledWith('a')
   })
 
   it('disables an arrow with no loop that way', async () => {

@@ -59,7 +59,7 @@ describe('useMenu', () => {
       const label = await screen.findByText('Trim')
       const item = label.closest('ion-item')!
       await vi.waitFor(() => expect(item.getAttribute('aria-disabled')).toBe('true'))
-      expect(item.textContent).toContain('Offline')
+      await expect.poll(() => item.textContent).toContain('Offline')
       item.click()
       await new Promise((resolve) => setTimeout(resolve, 300))
       expect(onChoose).not.toHaveBeenCalled()
@@ -71,7 +71,7 @@ describe('useMenu', () => {
       renderIonic(<Blocked onChoose={onChoose} />, { db: openTestDb() })
       await userEvent.click(await screen.findByText('More'))
       const button = (await screen.findByText(DISABLED_ITEM('Trim', 'Offline'))).closest('button')!
-      expect(button.disabled).toBe(true)
+      await expect.poll(() => button.disabled).toBe(true)
       button.click()
       await new Promise((resolve) => setTimeout(resolve, 300))
       expect(onChoose).not.toHaveBeenCalled()

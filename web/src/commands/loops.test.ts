@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
@@ -11,10 +11,6 @@ let db: CrosstuneDb
 beforeEach(async () => {
   db = openTestDb()
   await db.recordings.put(recordingRow('rec-1'))
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 describe('loops', () => {

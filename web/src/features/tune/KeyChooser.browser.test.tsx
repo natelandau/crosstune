@@ -51,18 +51,21 @@ describe('KeyChooser', () => {
   it('shows the unknown chip first, then the quick keys, then More keys', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
-    const labels = Array.from(
-      document.querySelectorAll('[role="group"][aria-label="Key"] button'),
-    ).map((button) => button.textContent!.trim())
+    const labels = () =>
+      Array.from(document.querySelectorAll('[role="group"][aria-label="Key"] button')).map(
+        (button) => button.textContent!.trim(),
+      )
     // A bare question mark sits in the row of single letters as the musician's own shorthand.
-    expect(labels).toEqual(['?', ...QUICK_KEYS, MORE_KEYS])
+    await expect.poll(labels).toEqual(['?', ...QUICK_KEYS, MORE_KEYS])
   })
 
   it('names the unknown chip in words, since a glyph reads as nothing aloud', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
     // It must not collide with the status control's own Unknown, a few rows above it.
-    expect(page.getByRole('button', { name: 'Unknown', exact: true }).elements()).toHaveLength(0)
+    await expect
+      .element(page.getByRole('button', { name: 'Unknown', exact: true }))
+      .not.toBeInTheDocument()
   })
 
   it('sets a key in one tap and clears it from Unknown or the pressed key', async () => {
@@ -85,13 +88,13 @@ describe('KeyChooser', () => {
     const resting = getComputedStyle(pill()).backgroundColor
     await chip('D').click()
     await expect.poll(() => pill().hasAttribute('data-chosen')).toBe(true)
-    expect(getComputedStyle(pill()).backgroundColor).not.toBe(resting)
+    await expect.poll(() => getComputedStyle(pill()).backgroundColor).not.toBe(resting)
   })
 
   it('lists every key the grid does not already show, in order', async () => {
     renderIonic(<Host />, { db: openTestDb() })
     await chip(MORE_KEYS).click()
-    expect(await menuLabels()).toEqual([...rest])
+    await expect.poll(menuLabels).toEqual([...rest])
   })
 
   it('gives F sharp and G flat the same hue', async () => {
@@ -103,18 +106,19 @@ describe('KeyChooser', () => {
       { db: openTestDb() },
     )
     await expect.element(chip('F#')).toBeVisible()
-    const sharp = document.querySelectorAll('.key-pill[data-pitch="6"]')
-    expect(sharp).toHaveLength(2)
-    expect(getComputedStyle(sharp[0]!).backgroundColor).toBe(
-      getComputedStyle(sharp[1]!).backgroundColor,
-    )
+    const sharp = () => document.querySelectorAll('.key-pill[data-pitch="6"]')
+    await expect.poll(sharp).toHaveLength(2)
+    await expect
+      .poll(() => getComputedStyle(sharp()[0]!).backgroundColor)
+      .toBe(getComputedStyle(sharp()[1]!).backgroundColor)
   })
 
   it('keeps a stored value it cannot read as a key, and lets it be cleared', async () => {
     renderIonic(<Host initial="modal G" />, { db: openTestDb() })
     await expect.element(chip('modal G')).toHaveAttribute('aria-pressed', 'true')
-    const pill = document.querySelector('.key-pill[data-chosen]')!
-    expect(pill.hasAttribute('data-pitch')).toBe(false)
+    await expect
+      .poll(() => document.querySelector('.key-pill[data-chosen]')!.hasAttribute('data-pitch'))
+      .toBe(false)
     await chip('modal G').click()
     await expect.poll(state).toBe('empty')
     // Cleared, it is no longer one of the grid's choices.
@@ -126,9 +130,13 @@ describe('KeyChooser', () => {
     await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
     const grid = document.querySelector('[role="group"][aria-label="Key"]')!
     for (const button of grid.querySelectorAll('button')) {
-      const box = button.getBoundingClientRect()
-      expect(box.height, button.textContent ?? '').toBeGreaterThanOrEqual(44)
-      expect(box.width, button.textContent ?? '').toBeGreaterThanOrEqual(44)
+      const message = button.textContent ?? ''
+      await expect
+        .poll(() => button.getBoundingClientRect().height, { message })
+        .toBeGreaterThanOrEqual(44)
+      await expect
+        .poll(() => button.getBoundingClientRect().width, { message })
+        .toBeGreaterThanOrEqual(44)
     }
   })
 
@@ -143,7 +151,7 @@ describe('KeyChooser', () => {
       )
       await expect.element(chip(UNKNOWN_KEY)).toBeVisible()
       const grid = document.querySelector('[role="group"][aria-label="Key"]') as HTMLElement
-      expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth + 1)
+      await expect.poll(() => grid.scrollWidth - (grid.clientWidth + 1)).toBeLessThanOrEqual(0)
     } finally {
       document.documentElement.removeAttribute('data-text-size')
     }

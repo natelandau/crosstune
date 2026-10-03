@@ -64,7 +64,7 @@ describe('Row on a mouse', () => {
     renderIonic(<List onOpen={onOpen} />, { db: openTestDb() })
     const open = page.getByRole('button', { name: "Soldier's Joy D · Known", exact: true })
     await open.click()
-    expect(onOpen).toHaveBeenCalledOnce()
+    await expect.poll(() => onOpen).toHaveBeenCalledOnce()
   })
 
   it('leads the open control name with openName, keeping the row content in it too', async () => {
@@ -81,12 +81,14 @@ describe('Row on a mouse', () => {
       { db: openTestDb() },
     )
     // Neither the verb alone nor the content alone names the control: both together do.
-    expect(page.getByRole('button', { name: 'Play', exact: true }).query()).toBeNull()
-    expect(
-      page.getByRole('button', { name: "Soldier's Joy D · Known", exact: true }).query(),
-    ).toBeNull()
     await page.getByRole('button', { name: "Play Soldier's Joy D · Known", exact: true }).click()
-    expect(onOpen).toHaveBeenCalledOnce()
+    await expect
+      .element(page.getByRole('button', { name: 'Play', exact: true }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: "Soldier's Joy D · Known", exact: true }))
+      .not.toBeInTheDocument()
+    await expect.poll(() => onOpen).toHaveBeenCalledOnce()
   })
 
   it('keeps actions outside the open control and runs one without opening the row', async () => {
@@ -100,7 +102,7 @@ describe('Row on a mouse', () => {
     expect(openButton.contains(edit.element())).toBe(false)
     await userEvent.hover(openButton)
     await edit.click()
-    expect(onEdit).toHaveBeenCalledOnce()
+    await expect.poll(() => onEdit).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
   })
 
@@ -113,10 +115,10 @@ describe('Row on a mouse', () => {
     await userEvent.tab()
     // document.activeElement reports the ion-button host, not the shadow button getByRole finds.
     const host = (edit.element().getRootNode() as ShadowRoot).host
-    expect(document.activeElement).toBe(host)
-    const box = edit.element().getBoundingClientRect()
-    expect(box.height).toBeGreaterThanOrEqual(44)
-    expect(box.width).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => document.activeElement).toBe(host)
+    const box = () => edit.element().getBoundingClientRect()
+    await expect.poll(() => box().height).toBeGreaterThanOrEqual(44)
+    await expect.poll(() => box().width).toBeGreaterThanOrEqual(44)
   })
 
   it('gives the row content its full width and lays the actions over it on hover', async () => {
@@ -135,10 +137,9 @@ describe('Row on a mouse', () => {
     const actions = item.querySelector('.row-actions')!
     await vi.waitFor(() => expect(getComputedStyle(actions).opacity).toBe('1'))
     expect(body.getBoundingClientRect().width).toBe(before)
-    expect(actions.getBoundingClientRect().right).toBeCloseTo(
-      inner.getBoundingClientRect().right,
-      0,
-    )
+    await expect
+      .poll(() => actions.getBoundingClientRect().right)
+      .toBeCloseTo(inner.getBoundingClientRect().right, 0)
   })
 
   it('draws the focus ring over the whole row, above the actions, on the focused surface', async () => {
@@ -150,18 +151,22 @@ describe('Row on a mouse', () => {
     open.focus()
     await userEvent.tab()
     await userEvent.tab({ shift: true })
-    expect(document.activeElement).toBe(open)
-    expect(getComputedStyle(open).outlineStyle).toBe('none')
+    await expect.poll(() => document.activeElement).toBe(open)
+    await expect.poll(() => getComputedStyle(open).outlineStyle).toBe('none')
     const ring = getComputedStyle(item, '::after')
     const actions = item.querySelector('.row-actions')!
     await vi.waitFor(() => expect(getComputedStyle(actions).opacity).toBe('1'))
-    expect(ring.borderRightWidth).toBe('2px')
-    expect(ring.position).toBe('absolute')
-    expect([ring.top, ring.right, ring.bottom, ring.left]).toEqual(['0px', '0px', '0px', '0px'])
+    await expect.poll(() => ring.borderRightWidth).toBe('2px')
+    await expect.poll(() => ring.position).toBe('absolute')
+    await expect
+      .poll(() => [ring.top, ring.right, ring.bottom, ring.left])
+      .toEqual(['0px', '0px', '0px', '0px'])
     // A computed width excludes the 2px border on each side.
-    expect(parseFloat(ring.width) + 4).toBe(item.getBoundingClientRect().width)
-    expect(parseFloat(ring.height) + 4).toBe(item.getBoundingClientRect().height)
-    expect(Number(ring.zIndex)).toBeGreaterThan(Number(getComputedStyle(actions).zIndex))
+    await expect.poll(() => parseFloat(ring.width) + 4).toBe(item.getBoundingClientRect().width)
+    await expect.poll(() => parseFloat(ring.height) + 4).toBe(item.getBoundingClientRect().height)
+    await expect
+      .poll(() => Number(ring.zIndex))
+      .toBeGreaterThan(Number(getComputedStyle(actions).zIndex))
     const native = item.shadowRoot!.querySelector('.item-native')!
     // The item's background transitions into the focused surface.
     await vi.waitFor(() =>
@@ -179,7 +184,9 @@ describe('Row on a mouse', () => {
     )
     document.documentElement.dir = 'rtl'
     try {
-      expect(getComputedStyle(actions).backgroundImage).toMatch(/^linear-gradient\(to left/)
+      await expect
+        .poll(() => getComputedStyle(actions).backgroundImage)
+        .toMatch(/^linear-gradient\(to left/)
     } finally {
       document.documentElement.removeAttribute('dir')
     }
@@ -191,18 +198,18 @@ describe('Row on a mouse', () => {
     // Computed style reads empty until Ionic hydrates the item around the button.
     await vi.waitFor(() => expect(getComputedStyle(open).backgroundColor).not.toBe(''))
     const style = getComputedStyle(open)
-    expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)')
-    expect(style.borderTopWidth).toBe('0px')
+    await expect.poll(() => style.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    await expect.poll(() => style.borderTopWidth).toBe('0px')
   })
 
   it('keeps a separator under the first row of an inset list and none under the last', async () => {
     renderIonic(<List />, { db: openTestDb() })
+    await expect.poll(() => document.querySelectorAll('ion-list > ion-item')).toHaveLength(2)
     const items = Array.from(document.querySelectorAll('ion-list > ion-item'))
-    expect(items).toHaveLength(2)
     const inner = (item: Element) =>
       getComputedStyle(item.shadowRoot!.querySelector('.item-inner')!).borderBottomWidth
     await vi.waitFor(() => expect(inner(items[0]!)).not.toBe('0px'))
-    expect(inner(items[1]!)).toBe('0px')
+    await expect.poll(() => inner(items[1]!)).toBe('0px')
   })
 })
 
@@ -228,12 +235,13 @@ describe('Row on touch', () => {
       await sliding.open('end')
       expect(sliding.classList.contains('item-sliding-active-slide')).toBe(true)
     })
-    const widths = Array.from(sliding.querySelectorAll('ion-item-option')).map(
-      (option) => option.getBoundingClientRect().width,
-    )
-    expect(widths).toHaveLength(2)
-    expect(new Set(widths).size).toBe(1)
-    expect(widths[0]).toBeGreaterThanOrEqual(44)
+    const widths = () =>
+      Array.from(sliding.querySelectorAll('ion-item-option')).map(
+        (option) => option.getBoundingClientRect().width,
+      )
+    await expect.poll(widths).toHaveLength(2)
+    await expect.poll(() => new Set(widths()).size).toBe(1)
+    await expect.poll(() => widths()[0]).toBeGreaterThanOrEqual(44)
   })
 
   it('shows the short text of an action while its label still names it', async () => {
@@ -287,7 +295,7 @@ describe('Row on touch', () => {
       { db: openTestDb() },
     )
     await page.getByRole('button', { name: 'Play' }).click({ timeout: 2000 })
-    expect(onPress).toHaveBeenCalledOnce()
+    await expect.poll(() => onPress).toHaveBeenCalledOnce()
   })
 
   it('fires only its own handler for a control in the body of a row with onOpen', async () => {
@@ -308,10 +316,10 @@ describe('Row on touch', () => {
       { db: openTestDb() },
     )
     await page.getByRole('button', { name: 'Play' }).click({ timeout: 2000 })
-    expect(onPress).toHaveBeenCalledOnce()
+    await expect.poll(() => onPress).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
     await page.getByText('Plain').click()
-    expect(onOpen).toHaveBeenCalledOnce()
+    await expect.poll(() => onOpen).toHaveBeenCalledOnce()
   })
 
   it('fires only its own handler for a shadow-DOM control in the body of a row with onOpen', async () => {
@@ -333,7 +341,7 @@ describe('Row on touch', () => {
     // ion-toggle hydrates its shadow content asynchronously, after the synchronous render.
     await vi.waitFor(() => expect(toggle.element()).toBeTruthy())
     await toggle.click({ timeout: 2000 })
-    expect(onToggle).toHaveBeenCalledOnce()
+    await expect.poll(() => onToggle).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
   })
 
@@ -351,17 +359,19 @@ describe('Row on touch', () => {
       </IonList>,
       { db: openTestDb() },
     )
-    expect(page.getByRole('button', { name: 'Play', exact: true }).query()).toBeNull()
-    expect(
-      page.getByRole('button', { name: "Soldier's Joy D · Known", exact: true }).query(),
-    ).toBeNull()
     await expect
       .element(page.getByRole('button', { name: "Play Soldier's Joy D · Known", exact: true }))
       .toBeVisible()
+    await expect
+      .element(page.getByRole('button', { name: 'Play', exact: true }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: "Soldier's Joy D · Known", exact: true }))
+      .not.toBeInTheDocument()
     // The visible text sits under the open button now (pointer-events-none), the same as a
     // mouse: a real tap there lands on whatever a browser's hit test finds, which force mimics.
     await page.getByText("Soldier's Joy").click({ force: true })
-    expect(onOpen).toHaveBeenCalledOnce()
+    await expect.poll(() => onOpen).toHaveBeenCalledOnce()
   })
 
   it('renders a plain item without actions or an open handler', async () => {
@@ -402,7 +412,7 @@ describe('Row on touch', () => {
     expect(grip.element().getAttribute('slot')).toBeNull()
     expect(grip.element().closest('[slot="end"]')?.className).toBe('row-trailing')
     await grip.click()
-    expect(onGrip).toHaveBeenCalledOnce()
+    await expect.poll(() => onGrip).toHaveBeenCalledOnce()
   })
 
   it('fires only its own handler for a control in the end slot of a row with onOpen', async () => {
@@ -428,10 +438,10 @@ describe('Row on touch', () => {
       { db: openTestDb() },
     )
     await page.getByRole('button', { name: 'Grip' }).click({ timeout: 2000 })
-    expect(onGrip).toHaveBeenCalledOnce()
+    await expect.poll(() => onGrip).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
     await page.getByText('Plain').click()
-    expect(onOpen).toHaveBeenCalledOnce()
+    await expect.poll(() => onOpen).toHaveBeenCalledOnce()
   })
 })
 
@@ -465,14 +475,20 @@ describe('Row on a mouse with a trailing control', () => {
     await vi.waitFor(() =>
       expect(getComputedStyle(editHost.closest('.row-actions')!).opacity).toBe('1'),
     )
-    const gripBox = grip.element().getBoundingClientRect()
-    const editBox = edit.element().getBoundingClientRect()
-    expect(editBox.right).toBeLessThanOrEqual(gripBox.left + 1)
-    const x = gripBox.left + gripBox.width / 2
-    const y = gripBox.top + gripBox.height / 2
-    expect(grip.element().contains(document.elementFromPoint(x, y))).toBe(true)
+    const gripBox = () => grip.element().getBoundingClientRect()
+    await expect
+      .poll(() => edit.element().getBoundingClientRect().right - gripBox().left)
+      .toBeLessThanOrEqual(1)
+    await expect
+      .poll(() => {
+        const box = gripBox()
+        const x = box.left + box.width / 2
+        const y = box.top + box.height / 2
+        return grip.element().contains(document.elementFromPoint(x, y))
+      })
+      .toBe(true)
     await grip.click()
-    expect(onGrip).toHaveBeenCalledOnce()
+    await expect.poll(() => onGrip).toHaveBeenCalledOnce()
   })
 })
 
@@ -512,7 +528,7 @@ describe('Row with a named open control and a real control in end', () => {
         .query(),
     ).toBeNull()
     await retry.click()
-    expect(onRetry).toHaveBeenCalledOnce()
+    await expect.poll(() => onRetry).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
   })
 
@@ -531,10 +547,10 @@ describe('Row with a named open control and a real control in end', () => {
         .query(),
     ).toBeNull()
     await retry.click()
-    expect(onRetry).toHaveBeenCalledOnce()
+    await expect.poll(() => onRetry).toHaveBeenCalledOnce()
     expect(onOpen).not.toHaveBeenCalled()
     await open.click()
-    expect(onOpen).toHaveBeenCalledOnce()
+    await expect.poll(() => onOpen).toHaveBeenCalledOnce()
   })
 })
 
@@ -576,59 +592,59 @@ describe('Row with a named open control and a leading glyph', () => {
     await expect.element(page.getByTestId('glyph')).toBeVisible()
     const item = document.querySelector('ion-list > ion-item')!
     const open = item.querySelector<HTMLButtonElement>('[data-row-open]')!
-    const itemBox = item.getBoundingClientRect()
-    const glyphBox = document.querySelector('[data-testid="glyph"]')!.getBoundingClientRect()
+    const glyph = document.querySelector('[data-testid="glyph"]')!
     return {
       open,
-      itemBox,
+      offset: () => {
+        const openBox = open.getBoundingClientRect()
+        const itemBox = item.getBoundingClientRect()
+        return [
+          openBox.x - itemBox.x,
+          openBox.y - itemBox.y,
+          openBox.width - itemBox.width,
+          openBox.height - itemBox.height,
+        ]
+      },
       // The row's leading padding, the strips above and below the glyph, and the glyph itself.
-      points: {
-        leadingEdge: [itemBox.x + 1, itemBox.y + itemBox.height / 2],
-        aboveGlyph: [glyphBox.x + glyphBox.width / 2, itemBox.y + 1],
-        belowGlyph: [glyphBox.x + glyphBox.width / 2, itemBox.bottom - 1],
-        glyph: [glyphBox.x + glyphBox.width / 2, glyphBox.y + glyphBox.height / 2],
-        trailingEdge: [itemBox.right - 1, itemBox.y + itemBox.height / 2],
-      } as Record<string, [number, number]>,
+      points: () => {
+        const itemBox = item.getBoundingClientRect()
+        const glyphBox = glyph.getBoundingClientRect()
+        return {
+          leadingEdge: [itemBox.x + 1, itemBox.y + itemBox.height / 2],
+          aboveGlyph: [glyphBox.x + glyphBox.width / 2, itemBox.y + 1],
+          belowGlyph: [glyphBox.x + glyphBox.width / 2, itemBox.bottom - 1],
+          glyph: [glyphBox.x + glyphBox.width / 2, glyphBox.y + glyphBox.height / 2],
+          trailingEdge: [itemBox.right - 1, itemBox.y + itemBox.height / 2],
+        } as Record<string, [number, number]>
+      },
     }
   }
 
   it('covers every point of the row with the open control, on a mouse', async () => {
     const onOpen = vi.fn()
     renderIonic(namedWithGlyph(onOpen), { db: openTestDb() })
-    const { open, itemBox, points } = await corners()
-    const openBox = open.getBoundingClientRect()
-    expect([openBox.x, openBox.y, openBox.width, openBox.height]).toEqual([
-      itemBox.x,
-      itemBox.y,
-      itemBox.width,
-      itemBox.height,
-    ])
-    for (const [where, [x, y]] of Object.entries(points)) {
-      expect(hit(x, y), where).toBe(open)
+    const { open, offset, points } = await corners()
+    await expect.poll(offset).toEqual([0, 0, 0, 0])
+    for (const where of Object.keys(points())) {
+      await expect.poll(() => hit(...points()[where]!), { message: where }).toBe(open)
     }
-    hit(...points.leadingEdge!)!.click()
-    hit(...points.aboveGlyph!)!.click()
-    expect(onOpen).toHaveBeenCalledTimes(2)
+    hit(...points().leadingEdge!)!.click()
+    hit(...points().aboveGlyph!)!.click()
+    await expect.poll(() => onOpen).toHaveBeenCalledTimes(2)
   })
 
   it('covers every point of the row with the open control, on touch', async () => {
     forceTouch()
     const onOpen = vi.fn()
     renderIonic(namedWithGlyph(onOpen), { db: openTestDb() })
-    const { open, itemBox, points } = await corners()
-    const openBox = open.getBoundingClientRect()
-    expect([openBox.x, openBox.y, openBox.width, openBox.height]).toEqual([
-      itemBox.x,
-      itemBox.y,
-      itemBox.width,
-      itemBox.height,
-    ])
-    for (const [where, [x, y]] of Object.entries(points)) {
-      expect(hit(x, y), where).toBe(open)
+    const { open, offset, points } = await corners()
+    await expect.poll(offset).toEqual([0, 0, 0, 0])
+    for (const where of Object.keys(points())) {
+      await expect.poll(() => hit(...points()[where]!), { message: where }).toBe(open)
     }
-    hit(...points.leadingEdge!)!.click()
-    hit(...points.belowGlyph!)!.click()
-    expect(onOpen).toHaveBeenCalledTimes(2)
+    hit(...points().leadingEdge!)!.click()
+    hit(...points().belowGlyph!)!.click()
+    await expect.poll(() => onOpen).toHaveBeenCalledTimes(2)
   })
 
   it('leaves the glyph in the accessibility tree, on a mouse', async () => {
@@ -674,15 +690,17 @@ describe('Row with a named open control, focused on touch', () => {
     button.focus()
     await userEvent.tab()
     await userEvent.tab({ shift: true })
-    expect(document.activeElement).toBe(button)
-    expect(getComputedStyle(button).outlineStyle).toBe('none')
+    await expect.poll(() => document.activeElement).toBe(button)
+    await expect.poll(() => getComputedStyle(button).outlineStyle).toBe('none')
     const item = document.querySelector('ion-list > ion-item')!
     const ring = getComputedStyle(item, '::after')
-    expect(ring.borderRightWidth).toBe('2px')
-    expect(ring.position).toBe('absolute')
-    expect([ring.top, ring.right, ring.bottom, ring.left]).toEqual(['0px', '0px', '0px', '0px'])
-    expect(parseFloat(ring.width) + 4).toBe(item.getBoundingClientRect().width)
-    expect(parseFloat(ring.height) + 4).toBe(item.getBoundingClientRect().height)
+    await expect.poll(() => ring.borderRightWidth).toBe('2px')
+    await expect.poll(() => ring.position).toBe('absolute')
+    await expect
+      .poll(() => [ring.top, ring.right, ring.bottom, ring.left])
+      .toEqual(['0px', '0px', '0px', '0px'])
+    await expect.poll(() => parseFloat(ring.width) + 4).toBe(item.getBoundingClientRect().width)
+    await expect.poll(() => parseFloat(ring.height) + 4).toBe(item.getBoundingClientRect().height)
   })
 })
 
@@ -735,9 +753,13 @@ describe('Row while selecting', () => {
       ),
     )
     expect(marks[0]!.innerHTML).not.toBe(marks[1]!.innerHTML)
-    const box = marks[0]!.getBoundingClientRect()
     // A real tap on the mark opens the control, which is what carries the checkbox.
-    expect(document.elementFromPoint(box.x + 1, box.y + 1)).toHaveAttribute('data-row-open')
+    await expect
+      .poll(() => {
+        const box = marks[0]!.getBoundingClientRect()
+        return document.elementFromPoint(box.x + 1, box.y + 1)
+      })
+      .toHaveAttribute('data-row-open')
   })
 
   it.each(['light', 'dark'])('keeps the unselected mark clear of its row in %s', async (theme) => {
@@ -749,7 +771,7 @@ describe('Row while selecting', () => {
     await expect.element(page.getByRole('checkbox', { name: "Select Soldier's Joy" })).toBeVisible()
     const mark = document.querySelector('[data-row-check] svg')!
     // 3:1 is what WCAG 1.4.11 asks of the part of a control that carries its state.
-    expect(glyphContrast(mark)).toBeGreaterThanOrEqual(3)
+    await expect.poll(() => glyphContrast(mark)).toBeGreaterThanOrEqual(3)
   })
 
   it('puts openId on the open control, where focus has to land', async () => {
@@ -760,7 +782,7 @@ describe('Row while selecting', () => {
     const named = document.getElementById('select-u1')
     expect(named).toHaveAttribute('data-row-open')
     named!.focus()
-    expect(document.activeElement).toBe(named)
+    await expect.poll(() => document.activeElement).toBe(named)
     expect(document.querySelector('[data-row-check]')).not.toHaveAttribute('id')
   })
 

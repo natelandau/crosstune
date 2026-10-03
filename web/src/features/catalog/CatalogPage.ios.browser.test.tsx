@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { Shell } from '../../app/Shell'
 import { createTune } from '../../commands/tunes'
@@ -21,10 +21,6 @@ beforeEach(async () => {
   db = openTestDb()
   await createTune(db, { title: "Soldier's Joy" }, { status: 'known' })
   await createTune(db, { title: 'Cluck Old Hen' }, { status: 'learning' })
-})
-
-afterEach(async () => {
-  await db.delete()
 })
 
 const control = (name: string) => page.getByRole('button', { name })
@@ -68,16 +64,16 @@ describe('CatalogPage on iOS', () => {
       renderIonic(<Shell initialPath="/catalog" />, { db })
       await expect.element(control(MORE_ACTIONS)).toBeVisible()
       for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
-        const box = buttonHost(name).getBoundingClientRect()
-        expect(box.height, name).toBeGreaterThanOrEqual(44)
-        expect(box.width, name).toBeGreaterThanOrEqual(44)
+        const box = () => buttonHost(name).getBoundingClientRect()
+        await expect.poll(() => box().height, { message: name }).toBeGreaterThanOrEqual(44)
+        await expect.poll(() => box().width, { message: name }).toBeGreaterThanOrEqual(44)
       }
       await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('zzz')
       await expect.element(control(MORE_ACTIONS)).not.toBeInTheDocument()
       for (const name of ['Filters', ADD_TUNE]) {
-        const box = buttonHost(name).getBoundingClientRect()
-        expect(box.height, name).toBeGreaterThanOrEqual(44)
-        expect(box.width, name).toBeGreaterThanOrEqual(44)
+        const box = () => buttonHost(name).getBoundingClientRect()
+        await expect.poll(() => box().height, { message: name }).toBeGreaterThanOrEqual(44)
+        await expect.poll(() => box().width, { message: name }).toBeGreaterThanOrEqual(44)
       }
     } finally {
       await page.viewport(390, 844)

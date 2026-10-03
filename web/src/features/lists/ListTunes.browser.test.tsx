@@ -61,6 +61,9 @@ function Host({
 const shownTitles = () =>
   Array.from(document.querySelectorAll('ion-reorder-group h2')).map((h) => h.textContent)
 
+const shownNumbers = () =>
+  Array.from(document.querySelectorAll('[data-position]')).map((n) => n.textContent)
+
 const storedTitles = async () => {
   const items = (await db.list_items.where('list_id').equals(listId).toArray())
     .filter((i) => !i.deleted_at)
@@ -141,12 +144,9 @@ describe('ListTunes', () => {
   it('numbers rows from 1 in stored order inside one list', async () => {
     renderIonic(<Host />, { db })
     await expect.element(page.getByRole('heading', { name: 'Forked Deer' })).toBeVisible()
-    expect(shownTitles()).toEqual(titles)
-    const numbers = Array.from(document.querySelectorAll('[data-position]')).map(
-      (n) => n.textContent,
-    )
-    expect(numbers).toEqual(['1', '2', '3', '4'])
-    expect(document.querySelector('ion-list > ion-reorder-group')).not.toBeNull()
+    await expect.poll(shownTitles).toEqual(titles)
+    await expect.poll(shownNumbers).toEqual(['1', '2', '3', '4'])
+    await expect.poll(() => document.querySelector('ion-list > ion-reorder-group')).not.toBeNull()
   })
 
   it('moves a tune down from its move menu, stores it, and announces it', async () => {
@@ -161,12 +161,9 @@ describe('ListTunes', () => {
         'Forked Deer',
       ]),
     )
-    expect(shownTitles()).toEqual([
-      'Angeline the Baker',
-      'Cluck Old Hen',
-      "Soldier's Joy",
-      'Forked Deer',
-    ])
+    await expect
+      .poll(shownTitles)
+      .toEqual(['Angeline the Baker', 'Cluck Old Hen', "Soldier's Joy", 'Forked Deer'])
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent("Moved Soldier's Joy to position 3 of 4")
@@ -176,8 +173,8 @@ describe('ListTunes', () => {
     renderIonic(<Host />, { db })
     await openMoveMenu('Angeline the Baker')
     await expect.element(page.getByText(MOVE_DOWN, { exact: true })).toBeVisible()
-    expect(page.getByText(MOVE_UP, { exact: true }).elements()).toHaveLength(0)
-    expect(page.getByText(MOVE_TO_TOP, { exact: true }).elements()).toHaveLength(0)
+    await expect.element(page.getByText(MOVE_UP, { exact: true })).not.toBeInTheDocument()
+    await expect.element(page.getByText(MOVE_TO_TOP, { exact: true })).not.toBeInTheDocument()
     await page.getByText(MOVE_TO_BOTTOM, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles()).at(-1)).toBe('Angeline the Baker'))
     await openMoveMenu('Forked Deer')
@@ -188,14 +185,15 @@ describe('ListTunes', () => {
   it('keeps the grip at the row trailing edge, past the move button', async () => {
     renderIonic(<Host />, { db })
     await vi.waitFor(() => expect(shownTitles()).toEqual(titles))
-    const trailing = document.querySelector('ion-reorder-group .row-trailing')!
-    expect(trailing.lastElementChild?.tagName).toBe('ION-REORDER')
-    const grip = trailing.querySelector('ion-reorder')!.getBoundingClientRect()
-    const button = page
-      .getByRole('button', { name: 'Reorder Angeline the Baker' })
-      .element()
-      .getBoundingClientRect()
-    expect(grip.left).toBeGreaterThanOrEqual(button.right)
+    const trailing = () => document.querySelector('ion-reorder-group .row-trailing')!
+    await expect.poll(() => trailing().lastElementChild?.tagName).toBe('ION-REORDER')
+    const grip = () => trailing().querySelector('ion-reorder')!.getBoundingClientRect()
+    const button = () =>
+      page
+        .getByRole('button', { name: 'Reorder Angeline the Baker' })
+        .element()
+        .getBoundingClientRect()
+    await expect.poll(() => grip().left - button().right).toBeGreaterThanOrEqual(0)
   })
 
   it('leaves out the move button when a list holds one tune', async () => {
@@ -206,8 +204,12 @@ describe('ListTunes', () => {
     }
     renderIonic(<Host />, { db })
     await vi.waitFor(() => expect(shownTitles()).toEqual(["Soldier's Joy"]))
-    expect(page.getByRole('button', { name: "Reorder Soldier's Joy" }).elements()).toHaveLength(0)
-    expect(document.querySelectorAll('ion-reorder-group ion-reorder')).toHaveLength(0)
+    await expect
+      .element(page.getByRole('button', { name: "Reorder Soldier's Joy" }))
+      .not.toBeInTheDocument()
+    await expect
+      .poll(() => document.querySelectorAll('ion-reorder-group ion-reorder'))
+      .toHaveLength(0)
   })
 
   it("keeps focus on the moved tune's move button after a menu move", async () => {
@@ -216,8 +218,9 @@ describe('ListTunes', () => {
     await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles())[2]).toBe("Soldier's Joy"))
     await settleOverlays()
-    const button = page.getByRole('button', { name: "Reorder Soldier's Joy" }).element()
-    expect(document.activeElement).toBe(button)
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(page.getByRole('button', { name: "Reorder Soldier's Joy" }).element())
   })
 
   it('hides archived tunes, numbers only visible rows, and moves past a hidden tune', async () => {
@@ -228,10 +231,7 @@ describe('ListTunes', () => {
     await vi.waitFor(() =>
       expect(shownTitles()).toEqual(['Angeline the Baker', "Soldier's Joy", 'Forked Deer']),
     )
-    const numbers = Array.from(document.querySelectorAll('[data-position]')).map(
-      (n) => n.textContent,
-    )
-    expect(numbers).toEqual(['1', '2', '3'])
+    await expect.poll(shownNumbers).toEqual(['1', '2', '3'])
     await openMoveMenu("Soldier's Joy")
     await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () =>
@@ -256,12 +256,9 @@ describe('ListTunes', () => {
         'Forked Deer',
       ]),
     )
-    expect(shownTitles()).toEqual([
-      "Soldier's Joy",
-      'Cluck Old Hen',
-      'Angeline the Baker',
-      'Forked Deer',
-    ])
+    await expect
+      .poll(shownTitles)
+      .toEqual(["Soldier's Joy", 'Cluck Old Hen', 'Angeline the Baker', 'Forked Deer'])
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent('Moved Angeline the Baker to position 3 of 4')
@@ -291,7 +288,7 @@ describe('ListTunes', () => {
     await vi.waitFor(() => expect(onError).toHaveBeenCalledWith('The order could not be saved.'))
     await vi.waitFor(() => expect(shownTitles()).toEqual(titles))
     // The tune is back where it started, so the live region must not still claim it moved.
-    expect(page.getByRole('status').element().textContent).toBe('')
+    await expect.poll(() => page.getByRole('status').element().textContent).toBe('')
   })
 
   it('keeps a later move when an earlier one fails, showing what the store holds', async () => {
@@ -325,7 +322,7 @@ describe('ListTunes', () => {
     const settled = ['Angeline the Baker', 'Forked Deer', "Soldier's Joy", 'Cluck Old Hen']
     await vi.waitFor(async () => expect(await storedTitles()).toEqual(settled))
     // The shown order already matches the store, so no read can make the list jump.
-    expect(shownTitles()).toEqual(settled)
+    await expect.poll(shownTitles).toEqual(settled)
   })
 
   it('keeps a tune added while a move is in flight', async () => {
@@ -488,7 +485,7 @@ describe('ListTunes', () => {
     // The replay runs again on the order the write already stored, so it must not undo itself
     // and show the tune where it was before the move.
     expect([...seen]).not.toContain(before)
-    expect(shownTitles()).toEqual(settled)
+    await expect.poll(shownTitles).toEqual(settled)
     held.resolve()
     await vi.waitFor(() => expect(shownTitles()).toEqual(settled))
     await rest()
@@ -518,7 +515,9 @@ describe('ListTunes on touch', () => {
     forceTouch()
     renderIonic(<Host />, { db })
     await expect.element(page.getByRole('heading', { name: 'Forked Deer' })).toBeVisible()
-    expect(document.querySelectorAll('ion-reorder-group > ion-item-sliding')).toHaveLength(4)
+    await expect
+      .poll(() => document.querySelectorAll('ion-reorder-group > ion-item-sliding'))
+      .toHaveLength(4)
     await openMoveMenu("Soldier's Joy")
     await vi.waitFor(() =>
       expect(document.querySelector('.action-sheet-title')?.textContent).toBe("Move Soldier's Joy"),
@@ -526,9 +525,9 @@ describe('ListTunes on touch', () => {
     await page.getByText(MOVE_DOWN, { exact: true }).click()
     await vi.waitFor(async () => expect((await storedTitles())[2]).toBe("Soldier's Joy"))
     await settleOverlays()
-    expect(document.activeElement).toBe(
-      page.getByRole('button', { name: "Reorder Soldier's Joy" }).element(),
-    )
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(page.getByRole('button', { name: "Reorder Soldier's Joy" }).element())
   })
 
   it('does not open the tune when the grip is tapped', async () => {
