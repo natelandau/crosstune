@@ -3,6 +3,9 @@ import CrosstuneCommands
 import Foundation
 @preconcurrency import MusicKit
 import Observation
+import os
+
+private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "apple-music")
 
 /// Plays Apple Music catalog songs in full for a subscriber. ``AppleMusicPlayer`` is the
 /// device's; a test stands in its own.
@@ -93,6 +96,7 @@ public final class AppleMusicPlayer: MusicPlayback {
             try await player.play()
             return true
         } catch {
+            logger.error("An Apple Music track did not start: \(error, privacy: .public)")
             return false
         }
     }
@@ -112,7 +116,10 @@ public final class AppleMusicPlayer: MusicPlayback {
             case .song(let id):
                 var request = MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: MusicItemID(id))
                 Self.findEquivalents(&request)
-                guard let song = try await request.response().items.first else { return false }
+                guard let song = try await request.response().items.first else {
+                    logger.notice("Apple Music has no song \(id, privacy: .public) in this storefront")
+                    return false
+                }
                 // Each check sits on the main actor beside the write it guards, so a load whose
                 // link was replaced never takes the queue from the link that replaced it.
                 try Task.checkCancellation()
@@ -123,7 +130,10 @@ public final class AppleMusicPlayer: MusicPlayback {
                 request.properties = [.tracks]
                 Self.findEquivalents(&request)
                 guard let album = try await request.response().items.first, let first = album.tracks?.first
-                else { return false }
+                else {
+                    logger.notice("Apple Music has no album \(id, privacy: .public) in this storefront")
+                    return false
+                }
                 try Task.checkCancellation()
                 player.queue = ApplicationMusicPlayer.Queue(album: album, startingAt: first)
                 hasAlbum = true
@@ -132,7 +142,10 @@ public final class AppleMusicPlayer: MusicPlayback {
             try await player.prepareToPlay()
             try Task.checkCancellation()
             return true
+        } catch is CancellationError {
+            return false
         } catch {
+            logger.error("An Apple Music link could not be loaded: \(error, privacy: .public)")
             return false
         }
     }

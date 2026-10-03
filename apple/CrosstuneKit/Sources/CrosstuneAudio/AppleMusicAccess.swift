@@ -1,4 +1,7 @@
 import MusicKit
+import os
+
+private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "apple-music")
 
 /// Whether this device may play Apple Music recordings in full: asked or not, allowed or not,
 /// and with a subscription that plays the catalog or not.
@@ -39,7 +42,14 @@ public final class DeviceAppleMusicAccess: AppleMusicAccess {
             return .make(authorization: status, canPlayCatalogContent: false)
         }
         // A subscription that cannot be read, offline for one, plays previews.
-        let canPlay = (try? await MusicSubscription.current)?.canPlayCatalogContent ?? false
+        let canPlay: Bool
+        do {
+            canPlay = try await MusicSubscription.current.canPlayCatalogContent
+        } catch {
+            logger.error("The Apple Music subscription could not be read: \(error, privacy: .public)")
+            canPlay = false
+        }
+        if !canPlay { logger.notice("This Apple Account cannot play the Apple Music catalog") }
         return .make(authorization: status, canPlayCatalogContent: canPlay)
     }
 
