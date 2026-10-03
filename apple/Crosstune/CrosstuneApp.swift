@@ -47,6 +47,7 @@ struct CrosstuneApp: App {
                 .environment(\.store, session.store)
                 .environment(session.syncEngine)
                 .environment(session)
+                .environment(player)
                 .followsDisplaySettings()
             }
         #endif
