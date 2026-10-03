@@ -41,7 +41,11 @@ export function ModeSelector({
   )
 }
 
-/** The chosen mode's own controls, which the screen places apart from its selector. */
+/**
+ * The chosen mode's own controls, which the screen places apart from its selector. Every panel
+ * stays mounted in one grid cell with only the chosen one shown, so the block is always as tall
+ * as the tallest and switching modes never moves what is above it.
+ */
 export function ModeControls({
   mode,
   speedPercent,
@@ -60,13 +64,24 @@ export function ModeControls({
   /** The Loops mode's panel. */
   loops: ReactNode
 }) {
+  const panels: Record<Mode, ReactNode> = {
+    loops,
+    speed: <SpeedPanel value={speedPercent} onChange={onSpeed} />,
+    pitch: <PitchPanel value={pitchCents} onChange={onPitch} unavailable={pitchUnavailable} />,
+  }
   return (
-    <div data-mode-controls className="flex flex-col gap-3">
-      {mode === 'loops' ? loops : null}
-      {mode === 'speed' ? <SpeedPanel value={speedPercent} onChange={onSpeed} /> : null}
-      {mode === 'pitch' ? (
-        <PitchPanel value={pitchCents} onChange={onPitch} unavailable={pitchUnavailable} />
-      ) : null}
+    <div data-mode-controls className="grid">
+      {MODES.map((m) => (
+        <div
+          key={m}
+          data-mode-panel={m}
+          inert={m !== mode}
+          aria-hidden={m === mode ? undefined : 'true'}
+          className={`[grid-area:1/1] ${m === mode ? '' : 'invisible'}`}
+        >
+          {panels[m]}
+        </div>
+      ))}
     </div>
   )
 }

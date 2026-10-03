@@ -18,6 +18,7 @@ import { PITCH, PITCH_UP } from '../recording-screen/PitchPanel'
 import { CLOSE_RECORDING } from '../recording-screen/RecordingScreen'
 import { SKIP_BACK, SKIP_MS } from '../recording-screen/Transport'
 import { FASTER, SPEED } from '../recording-screen/SpeedPanel'
+import { ZOOM_IN } from '../recording-screen/panel'
 import { useRecordingScreen } from '../recording-screen/useRecordingScreen'
 import { PITCH_NOT_SAVED, SPEED_NOT_SAVED } from './usePracticeSettings'
 import {
@@ -592,7 +593,7 @@ describe('Practice', () => {
     const id = await localRecording()
     await seedLoop(db, id, 10_000, 20_000)
     const { engine } = await openRecording(id)
-    expect(document.body.textContent).not.toContain(LOCKED_LOOPS_NOTICE)
+    await expect.element(page.getByText(LOCKED_LOOPS_NOTICE)).not.toBeVisible()
     await selectNext(engine)
     await expect.element(page.getByText(LOCKED_LOOPS_NOTICE)).toBeVisible()
   })
@@ -650,10 +651,19 @@ describe('Practice', () => {
       await screen.getByRole('tab', { name: LOOPS_LABEL, exact: true }).click({ force: true })
       await expect.element(screen.getByRole('button', { name: NEW_LOOP })).toBeVisible()
       expect(await settled()).toBe(start)
-      // A loop brings the switcher, and a rename the suggestion chips.
+      // A loop shows the switcher and hides the empty hint, and a rename shows the chips.
       await seedLoop(db, id, 10_000, 20_000)
       await selectNext(engine)
       expect(await settled()).toBe(start)
+      for (const [tab, control] of [
+        [SPEED, FASTER],
+        [PITCH, PITCH_UP],
+        [LOOPS_LABEL, NEW_LOOP],
+      ] as const) {
+        await screen.getByRole('tab', { name: tab, exact: true }).click({ force: true })
+        await expect.element(screen.getByRole('button', { name: control })).toBeVisible()
+        expect(await settled()).toBe(start)
+      }
       ;(document.activeElement as HTMLElement | null)?.blur()
       press('Enter')
       await expect.element(page.getByRole('textbox', { name: LOOP_NAME })).toHaveFocus()
@@ -661,6 +671,57 @@ describe('Practice', () => {
         .element(screen.getByRole('button', { name: 'B part', exact: true }))
         .toBeVisible()
       expect(await settled()).toBe(start)
+    })
+
+    it('a press on the clock, Fit, or zoom over the waveform never seeks or scrubs', async () => {
+      const id = await localRecording({ durationMs: 120_000 })
+      // One loop under every overlay, which a press that reached the waveform would select.
+      await seedLoop(db, id, 1000, 60_000)
+      const { engine } = await openRecording(id)
+      engine.pause()
+      engine.seek(30_000)
+      await expect.poll(shownMs).toBe(30_000)
+      const screen = presentedModal()!
+      const targets = [
+        screen.querySelector<HTMLElement>('[data-practice-clock]')!,
+        page.getByRole('button', { name: FIT, exact: true }).element() as HTMLElement,
+        page.getByRole('button', { name: ZOOM_IN }).element() as HTMLElement,
+      ]
+      for (const target of targets) {
+        const box = target.getBoundingClientRect()
+        // Each sits over the waveform, on top of it where it is pressed.
+        const wave = waveform()!.getBoundingClientRect()
+        expect(box.bottom).toBeLessThanOrEqual(wave.bottom + 1)
+        expect(box.top).toBeGreaterThanOrEqual(wave.top)
+        const x = box.left + box.width / 2
+        const y = box.top + box.height / 2
+        expect(document.elementFromPoint(x, y)?.closest('[data-practice-waveform]')).toBeNull()
+        const at = (type: string, dx: number) =>
+          target.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              pointerId: 1,
+              isPrimary: true,
+              button: 0,
+              buttons: type === 'pointerup' ? 0 : 1,
+              pointerType: 'touch',
+              clientX: x + dx,
+              clientY: y,
+            }),
+          )
+        at('pointerdown', 0)
+        at('pointermove', -60)
+        at('pointerup', -60)
+        await wait(50)
+        expect(shownMs()).toBe(30_000)
+        expect(engine.getState().positionMs).toBe(30_000)
+        // A tap there neither picks the loop under it nor deselects one.
+        expect(engine.getState().loop).toBeNull()
+      }
+      await page.getByRole('button', { name: FIT, exact: true }).click()
+      await expect.poll(pxPerS).toBeCloseTo(minPxPerS(widthPx(), 120_000), 5)
+      expect(engine.getState().positionMs).toBe(30_000)
     })
 
     it('keeps 160 px of waveform on a landscape phone', async () => {

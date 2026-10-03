@@ -327,7 +327,17 @@ function Loaded({
               <X aria-hidden="true" className="size-6" />
             </IonButton>
           </IonButtons>
-          <IonTitle>{title}</IonTitle>
+          <IonTitle>
+            <span className="flex flex-col leading-tight">
+              <span className="truncate">{title}</span>
+              <span
+                data-recording-subtitle
+                className="type-footnote truncate text-(--ion-color-medium)"
+              >
+                {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
+              </span>
+            </span>
+          </IonTitle>
           <IonButtons slot="end">
             <IonButton
               ref={more}
@@ -341,10 +351,7 @@ function Loaded({
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div className="practice-screen flex h-full w-full flex-col gap-3 px-4 py-4">
-          <p className="type-footnote m-0 text-center text-(--ion-color-medium)">
-            {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
-          </p>
+        <div className="flex h-full w-full flex-col gap-3 px-4 py-4">
           {error ? <InlineError className="text-center">{error}</InlineError> : null}
           {trimNotice ? (
             <p role="status" className="type-footnote m-0 text-center">

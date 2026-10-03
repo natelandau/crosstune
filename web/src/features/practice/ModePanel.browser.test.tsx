@@ -60,7 +60,28 @@ describe('ModeSelector and ModeControls', () => {
     await expect.element(page.getByText('loops body')).toBeVisible()
     await segment(SPEED).click({ force: true })
     await expect.element(page.getByRole('slider', { name: SPEED })).toBeVisible()
-    expect(document.body.textContent).not.toContain('loops body')
+    await expect.element(page.getByText('loops body')).not.toBeVisible()
+  })
+
+  it('keeps one height whichever panel shows, the tallest one’s', async () => {
+    renderIonic(<Harness />, { db })
+    const block = () => document.querySelector('[data-mode-controls]')!.getBoundingClientRect()
+    await expect.element(page.getByText('loops body')).toBeVisible()
+    const height = block().height
+    const tallest = Math.max(
+      ...Array.from(
+        document.querySelectorAll('[data-mode-panel]'),
+        (panel) => panel.getBoundingClientRect().height,
+      ),
+    )
+    expect(height).toBe(tallest)
+    for (const name of [SPEED, PITCH, LOOPS_LABEL]) {
+      await segment(name).click({ force: true })
+      await expect.element(segment(name)).toHaveAttribute('aria-selected', 'true')
+      expect(block().height).toBe(height)
+    }
+    // Only the chosen panel's controls can be reached.
+    expect(page.getByRole('slider', { name: SPEED }).elements()).toHaveLength(0)
   })
 
   it('remembers the last mode', async () => {

@@ -17,10 +17,11 @@ import { recordingFile, recordingRow, tuneRow } from '../../test/rows'
 import { OPEN_RECORDING, PAUSE, PLAY } from '../player/transportCopy'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { usePlayer } from '../player/usePlayer'
-import { DOWNLOAD_FAILED, NOT_AVAILABLE } from '../recording/format'
+import { DOWNLOAD_FAILED, formatDuration, NOT_AVAILABLE } from '../recording/format'
 import { ADD_TO_TUNE_TITLE } from '../recordings/AddToTuneSheet'
 import { RecordingsPage } from '../recordings/RecordingsPage'
 import { RECORDING_NAME_LABEL, RENAME } from '../recordings/recordingCopy'
+import { recordedAtLabel } from '../recordings/recordingRow'
 import { RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
 import { ADD_TO_TUNE, DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import {
@@ -39,9 +40,9 @@ import {
   TRIM_WHILE_DOWNLOADING,
   TRIM_WHILE_RECORDING,
 } from './RecordingScreen'
-import { ZOOM_IN } from './panel'
+import { RESET, ZOOM_IN } from './panel'
 import { SPEED } from './SpeedPanel'
-import { PITCH } from './PitchPanel'
+import { CENTS, PITCH } from './PitchPanel'
 import { TRIM } from './TrimView'
 import { EDIT_RECORDING, useRecordingScreen } from './useRecordingScreen'
 
@@ -195,6 +196,46 @@ describe('RecordingScreen', () => {
       .toHaveAttribute('aria-selected', 'true')
   })
 
+  /** The play button's center is the transport row's, to within 2 px. */
+  async function expectPlayCentered() {
+    const screen = await modal()
+    const row = screen.element().querySelector<HTMLElement>('[data-practice-transport]')!
+    const play = screen
+      .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
+      .element()
+      .getBoundingClientRect()
+    const box = row.getBoundingClientRect()
+    expect(Math.abs(play.left + play.width / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(2)
+    expect(row.querySelector('[data-practice-clock]')).toBeNull()
+    expect(row.querySelector(`[aria-label="${ZOOM_IN}"]`)).toBeNull()
+  }
+
+  /** The clock in the waveform's bottom-left corner, and zoom in its bottom-right. */
+  async function expectOverlaidOnWaveform() {
+    const screen = await modal()
+    const wave = screen
+      .element()
+      .querySelector<HTMLElement>('[data-practice-waveform]')!
+      .getBoundingClientRect()
+    const clock = screen
+      .element()
+      .querySelector<HTMLElement>('[data-practice-clock]')!
+      .getBoundingClientRect()
+    const zoomIn = screen.getByRole('button', { name: ZOOM_IN }).element().getBoundingClientRect()
+    for (const box of [clock, zoomIn]) {
+      expect(box.top).toBeGreaterThanOrEqual(wave.top + wave.height / 2)
+      expect(box.bottom).toBeLessThanOrEqual(wave.bottom + 1)
+    }
+    expect(clock.left - wave.left).toBeLessThanOrEqual(8)
+    expect(wave.right - zoomIn.right).toBeLessThanOrEqual(8)
+  }
+
+  /** The region under the waveform holds everything without scrolling. */
+  async function expectBelowFits() {
+    const below = (await modal()).element().querySelector<HTMLElement>('[data-practice-below]')!
+    await expect.poll(() => below.scrollHeight - below.clientHeight).toBeLessThanOrEqual(0)
+  }
+
   it('fits every control in a desktop dialog and centers the play controls', async () => {
     await page.viewport(1440, 1200)
     try {
@@ -203,41 +244,56 @@ describe('RecordingScreen', () => {
       const screen = await modal()
       await expect.element(await waveform()).toBeVisible()
       await screen.getByRole('tab', { name: SPEED, exact: true }).click({ force: true })
-      const below = screen.element().querySelector<HTMLElement>('[data-practice-below]')!
-      await expect.poll(() => below.scrollHeight - below.clientHeight).toBeLessThanOrEqual(0)
-
-      const row = screen.element().querySelector<HTMLElement>('[data-practice-transport]')!
-      const play = screen
-        .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
-        .element()
-        .getBoundingClientRect()
-      const box = row.getBoundingClientRect()
-      expect(Math.abs(play.left + play.width / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(
-        2,
-      )
+      await expectBelowFits()
+      await expectPlayCentered()
+      await expectOverlaidOnWaveform()
     } finally {
       await page.viewport(390, 844)
     }
   })
 
-  it('centers the play controls on a phone, with the clock and zoom on one line above', async () => {
+  it('centers the play controls on a phone, with the clock and zoom over the waveform', async () => {
+    await localRecording('Jam recording')
+    await openFromRows('Jam recording')
+    await expect.element(await waveform()).toBeVisible()
+    await expectPlayCentered()
+    await expectOverlaidOnWaveform()
+  })
+
+  it('fits Speed and Pitch on a phone without scrolling', async () => {
     await localRecording('Jam recording')
     await openFromRows('Jam recording')
     const screen = await modal()
     await expect.element(await waveform()).toBeVisible()
-    const row = screen.element().querySelector<HTMLElement>('[data-practice-transport]')!
-    const play = screen
-      .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
-      .element()
-      .getBoundingClientRect()
-    const box = row.getBoundingClientRect()
-    expect(Math.abs(play.left + play.width / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(2)
+    const inView = (element: Element) => {
+      const box = element.getBoundingClientRect()
+      return box.top >= 0 && box.bottom <= window.innerHeight
+    }
 
-    const zoomIn = screen.getByRole('button', { name: ZOOM_IN }).element().getBoundingClientRect()
-    const clock = row.querySelector<HTMLElement>('[data-practice-clock]')!
-    expect(zoomIn.bottom).toBeLessThanOrEqual(play.top)
-    expect(Math.abs(zoomIn.top - clock.getBoundingClientRect().top)).toBeLessThanOrEqual(24)
-    expect(parseFloat(getComputedStyle(clock).fontSize)).toBeLessThanOrEqual(32)
+    await screen.getByRole('tab', { name: SPEED, exact: true }).click({ force: true })
+    await expectBelowFits()
+    const reset = screen.getByRole('button', { name: RESET })
+    await expect.element(reset).toBeVisible()
+    expect(inView(reset.element())).toBe(true)
+
+    await screen.getByRole('tab', { name: PITCH, exact: true }).click({ force: true })
+    await expectBelowFits()
+    const cents = screen.getByRole('slider', { name: CENTS })
+    await expect.element(cents).toBeVisible()
+    expect(inView(cents.element())).toBe(true)
+    expect(inView(screen.getByRole('button', { name: RESET }).element())).toBe(true)
+  })
+
+  it('shows the date and length under the title, not in the body', async () => {
+    const id = await localRecording('Jam recording')
+    await openFromRows('Jam recording')
+    const screen = await modal()
+    await expect.element(await waveform()).toBeVisible()
+    const recording = (await db.recordings.get(id))!
+    const line = `${recordedAtLabel(recording.recorded_at)} · ${formatDuration(recording.duration_ms)}`
+    const header = screen.element().querySelector('ion-header')!
+    await expect.poll(() => header.textContent).toContain(line)
+    expect(screen.element().querySelector('ion-content')!.textContent).not.toContain(line)
   })
 
   it('shows a speed and pitch away from the default on their segments', async () => {

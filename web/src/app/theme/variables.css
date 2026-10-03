@@ -522,19 +522,6 @@ ion-toggle::part(label) {
   --loop-tint: var(--loop-5-tint);
 }
 
-/* The recording screen's waveform, sized from the screen's own height alone so nothing under it
-   can change it. Under two fifths leaves the controls on screen on a typical phone and in the wide
-   dialog; the floor keeps a landscape phone usable. */
-.practice-waveform-slot {
-  height: clamp(160px, 38cqh, 480px);
-}
-
-/* The recording screen's column is the size container the waveform measures, so the waveform
-   follows the dialog on a wide screen and the safe areas on a phone, never the content below. */
-.practice-screen {
-  container-type: size;
-}
-
 /* The zoomed waveform: the recording screen sets the variable to the room it measured, and the
    fallbacks are shorter on a landscape phone, where height is scarce, and taller when wide. */
 .practice-detail {

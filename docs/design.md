@@ -383,7 +383,8 @@ Each follows the pointer and is implemented once.
 A screen whose tools are modes puts a segmented control under its main
 surface.
 
-- Each mode shows only its own controls.
+- Each mode shows only its own controls. The panel keeps the height of its
+  tallest mode, so switching modes never moves anything on the screen.
 - A mode shows its current value beside its name only when that value
   differs from the mode's default. At the default, it shows only its name.
 - A control that cannot run right now stays in place, disabled. Its reason

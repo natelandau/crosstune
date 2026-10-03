@@ -21,13 +21,7 @@ import { useLatest } from '../../ui/useLatest'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
 import { PAUSE, PLAY, REPEAT_LOOP } from '../player/transportCopy'
 import { formatPreciseDuration } from '../recording/format'
-import {
-  PANEL_ICON_BUTTON,
-  PANEL_TEXT_BUTTON,
-  ZOOM_IN,
-  ZOOM_OUT,
-  ZOOM_STEP,
-} from '../recording-screen/panel'
+import { ZOOM_IN, ZOOM_OUT, ZOOM_STEP } from '../recording-screen/panel'
 import { trimmedLengthMs, type ShownPeaks } from '../recording-screen/recordingRange'
 import { SKIP_BACK, SKIP_FORWARD, SKIP_MS } from '../recording-screen/Transport'
 import { Waveform } from '../recording-screen/Waveform'
@@ -52,10 +46,16 @@ import { usePracticeSettings } from './usePracticeSettings'
 /** The waveform's ruler and the gap under it, which the bars' height leaves room for. */
 const RULER_PX = 20
 
+/** A control over the waveform, on a backing that keeps it legible over the bars and tints. */
+const OVERLAY =
+  'absolute z-20 rounded-lg bg-[color-mix(in_srgb,var(--ion-background-color,#fff)_80%,transparent)]'
+const OVERLAY_ICON_BUTTON =
+  'grid size-11 place-items-center text-(--ion-color-primary) disabled:opacity-40'
+
 /**
- * The recording screen's working view: the overview, the waveform under a fixed playhead, the
- * Loops, Speed, and Pitch selector, the readout and transport with the loop switcher and zoom,
- * and the chosen mode's controls. It drives the engine the dock loaded, owns the zoom and the
+ * The recording screen's working view: the overview, the waveform under a fixed playhead with
+ * the readout and zoom over it, the Loops, Speed, and Pitch selector, the transport with the
+ * loop switcher, and the chosen mode's controls. It drives the engine the dock loaded, owns the zoom and the
  * keyboard, and holds speed and pitch ahead of the row while a change settles.
  */
 export function Practice({
@@ -336,147 +336,146 @@ export function Practice({
           </div>
         )}
       </div>
-      <div
-        ref={slot}
-        inert={!!blocked}
-        className={`practice-waveform-slot relative shrink-0 ${off}`}
-        style={
-          {
-            '--practice-detail-height': `${Math.max(0, size.height - RULER_PX)}px`,
-          } as CSSProperties
-        }
-        {...pinch}
-      >
-        {pxPerS ? (
-          <div className="absolute inset-0">
-            <PracticeWaveform
-              shown={shown}
-              loops={laneLoops}
-              selected={selected}
-              pxPerS={pxPerS}
-              widthPx={widthPx}
-              bounds={bounds}
-              playheadMs={enginePlayheadMs}
-              renamingId={renamingId}
-              onTap={onTap}
-              onRenameStart={startRename}
-              onRenameCommit={commitRename}
-              onRenameCancel={endRename}
-              onDraft={onDraft}
-              onCommit={onCommit}
-              pinches={pinches}
-              scrubRef={scrub}
-              onScrubbing={setScrubbingMs}
-            />
-          </div>
-        ) : (
-          // Until the take's length is known there is no scale, only a plain bar.
-          <div
-            data-practice-waveform
-            data-timeline-bar
-            className="absolute inset-0 flex flex-col justify-center"
+      {/* The waveform takes whatever the controls below leave, which never changes with the
+          mode or the loops, so its height holds still. */}
+      <div className="relative min-h-[160px] flex-1">
+        <div
+          ref={slot}
+          inert={!!blocked}
+          className={`absolute inset-0 ${off}`}
+          style={
+            {
+              '--practice-detail-height': `${Math.max(0, size.height - RULER_PX)}px`,
+            } as CSSProperties
+          }
+          {...pinch}
+        >
+          {pxPerS ? (
+            <div className="absolute inset-0">
+              <PracticeWaveform
+                shown={shown}
+                loops={laneLoops}
+                selected={selected}
+                pxPerS={pxPerS}
+                widthPx={widthPx}
+                bounds={bounds}
+                playheadMs={enginePlayheadMs}
+                renamingId={renamingId}
+                onTap={onTap}
+                onRenameStart={startRename}
+                onRenameCommit={commitRename}
+                onRenameCancel={endRename}
+                onDraft={onDraft}
+                onCommit={onCommit}
+                pinches={pinches}
+                scrubRef={scrub}
+                onScrubbing={setScrubbingMs}
+              />
+            </div>
+          ) : (
+            // Until the take's length is known there is no scale, only a plain bar.
+            <div
+              data-practice-waveform
+              data-timeline-bar
+              className="absolute inset-0 flex flex-col justify-center"
+            >
+              <TimelineBar heightClass="practice-detail" />
+            </div>
+          )}
+        </div>
+        {/* Siblings of the waveform rather than children, so a press on them never reaches its
+            scrub, tap, pinch, or handle drag. */}
+        <p
+          data-practice-clock
+          className={`${OVERLAY} bottom-1 left-1 m-0 px-2 py-1 text-xl leading-tight font-semibold tabular-nums`}
+        >
+          {blocked ?? formatPreciseDuration(shownMs)}
+        </p>
+        <div data-practice-zoom className={`${OVERLAY} right-1 bottom-1 flex items-center`}>
+          <button
+            type="button"
+            aria-label={ZOOM_OUT}
+            className={OVERLAY_ICON_BUTTON}
+            disabled={!pxPerS || !!blocked || pxPerS <= minScale}
+            onClick={() => zoom(1 / ZOOM_STEP)}
           >
-            <TimelineBar heightClass="practice-detail" />
-          </div>
-        )}
+            <ZoomOut aria-hidden="true" className="size-5" />
+          </button>
+          <button
+            type="button"
+            className="type-subheadline min-h-11 px-2 font-semibold text-(--ion-color-primary) disabled:opacity-40"
+            disabled={!pxPerS || !!blocked}
+            onClick={fit}
+          >
+            {FIT}
+          </button>
+          <button
+            type="button"
+            aria-label={ZOOM_IN}
+            className={OVERLAY_ICON_BUTTON}
+            disabled={!pxPerS || !!blocked || pxPerS >= MAX_PX_PER_S}
+            onClick={() => zoom(ZOOM_STEP)}
+          >
+            <ZoomIn aria-hidden="true" className="size-5" />
+          </button>
+        </div>
       </div>
-      {/* The waveform's height never follows what is below it, so this region scrolls instead. */}
-      <div data-practice-below className="flex min-h-16 flex-1 flex-col gap-3 overflow-y-auto">
+      {/* Scrolls only when the waveform is down to its floor, such as on a landscape phone. */}
+      <div data-practice-below className="flex min-h-16 shrink flex-col gap-3 overflow-y-auto">
         <div inert={!!blocked} className={`mx-auto w-full max-w-(--measure) ${off}`}>
           <ModeSelector mode={mode} onMode={setMode} speedPercent={speed} pitchCents={pitch} />
         </div>
-        {/* The play controls always sit at the row's middle. Equal side columns keep them there
-            from a tablet up; a phone gives them a line of their own under the clock and zoom. */}
-        <div
-          data-practice-transport
-          className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 sm:grid-cols-[1fr_auto_1fr] sm:items-start"
-        >
-          <p
-            data-practice-clock
-            className="type-timer col-start-1 row-start-1 m-0 flex min-h-11 items-center tabular-nums max-sm:text-[2rem] sm:min-h-16"
-          >
-            {blocked ?? formatPreciseDuration(shownMs)}
-          </p>
-          <div className="col-span-2 row-start-2 flex flex-col items-center justify-self-center sm:col-span-1 sm:col-start-2 sm:row-start-1">
-            <div className="flex items-center gap-2">
-              <IonButton
-                fill="clear"
-                aria-label={SKIP_BACK}
-                disabled={!loaded || !!blocked}
-                onClick={() => {
-                  settle()
-                  engine.seek(shownPositionMs() - SKIP_MS)
-                }}
-              >
-                <RotateCcw aria-hidden="true" className="size-6" />
-              </IonButton>
-              <IonButton
-                shape="round"
-                className="size-16"
-                aria-label={playing ? PAUSE : repeatName ? REPEAT_LOOP(repeatName) : PLAY}
-                disabled={!loaded || !!blocked}
-                onClick={togglePlay}
-              >
-                {playing ? (
-                  <Pause aria-hidden="true" fill="currentColor" className="size-7" />
-                ) : repeatName ? (
-                  <Repeat aria-hidden="true" className="size-7" />
-                ) : (
-                  <Play aria-hidden="true" fill="currentColor" className="ml-0.5 size-7" />
-                )}
-              </IonButton>
-              <IonButton
-                fill="clear"
-                aria-label={SKIP_FORWARD}
-                disabled={!loaded || !!blocked}
-                onClick={() => {
-                  settle()
-                  engine.seek(shownPositionMs() + SKIP_MS)
-                }}
-              >
-                <RotateCw aria-hidden="true" className="size-6" />
-              </IonButton>
-            </div>
-            <LoopSwitcher
-              loops={rows}
-              playback={playback}
-              playheadMs={playheadMs}
-              trimStartMs={trimStartMs}
+        <div data-practice-transport className="flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            <IonButton
+              fill="clear"
+              aria-label={SKIP_BACK}
               disabled={!loaded || !!blocked}
-              onCommand={settle}
-              // The playhead is the view's center, so the loop's start comes to it.
-              onReveal={(span) => engine.seek(span.startMs - trimStartMs)}
-              announce={announce}
-            />
+              onClick={() => {
+                settle()
+                engine.seek(shownPositionMs() - SKIP_MS)
+              }}
+            >
+              <RotateCcw aria-hidden="true" className="size-6" />
+            </IonButton>
+            <IonButton
+              shape="round"
+              className="size-16"
+              aria-label={playing ? PAUSE : repeatName ? REPEAT_LOOP(repeatName) : PLAY}
+              disabled={!loaded || !!blocked}
+              onClick={togglePlay}
+            >
+              {playing ? (
+                <Pause aria-hidden="true" fill="currentColor" className="size-7" />
+              ) : repeatName ? (
+                <Repeat aria-hidden="true" className="size-7" />
+              ) : (
+                <Play aria-hidden="true" fill="currentColor" className="ml-0.5 size-7" />
+              )}
+            </IonButton>
+            <IonButton
+              fill="clear"
+              aria-label={SKIP_FORWARD}
+              disabled={!loaded || !!blocked}
+              onClick={() => {
+                settle()
+                engine.seek(shownPositionMs() + SKIP_MS)
+              }}
+            >
+              <RotateCw aria-hidden="true" className="size-6" />
+            </IonButton>
           </div>
-          <div className="col-start-2 row-start-1 flex min-h-11 items-center gap-1 justify-self-end sm:col-start-3 sm:min-h-16">
-            <button
-              type="button"
-              aria-label={ZOOM_OUT}
-              className={PANEL_ICON_BUTTON}
-              disabled={!pxPerS || !!blocked || pxPerS <= minScale}
-              onClick={() => zoom(1 / ZOOM_STEP)}
-            >
-              <ZoomOut aria-hidden="true" className="size-5" />
-            </button>
-            <button
-              type="button"
-              className={PANEL_TEXT_BUTTON}
-              disabled={!pxPerS || !!blocked}
-              onClick={fit}
-            >
-              {FIT}
-            </button>
-            <button
-              type="button"
-              aria-label={ZOOM_IN}
-              className={PANEL_ICON_BUTTON}
-              disabled={!pxPerS || !!blocked || pxPerS >= MAX_PX_PER_S}
-              onClick={() => zoom(ZOOM_STEP)}
-            >
-              <ZoomIn aria-hidden="true" className="size-5" />
-            </button>
-          </div>
+          <LoopSwitcher
+            loops={rows}
+            playback={playback}
+            playheadMs={playheadMs}
+            trimStartMs={trimStartMs}
+            disabled={!loaded || !!blocked}
+            onCommand={settle}
+            // The playhead is the view's center, so the loop's start comes to it.
+            onReveal={(span) => engine.seek(span.startMs - trimStartMs)}
+            announce={announce}
+          />
         </div>
         <div inert={!!blocked} className={`mx-auto w-full max-w-(--measure) ${off}`}>
           <ModeControls
@@ -511,8 +510,11 @@ export function Practice({
           />
         </div>
         {/* iOS suspends a page whose screen locks, and with it the timer that wraps a repeating loop. */}
-        {selected && getMode() === 'ios' ? (
-          <p className="type-footnote m-0 text-center text-(--ion-color-medium)">
+        {getMode() === 'ios' ? (
+          <p
+            aria-hidden={selected ? undefined : 'true'}
+            className={`type-footnote m-0 text-center text-(--ion-color-medium) ${selected ? '' : 'invisible'}`}
+          >
             {LOCKED_LOOPS_NOTICE}
           </p>
         ) : null}

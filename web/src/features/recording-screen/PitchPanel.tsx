@@ -117,11 +117,14 @@ export function PitchPanel({
           {RESET}
         </button>
       </div>
-      {unavailable ? (
-        <p role="status" className="type-footnote">
-          {PITCH_UNAVAILABLE}
-        </p>
-      ) : null}
+      {/* Hidden rather than absent, so the panel's height never changes with the engine. */}
+      <p
+        role="status"
+        aria-hidden={unavailable ? undefined : 'true'}
+        className={`type-footnote ${unavailable ? '' : 'invisible'}`}
+      >
+        {PITCH_UNAVAILABLE}
+      </p>
       {ios ? <p className="type-footnote">{PITCH_PAUSES_ON_LOCK}</p> : null}
     </div>
   )

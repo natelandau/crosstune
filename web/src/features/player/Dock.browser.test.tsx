@@ -25,7 +25,6 @@ import { fakeEngine, FakeAudioElement, fakePlaybackEngine } from '../../test/pro
 import { captureRecording } from '../../test/recordings'
 import { Screen } from '../../ui/Screen'
 import { loopRow } from '../../test/rows'
-import { presentedModal } from '../../test/dialogs'
 import { loopHolds } from '../practice/useLoopFollow'
 import { DOWNLOAD_FAILED } from '../recording/format'
 import { RecordProvider, useRecord } from '../recording/useRecord'
@@ -338,9 +337,7 @@ describe('Dock', () => {
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
 
     await badge.click()
-    await expect
-      .poll(() => presentedModal()?.querySelector('ion-title')?.textContent)
-      .toBe('Jam recording')
+    await expect.element(page.getByRole('dialog', { name: 'Jam recording' })).toBeVisible()
     expect(engine.getState().repeat).toBe(true)
   })
 

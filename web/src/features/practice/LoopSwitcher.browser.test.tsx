@@ -67,9 +67,12 @@ describe('LoopSwitcher', () => {
     await expect.element(page.getByText(NO_LOOP, { exact: true })).toBeVisible()
   })
 
-  it('is absent with no loops', async () => {
+  it('is hidden with no loops but keeps its room', async () => {
     setup()
-    expect(document.querySelector('[data-loop-switcher]')).toBeNull()
+    const switcher = document.querySelector<HTMLElement>('[data-loop-switcher]')!
+    expect(getComputedStyle(switcher).visibility).toBe('hidden')
+    expect(switcher.inert).toBe(true)
+    expect(switcher.getBoundingClientRect().height).toBeGreaterThan(0)
     expect(page.getByRole('button', { name: NEXT_LOOP }).elements()).toHaveLength(0)
   })
 

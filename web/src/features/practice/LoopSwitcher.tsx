@@ -9,7 +9,8 @@ const ARROW =
 
 /**
  * The selected loop's name between Previous and Next, under the play button. With no loop
- * selected the arrows reach the nearest loop each way from the playhead. Absent with no loops.
+ * selected the arrows reach the nearest loop each way from the playhead. With no loops it is
+ * hidden but keeps its room, so a first loop never moves the controls around it.
  * Times are on the source timeline; `loops` is sorted by start.
  */
 export function LoopSwitcher({
@@ -34,7 +35,7 @@ export function LoopSwitcher({
   onReveal: (span: Span) => void
   announce: (text: string) => void
 }) {
-  if (loops.length === 0) return null
+  const empty = loops.length === 0
   const placed = loops.map(placedLoop)
   const nameById = (id: string) => {
     const row = loops.find((loop) => loop.id === id)
@@ -53,7 +54,12 @@ export function LoopSwitcher({
   }
 
   return (
-    <div data-loop-switcher className="flex items-center justify-center gap-1">
+    <div
+      data-loop-switcher
+      inert={empty}
+      aria-hidden={empty ? 'true' : undefined}
+      className={`flex items-center justify-center gap-1 ${empty ? 'invisible' : ''}`}
+    >
       <button
         type="button"
         aria-label={PREVIOUS_LOOP}

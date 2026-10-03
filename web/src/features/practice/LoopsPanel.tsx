@@ -141,28 +141,39 @@ export function LoopsPanel({
           {reason}
         </p>
       ) : null}
-      {showHint ? (
-        <p className="type-footnote text-center text-(--ion-color-medium)">{LOOPS_EMPTY_HINT}</p>
-      ) : null}
-      {suggestions.length > 0 && renamingId ? (
-        // A chip press would take focus from the name field first, whose blur saves the typed
-        // text before the chip's own name.
-        <div onMouseDown={(event) => event.preventDefault()}>
-          <Rail label={LOOP_NAME_SUGGESTIONS}>
-            {suggestions.map((label) => (
-              <Capsule
-                key={label}
-                onPress={() => {
-                  updateLoop(db, renamingId, { label }).catch(report)
-                  onSuggestion?.(label)
-                }}
-              >
-                {label}
-              </Capsule>
-            ))}
-          </Rail>
-        </div>
-      ) : null}
+      {/* The hint and the chips never show together, so they share one cell, which keeps the
+          room of the taller even while neither shows. */}
+      <div className="grid items-center">
+        <p
+          aria-hidden={showHint ? undefined : 'true'}
+          className={`type-footnote m-0 text-center text-(--ion-color-medium) [grid-area:1/1] ${showHint ? '' : 'invisible'}`}
+        >
+          {LOOPS_EMPTY_HINT}
+        </p>
+        {suggestions.length > 0 && renamingId ? (
+          // A chip press would take focus from the name field first, whose blur saves the typed
+          // text before the chip's own name.
+          <div className="[grid-area:1/1]" onMouseDown={(event) => event.preventDefault()}>
+            <Rail label={LOOP_NAME_SUGGESTIONS}>
+              {suggestions.map((label) => (
+                <Capsule
+                  key={label}
+                  onPress={() => {
+                    updateLoop(db, renamingId, { label }).catch(report)
+                    onSuggestion?.(label)
+                  }}
+                >
+                  {label}
+                </Capsule>
+              ))}
+            </Rail>
+          </div>
+        ) : (
+          <div aria-hidden="true" inert className="invisible flex [grid-area:1/1]">
+            <Capsule onPress={() => {}}>{'\u00a0'}</Capsule>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

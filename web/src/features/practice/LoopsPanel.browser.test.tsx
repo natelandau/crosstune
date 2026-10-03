@@ -113,7 +113,7 @@ describe('LoopsPanel', () => {
     const t = setup({ loops: [row('a', 1000, 5000)] })
     renderIonic(t.ui('rec'), { db })
     await expect.element(button(NEW_LOOP)).toBeVisible()
-    expect(document.body.textContent).not.toContain(LOOPS_EMPTY_HINT)
+    await expect.element(page.getByText(LOOPS_EMPTY_HINT)).not.toBeVisible()
   })
 
   it('disables New loop inside a loop and tells assistive tech which, out of sight', async () => {
@@ -226,7 +226,7 @@ describe('LoopsPanel', () => {
     )
     await expect.element(button(NEW_LOOP)).toBeDisabled()
     expect(button(NEW_LOOP).element().getAttribute('aria-describedby')).toBeNull()
-    expect(document.body.textContent).not.toContain(LOOPS_EMPTY_HINT)
+    await expect.element(page.getByText(LOOPS_EMPTY_HINT)).not.toBeVisible()
   })
 
   it('removes the selected loop with no toast', async () => {
