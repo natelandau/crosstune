@@ -340,6 +340,14 @@ describe('PracticeWaveform', () => {
     expect(grip('end').left - box.left).toBeGreaterThanOrEqual(xAt(A.endMs, 20_000) - 1)
   })
 
+  it('draws a visible playhead line at the center', async () => {
+    setup()
+    const line = await vi.waitUntil(() => waveform().querySelector<HTMLElement>('[data-playhead]'))
+    const { backgroundColor } = getComputedStyle(line)
+    expect(backgroundColor).not.toBe('rgba(0, 0, 0, 0)')
+    expect(backgroundColor).not.toBe('transparent')
+  })
+
   it('a tap on the seam selects the loop starting there', async () => {
     const { spies } = setup({ loops: [A, B] })
     pointer(surface(), 'pointerdown', xAt(20_500, 20_000))

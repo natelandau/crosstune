@@ -313,7 +313,7 @@ export function PracticeWaveform({
         <div
           aria-hidden="true"
           data-playhead
-          className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-(--ion-text-color)"
+          className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-current"
           style={{ left: widthPx / 2 }}
         />
         {selected

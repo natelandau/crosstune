@@ -87,7 +87,7 @@ export function OverviewStrip({
         />
       ))}
       <div
-        className="pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2 bg-(--ion-text-color)"
+        className="pointer-events-none absolute top-0 bottom-2 w-0.5 -translate-x-1/2 bg-current"
         style={{ left: `${share(playheadMs - trimStartMs)}%` }}
       />
       <div

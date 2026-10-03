@@ -194,6 +194,31 @@ describe('RecordingScreen', () => {
       .toHaveAttribute('aria-selected', 'true')
   })
 
+  it('fits every control in a desktop dialog and centers the play controls', async () => {
+    await page.viewport(1440, 1200)
+    try {
+      await localRecording('Jam recording')
+      await openFromRows('Jam recording')
+      const screen = await modal()
+      await expect.element(await waveform()).toBeVisible()
+      await screen.getByRole('tab', { name: SPEED, exact: true }).click({ force: true })
+      const below = screen.element().querySelector<HTMLElement>('[data-practice-below]')!
+      await expect.poll(() => below.scrollHeight - below.clientHeight).toBeLessThanOrEqual(0)
+
+      const row = screen.element().querySelector<HTMLElement>('[data-practice-transport]')!
+      const play = screen
+        .getByRole('button', { name: new RegExp(`^(${PLAY}|${PAUSE})$`) })
+        .element()
+        .getBoundingClientRect()
+      const box = row.getBoundingClientRect()
+      expect(Math.abs(play.left + play.width / 2 - (box.left + box.width / 2))).toBeLessThanOrEqual(
+        2,
+      )
+    } finally {
+      await page.viewport(390, 844)
+    }
+  })
+
   it('shows a speed and pitch away from the default on their segments', async () => {
     await localRecording('Jam recording')
     await db.recordings.toCollection().modify({ speed_percent: 75, pitch_cents: 200 })

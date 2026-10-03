@@ -341,7 +341,7 @@ function Loaded({
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div className="flex h-full w-full flex-col gap-3 px-4 py-4">
+        <div className="practice-screen flex h-full w-full flex-col gap-3 px-4 py-4">
           <p className="type-footnote m-0 text-center text-(--ion-color-medium)">
             {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
           </p>

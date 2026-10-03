@@ -385,7 +385,12 @@ export function Practice({
         <div inert={!!blocked} className={`mx-auto w-full max-w-(--measure) ${off}`}>
           <ModeSelector mode={mode} onMode={setMode} speedPercent={speed} pitchCents={pitch} />
         </div>
-        <div data-practice-transport className="flex flex-wrap items-start justify-between gap-2">
+        {/* Three columns from a tablet up, so the play controls sit at the row's middle, not beside
+            the clock; a phone wraps instead. */}
+        <div
+          data-practice-transport
+          className="flex flex-wrap items-start justify-between gap-2 sm:grid sm:grid-cols-[1fr_auto_1fr]"
+        >
           <p className="type-timer m-0 flex min-h-16 min-w-24 items-center tabular-nums">
             {blocked ?? formatPreciseDuration(shownMs)}
           </p>
@@ -441,7 +446,7 @@ export function Practice({
               announce={announce}
             />
           </div>
-          <div className="ml-auto flex min-h-16 items-center gap-1">
+          <div className="ml-auto flex min-h-16 items-center gap-1 sm:justify-self-end">
             <button
               type="button"
               aria-label={ZOOM_OUT}

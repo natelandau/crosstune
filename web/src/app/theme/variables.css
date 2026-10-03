@@ -278,7 +278,7 @@ html.ios ion-modal .lyrics-toolbar ion-title {
 @media only screen and (min-width: 768px) and (min-height: 600px) {
   ion-modal.recording-modal {
     --width: min(960px, 92vw);
-    --height: min(760px, 90vh);
+    --height: min(880px, 92vh);
   }
 }
 
@@ -522,15 +522,17 @@ ion-toggle::part(label) {
   --loop-tint: var(--loop-5-tint);
 }
 
-/* The recording screen's waveform, sized from the viewport alone so nothing under it can change
-   it. A third of the height inside the safe areas leaves the Loops controls on screen on a typical
-   phone; the floor keeps a landscape phone usable. */
+/* The recording screen's waveform, sized from the screen's own height alone so nothing under it
+   can change it. Under two fifths leaves the controls on screen on a typical phone and in the wide
+   dialog; the floor keeps a landscape phone usable. */
 .practice-waveform-slot {
-  height: clamp(
-    160px,
-    calc((100dvh - var(--ion-safe-area-top, 0px) - var(--ion-safe-area-bottom, 0px)) * 0.34),
-    480px
-  );
+  height: clamp(160px, 38cqh, 480px);
+}
+
+/* The recording screen's column is the size container the waveform measures, so the waveform
+   follows the dialog on a wide screen and the safe areas on a phone, never the content below. */
+.practice-screen {
+  container-type: size;
 }
 
 /* The zoomed waveform: the recording screen sets the variable to the room it measured, and the
