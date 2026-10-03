@@ -95,6 +95,9 @@ export function createFakeApi() {
     async resolveLink(url) {
       return { url, provider: 'other', provider_ref: null, title: 'Resolved', artwork_url: null }
     },
+    async searchRecordings() {
+      return { groups: [] }
+    },
     async me() {
       return {
         id: 'server-user',

@@ -31,7 +31,7 @@ The tools they have do not fit that:
 
 1. Add a tune with its key, tuning, and other attributes.
 2. Mark it known, learning, or want to learn.
-3. Paste links to recordings of it, or record it.
+3. Find or paste links to recordings of it, or record it.
 4. At the jam, filter the catalog by key, tap the tune, hear it.
 
 Everything else supports this loop.
@@ -51,6 +51,11 @@ for Android and every browser. The parts that matter:
   SoundCloud, the Internet Archive, or any site. The app resolves title and
   artwork. Supported providers play in an in-app dock; every link also opens
   the provider.
+- Find recordings. From a tune, pick one of the musician's chosen services
+  and search it. Apple Music, TIDAL, and Internet Archive results play in
+  place and link with one tap. YouTube, Spotify, Bandcamp, and SoundCloud
+  open their own search page. With one service chosen, the tune goes
+  straight to it. Search needs a connection.
 - Recordings. Record with the phone's microphone or upload audio. A
   recording is filed under a tune or waits unfiled. It plays at once, uploads
   in the background, and reaches the musician's other devices. A recording
@@ -63,6 +68,8 @@ for Android and every browser. The parts that matter:
 - Instruments. The musician records which instruments they play, from
   those with a per-tune tuning. Tuning fields and filters appear only for
   those.
+- Music services. The musician chooses which services Find recordings
+  offers. All seven start chosen. The choice syncs like every setting.
 - Appearance. Light, dark, or system, and a text size: three sizes on the
   web, the device's size shifted up or down on Apple. Per device.
 - Offline. The full catalog is on the device. Reads and writes work offline
@@ -74,7 +81,6 @@ for Android and every browser. The parts that matter:
 
 Each has a place in the data model and no code:
 
-- Search of streaming catalogs from inside the app
 - A shared canonical catalog across users, with deduplication
 - Sharing tunes, lists, and recordings between users
 - Sheet music and chord charts

@@ -30,7 +30,8 @@ import { useLoops } from '../practice/useLoops'
 import { recordingTitle } from '../recordings/recordingRow'
 import { useRecordingScreen } from '../recording-screen/useRecordingScreen'
 import { embedFor, type Embed } from './embed'
-import { dockHeight, VIDEO_HEIGHT_PX } from './playerHeight'
+import { EmbedFrame } from './EmbedFrame'
+import { dockHeight } from './playerHeight'
 import { usePlaybackEngine } from './PlaybackEngineProvider'
 import { playbackWindow, type PlaybackWindow } from './playbackWindow'
 import { useCurrentAudio } from './useCurrentAudio'
@@ -434,8 +435,6 @@ export function Dock() {
     return () => cancelAnimationFrame(frame)
   }, [item, returnFocus])
 
-  const embedHeight = next?.kind === 'link' ? next.embed.height : undefined
-  const frameHeight = embedHeight === 'video' ? VIDEO_HEIGHT_PX : embedHeight
   const height =
     next === null
       ? null
@@ -507,19 +506,7 @@ export function Dock() {
             </IonButton>
           </div>
           {next.kind === 'link' ? (
-            // A new src navigates the frame anyway; a fresh element also makes the frame take
-            // its sandbox and allow flags before that navigation starts.
-            <iframe
-              key={next.embed.src}
-              src={next.embed.src}
-              title={title}
-              allow={next.embed.allow}
-              sandbox={next.embed.sandbox}
-              height={frameHeight}
-              className={
-                embedHeight === 'video' ? 'mx-auto block w-full max-w-[356px]' : 'block w-full'
-              }
-            />
+            <EmbedFrame embed={next.embed} title={title} />
           ) : (
             <RecordingBody
               key={next.recording.id}

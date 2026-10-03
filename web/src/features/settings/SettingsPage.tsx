@@ -5,6 +5,7 @@ import { APP_VERSION } from '../../version'
 import { AccountGroup } from './AccountGroup'
 import { AppearanceGroup } from './AppearanceGroup'
 import { InstrumentsGroup } from './InstrumentsGroup'
+import { MusicServicesGroup } from './MusicServicesGroup'
 import { RecordingGroup } from './RecordingGroup'
 import { SyncGroup } from './SyncGroup'
 
@@ -14,6 +15,7 @@ export function SettingsPage() {
       <h1 className="sr-only">Settings</h1>
       <AccountGroup />
       <InstrumentsGroup />
+      <MusicServicesGroup />
       <AppearanceGroup />
       <RecordingGroup />
       <SyncGroup />

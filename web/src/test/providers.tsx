@@ -22,6 +22,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     transferStatus: () => 'idle',
     subscribeTransfer: () => () => {},
     resolveLink: async () => null,
+    searchRecordings: async () => ({ kind: 'failed' }),
     download: async () => null,
     peaks: async () => null,
     retry: async () => {},

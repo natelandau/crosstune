@@ -9,6 +9,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly problem: Problem | null,
+    /** Whole seconds from a `Retry-After` header, or null when absent or not a number of seconds. */
+    readonly retryAfterSeconds: number | null = null,
   ) {
     super(problem?.detail ?? `API request failed with status ${status}`)
     this.problemType = problem?.type ?? null
@@ -131,6 +133,11 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async resolveLink(url) {
       return unwrap(client.POST('/v1/links/resolve', { body: { url } }))
     },
+    async searchRecordings(q, providers, country) {
+      return unwrap(
+        client.GET('/v1/links/search', { params: { query: { q, providers, country } } }),
+      )
+    },
     async me() {
       return unwrap(client.GET('/v1/me'))
     },
@@ -202,7 +209,15 @@ async function unwrapEmpty(pending: Promise<ApiResult>): Promise<void> {
 }
 
 function apiError(result: ApiResult): ApiError {
-  return new ApiError(result.response.status, isProblem(result.error) ? result.error : null)
+  return new ApiError(
+    result.response.status,
+    isProblem(result.error) ? result.error : null,
+    parseRetryAfter(result.response.headers.get('Retry-After')),
+  )
+}
+
+function parseRetryAfter(value: string | null): number | null {
+  return value !== null && /^\d+$/.test(value.trim()) ? Number(value) : null
 }
 
 // fetch signals an unreachable server with a bare TypeError, which is also what any

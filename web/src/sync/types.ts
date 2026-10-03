@@ -1,6 +1,14 @@
-import type { ResolveResponse, SyncApi } from '../api/types'
+import type { ResolveResponse, SearchGroup, SyncApi } from '../api/types'
+import type { Provider } from '../api/vocabulary'
 
 export type { SyncApi }
+
+/** A 429 is its own kind so the caller can show the wait; every other failure is `failed`. */
+export type SearchOutcome =
+  | { kind: 'ok'; groups: SearchGroup[] }
+  | { kind: 'offline' }
+  | { kind: 'rate_limited'; retryAfterSeconds: number }
+  | { kind: 'failed' }
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'unauthorized' | 'error'
 
@@ -17,6 +25,7 @@ export interface SyncEngine {
   transferStatus(): TransferStatus
   subscribeTransfer(listener: (status: TransferStatus) => void): () => void
   resolveLink(url: string): Promise<ResolveResponse | null>
+  searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchOutcome>
   /** Fetch one recording's audio now, storing it locally. Null when it cannot be fetched. */
   download(recordingId: string): Promise<Blob | null>
   /** Fetch one recording's waveform now, storing it locally. Null when it cannot be fetched. */

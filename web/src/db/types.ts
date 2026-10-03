@@ -9,7 +9,7 @@ import type {
   UserSettingsRow,
   UserTuneRow,
 } from '../api/types'
-import { INSTRUMENTS, type Instrument } from '../api/vocabulary'
+import { INSTRUMENTS, type Instrument, type Provider } from '../api/vocabulary'
 
 export type { TableName }
 
@@ -57,6 +57,44 @@ export function storedInstruments(
 ): readonly string[] | null {
   if (!row || row.deleted_at || !Array.isArray(row.instruments)) return null
   return [...new Set(row.instruments)]
+}
+
+/**
+ * Every provider a tune can be searched on, all but the generic `other` link, in the order the
+ * API groups results: services that play inline first. Stored lists and summaries follow it, as
+ * the server and the Apple client do.
+ */
+export const SEARCHABLE_PROVIDERS: readonly Provider[] = [
+  'apple_music',
+  'tidal',
+  'internet_archive',
+  'youtube',
+  'spotify',
+  'bandcamp',
+  'soundcloud',
+]
+
+/**
+ * Every service value a settings row holds: known searchable ones in that order, then
+ * values this client does not know, so a newer client's choice survives a write. `other` is
+ * never kept. A missing row or field means every searchable service; an empty list stays empty.
+ */
+export function storedSearchProviderValues(row: LocalUserSettings | null | undefined): string[] {
+  if (!row || row.deleted_at || !Array.isArray(row.search_providers)) {
+    return [...SEARCHABLE_PROVIDERS]
+  }
+  const chosen = new Set<string>(row.search_providers)
+  const known = SEARCHABLE_PROVIDERS.filter((provider) => chosen.has(provider))
+  const unknown = [...chosen].filter(
+    (value) => value !== 'other' && !SEARCHABLE_PROVIDERS.some((provider) => provider === value),
+  )
+  return [...known, ...unknown]
+}
+
+/** The known services a settings row searches, in provider order. */
+export function storedSearchProviders(row: LocalUserSettings | null | undefined): Provider[] {
+  const values = new Set(storedSearchProviderValues(row))
+  return SEARCHABLE_PROVIDERS.filter((provider) => values.has(provider))
 }
 
 export interface LocalRows {

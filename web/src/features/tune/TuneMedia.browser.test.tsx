@@ -1,6 +1,6 @@
 import { IonContent, IonPage } from '@ionic/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { addLink } from '../../commands/links'
 import { updateRecording } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
@@ -10,6 +10,18 @@ import { menuItem } from '../../test/dialogs'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderScreen } from '../../test/ionic'
 import { recordingRow } from '../../test/rows'
+import type { Provider } from '../../api/vocabulary'
+import { toggleSearchProvider } from '../../commands/settings'
+import type { SyncEngine } from '../../sync/types'
+import { fakeEngine } from '../../test/providers'
+import {
+  FIND_RECORDINGS,
+  SEARCH_FAILED,
+  SEARCH_NEEDS_CONNECTION,
+  searchService,
+} from '../links/findRecordingsCopy'
+import { deviceCountry } from '../links/region'
+import { SEARCHABLE_PROVIDERS } from '../settings/searchProviders'
 import { ADD_LINK, PASTE_LINK } from '../links/PasteLinkSheet'
 import { NEW_RECORDING } from '../recording/RecordModal'
 import type * as RecordModule from '../recording/useRecord'
@@ -81,7 +93,7 @@ function Host() {
   return <TuneMedia tuneId={tuneId} recordings={recordings} links={view.links} />
 }
 
-function show() {
+function show(engine?: SyncEngine) {
   renderScreen(
     <IonPage>
       <IonContent>
@@ -90,14 +102,32 @@ function show() {
         </RecordProvider>
       </IonContent>
     </IonPage>,
-    { db, path: `/catalog/${tuneId}`, route: '/catalog/:tuneId' },
+    { db, engine, path: `/catalog/${tuneId}`, route: '/catalog/:tuneId' },
   )
+}
+
+async function onlyChoose(chosen: Provider) {
+  for (const provider of SEARCHABLE_PROVIDERS) {
+    if (provider !== chosen) await toggleSearchProvider(db, 'user_1', provider, false)
+  }
 }
 
 const youtube = {
   url: 'https://youtu.be/dQw4w9WgXcQ',
   provider: 'youtube' as const,
   provider_ref: 'dQw4w9WgXcQ',
+}
+
+/**
+ * Dismisses the Add recording menu if it is still up and opens it again. The menu opens only
+ * once the one before it has dismissed and run its chosen item, so once it is back, whatever
+ * the earlier tap set off has run.
+ */
+async function reopenMenu() {
+  await userEvent.keyboard('{Escape}')
+  await expect.poll(() => document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull()
+  await page.getByRole('button', { name: ADD_RECORDING }).click()
+  await expect.element(await menuItem(PASTE_LINK)).toBeVisible()
 }
 
 const sectionHeaders = () => Array.from(document.querySelectorAll('h2')).map((h) => h.textContent)
@@ -292,7 +322,7 @@ describe('TuneMedia', () => {
     await add.click()
     // A glyph reads as nothing aloud and, on a tune synced from another device, the empty
     // state that names these is never seen. The menu is where the words are.
-    for (const label of [NEW_RECORDING, PASTE_LINK]) {
+    for (const label of [NEW_RECORDING, PASTE_LINK, FIND_RECORDINGS]) {
       await expect.element(await menuItem(label)).toBeVisible()
     }
   })
@@ -304,6 +334,124 @@ describe('TuneMedia', () => {
     await add.click()
     await (await menuItem(PASTE_LINK)).click()
     await expect.element(page.getByRole('textbox', { name: 'Link' })).toBeVisible()
+  })
+
+  it('opens the find recordings sheet from the menu', async () => {
+    show()
+    await page.getByRole('button', { name: ADD_RECORDING }).click()
+    await (await menuItem(FIND_RECORDINGS)).click()
+    await expect.element(page.getByRole('dialog', { name: FIND_RECORDINGS })).toBeVisible()
+  })
+
+  it('opens straight on the one chosen service the app searches, and searches it', async () => {
+    await onlyChoose('tidal')
+    const searchRecordings = vi.fn<SyncEngine['searchRecordings']>(async () => ({
+      kind: 'ok',
+      groups: [],
+    }))
+    show(fakeEngine({ searchRecordings }))
+    await page.getByRole('button', { name: ADD_RECORDING }).click()
+    const tidal = await menuItem(searchService('TIDAL'))
+    await expect.element(tidal).toBeVisible()
+    expect(page.getByText(FIND_RECORDINGS, { exact: true }).elements()).toHaveLength(0)
+    await tidal.click()
+    await expect.element(page.getByRole('dialog', { name: 'TIDAL' })).toBeVisible()
+    await vi.waitFor(() => expect(searchRecordings).toHaveBeenCalledOnce())
+    expect(searchRecordings.mock.calls[0]![0]).toBe("Soldier's Joy")
+    expect(searchRecordings.mock.calls[0]![1]).toEqual(['tidal'])
+  })
+
+  it("opens the one chosen service's own search page, with no sheet", async () => {
+    await onlyChoose('spotify')
+    const spotifySearch = 'https://open.spotify.com/search/soldier'
+    const tab = {
+      opener: {} as unknown,
+      document: document.implementation.createHTMLDocument(),
+      close: vi.fn(),
+    }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    const searchRecordings = vi.fn<SyncEngine['searchRecordings']>(async () => ({
+      kind: 'ok',
+      groups: [
+        { provider: 'spotify', status: 'search_only', results: [], search_url: spotifySearch },
+      ],
+    }))
+    try {
+      show(fakeEngine({ searchRecordings }))
+      await page.getByRole('button', { name: ADD_RECORDING }).click()
+      await (await menuItem(searchService('Spotify'))).click()
+      await vi.waitFor(() => expect(tab.document.querySelector('a')?.href).toBe(spotifySearch))
+      await expect.poll(() => open.mock.calls.length).toBe(1)
+      expect(searchRecordings).toHaveBeenCalledWith("Soldier's Joy", ['spotify'], deviceCountry())
+      await reopenMenu()
+      expect(document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull()
+    } finally {
+      open.mockRestore()
+    }
+  })
+
+  it("says why the one chosen service's search page couldn't open", async () => {
+    await onlyChoose('spotify')
+    const tab = { opener: {} as unknown, close: vi.fn(), closed: false }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    try {
+      show(fakeEngine({ searchRecordings: async () => ({ kind: 'failed' }) }))
+      await page.getByRole('button', { name: ADD_RECORDING }).click()
+      await (await menuItem(searchService('Spotify'))).click()
+      await expect.element(page.getByText(SEARCH_FAILED)).toBeVisible()
+    } finally {
+      open.mockRestore()
+    }
+  })
+
+  it('refuses to find recordings offline, saying why on the item', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    try {
+      show()
+      await page.getByRole('button', { name: ADD_RECORDING }).click()
+      const item = await menuItem(FIND_RECORDINGS)
+      await expect.element(item).toBeVisible()
+      await expect.element(await menuItem(SEARCH_NEEDS_CONNECTION)).toBeVisible()
+      await item.click()
+      await reopenMenu()
+      expect(page.getByRole('dialog', { name: FIND_RECORDINGS }).elements()).toHaveLength(0)
+    } finally {
+      onLine.mockRestore()
+    }
+  })
+
+  it('refuses a lone search-only service offline, saying why on the item', async () => {
+    await onlyChoose('spotify')
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const open = vi.spyOn(window, 'open')
+    try {
+      show()
+      await page.getByRole('button', { name: ADD_RECORDING }).click()
+      const item = await menuItem(searchService('Spotify'))
+      await expect.element(item).toBeVisible()
+      await expect.element(await menuItem(SEARCH_NEEDS_CONNECTION)).toBeVisible()
+      await item.click()
+      await reopenMenu()
+      expect(open).not.toHaveBeenCalled()
+    } finally {
+      onLine.mockRestore()
+      open.mockRestore()
+    }
+  })
+
+  it('opens nothing for a lone search-only service when the tune has no name to search', async () => {
+    await onlyChoose('spotify')
+    await db.tunes.update(tuneId, { title: '   ' })
+    const open = vi.spyOn(window, 'open')
+    try {
+      show()
+      await page.getByRole('button', { name: ADD_RECORDING }).click()
+      await (await menuItem(searchService('Spotify'))).click()
+      await reopenMenu()
+      expect(open).not.toHaveBeenCalled()
+    } finally {
+      open.mockRestore()
+    }
   })
 
   it('keeps the header text legible beside its control at 320px', async () => {

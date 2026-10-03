@@ -1,4 +1,5 @@
 import type { components } from './schema'
+import type { Provider } from './vocabulary'
 
 type Schemas = components['schemas']
 
@@ -9,6 +10,9 @@ export type PullResponse = Schemas['PullResponse']
 export type ChangeResult = PushResponse['results'][number]
 export type PullRow = PullResponse['rows'][number]
 export type ResolveResponse = Schemas['ResolveResponse']
+export type SearchResponse = Schemas['SearchResponse']
+export type SearchGroup = Schemas['SearchGroup']
+export type SearchResult = Schemas['SearchResult']
 export type Problem = Schemas['Problem']
 
 export type TuneRow = Schemas['TuneRow']
@@ -29,6 +33,7 @@ export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>
   pull(since: number): Promise<PullResponse>
   resolveLink(url: string): Promise<ResolveResponse>
+  searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
   me(): Promise<MeResponse>
   deleteAccount(): Promise<void>
   requestUploadSlot(recordingId: string, body: UploadSlotRequest): Promise<SignedUrl>

@@ -18,6 +18,7 @@ import {
 } from 'react'
 import { usePointer } from '../platform/pointer'
 import { CANCEL } from './Confirm'
+import { iconSource } from './iconSource'
 import { DISABLED_ITEM } from './menuCopy'
 
 export const MORE_ACTIONS = 'More actions'
@@ -28,6 +29,17 @@ export interface MenuItem {
   tone?: 'neutral' | 'warning' | 'error'
   /** Why the item cannot be used right now; it stays in the menu, disabled, with this reason. */
   disabled?: string
+  /**
+   * Why the item cannot run now. It keeps its name and its tap, shows this under its label, and
+   * a tap leaves the menu open and runs nothing, the way a control that needs the network
+   * refuses offline rather than disabling.
+   */
+  refused?: string
+  /**
+   * Runs during the tap, while the menu is still up, rather than once it has dismissed. A
+   * browser lets a page open a tab only while it handles a tap, and the dismissal outlasts that.
+   */
+  opensTab?: boolean
   onPress: () => void
 }
 
@@ -62,12 +74,12 @@ function PopoverMenu({
               disabled={!!item.disabled}
               className={TONE_CLASS[item.tone ?? 'neutral']}
               onClick={() => {
-                if (!item.disabled) onChoose(item)
+                if (!item.disabled && !item.refused) onChoose(item)
               }}
             >
               <IonLabel>
                 <span data-menu-label>{item.label}</span>
-                {item.disabled ? <p>{item.disabled}</p> : null}
+                {item.disabled || item.refused ? <p>{item.disabled ?? item.refused}</p> : null}
               </IonLabel>
               {item.icon ? <item.icon aria-hidden className="size-5" slot="end" /> : null}
             </IonItem>
@@ -105,7 +117,8 @@ export function useMenu(): (
   // Stable for the component's life, so componentProps only changes identity when the items
   // it shows actually change; the effect below keeps the dismiss it calls current.
   const onChoose = useCallback((item: MenuItem) => {
-    chosen.current = item.onPress
+    if (item.opensTab) item.onPress()
+    else chosen.current = item.onPress
     dismissRef.current()
   }, [])
   const popoverProps = useMemo(() => ({ ...menu, onChoose }), [menu, onChoose])
@@ -146,9 +159,12 @@ export function useMenu(): (
         // A top border on the first destructive item marks the boundary, since the action sheet
         // only groups its own cancel button natively.
         const firstDestructive = nextItems.findIndex((item) => item.tone === 'error')
+        // A sheet's button holds one line of text, so the reasons sit under the header instead.
+        const refusals = nextItems.flatMap((item) => (item.refused ? [item.refused] : []))
         waitForDismiss((onDidDismiss) =>
           presentSheet({
             header: title,
+            subHeader: refusals.length > 0 ? [...new Set(refusals)].join(' ') : undefined,
             onDidDismiss,
             buttons: [
               ...nextItems.map((item, index) => {
@@ -159,10 +175,15 @@ export function useMenu(): (
                 return {
                   text: item.disabled ? DISABLED_ITEM(item.label, item.disabled) : item.label,
                   disabled: !!item.disabled,
+                  icon: item.icon ? iconSource(item.icon) : undefined,
                   role: item.tone === 'error' ? ('destructive' as const) : undefined,
                   cssClass: classes.length > 0 ? classes : undefined,
+                  htmlAttributes: item.refused ? { 'aria-description': item.refused } : undefined,
+                  // False keeps the sheet up, so a refused tap leaves the reason in view.
                   handler: () => {
-                    chosen.current = item.onPress
+                    if (item.refused) return false
+                    if (item.opensTab) item.onPress()
+                    else chosen.current = item.onPress
                   },
                 }
               }),
