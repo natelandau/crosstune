@@ -226,6 +226,16 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The Apple app plays the same embed in a `WKWebView` that loads a local
   HTML page holding one iframe pointed at that URL, so nothing here reaches
   the network either. Playback is refused while a take is recording.
+- The Apple app plays an Apple Music song or album link through MusicKit's
+  `ApplicationMusicPlayer` when three conditions hold. The device allows
+  Apple Music access, the account subscribes, and the catalog has the track
+  in the account's storefront. Otherwise the link plays in its embed.
+- MusicKit uses the Apple Account signed in on the device. The device asks
+  for access on the first Apple Music play. Access never syncs, and nothing
+  reaches the Crosstune API.
+- Closing the player, or starting a take, empties the MusicKit queue.
+  MusicKit answers the system's remote commands itself, and an empty queue
+  gives them nothing to start.
 
 ## Recordings
 

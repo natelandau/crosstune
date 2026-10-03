@@ -513,6 +513,10 @@ equivalent below.
 - Native motion (SwiftUI transitions, symbol effects, haptics) is allowed
   beyond the record control and the waveform, but nothing animates under
   Reduce Motion.
+- An Apple Music link that MusicKit plays starts in the bar like a
+  recording, with play and pause in the bar. It does not open in full. Its
+  full player shows the artwork, a scrubber, and skips, plus previous and
+  next track for an album. A link in its embed opens in full as on the web.
 - The record dome and the menu commands that open a sheet stand down while
   a sheet, dialog, or file picker is up. The record control and the Record
   command also stand down while a screen is selecting.
