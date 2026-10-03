@@ -74,12 +74,6 @@ extension PlayerItem {
     }
 }
 
-/// Which view the recording screen opens on.
-public enum RecordingScreenView: Hashable, Sendable {
-    case recording
-    case practice
-}
-
 /// Where a loaded recording's audio stands.
 public enum RecordingAudio: Equatable, Sendable {
     /// Looking for the audio on this device, or fetching it from the server.
@@ -182,15 +176,12 @@ public final class PlayerModel {
         didSet {
             guard oldValue && !isExpanded else { return }
             expandedWindow = nil
-            opening = nil
             flushSettings()
             releaseHolds()
         }
     }
     /// The window that asked for the player in full, or nil when any window may show it.
     public private(set) var expandedWindow: UUID?
-    /// The view the recording screen was asked to open on, until it takes the request.
-    public private(set) var opening: RecordingScreenView?
     /// The loaded recording's loops, the selected one, and Repeat.
     public let loops: LoopPlayback
     /// Where the loaded recording's audio stands; nil unless a recording is loaded.
@@ -273,29 +264,15 @@ public final class PlayerModel {
         return true
     }
 
-    /// Shows a recording's screen in `window` on `view`, starting the recording first when it
+    /// Shows a recording's screen in `window`, starting the recording first when it
     /// is not the one loaded. Refused, returning false, while a take is being recorded.
     @discardableResult
-    public func open(_ item: PlayerItem, in window: UUID? = nil, view: RecordingScreenView = .recording) -> Bool {
+    public func open(_ item: PlayerItem, in window: UUID? = nil) -> Bool {
         if !holds(item.kind, id: item.id) {
             guard play(item) else { return false }
         }
         expand(in: window)
-        opening = view == .recording ? nil : view
         return true
-    }
-
-    /// Shows the loaded recording's screen in `window`, on Practice.
-    public func openPractice(in window: UUID? = nil) {
-        guard item?.kind == .recording else { return }
-        expand(in: window)
-        opening = .practice
-    }
-
-    /// The view the recording screen was asked to open on, once: taking it clears it.
-    public func takeOpening() -> RecordingScreenView? {
-        defer { opening = nil }
-        return opening
     }
 
     /// Shows the loaded item's player in full in `window`, or in any window when nil.

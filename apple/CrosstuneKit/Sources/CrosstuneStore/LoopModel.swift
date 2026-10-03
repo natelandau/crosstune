@@ -31,10 +31,24 @@ public enum LoopModel {
     public static let colorCount = 6
     public static let snapPoints: Double = 8
     public static let dragThreshold: Double = 8
+    /// Padding on each side of the playhead for a new loop.
+    public static let newLoopPad: Int64 = 4000
 
     public enum Edge: Sendable {
         case start
         case end
+    }
+
+    public enum Direction: Sendable {
+        case previous
+        case next
+    }
+
+    public enum NewLoop: Equatable, Sendable {
+        case span(LoopSpan)
+        case inside(id: String)
+        case noRoom
+        case atCap
     }
 
     private static func clamped(_ value: Int64, _ low: Int64, _ high: Int64) -> Int64 {
@@ -46,21 +60,6 @@ public enum LoopModel {
         let start = max(span.startMs, bounds.startMs)
         let end = min(span.endMs, bounds.endMs)
         return end - start < minLoopMs ? nil : LoopSpan(startMs: start, endMs: end)
-    }
-
-    /// The span between an anchor and a pointer, widened to the minimum length and held inside the bounds.
-    public static func fromDrag(anchor: Int64, pointer: Int64, bounds: LoopSpan) -> LoopSpan {
-        let low = clamped(min(anchor, pointer), bounds.startMs, bounds.endMs)
-        let high = clamped(max(anchor, pointer), bounds.startMs, bounds.endMs)
-        if high - low >= minLoopMs { return LoopSpan(startMs: low, endMs: high) }
-        let end = min(low + minLoopMs, bounds.endMs)
-        return LoopSpan(startMs: end - minLoopMs, endMs: end)
-    }
-
-    /// Slides a span by a delta, keeping its length and stopping at the bounds.
-    public static func move(_ span: LoopSpan, by delta: Int64, bounds: LoopSpan) -> LoopSpan {
-        let applied = clamped(delta, bounds.startMs - span.startMs, bounds.endMs - span.endMs)
-        return LoopSpan(startMs: span.startMs + applied, endMs: span.endMs + applied)
     }
 
     /// Drags one edge to a new time, keeping the minimum length and staying inside the bounds.
@@ -94,16 +93,49 @@ public enum LoopModel {
         return a.id < b.id
     }
 
-    /// Greedy interval partitioning: each loop takes the lowest row that is free by its start.
-    public static func stackRows(_ loops: [PlacedLoop]) -> [String: Int] {
-        var rows: [String: Int] = [:]
-        var rowEnds: [Int64] = []
-        for loop in loops.sorted(by: byPosition) {
-            let row = rowEnds.firstIndex { $0 <= loop.span.startMs } ?? rowEnds.count
-            if row == rowEnds.count { rowEnds.append(loop.span.endMs) } else { rowEnds[row] = loop.span.endMs }
-            rows[loop.id] = row
+    /// The loop holding `ms`; a seam between flush loops belongs to the one that starts there.
+    public static func loop(at ms: Int64, in loops: [PlacedLoop]) -> PlacedLoop? {
+        loops.first { $0.span.startMs <= ms && ms < $0.span.endMs }
+    }
+
+    /// The free span around `span`, up to its neighbors or the bounds. Loops are sorted by start.
+    public static func room(around span: LoopSpan, in loops: [PlacedLoop], bounds: LoopSpan) -> LoopSpan {
+        var start = bounds.startMs
+        var end = bounds.endMs
+        for other in loops {
+            if other.span.endMs <= span.startMs {
+                start = max(start, other.span.endMs)
+            } else if other.span.startMs >= span.endMs {
+                end = min(end, other.span.startMs)
+            }
         }
-        return rows
+        return LoopSpan(startMs: start, endMs: end)
+    }
+
+    /// The free span around a point outside every loop; nil when the point is inside one.
+    public static func freeGap(at ms: Int64, in loops: [PlacedLoop], bounds: LoopSpan) -> LoopSpan? {
+        if loop(at: ms, in: loops) != nil { return nil }
+        return room(around: LoopSpan(startMs: ms, endMs: ms), in: loops, bounds: bounds)
+    }
+
+    /// Where New loop would go: padded around the playhead and held inside the free gap.
+    public static func newLoop(at playheadMs: Int64, in loops: [PlacedLoop], bounds: LoopSpan) -> NewLoop {
+        if loops.count >= maxLoops { return .atCap }
+        if let inside = loop(at: playheadMs, in: loops) { return .inside(id: inside.id) }
+        guard let gap = freeGap(at: playheadMs, in: loops, bounds: bounds) else { return .noRoom }
+        let start = max(gap.startMs, playheadMs - newLoopPad)
+        let end = min(gap.endMs, playheadMs + newLoopPad)
+        return end - start < minLoopMs ? .noRoom : .span(LoopSpan(startMs: start, endMs: end))
+    }
+
+    /// The next loop starting after the playhead, or the previous one starting before it, never the selected loop.
+    public static func adjacent(
+        _ direction: Direction, from playheadMs: Int64, in loops: [PlacedLoop], selectedID: String?
+    ) -> PlacedLoop? {
+        switch direction {
+        case .next: loops.first { $0.span.startMs > playheadMs }
+        case .previous: loops.last { $0.span.startMs < playheadMs && $0.id != selectedID }
+        }
     }
 
     /// The color slot least used among nearby loops, then across all loops, then lowest index.

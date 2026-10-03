@@ -1,10 +1,5 @@
+import CrosstuneStore
 import Foundation
-
-/// A stretch of time in ms, fractional where a zoom or a pointer puts it between whole ms.
-struct TimeSpan: Equatable, Sendable {
-    var startMs: Double
-    var endMs: Double
-}
 
 /// What a zoom is held inside: the view's width in points and the trimmed recording's length.
 struct ZoomFrame: Equatable, Sendable {
@@ -12,19 +7,19 @@ struct ZoomFrame: Equatable, Sendable {
     var lengthMs: Double
 }
 
-/// The zoomed view as a scale and the time at its center, both on the trimmed timeline. A scale
-/// rather than a window, so a wider screen (a phone turned on its side) shows more seconds at
-/// the same detail. Mirrors the web's `practiceZoom.ts`.
-struct PracticeZoom: Equatable, Sendable {
-    var pointsPerSecond: Double
-    var centerMs: Double
-
+/// The zoom as a scale in points per second, around a playhead that is always the view's
+/// center. A scale rather than a window, so a wider screen (a phone turned on its side) shows
+/// more seconds at the same detail. Mirrors the web's `practiceZoom.ts`.
+enum PracticeZoom {
     /// Four points for each 20 ms peak, past which the bars only repeat themselves.
     static let maxPointsPerSecond: Double = 200
     /// How much of the recording the view shows when there is no loop to fit.
     static let openingSpanMs: Double = 30_000
     /// The margin a fitted span keeps on each side, as a share of its length.
     static let fitMargin = 0.1
+
+    /// The time constant of the exponential decay a released drag coasts on.
+    static let glideTauMs: Double = 325
 
     private static func clamp(_ value: Double, _ low: Double, _ high: Double) -> Double {
         min(max(value, low), high)
@@ -36,58 +31,46 @@ struct PracticeZoom: Equatable, Sendable {
         return min(maxPointsPerSecond, width / (lengthMs / 1000))
     }
 
-    func visibleSpan(width: Double) -> TimeSpan {
-        let half = width / pointsPerSecond * 1000 / 2
-        return TimeSpan(startMs: centerMs - half, endMs: centerMs + half)
+    /// The playhead's new position after dragging `dx` points; dragging right moves back in time.
+    static func scrub(from: Int64, dx: Double, pointsPerSecond: Double, lengthMs: Int64) -> Int64 {
+        let moved = Double(from) - dx / pointsPerSecond * 1000
+        return min(max(Int64(moved.rounded()), 0), lengthMs)
     }
 
-    /// Held to the scale limits, with the view kept inside the recording.
-    func clamped(to frame: ZoomFrame) -> PracticeZoom {
-        let scale = Self.clamp(
-            pointsPerSecond, Self.minPointsPerSecond(width: frame.width, lengthMs: frame.lengthMs),
-            Self.maxPointsPerSecond)
-        let half = frame.width / scale * 1000 / 2
-        let center =
-            half * 2 >= frame.lengthMs ? frame.lengthMs / 2 : Self.clamp(centerMs, half, frame.lengthMs - half)
-        return PracticeZoom(pointsPerSecond: scale, centerMs: center)
+    /// The distance in ms a release at `velocity` points per second still travels.
+    static func glide(velocity: Double, pointsPerSecond: Double) -> Int64 {
+        Int64((-velocity * glideTauMs / pointsPerSecond).rounded())
     }
 
-    /// Zooms by `factor`, keeping `anchorMs` at the same place on screen.
-    func zoomed(by factor: Double, around anchorMs: Double, in frame: ZoomFrame) -> PracticeZoom {
-        let scale = Self.clamp(
-            pointsPerSecond * factor, Self.minPointsPerSecond(width: frame.width, lengthMs: frame.lengthMs),
-            Self.maxPointsPerSecond)
-        let applied = scale / pointsPerSecond
-        return PracticeZoom(pointsPerSecond: scale, centerMs: anchorMs + (centerMs - anchorMs) / applied)
-            .clamped(to: frame)
+    /// A view centered on `centerMs`, never clamped, so the ends of the recording show blank.
+    static func view(pointsPerSecond: Double, centerMs: Int64, width: Double, trimStartMs: Int64) -> LaneView {
+        LaneView(
+            startMs: Double(centerMs) - width / 2 / pointsPerSecond * 1000, pointsPerSecond: pointsPerSecond,
+            width: width, trimStartMs: trimStartMs)
     }
 
-    func panned(by deltaMs: Double, in frame: ZoomFrame) -> PracticeZoom {
-        PracticeZoom(pointsPerSecond: pointsPerSecond, centerMs: centerMs + deltaMs).clamped(to: frame)
+    /// The scale that frames `span` around a centered playhead at `playheadMs` (source timeline),
+    /// with the fit margin past its farther end. A playhead outside the span is taken at the
+    /// span's start, where Fit moves it. Held to the maximum scale; the caller applies the minimum.
+    static func fitScale(span: LoopSpan, playheadMs: Int64, width: Double) -> Double {
+        let at = playheadMs >= span.startMs && playheadMs < span.endMs ? playheadMs : span.startMs
+        let reachMs = Double(max(at - span.startMs, span.endMs - at)) + fitMargin * Double(span.endMs - span.startMs)
+        guard reachMs > 0 else { return maxPointsPerSecond }
+        return clamp(width / 2 / (reachMs / 1000), 0, maxPointsPerSecond)
     }
 
-    /// Frames `span` with a tenth of its length as margin on each side. Not clamped.
-    static func fit(_ span: TimeSpan, width: Double) -> PracticeZoom {
-        let length = span.endMs - span.startMs
-        let shownMs = length * (1 + 2 * fitMargin)
-        return PracticeZoom(
-            pointsPerSecond: shownMs > 0 ? width / (shownMs / 1000) : maxPointsPerSecond,
-            centerMs: span.startMs + length / 2)
+    /// Where the recording screen opens: as Fit frames the selected loop, or 30 seconds across
+    /// the view.
+    static func openingScale(loop: LoopSpan?, playheadMs: Int64, width: Double) -> Double {
+        if let loop { return fitScale(span: loop, playheadMs: playheadMs, width: width) }
+        return width / (openingSpanMs / 1000)
     }
 
-    /// Unchanged while the playhead is inside the view, so a repeating loop never moves the
-    /// screen, or turned to the page that starts at the playhead once it leaves. Not clamped.
-    func paged(toKeep playheadMs: Double, width: Double) -> PracticeZoom {
-        let shown = visibleSpan(width: width)
-        if playheadMs >= shown.startMs && playheadMs <= shown.endMs { return self }
-        return PracticeZoom(pointsPerSecond: pointsPerSecond, centerMs: playheadMs + (shown.endMs - shown.startMs) / 2)
-    }
-
-    /// Where Practice opens: fitted to the selected loop, or 30 seconds around the playhead.
-    static func opening(loop: TimeSpan?, playheadMs: Double, frame: ZoomFrame) -> PracticeZoom {
-        if let loop { return fit(loop, width: frame.width).clamped(to: frame) }
-        return PracticeZoom(pointsPerSecond: frame.width / (openingSpanMs / 1000), centerMs: playheadMs)
-            .clamped(to: frame)
+    /// `pointsPerSecond` times `factor`, held to the scale limits.
+    static func zoomScale(_ pointsPerSecond: Double, by factor: Double, frame: ZoomFrame) -> Double {
+        clamp(
+            pointsPerSecond * factor, minPointsPerSecond(width: frame.width, lengthMs: frame.lengthMs),
+            maxPointsPerSecond)
     }
 }
 

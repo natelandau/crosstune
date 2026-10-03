@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, SmallInteger, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, SmallInteger, String, text
+from sqlalchemy.dialects.postgresql import UUID, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
@@ -24,6 +24,14 @@ class RecordingLoop(SyncColumns, Base):
             name="ck_recording_loops_min_length",
         ),
         CheckConstraint(between("color", 0, LOOP_COLOR_COUNT - 1), name="ck_recording_loops_color"),
+        # Half-open ranges, so loops that touch do not overlap.
+        ExcludeConstraint(
+            ("recording_id", "="),
+            (text("int4range(start_ms, end_ms)"), "&&"),
+            name="ex_recording_loops_no_overlap",
+            using="gist",
+            where=text("deleted_at is null"),
+        ),
         Index("ix_recording_loops_user_id_server_seq", "user_id", "server_seq"),
     )
 

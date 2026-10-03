@@ -25,7 +25,7 @@ import { fakeEngine, FakeAudioElement, fakePlaybackEngine } from '../../test/pro
 import { captureRecording } from '../../test/recordings'
 import { Screen } from '../../ui/Screen'
 import { loopRow } from '../../test/rows'
-import { PRACTICE } from '../practice/practiceCopy'
+import { loopHolds } from '../practice/useLoopFollow'
 import { DOWNLOAD_FAILED } from '../recording/format'
 import { RecordProvider, useRecord } from '../recording/useRecord'
 import { Dock, PLAY_FAILED } from './Dock'
@@ -38,7 +38,7 @@ import {
   PITCH_LABEL,
   PITCH_UNAVAILABLE,
   PLAY,
-  REPEAT_LABEL,
+  REPEAT_LOOP,
   REPEATING_BADGE,
   SPEED_BADGE,
   SPEED_LABEL,
@@ -307,7 +307,7 @@ describe('Dock', () => {
       .toBeVisible()
   })
 
-  it('shows the loop it repeats, reopens Practice from it, and turns Repeat off beside it', async () => {
+  it('shows the loop it repeats and opens the recording screen from it', async () => {
     const id = await localRecording('Jam recording')
     const loop = newId()
     await db.recording_loops.put(
@@ -333,13 +333,11 @@ describe('Dock', () => {
     engine.setRepeat(true)
     const badge = dock().getByRole('button', { name: REPEATING_BADGE('B part') })
     await expect.element(badge).toBeVisible()
-    const toggle = dock().getByRole('button', { name: REPEAT_LABEL, exact: true })
+    const toggle = dock().getByRole('button', { name: REPEAT_LOOP('B part'), exact: true })
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
 
     await badge.click()
-    await expect
-      .poll(() => document.querySelector('ion-modal:not(.overlay-hidden) h2')?.textContent)
-      .toBe(PRACTICE)
+    await expect.element(page.getByRole('dialog', { name: 'Jam recording' })).toBeVisible()
     expect(engine.getState().repeat).toBe(true)
   })
 
@@ -433,7 +431,7 @@ describe('Dock', () => {
     }
   })
 
-  it('turns Repeat off from the toggle beside the badge', async () => {
+  it('clears the selection from the stop control beside the badge', async () => {
     const id = await localRecording('Jam recording')
     // A real row, since the dock drops a repeating loop it can't find.
     await db.recording_loops.put(
@@ -447,11 +445,15 @@ describe('Dock', () => {
     await expect.element(dock().getByRole('button', { name: PAUSE })).toBeVisible()
     engine.setLoop({ id: 'loop-1', label: 'B part', fromS: 0.5, toS: 2.5 })
     engine.setRepeat(true)
-    await dock().getByRole('button', { name: REPEAT_LABEL, exact: true }).click()
+    const span = { startMs: 700, endMs: 2000 }
+    loopHolds(engine).set({ id: 'loop-1', span, base: { startMs: 500, endMs: 2500 } })
+    await dock()
+      .getByRole('button', { name: REPEAT_LOOP('B part'), exact: true })
+      .click()
     await expect.poll(() => engine.getState().repeat).toBe(false)
     await expect.poll(() => dockElement()!.querySelector('[data-repeat-badge]')).toBeNull()
-    // The loop stays selected for Practice to pick up again.
-    expect(engine.getState().loop?.id).toBe('loop-1')
+    expect(engine.getState().loop).toBeNull()
+    expect(loopHolds(engine).get()).toBeNull()
   })
 
   it('formats the pitch badge in semitones, one decimal only off a whole semitone', () => {

@@ -55,11 +55,11 @@ public enum RecordingRowActions {
 
 extension View {
     /// Swipe actions and a context menu for a recording row: open it in the recording screen,
-    /// file it under a tune or take it out of one, and delete it. The context menu also opens it
-    /// on Practice; the swipe keeps to three actions. `onAddToTune` nil leaves Add to tune out,
-    /// for a list where every recording is already under the tune being looked at.
+    /// file it under a tune or take it out of one, and delete it.
+    /// `onAddToTune` nil leaves Add to tune out, for a list where every recording is already
+    /// under the tune being looked at.
     func recordingRowActions(
-        filed: Bool, onEdit: @escaping () -> Void, onPractice: @escaping () -> Void, onAddToTune: (() -> Void)?,
+        filed: Bool, onEdit: @escaping () -> Void, onAddToTune: (() -> Void)?,
         onRemoveFromTune: @escaping () -> Void, onDelete: @escaping () -> Void
     ) -> some View {
         self
@@ -73,7 +73,6 @@ extension View {
             }
             .contextMenu {
                 Button(RecordingRowActions.edit, systemImage: "slider.horizontal.3", action: onEdit)
-                Button(PracticeText.practice, systemImage: "repeat", action: onPractice)
                 filing(filed: filed, onAddToTune: onAddToTune, onRemoveFromTune: onRemoveFromTune)
                 Divider()
                 Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive, action: onDelete)

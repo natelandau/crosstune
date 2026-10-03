@@ -9,9 +9,11 @@ export const RESET = 'Reset'
 export const PANEL_ICON_BUTTON =
   'grid size-11 shrink-0 place-items-center rounded-full bg-(--fill-tertiary) disabled:opacity-40'
 
+/** A text button's shape with no color of its own, for a button that picks its own. */
+export const PANEL_TEXT_BUTTON_SHAPE = 'type-body min-h-11 rounded-full px-4 disabled:opacity-40'
+
 /** A text button, such as Reset. */
-export const PANEL_TEXT_BUTTON =
-  'type-body min-h-11 rounded-full px-4 text-(--ion-color-primary) disabled:opacity-40'
+export const PANEL_TEXT_BUTTON = `${PANEL_TEXT_BUTTON_SHAPE} text-(--ion-color-primary)`
 
 export const ZOOM_IN = 'Zoom in'
 export const ZOOM_OUT = 'Zoom out'

@@ -683,8 +683,14 @@ describe('CatalogPage', () => {
     await expect
       .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .toBeVisible()
-    ;(document.activeElement as HTMLElement | null)?.blur()
-    expect(await pressSlash()).toBe(false)
+    // The page lets / go once Ionic's leave has reached it, which can lag the new heading; a
+    // press it still caught moved focus to the search, so each try starts from nothing focused.
+    await expect
+      .poll(async () => {
+        ;(document.activeElement as HTMLElement | null)?.blur()
+        return pressSlash()
+      })
+      .toBe(false)
     expect(document.activeElement?.closest('ion-searchbar')).toBeNull()
 
     await page.getByRole('button', { name: 'Back', exact: true }).click()
@@ -692,7 +698,8 @@ describe('CatalogPage', () => {
       .element(page.getByRole('heading', { name: `Tune ${joy.tuneId}`, level: 1 }))
       .not.toBeInTheDocument()
     ;(document.activeElement as HTMLElement | null)?.blur()
-    expect(await pressSlash()).toBe(true)
+    // The page takes / back once Ionic's back transition has shown it, which can lag the heading.
+    await expect.poll(pressSlash).toBe(true)
     await vi.waitFor(() => expect(document.activeElement?.closest('ion-searchbar')).not.toBeNull())
   })
 

@@ -6,10 +6,10 @@ import CrosstuneSync
 import GRDB
 import SwiftUI
 
-/// Where the recording screen's navigation stack goes.
+/// Where the recording screen's navigation stack goes: the trim editor, the one screen of its
+/// own.
 enum RecordingRoute: Hashable {
     case trim
-    case practice
 }
 
 /// The loaded recording's stored rows, as the recording screen reads them.
@@ -42,9 +42,11 @@ private struct ScreenRows: Equatable, Sendable {
     }
 }
 
-/// The expanded player for the loaded recording: the whole trimmed recording as a scrubber, the
-/// transport, and the tools. It drives the player the bar shows, so what plays here is what the
-/// bar plays. Reads the store from the environment.
+/// The expanded player for the loaded recording: the overview, the waveform under a fixed
+/// playhead with the readout and zoom over it, the Loops, Speed, and Pitch selector, the
+/// transport, and the chosen mode's controls, with Trim and the recording's other actions in its
+/// menu. The recorded date and length are the title's subtitle. It drives the player the bar
+/// shows, so what plays here is what the bar plays. Reads the store from the environment.
 public struct RecordingScreen: View {
     private let player: PlayerModel
 
@@ -61,6 +63,7 @@ public struct RecordingScreen: View {
             Group {
                 if let loaded = rows?.value ?? nil {
                     RecordingScreenContent(player: player, rows: loaded, path: $path)
+                        .id(loaded.recording.id)
                 } else {
                     // Loading is silence.
                     Color.clear
@@ -70,6 +73,9 @@ public struct RecordingScreen: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(RecordingScreenText.close, systemImage: "xmark") { player.isExpanded = false }
                         .help(RecordingScreenText.close)
+                        // Escape belongs to the screen's chain, which closes the name field and
+                        // deselects before it closes the screen.
+                        .keyboardShortcut(nil)
                 }
             }
         }
@@ -77,7 +83,7 @@ public struct RecordingScreen: View {
             .frame(minWidth: 480, idealWidth: 560, minHeight: 600, idealHeight: 720)
         #endif
         .task(id: loadedID) {
-            // A trim or practice screen belongs to the recording it opened on.
+            // A trim screen belongs to the recording it opened on.
             path = []
             guard let store, let id = loadedID else { return }
             rows = LiveQuery(store, initial: nil) { try ScreenRows.fetch($0, id: id) }
@@ -101,10 +107,14 @@ private struct RecordingScreenContent: View {
 
     @Environment(\.store) private var store
     @Environment(\.commands) private var commands
+    @Environment(\.spacing) private var spacing
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
-    @Environment(\.playerWindow) private var window
+    /// The mode last used on this device, kept here; the screen's model is what the panel reads.
+    @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
     @State private var renaming: RecordingView?
     @State private var filing: RecordingView?
@@ -117,9 +127,11 @@ private struct RecordingScreenContent: View {
     @State private var trim: TrimModel?
     /// Why the trim screen gave way on its own, until the musician next does something here.
     @State private var trimNotice: String?
-    /// The open practice screen's model, kept until the screen has gone.
     @State private var practice: PracticeModel?
-    @FocusState private var holdsKeyboard: Bool
+    /// The natural height of everything under the waveform, which the waveform leaves room for.
+    @State private var controlsHeight: Double?
+    @FocusState private var focus: PracticeFocus?
+    @AccessibilityFocusState private var waveformFocused: Bool
 
     private struct LoadedPeaks: Equatable {
         let peaks: Peaks
@@ -140,61 +152,15 @@ private struct RecordingScreenContent: View {
     }
 
     var body: some View {
-        let recording = rows.recording
-        let ready = player.recordingAudio == .loaded && !player.audio.hasFailed
-        let length = ready ? player.audio.duration ?? 0 : Double(rows.trimmedLengthMs ?? 0) / 1000
-        let position = ready ? player.audio.elapsed : 0
-        ScrollView {
-            VStack(spacing: 20) {
-                VStack(spacing: 8) {
-                    Text(subtitle)
-                        .font(.footnote)
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                    practiceBadge
-                }
-                if let message = player.failure ?? failure {
-                    PlayerFailureText(message)
-                }
-                if let trimNotice {
-                    Text(trimNotice)
-                        .font(.footnote)
-                }
-                VStack(spacing: 4) {
-                    WaveformView(
-                        peaks: shownPeaks,
-                        length: length, position: position
-                    ) {
-                        trimNotice = nil
-                        player.audio.seek(to: $0)
-                    }
-                    .disabled(!ready)
-                    HStack {
-                        Text(PlayerTime.clock(position))
-                        Spacer()
-                        Text(PlayerTime.remaining(position, of: length))
-                    }
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                }
-                if let status = RecordingPlayerText.status(
-                    player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
-                {
-                    RecordingPlayerStatus(player: player, message: status)
-                }
-                RecordingTransport(player: player)
-                #if os(iOS)
-                    AudioRoutePicker()
-                #endif
-                ToolStrip(items: tools, onSelect: select)
+        Group {
+            if let practice {
+                screen(practice)
+            } else {
+                Color.clear
             }
-            .frame(maxWidth: 560)
-            .padding(16)
-            .frame(maxWidth: .infinity)
         }
         .navigationTitle(player.title ?? "")
+        .navigationSubtitle(subtitle)
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -207,21 +173,15 @@ private struct RecordingScreenContent: View {
                 if let trim {
                     TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: leaveTrim)
                 }
-            case .practice:
-                if let practice {
-                    PracticeScreen(model: practice, title: player.title ?? "", peaks: shownPeaks) {
-                        path.removeAll()
-                    }
-                }
             }
         }
+        .onAppear(perform: openPractice)
+        .onDisappear { practice?.leave() }
         .onChange(of: path.isEmpty) { _, isEmpty in
-            // However the pushed screen went, back swipe included, it holds nothing after.
+            // However the trim screen went, back swipe included, it holds nothing after.
             guard isEmpty else { return }
             trim?.leave()
             trim = nil
-            practice?.leave()
-            practice = nil
         }
         .onChange(of: rows.recording) { _, row in
             trim?.follow(row)
@@ -233,9 +193,8 @@ private struct RecordingScreenContent: View {
         .onChange(of: rows.partStructure) { _, parts in
             practice?.partStructure = parts
         }
-        .onChange(of: player.opening, initial: true) { _, opening in
-            guard opening != nil, player.takeOpening() == .practice else { return }
-            openPractice()
+        .onChange(of: practice?.mode) { _, chosen in
+            if let chosen { mode = chosen }
         }
         // True once a trim from elsewhere has landed, and a save under way has finished.
         .onChange(of: trim?.mustGiveWay == true) { _, mustGiveWay in
@@ -244,26 +203,9 @@ private struct RecordingScreenContent: View {
             trimNotice = RecordingScreenText.trimChangedElsewhere
             AccessibilityNotification.Announcement(RecordingScreenText.trimChangedElsewhere).post()
         }
-        .focusable()
-        .focusEffectDisabled()
-        .focused($holdsKeyboard)
-        .defaultFocus($holdsKeyboard, true)
-        // A focused text field, slider, or button keeps these keys, so this hears them only when
-        // nothing inside wants them.
-        .onKeyPress(.space, phases: .down) { _ in
-            guard ready else { return .ignored }
-            trimNotice = nil
-            player.audio.toggle()
-            return .handled
-        }
-        .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
-            guard ready else { return .ignored }
-            trimNotice = nil
-            player.audio.skip(by: press.key == .leftArrow ? -AudioPlayer.skipInterval : AudioPlayer.skipInterval)
-            return .handled
-        }
         .task(
-            id: PeaksKey(fileName: rows.file?.peaksFileName, fileRev: rows.file?.peaksRev, rowRev: recording.peaksRev)
+            id: PeaksKey(
+                fileName: rows.file?.peaksFileName, fileRev: rows.file?.peaksRev, rowRev: rows.recording.peaksRev)
         ) {
             await loadPeaks()
         }
@@ -294,6 +236,103 @@ private struct RecordingScreenContent: View {
         }
     }
 
+    /// Phone versus wide is a size decision, never width alone.
+    private var isWide: Bool {
+        #if os(macOS)
+            true
+        #else
+            horizontalSizeClass == .regular && verticalSizeClass == .regular
+        #endif
+    }
+
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+
+    private func screen(_ practice: PracticeModel) -> some View {
+        let blocker = screenBlocker
+        return VStack(spacing: spacing.stackGap) {
+            if let message = player.failure ?? failure ?? practice.failure {
+                PlayerFailureText(message)
+            }
+            if let trimNotice {
+                Text(trimNotice)
+                    .font(.footnote)
+            }
+            if blocker == nil,
+                let status = RecordingPlayerText.status(
+                    player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
+            {
+                RecordingPlayerStatus(player: player, message: status)
+            }
+            OverviewStrip(model: practice, peaks: shownPeaks)
+                .disabled(blocker != nil)
+                .opacity(blocker != nil ? 0.5 : 1)
+            PracticeWaveform(
+                model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
+            )
+            .disabled(blocker != nil)
+            .opacity(blocker != nil ? 0.5 : 1)
+            .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
+            // Outside the dimming, so the reason the screen is blocked reads at full strength.
+            .overlay(alignment: .bottom) { WaveformOverlay(model: practice, blocker: blocker) }
+            ScrollView {
+                VStack(spacing: spacing.sectionGap) {
+                    modeWidth(ModePicker(model: practice))
+                        .disabled(blocker != nil)
+                        .opacity(blocker != nil ? 0.5 : 1)
+                    PracticeControls(model: practice, blocker: blocker)
+                    modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
+                        .disabled(blocker != nil)
+                        .opacity(blocker != nil ? 0.5 : 1)
+                }
+                .onGeometryChange(for: Double.self) {
+                    $0.size.height
+                } action: {
+                    controlsHeight = $0
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            // Laid out first, so it takes its natural height and the waveform the rest; only once
+            // the waveform is at its floor does this region shrink and scroll.
+            .frame(maxHeight: controlsHeight.map { CGFloat($0) })
+            .layoutPriority(1)
+        }
+        .padding(16)
+        // The keyboard covers the controls rather than squeezing the waveform, so opening a name
+        // field leaves the waveform as it is.
+        .ignoresSafeArea(.keyboard)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($focus, equals: .screen)
+        .defaultFocus($focus, .screen)
+        .modifier(
+            PracticeKeys(
+                model: practice, focus: $focus, isBlocked: blocker != nil, onDeleted: focusWaveform,
+                onClose: close)
+        )
+        .onChange(of: focus) { _, _ in practice.commitNudge() }
+    }
+
+    /// Wide holds the mode's selector and controls to a fixed width.
+    @ViewBuilder
+    private func modeWidth(_ content: some View) -> some View {
+        if isWide {
+            content.frame(maxWidth: 440)
+        } else {
+            content
+        }
+    }
+
+    private func close() {
+        player.isExpanded = false
+    }
+
+    /// Delete loop went disabled with the loop it removed, so focus goes to the waveform rather than
+    /// to nothing.
+    private func focusWaveform() {
+        focus = .screen
+        waveformFocused = true
+    }
+
     private var shownPeaks: ShownPeaks? {
         peaks.flatMap { ShownPeaks(rows.recording, peaks: $0.peaks, peaksRev: $0.rev) }
     }
@@ -304,88 +343,64 @@ private struct RecordingScreenContent: View {
         return "\(date) · \(length)"
     }
 
-    private var tools: [ToolStripItem] {
-        let downloading = transfers?.isDownloading(rows.recording.id) == true
-        let blocker = RecordingScreenText.trimBlocker(
-            rows.recording, file: rows.file, audio: downloading ? .fetching : player.recordingAudio,
-            offline: session?.isOffline == true)
-        return ToolStripItem.recordingScreen(
-            trimBlocker: blocker, practiceBlocker: practiceBlocker, speedPercent: player.speedPercent,
-            pitchCents: player.pitchCents)
-    }
-
-    private var practiceBlocker: String? {
-        RecordingScreenText.practiceBlocker(
+    private var screenBlocker: String? {
+        RecordingScreenText.screenBlocker(
             file: rows.file, downloading: transfers?.isDownloading(rows.recording.id) == true)
     }
 
-    /// The speed and pitch away from their defaults, which opens Practice where they are set.
-    @ViewBuilder private var practiceBadge: some View {
-        if practiceBlocker == nil,
-            let badge = RecordingScreenText.practiceBadge(
-                speedPercent: player.speedPercent, pitchCents: player.pitchCents)
-        {
-            // Through the player, the way the player bar's Repeat badge opens Practice too.
-            Button {
-                trimNotice = nil
-                player.openPractice(in: window)
-            } label: {
-                SettingsBadgeLabel(text: badge)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(RecordingScreenText.practiceBadgeLabel(badge))
-        }
+    private var trimBlocker: String? {
+        let downloading = transfers?.isDownloading(rows.recording.id) == true
+        return RecordingScreenText.trimBlocker(
+            rows.recording, file: rows.file, audio: downloading ? .fetching : player.recordingAudio,
+            offline: session?.isOffline == true)
     }
 
     private var menu: some View {
         let view = rows.view
         return Menu {
-            if practiceBlocker == nil {
-                Button(PracticeText.practice, systemImage: "repeat") { act(openPractice) }
+            ForEach(RecordingMenuItem.items(inTune: view.tuneID != nil, trimBlocker: trimBlocker), id: \.self) {
+                item in
+                if item == .delete { Divider() }
+                Button(role: item == .delete ? .destructive : nil) {
+                    trimNotice = nil
+                    choose(item, view)
+                } label: {
+                    Label {
+                        Text(item.label)
+                        if let reason = item.blocker { Text(reason) }
+                    } icon: {
+                        Image(systemName: item.systemImage)
+                    }
+                }
+                .disabled(item.blocker != nil)
             }
-            Button(RecordingRowActions.rename, systemImage: "pencil") { act { renaming = view } }
-            if view.tuneID != nil {
-                Button(RecordingRowActions.removeFromTune, systemImage: "folder.badge.minus") { act(removeFromTune) }
-            } else {
-                Button(RecordingRowActions.addToTune, systemImage: "folder.badge.plus") { act { filing = view } }
-            }
-            Divider()
-            Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive) { act { deleting = view } }
         } label: {
             Label(TuneScreen.moreActions, systemImage: "ellipsis")
         }
         .help(TuneScreen.moreActions)
     }
 
-    /// Runs something the musician asked for, which puts away the trim notice.
-    private func act(_ action: () -> Void) {
-        trimNotice = nil
-        action()
-    }
-
-    private func select(_ chosen: RecordingTool) {
-        trimNotice = nil
-        switch chosen {
+    private func choose(_ item: RecordingMenuItem, _ view: RecordingView) {
+        switch item {
         case .trim: openTrim()
-        case .practice: openPractice()
+        case .rename: renaming = view
+        case .addToTune: filing = view
+        case .removeFromTune: removeFromTune()
+        case .delete: deleting = view
         }
     }
 
-    /// Pushes Practice, unless it cannot run now, when the recording's own view says why.
+    /// Makes the screen's model once the commands it writes through are at hand.
     private func openPractice() {
-        guard path.isEmpty, practiceBlocker == nil, let commands else { return }
+        guard practice == nil, let commands else { return }
         let model = PracticeModel(
-            player: player, recording: rows.recording, file: rows.file, writer: .commands(commands))
+            player: player, recording: rows.recording, file: rows.file, writer: .commands(commands), mode: mode)
         model.partStructure = rows.partStructure
         practice = model
-        trimNotice = nil
-        path.append(.practice)
     }
 
     private func openTrim() {
-        guard path.isEmpty, let commands else { return }
+        guard path.isEmpty, trimBlocker == nil, let commands else { return }
         let id = rows.recording.id
         let model = TrimModel(
             recording: rows.recording, file: rows.file,

@@ -1,15 +1,7 @@
 import { IonButton, IonButtons, IonContent, IonHeader, IonTitle, IonToolbar } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Ellipsis, X } from 'lucide-react'
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type RefObject,
-} from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useDb } from '../../db/DbProvider'
 import type { RecordingFile } from '../../db/recordings'
 import { liveTune } from '../../db/tunes'
@@ -19,10 +11,8 @@ import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { useDialogName } from '../../ui/dialogName'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
-import { isControl, isTextEntry, isTopOverlay } from '../../ui/useShortcut'
-import { ELAPSED_LABEL, REMAINING_LABEL } from '../player/transportCopy'
+import { isTopOverlay } from '../../ui/useShortcut'
 import { usePlaybackEngine } from '../player/PlaybackEngineProvider'
-import type { PlaybackEngine } from '../player/playbackEngine'
 import { useCurrentAudio } from '../player/useCurrentAudio'
 import { useRecordingDownload } from '../player/useRecordingDownload'
 import {
@@ -32,19 +22,15 @@ import {
   formatDuration,
   NOT_AVAILABLE,
 } from '../recording/format'
-import { PRACTICE_BADGE, PRACTICE_BADGE_LABEL, PracticeView } from '../practice/PracticeView'
-import { PRACTICE } from '../practice/practiceCopy'
+import { Practice } from '../practice/Practice'
 import { AddToTuneSheet } from '../recordings/AddToTuneSheet'
 import { recordedAtLabel, recordingTitle } from '../recordings/recordingRow'
 import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
 import { shownPeaks, trimmedLengthMs, trimPending } from './recordingRange'
-import { ToolStrip, type Tool, type ToolId } from './ToolStrip'
-import { SKIP_MS, Transport } from './Transport'
-import { TRIM, TrimView } from './TrimView'
-import { useHeldSettings, useRecordingScreen } from './useRecordingScreen'
-import { Waveform } from './Waveform'
+import { TrimView } from './TrimView'
+import { useRecordingScreen } from './useRecordingScreen'
 import { useLatest } from '../../ui/useLatest'
 
 export const CLOSE_RECORDING = 'Close'
@@ -75,44 +61,11 @@ function trimBlocker(
   return undefined
 }
 
-/** Why Practice cannot be used right now, or undefined when it can. */
-function practiceBlocker(file: RecordingFile | undefined, audio: AudioFetch): string | undefined {
+/** Why the waveform, transport, and modes cannot be used right now, or undefined when they can. */
+function screenBlocker(file: RecordingFile | undefined, audio: AudioFetch): string | undefined {
   if (file?.local_state === 'capturing') return TRIM_WHILE_RECORDING
   if (audio === 'downloading') return TRIM_WHILE_DOWNLOADING
   return undefined
-}
-
-/**
- * Space plays and pauses, and the left and right arrows skip, while the screen holds the
- * keyboard. A field, a slider, and a button each keep those keys for themselves, so a focused
- * control still does what it says, and an overlay stacked on the screen takes them too. The
- * trim view has keys of its own, so these stand down while it shows.
- */
-function useTransportKeys(
-  engine: PlaybackEngine,
-  modal: RefObject<HTMLIonModalElement | null>,
-  enabled: boolean,
-): void {
-  useEffect(() => {
-    if (!enabled) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      const key = event.key
-      if (key !== ' ' && key !== 'ArrowLeft' && key !== 'ArrowRight') return
-      if (key === ' ' && event.repeat) return
-      if (isTextEntry(event.target) || isControl(event.target)) return
-      if (!isTopOverlay(modal.current)) return
-      const state = engine.getState()
-      if (state.lengthMs === 0) return
-      event.preventDefault()
-      if (key === 'ArrowLeft') engine.seek(state.positionMs - SKIP_MS)
-      else if (key === 'ArrowRight') engine.seek(state.positionMs + SKIP_MS)
-      else if (state.playing) engine.pause()
-      else engine.play()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [engine, modal, enabled])
 }
 
 /**
@@ -131,18 +84,15 @@ function useAudioFetch(recording: LocalRecording, file: RecordingFile | undefine
 }
 
 /**
- * The expanded player: the whole trimmed recording as a scrubber, the transport, and the
- * tools. It drives the one engine the dock loaded, so what plays here is what the dock plays.
+ * The expanded player: the recording's waveform, transport, and practice modes, with Trim in
+ * its menu. It drives the one engine the dock loaded, so what plays here is what the dock plays.
  */
 export function RecordingScreen({
   id,
-  view: initialView,
   modal,
   onClose,
 }: {
   id: string
-  /** The view to open in rather than the recording's own. */
-  view?: 'practice'
   modal: RefObject<HTMLIonModalElement | null>
   onClose: () => void
 }) {
@@ -177,19 +127,12 @@ export function RecordingScreen({
   // Silent until the row is read, like every screen.
   if (!view) return null
   return (
-    <Loaded
-      key={view.recording.id}
-      view={view}
-      initialView={initialView}
-      title={title}
-      modal={modal}
-      onClose={onClose}
-    />
+    <Loaded key={view.recording.id} view={view} title={title} modal={modal} onClose={onClose} />
   )
 }
 
-// Above Ionic's overlays (100), so the phone's Back leaves a view inside the screen before it
-// closes the screen itself.
+// Above Ionic's overlays (100), so the phone's Back reaches the screen's own leave before Ionic
+// dismisses the modal itself.
 const VIEW_BACK_PRIORITY = 101
 
 interface BackButtonDetail {
@@ -197,9 +140,9 @@ interface BackButtonDetail {
 }
 
 /**
- * Escape and the phone's Back leave a view inside the screen for the recording's own view,
- * rather than closing the whole screen, while nothing is stacked over it. The view gets each
- * Escape first through `escapeRef`, and one it uses for itself leaves nothing.
+ * Escape and the phone's Back run `leave` rather than Ionic's own dismissal, while nothing is
+ * stacked over the screen. The view gets each Escape first through `escapeRef`, and one it uses
+ * for itself leaves nothing.
  */
 function useLeaveView(
   modal: RefObject<HTMLIonModalElement | null>,
@@ -233,17 +176,15 @@ function useLeaveView(
   }, [modal, enabled, escapeRef, latestRef])
 }
 
-type View = 'main' | 'trim' | 'practice'
+type View = 'main' | 'trim'
 
 function Loaded({
   view,
-  initialView,
   title,
   modal,
   onClose,
 }: {
   view: RecordingView
-  initialView: 'practice' | undefined
   title: string
   modal: RefObject<HTMLIonModalElement | null>
   onClose: () => void
@@ -252,24 +193,24 @@ function Loaded({
   const syncEngine = useSyncEngine()
   const engine = usePlaybackEngine()
   const openMenu = useMenu()
-  const state = useSyncExternalStore(engine.subscribe, engine.getState)
   const [renaming, setRenaming] = useState<RecordingView | null>(null)
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const [trimNotice, setTrimNotice] = useState<string | null>(null)
+  const [practiceError, setPracticeError] = useState<string | null>(null)
   const audio = useAudioFetch(recording, file)
-  const practiceDisabled = practiceBlocker(file, audio)
+  const [screen, setScreen] = useState<View>('main')
+  const openTrim = () => {
+    setTrimNotice(null)
+    setScreen('trim')
+  }
   // Switching views in place keeps the screen, and the control that opened it, as they are.
   const actions = useRecordingActions({
+    onTrim: openTrim,
+    trimBlocked: trimBlocker(recording, file, audio),
     onRename: setRenaming,
-    onPractice: practiceDisabled ? undefined : () => select('practice'),
     onAddToTune: setFiling,
     onDeleted: onClose,
   })
-  // A Practice that cannot run yet opens on the recording's own view, which says why.
-  const [screen, setScreen] = useState<View>(() =>
-    initialView === 'practice' && !practiceDisabled ? 'practice' : 'main',
-  )
-  useTransportKeys(engine, modal, screen !== 'trim')
 
   // The trim view plays at 100% and no pitch shift, so what is heard is exactly what is cut.
   const trimming = screen === 'trim'
@@ -322,49 +263,33 @@ function Loaded({
       filePeaksRev,
     ],
   )
-
   const rowLengthMs = trimmedLengthMs(recording, file) ?? 0
-  const loadedAudio = state.lengthMs > 0
-  const lengthMs = loadedAudio ? state.lengthMs : rowLengthMs
-  const positionMs = loadedAudio ? state.positionMs : 0
-  const remainingMs = Math.max(0, lengthMs - positionMs)
 
-  // Practice's last speed and pitch show while their writes land, so leaving it never flashes
-  // the row's older values.
-  const pending = useHeldSettings(recordingId)
-  const shownHold = pending?.shown ? pending : null
-  const badge = PRACTICE_BADGE(
-    shownHold?.speedPercent ?? recording.speed_percent,
-    shownHold?.pitchCents ?? recording.pitch_cents,
-  )
-  const tools: Tool[] = [
-    { id: 'trim', label: TRIM, disabled: trimBlocker(recording, file, audio) },
-    { id: 'practice', label: PRACTICE, value: badge ?? undefined, disabled: practiceDisabled },
-  ]
-
-  // Coming back from a view puts focus back on the tool that opened it.
-  const content = useRef<HTMLDivElement>(null)
-  const returnTo = useRef<ToolId | null>(null)
+  // Coming back from the trim view puts focus back on the menu that opened it.
+  const more = useRef<HTMLIonButtonElement>(null)
+  const returning = useRef(false)
   useEffect(() => {
-    if (screen !== 'main' || !returnTo.current) return
-    const tool = returnTo.current
-    // One frame on, once the view's own controls have left the page and let go of focus.
+    if (screen !== 'main' || !returning.current) return
+    // One frame on, once the trim view's own controls have left the page and let go of focus.
+    let live = true
     const frame = requestAnimationFrame(() => {
-      returnTo.current = null
-      content.current?.querySelector<HTMLElement>(`[data-tool="${tool}"]`)?.focus()
+      returning.current = false
+      const button = more.current
+      void Promise.resolve(button?.componentOnReady?.()).then(() => {
+        if (live) button?.shadowRoot?.querySelector('button')?.focus()
+      })
     })
-    return () => cancelAnimationFrame(frame)
+    return () => {
+      live = false
+      cancelAnimationFrame(frame)
+    }
   }, [screen])
-  const leave = (from: ToolId) => {
-    returnTo.current = from
+  const leaveTrim = () => {
+    returning.current = true
     setScreen('main')
   }
-  const select = (id: ToolId) => {
-    if (id === 'trim') setTrimNotice(null)
-    setScreen(id)
-  }
-  const practiceEscape = useRef<(() => boolean) | null>(null)
-  useLeaveView(modal, screen === 'practice', () => leave('practice'), practiceEscape)
+  const escape = useRef<(() => boolean) | null>(null)
+  useLeaveView(modal, screen === 'main', onClose, escape)
 
   const sheets = (
     <>
@@ -381,10 +306,10 @@ function Loaded({
           file={file}
           shown={shown}
           modal={modal}
-          onDone={() => leave('trim')}
+          onDone={leaveTrim}
           onTrimmedElsewhere={() => {
             setTrimNotice(TRIM_CHANGED_ELSEWHERE)
-            leave('trim')
+            leaveTrim()
           }}
         />
         {sheets}
@@ -392,22 +317,7 @@ function Loaded({
     )
   }
 
-  if (screen === 'practice') {
-    return (
-      <>
-        <PracticeView
-          view={view}
-          shown={shown}
-          modal={modal}
-          escapeRef={practiceEscape}
-          onBack={() => leave('practice')}
-        />
-        {sheets}
-      </>
-    )
-  }
-
-  const error = actions.error
+  const error = actions.error ?? practiceError
   return (
     <>
       <IonHeader>
@@ -417,9 +327,20 @@ function Loaded({
               <X aria-hidden="true" className="size-6" />
             </IonButton>
           </IonButtons>
-          <IonTitle>{title}</IonTitle>
+          <IonTitle>
+            <span className="flex flex-col leading-tight">
+              <span className="truncate">{title}</span>
+              <span
+                data-recording-subtitle
+                className="type-footnote truncate text-(--ion-color-medium)"
+              >
+                {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
+              </span>
+            </span>
+          </IonTitle>
           <IonButtons slot="end">
             <IonButton
+              ref={more}
               className="toolbar-control"
               aria-label={MORE_ACTIONS}
               onClick={(event) => openMenu(event, MORE_ACTIONS, actions.menuFor(view))}
@@ -430,59 +351,21 @@ function Loaded({
         </IonToolbar>
       </IonHeader>
       <IonContent>
-        <div
-          ref={content}
-          className="mx-auto flex w-full max-w-(--measure) flex-col gap-5 px-4 py-4"
-        >
-          <div className="flex flex-col items-center gap-2">
-            <p className="type-footnote text-center text-(--ion-color-medium)">
-              {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
-            </p>
-            {badge && !practiceDisabled ? (
-              <button
-                type="button"
-                aria-label={PRACTICE_BADGE_LABEL(badge)}
-                className="type-footnote min-h-11 rounded-full bg-(--fill-tertiary) px-4 tabular-nums"
-                onClick={() => select('practice')}
-              >
-                {badge}
-              </button>
-            ) : null}
-          </div>
+        <div className="flex h-full w-full flex-col gap-3 px-4 py-4">
           {error ? <InlineError className="text-center">{error}</InlineError> : null}
           {trimNotice ? (
-            <p role="status" className="type-footnote text-center">
+            <p role="status" className="type-footnote m-0 text-center">
               {trimNotice}
             </p>
           ) : null}
-          <div className="flex flex-col gap-1">
-            <Waveform
-              peaks={shown?.peaks ?? null}
-              loudest={shown?.loudest}
-              lengthMs={lengthMs}
-              positionMs={positionMs}
-              disabled={!loadedAudio}
-              onSeek={(ms) => engine.seek(ms)}
-            />
-            <div className="type-footnote flex justify-between tabular-nums">
-              <p
-                role="timer"
-                aria-live="off"
-                aria-label={`${ELAPSED_LABEL} ${formatDuration(positionMs)}`}
-              >
-                {formatDuration(positionMs)}
-              </p>
-              <p
-                role="timer"
-                aria-live="off"
-                aria-label={`${REMAINING_LABEL} ${formatDuration(remainingMs)}`}
-              >
-                -{formatDuration(remainingMs)}
-              </p>
-            </div>
-          </div>
-          <Transport />
-          <ToolStrip tools={tools} onSelect={select} />
+          <Practice
+            view={view}
+            shown={shown}
+            modal={modal}
+            blocked={screenBlocker(file, audio)}
+            escapeRef={escape}
+            onError={setPracticeError}
+          />
         </div>
       </IonContent>
       {sheets}

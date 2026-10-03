@@ -193,38 +193,6 @@ struct PlayerFailureText: View {
     }
 }
 
-/// Skip back, play or pause, and skip forward, as the full player shows them.
-struct RecordingTransport: View {
-    let player: PlayerModel
-    /// Between the controls; Practice sets them closer, with A B and Repeat either side.
-    var spacing: CGFloat = 40
-
-    var body: some View {
-        let ready = player.recordingAudio == .loaded && !player.audio.hasFailed
-        HStack(spacing: spacing) {
-            skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
-            RecordingPlayButton(player: player, font: .largeTitle)
-                .frame(minWidth: 64, minHeight: 64)
-            skip(AudioPlayer.skipInterval, systemImage: "goforward.15", name: RecordingPlayerText.skipForward)
-        }
-        .disabled(!ready)
-    }
-
-    private func skip(_ seconds: TimeInterval, systemImage: String, name: (TimeInterval) -> String) -> some View {
-        Button {
-            player.audio.skip(by: seconds)
-        } label: {
-            Label(name(abs(seconds)), systemImage: systemImage)
-                .labelStyle(.iconOnly)
-                .font(.title2)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .help(name(abs(seconds)))
-    }
-}
-
 #if os(iOS)
     /// The system's control for choosing where audio plays: AirPlay speakers, headphones, or
     /// this device. It routes the whole audio session, which the player's engine plays into.

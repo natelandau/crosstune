@@ -13,6 +13,7 @@ from crosstune.recordings.trim import effective_end
 from crosstune.vocabulary import MIN_LOOP_MS
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from datetime import datetime
 
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,6 +55,34 @@ def clamp_loop(start_ms: int, end_ms: int, *, low: int, high: int | None) -> tup
     """
     start, end = clamp_span(start_ms, end_ms, low=low, high=high)
     return (start, end) if end - start >= MIN_LOOP_MS else None
+
+
+def largest_free_stretch(
+    start_ms: int, end_ms: int, taken: Sequence[tuple[int, int]]
+) -> tuple[int, int] | None:
+    """The longest part of `[start_ms, end_ms)` that overlaps none of `taken`.
+
+    Spans are half-open, so a span that only touches another does not overlap it.
+
+    Args:
+        start_ms: The loop start.
+        end_ms: The loop end.
+        taken: The `(start, end)` spans of the other live loops.
+
+    Returns:
+        tuple[int, int] | None: The longest free span, the earlier on a tie, or None
+            when nothing is free.
+    """
+    best: tuple[int, int] | None = None
+    cursor = start_ms
+    for taken_start, taken_end in [*sorted(taken), (end_ms, end_ms)]:
+        if taken_end <= cursor:
+            continue
+        gap_end = min(taken_start, end_ms)
+        if gap_end > cursor and (best is None or gap_end - cursor > best[1] - best[0]):
+            best = (cursor, gap_end)
+        cursor = max(cursor, taken_end)
+    return best
 
 
 def loop_bounds(recording: Recording) -> tuple[int, int | None]:

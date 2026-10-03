@@ -8,11 +8,15 @@ export const SPEED_LABEL = 'Speed'
 export const PITCH_LABEL = 'Pitch'
 export const ELAPSED_LABEL = 'Elapsed'
 export const REMAINING_LABEL = 'Remaining'
-export const REPEAT_LABEL = 'Repeat'
 
 /** `Repeating B part`, the loop the player repeats while Practice is closed. */
 export function REPEATING_BADGE(label: string): string {
   return `Repeating ${label}`
+}
+
+/** `Repeat B part`, what selecting a loop does. */
+export function REPEAT_LOOP(name: string): string {
+  return `Repeat ${name}`
 }
 
 /** `75%`, shown only away from the 100% default. */

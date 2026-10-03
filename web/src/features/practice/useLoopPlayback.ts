@@ -10,8 +10,6 @@ import { useLatest } from '../../ui/useLatest'
 export interface LoopPlayback {
   selectedId: string | null
   select: (id: string | null) => void
-  repeat: boolean
-  toggleRepeat: () => void
   /**
    * Plays `span` for loop `id` ahead of its row, as while a drag is under way or its write is
    * landing; the row takes over again once it holds the same span. Null lets go at once.
@@ -20,10 +18,10 @@ export interface LoopPlayback {
 }
 
 /**
- * The selected loop and Repeat, as Practice offers them. The engine holds the selection, so it
+ * The selected loop, which repeats, as Practice offers it. The engine holds the selection, so it
  * outlives Practice for as long as the recording stays loaded, and loading another recording
  * clears it. Following the selected loop's row is the dock's job (`useLoopFollow`), so it goes
- * on while Practice is closed; this hook only chooses, holds, and toggles.
+ * on while Practice is closed; this hook only chooses and holds.
  */
 export function useLoopPlayback(
   view: RecordingView,
@@ -32,7 +30,6 @@ export function useLoopPlayback(
   const engine = usePlaybackEngine()
   const holds = loopHolds(engine)
   const loopId = useEngineState(engine, (s) => s.loop?.id ?? null)
-  const repeat = useEngineState(engine, (s) => s.repeat)
   // A loop just created is selected before the live query has read its row.
   const [pending, setPending] = useState<string | null>(null)
   if (pending !== null && loopId === pending) setPending(null)
@@ -44,13 +41,11 @@ export function useLoopPlayback(
   }
   const latestRef = useLatest({ loops, offsets })
 
-  /** Selects `row`; a loop taking over Repeat from another starts from its top. */
+  /** Selects `row` and repeats it; the engine moves an outside playhead to the loop's start. */
   const take = useCallback(
     (row: LocalRecordingLoop) => {
-      const { repeat, loop } = engine.getState()
-      const { offsets } = latestRef.current
-      engine.setLoop(loopRange(row, holds.get(), offsets))
-      if (repeat && loop?.id !== row.id) engine.seek(row.start_ms - offsets.trimStartMs)
+      engine.setLoop(loopRange(row, holds.get(), latestRef.current.offsets))
+      engine.setRepeat(true)
     },
     [engine, holds, latestRef],
   )
@@ -81,11 +76,6 @@ export function useLoopPlayback(
     [engine, holds, take, latestRef],
   )
 
-  const toggleRepeat = useCallback(() => {
-    if (!engine.getState().loop) return
-    engine.setRepeat(!engine.getState().repeat)
-  }, [engine])
-
   const hold = useCallback(
     (id: string, span: Span | null) => {
       const row = latestRef.current.loops?.find((l) => l.id === id)
@@ -95,5 +85,5 @@ export function useLoopPlayback(
     [holds, latestRef],
   )
 
-  return { selectedId, select, repeat, toggleRepeat, hold }
+  return { selectedId, select, hold }
 }

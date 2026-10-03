@@ -12,6 +12,8 @@ import {
   waitForReady,
 } from './helpers'
 import { PAUSE, PLAY } from '../src/features/player/transportCopy'
+import { TRIM } from '../src/features/recording-screen/TrimView'
+import { MORE_ACTIONS } from '../src/ui/Menu'
 
 // The Stop button pulses continuously while recording, so Playwright's actionability
 // check never sees it stable. Reduced motion turns the pulse off.
@@ -155,7 +157,12 @@ test('trims a recording and another device sees it', async ({ page, browser }) =
   await expect(transport).toBeVisible({ timeout: 15_000 })
   if ((await transport.getAttribute('aria-label')) === PAUSE) await transport.click()
 
-  await screen.getByRole('button', { name: 'Trim', exact: true }).click()
+  await screen.getByRole('button', { name: MORE_ACTIONS, exact: true }).click()
+  await page
+    .locator('ion-action-sheet, ion-popover')
+    .last()
+    .getByRole('button', { name: TRIM, exact: true })
+    .click()
 
   const overview = screen.getByRole('slider', { name: 'Whole recording' })
   await expect(screen.getByRole('button', { name: 'Set end', exact: true })).toBeEnabled()

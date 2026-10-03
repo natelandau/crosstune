@@ -3,8 +3,8 @@ import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { loopRow, recordingRow } from '../test/rows'
-import { addLoop, removeLoop, restoreLoop, updateLoop } from './loops'
-import { LOOP_LIMIT, RECORDING_NOT_FOUND } from './messages'
+import { addLoop, removeLoop, updateLoop } from './loops'
+import { LOOP_LIMIT, NO_ROOM, RECORDING_NOT_FOUND } from './messages'
 
 let db: CrosstuneDb
 
@@ -34,14 +34,14 @@ describe('loops', () => {
 
   it('stores a blank or omitted label as null', async () => {
     const a = await addLoop(db, 'rec-1', { start_ms: 0, end_ms: 1000 })
-    const b = await addLoop(db, 'rec-1', { start_ms: 0, end_ms: 1000 }, '   ')
+    const b = await addLoop(db, 'rec-1', { start_ms: 1000, end_ms: 2000 }, '   ')
     expect((await db.recording_loops.get(a))?.label).toBeNull()
     expect((await db.recording_loops.get(b))?.label).toBeNull()
   })
 
-  it('picks a color away from the loops it overlaps', async () => {
+  it('picks a color away from its neighbor', async () => {
     await db.recording_loops.put(loopRow({ id: 'a', start_ms: 0, end_ms: 2000, color: 0 }))
-    const id = await addLoop(db, 'rec-1', { start_ms: 1000, end_ms: 3000 })
+    const id = await addLoop(db, 'rec-1', { start_ms: 2000, end_ms: 4000 })
     expect((await db.recording_loops.get(id))?.color).not.toBe(0)
   })
 
@@ -60,8 +60,8 @@ describe('loops', () => {
       Array.from({ length: 100 }, (_, i) =>
         loopRow({
           id: `l${i}`,
-          start_ms: i * 10,
-          end_ms: i * 10 + 5,
+          start_ms: i * 1000,
+          end_ms: i * 1000 + 500,
           deleted_at: i === 0 ? '2026-02-01T00:00:00.000Z' : null,
         }),
       ),
@@ -88,37 +88,81 @@ describe('loops', () => {
     expect(await pendingFor(db, 'recording_loops', id)).toMatchObject({ op: 'delete' })
   })
 
-  it('restores a removed loop as an upsert of its original span', async () => {
-    const id = await addLoop(db, 'rec-1', { start_ms: 1000, end_ms: 4000 }, 'Bridge')
-    await removeLoop(db, id)
-    await restoreLoop(db, id)
-    expect(await db.recording_loops.get(id)).toMatchObject({
-      deleted_at: null,
-      start_ms: 1000,
-      end_ms: 4000,
-      label: 'Bridge',
-    })
-    expect(await pendingFor(db, 'recording_loops', id)).toMatchObject({
-      op: 'upsert',
-      data: expect.objectContaining({ start_ms: 1000, end_ms: 4000 }),
-    })
+  it('clamps a new span that runs into a neighbor', async () => {
+    await db.recording_loops.put(loopRow({ id: 'a', start_ms: 5000, end_ms: 8000 }))
+    const id = await addLoop(db, 'rec-1', { start_ms: 1000, end_ms: 6000 })
+    expect(await db.recording_loops.get(id)).toMatchObject({ start_ms: 1000, end_ms: 5000 })
   })
 
-  it('refuses to restore a loop past the cap and leaves it deleted', async () => {
-    const id = await addLoop(db, 'rec-1', { start_ms: 0, end_ms: 1000 })
-    await removeLoop(db, id)
-    await db.recording_loops.bulkPut(
-      Array.from({ length: 100 }, (_, i) => loopRow({ id: `l${i}`, start_ms: i, end_ms: i + 600 })),
+  it('clamps a new span that starts after the previous loop ends', async () => {
+    await db.recording_loops.put(loopRow({ id: 'a', start_ms: 0, end_ms: 3000 }))
+    const id = await addLoop(db, 'rec-1', { start_ms: 3000, end_ms: 6000 })
+    expect(await db.recording_loops.get(id)).toMatchObject({ start_ms: 3000, end_ms: 6000 })
+  })
+
+  it('clamps a new span into the trimmed range', async () => {
+    await db.recordings.put(recordingRow('trimmed', { trim_start_ms: 2000, trim_end_ms: 9000 }))
+    const id = await addLoop(db, 'trimmed', { start_ms: 1000, end_ms: 20_000 })
+    expect(await db.recording_loops.get(id)).toMatchObject({ start_ms: 2000, end_ms: 9000 })
+  })
+
+  it('refuses a span that starts inside a live loop', async () => {
+    await db.recording_loops.put(loopRow({ id: 'a', start_ms: 1000, end_ms: 4000 }))
+    await expect(addLoop(db, 'rec-1', { start_ms: 2000, end_ms: 6000 })).rejects.toThrow(NO_ROOM)
+    expect(await db.recording_loops.count()).toBe(1)
+  })
+
+  it('refuses a span left under the minimum by its neighbor', async () => {
+    await db.recording_loops.put(loopRow({ id: 'a', start_ms: 1300, end_ms: 4000 }))
+    await expect(addLoop(db, 'rec-1', { start_ms: 1000, end_ms: 3000 })).rejects.toThrow(NO_ROOM)
+  })
+
+  it('ignores a deleted neighbor', async () => {
+    await db.recording_loops.put(
+      loopRow({ id: 'a', start_ms: 5000, end_ms: 8000, deleted_at: '2026-02-01T00:00:00.000Z' }),
     )
-    await expect(restoreLoop(db, id)).rejects.toThrow(LOOP_LIMIT)
-    expect((await db.recording_loops.get(id))?.deleted_at).not.toBeNull()
+    const id = await addLoop(db, 'rec-1', { start_ms: 1000, end_ms: 6000 })
+    expect(await db.recording_loops.get(id)).toMatchObject({ start_ms: 1000, end_ms: 6000 })
   })
 
-  it('refuses to restore a loop whose recording is gone', async () => {
-    const id = await addLoop(db, 'rec-1', { start_ms: 0, end_ms: 1000 })
-    await removeLoop(db, id)
-    await db.recordings.update('rec-1', { deleted_at: '2026-02-01T00:00:00.000Z' })
-    await expect(restoreLoop(db, id)).rejects.toThrow(RECORDING_NOT_FOUND)
-    expect((await db.recording_loops.get(id))?.deleted_at).not.toBeNull()
+  it('stops an updated edge at the neighbor', async () => {
+    await db.recording_loops.bulkPut([
+      loopRow({ id: 'a', start_ms: 0, end_ms: 2000 }),
+      loopRow({ id: 'b', start_ms: 3000, end_ms: 5000 }),
+      loopRow({ id: 'c', start_ms: 7000, end_ms: 9000 }),
+    ])
+    await updateLoop(db, 'b', { start_ms: 500, end_ms: 20_000 })
+    expect(await db.recording_loops.get('b')).toMatchObject({ start_ms: 2000, end_ms: 7000 })
+  })
+
+  it('does not let a deleted neighbor stop an updated edge', async () => {
+    await db.recording_loops.bulkPut([
+      loopRow({ id: 'a', start_ms: 0, end_ms: 2000, deleted_at: '2026-02-01T00:00:00.000Z' }),
+      loopRow({ id: 'b', start_ms: 3000, end_ms: 5000 }),
+    ])
+    await updateLoop(db, 'b', { start_ms: 500 })
+    expect(await db.recording_loops.get('b')).toMatchObject({ start_ms: 500, end_ms: 5000 })
+  })
+
+  it('refuses an update that leaves under the minimum', async () => {
+    await db.recording_loops.bulkPut([
+      loopRow({ id: 'a', start_ms: 0, end_ms: 2000 }),
+      loopRow({ id: 'b', start_ms: 3000, end_ms: 5000 }),
+    ])
+    await expect(updateLoop(db, 'b', { start_ms: 1000, end_ms: 1400 })).rejects.toThrow(NO_ROOM)
+    expect(await db.recording_loops.get('b')).toMatchObject({ start_ms: 3000, end_ms: 5000 })
+  })
+
+  it('leaves a label-only update alone', async () => {
+    await db.recording_loops.bulkPut([
+      loopRow({ id: 'a', start_ms: 0, end_ms: 4000 }),
+      loopRow({ id: 'b', start_ms: 3000, end_ms: 5000 }),
+    ])
+    await updateLoop(db, 'b', { label: 'Tag' })
+    expect(await db.recording_loops.get('b')).toMatchObject({
+      start_ms: 3000,
+      end_ms: 5000,
+      label: 'Tag',
+    })
   })
 })

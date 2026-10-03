@@ -278,7 +278,7 @@ html.ios ion-modal .lyrics-toolbar ion-title {
 @media only screen and (min-width: 768px) and (min-height: 600px) {
   ion-modal.recording-modal {
     --width: min(960px, 92vw);
-    --height: min(760px, 90vh);
+    --height: min(880px, 92vh);
   }
 }
 
@@ -522,19 +522,19 @@ ion-toggle::part(label) {
   --loop-tint: var(--loop-5-tint);
 }
 
-/* The zoomed waveform in Practice: shorter on a landscape phone, where height is scarce, and
-   taller on the wide frame. */
+/* The zoomed waveform: the recording screen sets the variable to the room it measured, and the
+   fallbacks are shorter on a landscape phone, where height is scarce, and taller when wide. */
 .practice-detail {
-  height: 120px;
+  height: var(--practice-detail-height, 120px);
 }
 @media (max-height: 499px) {
   .practice-detail {
-    height: 80px;
+    height: var(--practice-detail-height, 80px);
   }
 }
 @media (min-width: 768px) and (min-height: 600px) {
   .practice-detail {
-    height: 150px;
+    height: var(--practice-detail-height, 150px);
   }
 }
 

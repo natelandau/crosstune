@@ -3,10 +3,11 @@ import CrosstuneStore
 import Foundation
 import Observation
 
-/// The loaded recording's loops, the selected one, and Repeat, mirrored into the audio player.
-/// The player owns it, so the selection outlives Practice for as long as the recording stays
-/// loaded, and it follows the loops' rows while Practice is closed too: a span or label changed
-/// on another device moves the repeating loop, and a loop removed anywhere turns Repeat off.
+/// The loaded recording's loops and the selected one, which repeats, mirrored into the audio
+/// player. The player owns it, so the selection outlives the recording screen for as long as the
+/// recording stays loaded, and it follows the loops' rows while the screen is closed too: a span
+/// or label changed on another device moves the repeating loop, and a loop removed anywhere
+/// clears the selection.
 ///
 /// Loop times are on the source timeline and the audio player's in seconds into the playback
 /// window, which starts at the trim start, so a new trim or a new file gets the range again.
@@ -24,7 +25,7 @@ public final class LoopPlayback {
     @ObservationIgnored private var isReady = false
     /// A loop just made, selected before the live rows have read it.
     @ObservationIgnored private var unseen: RecordingLoop?
-    /// A loop asked for by id before its row is live, as one just put back by undo.
+    /// A loop asked for by id before its row is live.
     @ObservationIgnored private var awaited: String?
     /// A span played ahead of its row while its write lands. `base` is the row's span when the
     /// hold was taken: once the row moves off it, a write (this device's or a newer one from
@@ -48,8 +49,8 @@ public final class LoopPlayback {
         selected.map { LoopModel.name(label: $0.label, startMs: $0.startMs, trimStartMs: trimStartMs) }
     }
 
-    /// Selects loop `id`, or none. A loop taking Repeat over from another starts from its top;
-    /// selecting none turns Repeat off.
+    /// Selects loop `id`, which repeats, or none, which plays on. A playhead outside the loop
+    /// moves to its start.
     public func select(_ id: String?) {
         held = nil
         unseen = nil
@@ -76,14 +77,10 @@ public final class LoopPlayback {
     }
 
     /// Turns Repeat on or off; on only with a loop selected.
-    public func setRepeat(_ on: Bool) {
+    private func setRepeat(_ on: Bool) {
         guard !on || selectedID != nil else { return }
         isRepeating = on
         if isReady { audio.setRepeat(on) }
-    }
-
-    public func toggleRepeat() {
-        setRepeat(!isRepeating)
     }
 
     /// Plays `span` for loop `id` ahead of its row until the row lands; nil lets go at once.
@@ -163,12 +160,13 @@ public final class LoopPlayback {
     }
 
     private func take(_ row: RecordingLoop) {
-        let fromAnother = selectedID != row.id
         selectedID = row.id
         apply()
-        if isRepeating && fromAnother && isReady {
-            audio.seek(to: Double(row.startMs - trimStartMs) / 1000)
-        }
+        setRepeat(true)
+        guard isReady else { return }
+        let start = Double(row.startMs - trimStartMs) / 1000
+        let end = Double(row.endMs - trimStartMs) / 1000
+        if audio.elapsed < start || audio.elapsed >= end { audio.seek(to: start) }
     }
 
     /// Sends the selected loop's range to the audio player when it differs from what it holds.

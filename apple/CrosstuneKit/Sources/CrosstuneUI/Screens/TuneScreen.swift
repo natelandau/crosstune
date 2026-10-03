@@ -371,9 +371,6 @@ private struct TuneMediaSection: View {
         .recordingRowActions(
             filed: true,
             onEdit: { player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window) },
-            onPractice: {
-                player?.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window, view: .practice)
-            },
             // Every recording here is already filed under the tune being looked at.
             onAddToTune: nil,
             onRemoveFromTune: {

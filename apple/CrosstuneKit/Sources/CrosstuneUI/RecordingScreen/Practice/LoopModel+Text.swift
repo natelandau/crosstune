@@ -24,10 +24,4 @@ extension LoopModel {
         }
         return kept
     }
-
-    static func canCreate(liveCount: Int, bounds: LoopSpan) -> (allowed: Bool, reason: String?) {
-        if liveCount >= maxLoops { return (false, PracticeText.loopLimit) }
-        if bounds.endMs - bounds.startMs < minLoopMs { return (false, nil) }
-        return (true, nil)
-    }
 }

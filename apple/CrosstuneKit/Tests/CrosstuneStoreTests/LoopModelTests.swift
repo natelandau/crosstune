@@ -23,29 +23,6 @@ private func placed(_ id: String, _ start: Int64, _ end: Int64, _ color: Int = 0
         #expect(LoopModel.clamp(c.input, to: bounds) == c.expected)
     }
 
-    struct DragCase: Sendable {
-        let anchor: Int64
-        let pointer: Int64
-        let expected: LoopSpan
-    }
-
-    @Test(arguments: [
-        DragCase(anchor: 5000, pointer: 3000, expected: span(3000, 5000)),
-        DragCase(anchor: 5000, pointer: 5100, expected: span(5000, 5500)),
-        DragCase(anchor: 60900, pointer: 61000, expected: span(60500, 61000)),
-    ])
-    func fromDrag(_ c: DragCase) {
-        #expect(LoopModel.fromDrag(anchor: c.anchor, pointer: c.pointer, bounds: bounds) == c.expected)
-    }
-
-    @Test(arguments: [
-        (span(2000, 4000), Int64(-5000), span(1000, 3000)),
-        (span(2000, 4000), Int64(60000), span(59000, 61000)),
-    ])
-    func move(_ input: LoopSpan, _ delta: Int64, _ expected: LoopSpan) {
-        #expect(LoopModel.move(input, by: delta, bounds: bounds) == expected)
-    }
-
     @Test(arguments: [
         (LoopModel.Edge.end, Int64(2100), span(2000, 2500)),
         (LoopModel.Edge.start, Int64(0), span(1000, 4000)),
@@ -63,17 +40,6 @@ private func placed(_ id: String, _ start: Int64, _ end: Int64, _ color: Int = 0
     @Test func snapIsInclusiveAtExactlyEightPoints() {
         #expect(LoopModel.snap(10_080, to: [10_000], msPerPoint: 10) == 10_000)
         #expect(LoopModel.snap(10_081, to: [10_000], msPerPoint: 10) == 10_081)
-    }
-
-    @Test func stackRowsUsesLowestFreeRow() {
-        let rows = LoopModel.stackRows([
-            placed("a", 0, 10), placed("b", 5, 15), placed("c", 12, 20), placed("d", 16, 18),
-        ])
-        #expect(rows == ["a": 0, "b": 1, "c": 0, "d": 1])
-    }
-
-    @Test func stackRowsTreatsTouchingAsNonOverlapping() {
-        #expect(LoopModel.stackRows([placed("a", 0, 10), placed("b", 10, 20)]) == ["a": 0, "b": 0])
     }
 
     @Test func pickColorWithNoLoops() {
@@ -124,5 +90,92 @@ private func placed(_ id: String, _ start: Int64, _ end: Int64, _ color: Int = 0
     ])
     func partSuggestions(_ c: PartCase) {
         #expect(LoopModel.partSuggestions(partStructure: c.structure, used: c.used) == c.expected)
+    }
+
+    private static let a = placed("a", 10_000, 20_000)
+    private static let b = placed("b", 30_000, 40_000)
+    private static let ab = [a, b]
+
+    struct LoopAtCase: Sendable {
+        let ms: Int64
+        let loops: [PlacedLoop]
+        let expected: String?
+    }
+
+    @Test(arguments: [
+        LoopAtCase(ms: 15_000, loops: ab, expected: "a"),
+        LoopAtCase(ms: 10_000, loops: ab, expected: "a"),
+        LoopAtCase(ms: 20_000, loops: ab, expected: nil),
+        LoopAtCase(ms: 20_000, loops: [a, placed("c", 20_000, 25_000), b], expected: "c"),
+        LoopAtCase(ms: 25_000, loops: ab, expected: nil),
+    ])
+    func loopAt(_ c: LoopAtCase) {
+        #expect(LoopModel.loop(at: c.ms, in: c.loops)?.id == c.expected)
+    }
+
+    @Test(arguments: [(Self.a, span(1000, 30_000)), (Self.b, span(20_000, 61_000))])
+    func roomAround(_ loop: PlacedLoop, _ expected: LoopSpan) {
+        #expect(LoopModel.room(around: loop.span, in: Self.ab, bounds: bounds) == expected)
+    }
+
+    @Test(arguments: [
+        (Int64(25_000), span(20_000, 30_000) as LoopSpan?), (Int64(5000), span(1000, 10_000)),
+        (Int64(15_000), nil),
+    ])
+    func freeGap(_ ms: Int64, _ expected: LoopSpan?) {
+        #expect(LoopModel.freeGap(at: ms, in: Self.ab, bounds: bounds) == expected)
+    }
+
+    struct NewLoopCase: Sendable {
+        let ms: Int64
+        let loops: [PlacedLoop]
+        let expected: LoopModel.NewLoop
+    }
+
+    @Test(arguments: [
+        NewLoopCase(ms: 25_000, loops: ab, expected: .span(span(21_000, 29_000))),
+        NewLoopCase(ms: 21_000, loops: ab, expected: .span(span(20_000, 25_000))),
+        NewLoopCase(ms: 3000, loops: ab, expected: .span(span(1000, 7000))),
+        NewLoopCase(ms: 15_000, loops: ab, expected: .inside(id: "a")),
+        NewLoopCase(ms: 20_250, loops: [a, placed("c", 20_500, 30_000)], expected: .span(span(20_000, 20_500))),
+        NewLoopCase(ms: 20_250, loops: [a, placed("c", 20_499, 30_000)], expected: .noRoom),
+    ])
+    func newLoop(_ c: NewLoopCase) {
+        #expect(LoopModel.newLoop(at: c.ms, in: c.loops, bounds: bounds) == c.expected)
+    }
+
+    @Test func newLoopAtTheCapWinsOverEverythingElse() {
+        let full = (0..<LoopModel.maxLoops).map { placed("l\($0)", Int64($0) * 100, Int64($0) * 100 + 50) }
+        #expect(LoopModel.newLoop(at: 15_000, in: full, bounds: bounds) == .atCap)
+        #expect(LoopModel.newLoop(at: 50, in: full, bounds: bounds) == .atCap)
+    }
+
+    struct AdjacentCase: Sendable {
+        let direction: LoopModel.Direction
+        let from: Int64
+        let selected: String?
+        let expected: String?
+    }
+
+    @Test(arguments: [
+        AdjacentCase(direction: .next, from: 25_000, selected: nil, expected: "b"),
+        AdjacentCase(direction: .previous, from: 25_000, selected: nil, expected: "a"),
+        AdjacentCase(direction: .previous, from: 10_000, selected: "a", expected: nil),
+        AdjacentCase(direction: .previous, from: 15_000, selected: "a", expected: nil),
+        AdjacentCase(direction: .next, from: 10_000, selected: "a", expected: "b"),
+    ])
+    func adjacent(_ c: AdjacentCase) {
+        let found = LoopModel.adjacent(c.direction, from: c.from, in: Self.ab, selectedID: c.selected)
+        #expect(found?.id == c.expected)
+    }
+
+    @Test(arguments: [
+        (Self.a, LoopModel.Edge.end, Int64(35_000), span(10_000, 30_000)),
+        (Self.b, LoopModel.Edge.start, Int64(15_000), span(20_000, 40_000)),
+        (Self.a, LoopModel.Edge.end, Int64(10_200), span(10_000, 10_500)),
+    ])
+    func resizeInsideRoom(_ loop: PlacedLoop, _ edge: LoopModel.Edge, _ to: Int64, _ expected: LoopSpan) {
+        let room = LoopModel.room(around: loop.span, in: Self.ab, bounds: bounds)
+        #expect(LoopModel.resize(loop.span, edge: edge, to: to, bounds: room) == expected)
     }
 }
