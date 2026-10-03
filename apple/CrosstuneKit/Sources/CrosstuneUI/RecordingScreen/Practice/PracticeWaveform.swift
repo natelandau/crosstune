@@ -300,6 +300,89 @@ struct PracticeWaveform: View {
     }
 }
 
+/// What sits over the waveform's bottom corners: the playhead to the tenth of a second (or why
+/// the screen cannot be used yet) at the left, and Zoom out, Fit, and Zoom in at the right. Each
+/// sits on a backing that blocks the waveform under it, so a press here never scrubs, taps, or
+/// grabs a handle; the gap between them stays the waveform's.
+struct WaveformOverlay: View {
+    let model: PracticeModel
+    /// Why the waveform, transport, and modes cannot be used yet, shown in place of the readout.
+    let blocker: String?
+
+    @Environment(\.spacing) private var spacing
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: spacing(8)) {
+            readout
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .backing()
+            Spacer(minLength: 0)
+            HStack(spacing: 0) {
+                iconButton(RecordingScreenText.zoomOut, systemImage: "minus.magnifyingglass") {
+                    model.zoom(by: 1 / PracticeModel.zoomStep)
+                }
+                .keyboardShortcut("-", modifiers: .command)
+                .disabled(!model.canZoomOut)
+                Button {
+                    model.fit()
+                } label: {
+                    Text(PracticeText.fit)
+                        .font(.subheadline)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(.rect)
+                }
+                .disabled(model.scale == nil)
+                iconButton(RecordingScreenText.zoomIn, systemImage: "plus.magnifyingglass") {
+                    model.zoom(by: PracticeModel.zoomStep)
+                }
+                .keyboardShortcut("=", modifiers: .command)
+                .disabled(!model.canZoomIn)
+            }
+            .buttonStyle(.borderless)
+            .disabled(blocker != nil)
+            .backing()
+        }
+        .padding(4)
+    }
+
+    @ViewBuilder private var readout: some View {
+        if let blocker {
+            Text(blocker)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        } else {
+            TimelineView(.animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying)) { _ in
+                Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+            }
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func iconButton(_ name: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(name, systemImage: systemImage)
+                .labelStyle(.iconOnly)
+                .font(.body)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(.rect)
+        }
+        .help(name)
+    }
+}
+
+extension View {
+    /// The page's background, mostly opaque, so text and buttons read over bars and loop tints.
+    /// Its shape takes every press, so none falls through to the waveform.
+    fileprivate func backing() -> some View {
+        background(.background.opacity(0.8), in: .rect(cornerRadius: 8))
+            .contentShape(.rect(cornerRadius: 8))
+    }
+}
+
 /// A loop handle: a line the height of the waveform with a grab tab centered on it. The tab sits
 /// outside the loop so it never covers the audio being looped.
 private struct HandleMark: View {

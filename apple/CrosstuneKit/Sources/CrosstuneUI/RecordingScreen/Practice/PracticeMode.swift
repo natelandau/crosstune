@@ -43,7 +43,9 @@ struct ModePicker: View {
     }
 }
 
-/// The chosen mode's own controls, under the transport.
+/// The chosen mode's own controls, under the transport. Every mode's panel is laid out in the
+/// same place and only the chosen one shows, so the block is always as tall as the tallest
+/// panel and changing mode never moves the waveform above it.
 struct ModeControls: View {
     let model: PracticeModel
     /// Delete loop removed the selected loop, whose control goes disabled with it.
@@ -52,13 +54,16 @@ struct ModeControls: View {
     private var player: PlayerModel { model.player }
 
     var body: some View {
-        switch model.mode {
-        case .loops:
-            LoopsPanel(model: model, onDeleted: onDeleted)
-        case .speed:
-            SpeedPanel(value: player.speedPercent, onChange: player.setSpeed)
-        case .pitch:
-            PitchPanel(value: player.pitchCents, onChange: player.setPitch)
+        ZStack(alignment: .top) {
+            panel(.loops) { LoopsPanel(model: model, onDeleted: onDeleted) }
+            panel(.speed) { SpeedPanel(value: player.speedPercent, onChange: player.setSpeed) }
+            panel(.pitch) { PitchPanel(value: player.pitchCents, onChange: player.setPitch) }
         }
+    }
+
+    private func panel(_ mode: PracticeMode, @ViewBuilder content: () -> some View) -> some View {
+        content()
+            .frame(maxWidth: .infinity)
+            .reserved(shown: model.mode == mode)
     }
 }

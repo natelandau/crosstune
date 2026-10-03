@@ -43,10 +43,10 @@ private struct ScreenRows: Equatable, Sendable {
 }
 
 /// The expanded player for the loaded recording: the overview, the waveform under a fixed
-/// playhead, the Loops, Speed, and Pitch selector, the readout and transport, and the chosen
-/// mode's controls, with Trim and the recording's other actions in its menu. It drives the
-/// player the bar shows, so what plays here is what the bar plays. Reads the store from the
-/// environment.
+/// playhead with the readout and zoom over it, the Loops, Speed, and Pitch selector, the
+/// transport, and the chosen mode's controls, with Trim and the recording's other actions in its
+/// menu. The recorded date and length are the title's subtitle. It drives the player the bar
+/// shows, so what plays here is what the bar plays. Reads the store from the environment.
 public struct RecordingScreen: View {
     private let player: PlayerModel
 
@@ -128,8 +128,8 @@ private struct RecordingScreenContent: View {
     /// Why the trim screen gave way on its own, until the musician next does something here.
     @State private var trimNotice: String?
     @State private var practice: PracticeModel?
-    /// The screen's height, which alone sizes the waveform.
-    @State private var screenHeight: Double = 0
+    /// The natural height of everything under the waveform, which the waveform leaves room for.
+    @State private var controlsHeight: Double?
     @FocusState private var focus: PracticeFocus?
     @AccessibilityFocusState private var waveformFocused: Bool
 
@@ -160,6 +160,7 @@ private struct RecordingScreenContent: View {
             }
         }
         .navigationTitle(player.title ?? "")
+        .navigationSubtitle(subtitle)
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -249,10 +250,6 @@ private struct RecordingScreenContent: View {
     private func screen(_ practice: PracticeModel) -> some View {
         let blocker = screenBlocker
         return VStack(spacing: spacing.stackGap) {
-            Text(subtitle)
-                .font(.footnote)
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
             if let message = player.failure ?? failure ?? practice.failure {
                 PlayerFailureText(message)
             }
@@ -266,17 +263,17 @@ private struct RecordingScreenContent: View {
             {
                 RecordingPlayerStatus(player: player, message: status)
             }
-            Group {
-                OverviewStrip(model: practice, peaks: shownPeaks)
-                PracticeWaveform(
-                    model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
-                )
-                .frame(
-                    height: PracticeLayout.waveformHeight(
-                        screenHeight: screenHeight, isCompactHeight: isCompactHeight))
-            }
+            OverviewStrip(model: practice, peaks: shownPeaks)
+                .disabled(blocker != nil)
+                .opacity(blocker != nil ? 0.5 : 1)
+            PracticeWaveform(
+                model: practice, peaks: shownPeaks, focus: $focus, accessibilityFocus: $waveformFocused
+            )
             .disabled(blocker != nil)
             .opacity(blocker != nil ? 0.5 : 1)
+            .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
+            // Outside the dimming, so the reason the screen is blocked reads at full strength.
+            .overlay(alignment: .bottom) { WaveformOverlay(model: practice, blocker: blocker) }
             ScrollView {
                 VStack(spacing: spacing.sectionGap) {
                     modeWidth(ModePicker(model: practice))
@@ -287,10 +284,22 @@ private struct RecordingScreenContent: View {
                         .disabled(blocker != nil)
                         .opacity(blocker != nil ? 0.5 : 1)
                 }
+                .onGeometryChange(for: Double.self) {
+                    $0.size.height
+                } action: {
+                    controlsHeight = $0
+                }
             }
             .scrollBounceBehavior(.basedOnSize)
+            // Laid out first, so it takes its natural height and the waveform the rest; only once
+            // the waveform is at its floor does this region shrink and scroll.
+            .frame(maxHeight: controlsHeight.map { CGFloat($0) })
+            .layoutPriority(1)
         }
         .padding(16)
+        // The keyboard covers the controls rather than squeezing the waveform, so opening a name
+        // field leaves the waveform as it is.
+        .ignoresSafeArea(.keyboard)
         .focusable()
         .focusEffectDisabled()
         .focused($focus, equals: .screen)
@@ -301,17 +310,6 @@ private struct RecordingScreenContent: View {
                 onClose: close)
         )
         .onChange(of: focus) { _, _ in practice.commitNudge() }
-        .background {
-            // Measured without the keyboard, so opening a name field leaves the waveform as it is
-            // and the region under it scrolls instead.
-            Color.clear
-                .ignoresSafeArea(.keyboard)
-                .onGeometryChange(for: Double.self) {
-                    $0.size.height
-                } action: {
-                    screenHeight = $0
-                }
-        }
     }
 
     /// Wide holds the mode's selector and controls to a fixed width.

@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The Loops mode: make a loop around the playhead, or delete the selected one. Why New loop is
 /// off is its accessibility hint; on screen it simply goes disabled. While a name field is open,
-/// the tune's parts show as suggestions. With no audio to play, whose status the screen shows,
+/// the tune's parts show as suggestions. The panel is
+/// the same height whatever it shows. With no audio to play, whose status the screen shows,
 /// the controls are off, since the playhead has no place yet.
 struct LoopsPanel: View {
     let model: PracticeModel
@@ -28,16 +29,13 @@ struct LoopsPanel: View {
                 .disabled(!canDelete)
             }
             .frame(maxWidth: .infinity)
-            if model.loops.isEmpty {
-                Text(PracticeText.loopsEmptyHint)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-            }
-            if let renaming = model.renaming {
-                LoopSuggestions(model: model, id: renaming)
-            }
+            Text(PracticeText.loopsEmptyHint)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .reserved(shown: model.loops.isEmpty)
+            LoopSuggestions(model: model, id: model.renaming)
         }
     }
 

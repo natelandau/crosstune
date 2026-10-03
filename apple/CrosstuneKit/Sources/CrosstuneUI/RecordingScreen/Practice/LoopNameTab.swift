@@ -102,16 +102,18 @@ struct LoopNameField: View {
 }
 
 /// The tune's parts as names for the loop being renamed. A chip writes its name once and
-/// closes the field.
+/// closes the field. With no loop being renamed, or no parts to suggest, the row keeps its
+/// height with nothing showing.
 struct LoopSuggestions: View {
     let model: PracticeModel
-    let id: String
+    /// The loop being renamed, if any.
+    let id: String?
 
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        let suggestions = model.suggestions(for: id)
-        if !suggestions.isEmpty {
+        let suggestions = id.map(model.suggestions(for:)) ?? []
+        if let id, !suggestions.isEmpty {
             ScrollView(.horizontal) {
                 HStack(spacing: spacing.railGap) {
                     ForEach(suggestions, id: \.self) { label in
@@ -127,6 +129,12 @@ struct LoopSuggestions: View {
             }
             .scrollIndicators(.hidden)
             .accessibilityLabel(PracticeText.suggestions)
+        } else {
+            ChoiceCapsule(chosen: false) {
+            } label: {
+                Text(PracticeText.suggestions)
+            }
+            .reserved(shown: false)
         }
     }
 }
