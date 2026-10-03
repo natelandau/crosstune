@@ -51,7 +51,7 @@ for Android and every browser. The parts that matter:
   SoundCloud, the Internet Archive, or any site. The app resolves title and
   artwork. Supported providers play in an in-app dock; every link also opens
   the provider. On iPhone, iPad, and Mac, an Apple Music subscriber hears
-  Apple Music songs and albums in full. Everyone else hears the preview.
+  Apple Music tracks and albums in full. Everyone else hears the preview.
 - Find recordings. From a tune, pick one of the musician's chosen services
   and search it. Apple Music, TIDAL, and Internet Archive results play in
   place and link with one tap. YouTube, Spotify, Bandcamp, and SoundCloud

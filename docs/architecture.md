@@ -233,6 +233,8 @@ same triggers. A return to the foreground stands in for a visible tab.
 - MusicKit uses the Apple Account signed in on the device. The device asks
   for access on the first Apple Music play. Access never syncs, and nothing
   reaches the Crosstune API.
+- If finding and starting the track takes more than 10 seconds, the link
+  falls back to its embed. Time spent on the access prompt does not count.
 - Closing the player, or starting a take, empties the MusicKit queue.
   MusicKit answers the system's remote commands itself, and an empty queue
   gives them nothing to start.
