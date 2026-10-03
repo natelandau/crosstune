@@ -358,7 +358,12 @@ final class EngineRunner: @unchecked Sendable {
         }
 
         nonisolated(nonsending) func inputChannelCount() async -> Int {
-            (try? await run("channels") { Int(AVAudioEngine().inputNode.outputFormat(forBus: 0).channelCount) }) ?? 1
+            (try? await run("channels") {
+                // The input node does not keep its engine alive, and an optimized build frees an
+                // engine as soon as its last use, before the node is read.
+                let engine = AVAudioEngine()
+                return withExtendedLifetime(engine) { Int(engine.inputNode.outputFormat(forBus: 0).channelCount) }
+            }) ?? 1
         }
 
         nonisolated(nonsending) func deactivateSession() async {
