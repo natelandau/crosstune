@@ -219,6 +219,22 @@ extension StoreWriter {
         try put(userTune, at: time)
     }
 
+    /// Pins the recording or link lists play first for a user tune, or clears the pin with nil.
+    /// Only one of the two columns is ever set.
+    public func setPlaySource(_ userTuneID: String, to pin: PlaySourcePin?, at time: Timestamp = .now) throws {
+        guard var userTune = try UserTune.fetchOne(db, key: userTuneID), userTune.deletedAt == nil else {
+            throw CommandError.tuneNotFound
+        }
+        userTune.playRecordingID = nil
+        userTune.playLinkID = nil
+        switch pin {
+        case .recording(let id): userTune.playRecordingID = id
+        case .link(let id): userTune.playLinkID = id
+        case nil: break
+        }
+        try put(userTune, at: time)
+    }
+
     /// Tombstones a tune and everything that hangs off it: its user tune, that user tune's list
     /// items, its recording links, and its recordings. Only the tune's own delete is queued; the
     /// rest ride along with it, as the server's own cascade does.
@@ -289,6 +305,10 @@ extension Commands {
 
     public func setArchived(_ userTuneID: String, archived: Bool, at time: Timestamp = .now) async throws {
         try await store.write { writer in try writer.setArchived(userTuneID, archived: archived, at: time) }
+    }
+
+    public func setPlaySource(_ userTuneID: String, to pin: PlaySourcePin?, at time: Timestamp = .now) async throws {
+        try await store.write { writer in try writer.setPlaySource(userTuneID, to: pin, at: time) }
     }
 
     /// Deletes a tune and everything that hangs off it, its recordings' audio on this device

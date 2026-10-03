@@ -106,6 +106,8 @@ private struct ListTunes: View {
     @Environment(\.detailTune) private var detailTune
     @Environment(\.listSheets) private var listSheets
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
+    @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var pushed: String?
     @State private var picking = false
     /// A tune the picker asked to create, opened once the picker has gone.
@@ -244,8 +246,13 @@ private struct ListTunes: View {
     }
 
     private func row(_ entry: ListEntry, position: Int, reorderable: Bool) -> some View {
+        let playAction = ListRowPlay.action(
+            for: entry, playFirst: model.playFirst, loaded: { player?.holds(.recording, id: $0) ?? false },
+            downloading: { transfers?.isDownloading($0) ?? false })
         let tuneRow = TuneRow(
-            tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position)
+            tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position
+        )
+        let hint = !selection.isActive && playAction == nil ? ListRowText.notPlayable : ""
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
         return HStack(spacing: spacing(4)) {
@@ -253,6 +260,7 @@ private struct ListTunes: View {
                 // The list's selection drives the detail column, or is the selection.
                 tuneRow
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityHint(hint)
             } else {
                 Button {
                     pushed = entry.tune.id
@@ -264,7 +272,11 @@ private struct ListTunes: View {
                 }
                 // Not the automatic style, so the row's move button beside it keeps its own tap.
                 .buttonStyle(.plain)
+                .accessibilityHint(hint)
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
+            }
+            if !selection.isActive {
+                ListRowPlayButton(entry: entry, action: playAction)
             }
             if reorderable {
                 moveMenu(entry, isChosen: detailTune?.wrappedValue == entry.tune.id)

@@ -178,6 +178,10 @@ public struct UserTune: SyncedRecord, Hashable {
     public var learnedOn: String?
     public var notes: String?
     public var archivedAt: Timestamp?
+    /// The recording that plays first in a list. At most one of the two pins is set. A pin
+    /// counts only while its row exists under this tune.
+    public var playRecordingID: String?
+    public var playLinkID: String?
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -192,6 +196,8 @@ public struct UserTune: SyncedRecord, Hashable {
         case learnedOn = "learned_on"
         case notes
         case archivedAt = "archived_at"
+        case playRecordingID = "play_recording_id"
+        case playLinkID = "play_link_id"
         case extra
     }
 
@@ -199,7 +205,8 @@ public struct UserTune: SyncedRecord, Hashable {
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String, status: String,
         learnedFrom: String? = nil, learnedOn: String? = nil, notes: String? = nil,
-        archivedAt: Timestamp? = nil, extra: JSONObject = [:]
+        archivedAt: Timestamp? = nil, playRecordingID: String? = nil, playLinkID: String? = nil,
+        extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -212,6 +219,8 @@ public struct UserTune: SyncedRecord, Hashable {
         self.learnedOn = learnedOn
         self.notes = notes
         self.archivedAt = archivedAt
+        self.playRecordingID = playRecordingID
+        self.playLinkID = playLinkID
         self.extra = extra
     }
 }
@@ -518,6 +527,9 @@ public struct UserSettings: SyncedRecord, Hashable {
     /// The services a tune's recording search covers. Plain strings, like every vocabulary
     /// field, so a service from a newer API survives this build's writes.
     public var searchProviders: [String]
+    /// Which version a list plays when a tune has both and none is pinned. One of
+    /// ``Vocabulary/playFirsts``; kept as a plain string like every vocabulary field.
+    public var playFirst: String
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -528,6 +540,7 @@ public struct UserSettings: SyncedRecord, Hashable {
         case serverSeq = "server_seq"
         case audioQuality = "audio_quality"
         case searchProviders = "search_providers"
+        case playFirst = "play_first"
         case instruments, extra
     }
 
@@ -537,17 +550,24 @@ public struct UserSettings: SyncedRecord, Hashable {
         "apple_music", "tidal", "internet_archive", "youtube", "spotify", "bandcamp", "soundcloud",
     ]
 
+    public static let playFirstRecordings = "recordings"
+    public static let playFirstAppleMusic = "apple_music"
+    public static let defaultPlayFirst = playFirstRecordings
+
     public static var wireDefaults: JSONObject {
         [
             "audio_quality": .string("standard"), "instruments": .array([]),
             "search_providers": .array(defaultSearchProviders.map(JSONValue.string)),
+            "play_first": .string(defaultPlayFirst),
         ]
     }
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, audioQuality: String = "standard",
-        instruments: [String] = [], searchProviders: [String] = defaultSearchProviders, extra: JSONObject = [:]
+        instruments: [String] = [], searchProviders: [String] = defaultSearchProviders,
+        playFirst: String = defaultPlayFirst,
+        extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -557,6 +577,7 @@ public struct UserSettings: SyncedRecord, Hashable {
         self.audioQuality = audioQuality
         self.instruments = instruments
         self.searchProviders = searchProviders
+        self.playFirst = playFirst
         self.extra = extra
     }
 }

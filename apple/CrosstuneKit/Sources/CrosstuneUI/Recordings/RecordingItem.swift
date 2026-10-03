@@ -56,15 +56,18 @@ extension View {
     /// Swipe actions and a context menu for a recording row: rename it, file it under a tune or
     /// take it out of one, and delete it.
     /// `onAddToTune` nil leaves Add to tune out, for a list where every recording is already
-    /// under the tune being looked at.
+    /// under the tune being looked at. `onTogglePin` nil leaves the pin action out; `pinned` says
+    /// whether it unpins.
     func recordingRowActions(
-        filed: Bool, onRename: @escaping () -> Void, onAddToTune: (() -> Void)?,
-        onRemoveFromTune: @escaping () -> Void, onDelete: @escaping () -> Void
+        filed: Bool, pinned: Bool = false, onTogglePin: (() -> Void)? = nil, onRename: @escaping () -> Void,
+        onAddToTune: (() -> Void)?, onRemoveFromTune: @escaping () -> Void, onDelete: @escaping () -> Void
     ) -> some View {
         self
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive, action: onDelete)
+                PinAction(pinned: pinned, onTogglePin: onTogglePin, short: true)
+                    .tint(.indigo)
                 filing(filed: filed, onAddToTune: onAddToTune, onRemoveFromTune: onRemoveFromTune)
                     .tint(.orange)
                 Button(RecordingRowActions.rename, systemImage: "pencil", action: onRename)
@@ -73,6 +76,7 @@ extension View {
             .contextMenu {
                 Button(RecordingRowActions.rename, systemImage: "pencil", action: onRename)
                 filing(filed: filed, onAddToTune: onAddToTune, onRemoveFromTune: onRemoveFromTune)
+                PinAction(pinned: pinned, onTogglePin: onTogglePin)
                 Divider()
                 Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive, action: onDelete)
             }

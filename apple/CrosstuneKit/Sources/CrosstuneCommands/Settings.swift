@@ -57,19 +57,43 @@ private func storedAudioQuality(_ row: UserSettings?) -> String {
     return row.audioQuality
 }
 
+/// The audio quality a write keeps: the stored one even when this build does not know it, so a
+/// newer client's choice survives.
+private func storedAudioQualityValue(_ row: UserSettings?) -> String {
+    guard let row, row.deletedAt == nil else { return storedAudioQuality(nil) }
+    return row.audioQuality
+}
+
+/// The play-first choice a live settings row holds, or the default when this build does not
+/// know the stored value. What screens show and lists choose by.
+public func storedPlayFirst(_ row: UserSettings?) -> String {
+    guard let row, row.deletedAt == nil, Vocabulary.playFirsts.contains(row.playFirst) else {
+        return UserSettings.defaultPlayFirst
+    }
+    return row.playFirst
+}
+
+/// The play-first value a write keeps: the stored one even when this build does not know it,
+/// so a newer client's choice survives.
+private func storedPlayFirstValue(_ row: UserSettings?) -> String {
+    guard let row, row.deletedAt == nil else { return UserSettings.defaultPlayFirst }
+    return row.playFirst
+}
+
 extension StoreWriter {
-    /// Stores the settings row, keeping each of `instruments`, `audioQuality`, and
-    /// `searchProviders` that is nil at its current value.
+    /// Stores the settings row, keeping each of `instruments`, `audioQuality`,
+    /// `searchProviders`, and `playFirst` that is nil at its current value.
     private func writeSettings(
         id: String, existing: UserSettings?, instruments: [String]? = nil, audioQuality: String? = nil,
-        searchProviders: [String]? = nil, at time: Timestamp = .now
+        searchProviders: [String]? = nil, playFirst: String? = nil, at time: Timestamp = .now
     ) throws {
         try put(
             UserSettings(
                 id: id, createdAt: existing?.createdAt ?? time, updatedAt: time, deletedAt: nil,
-                serverSeq: existing?.serverSeq ?? 0, audioQuality: audioQuality ?? storedAudioQuality(existing),
+                serverSeq: existing?.serverSeq ?? 0, audioQuality: audioQuality ?? storedAudioQualityValue(existing),
                 instruments: normalizeInstruments(instruments ?? storedInstruments(existing) ?? []),
                 searchProviders: searchProviders ?? storedSearchProviders(existing),
+                playFirst: playFirst ?? storedPlayFirstValue(existing),
                 extra: existing?.extra ?? [:]),
             at: time)
     }
@@ -100,6 +124,11 @@ extension StoreWriter {
     public func setAudioQuality(clerkUserID: String, quality: String, at time: Timestamp = .now) throws {
         let id = settingsID(clerkUserID: clerkUserID)
         try writeSettings(id: id, existing: try UserSettings.fetchOne(db, key: id), audioQuality: quality, at: time)
+    }
+
+    public func setPlayFirst(clerkUserID: String, playFirst: String, at time: Timestamp = .now) throws {
+        let id = settingsID(clerkUserID: clerkUserID)
+        try writeSettings(id: id, existing: try UserSettings.fetchOne(db, key: id), playFirst: playFirst, at: time)
     }
 
     /// Turns one searched service on or off, read inside this call like
@@ -144,6 +173,12 @@ extension Commands {
     public func setAudioQuality(clerkUserID: String, quality: String, at time: Timestamp = .now) async throws {
         try await store.write { writer in
             try writer.setAudioQuality(clerkUserID: clerkUserID, quality: quality, at: time)
+        }
+    }
+
+    public func setPlayFirst(clerkUserID: String, playFirst: String, at time: Timestamp = .now) async throws {
+        try await store.write { writer in
+            try writer.setPlayFirst(clerkUserID: clerkUserID, playFirst: playFirst, at: time)
         }
     }
 

@@ -61,6 +61,51 @@ enum Schema {
                     """,
                 arguments: [everyService, table])
         }
+        migrator.registerMigration("v8") { db in
+            // The server holds the same default, so no repull is needed.
+            try db.alter(table: SyncTable.userTunes.rawValue) { t in
+                t.add(column: "play_recording_id", .text)
+                t.add(column: "play_link_id", .text)
+            }
+            try db.alter(table: SyncTable.userSettings.rawValue) { t in
+                t.add(column: "play_first", .text).notNull().defaults(sql: "'recordings'")
+            }
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            for column in ["play_recording_id", "play_link_id"] {
+                try db.execute(
+                    sql: """
+                        UPDATE user_tunes
+                        SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') = 'text'
+                        """)
+                try db.execute(sql: "UPDATE user_tunes SET extra = json_remove(extra, '$.\(column)')")
+            }
+            try db.execute(
+                sql: """
+                    UPDATE user_settings
+                    SET play_first = json_extract(extra, '$.play_first')
+                    WHERE json_type(extra, '$.play_first') = 'text'
+                    """)
+            try db.execute(sql: "UPDATE user_settings SET extra = json_remove(extra, '$.play_first')")
+            for column in ["play_recording_id", "play_link_id"] {
+                try db.execute(
+                    sql: """
+                        UPDATE outbox
+                        SET data = json_set(data, '$.\(column)', (
+                            SELECT \(column) FROM user_tunes WHERE id = outbox.row_id))
+                        WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.\(column)') IS NULL
+                        """,
+                    arguments: [SyncTable.userTunes.rawValue])
+            }
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data, '$.play_first', coalesce(
+                        (SELECT play_first FROM user_settings WHERE id = outbox.row_id), 'recordings'))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.play_first') IS NULL
+                    """,
+                arguments: [SyncTable.userSettings.rawValue])
+        }
         return migrator
     }()
 

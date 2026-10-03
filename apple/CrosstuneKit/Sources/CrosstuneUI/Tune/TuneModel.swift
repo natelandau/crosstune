@@ -97,6 +97,13 @@ public final class TuneModel {
         await run(.media) { try await $0.removeLink(linkID) }
     }
 
+    /// Pins a recording or link as the one lists play first for this tune, or clears the pin when
+    /// `pinned` says it already is.
+    public func setPlaySource(_ pin: PlaySourcePin, pinned: Bool) async {
+        guard let userTuneID = shown?.userTune.id else { return }
+        await run(.media) { try await $0.setPlaySource(userTuneID, to: pinned ? nil : pin) }
+    }
+
     /// Runs something the screen starts but another part of the app owns, such as a recording's
     /// retry, reporting its failure under the media.
     public func runMediaAction(_ action: @MainActor () async throws -> Void) async {

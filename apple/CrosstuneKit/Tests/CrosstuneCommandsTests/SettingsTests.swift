@@ -337,4 +337,76 @@ private let everyService = [
         #expect(row.audioQuality == "high")
         #expect(!row.searchProviders.contains("tidal"))
     }
+
+    @Test func everySettingsEditKeepsPlayFirst() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(UserSettings(id: id, createdAt: noon, playFirst: UserSettings.playFirstAppleMusic), at: noon)
+        }
+
+        try await commands.setInstruments(clerkUserID: "user_1", instruments: ["guitar"], at: later(1))
+        try await commands.setAudioQuality(clerkUserID: "user_1", quality: "high", at: later(2))
+        try await commands.toggleSearchProvider(clerkUserID: "user_1", provider: "tidal", on: false, at: later(3))
+
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.playFirst == UserSettings.playFirstAppleMusic)
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["play_first"] == .string(UserSettings.playFirstAppleMusic))
+    }
+
+    @Test func aPlayFirstThisBuildDoesNotKnowSurvivesOtherEdits() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(UserSettings(id: id, createdAt: noon, playFirst: "future_choice"), at: noon)
+        }
+
+        try await Commands(store: store).setInstruments(clerkUserID: "user_1", instruments: ["guitar"], at: later(1))
+
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.playFirst == "future_choice")
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["play_first"] == .string("future_choice"))
+        #expect(storedPlayFirst(row) == UserSettings.defaultPlayFirst)
+    }
+
+    @Test func anAudioQualityThisBuildDoesNotKnowSurvivesOtherEdits() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = settingsID(clerkUserID: "user_1")
+        try await store.write { writer in
+            try writer.put(UserSettings(id: id, createdAt: noon, audioQuality: "lossless"), at: noon)
+        }
+
+        try await Commands(store: store).setInstruments(clerkUserID: "user_1", instruments: ["guitar"], at: later(1))
+
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.audioQuality == "lossless")
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["audio_quality"] == .string("lossless"))
+    }
+
+    @Test func setPlayFirstKeepsTheOtherSettings() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        try await commands.setInstruments(clerkUserID: "user_1", instruments: ["violin"], at: noon)
+        try await commands.setAudioQuality(clerkUserID: "user_1", quality: "high", at: later(1))
+
+        try await commands.setPlayFirst(
+            clerkUserID: "user_1", playFirst: UserSettings.playFirstAppleMusic, at: later(2))
+
+        let id = settingsID(clerkUserID: "user_1")
+        let row = try #require(try await store.read { db in try UserSettings.fetchOne(db, key: id) })
+        #expect(row.playFirst == UserSettings.playFirstAppleMusic)
+        #expect(row.instruments == ["violin"])
+        #expect(row.audioQuality == "high")
+        #expect(row.updatedAt == later(2))
+        let entry = try #require(try await store.pendingChanges(limit: 10).last)
+        #expect(entry.data?["play_first"] == .string(UserSettings.playFirstAppleMusic))
+    }
 }
