@@ -1,3 +1,33 @@
+## v0.11.0 (2026-10-03)
+
+### Feat
+
+- **apple**: play Apple Music links in full for subscribers (#117)
+- **search**: find and link recordings from music services (#116)
+- **recordings**: rename from the row, open practice from the player (#115)
+- **practice**: make practice the recording screen (#113)
+- **settings**: export tunes, lists, and recordings as one zip (#111)
+- **web**: block scripts and frames from unlisted origins (#108)
+
+### Fix
+
+- **practice**: keep auto-pan going when a frame renders late (#112)
+- **api**: fail fast when object storage stops responding (#110)
+- **api**: keep a hostile recording from taking down the API (#109)
+- **apple**: remove nonobvious status on tune screen
+- **apple**: show the record button as soon as a sheet closes (#107)
+- **api**: stop job file leaks and cut job memory and sync work (#102)
+- **web**: report dropped and stalled API calls as offline (#101)
+- **links**: drop the label from recording links (#99)
+- **apple**: make the record dome a red dot on glass like the web
+- **apple**: keep the catalog filter bar at the default text size
+- **apple**: stop filter rails moving up and down while scrolling
+
+### Perf
+
+- **web**: halve the browser test suite's wall time (#105)
+- **web**: cut idle re-renders and blob reads (#104)
+
 ## v0.10.0 (2026-10-01)
 
 ### Feat
