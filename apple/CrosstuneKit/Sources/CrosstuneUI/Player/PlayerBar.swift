@@ -250,10 +250,21 @@ struct PlayerPanel: View {
     /// keeps its aspect ratio as it shrinks; `width` nil means the panel's full width.
     nonisolated static func embedSize(_ embed: Embed, windowHeight: CGFloat) -> (width: CGFloat?, height: CGFloat) {
         let natural = CGFloat(embed.points)
-        let room = max(0, windowHeight * maxShare - chrome)
-        let height = min(natural, room)
+        let height = fitted(natural, windowHeight: windowHeight)
         guard embed.height == .video else { return (nil, height) }
         return (videoWidth * height / natural, height)
+    }
+
+    /// How tall the Apple Music card is drawn: as the Apple Music embed it plays in place of, so
+    /// the panel keeps its size whichever one plays.
+    nonisolated static func cardHeight(windowHeight: CGFloat) -> CGFloat {
+        fitted(MusicPlayerCard.height, windowHeight: windowHeight)
+    }
+
+    /// `natural` when the window has room, otherwise as tall as keeps the panel within
+    /// ``maxShare`` of the window.
+    private nonisolated static func fitted(_ natural: CGFloat, windowHeight: CGFloat) -> CGFloat {
+        min(natural, max(0, windowHeight * maxShare - chrome))
     }
 
     /// Every open window shows the panel, and the one web view plays in the window in use.
@@ -277,9 +288,13 @@ struct PlayerPanel: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
             } else if let music = player.music {
-                MusicPlayerBody(music: music)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                let height = Self.cardHeight(windowHeight: windowHeight)
+                if height > 0 {
+                    // The bar above carries play and pause.
+                    MusicPlayerCard(player: player, music: music, fixedHeight: height)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
+                }
             } else if player.item?.kind == .recording {
                 #if os(iOS)
                     HStack(spacing: 8) {
@@ -321,17 +336,7 @@ struct LinkPlayerSheet: View {
                         }
                         .clipShape(.rect(cornerRadius: 12))
                     } else if let music = player.music {
-                        MusicArtwork(music: music)
-                        if let subtitle = PlayerBar.subtitle(player) {
-                            Text(subtitle)
-                                .font(.headline)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                        }
-                        HStack(spacing: 8) {
-                            RecordingPlayButton(player: player, font: .title)
-                            MusicPlayerBody(music: music)
-                        }
+                        MusicPlayerCard(player: player, music: music, showsPlay: true)
                     }
                     if let url = link.providerURL {
                         Link(destination: url) {

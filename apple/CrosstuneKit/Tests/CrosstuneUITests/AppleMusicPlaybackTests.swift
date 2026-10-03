@@ -59,6 +59,7 @@ final class FakeMusic: MusicPlayback {
     var elapsed: TimeInterval = 0
     var duration: TimeInterval?
     var trackTitle: String?
+    var artistName: String?
     var artwork: Artwork? { nil }
     var hasAlbum = false
     var found = true

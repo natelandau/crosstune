@@ -395,4 +395,23 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     @Test func leavesOnlyTheBarInAWindowTooShortForAPlayer() {
         #expect(PlayerPanel.embedSize(video, windowHeight: 100).height == 0)
     }
+
+    @Test func sizesTheAppleMusicCardAsTheAppleMusicEmbed() throws {
+        let embed = try #require(
+            Embed.for(link("apple_music", "1", url: "https://music.apple.com/us/album/x/1?i=2")))
+        for windowHeight: CGFloat in [1000, 440, 300, 100, .infinity] {
+            let embedHeight = PlayerPanel.embedSize(embed, windowHeight: windowHeight).height
+            #expect(PlayerPanel.cardHeight(windowHeight: windowHeight) == embedHeight)
+        }
+    }
+}
+
+@Suite struct MusicPlayerCardTests {
+    @Test func fillsTheCardsHeightWithSquareArtwork() {
+        #expect(MusicPlayerCard.artworkSide(height: 175) == 175 - 2 * MusicPlayerCard.inset)
+    }
+
+    @Test func dropsTheArtworkWhenTheCardIsTooShortToShowIt() {
+        #expect(MusicPlayerCard.artworkSide(height: 60) == nil)
+    }
 }

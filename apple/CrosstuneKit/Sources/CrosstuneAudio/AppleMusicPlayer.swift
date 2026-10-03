@@ -13,6 +13,8 @@ private let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "app
 public protocol MusicPlayback: PlaybackTransport {
     /// The current entry's title, nil with nothing queued.
     var trackTitle: String? { get }
+    /// The current entry's artist, nil with nothing queued.
+    var artistName: String? { get }
     /// The current entry's artwork, nil with nothing queued.
     var artwork: Artwork? { get }
     /// Whether the queue holds an album, whose tracks can be stepped through.
@@ -79,6 +81,11 @@ public final class AppleMusicPlayer: MusicPlayback {
     public var trackTitle: String? {
         _ = revision
         return player?.queue.currentEntry?.title
+    }
+
+    public var artistName: String? {
+        _ = revision
+        return player?.queue.currentEntry?.subtitle
     }
 
     public var artwork: Artwork? {
