@@ -8,32 +8,43 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// Stands in for the device's Apple Music access: answers `state`, and the first request
-/// moves a never-asked state to `answer`.
+/// Stands in for the device's Apple Music access: answers `state`, and a request moves a
+/// never-asked state to `answer`. With `holdsRequests` on, a request waits until
+/// ``releaseRequest()``, as the system prompt waits on the person.
 @MainActor
 final class FakeAccess: AppleMusicAccess {
     var state: AppleMusicAccessState
     var answer: AppleMusicAccessState
+    var holdsRequests = false
     private(set) var requests = 0
+    private var held: CheckedContinuation<Void, Never>?
 
     init(_ state: AppleMusicAccessState, answer: AppleMusicAccessState = .fullTracks) {
         self.state = state
         self.answer = answer
     }
 
+    var isHoldingRequest: Bool { held != nil }
+
+    func releaseRequest() {
+        held?.resume()
+        held = nil
+    }
+
     func current() async -> AppleMusicAccessState { state }
 
     func request() async -> AppleMusicAccessState {
-        if state == .notAsked {
-            requests += 1
-            state = answer
-        }
+        guard state == .notAsked else { return state }
+        requests += 1
+        if holdsRequests { await withCheckedContinuation { held = $0 } }
+        state = answer
         return state
     }
 }
 
 /// Stands in for the device's MusicKit player, noting what the model asked of it. With
-/// `holdsLoads` on, a load waits until ``release()``.
+/// `holdsLoads` on, each load waits until ``release()``, and notes whether its task was
+/// cancelled by then.
 @MainActor
 final class FakeMusic: MusicPlayback {
     var isPlaying = false
@@ -43,24 +54,38 @@ final class FakeMusic: MusicPlayback {
     var artwork: Artwork? { nil }
     var hasAlbum = false
     var found = true
+    var starts = true
     var holdsLoads = false
     private(set) var loaded: [AppleMusicKind] = []
+    private(set) var cancelledLoads: [AppleMusicKind] = []
     private(set) var calls: [String] = []
-    private var held: CheckedContinuation<Void, Never>?
+    private var held: [CheckedContinuation<Void, Never>] = []
 
     func load(_ kind: AppleMusicKind) async -> Bool {
         calls.append("load")
         loaded.append(kind)
-        if holdsLoads { await withCheckedContinuation { held = $0 } }
+        if holdsLoads { await withCheckedContinuation { held.append($0) } }
+        if Task.isCancelled {
+            cancelledLoads.append(kind)
+            return false
+        }
         return found
     }
 
     func release() {
-        held?.resume()
-        held = nil
+        let waiting = held
+        held = []
+        for continuation in waiting { continuation.resume() }
     }
 
-    var isHoldingLoad: Bool { held != nil }
+    var heldLoads: Int { held.count }
+    var isHoldingLoad: Bool { !held.isEmpty }
+
+    func start() async -> Bool {
+        calls.append("play")
+        isPlaying = starts
+        return starts
+    }
 
     func play() {
         isPlaying = true
@@ -194,7 +219,7 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(player.linkAudio == nil)
     }
 
-    @Test func aDecisionThatLandsDuringATakeNeverPlays() async throws {
+    @Test func aDecisionThatLandsDuringATakeEmptiesTheQueueAndCloses() async throws {
         let (player, _, music) = model(.fullTracks)
         var capturing = false
         player.isCapturing = { capturing }
@@ -203,8 +228,9 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         try await eventually { music.isHoldingLoad }
         capturing = true
         music.release()
-        try await eventually { player.linkAudio == .native }
+        try await eventually { !player.isLoaded }
         #expect(!music.calls.contains("play"))
+        #expect(music.calls.last == "stop")
     }
 
     @Test func decidesAgainOnEachPlayTap() async throws {
@@ -272,5 +298,119 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         access.state = .declined
         try await play(player)
         #expect(PlayerBar.subtitle(player) == nil)
+    }
+
+    @Test func aSecondAppleMusicPlayCancelsTheFirstLoad() async throws {
+        let (player, _, music) = model(.fullTracks)
+        music.holdsLoads = true
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { music.heldLoads == 1 }
+        var other = appleLink(url: "https://music.apple.com/us/song/the-mason-s-apron/1440833095")
+        other.id = "l2"
+        player.play(try #require(PlayerItem.link(other)))
+        try await eventually { music.heldLoads == 2 }
+        music.release()
+        try await eventually { player.linkAudio == .native }
+        #expect(music.cancelledLoads == [.song(id: "1440833090")])
+        #expect(player.holds(.link, id: "l2"))
+        #expect(music.calls.filter { $0 == "play" }.count == 1)
+    }
+
+    @Test func closeWhileThePromptIsUpNeverLoads() async throws {
+        let (player, access, music) = model(.notAsked)
+        access.holdsRequests = true
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { access.isHoldingRequest }
+        player.close()
+        access.releaseRequest()
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(!music.calls.contains("load"))
+        #expect(!player.isLoaded)
+    }
+
+    @Test func aFailedLoadEmptiesTheQueueBeforeTheEmbed() async throws {
+        let (player, _, music) = model(.fullTracks, found: false)
+        try await play(player)
+        #expect(player.linkAudio == .embed)
+        #expect(music.calls == ["load", "stop"])
+    }
+
+    @Test func decidesAgainWhenASubscriptionStarts() async throws {
+        let (player, access, _) = model(.noSubscription)
+        try await play(player)
+        #expect(player.linkAudio == .embed)
+        player.close()
+        access.state = .fullTracks
+        try await play(player)
+        #expect(player.linkAudio == .native)
+    }
+
+    @Test func aStalledDecisionFallsBackToTheEmbed() async throws {
+        let (player, _, music) = model(.fullTracks)
+        player.decisionTimeout = .milliseconds(50)
+        music.holdsLoads = true
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { player.linkAudio == .embed }
+        #expect(player.isExpanded)
+        #expect(music.calls.last == "stop")
+        music.release()
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(!music.calls.contains("play"))
+        #expect(player.linkAudio == .embed)
+    }
+
+    @Test func theDeadlineWaitsOutTheAccessPrompt() async throws {
+        let (player, access, _) = model(.notAsked)
+        player.decisionTimeout = .milliseconds(50)
+        access.holdsRequests = true
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { access.isHoldingRequest }
+        try await Task.sleep(for: .milliseconds(120))
+        #expect(player.linkAudio == .deciding)
+        access.releaseRequest()
+        try await eventually { player.linkAudio == .native }
+    }
+
+    @Test func aTrackThatWillNotStartFallsBackToTheEmbed() async throws {
+        let (player, _, music) = model(.fullTracks)
+        music.starts = false
+        try await play(player)
+        #expect(player.linkAudio == .embed)
+        #expect(player.isExpanded)
+        #expect(music.calls == ["load", "play", "stop"])
+    }
+
+    @Test func aSyncedAddressChangeKeepsThePlayerAsTheMusicianLeftIt() async throws {
+        let (player, _, music) = model(.fullTracks)
+        try await play(player)
+        music.pause()
+        player.linkChanged(
+            id: "l1", to: appleLink(url: "https://music.apple.com/us/song/the-mason-s-apron/1440833095"))
+        try await eventually { player.linkAudio == .native }
+        #expect(music.loaded.last == .song(id: "1440833095"))
+        #expect(music.calls.filter { $0 == "play" }.count == 1)
+        #expect(!player.isExpanded)
+    }
+
+    @Test func aDecidingBarShowsOnlyTheTitle() async throws {
+        let (player, _, music) = model(.fullTracks)
+        music.holdsLoads = true
+        player.play(try #require(PlayerItem.link(appleLink())))
+        try await eventually { music.isHoldingLoad }
+        #expect(!PlayerBar.showsGlyph(player))
+        #expect(!PlayerBar.canExpand(player))
+        music.release()
+        try await eventually { player.linkAudio == .native }
+        #expect(PlayerBar.canExpand(player))
+    }
+
+    @Test func readsTheAlbumTrackInTheBarsSpokenName() async throws {
+        let (player, _, music) = model(.fullTracks)
+        music.hasAlbum = true
+        music.trackTitle = "The Mason's Apron"
+        var row = appleLink(url: "https://music.apple.com/us/album/reels/1440833081")
+        row.title = "Reels"
+        try await play(player, row)
+        #expect(PlayerBar.showLabel(player) == "Show player, Reels, The Mason's Apron")
     }
 }

@@ -86,10 +86,8 @@ public func appleMusicKind(_ raw: String) -> AppleMusicKind? {
         let id = appleRef(url)
     else { return nil }
     if queryItem("i", in: url)?.isEmpty == false { return .song(id: id) }
-    // music.apple.com/{storefront}/{kind}/{slug}/{id}
-    let segments = url.path.split(separator: "/")
-    guard segments.count > 1 else { return nil }
-    switch segments[1] {
+    // music.apple.com/{storefront}/{kind}/{slug}/{id}, where some links leave out the storefront.
+    switch url.path.split(separator: "/").prefix(2).first(where: { $0 == "song" || $0 == "album" }) {
     case "song": return .song(id: id)
     case "album": return .album(id: id)
     default: return nil

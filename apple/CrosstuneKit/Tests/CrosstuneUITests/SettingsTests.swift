@@ -401,4 +401,10 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(AppleMusicText.value(state) == value)
         #expect(AppleMusicRowAction.make(state) == action)
     }
+
+    @Test func hintsWhatATapDoes() {
+        #expect(AppleMusicRowAction.request.hint == AppleMusicText.askHint)
+        #expect(AppleMusicRowAction.openSystemSettings.hint == AppleMusicText.settingsHint)
+        #expect(AppleMusicRowAction.none.hint == nil)
+    }
 }

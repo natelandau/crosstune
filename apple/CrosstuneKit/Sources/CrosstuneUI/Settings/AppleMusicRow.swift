@@ -11,6 +11,8 @@ public enum AppleMusicText {
     public static let fullTracks = "Full tracks"
     public static let previews = "Previews"
     public static let help = "Plays Apple Music recordings in full on this device with your subscription."
+    public static let askHint = "Asks for access to Apple Music."
+    public static let settingsHint = "Opens Settings, where you can allow Apple Music."
 
     static func value(_ state: AppleMusicAccessState) -> String {
         state == .fullTracks ? fullTracks : previews
@@ -31,6 +33,15 @@ enum AppleMusicRowAction: Equatable {
         case .notAsked: .request
         case .declined: .openSystemSettings
         case .fullTracks, .noSubscription: .none
+        }
+    }
+
+    /// What VoiceOver says a tap does, nil for a row that does nothing.
+    var hint: String? {
+        switch self {
+        case .request: AppleMusicText.askHint
+        case .openSystemSettings: AppleMusicText.settingsHint
+        case .none: nil
         }
     }
 
@@ -73,19 +84,9 @@ struct AppleMusicSection: View {
         if action == .none {
             LabeledContent(AppleMusicText.title, value: AppleMusicText.value(state))
         } else {
-            Button {
+            SettingsFieldRow(title: AppleMusicText.title, value: AppleMusicText.value(state), hint: action.hint) {
                 perform(action)
-            } label: {
-                HStack {
-                    LabeledContent(AppleMusicText.title, value: AppleMusicText.value(state))
-                    Image(systemName: "chevron.forward")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                }
-                .contentShape(.rect)
             }
-            .buttonStyle(.plain)
         }
     }
 

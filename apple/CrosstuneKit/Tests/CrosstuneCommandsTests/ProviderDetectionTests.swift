@@ -58,6 +58,8 @@ import Testing
             ("https://music.apple.com/gb/song/the-silver-spear/1440833090", .song(id: "1440833090")),
             ("https://music.apple.com/us/album/reels/1440833081", .album(id: "1440833081")),
             ("https://music.apple.com/us/album/reels/1440833081/", .album(id: "1440833081")),
+            ("https://music.apple.com/album/reels/1440833081", .album(id: "1440833081")),
+            ("https://music.apple.com/song/the-silver-spear/1440833090", .song(id: "1440833090")),
             ("https://music.apple.com/us/music-video/x/1440833099", nil),
             ("https://music.apple.com/us/playlist/x/pl.u-abc", nil),
             ("https://music.apple.com/us/artist/x/12345", nil),

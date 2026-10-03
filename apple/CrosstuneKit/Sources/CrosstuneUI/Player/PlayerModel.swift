@@ -233,6 +233,11 @@ public final class PlayerModel {
     @ObservationIgnored private var fetch: Task<Void, Never>?
     /// Asking for access and finding the loaded Apple Music link's track.
     @ObservationIgnored private var deciding: Task<Void, Never>?
+    /// Ends a decision that the network holds up, so the link falls back to its embed.
+    @ObservationIgnored private var deadline: Task<Void, Never>?
+    /// How long finding and starting an Apple Music track may take before the embed plays
+    /// instead. The access prompt does not count, since it waits on the musician.
+    @ObservationIgnored var decisionTimeout: Duration = .seconds(10)
     /// The file the audio player holds, and its full length before any window.
     @ObservationIgnored private var loadedFile: (audio: RecordingAudioFile, duration: TimeInterval?)?
     /// Changes made here that the row does not hold yet. Each wins over the row until the row
@@ -426,10 +431,14 @@ public final class PlayerModel {
             return
         }
         guard next.link?.appleMusic == item?.link?.appleMusic else {
-            // A new address can mean another track, or one MusicKit cannot play.
+            // A new address can mean another track, or one MusicKit cannot play. The player
+            // stays as the musician left it: shown or not, and paused or not.
+            let wasExpanded = isExpanded
+            let wasPaused = linkAudio == .native && music?.isPlaying == false
             stopAudio()
             item = next
-            startLink(next)
+            startLink(next, autoplay: !wasPaused)
+            isExpanded = wasExpanded
             return
         }
         if next != item { item = next }
@@ -608,7 +617,8 @@ public final class PlayerModel {
     }
 
     /// Plays a just-loaded link: through MusicKit when it can, otherwise in its embed, in full.
-    private func startLink(_ item: PlayerItem) {
+    /// `autoplay` false leaves a MusicKit track paused at its start.
+    private func startLink(_ item: PlayerItem, autoplay: Bool = true) {
         guard let kind = item.link?.appleMusic, let appleMusic else {
             linkAudio = .embed
             isExpanded = item.link != nil
@@ -617,24 +627,39 @@ public final class PlayerModel {
         linkAudio = .deciding
         isExpanded = false
         let id = item.id
+        startDeadline(id)
         deciding = Task { [weak self] in
-            let access = await appleMusic.access.request()
+            var access = await appleMusic.access.current()
             guard let self, isDeciding(id) else { return }
-            let found = access == .fullTracks ? await appleMusic.player.load(kind) : false
-            guard isDeciding(id) else {
-                // A queue set for a link that is gone would answer the headphones' play button.
-                if found && linkAudio != .native && linkAudio != .deciding { appleMusic.player.stop() }
+            if access == .notAsked {
+                deadline?.cancel()
+                access = await appleMusic.access.request()
+                guard isDeciding(id) else { return }
+                startDeadline(id)
+            }
+            guard access == .fullTracks else {
+                fallBack(emptyingQueue: false)
                 return
             }
-            deciding = nil
-            if found {
-                linkAudio = .native
-                if !isCapturing() { appleMusic.player.play() }
-            } else {
-                linkAudio = .embed
-                expandedWindow = nil
-                isExpanded = true
+            guard await appleMusic.player.load(kind), isDeciding(id) else {
+                guard isDeciding(id) else { return }
+                fallBack()
+                return
             }
+            guard !isCapturing() else {
+                // A queue left behind would answer the headphones' play button during the take.
+                close()
+                return
+            }
+            if autoplay {
+                guard await appleMusic.player.start(), isDeciding(id) else {
+                    guard isDeciding(id) else { return }
+                    fallBack()
+                    return
+                }
+            }
+            finishDeciding()
+            linkAudio = .native
         }
     }
 
@@ -643,12 +668,38 @@ public final class PlayerModel {
         !Task.isCancelled && holds(.link, id: id) && linkAudio == .deciding
     }
 
+    private func startDeadline(_ id: String) {
+        deadline?.cancel()
+        let timeout = decisionTimeout
+        deadline = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard let self, isDeciding(id) else { return }
+            fallBack()
+        }
+    }
+
+    /// Ends the decision with the link's embed, in full. `emptyingQueue` clears whatever a load
+    /// left in the MusicKit queue; a decision that never loaded has nothing to clear.
+    private func fallBack(emptyingQueue: Bool = true) {
+        finishDeciding()
+        if emptyingQueue { appleMusic?.player.stop() }
+        linkAudio = .embed
+        expandedWindow = nil
+        isExpanded = true
+    }
+
+    private func finishDeciding() {
+        deciding?.cancel()
+        deciding = nil
+        deadline?.cancel()
+        deadline = nil
+    }
+
     private func stopAudio() {
         flushSettings()
         fetch?.cancel()
         fetch = nil
-        deciding?.cancel()
-        deciding = nil
+        finishDeciding()
         if linkAudio == .native || linkAudio == .deciding { appleMusic?.player.stop() }
         linkAudio = nil
         if recordingAudio == .loaded { audio.unload() }

@@ -33,22 +33,43 @@ public struct PlayerBar: View {
         return music.trackTitle
     }
 
+    /// Whether the bar leads with a static play glyph: only for a link in its embed, whose
+    /// controls are the provider's.
+    static func showsGlyph(_ player: PlayerModel) -> Bool {
+        player.linkAudio == .embed
+    }
+
+    /// Whether a tap on the item shows its player in full. A link still deciding how to play
+    /// has no player to show yet.
+    static func canExpand(_ player: PlayerModel) -> Bool {
+        player.linkAudio != .deciding
+    }
+
+    /// Show player and the item's name, an album's track, then a recording's speed and pitch
+    /// when either is away from its default, since the button's name replaces the label's.
+    static func showLabel(_ player: PlayerModel) -> String {
+        let badge =
+            player.item?.kind == .recording
+            ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
+        return [show, player.title ?? "", subtitle(player), badge].compactMap(\.self).joined(separator: ", ")
+    }
+
     public var body: some View {
         let isRecording = player.item?.kind == .recording
-        let inBar = player.playsInBar
+        let glyph = Self.showsGlyph(player)
         HStack(spacing: 4) {
-            if inBar {
+            if player.playsInBar {
                 RecordingPlayButton(player: player)
             }
             // The panel shows a link's player under the bar; a recording opens its screen.
-            if isPanel && !isRecording {
-                itemLabel(glyph: !inBar)
+            if (isPanel && !isRecording) || !Self.canExpand(player) {
+                itemLabel(glyph: glyph)
             } else {
                 Button {
                     player.expand(in: window)
                 } label: {
                     HStack(spacing: 8) {
-                        itemLabel(glyph: !inBar)
+                        itemLabel(glyph: glyph)
                         // The tap shows the player in full, which rises from here.
                         Image(systemName: "chevron.up")
                             .font(.footnote.weight(.semibold))
@@ -58,7 +79,7 @@ public struct PlayerBar: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(showLabel(isRecording: isRecording))
+                .accessibilityLabel(Self.showLabel(player))
             }
             if isRecording, player.loops.isRepeating, let name = player.loops.selectedName {
                 RepeatBadge(player: player, name: name)
@@ -81,17 +102,8 @@ public struct PlayerBar: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(.rect)
         }
-        .padding(.leading, inBar ? 6 : 16)
+        .padding(.leading, player.playsInBar ? 6 : 16)
         .padding(.trailing, 4)
-    }
-
-    /// Show player and the item's name, then a recording's speed and pitch when either is
-    /// away from its default, since the button's name replaces the badge's.
-    private func showLabel(isRecording: Bool) -> String {
-        let badge =
-            isRecording
-            ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
-        return [Self.show, player.title ?? "", badge].compactMap(\.self).joined(separator: ", ")
     }
 
     private func itemLabel(glyph: Bool) -> some View {
