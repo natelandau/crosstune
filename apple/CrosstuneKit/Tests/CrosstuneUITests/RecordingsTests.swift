@@ -42,6 +42,9 @@ private struct RefusingSyncAPI: SyncAPI {
     func pull(since: Int64) async throws -> PullPage { PullPage(rows: [], nextSince: since, hasMore: false) }
     func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
+    func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+        throw URLError(.badURL)
+    }
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
         throw URLError(.badURL)
     }

@@ -103,6 +103,29 @@ public final class TuneModel {
         await run(.media) { _ in try await action() }
     }
 
+    /// What a tap on the tune menu's Find recordings item does. Offline it does nothing, since the
+    /// item shows its reason; a service's own search page opens through `open`, and why it could
+    /// not shows under the media.
+    public func chooseFindRecordings(
+        _ entry: FindRecordingsEntry, tuneID: String, query: String, offline: Bool,
+        search: FindRecordingsModel.Search?,
+        openSheet: (@MainActor (_ tuneID: String, _ service: String?) -> Void)?,
+        open: @MainActor (URL) -> Void
+    ) async {
+        guard !offline else { return }
+        switch entry {
+        case .sheet(let service): openSheet?(tuneID, service)
+        case .searchPage(let provider):
+            await runMediaAction {
+                switch await FindRecordingsModel.searchPage(for: provider, query: query, search: search) {
+                case .success(let url): open(url)
+                case .failure(let reason): throw reason
+                case nil: break
+                }
+            }
+        }
+    }
+
     /// Runs a write, keeping its failure's message for the screen to show at `place`. True
     /// when it landed.
     @discardableResult

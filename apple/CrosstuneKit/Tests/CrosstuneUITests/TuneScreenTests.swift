@@ -173,6 +173,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(detail.lists.map(\.list.name) == ["Tuesday session"])
         #expect(detail.lists.first?.itemID == "sample_item_session_0")
         #expect(detail.instruments == SampleCatalog.instruments)
+        #expect(detail.searchProviders == SampleCatalog.searchProviders)
         #expect(detail.tunings == ["Violin: Standard (GDAE)"])
         #expect(
             detail.deleteMessage == "Delete \"Soldier's Joy\"? This removes its links, list entries, and 1 recording.")

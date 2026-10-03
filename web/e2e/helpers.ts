@@ -365,3 +365,41 @@ export async function nudgeSync(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Sync now' }).click()
   await page.getByRole('tab', { name: 'Recordings' }).click()
 }
+
+export interface StubbedResult {
+  url: string
+  provider: string
+  provider_ref: string | null
+  title: string
+  subtitle: string | null
+  artwork_url: string | null
+}
+
+export interface StubbedGroup {
+  provider: string
+  status: 'results' | 'search_only' | 'unavailable'
+  results: StubbedResult[]
+  search_url: string
+}
+
+/**
+ * Answer every music search with the `groups` for the services it asks for, so no run reaches
+ * a real service. Returns the request URLs seen, in order, for a test to assert on.
+ */
+export async function stubSearch(page: Page, groups: StubbedGroup[]): Promise<URL[]> {
+  const seen: URL[] = []
+  await page.route('**/v1/links/search**', async (route) => {
+    const url = new URL(route.request().url())
+    seen.push(url)
+    const asked = requestedProviders(url)
+    await route.fulfill({
+      json: { groups: groups.filter((group) => asked.includes(group.provider)) },
+    })
+  })
+  return seen
+}
+
+/** The services a search request asked for, one repeated `providers` parameter each. */
+export function requestedProviders(url: URL): string[] {
+  return url.searchParams.getAll('providers')
+}

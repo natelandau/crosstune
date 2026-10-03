@@ -2,7 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
-import { setAudioQuality, setInstruments, settingsId, toggleInstrumentSetting } from './settings'
+import { PROVIDERS } from '../api/vocabulary'
+import { SEARCHABLE_PROVIDERS, storedSearchProviders, type LocalUserSettings } from '../db/types'
+import {
+  setAudioQuality,
+  setInstruments,
+  settingsId,
+  toggleInstrumentSetting,
+  toggleSearchProvider,
+} from './settings'
 
 let db: CrosstuneDb
 
@@ -141,5 +149,127 @@ describe('the five-string banjo', () => {
     expect(
       (await pendingFor(db, 'user_settings', settingsId('user_1')))?.data?.instruments,
     ).toEqual(['five_string_banjo'])
+  })
+})
+
+describe('storedSearchProviders', () => {
+  it('falls back to every searchable provider without a row or the field', () => {
+    expect(storedSearchProviders(null)).toEqual(SEARCHABLE_PROVIDERS)
+    expect(storedSearchProviders(undefined)).toEqual(SEARCHABLE_PROVIDERS)
+    expect(storedSearchProviders({} as LocalUserSettings)).toEqual(SEARCHABLE_PROVIDERS)
+    expect(SEARCHABLE_PROVIDERS).toHaveLength(7)
+    expect(SEARCHABLE_PROVIDERS).not.toContain('other')
+  })
+
+  it('lists every provider but other, in the order results group', () => {
+    expect(SEARCHABLE_PROVIDERS).toEqual([
+      'apple_music',
+      'tidal',
+      'internet_archive',
+      'youtube',
+      'spotify',
+      'bandcamp',
+      'soundcloud',
+    ])
+    expect(new Set(SEARCHABLE_PROVIDERS)).toEqual(new Set(PROVIDERS.filter((p) => p !== 'other')))
+  })
+
+  it('falls back to every searchable provider for a deleted row', () => {
+    const row = {
+      deleted_at: '2026-09-11T10:00:00.000Z',
+      search_providers: ['tidal'],
+    } as unknown as LocalUserSettings
+    expect(storedSearchProviders(row)).toEqual(SEARCHABLE_PROVIDERS)
+  })
+
+  it('keeps an empty choice empty', () => {
+    expect(storedSearchProviders({ search_providers: [] } as unknown as LocalUserSettings)).toEqual(
+      [],
+    )
+  })
+})
+
+describe('toggleSearchProvider', () => {
+  it('writes the row and queues one entry carrying the field, off then on', async () => {
+    await toggleSearchProvider(db, 'user_1', 'tidal', false)
+    const off = await db.user_settings.get(settingsId('user_1'))
+    expect(off?.search_providers).toEqual(SEARCHABLE_PROVIDERS.filter((p) => p !== 'tidal'))
+
+    await toggleSearchProvider(db, 'user_1', 'tidal', true)
+    const on = await db.user_settings.get(settingsId('user_1'))
+    expect(on?.search_providers).toEqual(SEARCHABLE_PROVIDERS)
+
+    const batch = await pendingBatch(db, 10)
+    expect(batch).toHaveLength(1)
+    expect(batch[0]).toMatchObject({
+      table: 'user_settings',
+      data: { search_providers: SEARCHABLE_PROVIDERS },
+    })
+  })
+
+  it('keeps values it does not know, after the known ones', async () => {
+    const at = '2026-09-11T10:00:00.000Z'
+    await db.user_settings.put({
+      id: settingsId('user_1'),
+      created_at: at,
+      updated_at: at,
+      deleted_at: null,
+      server_seq: 1,
+      instruments: [],
+      audio_quality: 'standard',
+      search_providers: ['tidal', 'future_service'],
+    } as never)
+    await toggleSearchProvider(db, 'user_1', 'spotify', true)
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row?.search_providers).toEqual(['tidal', 'spotify', 'future_service'])
+    await toggleSearchProvider(db, 'user_1', 'tidal', false)
+    expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).toEqual([
+      'spotify',
+      'future_service',
+    ])
+  })
+
+  it('never stores other', async () => {
+    await toggleSearchProvider(db, 'user_1', 'other', true)
+    const row = await db.user_settings.get(settingsId('user_1'))
+    expect(row?.search_providers).not.toContain('other')
+  })
+
+  it('is kept by setInstruments and setAudioQuality', async () => {
+    await toggleSearchProvider(db, 'user_1', 'youtube', false)
+    const expected = SEARCHABLE_PROVIDERS.filter((p) => p !== 'youtube')
+    await setInstruments(db, 'user_1', ['violin'])
+    expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).toEqual(expected)
+    await setAudioQuality(db, 'user_1', 'high')
+    expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).toEqual(expected)
+  })
+
+  it('keeps values it does not know through setInstruments and setAudioQuality', async () => {
+    const at = '2026-09-11T10:00:00.000Z'
+    const stored = ['tidal', 'future_service']
+    await db.user_settings.put({
+      id: settingsId('user_1'),
+      created_at: at,
+      updated_at: at,
+      deleted_at: null,
+      server_seq: 1,
+      instruments: [],
+      audio_quality: 'standard',
+      search_providers: stored,
+    } as never)
+    await setInstruments(db, 'user_1', ['violin'])
+    expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).toEqual(stored)
+    await setAudioQuality(db, 'user_1', 'high')
+    expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).toEqual(stored)
+    const batch = await pendingBatch(db, 10)
+    expect(batch.at(-1)).toMatchObject({ data: { search_providers: stored } })
+  })
+
+  it('keeps the choice when instruments toggle', async () => {
+    await toggleSearchProvider(db, 'user_1', 'spotify', false)
+    await toggleInstrumentSetting(db, 'user_1', 'violin', true)
+    expect((await db.user_settings.get(settingsId('user_1')))?.search_providers).not.toContain(
+      'spotify',
+    )
   })
 })

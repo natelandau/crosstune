@@ -115,6 +115,29 @@ describe('createApiClient', () => {
     )
   })
 
+  it('searches with repeated providers and reads Retry-After from a 429', async () => {
+    const urls: string[] = []
+    const api = makeClient(async (input) => {
+      urls.push(input.url)
+      return urls.length === 1
+        ? Response.json({ groups: [] })
+        : new Response(JSON.stringify({ type: 'about:blank', title: 'Too Many', status: 429 }), {
+            status: 429,
+            headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '7' },
+          })
+    })
+    await expect(api.searchRecordings('so', ['apple_music', 'tidal'], 'IE')).resolves.toEqual({
+      groups: [],
+    })
+    const params = new URL(urls[0]!).searchParams
+    expect(params.get('q')).toBe('so')
+    expect(params.getAll('providers')).toEqual(['apple_music', 'tidal'])
+    expect(params.get('country')).toBe('IE')
+    await expect(api.searchRecordings('so', ['tidal'], 'IE')).rejects.toSatisfy(
+      (error) => error instanceof ApiError && error.status === 429 && error.retryAfterSeconds === 7,
+    )
+  })
+
   it('sends DELETE /v1/me and resolves on 204', async () => {
     const fetchMock = vi.fn<FetchMock>(async (input) => {
       expect(input.method).toBe('DELETE')

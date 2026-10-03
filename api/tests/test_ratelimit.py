@@ -76,6 +76,29 @@ async def test_resolve_endpoint_refuses_past_the_limit(app, client, auth_headers
 
 
 @pytest.mark.anyio
+async def test_invalid_resolve_requests_do_not_count_against_the_limit(
+    app, client, auth_headers, mock_http
+):
+    app.state.link_resolve_limiter = RateLimiter(limit=2, window_seconds=60.0)
+    mock_http.add("https://www.youtube.com/oembed", httpx2.Response(200, json=OEMBED))
+    headers = auth_headers("user_a")
+    body = {"url": "https://youtu.be/dQw4w9WgXcQ"}
+    # A first valid resolve commits the caller's account, so every later request is charged
+    # to the same user rather than to an account the 422 rolls back.
+    first = await client.post("/v1/links/resolve", json=body, headers=headers)
+
+    codes = [
+        (await client.post("/v1/links/resolve", json={"url": ""}, headers=headers)).status_code
+        for _ in range(5)
+    ]
+    valid = await client.post("/v1/links/resolve", json=body, headers=headers)
+
+    assert first.status_code == 200
+    assert codes == [422] * 5
+    assert valid.status_code == 200
+
+
+@pytest.mark.anyio
 async def test_push_resolves_links_only_within_the_callers_limit(
     app, client, auth_headers, mock_http
 ):

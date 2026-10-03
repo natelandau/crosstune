@@ -11,6 +11,9 @@ public protocol SyncAPI: Sendable {
     func storage() async throws -> StorageFigures
     /// The provider, canonical URL, title, and artwork for a pasted link.
     func resolveLink(url: String) async throws -> ResolvedLink
+    /// Recordings matching `q` on each of `providers`, one group per service in the server's
+    /// order. `country` is the storefront the services search, as two letters.
+    func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse
     /// A signed URL to PUT one recording's file to, once the quota allows its size.
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL
     /// Confirms the file landed, so the server transcodes it.
@@ -95,6 +98,80 @@ public struct ResolvedLink: Hashable, Sendable {
     }
 }
 
+/// What a recording search found, one group per service searched.
+public struct SearchResponse: Hashable, Sendable {
+    public var groups: [SearchGroup]
+
+    public init(groups: [SearchGroup]) {
+        self.groups = groups
+    }
+}
+
+/// One service's answer to a search, and its own search page as the fallback.
+public struct SearchGroup: Hashable, Sendable {
+    public enum Status: Hashable, Sendable {
+        /// The service answered; `results` may be empty.
+        case results
+        /// The service failed or timed out; its search page stands in.
+        case unavailable
+        /// The service cannot be searched from here; only its search page shows.
+        case searchOnly
+
+        /// A status this build does not know shows only the search page, which every group has.
+        public init(wire: String) {
+            switch wire {
+            case "results": self = .results
+            case "unavailable": self = .unavailable
+            default: self = .searchOnly
+            }
+        }
+    }
+
+    public var provider: String
+    public var status: Status
+    public var results: [SearchResult]
+    public var searchURL: String
+
+    public init(provider: String, status: Status, results: [SearchResult], searchURL: String) {
+        self.provider = provider
+        self.status = status
+        self.results = results
+        self.searchURL = searchURL
+    }
+}
+
+/// One recording a service found, in the form a paste of its URL would store.
+public struct SearchResult: Hashable, Sendable {
+    public var url: String
+    public var provider: String
+    public var providerRef: String?
+    public var title: String
+    public var subtitle: String?
+    public var artworkURL: String?
+
+    public init(
+        url: String, provider: String, providerRef: String? = nil, title: String, subtitle: String? = nil,
+        artworkURL: String? = nil
+    ) {
+        self.url = url
+        self.provider = provider
+        self.providerRef = providerRef
+        self.title = title
+        self.subtitle = subtitle
+        self.artworkURL = artworkURL
+    }
+}
+
+/// How a recording search ended, as the sheet shows it.
+public enum RecordingSearchOutcome: Hashable, Sendable {
+    case ok([SearchGroup])
+    /// The device has no connection, so nothing was sent.
+    case offline
+    /// The server refused more searches for now; `retryAfter` is in seconds.
+    case rateLimited(retryAfter: Int)
+    case failed
+}
+
 /// A signed GET for the playback file, tagged with what the server actually signed. A pull that
 /// lands mid-download can leave the row's own `playbackRev` behind this by the time the
 /// download finishes, so the downloaded bytes are tagged with this, not the row's.
@@ -129,11 +206,14 @@ public struct APIStatusError: Error, Equatable {
     public let problemType: String?
     /// The problem document's `detail`, written for the musician.
     public let detail: String?
+    /// The whole seconds a 429's `Retry-After` names; nil when it names none or is a date.
+    public let retryAfterSeconds: Int?
 
-    public init(status: Int, problemType: String? = nil, detail: String? = nil) {
+    public init(status: Int, problemType: String? = nil, detail: String? = nil, retryAfterSeconds: Int? = nil) {
         self.status = status
         self.problemType = problemType
         self.detail = detail
+        self.retryAfterSeconds = retryAfterSeconds
     }
 
     /// Why the request failed, as a recording's row shows it.

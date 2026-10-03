@@ -51,6 +51,7 @@ function fakeEngine(): SyncEngine & { calls: number } {
     transferStatus: () => 'idle' as const,
     subscribeTransfer: () => () => {},
     resolveLink: async () => null,
+    searchRecordings: async () => ({ kind: 'failed' as const }),
     download: async () => null,
     peaks: async () => null,
     retry: async () => {},

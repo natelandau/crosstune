@@ -11,6 +11,8 @@ import Observation
 struct StoredSettings: Equatable, Sendable {
     /// Every instrument the settings row holds, known to this build or not.
     var instruments: Set<String>
+    /// Every service the settings row searches, known to this build or not.
+    var searchProviders: Set<String>
     var audioQuality: String
     var keepsOffline: Bool
     var invalidChanges: Int
@@ -23,6 +25,7 @@ struct StoredSettings: Equatable, Sendable {
         let quality = row.map(\.audioQuality).flatMap { Vocabulary.audioQualities.contains($0) ? $0 : nil }
         return StoredSettings(
             instruments: Set(row?.instruments ?? []),
+            searchProviders: Set(row?.searchProviders ?? searchableProviders),
             audioQuality: quality ?? SettingsModel.defaultQuality,
             // Anything but a stored true reads as off, as the web reads it.
             keepsOffline: (try? MetaKey.keepOffline.value(in: db, as: Bool.self)) == true,
@@ -41,6 +44,11 @@ public final class SettingsModel {
     nonisolated public static let instruments = "Instruments"
     /// The footer under the instruments setting, wherever it is asked.
     nonisolated public static let instrumentsHelp = "Tunes show a tuning for each instrument chosen here."
+    nonisolated public static let musicServices = "Music services"
+    /// The footer under the music services setting, wherever it is asked.
+    nonisolated public static let musicServicesHelp =
+        "Select which music services are included when searching for recordings of tunes."
+    nonisolated public static let noServices = "No services selected"
     nonisolated public static let recording = "Recording"
     nonisolated public static let quality = "Quality"
     nonisolated public static let qualityFooter = "Higher quality makes larger files."
@@ -74,6 +82,8 @@ public final class SettingsModel {
 
     /// Why the last instrument toggle failed, cleared by the next one or by opening the sheet.
     public private(set) var instrumentsFailure: String?
+    /// Why the last service toggle failed, cleared by the next one or by opening the sheet.
+    public private(set) var searchProvidersFailure: String?
     /// Why the last quality choice failed, cleared by the next one.
     public private(set) var qualityFailure: String?
     /// Why the last download choice failed, cleared by the next one.
@@ -89,6 +99,7 @@ public final class SettingsModel {
     private let engine: SyncEngine?
     private let stored: LiveQuery<StoredSettings?>
     private var pendingInstruments: [String: PendingWrite<Bool>] = [:]
+    private var pendingSearchProviders: [String: PendingWrite<Bool>] = [:]
     private var pendingQuality = PendingWrite<String>()
     private var pendingKeepOffline = PendingWrite<Bool>()
     @ObservationIgnored private var lastWrite: Task<Void, Never>?
@@ -155,6 +166,46 @@ public final class SettingsModel {
     /// Forgets a refusal from the last visit to the instruments sheet.
     public func clearInstrumentsFailure() {
         instrumentsFailure = nil
+    }
+
+    // MARK: Music services
+
+    public func searches(_ provider: String) -> Bool {
+        pendingSearchProviders[provider]?.value ?? stored.value?.searchProviders.contains(provider) ?? false
+    }
+
+    /// How many of the searchable services are on, as "2 of 7", or "No services selected".
+    public var searchProvidersSummary: String {
+        Self.searchProvidersSummary(searchableProviders.filter(searches))
+    }
+
+    nonisolated static func searchProvidersSummary(_ providers: [String]) -> String {
+        let count = searchableProviders.filter(providers.contains).count
+        return count == 0 ? noServices : "\(count) of \(searchableProviders.count)"
+    }
+
+    /// Turns one service on or off. Each toggle writes only itself, so two in a row both land.
+    public func setSearches(_ provider: String, _ on: Bool) {
+        searchProvidersFailure = nil
+        let token = pendingSearchProviders[provider, default: PendingWrite()].begin(on)
+        let store = store
+        enqueue {
+            try await Commands(store: store).toggleSearchProvider(
+                clerkUserID: store.userID, provider: provider, on: on)
+        } settled: { model, error in
+            if let error {
+                model.pendingSearchProviders[provider]?.fail(token)
+                model.searchProvidersFailure = Self.message(error)
+            } else {
+                model.pendingSearchProviders[provider]?.land(
+                    token, stored: model.stored.value?.searchProviders.contains(provider))
+            }
+        }
+    }
+
+    /// Forgets a refusal from the last visit to the music services sheet.
+    public func clearSearchProvidersFailure() {
+        searchProvidersFailure = nil
     }
 
     // MARK: Recording
@@ -321,6 +372,9 @@ public final class SettingsModel {
     private func storeChanged() {
         for instrument in pendingInstruments.keys {
             pendingInstruments[instrument]?.storeChanged()
+        }
+        for provider in pendingSearchProviders.keys {
+            pendingSearchProviders[provider]?.storeChanged()
         }
         pendingQuality.storeChanged()
         pendingKeepOffline.storeChanged()

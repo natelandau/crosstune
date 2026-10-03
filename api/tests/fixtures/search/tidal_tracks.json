@@ -1,0 +1,153 @@
+{
+  "data": [
+    {
+      "id": "51934576",
+      "type": "tracks",
+      "attributes": {
+        "title": "Silver Spear",
+        "duration": "PT3M41S",
+        "explicit": false,
+        "isrc": "USAB10900001",
+        "key": "UNKNOWN",
+        "keyScale": "UNKNOWN",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.21,
+        "copyright": {
+          "text": "(P) Record label"
+        },
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/51934576",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ]
+      },
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "1566",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/51934576/relationships/artists?countryCode=US"
+          }
+        }
+      }
+    },
+    {
+      "id": "118240370",
+      "type": "tracks",
+      "attributes": {
+        "title": "The Silver Spear",
+        "duration": "PT4M12S",
+        "explicit": false,
+        "isrc": "GBAB11700002",
+        "key": "UNKNOWN",
+        "keyScale": "UNKNOWN",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.12,
+        "copyright": {
+          "text": "(P) Record label"
+        },
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/118240370",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ],
+        "version": "Live"
+      },
+      "relationships": {
+        "artists": {
+          "data": [
+            {
+              "id": "3346",
+              "type": "artists"
+            },
+            {
+              "id": "7781",
+              "type": "artists"
+            }
+          ],
+          "links": {
+            "self": "/tracks/118240370/relationships/artists?countryCode=US"
+          }
+        }
+      }
+    },
+    {
+      "id": "2984411",
+      "type": "tracks",
+      "attributes": {
+        "title": "Silver Spear / The Mason's Apron",
+        "duration": "PT5M03S",
+        "explicit": false,
+        "isrc": "IEAB10200003",
+        "key": "UNKNOWN",
+        "keyScale": "UNKNOWN",
+        "mediaTags": [
+          "LOSSLESS"
+        ],
+        "popularity": 0.08,
+        "copyright": {
+          "text": "(P) Record label"
+        },
+        "externalLinks": [
+          {
+            "href": "https://tidal.com/browse/track/2984411",
+            "meta": {
+              "type": "TIDAL_SHARING"
+            }
+          }
+        ]
+      },
+      "relationships": {
+        "artists": {
+          "data": [],
+          "links": {
+            "self": "/tracks/2984411/relationships/artists?countryCode=US"
+          }
+        }
+      }
+    }
+  ],
+  "included": [
+    {
+      "id": "1566",
+      "type": "artists",
+      "attributes": {
+        "name": "Kevin Burke",
+        "popularity": 0.5
+      }
+    },
+    {
+      "id": "3346",
+      "type": "artists",
+      "attributes": {
+        "name": "The Chieftains",
+        "popularity": 0.5
+      }
+    },
+    {
+      "id": "7781",
+      "type": "artists",
+      "attributes": {
+        "name": "Matt Molloy",
+        "popularity": 0.5
+      }
+    }
+  ],
+  "links": {
+    "self": "/tracks?countryCode=US&filter%5Bid%5D=51934576&include=artists"
+  }
+}

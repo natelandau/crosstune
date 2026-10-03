@@ -42,6 +42,9 @@ export const RECORDING_STATES = [
 ] as const
 export type RecordingState = (typeof RECORDING_STATES)[number]
 
+export const SEARCH_STATUSES = ['results', 'unavailable', 'search_only'] as const
+export type SearchStatus = (typeof SEARCH_STATUSES)[number]
+
 export const TIME_SIGNATURES = [
   '4/4',
   '2/4',

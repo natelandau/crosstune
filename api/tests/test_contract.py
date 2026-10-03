@@ -56,6 +56,14 @@ def test_openapi_documents_the_recording_states_a_client_branches_on() -> None:
         assert content["application/problem+json"]["schema"]["$ref"].endswith("/Problem")
 
 
+def test_openapi_documents_retry_after_on_every_rate_limit() -> None:
+    paths = create_app().openapi()["paths"]
+    for path, method in (("/v1/links/search", "get"), ("/v1/links/resolve", "post")):
+        header = paths[path][method]["responses"]["429"]["headers"]["Retry-After"]
+        assert header["required"] is False
+        assert header["schema"] == {"type": "string"}
+
+
 def test_openapi_rows_carry_a_required_discriminator() -> None:
     schemas = create_app().openapi()["components"]["schemas"]
     assert "table" in schemas["TunePullRow"]["required"]

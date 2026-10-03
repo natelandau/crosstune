@@ -290,3 +290,19 @@ def test_tunings_dump_drops_empty_entries() -> None:
 def test_tunings_keep_a_capo_without_a_tuning() -> None:
     dumped = Tunings.model_validate({"guitar": {"capo": 3}}).model_dump()
     assert dumped == {"guitar": {"capo": 3}}
+
+
+def test_user_settings_search_providers_default_is_every_searchable_provider() -> None:
+    providers = UserSettingsData(created_at=NOW).search_providers
+    assert providers == list(vocabulary.SEARCHABLE_PROVIDERS)
+    assert "other" not in providers
+
+
+@pytest.mark.parametrize("value", [["other"], ["spotify", "other"], ["spotify", "spotify"]])
+def test_user_settings_search_providers_rejects_other_and_repeats(value: list[str]) -> None:
+    with pytest.raises(ValidationError):
+        UserSettingsData(search_providers=value, created_at=NOW)
+
+
+def test_user_settings_search_providers_may_be_empty() -> None:
+    assert UserSettingsData(search_providers=[], created_at=NOW).search_providers == []

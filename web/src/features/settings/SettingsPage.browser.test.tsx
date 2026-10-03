@@ -12,7 +12,15 @@ vi.mock('@clerk/react', () => ({
 }))
 
 /** Every group the screen lays out, in order. Each later group lands at its own position here. */
-const GROUPS = ['Account', 'Instruments', 'Appearance', 'Recording', 'Sync', 'About']
+const GROUPS = [
+  'Account',
+  'Instruments',
+  'Music services',
+  'Appearance',
+  'Recording',
+  'Sync',
+  'About',
+]
 
 let db: CrosstuneDb
 

@@ -461,6 +461,42 @@ import Testing
         #expect(await offline.resolveLink("https://x") == nil)
     }
 
+    @Test func searchesWhileOnlineWithTheQueryProvidersAndCountry() async throws {
+        let group = SearchGroup(provider: "tidal", status: .results, results: [], searchURL: "https://tidal.com/s")
+        api.searchGroups = [group]
+        let engine = engine()
+
+        #expect(await engine.searchRecordings(q: "Tam Lin", providers: ["tidal"], country: "IE") == .ok([group]))
+        #expect(api.searches == [FakeSyncAPI.Search(q: "Tam Lin", providers: ["tidal"], country: "IE")])
+    }
+
+    @Test func answersOfflineWithoutAskingTheServer() async throws {
+        let engine = engine(isOffline: { true })
+
+        #expect(await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US") == .offline)
+        #expect(api.searches.isEmpty)
+    }
+
+    @Test func tellsARateLimitFromAnyOtherFailedSearch() async throws {
+        let engine = engine()
+
+        api.failure = APIStatusError(status: 429)
+        #expect(
+            await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US")
+                == .rateLimited(retryAfter: SyncEngine.defaultRetryAfterSeconds))
+        #expect(SyncEngine.defaultRetryAfterSeconds == 60)
+
+        api.failure = APIStatusError(status: 429, retryAfterSeconds: 7)
+        #expect(
+            await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US") == .rateLimited(retryAfter: 7))
+
+        api.failure = APIStatusError(status: 500)
+        #expect(await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US") == .failed)
+
+        api.failure = URLError(.timedOut)
+        #expect(await engine.searchRecordings(q: "x", providers: ["tidal"], country: "US") == .failed)
+    }
+
     @Test func runsTheTransferLoopOnceAfterEachSync() async throws {
         let transfers = Counter()
         let engine = SyncEngine(

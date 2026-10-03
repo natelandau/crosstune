@@ -36,6 +36,31 @@ enum Schema {
                 sql: "UPDATE outbox SET data = json_remove(data, '$.label') WHERE table_name = ? AND data IS NOT NULL",
                 arguments: [SyncTable.recordingLinks.rawValue])
         }
+        migrator.registerMigration("v7") { db in
+            // The server holds the same default, so no repull is needed.
+            let everyService =
+                #"["apple_music","tidal","internet_archive","youtube","spotify","bandcamp","soundcloud"]"#
+            let table = SyncTable.userSettings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "search_providers", .jsonText).notNull().defaults(sql: "'\(everyService)'")
+            }
+            // A row pulled from a server that already had the field kept it in `extra`.
+            try db.execute(
+                sql: """
+                    UPDATE user_settings
+                    SET search_providers = json_extract(extra, '$.search_providers')
+                    WHERE json_type(extra, '$.search_providers') = 'array'
+                    """)
+            try db.execute(sql: "UPDATE user_settings SET extra = json_remove(extra, '$.search_providers')")
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data, '$.search_providers', json(coalesce(
+                        (SELECT search_providers FROM user_settings WHERE id = outbox.row_id), ?)))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.search_providers') IS NULL
+                    """,
+                arguments: [everyService, table])
+        }
         return migrator
     }()
 

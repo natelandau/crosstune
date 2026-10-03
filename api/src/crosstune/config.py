@@ -8,6 +8,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from crosstune.links.search.tokens import load_apple_music_key
+
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
@@ -32,11 +34,26 @@ def normalize_database_url(url: str) -> str:
     return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
+def _missing_member(members: dict[str, str]) -> str | None:
+    """Name the first empty member of a credential set that has another member set."""
+    if not any(members.values()):
+        return None
+    for name, value in members.items():
+        if not value:
+            return f"{name} is unset"
+    return None
+
+
 class Settings(BaseSettings):
     """Environment settings that refuse to build when hosted auth or storage config is unsafe."""
 
     model_config = SettingsConfigDict(
-        env_prefix="CROSSTUNE_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_prefix="CROSSTUNE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        # A validation error otherwise prints part of the input, which holds every secret.
+        hide_input_in_errors=True,
     )
 
     environment: str = "development"
@@ -54,6 +71,12 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     link_resolve_timeout_seconds: float = 5.0
     link_resolves_per_minute: int = 30
+    link_searches_per_minute: int = 20
+    apple_music_team_id: str = ""
+    apple_music_key_id: str = ""
+    apple_music_private_key: SecretStr = SecretStr("")
+    tidal_client_id: str = ""
+    tidal_client_secret: SecretStr = SecretStr("")
     pull_page_size: int = 500
     max_request_body_bytes: int = 33_554_432
     r2_account_id: str = ""
@@ -98,6 +121,20 @@ class Settings(BaseSettings):
             and self.storage_access_key_id
             and self.storage_secret_access_key.get_secret_value()
         )
+
+    @property
+    def apple_music_configured(self) -> bool:
+        """Whether the Apple Music developer key is complete."""
+        return bool(
+            self.apple_music_team_id
+            and self.apple_music_key_id
+            and self.apple_music_private_key.get_secret_value()
+        )
+
+    @property
+    def tidal_configured(self) -> bool:
+        """Whether the TIDAL client credentials are complete."""
+        return bool(self.tidal_client_id and self.tidal_client_secret.get_secret_value())
 
     @field_validator("database_url")
     @classmethod
@@ -157,6 +194,35 @@ class Settings(BaseSettings):
             msg = f"unsafe storage settings: {problem}"
             raise ValueError(msg)
         return self
+
+    @model_validator(mode="after")
+    def _require_whole_music_credentials(self) -> Self:
+        """Refuse half a credential set or an unusable key, which would fail every search."""
+        problem = self._music_credentials_problem()
+        if problem:
+            msg = f"incomplete music service credentials: {problem}"
+            raise ValueError(msg)
+        if self.apple_music_configured:
+            try:
+                load_apple_music_key(self.apple_music_private_key.get_secret_value())
+            except ValueError as error:
+                msg = f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY {error}"
+                raise ValueError(msg) from None
+        return self
+
+    def _music_credentials_problem(self) -> str | None:
+        return _missing_member(
+            {
+                "CROSSTUNE_APPLE_MUSIC_TEAM_ID": self.apple_music_team_id,
+                "CROSSTUNE_APPLE_MUSIC_KEY_ID": self.apple_music_key_id,
+                "CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY": self.apple_music_private_key.get_secret_value(),
+            }
+        ) or _missing_member(
+            {
+                "CROSSTUNE_TIDAL_CLIENT_ID": self.tidal_client_id,
+                "CROSSTUNE_TIDAL_CLIENT_SECRET": self.tidal_client_secret.get_secret_value(),
+            }
+        )
 
     def _storage_problem(self) -> str | None:
         return self._prefix_problem() or self._browser_endpoint_problem() or self._scope_problem()

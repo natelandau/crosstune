@@ -22,6 +22,7 @@ from crosstune.vocabulary import (
     MAX_MODES,
     PITCH_CENTS_MAX,
     PITCH_CENTS_MIN,
+    SEARCHABLE_PROVIDERS,
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
     TUNING_LENGTH,
@@ -54,6 +55,13 @@ WEB_SCHEMES = frozenset({"http", "https"})
 def _distinct(values: list[str]) -> list[str]:
     if len(set(values)) != len(values):
         msg = "must not repeat a value"
+        raise ValueError(msg)
+    return values
+
+
+def _no_other(values: list[str]) -> list[str]:
+    if Provider.OTHER in values:
+        msg = "other is not a searchable provider"
         raise ValueError(msg)
     return values
 
@@ -217,6 +225,9 @@ class UserSettingsData(_Data):
     instruments: Annotated[list[Instrument], AfterValidator(_distinct)] = []
     # The default is validated too, so it is stored as a plain string like a sent value.
     audio_quality: AudioQuality = Field(default=AudioQuality.STANDARD, validate_default=True)
+    search_providers: Annotated[
+        list[Provider], AfterValidator(_distinct), AfterValidator(_no_other)
+    ] = Field(default_factory=lambda: list(SEARCHABLE_PROVIDERS))
 
 
 class _Row(BaseModel):

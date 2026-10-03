@@ -24,6 +24,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/links/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search
+         * @description Recordings matching the text on each requested service, grouped by service.
+         */
+        get: operations["search_v1_links_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -901,6 +921,49 @@ export interface components {
             url: string;
         };
         /**
+         * SearchGroup
+         * @description One service's answer to a search, and its own search page as the fallback.
+         */
+        SearchGroup: {
+            provider: components["schemas"]["Provider"];
+            /** Results */
+            results: components["schemas"]["SearchResult"][];
+            /** Search Url */
+            search_url: string;
+            status: components["schemas"]["SearchStatus"];
+        };
+        /**
+         * SearchResponse
+         * @description One group per requested service, inline services first.
+         */
+        SearchResponse: {
+            /** Groups */
+            groups: components["schemas"]["SearchGroup"][];
+        };
+        /**
+         * SearchResult
+         * @description One recording a service found, in the form a paste of its URL would store.
+         */
+        SearchResult: {
+            /** Artwork Url */
+            artwork_url: string | null;
+            provider: components["schemas"]["Provider"];
+            /** Provider Ref */
+            provider_ref: string | null;
+            /** Subtitle */
+            subtitle: string | null;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * SearchStatus
+         * @description How one service answered a search.
+         * @enum {string}
+         */
+        SearchStatus: "results" | "unavailable" | "search_only";
+        /**
          * SignedUrl
          * @description A presigned URL and when it stops working.
          */
@@ -1112,6 +1175,8 @@ export interface components {
              * @default []
              */
             instruments: components["schemas"]["Instrument"][];
+            /** Search Providers */
+            search_providers?: components["schemas"]["Provider"][];
             /** Server Seq */
             server_seq: number;
             /**
@@ -1248,6 +1313,52 @@ export interface operations {
             /** @description Too Many Requests */
             429: {
                 headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_v1_links_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                providers: components["schemas"]["Provider"][];
+                country?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    /** @description Whole seconds to wait before trying again. */
+                    "Retry-After"?: string;
                     [name: string]: unknown;
                 };
                 content: {

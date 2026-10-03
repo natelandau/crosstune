@@ -64,6 +64,9 @@
         func pull(since: Int64) async throws -> PullPage { throw URLError(.notConnectedToInternet) }
         func storage() async throws -> StorageFigures { throw URLError(.notConnectedToInternet) }
         func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.notConnectedToInternet) }
+        func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+            throw URLError(.notConnectedToInternet)
+        }
         func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
             throw URLError(.notConnectedToInternet)
         }

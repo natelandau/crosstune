@@ -515,6 +515,9 @@ public struct UserSettings: SyncedRecord, Hashable {
     public var serverSeq: Int64
     public var audioQuality: String
     public var instruments: [String]
+    /// The services a tune's recording search covers. Plain strings, like every vocabulary
+    /// field, so a service from a newer API survives this build's writes.
+    public var searchProviders: [String]
     public var extra: JSONObject
 
     public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
@@ -524,17 +527,27 @@ public struct UserSettings: SyncedRecord, Hashable {
         case deletedAt = "deleted_at"
         case serverSeq = "server_seq"
         case audioQuality = "audio_quality"
+        case searchProviders = "search_providers"
         case instruments, extra
     }
 
+    /// Every searchable service, in the order results group: services that play inline, then
+    /// search-only ones. What a user who never chose searches.
+    public static let defaultSearchProviders = [
+        "apple_music", "tidal", "internet_archive", "youtube", "spotify", "bandcamp", "soundcloud",
+    ]
+
     public static var wireDefaults: JSONObject {
-        ["audio_quality": .string("standard"), "instruments": .array([])]
+        [
+            "audio_quality": .string("standard"), "instruments": .array([]),
+            "search_providers": .array(defaultSearchProviders.map(JSONValue.string)),
+        ]
     }
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, audioQuality: String = "standard",
-        instruments: [String] = [], extra: JSONObject = [:]
+        instruments: [String] = [], searchProviders: [String] = defaultSearchProviders, extra: JSONObject = [:]
     ) {
         self.id = id
         self.createdAt = createdAt
@@ -543,6 +556,7 @@ public struct UserSettings: SyncedRecord, Hashable {
         self.serverSeq = serverSeq
         self.audioQuality = audioQuality
         self.instruments = instruments
+        self.searchProviders = searchProviders
         self.extra = extra
     }
 }

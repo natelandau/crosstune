@@ -39,6 +39,16 @@ class Problem(BaseModel):
     errors: list[dict[str, Any]] | None = None
 
 
+# Every 429 this API sends names its wait. The header is optional text in the contract, so a
+# generated client still decodes a 429 from a proxy that omits it or sends an HTTP date.
+RETRY_AFTER_HEADER: dict[str, Any] = {
+    "Retry-After": {
+        "description": "Whole seconds to wait before trying again.",
+        "required": False,
+        "schema": {"type": "string"},
+    }
+}
+
 # Routes that validate input answer 422 with a problem, not FastAPI's own envelope.
 VALIDATION_RESPONSE: dict[int | str, dict[str, Any]] = {
     422: {"model": Problem, "description": "Validation Error"}
@@ -58,6 +68,8 @@ def problem_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
     documented: dict[int | str, dict[str, Any]] = {
         status: {"model": Problem, "description": _reason_phrase(status)} for status in statuses
     }
+    if HTTPStatus.TOO_MANY_REQUESTS in documented:
+        documented[HTTPStatus.TOO_MANY_REQUESTS]["headers"] = RETRY_AFTER_HEADER
     return documented | VALIDATION_RESPONSE
 
 

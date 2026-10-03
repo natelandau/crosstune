@@ -12,6 +12,8 @@ import os
 public final class SyncEngine {
     /// How many outbox entries one push sends.
     public static let pushBatchSize = 500
+    /// How long a rate-limited search waits when the server names no wait of its own.
+    public static let defaultRetryAfterSeconds = 60
 
     public var status: SyncStatus { syncLoop.status }
     public var transferStatus: TransferStatus { transferLoop.status }
@@ -170,6 +172,19 @@ public final class SyncEngine {
     public func resolveLink(_ url: String) async -> ResolvedLink? {
         guard !isOffline() else { return nil }
         return try? await api.resolveLink(url: url)
+    }
+
+    /// Searches `providers` for recordings matching `q`. Never throws: a rate limit is told
+    /// apart from every other failure, so the musician learns how long to wait.
+    public func searchRecordings(q: String, providers: [String], country: String) async -> RecordingSearchOutcome {
+        guard !isOffline() else { return .offline }
+        do {
+            return .ok(try await api.searchRecordings(q: q, providers: providers, country: country).groups)
+        } catch let error as APIStatusError where error.status == 429 {
+            return .rateLimited(retryAfter: error.retryAfterSeconds ?? Self.defaultRetryAfterSeconds)
+        } catch {
+            return .failed
+        }
     }
 
     private func runTransfers() async throws {

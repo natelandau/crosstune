@@ -50,6 +50,8 @@ together is in `architecture.md`. Deploys and the rebuild order are in
 | CNAME targets for `api.<domain>` and the Clerk hostnames   | Railway, Clerk    | Cloudflare DNS                       |
 | App Store Connect API key, key ID, and issuer ID           | App Store Connect | GitHub, `apple/.env`                 |
 | Apple Development certificate and its `.p12` password      | Apple Developer   | GitHub                               |
+| MusicKit private key, its key ID, and the Team ID          | Apple Developer   | Railway, `api/.env`                  |
+| TIDAL app `Crosstune` client ID and client secret          | TIDAL dashboard   | Railway, `api/.env`                  |
 
 ## Neon
 
@@ -171,16 +173,24 @@ Variables, both environments unless noted:
 | `CROSSTUNE_STORAGE_ACCESS_KEY_ID`        | Production bucket token key ID     | Development bucket token key ID                                         |
 | `CROSSTUNE_STORAGE_SECRET_ACCESS_KEY`    | Production bucket token secret     | Development bucket token secret                                         |
 | `CROSSTUNE_STORAGE_PREFIX`               | Unset                              | Unset                                                                   |
+| `CROSSTUNE_APPLE_MUSIC_TEAM_ID`          | Apple Developer Team ID            | Apple Developer Team ID                                                 |
+| `CROSSTUNE_APPLE_MUSIC_KEY_ID`           | MusicKit key ID                    | MusicKit key ID                                                         |
+| `CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY`      | The whole `.p8` file, every line   | The whole `.p8` file, every line                                        |
+| `CROSSTUNE_TIDAL_CLIENT_ID`              | TIDAL app client ID                | TIDAL app client ID                                                     |
+| `CROSSTUNE_TIDAL_CLIENT_SECRET`          | TIDAL app client secret            | TIDAL app client secret                                                 |
 
-Quota, file size, request body size, sweep, link resolve
-timeout, link resolve rate limit, and pull page size keep the defaults in
+Quota, file size, request body size, sweep, link resolve timeout, link
+resolve and search rate limits, and pull page size keep the defaults in
 `api/src/crosstune/config.py` and are not set on the host. The
 `CROSSTUNE_LOCAL_*` names are for local work and the end-to-end suite, and
 the API refuses to start with them on a hosted environment. Production and
 every `pr-<n>` environment refuse to start without the Clerk issuer, a
-secret key, and an authorized party or pattern. Railway injects
-`PORT`. `api/.env.example` explains every name. The regex
-writes the `workers.dev` subdomain literally and admits every preview alias.
+secret key, and an authorized party or pattern. The API refuses to start
+with part of the Apple Music or TIDAL credentials, or with an Apple Music
+key that is not an EC P-256 private key in PEM form. With no credentials,
+that service offers only its own search page. Railway injects `PORT`. `api/.env.example`
+explains every name. The regex writes the `workers.dev` subdomain literally
+and admits every preview alias.
 The API refuses to start when `CROSSTUNE_STORAGE_PREFIX`,
 `CROSSTUNE_STORAGE_BUCKET`, and `CROSSTUNE_ENVIRONMENT` disagree. The guard is in
 `api/src/crosstune/config.py` and holds these rules:
@@ -422,3 +432,16 @@ job that uses it would wait for its own approval.
   - A **Development** certificate named **Created via API** means an
     archive ran without the development identity. Nothing can use it.
     Revoke it.
+
+## Apple Developer
+
+The API signs its Apple Music searches with a MusicKit key from
+**Certificates, Identifiers & Profiles**. One key serves every environment.
+
+- Media identifier `media.app.crosstune`, with MusicKit on. Apple shows its
+  description, `Crosstune`, as the app name if a user is asked for Apple
+  Music access.
+- Key `Crosstune MusicKit`, with Media Services on for that identifier. Its
+  `.p8` file downloads once and is kept in the password manager. A media
+  identifier holds two keys, so a new key can go live before the old one is
+  revoked.

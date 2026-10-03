@@ -8,7 +8,8 @@ import { openTestDb } from '../test/db'
 import { createFakeApi, serverTune } from '../test/fakeApi'
 import { BACKOFF_MS, classifyFailure, createSyncEngine } from './engine'
 import { ACCOUNT_DELETED_PROBLEM } from './errors'
-import type { SyncStatus } from './types'
+import type { Provider } from '../api/vocabulary'
+import type { SyncApi, SyncStatus } from './types'
 
 let db: CrosstuneDb
 let fake: ReturnType<typeof createFakeApi>
@@ -325,6 +326,64 @@ describe('createSyncEngine', () => {
     await expect(engine.resolveLink('https://x')).resolves.toBeNull()
     const offline = createSyncEngine({ db, api: fake.api, isOnline: () => false })
     await expect(offline.resolveLink('https://x')).resolves.toBeNull()
+  })
+
+  describe('searchRecordings', () => {
+    const providers: Provider[] = ['apple_music']
+    const groups = [
+      {
+        provider: 'apple_music' as const,
+        status: 'results' as const,
+        results: [],
+        search_url: 'u',
+      },
+    ]
+    const withSearch = (searchRecordings: SyncApi['searchRecordings'], isOnline = () => true) =>
+      createSyncEngine({ db, api: { ...fake.api, searchRecordings }, isOnline })
+
+    it('returns offline without calling the API', async () => {
+      const search = vi.fn()
+      const engine = withSearch(search, () => false)
+      await expect(engine.searchRecordings('so', providers, 'US')).resolves.toEqual({
+        kind: 'offline',
+      })
+      expect(search).not.toHaveBeenCalled()
+    })
+
+    it('passes groups through on success', async () => {
+      const search = vi.fn(async () => ({ groups }))
+      const engine = withSearch(search)
+      await expect(engine.searchRecordings('so', providers, 'IE')).resolves.toEqual({
+        kind: 'ok',
+        groups,
+      })
+      expect(search).toHaveBeenCalledWith('so', providers, 'IE')
+    })
+
+    it('reports a 429 with its Retry-After seconds', async () => {
+      const engine = withSearch(async () => {
+        throw new ApiError(429, null, 7)
+      })
+      await expect(engine.searchRecordings('so', providers, 'US')).resolves.toEqual({
+        kind: 'rate_limited',
+        retryAfterSeconds: 7,
+      })
+    })
+
+    it('reports other failures as failed', async () => {
+      const network = withSearch(async () => {
+        throw new NetworkError(new TypeError('x'))
+      })
+      await expect(network.searchRecordings('so', providers, 'US')).resolves.toEqual({
+        kind: 'failed',
+      })
+      const server = withSearch(async () => {
+        throw new ApiError(500, null)
+      })
+      await expect(server.searchRecordings('so', providers, 'US')).resolves.toEqual({
+        kind: 'failed',
+      })
+    })
   })
 })
 

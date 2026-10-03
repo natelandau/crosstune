@@ -17,6 +17,7 @@ const ARRAY_NAMES = {
   AudioQuality: 'AUDIO_QUALITIES',
   RecordingSource: 'RECORDING_SOURCES',
   RecordingState: 'RECORDING_STATES',
+  SearchStatus: 'SEARCH_STATUSES',
 }
 
 // Exported limits object -> the row schemas whose string limits it gathers. A tune and

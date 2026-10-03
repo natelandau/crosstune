@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-from crosstune.vocabulary import AudioQuality
+from crosstune.vocabulary import SEARCHABLE_PROVIDERS, AudioQuality
 
 
 class UserSettings(SyncColumns, Base):
@@ -36,4 +36,7 @@ class UserSettings(SyncColumns, Base):
     instruments: Mapped[list[str]] = mapped_column(ARRAY(String(20)), nullable=False, default=list)
     audio_quality: Mapped[str] = mapped_column(
         String(20), nullable=False, default=AudioQuality.STANDARD.value
+    )
+    search_providers: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), nullable=False, default=lambda: list(SEARCHABLE_PROVIDERS)
     )

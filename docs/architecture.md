@@ -194,6 +194,32 @@ same triggers. A return to the foreground stands in for a visible tab.
   to public addresses, only http and https are fetched, every redirect hop
   is checked, and the connection goes to the checked address while the Host
   header and TLS name keep the original.
+- Search: the client calls `GET /v1/links/search` with the query, the one
+  service the musician picked, and the device's region. It offers the
+  services in its local settings because a changed setting can be unsynced.
+  The client never builds a service's search URL: for a service it does not
+  search in the app, the route answers `search_only` with the `search_url`
+  at once, with no upstream call. A region that is
+  not two letters, such as `419`, is sent as `US`.
+- Adapters for Apple Music, TIDAL, and the Internet Archive answer inline,
+  up to 10 results each. Apple Music and TIDAL need the app's credentials in
+  `hosting.md`. A service with no adapter, or with unset credentials,
+  answers `search_only`.
+- The adapters run at once, each within the 5 second link timeout. A
+  failure, a timeout, or a refused credential makes that group
+  `unavailable`, never a failed request. Every group carries a `search_url`
+  to the service's own search page, so each failure leaves a way on.
+- Every user's search shares one credential per service. When Apple Music
+  or TIDAL answers 429, the API stops calling it until its `Retry-After`
+  passes, 60 seconds when it gives none and never more than 5 minutes, and
+  the group answers `unavailable` until then. The hold lives in the API
+  process.
+- Each result URL passes the same provider detection and normalization as
+  a paste. Link saves it through the paste path with no resolve call, so a
+  linked result and a pasted URL store the same row.
+- Each user may make 20 searches a minute, counted apart from link fetches.
+  Past it the route answers 429 with `Retry-After`, and the sheet shows the
+  wait. Offline, the client refuses a search without a request.
 - Playback: the client builds each embed URL from the stored provider,
   provider ref, and URL with no network call. One dock above the navigation
   holds at most one item.
@@ -337,5 +363,5 @@ API.
 | API asleep           | The first request boots it. Clients retry a 502 or 504 for about 15 s before treating it as down.  |
 | R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
 | Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
-| A streaming provider | New links save untitled. Embeds from that provider fail.                                           |
+| A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.           |
 | Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                   |

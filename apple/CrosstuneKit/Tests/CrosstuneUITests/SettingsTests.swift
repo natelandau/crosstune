@@ -21,6 +21,9 @@ private struct SilentSyncAPI: SyncAPI {
     func pull(since: Int64) async throws -> PullPage { PullPage(rows: [], nextSince: since, hasMore: false) }
     func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
+    func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
+        throw URLError(.badURL)
+    }
     func requestUploadSlot(recordingID: String, bytes: Int64, contentType: String) async throws -> URL {
         throw URLError(.badURL)
     }
@@ -105,6 +108,13 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(SettingsModel.summary([]) == "Not set")
     }
 
+    @Test func countsSearchedServicesOrNone() {
+        #expect(SettingsModel.searchProvidersSummary(["youtube", "tidal"]) == "2 of 7")
+        #expect(SettingsModel.searchProvidersSummary(["tidal", "mixcloud"]) == "1 of 7")
+        #expect(SettingsModel.searchProvidersSummary(["mixcloud"]) == SettingsModel.noServices)
+        #expect(SettingsModel.searchProvidersSummary([]) == "No services selected")
+    }
+
     @Test func namesEachQualityWithTheRateItRecordsAt() {
         let mono = Vocabulary.audioQualities.map { SettingsModel.qualityLabel($0, channels: .mono) }
         #expect(mono == ["Low, 48 kbps", "Standard, 64 kbps", "High, 128 kbps"])
@@ -155,6 +165,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let store = try await SampleCatalog.makeStore()
         let model = try await loadedModel(store)
         #expect(model.instrumentSummary == "Violin, 5-string banjo")
+        #expect(model.searchProvidersSummary == "5 of 7")
         #expect(model.plays("violin"))
         #expect(!model.plays("guitar"))
         #expect(model.audioQuality == "standard")
@@ -297,6 +308,70 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         try await eventually { model.localAudioBytes == 200 }
         try await eventually { !model.isRemovingDownloads }
         #expect(model.removeDownloadsFailure == nil)
+    }
+
+    @Test func searchesEveryServiceWithNoSettingsRow() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = try await loadedModel(store)
+        #expect(
+            model.searchProvidersSummary
+                == "7 of 7")
+        #expect(searchableProviders.allSatisfy(model.searches))
+    }
+
+    @Test func searchesEveryServiceForADeletedSettingsRow() async throws {
+        let store = try await SampleCatalog.makeStore()
+        var settings = SampleCatalog.settings
+        settings.searchProviders = ["tidal"]
+        settings.deletedAt = .now
+        let row = settings
+        try await store.write { writer in try writer.put(row, at: .now) }
+        let model = try await loadedModel(store)
+        try await eventually { searchableProviders.allSatisfy(model.searches) }
+        #expect(
+            model.searchProvidersSummary
+                == "7 of 7")
+    }
+
+    @Test func togglesAServiceAtOnceAndStoresIt() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = try await loadedModel(store)
+        model.setSearches("spotify", false)
+        // Shown before the write lands, so the toggle never springs back.
+        #expect(!model.searches("spotify"))
+        let rest = searchableProviders.filter { $0 != "spotify" }
+        try await eventually { try await storedSettings(store)?.searchProviders == rest }
+        #expect(try await store.pendingChangeCount() == 1)
+
+        for provider in rest { model.setSearches(provider, false) }
+        try await eventually { try await storedSettings(store)?.searchProviders == [] }
+        try await eventually { model.searchProvidersSummary == SettingsModel.noServices }
+        #expect(model.searchProvidersFailure == nil)
+    }
+
+    @Test func followsAServiceChangedElsewhere() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = try await loadedModel(store)
+        model.setSearches("tidal", false)
+        try await eventually { try await storedSettings(store)?.searchProviders.contains("tidal") == false }
+        try await Commands(store: store).toggleSearchProvider(
+            clerkUserID: store.userID, provider: "tidal", on: true)
+        try await eventually { model.searches("tidal") }
+    }
+
+    @Test func reportsARefusedServiceToggleAndShowsTheStoredValueAgain() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = try await loadedModel(store)
+        try store.close()
+        model.setSearches("youtube", false)
+        try await eventually { model.searchProvidersFailure != nil }
+        #expect(model.searches("youtube"))
+        model.clearSearchProvidersFailure()
+        #expect(model.searchProvidersFailure == nil)
     }
 
     @Test func reportsARefusedRemoval() async throws {

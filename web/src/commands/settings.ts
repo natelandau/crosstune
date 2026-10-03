@@ -1,8 +1,14 @@
 import { v5 as uuidv5 } from 'uuid'
-import { INSTRUMENTS, type AudioQuality, type Instrument } from '../api/vocabulary'
+import { INSTRUMENTS, type AudioQuality, type Instrument, type Provider } from '../api/vocabulary'
 import { storedAudioQuality } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
-import { isInstrument, storedInstruments, type LocalUserSettings } from '../db/types'
+import {
+  isInstrument,
+  storedInstruments,
+  SEARCHABLE_PROVIDERS,
+  storedSearchProviderValues,
+  type LocalUserSettings,
+} from '../db/types'
 import { now, putRow, writeTx } from './write'
 
 // Every device derives the same id for a user's single settings row, so offline
@@ -26,7 +32,11 @@ async function writeSettings(
   db: CrosstuneDb,
   id: string,
   existing: LocalUserSettings | undefined,
-  patch: { instruments?: readonly string[]; audio_quality?: AudioQuality },
+  patch: {
+    instruments?: readonly string[]
+    audio_quality?: AudioQuality
+    search_providers?: readonly string[]
+  },
 ): Promise<void> {
   const at = now()
   await putRow(db, 'user_settings', {
@@ -37,6 +47,7 @@ async function writeSettings(
     server_seq: existing?.server_seq ?? 0,
     instruments: normalizeInstruments(patch.instruments ?? storedInstruments(existing) ?? []),
     audio_quality: patch.audio_quality ?? storedAudioQuality(existing),
+    search_providers: [...(patch.search_providers ?? storedSearchProviderValues(existing))],
   })
 }
 
@@ -80,5 +91,24 @@ export async function setAudioQuality(
   const id = settingsId(clerkUserId)
   await writeTx(db, async () => {
     await writeSettings(db, id, await db.user_settings.get(id), { audio_quality: quality })
+  })
+}
+
+/** Toggle one searched service, read inside the transaction like `toggleInstrumentSetting`. */
+export async function toggleSearchProvider(
+  db: CrosstuneDb,
+  clerkUserId: string,
+  provider: Provider,
+  on: boolean,
+): Promise<void> {
+  const id = settingsId(clerkUserId)
+  await writeTx(db, async () => {
+    const existing = await db.user_settings.get(id)
+    const next = new Set(storedSearchProviderValues(existing))
+    if (on && provider !== 'other') next.add(provider)
+    else next.delete(provider)
+    const known = SEARCHABLE_PROVIDERS.filter((p) => next.has(p))
+    const unknown = [...next].filter((v) => !SEARCHABLE_PROVIDERS.some((p) => p === v))
+    await writeSettings(db, id, existing, { search_providers: [...known, ...unknown] })
   })
 }

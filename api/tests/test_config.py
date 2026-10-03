@@ -1,6 +1,8 @@
 """Settings accept the connection string a Postgres host prints and hand asyncpg what it needs."""
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from pydantic import ValidationError
 from sqlalchemy.dialects.postgresql.asyncpg import dialect as asyncpg_dialect
 from sqlalchemy.engine import make_url
@@ -286,11 +288,97 @@ def test_settings_repr_hides_every_secret() -> None:
         "clerk_secret_key": "sk_test_reprleak",  # gitleaks:allow -- fixture, not a credential
         "clerk_webhook_secret": "whsec_reprleak",  # gitleaks:allow -- fixture, not a credential
         "storage_secret_access_key": "storage-reprleak",  # gitleaks:allow -- fixture
+        "apple_music_private_key": _pem(ec.generate_private_key(ec.SECP256R1())),
+        "tidal_client_secret": "tidal-reprleak",  # gitleaks:allow -- fixture, not a credential
     }
     settings = Settings(
         database_url="postgresql+asyncpg://crosstune:dbpassreprleak@localhost:5432/crosstune",
+        apple_music_team_id="TEAM",
+        apple_music_key_id="KEY",
+        tidal_client_id="id",
         **secrets,
     )
     shown = repr(settings) + str(settings)
     for value in [*secrets.values(), "dbpassreprleak"]:
         assert value not in shown
+
+
+@pytest.mark.parametrize(
+    ("given", "named"),
+    [
+        ({"apple_music_team_id": "TEAM"}, "CROSSTUNE_APPLE_MUSIC_KEY_ID"),
+        ({"apple_music_key_id": "KEY"}, "CROSSTUNE_APPLE_MUSIC_TEAM_ID"),
+        (
+            {"apple_music_team_id": "TEAM", "apple_music_key_id": "KEY"},
+            "CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY",
+        ),
+        ({"tidal_client_id": "id"}, "CROSSTUNE_TIDAL_CLIENT_SECRET"),
+        ({"tidal_client_secret": "value"}, "CROSSTUNE_TIDAL_CLIENT_ID"),
+    ],
+)
+def test_partial_music_credentials_refuse_to_start(given: dict[str, str], named: str) -> None:
+    with pytest.raises(ValidationError, match=named):
+        Settings(**given)
+
+
+def test_partial_apple_music_credentials_refuse_to_start() -> None:
+    with pytest.raises(ValidationError, match="CROSSTUNE_APPLE_MUSIC_KEY_ID"):
+        Settings(apple_music_team_id="TEAM")
+
+
+def test_no_music_credentials_is_valid_everywhere() -> None:
+    settings = Settings(
+        environment="production", **CLERK, **{**R2, "storage_bucket": "crosstune-recordings"}
+    )
+    assert settings.apple_music_configured is False
+    assert settings.tidal_configured is False
+    assert settings.link_searches_per_minute == 20
+
+
+def test_whole_music_credentials_are_configured() -> None:
+    settings = Settings(
+        apple_music_team_id="TEAM",
+        apple_music_key_id="KEY",
+        apple_music_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
+        tidal_client_id="id",
+        tidal_client_secret="value",
+    )
+    assert settings.apple_music_configured is True
+    assert settings.tidal_configured is True
+
+
+def _pem(key: ec.EllipticCurvePrivateKey | rsa.RSAPrivateKey) -> str:
+    return key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+
+
+@pytest.mark.parametrize(
+    ("pem", "reason"),
+    [
+        # An env file that holds the key on one line with literal \n escapes.
+        (_pem(ec.generate_private_key(ec.SECP256R1())).replace("\n", "\\n"), "not a PEM"),
+        (_pem(rsa.generate_private_key(public_exponent=65537, key_size=2048)), "not an EC P-256"),
+        (_pem(ec.generate_private_key(ec.SECP384R1())), "not an EC P-256"),
+    ],
+    ids=["escaped-newlines", "rsa", "p384"],
+)
+def test_an_unusable_apple_music_key_refuses_to_start(pem: str, reason: str) -> None:
+    with pytest.raises(ValidationError) as caught:
+        Settings(apple_music_team_id="TEAM", apple_music_key_id="KEY", apple_music_private_key=pem)
+
+    message = str(caught.value)
+    assert f"CROSSTUNE_APPLE_MUSIC_PRIVATE_KEY is {reason}" in message
+    assert pem[40:80] not in message
+    assert pem[-60:-30] not in message
+
+
+def test_a_p256_apple_music_key_starts() -> None:
+    settings = Settings(
+        apple_music_team_id="TEAM",
+        apple_music_key_id="KEY",
+        apple_music_private_key=_pem(ec.generate_private_key(ec.SECP256R1())),
+    )
+    assert settings.apple_music_configured is True

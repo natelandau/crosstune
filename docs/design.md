@@ -325,8 +325,10 @@ no form route and no save bar.
   segmented control: it announces itself as a tab list and spends the width
   on unchosen values. A pill grid stands in only where values carry their own
   color or the field is what the screen is for.
-- A set answered once, such as instruments, sits behind a row that names the
-  choice and opens a sheet, never as a list of rows on the screen.
+- A set answered once, such as instruments or music services, sits behind a
+  row that names the choice and opens a sheet, never as a list of rows on
+  the screen. When the names would wrap, the row counts the choice instead,
+  as "2 of 7".
 - Fields are ranked by how often they are touched. Rare ones go last, in one
   list of rows.
 - One spacing scale: a 16px gutter for cards and bare controls; header,
@@ -340,6 +342,9 @@ no form route and no save bar.
   summary.
 - Every field shows where to type. An empty row reads "Not set". A standalone
   field carries a placeholder naming what goes in it, never an example value.
+- An empty selection that turns a feature off reads as that feature's empty
+  state, such as "No services selected", because "Not set" reads as "uses
+  the defaults".
 - A single-field sheet has no header. Its title names the field.
 - A form rejects as little as possible. Every limit that can be a cap
   enforced while typing is one. What is left shows under its field, takes
@@ -420,6 +425,25 @@ Recordings and links share one row shape.
   tune, and Delete.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.
+
+## Search results from other services
+
+A search of other services keeps nothing until the musician saves a result.
+
+- A result that can be previewed plays in its own row before it is saved.
+- One thing plays at a time across the app. A result that starts playing
+  stops the dock and any other result.
+- A control on a result row is named with the result's title, since every
+  row carries the same verbs: "Link Soldier's Joy".
+- One service's results always end with its "Search on {service}" row,
+  which opens the service's own search page. Nothing found or a failure
+  says so below that row, so every answer leaves a way on.
+- A search starts only from the musician's tap, never from opening a
+  screen, except where one choice leaves nothing else to pick.
+- A tap that opens a page whose address needs a network answer opens a
+  blank tab during the tap and sends it on once the answer lands. A browser
+  blocks a tab opened after the wait, and after a menu's dismissal, so such
+  a menu item runs during the tap.
 
 ## Empty, loading, sync, and offline states
 

@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react'
-import { NetworkError, NoTokenError } from '../api/client'
+import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, ResolveResponse } from '../api/types'
 import { countInvalidChanges, getPullCursor } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
@@ -14,8 +14,11 @@ import {
   refreshStorage,
   uploadPass,
 } from './transfers'
-import type { SyncApi, SyncEngine, SyncStatus, TransferStatus } from './types'
+import type { SearchOutcome, SyncApi, SyncEngine, SyncStatus, TransferStatus } from './types'
 import { isAccountDeleted, isAuthFailure } from './errors'
+
+// The wait shown when a 429 carries no usable Retry-After.
+const DEFAULT_RETRY_AFTER_SECONDS = 60
 
 export const BACKOFF_MS = [1000, 2000, 4000, 8000, 16000, 32000, 60000] as const
 
@@ -284,6 +287,21 @@ export function createSyncEngine({
         return await api.resolveLink(url)
       } catch {
         return null
+      }
+    },
+    async searchRecordings(q, providers, country): Promise<SearchOutcome> {
+      if (!isOnline()) return { kind: 'offline' }
+      try {
+        const { groups } = await api.searchRecordings(q, providers, country)
+        return { kind: 'ok', groups }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 429) {
+          return {
+            kind: 'rate_limited',
+            retryAfterSeconds: error.retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS,
+          }
+        }
+        return { kind: 'failed' }
       }
     },
     async download(recordingId: string): Promise<Blob | null> {
