@@ -17,16 +17,22 @@ export interface LongPressHandlers {
 
 /**
  * Block the click a long press leaves behind until shortly after the returned release runs.
- * The row's own click handler would otherwise fire right after the finger lifts.
+ * The row's own click handler would otherwise fire right after the finger lifts. A new press
+ * ends the guard at once, since the click it leads to is its own.
  */
 function guardTrailingClick(): () => void {
   const block = (event: globalThis.MouseEvent) => {
     event.preventDefault()
     event.stopPropagation()
   }
+  const remove = () => {
+    window.removeEventListener('click', block, { capture: true })
+    window.removeEventListener('pointerdown', remove, { capture: true })
+  }
   window.addEventListener('click', block, { capture: true })
+  window.addEventListener('pointerdown', remove, { capture: true })
   return () => {
-    setTimeout(() => window.removeEventListener('click', block, { capture: true }), CLICK_GUARD_MS)
+    setTimeout(remove, CLICK_GUARD_MS)
   }
 }
 
