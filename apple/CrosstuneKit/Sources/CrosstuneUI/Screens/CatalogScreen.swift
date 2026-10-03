@@ -295,7 +295,7 @@ struct PushesTune: ViewModifier {
 
     func body(content: Content) -> some View {
         if isPushing {
-            content.navigationDestination(item: $tuneID) { tuneID in
+            content.navigationDestination(item: keptTuneID) { tuneID in
                 TuneScreen(tuneID: tuneID)
                     // A list opened from the tune pushes its own tunes, which the shell does not keep.
                     .environment(\.stackTune, nil)
@@ -316,6 +316,18 @@ struct PushesTune: ViewModifier {
             }
         } else {
             content
+        }
+    }
+
+    /// The pushed tune, which the stack's own pop also clears from the shell at once: the
+    /// screen's `task` runs as the pop reveals it, before `onChange` would, and would push the
+    /// popped tune back.
+    private var keptTuneID: Binding<String?> {
+        Binding {
+            tuneID
+        } set: { new in
+            tuneID = new
+            if let stackTune, stackTune.wrappedValue != new { stackTune.wrappedValue = new }
         }
     }
 }
