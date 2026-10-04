@@ -114,6 +114,57 @@ extension Components {
                 case url
             }
         }
+        /// A page of history rows after the given cursor.
+        ///
+        /// - Remark: Generated from `#/components/schemas/EventsResponse`.
+        public struct EventsResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/EventsResponse/has_more`.
+            public var hasMore: Swift.Bool
+            /// - Remark: Generated from `#/components/schemas/EventsResponse/next_since`.
+            public var nextSince: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/EventsResponse/RowsPayload`.
+            public struct RowsPayloadPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+                /// Creates a new `RowsPayloadPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                public init(additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                public init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                public func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/EventsResponse/rows`.
+            public typealias RowsPayload = [Components.Schemas.EventsResponse.RowsPayloadPayload]
+            /// - Remark: Generated from `#/components/schemas/EventsResponse/rows`.
+            public var rows: Components.Schemas.EventsResponse.RowsPayload
+            /// Creates a new `EventsResponse`.
+            ///
+            /// - Parameters:
+            ///   - hasMore:
+            ///   - nextSince:
+            ///   - rows:
+            public init(
+                hasMore: Swift.Bool,
+                nextSince: Swift.Int,
+                rows: Components.Schemas.EventsResponse.RowsPayload
+            ) {
+                self.hasMore = hasMore
+                self.nextSince = nextSince
+                self.rows = rows
+            }
+            public enum CodingKeys: String, CodingKey {
+                case hasMore = "has_more"
+                case nextSince = "next_since"
+                case rows
+            }
+        }
         /// A fretted instrument's tuning, with the fret its capo sits at.
         ///
         /// - Remark: Generated from `#/components/schemas/FrettedTuning`.
@@ -653,200 +704,6 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/Mode`.
         public typealias Mode = Swift.String
-        /// The outcome of one change to a notation page.
-        ///
-        /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult`.
-        public struct NotationPageChangeResult: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/id`.
-            public var id: Swift.String
-            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/reason`.
-            public var reason: Swift.String?
-            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/row`.
-            public var row: Components.Schemas.NotationPageRow?
-            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/status`.
-            public var status: Swift.String
-            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/table`.
-            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
-                case notationPages = "notation_pages"
-            }
-            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/table`.
-            public var table: Components.Schemas.NotationPageChangeResult.TablePayload
-            /// Creates a new `NotationPageChangeResult`.
-            ///
-            /// - Parameters:
-            ///   - id:
-            ///   - reason:
-            ///   - row:
-            ///   - status:
-            ///   - table:
-            public init(
-                id: Swift.String,
-                reason: Swift.String? = nil,
-                row: Components.Schemas.NotationPageRow? = nil,
-                status: Swift.String,
-                table: Components.Schemas.NotationPageChangeResult.TablePayload
-            ) {
-                self.id = id
-                self.reason = reason
-                self.row = row
-                self.status = status
-                self.table = table
-            }
-            public enum CodingKeys: String, CodingKey {
-                case id
-                case reason
-                case row
-                case status
-                case table
-            }
-        }
-        /// A notation page row in a pull page.
-        ///
-        /// - Remark: Generated from `#/components/schemas/NotationPagePullRow`.
-        public struct NotationPagePullRow: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/NotationPagePullRow/row`.
-            public var row: Components.Schemas.NotationPageRow
-            /// - Remark: Generated from `#/components/schemas/NotationPagePullRow/table`.
-            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
-                case notationPages = "notation_pages"
-            }
-            /// - Remark: Generated from `#/components/schemas/NotationPagePullRow/table`.
-            public var table: Components.Schemas.NotationPagePullRow.TablePayload
-            /// Creates a new `NotationPagePullRow`.
-            ///
-            /// - Parameters:
-            ///   - row:
-            ///   - table:
-            public init(
-                row: Components.Schemas.NotationPageRow,
-                table: Components.Schemas.NotationPagePullRow.TablePayload
-            ) {
-                self.row = row
-                self.table = table
-            }
-            public enum CodingKeys: String, CodingKey {
-                case row
-                case table
-            }
-        }
-        /// A stored notation page, as push and pull return it. The storage key stays on the server.
-        ///
-        /// - Remark: Generated from `#/components/schemas/NotationPageRow`.
-        public struct NotationPageRow: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/created_at`.
-            public var createdAt: Foundation.Date
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/deleted_at`.
-            public var deletedAt: Foundation.Date?
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/file_bytes`.
-            public var fileBytes: Swift.Int?
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/height`.
-            public var height: Swift.Int
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/id`.
-            public var id: Swift.String
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/position`.
-            public var position: Swift.Int?
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/server_seq`.
-            public var serverSeq: Swift.Int
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/state`.
-            public var state: Components.Schemas.NotationPageState
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/tune_id`.
-            public var tuneId: Swift.String
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/updated_at`.
-            public var updatedAt: Foundation.Date
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/user_id`.
-            public var userId: Swift.String
-            /// - Remark: Generated from `#/components/schemas/NotationPageRow/width`.
-            public var width: Swift.Int
-            /// Creates a new `NotationPageRow`.
-            ///
-            /// - Parameters:
-            ///   - createdAt:
-            ///   - deletedAt:
-            ///   - fileBytes:
-            ///   - height:
-            ///   - id:
-            ///   - position:
-            ///   - serverSeq:
-            ///   - state:
-            ///   - tuneId:
-            ///   - updatedAt:
-            ///   - userId:
-            ///   - width:
-            public init(
-                createdAt: Foundation.Date,
-                deletedAt: Foundation.Date? = nil,
-                fileBytes: Swift.Int? = nil,
-                height: Swift.Int,
-                id: Swift.String,
-                position: Swift.Int? = nil,
-                serverSeq: Swift.Int,
-                state: Components.Schemas.NotationPageState,
-                tuneId: Swift.String,
-                updatedAt: Foundation.Date,
-                userId: Swift.String,
-                width: Swift.Int
-            ) {
-                self.createdAt = createdAt
-                self.deletedAt = deletedAt
-                self.fileBytes = fileBytes
-                self.height = height
-                self.id = id
-                self.position = position
-                self.serverSeq = serverSeq
-                self.state = state
-                self.tuneId = tuneId
-                self.updatedAt = updatedAt
-                self.userId = userId
-                self.width = width
-            }
-            public enum CodingKeys: String, CodingKey {
-                case createdAt = "created_at"
-                case deletedAt = "deleted_at"
-                case fileBytes = "file_bytes"
-                case height
-                case id
-                case position
-                case serverSeq = "server_seq"
-                case state
-                case tuneId = "tune_id"
-                case updatedAt = "updated_at"
-                case userId = "user_id"
-                case width
-            }
-        }
-        /// Where a notation page's image is in the upload pipeline.
-        ///
-        /// - Remark: Generated from `#/components/schemas/NotationPageState`.
-        public typealias NotationPageState = Swift.String
-        /// What the client is about to upload.
-        ///
-        /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest`.
-        public struct NotationUploadSlotRequest: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest/bytes`.
-            public var bytes: Swift.Int
-            /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest/content_type`.
-            @frozen public enum ContentTypePayload: String, Codable, Hashable, Sendable, CaseIterable {
-                case imageJpeg = "image/jpeg"
-            }
-            /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest/content_type`.
-            public var contentType: Components.Schemas.NotationUploadSlotRequest.ContentTypePayload
-            /// Creates a new `NotationUploadSlotRequest`.
-            ///
-            /// - Parameters:
-            ///   - bytes:
-            ///   - contentType:
-            public init(
-                bytes: Swift.Int,
-                contentType: Components.Schemas.NotationUploadSlotRequest.ContentTypePayload
-            ) {
-                self.bytes = bytes
-                self.contentType = contentType
-            }
-            public enum CodingKeys: String, CodingKey {
-                case bytes
-                case contentType = "content_type"
-            }
-        }
         /// A presigned GET for the waveform file, tagged with the revision it was signed for.
         ///
         /// - Remark: Generated from `#/components/schemas/PeaksUrl`.
@@ -878,10 +735,642 @@ extension Components {
                 case url
             }
         }
+        /// Where a play was started from.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlayContext`.
+        public typealias PlayContext = Swift.String
+        /// The outcome of pushing one play.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult`.
+        public struct PlayEventChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult/row`.
+            public var row: Components.Schemas.PlayEventRow?
+            /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case playEvents = "play_events"
+            }
+            /// - Remark: Generated from `#/components/schemas/PlayEventChangeResult/table`.
+            public var table: Components.Schemas.PlayEventChangeResult.TablePayload
+            /// Creates a new `PlayEventChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.PlayEventRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.PlayEventChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// Client-written fields of one play of a recording or a link.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlayEventData`.
+        public struct PlayEventData: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/context`.
+            public var context: Components.Schemas.PlayContext
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/link_id`.
+            public var linkId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/list_id`.
+            public var listId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/listened_ms`.
+            public var listenedMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/recording_id`.
+            public var recordingId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/started_at`.
+            public var startedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PlayEventData/tune_id`.
+            public var tuneId: Swift.String?
+            /// Creates a new `PlayEventData`.
+            ///
+            /// - Parameters:
+            ///   - context:
+            ///   - createdAt:
+            ///   - linkId:
+            ///   - listId:
+            ///   - listenedMs:
+            ///   - recordingId:
+            ///   - startedAt:
+            ///   - tuneId:
+            public init(
+                context: Components.Schemas.PlayContext,
+                createdAt: Foundation.Date,
+                linkId: Swift.String? = nil,
+                listId: Swift.String? = nil,
+                listenedMs: Swift.Int,
+                recordingId: Swift.String? = nil,
+                startedAt: Foundation.Date,
+                tuneId: Swift.String? = nil
+            ) {
+                self.context = context
+                self.createdAt = createdAt
+                self.linkId = linkId
+                self.listId = listId
+                self.listenedMs = listenedMs
+                self.recordingId = recordingId
+                self.startedAt = startedAt
+                self.tuneId = tuneId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case context
+                case createdAt = "created_at"
+                case linkId = "link_id"
+                case listId = "list_id"
+                case listenedMs = "listened_ms"
+                case recordingId = "recording_id"
+                case startedAt = "started_at"
+                case tuneId = "tune_id"
+            }
+        }
+        /// A play row in an events page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlayEventPullRow`.
+        public struct PlayEventPullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlayEventPullRow/row`.
+            public var row: Components.Schemas.PlayEventRow
+            /// - Remark: Generated from `#/components/schemas/PlayEventPullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case playEvents = "play_events"
+            }
+            /// - Remark: Generated from `#/components/schemas/PlayEventPullRow/table`.
+            public var table: Components.Schemas.PlayEventPullRow.TablePayload
+            /// Creates a new `PlayEventPullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.PlayEventRow,
+                table: Components.Schemas.PlayEventPullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored play, as push returns it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlayEventRow`.
+        public struct PlayEventRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/context`.
+            public var context: Components.Schemas.PlayContext
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/link_id`.
+            public var linkId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/list_id`.
+            public var listId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/listened_ms`.
+            public var listenedMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/recording_id`.
+            public var recordingId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/started_at`.
+            public var startedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PlayEventRow/tune_id`.
+            public var tuneId: Swift.String?
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+            /// Creates a new `PlayEventRow`.
+            ///
+            /// - Parameters:
+            ///   - context:
+            ///   - createdAt:
+            ///   - id:
+            ///   - linkId:
+            ///   - listId:
+            ///   - listenedMs:
+            ///   - recordingId:
+            ///   - serverSeq:
+            ///   - startedAt:
+            ///   - tuneId:
+            ///   - additionalProperties: A container of undocumented properties.
+            public init(
+                context: Components.Schemas.PlayContext,
+                createdAt: Foundation.Date,
+                id: Swift.String,
+                linkId: Swift.String? = nil,
+                listId: Swift.String? = nil,
+                listenedMs: Swift.Int,
+                recordingId: Swift.String? = nil,
+                serverSeq: Swift.Int,
+                startedAt: Foundation.Date,
+                tuneId: Swift.String? = nil,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
+            ) {
+                self.context = context
+                self.createdAt = createdAt
+                self.id = id
+                self.linkId = linkId
+                self.listId = listId
+                self.listenedMs = listenedMs
+                self.recordingId = recordingId
+                self.serverSeq = serverSeq
+                self.startedAt = startedAt
+                self.tuneId = tuneId
+                self.additionalProperties = additionalProperties
+            }
+            public enum CodingKeys: String, CodingKey {
+                case context
+                case createdAt = "created_at"
+                case id
+                case linkId = "link_id"
+                case listId = "list_id"
+                case listenedMs = "listened_ms"
+                case recordingId = "recording_id"
+                case serverSeq = "server_seq"
+                case startedAt = "started_at"
+                case tuneId = "tune_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.context = try container.decode(
+                    Components.Schemas.PlayContext.self,
+                    forKey: .context
+                )
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.linkId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .linkId
+                )
+                self.listId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .listId
+                )
+                self.listenedMs = try container.decode(
+                    Swift.Int.self,
+                    forKey: .listenedMs
+                )
+                self.recordingId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .recordingId
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.startedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .startedAt
+                )
+                self.tuneId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .tuneId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "context",
+                    "created_at",
+                    "id",
+                    "link_id",
+                    "list_id",
+                    "listened_ms",
+                    "recording_id",
+                    "server_seq",
+                    "started_at",
+                    "tune_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.context,
+                    forKey: .context
+                )
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.linkId,
+                    forKey: .linkId
+                )
+                try container.encodeIfPresent(
+                    self.listId,
+                    forKey: .listId
+                )
+                try container.encode(
+                    self.listenedMs,
+                    forKey: .listenedMs
+                )
+                try container.encodeIfPresent(
+                    self.recordingId,
+                    forKey: .recordingId
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.startedAt,
+                    forKey: .startedAt
+                )
+                try container.encodeIfPresent(
+                    self.tuneId,
+                    forKey: .tuneId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
+            }
+        }
         /// Which kind of source a list plays first when a tune has both and none is pinned.
         ///
         /// - Remark: Generated from `#/components/schemas/PlayFirst`.
         public typealias PlayFirst = Swift.String
+        /// The outcome of pushing one practice session.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult`.
+        public struct PracticeSessionChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult/row`.
+            public var row: Components.Schemas.PracticeSessionRow?
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case practiceSessions = "practice_sessions"
+            }
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionChangeResult/table`.
+            public var table: Components.Schemas.PracticeSessionChangeResult.TablePayload
+            /// Creates a new `PracticeSessionChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.PracticeSessionRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.PracticeSessionChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// Client-written fields of one practice session on a recording.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PracticeSessionData`.
+        public struct PracticeSessionData: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/duration_ms`.
+            public var durationMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/loop_ids`.
+            public var loopIds: [Swift.String]?
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/pitch_cents`.
+            public var pitchCents: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/recording_id`.
+            public var recordingId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/speed_percent`.
+            public var speedPercent: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/started_at`.
+            public var startedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionData/tune_id`.
+            public var tuneId: Swift.String?
+            /// Creates a new `PracticeSessionData`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - durationMs:
+            ///   - loopIds:
+            ///   - pitchCents:
+            ///   - recordingId:
+            ///   - speedPercent:
+            ///   - startedAt:
+            ///   - tuneId:
+            public init(
+                createdAt: Foundation.Date,
+                durationMs: Swift.Int,
+                loopIds: [Swift.String]? = nil,
+                pitchCents: Swift.Int,
+                recordingId: Swift.String,
+                speedPercent: Swift.Int,
+                startedAt: Foundation.Date,
+                tuneId: Swift.String? = nil
+            ) {
+                self.createdAt = createdAt
+                self.durationMs = durationMs
+                self.loopIds = loopIds
+                self.pitchCents = pitchCents
+                self.recordingId = recordingId
+                self.speedPercent = speedPercent
+                self.startedAt = startedAt
+                self.tuneId = tuneId
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case durationMs = "duration_ms"
+                case loopIds = "loop_ids"
+                case pitchCents = "pitch_cents"
+                case recordingId = "recording_id"
+                case speedPercent = "speed_percent"
+                case startedAt = "started_at"
+                case tuneId = "tune_id"
+            }
+        }
+        /// A practice session row in an events page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PracticeSessionPullRow`.
+        public struct PracticeSessionPullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionPullRow/row`.
+            public var row: Components.Schemas.PracticeSessionRow
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionPullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case practiceSessions = "practice_sessions"
+            }
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionPullRow/table`.
+            public var table: Components.Schemas.PracticeSessionPullRow.TablePayload
+            /// Creates a new `PracticeSessionPullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.PracticeSessionRow,
+                table: Components.Schemas.PracticeSessionPullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored practice session, as push returns it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PracticeSessionRow`.
+        public struct PracticeSessionRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/duration_ms`.
+            public var durationMs: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/loop_ids`.
+            public var loopIds: [Swift.String]?
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/pitch_cents`.
+            public var pitchCents: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/recording_id`.
+            public var recordingId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/speed_percent`.
+            public var speedPercent: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/started_at`.
+            public var startedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/PracticeSessionRow/tune_id`.
+            public var tuneId: Swift.String?
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+            /// Creates a new `PracticeSessionRow`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - durationMs:
+            ///   - id:
+            ///   - loopIds:
+            ///   - pitchCents:
+            ///   - recordingId:
+            ///   - serverSeq:
+            ///   - speedPercent:
+            ///   - startedAt:
+            ///   - tuneId:
+            ///   - additionalProperties: A container of undocumented properties.
+            public init(
+                createdAt: Foundation.Date,
+                durationMs: Swift.Int,
+                id: Swift.String,
+                loopIds: [Swift.String]? = nil,
+                pitchCents: Swift.Int,
+                recordingId: Swift.String,
+                serverSeq: Swift.Int,
+                speedPercent: Swift.Int,
+                startedAt: Foundation.Date,
+                tuneId: Swift.String? = nil,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
+            ) {
+                self.createdAt = createdAt
+                self.durationMs = durationMs
+                self.id = id
+                self.loopIds = loopIds
+                self.pitchCents = pitchCents
+                self.recordingId = recordingId
+                self.serverSeq = serverSeq
+                self.speedPercent = speedPercent
+                self.startedAt = startedAt
+                self.tuneId = tuneId
+                self.additionalProperties = additionalProperties
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case durationMs = "duration_ms"
+                case id
+                case loopIds = "loop_ids"
+                case pitchCents = "pitch_cents"
+                case recordingId = "recording_id"
+                case serverSeq = "server_seq"
+                case speedPercent = "speed_percent"
+                case startedAt = "started_at"
+                case tuneId = "tune_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.createdAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .createdAt
+                )
+                self.durationMs = try container.decode(
+                    Swift.Int.self,
+                    forKey: .durationMs
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.loopIds = try container.decodeIfPresent(
+                    [Swift.String].self,
+                    forKey: .loopIds
+                )
+                self.pitchCents = try container.decode(
+                    Swift.Int.self,
+                    forKey: .pitchCents
+                )
+                self.recordingId = try container.decode(
+                    Swift.String.self,
+                    forKey: .recordingId
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.speedPercent = try container.decode(
+                    Swift.Int.self,
+                    forKey: .speedPercent
+                )
+                self.startedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .startedAt
+                )
+                self.tuneId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .tuneId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "created_at",
+                    "duration_ms",
+                    "id",
+                    "loop_ids",
+                    "pitch_cents",
+                    "recording_id",
+                    "server_seq",
+                    "speed_percent",
+                    "started_at",
+                    "tune_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.createdAt,
+                    forKey: .createdAt
+                )
+                try container.encode(
+                    self.durationMs,
+                    forKey: .durationMs
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encodeIfPresent(
+                    self.loopIds,
+                    forKey: .loopIds
+                )
+                try container.encode(
+                    self.pitchCents,
+                    forKey: .pitchCents
+                )
+                try container.encode(
+                    self.recordingId,
+                    forKey: .recordingId
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.speedPercent,
+                    forKey: .speedPercent
+                )
+                try container.encode(
+                    self.startedAt,
+                    forKey: .startedAt
+                )
+                try container.encodeIfPresent(
+                    self.tuneId,
+                    forKey: .tuneId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
+            }
+        }
         /// An RFC 9457 problem details body, the shape of every error this API returns.
         ///
         /// - Remark: Generated from `#/components/schemas/Problem`.
@@ -965,14 +1454,14 @@ extension Components {
                 case listItems(Components.Schemas.ListItemPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/ListPullRow`.
                 case lists(Components.Schemas.ListPullRow)
-                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/NotationPagePullRow`.
-                case notationPages(Components.Schemas.NotationPagePullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLinkPullRow`.
                 case recordingLinks(Components.Schemas.RecordingLinkPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLoopPullRow`.
                 case recordingLoops(Components.Schemas.RecordingLoopPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingPullRow`.
                 case recordings(Components.Schemas.RecordingPullRow)
+                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/ScanPullRow`.
+                case scans(Components.Schemas.ScanPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/TunePullRow`.
                 case tunes(Components.Schemas.TunePullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/UserSettingsPullRow`.
@@ -993,14 +1482,14 @@ extension Components {
                         self = .listItems(try .init(from: decoder))
                     case "lists":
                         self = .lists(try .init(from: decoder))
-                    case "notation_pages":
-                        self = .notationPages(try .init(from: decoder))
                     case "recording_links":
                         self = .recordingLinks(try .init(from: decoder))
                     case "recording_loops":
                         self = .recordingLoops(try .init(from: decoder))
                     case "recordings":
                         self = .recordings(try .init(from: decoder))
+                    case "scans":
+                        self = .scans(try .init(from: decoder))
                     case "tunes":
                         self = .tunes(try .init(from: decoder))
                     case "user_settings":
@@ -1021,13 +1510,13 @@ extension Components {
                         try value.encode(to: encoder)
                     case let .lists(value):
                         try value.encode(to: encoder)
-                    case let .notationPages(value):
-                        try value.encode(to: encoder)
                     case let .recordingLinks(value):
                         try value.encode(to: encoder)
                     case let .recordingLoops(value):
                         try value.encode(to: encoder)
                     case let .recordings(value):
+                        try value.encode(to: encoder)
+                    case let .scans(value):
                         try value.encode(to: encoder)
                     case let .tunes(value):
                         try value.encode(to: encoder)
@@ -1090,14 +1579,20 @@ extension Components {
                 case listItems(Components.Schemas.ListItemChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ListChangeResult`.
                 case lists(Components.Schemas.ListChangeResult)
-                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/NotationPageChangeResult`.
-                case notationPages(Components.Schemas.NotationPageChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/PlayEventChangeResult`.
+                case playEvents(Components.Schemas.PlayEventChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/PracticeSessionChangeResult`.
+                case practiceSessions(Components.Schemas.PracticeSessionChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingLinkChangeResult`.
                 case recordingLinks(Components.Schemas.RecordingLinkChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingLoopChangeResult`.
                 case recordingLoops(Components.Schemas.RecordingLoopChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingChangeResult`.
                 case recordings(Components.Schemas.RecordingChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ScanViewChangeResult`.
+                case scanViews(Components.Schemas.ScanViewChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ScanChangeResult`.
+                case scans(Components.Schemas.ScanChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/TuneChangeResult`.
                 case tunes(Components.Schemas.TuneChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/UserSettingsChangeResult`.
@@ -1118,14 +1613,20 @@ extension Components {
                         self = .listItems(try .init(from: decoder))
                     case "lists":
                         self = .lists(try .init(from: decoder))
-                    case "notation_pages":
-                        self = .notationPages(try .init(from: decoder))
+                    case "play_events":
+                        self = .playEvents(try .init(from: decoder))
+                    case "practice_sessions":
+                        self = .practiceSessions(try .init(from: decoder))
                     case "recording_links":
                         self = .recordingLinks(try .init(from: decoder))
                     case "recording_loops":
                         self = .recordingLoops(try .init(from: decoder))
                     case "recordings":
                         self = .recordings(try .init(from: decoder))
+                    case "scan_views":
+                        self = .scanViews(try .init(from: decoder))
+                    case "scans":
+                        self = .scans(try .init(from: decoder))
                     case "tunes":
                         self = .tunes(try .init(from: decoder))
                     case "user_settings":
@@ -1146,13 +1647,19 @@ extension Components {
                         try value.encode(to: encoder)
                     case let .lists(value):
                         try value.encode(to: encoder)
-                    case let .notationPages(value):
+                    case let .playEvents(value):
+                        try value.encode(to: encoder)
+                    case let .practiceSessions(value):
                         try value.encode(to: encoder)
                     case let .recordingLinks(value):
                         try value.encode(to: encoder)
                     case let .recordingLoops(value):
                         try value.encode(to: encoder)
                     case let .recordings(value):
+                        try value.encode(to: encoder)
+                    case let .scanViews(value):
+                        try value.encode(to: encoder)
+                    case let .scans(value):
                         try value.encode(to: encoder)
                     case let .tunes(value):
                         try value.encode(to: encoder)
@@ -2455,6 +2962,390 @@ extension Components {
                 case url
             }
         }
+        /// The outcome of one change to a scan.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanChangeResult`.
+        public struct ScanChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/ScanChangeResult/row`.
+            public var row: Components.Schemas.ScanRow?
+            /// - Remark: Generated from `#/components/schemas/ScanChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case scans = "scans"
+            }
+            /// - Remark: Generated from `#/components/schemas/ScanChangeResult/table`.
+            public var table: Components.Schemas.ScanChangeResult.TablePayload
+            /// Creates a new `ScanChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.ScanRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.ScanChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// A scan row in a pull page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanPullRow`.
+        public struct ScanPullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanPullRow/row`.
+            public var row: Components.Schemas.ScanRow
+            /// - Remark: Generated from `#/components/schemas/ScanPullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case scans = "scans"
+            }
+            /// - Remark: Generated from `#/components/schemas/ScanPullRow/table`.
+            public var table: Components.Schemas.ScanPullRow.TablePayload
+            /// Creates a new `ScanPullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.ScanRow,
+                table: Components.Schemas.ScanPullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored scan, as push and pull return it. The storage key stays on the server.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanRow`.
+        public struct ScanRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/ScanRow/deleted_at`.
+            public var deletedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/ScanRow/file_bytes`.
+            public var fileBytes: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/ScanRow/height`.
+            public var height: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/ScanRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanRow/position`.
+            public var position: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/ScanRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/ScanRow/state`.
+            public var state: Components.Schemas.ScanState
+            /// - Remark: Generated from `#/components/schemas/ScanRow/tune_id`.
+            public var tuneId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanRow/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/ScanRow/user_id`.
+            public var userId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanRow/width`.
+            public var width: Swift.Int
+            /// Creates a new `ScanRow`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - deletedAt:
+            ///   - fileBytes:
+            ///   - height:
+            ///   - id:
+            ///   - position:
+            ///   - serverSeq:
+            ///   - state:
+            ///   - tuneId:
+            ///   - updatedAt:
+            ///   - userId:
+            ///   - width:
+            public init(
+                createdAt: Foundation.Date,
+                deletedAt: Foundation.Date? = nil,
+                fileBytes: Swift.Int? = nil,
+                height: Swift.Int,
+                id: Swift.String,
+                position: Swift.Int? = nil,
+                serverSeq: Swift.Int,
+                state: Components.Schemas.ScanState,
+                tuneId: Swift.String,
+                updatedAt: Foundation.Date,
+                userId: Swift.String,
+                width: Swift.Int
+            ) {
+                self.createdAt = createdAt
+                self.deletedAt = deletedAt
+                self.fileBytes = fileBytes
+                self.height = height
+                self.id = id
+                self.position = position
+                self.serverSeq = serverSeq
+                self.state = state
+                self.tuneId = tuneId
+                self.updatedAt = updatedAt
+                self.userId = userId
+                self.width = width
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case deletedAt = "deleted_at"
+                case fileBytes = "file_bytes"
+                case height
+                case id
+                case position
+                case serverSeq = "server_seq"
+                case state
+                case tuneId = "tune_id"
+                case updatedAt = "updated_at"
+                case userId = "user_id"
+                case width
+            }
+        }
+        /// Where a scan's image is in the upload pipeline.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanState`.
+        public typealias ScanState = Swift.String
+        /// What the client is about to upload.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanUploadSlotRequest`.
+        public struct ScanUploadSlotRequest: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanUploadSlotRequest/bytes`.
+            public var bytes: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/ScanUploadSlotRequest/content_type`.
+            @frozen public enum ContentTypePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case imageJpeg = "image/jpeg"
+            }
+            /// - Remark: Generated from `#/components/schemas/ScanUploadSlotRequest/content_type`.
+            public var contentType: Components.Schemas.ScanUploadSlotRequest.ContentTypePayload
+            /// Creates a new `ScanUploadSlotRequest`.
+            ///
+            /// - Parameters:
+            ///   - bytes:
+            ///   - contentType:
+            public init(
+                bytes: Swift.Int,
+                contentType: Components.Schemas.ScanUploadSlotRequest.ContentTypePayload
+            ) {
+                self.bytes = bytes
+                self.contentType = contentType
+            }
+            public enum CodingKeys: String, CodingKey {
+                case bytes
+                case contentType = "content_type"
+            }
+        }
+        /// The outcome of pushing one scan view.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult`.
+        public struct ScanViewChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult/row`.
+            public var row: Components.Schemas.ScanViewRow?
+            /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case scanViews = "scan_views"
+            }
+            /// - Remark: Generated from `#/components/schemas/ScanViewChangeResult/table`.
+            public var table: Components.Schemas.ScanViewChangeResult.TablePayload
+            /// Creates a new `ScanViewChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.ScanViewRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.ScanViewChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// Where a look at a tune's scans was started from.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanViewContext`.
+        public typealias ScanViewContext = Swift.String
+        /// Client-written fields of one look at a tune's scans.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanViewData`.
+        public struct ScanViewData: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanViewData/context`.
+            public var context: Components.Schemas.ScanViewContext
+            /// - Remark: Generated from `#/components/schemas/ScanViewData/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/ScanViewData/list_id`.
+            public var listId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/ScanViewData/started_at`.
+            public var startedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/ScanViewData/tune_id`.
+            public var tuneId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanViewData/viewed_ms`.
+            public var viewedMs: Swift.Int
+            /// Creates a new `ScanViewData`.
+            ///
+            /// - Parameters:
+            ///   - context:
+            ///   - createdAt:
+            ///   - listId:
+            ///   - startedAt:
+            ///   - tuneId:
+            ///   - viewedMs:
+            public init(
+                context: Components.Schemas.ScanViewContext,
+                createdAt: Foundation.Date,
+                listId: Swift.String? = nil,
+                startedAt: Foundation.Date,
+                tuneId: Swift.String,
+                viewedMs: Swift.Int
+            ) {
+                self.context = context
+                self.createdAt = createdAt
+                self.listId = listId
+                self.startedAt = startedAt
+                self.tuneId = tuneId
+                self.viewedMs = viewedMs
+            }
+            public enum CodingKeys: String, CodingKey {
+                case context
+                case createdAt = "created_at"
+                case listId = "list_id"
+                case startedAt = "started_at"
+                case tuneId = "tune_id"
+                case viewedMs = "viewed_ms"
+            }
+        }
+        /// A scan view row in an events page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanViewPullRow`.
+        public struct ScanViewPullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanViewPullRow/row`.
+            public var row: Components.Schemas.ScanViewRow
+            /// - Remark: Generated from `#/components/schemas/ScanViewPullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case scanViews = "scan_views"
+            }
+            /// - Remark: Generated from `#/components/schemas/ScanViewPullRow/table`.
+            public var table: Components.Schemas.ScanViewPullRow.TablePayload
+            /// Creates a new `ScanViewPullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.ScanViewRow,
+                table: Components.Schemas.ScanViewPullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored scan view, as push returns it.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ScanViewRow`.
+        public struct ScanViewRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/context`.
+            public var context: Components.Schemas.ScanViewContext
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/list_id`.
+            public var listId: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/started_at`.
+            public var startedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/tune_id`.
+            public var tuneId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/ScanViewRow/viewed_ms`.
+            public var viewedMs: Swift.Int
+            /// Creates a new `ScanViewRow`.
+            ///
+            /// - Parameters:
+            ///   - context:
+            ///   - createdAt:
+            ///   - id:
+            ///   - listId:
+            ///   - serverSeq:
+            ///   - startedAt:
+            ///   - tuneId:
+            ///   - viewedMs:
+            public init(
+                context: Components.Schemas.ScanViewContext,
+                createdAt: Foundation.Date,
+                id: Swift.String,
+                listId: Swift.String? = nil,
+                serverSeq: Swift.Int,
+                startedAt: Foundation.Date,
+                tuneId: Swift.String,
+                viewedMs: Swift.Int
+            ) {
+                self.context = context
+                self.createdAt = createdAt
+                self.id = id
+                self.listId = listId
+                self.serverSeq = serverSeq
+                self.startedAt = startedAt
+                self.tuneId = tuneId
+                self.viewedMs = viewedMs
+            }
+            public enum CodingKeys: String, CodingKey {
+                case context
+                case createdAt = "created_at"
+                case id
+                case listId = "list_id"
+                case serverSeq = "server_seq"
+                case startedAt = "started_at"
+                case tuneId = "tune_id"
+                case viewedMs = "viewed_ms"
+            }
+        }
         /// One service's answer to a search, and its own search page as the fallback.
         ///
         /// - Remark: Generated from `#/components/schemas/SearchGroup`.
@@ -2585,6 +3476,152 @@ extension Components {
             public enum CodingKeys: String, CodingKey {
                 case expiresAt = "expires_at"
                 case url
+            }
+        }
+        /// A status change row in an events page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/StatusChangePullRow`.
+        public struct StatusChangePullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/StatusChangePullRow/row`.
+            public var row: Components.Schemas.StatusChangeRow
+            /// - Remark: Generated from `#/components/schemas/StatusChangePullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case statusChanges = "status_changes"
+            }
+            /// - Remark: Generated from `#/components/schemas/StatusChangePullRow/table`.
+            public var table: Components.Schemas.StatusChangePullRow.TablePayload
+            /// Creates a new `StatusChangePullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.StatusChangeRow,
+                table: Components.Schemas.StatusChangePullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored status change. The server writes these; no client pushes one.
+        ///
+        /// - Remark: Generated from `#/components/schemas/StatusChangeRow`.
+        public struct StatusChangeRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/StatusChangeRow/changed_at`.
+            public var changedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/StatusChangeRow/from_status`.
+            public var fromStatus: Components.Schemas.TuneStatus?
+            /// - Remark: Generated from `#/components/schemas/StatusChangeRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/StatusChangeRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/StatusChangeRow/to_status`.
+            public var toStatus: Components.Schemas.TuneStatus
+            /// - Remark: Generated from `#/components/schemas/StatusChangeRow/user_tune_id`.
+            public var userTuneId: Swift.String
+            /// A container of undocumented properties.
+            public var additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer
+            /// Creates a new `StatusChangeRow`.
+            ///
+            /// - Parameters:
+            ///   - changedAt:
+            ///   - fromStatus:
+            ///   - id:
+            ///   - serverSeq:
+            ///   - toStatus:
+            ///   - userTuneId:
+            ///   - additionalProperties: A container of undocumented properties.
+            public init(
+                changedAt: Foundation.Date,
+                fromStatus: Components.Schemas.TuneStatus? = nil,
+                id: Swift.String,
+                serverSeq: Swift.Int,
+                toStatus: Components.Schemas.TuneStatus,
+                userTuneId: Swift.String,
+                additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
+            ) {
+                self.changedAt = changedAt
+                self.fromStatus = fromStatus
+                self.id = id
+                self.serverSeq = serverSeq
+                self.toStatus = toStatus
+                self.userTuneId = userTuneId
+                self.additionalProperties = additionalProperties
+            }
+            public enum CodingKeys: String, CodingKey {
+                case changedAt = "changed_at"
+                case fromStatus = "from_status"
+                case id
+                case serverSeq = "server_seq"
+                case toStatus = "to_status"
+                case userTuneId = "user_tune_id"
+            }
+            public init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.changedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .changedAt
+                )
+                self.fromStatus = try container.decodeIfPresent(
+                    Components.Schemas.TuneStatus.self,
+                    forKey: .fromStatus
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.serverSeq = try container.decode(
+                    Swift.Int.self,
+                    forKey: .serverSeq
+                )
+                self.toStatus = try container.decode(
+                    Components.Schemas.TuneStatus.self,
+                    forKey: .toStatus
+                )
+                self.userTuneId = try container.decode(
+                    Swift.String.self,
+                    forKey: .userTuneId
+                )
+                additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "changed_at",
+                    "from_status",
+                    "id",
+                    "server_seq",
+                    "to_status",
+                    "user_tune_id"
+                ])
+            }
+            public func encode(to encoder: any Swift.Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.changedAt,
+                    forKey: .changedAt
+                )
+                try container.encodeIfPresent(
+                    self.fromStatus,
+                    forKey: .fromStatus
+                )
+                try container.encode(
+                    self.id,
+                    forKey: .id
+                )
+                try container.encode(
+                    self.serverSeq,
+                    forKey: .serverSeq
+                )
+                try container.encode(
+                    self.toStatus,
+                    forKey: .toStatus
+                )
+                try container.encode(
+                    self.userTuneId,
+                    forKey: .userTuneId
+                )
+                try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
         /// How much of the storage quota is in use.

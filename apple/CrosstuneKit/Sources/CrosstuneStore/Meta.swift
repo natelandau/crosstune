@@ -5,6 +5,8 @@ import GRDB
 public enum MetaKey: String, Sendable {
     /// The `server_seq` the next pull starts after.
     case pullCursor = "pull_cursor"
+    /// The `server_seq` the next events pull starts after.
+    case eventsCursor = "events_cursor"
     /// How many pushed changes the server refused.
     case invalidChanges = "invalid_changes"
     /// The account's storage figures from the API.

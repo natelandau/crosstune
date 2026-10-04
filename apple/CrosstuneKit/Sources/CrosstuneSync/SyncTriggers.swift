@@ -25,7 +25,8 @@ public final class SyncTriggers {
 
     /// Nil until the app first reports its scene phase.
     private var isActive: Bool?
-    /// The outbox count and whether a recording is processing, nil until the store first answers.
+    /// How many edits are queued, not counting event rows, and whether a recording is
+    /// processing; nil until the store first answers.
     private(set) var outboxCount: Int?
     private(set) var processing: Bool?
     private var started = false
@@ -67,10 +68,18 @@ public final class SyncTriggers {
     public func start() {
         guard !started else { return }
         started = true
-        watch(OutboxEntry.all()) { [weak self] count in self?.outboxChanged(count) }
+        // Each queued edit's place and stamp, which a second edit to a row still queued changes
+        // too. An event row is left out, so recording a play never schedules a sync.
+        let edits = OutboxEntry.edits.select(
+            OutboxEntry.CodingKeys.seq, OutboxEntry.CodingKeys.updatedAt, as: QueuedEdit.self)
+        watch(ValueObservation.tracking { db in try edits.fetchAll(db) }.removeDuplicates()) { [weak self] edits in
+            self?.outboxChanged(edits.count)
+        }
         let processing = Recording.filter(
             Recording.CodingKeys.deletedAt == nil && Self.processingStates.contains(Recording.CodingKeys.state))
-        watch(processing) { [weak self] count in self?.processingChanged(count > 0) }
+        watch(ValueObservation.tracking { db in try processing.fetchCount(db) }) { [weak self] count in
+            self?.processingChanged(count > 0)
+        }
         sync()
     }
 
@@ -103,14 +112,26 @@ public final class SyncTriggers {
         sync()
     }
 
-    private func watch(_ request: QueryInterfaceRequest<some TableRecord>, onChange: @escaping (Int) -> Void) {
-        let counts = ValueObservation.tracking { db in try request.fetchCount(db) }.values(in: store.database)
+    private struct QueuedEdit: Decodable, Hashable, Sendable, FetchableRecord {
+        var seq: Int64
+        var updatedAt: Timestamp
+
+        enum CodingKeys: String, CodingKey {
+            case seq
+            case updatedAt = "updated_at"
+        }
+    }
+
+    private func watch<Reducer: ValueReducer>(
+        _ observation: ValueObservation<Reducer>, onChange: @escaping (Reducer.Value) -> Void
+    ) {
+        let values = observation.values(in: store.database)
         let logger = logger
         watches.append(
             Task {
                 do {
-                    for try await count in counts {
-                        onChange(count)
+                    for try await value in values {
+                        onChange(value)
                     }
                 } catch {
                     logger.error("Sync trigger watch failed: \(String(describing: error), privacy: .public)")

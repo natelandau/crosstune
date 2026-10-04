@@ -8,6 +8,10 @@ public struct LiveSyncAPI: SyncAPI {
     let client: Client
     let session: URLSession
     let storageOrigin: URL?
+    /// How long one events page may take. A sync run waits behind an events pull, so a stalled
+    /// request must not hold it for URLSession's full minute; this still outlasts the gateway
+    /// retries while a sleeping API wakes.
+    var eventsTimeout: Duration = .seconds(30)
 
     /// - Parameters:
     ///   - session: Moves recording files to and from their signed URLs.
@@ -34,6 +38,24 @@ public struct LiveSyncAPI: SyncAPI {
         case .ok(let response): return try WireFormat.pullPage(response.body.json)
         case .unprocessableContent: throw APIStatusError(status: 422)
         case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
+    public func events(since: Int64) async throws -> EventsPage {
+        try await withThrowingTaskGroup(of: EventsPage.self) { [client, eventsTimeout] group in
+            group.addTask {
+                switch try await client.eventsV1SyncEventsGet(.init(query: .init(since: Int(since)))) {
+                case .ok(let response): return try WireFormat.eventsPage(response.body.json)
+                case .unprocessableContent: throw APIStatusError(status: 422)
+                case .undocumented(let status, _): throw APIStatusError(status: status)
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: eventsTimeout)
+                throw URLError(.timedOut)
+            }
+            defer { group.cancelAll() }
+            return try await group.next()!
         }
     }
 
@@ -149,10 +171,10 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL {
-        let input = Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input(
-            path: .init(pageId: pageID), body: .json(.init(bytes: Int(bytes), contentType: .imageJpeg)))
-        switch try await client.uploadSlotV1NotationPagesPageIdUploadSlotPost(input) {
+    public func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL {
+        let input = Operations.UploadSlotV1ScansScanIdUploadSlotPost.Input(
+            path: .init(scanId: scanID), body: .json(.init(bytes: Int(bytes), contentType: .imageJpeg)))
+        switch try await client.uploadSlotV1ScansScanIdUploadSlotPost(input) {
         case .ok(let response): return try signed(try response.body.json)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
@@ -165,9 +187,9 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func notationUploaded(pageID: String) async throws {
-        let input = Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Input(path: .init(pageId: pageID))
-        switch try await client.uploadFinishedV1NotationPagesPageIdUploadedPost(input) {
+    public func scanUploaded(scanID: String) async throws {
+        let input = Operations.UploadFinishedV1ScansScanIdUploadedPost.Input(path: .init(scanId: scanID))
+        switch try await client.uploadFinishedV1ScansScanIdUploadedPost(input) {
         case .noContent: return
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
@@ -180,9 +202,9 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
-    public func notationDownload(pageID: String) async throws -> SignedURL {
-        let input = Operations.DownloadV1NotationPagesPageIdDownloadGet.Input(path: .init(pageId: pageID))
-        switch try await client.downloadV1NotationPagesPageIdDownloadGet(input) {
+    public func scanDownload(scanID: String) async throws -> SignedURL {
+        let input = Operations.DownloadV1ScansScanIdDownloadGet.Input(path: .init(scanId: scanID))
+        switch try await client.downloadV1ScansScanIdDownloadGet(input) {
         case .ok(let response): return try signed(try response.body.json)
         case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
         case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
@@ -298,6 +320,23 @@ enum WireFormat {
         }
     }
 
+    private struct EventsResponse: Decodable {
+        var rows: [Row]
+        var nextSince: Int64
+        var hasMore: Bool
+
+        struct Row: Decodable {
+            var table: String
+            var row: JSONObject
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case rows
+            case nextSince = "next_since"
+            case hasMore = "has_more"
+        }
+    }
+
     struct UnknownPushStatus: Error {
         let status: String
     }
@@ -328,6 +367,13 @@ enum WireFormat {
         let page = try reencode(response, as: PullResponse.self)
         return PullPage(
             rows: page.rows.map { PulledRow(table: $0.table, row: $0.row) }, nextSince: page.nextSince,
+            hasMore: page.hasMore)
+    }
+
+    static func eventsPage(_ response: Components.Schemas.EventsResponse) throws -> EventsPage {
+        let page = try reencode(response, as: EventsResponse.self)
+        return EventsPage(
+            rows: page.rows.map { PulledEvent(table: $0.table, row: $0.row) }, nextSince: page.nextSince,
             hasMore: page.hasMore)
     }
 

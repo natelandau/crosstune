@@ -59,6 +59,7 @@ private func filedViews(_ arrangement: RecordingArrangement) -> [RecordingView] 
 private struct RefusingSyncAPI: SyncAPI {
     func push(_ changes: [Change]) async throws -> [PushResult] { [] }
     func pull(since: Int64) async throws -> PullPage { PullPage(rows: [], nextSince: since, hasMore: false) }
+    func events(since: Int64) async throws -> EventsPage { EventsPage(rows: [], nextSince: since, hasMore: false) }
     func storage() async throws -> StorageFigures { StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0) }
     func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.badURL) }
     func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
@@ -71,9 +72,9 @@ private struct RefusingSyncAPI: SyncAPI {
     func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badServerResponse) }
     func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badServerResponse) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
-    func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL { throw URLError(.badURL) }
-    func notationUploaded(pageID: String) async throws { throw URLError(.badURL) }
-    func notationDownload(pageID: String) async throws -> SignedURL { throw URLError(.badURL) }
+    func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL { throw URLError(.badURL) }
+    func scanUploaded(scanID: String) async throws { throw URLError(.badURL) }
+    func scanDownload(scanID: String) async throws -> SignedURL { throw URLError(.badURL) }
     func putObject(_ url: URL, file: URL, contentType: String) async throws { throw URLError(.badURL) }
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }
 }

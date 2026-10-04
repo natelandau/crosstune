@@ -6,7 +6,7 @@ import os
 /// Keeps one user's store in step with the API: pushes the outbox, pulls what changed on the
 /// server, and refreshes the storage figures, on a loop that retries with backoff.
 ///
-/// Recording audio and notation page images move on a second loop, triggered after every sync
+/// Recording audio and scan images move on a second loop, triggered after every sync
 /// run, so a long upload never holds up push and pull.
 @MainActor @Observable
 public final class SyncEngine {
@@ -35,6 +35,10 @@ public final class SyncEngine {
     private let transferPass: (@MainActor () async throws -> Void)?
 
     @ObservationIgnored private var stopped = false
+    /// The last sync run or events pull queued, which the next one waits behind.
+    @ObservationIgnored private var turn: Task<Void, Never>?
+    /// How many sync runs and events pulls are running or waiting their turn.
+    @ObservationIgnored private(set) var queuedTurns = 0
     @ObservationIgnored private var inFlightDownloads: [String: Task<URL?, any Error>] = [:]
     @ObservationIgnored private var inFlightPeaks: [String: Task<Data?, any Error>] = [:]
 
@@ -56,7 +60,7 @@ public final class SyncEngine {
         run: transferPass ?? { [weak self] in try await self?.runTransfers() }
     )
     @ObservationIgnored let downloadRetries = DownloadRetries()
-    @ObservationIgnored let notationRetries = DownloadRetries()
+    @ObservationIgnored let scanRetries = DownloadRetries()
     /// The stop check every transfer request runs first; a released engine counts as stopped.
     @ObservationIgnored private lazy var transferStopCheck: @MainActor () throws -> Void = { [weak self] in
         guard let self else { throw RunStopped() }
@@ -66,7 +70,7 @@ public final class SyncEngine {
         store: store, api: api,
         checkStopped: transferStopCheck,
         downloadRetries: downloadRetries)
-    @ObservationIgnored private lazy var notation = NotationTransfers(
+    @ObservationIgnored private lazy var scans = ScanTransfers(
         store: store, api: api,
         checkStopped: transferStopCheck)
 
@@ -114,7 +118,26 @@ public final class SyncEngine {
         await syncLoop.trigger()
     }
 
-    /// Runs the notation page and recording upload and download passes now, or once more after
+    /// Pulls every history row the server stored since the last events pull, page by page, each
+    /// page landing with its cursor so a failure keeps the pages before it. Does nothing offline.
+    /// Never runs beside a sync run. A failure is logged; the next call starts from the cursor.
+    public func pullEvents() async {
+        guard !stopped, !isOffline() else { return }
+        do {
+            try await inTurn { [weak self] in
+                guard let self else { return }
+                // A stop while waiting for the sync run means the store may be closing.
+                try checkStopped()
+                try await pullEventPages()
+            }
+        } catch is RunStopped {
+            return
+        } catch {
+            logger.warning("Events pull failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Runs the scan and recording upload and download passes now, or once more after
     /// the run in flight.
     public func transfer() async {
         await transferLoop.trigger()
@@ -133,6 +156,7 @@ public final class SyncEngine {
         stop()
         await syncLoop.finishRunning()
         await transferLoop.finishRunning()
+        await turn?.value
         // A download or peaks fetch that starts after this snapshot throws at its stop check
         // before its first write, so only these can still touch the store.
         for download in inFlightDownloads.values {
@@ -197,22 +221,22 @@ public final class SyncEngine {
     private func runTransfers() async throws {
         if isOffline() { throw DeviceOffline() }
         // A file's own transient failure is held so the later passes still run, then the first
-        // is thrown once they have. Pages go first: they are small, and the reading view needs
+        // is thrown once they have. Scans go first: they are small, and the reading view needs
         // them more than any one recording.
-        let notationUploadError = try await notation.uploadPass()
-        var notationDownloadError: (any Error)?
+        let scanUploadError = try await scans.uploadPass()
+        var scanDownloadError: (any Error)?
         do {
-            try await notation.downloadPass(retries: notationRetries)
+            try await scans.downloadPass(retries: scanRetries)
         } catch  where endsThePass(error) {
             throw error
         } catch {
-            notationDownloadError = error
+            scanDownloadError = error
         }
         let uploadError = try await transfers.uploadPass()
         try await transfers.downloadPass(
             fetch: { [weak self] id in try await self?.fetchOne(id) },
             fetchPeaksFor: { [weak self] id in try await self?.fetchPeaksOnce(id) })
-        if let held = notationUploadError ?? notationDownloadError ?? uploadError { throw held }
+        if let held = scanUploadError ?? scanDownloadError ?? uploadError { throw held }
     }
 
     private func fetchOne(_ recordingID: String) async throws -> URL? {
@@ -238,8 +262,31 @@ public final class SyncEngine {
         return try await task.value
     }
 
+    /// Runs `body` once the sync run or events pull queued before it is done, so the two never
+    /// write at once and an events page never lands mid-push.
+    private func inTurn(_ body: @escaping @MainActor () async throws -> Void) async throws {
+        let previous = turn
+        queuedTurns += 1
+        let next = Task {
+            defer { queuedTurns -= 1 }
+            await previous?.value
+            try await body()
+        }
+        turn = Task { _ = await next.result }
+        try await next.value
+    }
+
     private func runSync() async throws {
         if isOffline() { throw DeviceOffline() }
+        try await inTurn { [weak self] in
+            guard let self else { throw RunStopped() }
+            // A stop while waiting for an events pull means the store may be closing.
+            try checkStopped()
+            try await syncOnce()
+        }
+    }
+
+    private func syncOnce() async throws {
         try await push()
         try await pull()
         do {
@@ -295,6 +342,19 @@ public final class SyncEngine {
             let page = try await api.pull(since: since)
             try await store.write { writer in
                 try writer.applyPullPage(rows: page.rows.map { ($0.table, $0.row) }, nextSince: page.nextSince)
+            }
+            since = page.nextSince
+            if !page.hasMore { return }
+        }
+    }
+
+    private func pullEventPages() async throws {
+        var since = try await store.meta(.eventsCursor, as: Int64.self) ?? 0
+        while true {
+            try checkStopped()
+            let page = try await api.events(since: since)
+            try await store.write { writer in
+                try writer.applyEventsPage(rows: page.rows.map { ($0.table, $0.row) }, nextSince: page.nextSince)
             }
             since = page.nextSince
             if !page.hasMore { return }
