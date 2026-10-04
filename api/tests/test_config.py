@@ -112,6 +112,12 @@ LOCAL_STORE = {
     "local_storage_endpoint_url": "http://localhost:9000",
 }
 E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
+WORKTREE_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_wt_feat_x"
+WORKTREE_STORE = {
+    **LOCAL_STORE,
+    "storage_bucket": "crosstune-wt-feat-x",
+    "database_url": WORKTREE_DB,
+}
 
 
 @pytest.mark.parametrize(
@@ -158,6 +164,7 @@ E2E_DB = "postgresql+asyncpg://crosstune:crosstune@localhost:5432/crosstune_e2e"
             },
             id="local-e2e-outside-development",
         ),
+        pytest.param({"environment": "development", **WORKTREE_STORE}, id="local-worktree"),
         pytest.param({"environment": "pr-44"}, id="pr-without-storage"),
         pytest.param(
             {"environment": "development", "database_url": E2E_DB}, id="e2e-without-storage"
@@ -229,6 +236,26 @@ def test_storage_scope_accepts(overrides: dict[str, str]) -> None:
         pytest.param(
             {"environment": "development", **LOCAL_STORE, "storage_bucket": "crosstune-e2e"},
             id="e2e-bucket-without-an-e2e-database",
+        ),
+        pytest.param(
+            {"environment": "development", **LOCAL_STORE, "database_url": WORKTREE_DB},
+            id="worktree-on-the-local-bucket",
+        ),
+        pytest.param(
+            {
+                **WORKTREE_STORE,
+                "environment": "development",
+                "storage_bucket": "crosstune-wt-feat-y",
+            },
+            id="worktree-on-another-worktree-bucket",
+        ),
+        pytest.param(
+            {"environment": "development", **R2, "database_url": WORKTREE_DB},
+            id="worktree-on-hosted-r2",
+        ),
+        pytest.param(
+            {"environment": "development", **LOCAL_STORE, "storage_bucket": "crosstune-wt-feat-x"},
+            id="worktree-bucket-without-a-worktree-database",
         ),
     ],
 )

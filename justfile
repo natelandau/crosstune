@@ -84,7 +84,7 @@ dev-setup: setup
     docker compose up -d
 
 # Create .worktrees/<branch> on a new branch from the main checkout's HEAD, copy in its .env
-# files, then install its dependencies
+# files, install its dependencies, and give it its own copy of main's database and bucket
 worktree branch:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -95,6 +95,8 @@ worktree branch:
     just --justfile '{{ justfile() }}' --working-directory "$path" worktree-env
     cd "$path"
     just api::setup web::setup site::setup apple::setup
+    just api::worktree-db
+    just --justfile '{{ justfile() }}' api::prune-worktree-dbs
     just --justfile '{{ justfile() }}' apple::prune-derived-data
     echo "worktree ready at $path"
 
@@ -119,6 +121,8 @@ dev:
     scripts/dev-ports.sh 8000 5173 4321
     docker compose up -d --wait
     just api::storage-setup
+    # A worktree's api/.env names main's database again after `just worktree-env` copies it.
+    if [ "$(git rev-parse --absolute-git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ]; then just api::worktree-db; fi
     just api::migrate
     @echo 'Open http://localhost:4321 (site) or http://localhost:5173 (app)'
     # Ctrl-C ends the session with 130, which is the normal way out, not a failure

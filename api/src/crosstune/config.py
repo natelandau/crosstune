@@ -15,7 +15,17 @@ PRODUCTION_BUCKET = "crosstune-recordings"
 PREVIEW_BUCKET = "crosstune-recordings-preview"
 LOCAL_BUCKET = "crosstune-local"
 E2E_BUCKET = "crosstune-e2e"
+# A git worktree's own database and bucket, `just api::worktree-db` names both from one slug.
+WORKTREE_DATABASE_PREFIX = "crosstune_wt_"
+WORKTREE_BUCKET_PREFIX = "crosstune-wt-"
 _HOSTED_WITHOUT_PREFIX = {"development", "production"}
+
+
+def worktree_bucket(database: str) -> str:
+    """The bucket that pairs with a worktree database, so neither can serve another worktree."""
+    return WORKTREE_BUCKET_PREFIX + database.removeprefix(WORKTREE_DATABASE_PREFIX).replace(
+        "_", "-"
+    )
 
 
 def normalize_database_url(url: str) -> str:
@@ -104,6 +114,11 @@ class Settings(BaseSettings):
         land in a database someone else fills by hand.
         """
         return self.database_name.endswith("_e2e")
+
+    @property
+    def worktree_database(self) -> bool:
+        """Whether this API is bound to the database of one git worktree, not the main checkout's."""
+        return self.database_name.startswith(WORKTREE_DATABASE_PREFIX)
 
     @property
     def storage_endpoint(self) -> str:
@@ -248,6 +263,7 @@ class Settings(BaseSettings):
             self._pr_prefix_problem()
             or self._bucket_problem()
             or self._e2e_problem()
+            or self._worktree_problem()
             or self._endpoint_problem()
         )
 
@@ -279,6 +295,18 @@ class Settings(BaseSettings):
             return f"an e2e database must use {E2E_BUCKET}"
         if self.storage_bucket == E2E_BUCKET and not self.e2e_database:
             return f"only an e2e database may use {E2E_BUCKET}"
+        return None
+
+    def _worktree_problem(self) -> str | None:
+        bucket = self.storage_bucket
+        if self.worktree_database:
+            if not self.local_storage_endpoint_url:
+                return "a worktree database may only use local storage (CROSSTUNE_LOCAL_STORAGE_ENDPOINT_URL)"
+            expected = worktree_bucket(self.database_name)
+            if bucket != expected:
+                return f"the worktree database {self.database_name} must use {expected}"
+        elif bucket.startswith(WORKTREE_BUCKET_PREFIX):
+            return f"only a worktree database may use {bucket}"
         return None
 
     def _endpoint_problem(self) -> str | None:
