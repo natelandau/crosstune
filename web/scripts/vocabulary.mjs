@@ -21,7 +21,9 @@ const ARRAY_NAMES = {
   RecordingSource: 'RECORDING_SOURCES',
   RecordingState: 'RECORDING_STATES',
   SearchStatus: 'SEARCH_STATUSES',
-  NotationPageState: 'NOTATION_PAGE_STATES',
+  ScanState: 'SCAN_STATES',
+  PlayContext: 'PLAY_CONTEXTS',
+  ScanViewContext: 'SCAN_VIEW_CONTEXTS',
 }
 
 // Exported limits object -> the row schemas whose string limits it gathers. A tune and

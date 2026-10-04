@@ -1,7 +1,15 @@
-import type { ChangeResult, PullRow } from '../api/types'
-import { setPullCursor } from '../db/meta'
-import { rowsTable, syncTables, type CrosstuneDb } from '../db/schema'
-import { stripOwnership, type LocalRow, type OutboxEntry, type TableName } from '../db/types'
+import type { Table } from 'dexie'
+import type { ChangeResult, EventRow, PullRow } from '../api/types'
+import { setEventsCursor, setPullCursor } from '../db/meta'
+import { eventTables, rowsTable, syncTables, type CrosstuneDb } from '../db/schema'
+import {
+  isEventTable,
+  isSyncTable,
+  stripOwnership,
+  type LocalRow,
+  type OutboxEntry,
+  type TableName,
+} from '../db/types'
 
 /** A push the server refused, so the local edit will never reach it. */
 export interface InvalidChange {
@@ -16,6 +24,11 @@ export function compareTimestamps(a: string, b: string): number {
 
 export function toLocalRow(row: object): LocalRow {
   return stripOwnership(row) as LocalRow
+}
+
+/** The store a pushed row's result lands in: its synced table or, for an event, its event store. */
+function storeFor(db: CrosstuneDb, table: TableName): Table<object, string> {
+  return isSyncTable(table) ? rowsTable(db, table) : db[table]
 }
 
 function rowKey(table: string, id: string): string {
@@ -36,11 +49,12 @@ export async function applyPushResults(
   const invalid: InvalidChange[] = []
   let settled = 0
   const byKey = new Map(results.map((r) => [rowKey(r.table, r.id), r]))
-  await db.transaction('rw', [...syncTables(db), db.outbox], async () => {
+  await db.transaction('rw', [...syncTables(db), ...eventTables(db), db.outbox], async () => {
     // A row keeps its seq when re-queued, so the sent seqs find each row's current entry.
     const pending = await db.outbox.bulkGet(sent.map((entry) => entry.seq!))
-    const stores = new Map<TableName, LocalRow[]>()
+    const stores = new Map<TableName, object[]>()
     const settledSeqs: number[] = []
+    const rejectedEvents = new Map<TableName, string[]>()
     for (const [i, entry] of sent.entries()) {
       const result = byKey.get(rowKey(entry.table, entry.row_id))
       if (!result) continue
@@ -52,20 +66,27 @@ export async function applyPushResults(
         current.updated_at === entry.updated_at
       if (!unchanged) continue
       if (result.status === 'invalid') {
-        // The server refuses a delete only for a row it never stored, which is what a row
-        // created and deleted between pushes looks like: nothing was lost on either side.
-        if (entry.op !== 'delete') {
+        if (isEventTable(entry.table)) {
+          // A refused event is not stored for this user, so its local copy would only ever
+          // count on this device. No edit of the musician's was lost, so it is not reported.
+          const ids = rejectedEvents.get(entry.table) ?? []
+          ids.push(entry.row_id)
+          rejectedEvents.set(entry.table, ids)
+        } else if (entry.op !== 'delete') {
+          // The server refuses a delete only for a row it never stored, which is what a row
+          // created and deleted between pushes looks like: nothing was lost on either side.
           invalid.push({ table: entry.table, id: entry.row_id, reason: result.reason ?? null })
         }
       } else if (result.row) {
         const rows = stores.get(entry.table) ?? []
-        rows.push(toLocalRow(result.row))
+        rows.push(stripOwnership(result.row))
         stores.set(entry.table, rows)
       }
       settledSeqs.push(entry.seq!)
       settled++
     }
-    for (const [table, rows] of stores) await rowsTable(db, table).bulkPut(rows)
+    for (const [table, rows] of stores) await storeFor(db, table).bulkPut(rows)
+    for (const [table, ids] of rejectedEvents) await storeFor(db, table).bulkDelete(ids)
     await db.outbox.bulkDelete(settledSeqs)
   })
   return { invalid, settled }
@@ -93,8 +114,32 @@ export async function applyPullPage(
         pending.delete(key)
       }
     }
-    for (const [table, stored] of stores) await rowsTable(db, table).bulkPut(stored)
+    for (const [table, stored] of stores) {
+      if (isSyncTable(table)) await rowsTable(db, table).bulkPut(stored)
+    }
     await db.outbox.bulkDelete(supersededSeqs)
     await setPullCursor(db, nextSince)
+  })
+}
+
+/** Store one events page and advance the events cursor past it, together. */
+export async function applyEventsPage(
+  db: CrosstuneDb,
+  rows: EventRow[],
+  nextSince: number,
+): Promise<void> {
+  const stores = eventTables(db)
+  await db.transaction('rw', [...stores, db.meta], async () => {
+    const known = new Set(stores.map((store) => store.name))
+    const pages = new Map<string, object[]>()
+    for (const pulled of rows) {
+      // A table from a newer server has no store here; skipping it keeps the cursor moving.
+      if (!known.has(pulled.table)) continue
+      const stored = pages.get(pulled.table) ?? []
+      stored.push(stripOwnership(pulled.row))
+      pages.set(pulled.table, stored)
+    }
+    for (const [table, stored] of pages) await db.table(table).bulkPut(stored)
+    await setEventsCursor(db, nextSince)
   })
 }
