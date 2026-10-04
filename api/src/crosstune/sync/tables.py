@@ -10,10 +10,13 @@ from sqlalchemy import inspect, select
 from crosstune.models import (
     List,
     ListItem,
-    NotationPage,
+    PlayEvent,
+    PracticeSession,
     Recording,
     RecordingLink,
     RecordingLoop,
+    Scan,
+    ScanView,
     Tune,
     UserSettings,
     UserTune,
@@ -25,14 +28,20 @@ from crosstune.schemas.rows import (
     ListItemData,
     ListItemRow,
     ListRow,
-    NotationPageData,
-    NotationPageRow,
+    PlayEventData,
+    PlayEventRow,
+    PracticeSessionData,
+    PracticeSessionRow,
     RecordingData,
     RecordingLinkData,
     RecordingLinkRow,
     RecordingLoopData,
     RecordingLoopRow,
     RecordingRow,
+    ScanData,
+    ScanRow,
+    ScanViewData,
+    ScanViewRow,
     TuneData,
     TuneRow,
     UserSettingsData,
@@ -59,6 +68,10 @@ class TableSpec:
     owned through a parent.
     parents lists (foreign key column, parent table) pairs whose target must be owned by the caller.
     insert_only names client fields a push writes when it creates the row and never changes after.
+    accepts_deleted_parents lets a soft-deleted parent count as owned, for rows a device can
+    write after another device deleted the parent.
+    append_only marks an event table: a row is written once and never edited or deleted.
+    pulled is False for a table the main pull leaves out.
     """
 
     name: TableName
@@ -68,6 +81,9 @@ class TableSpec:
     owner_column: str | None
     parents: tuple[tuple[str, TableName], ...]
     insert_only: frozenset[str] = frozenset()
+    accepts_deleted_parents: bool = False
+    append_only: bool = False
+    pulled: bool = True
 
     def owned_by(self, user_id: uuid.UUID) -> ColumnElement[bool]:
         """A filter matching the stored rows of this table that `user_id` owns."""
@@ -87,8 +103,11 @@ TABLE_ORDER: tuple[TableName, ...] = (
     "list_items",
     "recording_links",
     "recordings",
-    "notation_pages",
+    "scans",
     "recording_loops",
+    "play_events",
+    "practice_sessions",
+    "scan_views",
     "user_settings",
 )
 
@@ -125,11 +144,11 @@ TABLES: dict[TableName, TableSpec] = {
         # as is the date the recording was added.
         insert_only=frozenset({"source", "origin", "origin_url", "added_at"}),
     ),
-    "notation_pages": TableSpec(
-        "notation_pages",
-        NotationPage,
-        NotationPageData,
-        NotationPageRow,
+    "scans": TableSpec(
+        "scans",
+        Scan,
+        ScanData,
+        ScanRow,
         "user_id",
         (("tune_id", "tunes"),),
     ),
@@ -140,9 +159,48 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingLoopRow,
         "user_id",
         (("recording_id", "recordings"),),
+        accepts_deleted_parents=True,
     ),
     "user_settings": TableSpec(
         "user_settings", UserSettings, UserSettingsData, UserSettingsRow, "user_id", ()
+    ),
+    "play_events": TableSpec(
+        "play_events",
+        PlayEvent,
+        PlayEventData,
+        PlayEventRow,
+        "user_id",
+        (
+            ("tune_id", "tunes"),
+            ("recording_id", "recordings"),
+            ("link_id", "recording_links"),
+            ("list_id", "lists"),
+        ),
+        accepts_deleted_parents=True,
+        append_only=True,
+        pulled=False,
+    ),
+    "practice_sessions": TableSpec(
+        "practice_sessions",
+        PracticeSession,
+        PracticeSessionData,
+        PracticeSessionRow,
+        "user_id",
+        (("recording_id", "recordings"), ("tune_id", "tunes")),
+        accepts_deleted_parents=True,
+        append_only=True,
+        pulled=False,
+    ),
+    "scan_views": TableSpec(
+        "scan_views",
+        ScanView,
+        ScanViewData,
+        ScanViewRow,
+        "user_id",
+        (("tune_id", "tunes"), ("list_id", "lists")),
+        accepts_deleted_parents=True,
+        append_only=True,
+        pulled=False,
     ),
 }
 

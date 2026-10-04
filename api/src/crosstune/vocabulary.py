@@ -39,6 +39,23 @@ class TuneStatus(StrEnum):
     WANT_TO_LEARN = "want_to_learn"
 
 
+class PlayContext(StrEnum):
+    """Where a play was started from."""
+
+    ROW = "row"
+    LIST = "list"
+    DOCK = "dock"
+    RECORDING_SCREEN = "recording_screen"
+
+
+class ScanViewContext(StrEnum):
+    """Where a look at a tune's scans was started from."""
+
+    TUNE = "tune"
+    ROW = "row"
+    LIST = "list"
+
+
 class Mode(StrEnum):
     """A tune's mode."""
 
@@ -156,8 +173,8 @@ class RecordingState(StrEnum):
     FAILED = "failed"
 
 
-class NotationPageState(StrEnum):
-    """Where a notation page's image is in the upload pipeline."""
+class ScanState(StrEnum):
+    """Where a scan's image is in the upload pipeline."""
 
     PENDING_UPLOAD = "pending_upload"
     READY = "ready"
@@ -181,8 +198,10 @@ MIN_TRIM_MS: Final[int] = 1000
 """The shortest kept range a trim may leave; trim only narrows, never below this."""
 MIN_LOOP_MS: Final[int] = 500
 """The shortest range a practice loop may span."""
+MAX_EVENT_DURATION_MS: Final[int] = 86_400_000
+"""The longest a play, practice session, or scan view may last: one day."""
 MAX_LOOPS_PER_RECORDING: Final[int] = 100
-MAX_NOTATION_PAGES_PER_TUNE: Final[int] = 20
+MAX_SCANS_PER_TUNE: Final[int] = 20
 LOOP_COLOR_COUNT: Final[int] = 6
 """How many palette colors a loop can name; a loop stores an index below this."""
 
@@ -194,9 +213,12 @@ TableName = Literal[
     "list_items",
     "recording_links",
     "recordings",
-    "notation_pages",
+    "scans",
     "recording_loops",
     "user_settings",
+    "play_events",
+    "practice_sessions",
+    "scan_views",
 ]
 
 # Maximum lengths, by table then field. A column with a width takes it from here, the

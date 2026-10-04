@@ -10,6 +10,7 @@ def test_openapi_lists_every_public_route() -> None:
         "/v1/me",
         "/v1/sync/push",
         "/v1/sync/pull",
+        "/v1/sync/events",
         "/v1/links/resolve",
         "/v1/recordings/{recording_id}/upload-slot",
         "/v1/recordings/{recording_id}/uploaded",
@@ -35,6 +36,10 @@ def test_openapi_types_every_table_row() -> None:
         "ListRow",
         "ListItemRow",
         "UserSettingsRow",
+        "PlayEventRow",
+        "PracticeSessionRow",
+        "ScanViewRow",
+        "StatusChangeRow",
     } <= set(schemas)
 
 
@@ -119,6 +124,11 @@ def test_openapi_types_each_instrument_in_the_tunings_map() -> None:
     assert set(tunings["properties"]) == {i.value for i in vocabulary.Instrument}
     assert "capo" not in resolve(tunings["properties"]["violin"])["properties"]
     assert "capo" in resolve(tunings["properties"]["five_string_banjo"])["properties"]
+
+
+def test_openapi_publishes_event_data_for_clients() -> None:
+    schemas = create_app().openapi()["components"]["schemas"]
+    assert {"PlayEventData", "PracticeSessionData", "ScanViewData"} <= set(schemas)
 
 
 def test_openapi_publishes_recording_ranges() -> None:

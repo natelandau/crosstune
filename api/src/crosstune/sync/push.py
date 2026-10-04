@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
+import asyncpg
 from pydantic import ValidationError
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
@@ -18,10 +20,11 @@ from crosstune.links.resolve import unresolved_link
 from crosstune.models import (
     List,
     ListItem,
-    NotationPage,
     Recording,
     RecordingLink,
     RecordingLoop,
+    Scan,
+    StatusChange,
     UserTune,
 )
 from crosstune.recordings.loops import (
@@ -37,14 +40,13 @@ from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
-    MAX_NOTATION_PAGES_PER_TUNE,
+    MAX_SCANS_PER_TUNE,
     MIN_LOOP_MS,
     RecordingSource,
     TableName,
 )
 
 if TYPE_CHECKING:
-    import uuid
     from collections.abc import Mapping
     from datetime import datetime
 
@@ -86,7 +88,9 @@ async def apply_push(
             await _apply_loops(session, spec, user_id, entries, results)
             continue
         for index, change in entries:
-            if change.op == "upsert":
+            if spec.append_only:
+                results[index] = await _insert(session, spec, user_id, change)
+            elif change.op == "upsert":
                 results[index] = await _upsert(session, spec, user_id, change, resolved_links)
             else:
                 results[index] = await _delete(session, spec, user_id, change)
@@ -182,10 +186,11 @@ async def _parents_owned(
 ) -> str | None:
     """Return a reason string when a referenced parent is missing or not the caller's.
 
-    A loop's deleted recording still counts as owned: the loop is stored deleted instead,
-    so a device that made it before learning of the delete gets a tombstone back.
+    A deleted parent still counts as owned for a table that accepts one: a loop is stored
+    deleted instead, so a device that made it before learning of the delete gets a
+    tombstone back, and an event is history a device can push after an offline delete.
     """
-    deleted_ok = spec.name == "recording_loops"
+    deleted_ok = spec.accepts_deleted_parents
     for column, parent_table in spec.parents:
         if data.get(column) is None:
             # An unfiled recording has no tune yet; nothing to own.
@@ -344,11 +349,11 @@ async def _write_keeps_live_count(
     return stored.deleted_at is None and stored.recording_id == recording_id
 
 
-async def _prepare_notation_page(
+async def _prepare_scan(
     session: AsyncSession, user_id: uuid.UUID, change: Change, data: dict[str, Any]
 ) -> ChangeResult | None:
-    """Refuse a page that would move to another tune or exceed the tune's page limit."""
-    stored: NotationPage | None = await session.get(NotationPage, change.id)
+    """Refuse a scan that would move to another tune or exceed the tune's scan limit."""
+    stored: Scan | None = await session.get(Scan, change.id)
     if stored is not None and stored.user_id == user_id:
         if stored.tune_id != data["tune_id"]:
             return _invalid(change, "tune_id is fixed")
@@ -356,16 +361,16 @@ async def _prepare_notation_page(
             return None
     live = await session.scalar(
         select(func.count())
-        .select_from(NotationPage)
+        .select_from(Scan)
         .where(
-            NotationPage.tune_id == data["tune_id"],
-            NotationPage.user_id == user_id,
-            NotationPage.deleted_at.is_(None),
-            NotationPage.id != change.id,
+            Scan.tune_id == data["tune_id"],
+            Scan.user_id == user_id,
+            Scan.deleted_at.is_(None),
+            Scan.id != change.id,
         )
     )
-    if (live or 0) >= MAX_NOTATION_PAGES_PER_TUNE:
-        return _invalid(change, "page limit reached")
+    if (live or 0) >= MAX_SCANS_PER_TUNE:
+        return _invalid(change, "scan limit reached")
     return None
 
 
@@ -400,8 +405,8 @@ async def _prepare(
         _clamp_recording_trim(stored_recording, data)
     elif spec.name == "recording_loops":
         return await _prepare_loop(session, user_id, change, data)
-    elif spec.name == "notation_pages":
-        return await _prepare_notation_page(session, user_id, change, data)
+    elif spec.name == "scans":
+        return await _prepare_scan(session, user_id, change, data)
     return None
 
 
@@ -413,6 +418,59 @@ def _validated(data_schema: Any, change: Change) -> tuple[dict[str, Any], Change
         return {}, _invalid(change, f"invalid fields: {fields}")
 
 
+async def _checked(
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change
+) -> tuple[dict[str, Any], ChangeResult | None]:
+    """The change's validated fields, or a rejection when they or their parents fail."""
+    data, rejection = _validated(spec.data_schema, change)
+    if rejection:
+        return data, rejection
+    reason = await _parents_owned(session, spec, data, user_id)
+    if reason:
+        return data, _invalid(change, reason)
+    return data, None
+
+
+def _owner(spec: TableSpec, user_id: uuid.UUID) -> dict[str, uuid.UUID]:
+    return {spec.owner_column: user_id} if spec.owner_column is not None else {}
+
+
+async def _write(
+    session: AsyncSession, change: Change, stmt: Any, **execution_options: Any
+) -> tuple[Any, ChangeResult | None]:
+    """Run a write in a savepoint: the row it returned, or a rejection on a constraint or bad data.
+
+    A value the database refuses comes back invalid rather than failing the push, since the
+    client resends a failed push unchanged and would never get past it.
+    """
+    try:
+        async with session.begin_nested():
+            written = (
+                await session.execute(stmt, execution_options=execution_options)
+            ).scalar_one_or_none()
+    except IntegrityError as exc:
+        return None, _invalid(change, f"constraint violation: {exc.orig.__class__.__name__}")
+    except DBAPIError as exc:
+        refused = _refused_data(exc)
+        if refused is None:
+            raise
+        return None, _invalid(change, f"invalid data: {refused.__class__.__name__}")
+    return written, None
+
+
+def _refused_data(exc: DBAPIError) -> BaseException | None:
+    """The driver error behind `exc` when the database or driver refused a value, else None.
+
+    The asyncpg dialect wraps both a server data exception (SQLSTATE class 22) and a value
+    the driver cannot encode, such as an int outside int32, in a generic DBAPIError.
+    """
+    cause = exc.orig.__cause__ if exc.orig is not None else None
+    # The driver's own encode error is a ValueError; asyncpg.DataError is the server's.
+    if isinstance(cause, (asyncpg.exceptions.DataError, ValueError)):
+        return cause
+    return None
+
+
 async def _upsert(
     session: AsyncSession,
     spec: TableSpec,
@@ -420,14 +478,9 @@ async def _upsert(
     change: Change,
     resolved_links: Mapping[str, ResolvedLink] | None,
 ) -> ChangeResult:
-    data_schema: Any = spec.data_schema
-    data, rejection = _validated(data_schema, change)
+    data, rejection = await _checked(session, spec, user_id, change)
     if rejection:
         return rejection
-
-    reason = await _parents_owned(session, spec, data, user_id)
-    if reason:
-        return _invalid(change, reason)
 
     stored_recording: Recording | None = (
         await session.get(Recording, change.id) if spec.name == "recordings" else None
@@ -438,9 +491,20 @@ async def _upsert(
     if rejection:
         return rejection
 
-    values = {"deleted_at": None, **data, "id": change.id, "updated_at": change.updated_at}
-    if spec.owner_column is not None:
-        values[spec.owner_column] = user_id
+    values = {
+        "deleted_at": None,
+        **data,
+        "id": change.id,
+        "updated_at": change.updated_at,
+        **_owner(spec, user_id),
+    }
+
+    prior_status: str | None = None
+    if spec.name == "user_tunes":
+        # A scalar read, never an instance: populate_existing below would overwrite it.
+        prior_status = await session.scalar(
+            select(UserTune.status).where(UserTune.id == change.id, UserTune.user_id == user_id)
+        )
 
     model: Any = spec.model
     stmt = insert(model).values(**values, server_seq=next_server_seq())
@@ -460,14 +524,15 @@ async def _upsert(
         index_elements=[model.id], set_=set_, where=condition
     ).returning(model)
 
-    try:
-        async with session.begin_nested():
-            # populate_existing, so a copy of the row already in the session takes the write.
-            written = (
-                await session.execute(stmt, execution_options={"populate_existing": True})
-            ).scalar_one_or_none()
-    except IntegrityError as exc:
-        return _invalid(change, f"constraint violation: {exc.orig.__class__.__name__}")
+    # populate_existing, so a copy of the row already in the session takes the write.
+    written, rejection = await _write(session, change, stmt, populate_existing=True)
+    if rejection:
+        return rejection
+
+    if spec.name == "user_tunes" and written is not None:
+        await _record_status_change(
+            session, user_id, change.id, prior_status, written, change.updated_at
+        )
 
     resolved = await _current_and_status(session, spec, user_id, change, written)
     if resolved is None:
@@ -480,6 +545,66 @@ async def _upsert(
         )
 
     return _result(spec, change, status, current)
+
+
+async def _record_status_change(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    user_tune_id: uuid.UUID,
+    prior: str | None,
+    written: UserTune,
+    changed_at: datetime,
+) -> None:
+    """Add a history row when a written user tune holds a different status than before.
+
+    Args:
+        session: The request's session.
+        user_id: The pushing user.
+        user_tune_id: The user tune that was written.
+        prior: The status stored before the write, or None when the row did not exist.
+        written: The row the upsert returned.
+        changed_at: The change's timestamp.
+    """
+    if written.status == prior:
+        return
+    session.add(
+        StatusChange(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            user_tune_id=user_tune_id,
+            from_status=prior,
+            to_status=written.status,
+            changed_at=changed_at,
+            server_seq=next_server_seq(),
+        )
+    )
+
+
+async def _insert(
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change
+) -> ChangeResult:
+    """Store an event row once; a replay of a stored id is applied and changes nothing."""
+    if change.op != "upsert":
+        return _invalid(change, f"{spec.name} are insert-only")
+    data, rejection = await _checked(session, spec, user_id, change)
+    if rejection:
+        return rejection
+
+    model: Any = spec.model
+    stmt = (
+        insert(model)
+        .values(**data, **_owner(spec, user_id), id=change.id, server_seq=next_server_seq())
+        .on_conflict_do_nothing(index_elements=[model.id])
+        .returning(model)
+    )
+    written, rejection = await _write(session, change, stmt)
+    if rejection:
+        return rejection
+
+    current = written or await _fetch_owned(session, spec, change.id, user_id)
+    if current is None:
+        return _invalid(change, "id is not yours")
+    return _result(spec, change, "applied", current)
 
 
 async def _current_and_status(
@@ -528,7 +653,7 @@ async def _delete(
         )
     ).scalar_one()
     await _cascade(session, spec.name, change.id, change.updated_at, user_id)
-    if spec.name in ("recordings", "notation_pages", "tunes"):
+    if spec.name in ("recordings", "scans", "tunes"):
         # A deleted recording, or one a tune delete cascades to, has files only the
         # runner's purge removes, and a purge has no due time to wake it.
         request_runner_wake(session)
@@ -569,8 +694,8 @@ async def _cascade(
         )
         await mark(Recording, (Recording.tune_id == row_id) & (Recording.user_id == user_id))
         await mark(
-            NotationPage,
-            (NotationPage.tune_id == row_id) & (NotationPage.user_id == user_id),
+            Scan,
+            (Scan.tune_id == row_id) & (Scan.user_id == user_id),
         )
     elif table == "user_tunes":
         await mark(ListItem, (ListItem.user_tune_id == row_id) & owned_items)

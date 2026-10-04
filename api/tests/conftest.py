@@ -531,8 +531,10 @@ async def truncate_all(engine) -> AsyncIterator[None]:
     async with engine.begin() as conn:
         await conn.execute(
             text(
-                "truncate upload_slots, jobs, recordings, list_items, lists, recording_links, "
-                "recording_loops, user_tunes, tunes, user_settings, users, deleted_accounts cascade"
+                "truncate status_changes, play_events, practice_sessions, scan_views, "
+                "upload_slots, jobs, recordings, list_items, lists, recording_links, "
+                "recording_loops, user_tunes, tunes, user_settings, users, deleted_accounts "
+                "cascade"
             )
         )
 

@@ -20,6 +20,8 @@ from pydantic import (
 from crosstune.vocabulary import (
     LIMITS,
     LOOP_COLOR_COUNT,
+    MAX_EVENT_DURATION_MS,
+    MAX_LOOPS_PER_RECORDING,
     MAX_MODES,
     PITCH_CENTS_MAX,
     PITCH_CENTS_MIN,
@@ -30,13 +32,15 @@ from crosstune.vocabulary import (
     AudioQuality,
     Instrument,
     Mode,
-    NotationPageState,
+    PlayContext,
     PlayFirst,
     Provider,
     RecordingOrigin,
     RecordingPrecision,
     RecordingSource,
     RecordingState,
+    ScanState,
+    ScanViewContext,
     TimeSignature,
     TuneStatus,
 )
@@ -274,8 +278,8 @@ class RecordingData(_RecordingFields):
         return recorded_at
 
 
-class NotationPageData(_Data):
-    """Client-editable fields of a notation page. The file columns are server-owned."""
+class ScanData(_Data):
+    """Client-editable fields of a scan. The file columns are server-owned."""
 
     tune_id: uuid.UUID
     position: int = 0
@@ -314,6 +318,61 @@ class UserSettingsData(_Data):
     search_providers: Annotated[
         list[Provider], AfterValidator(_distinct), AfterValidator(_no_other)
     ] = Field(default_factory=lambda: list(SEARCHABLE_PROVIDERS))
+
+
+class _PlayEventFields(_Data):
+    """Play fields shared by what a client pushes and what the server returns."""
+
+    tune_id: uuid.UUID | None = None
+    recording_id: uuid.UUID | None = None
+    link_id: uuid.UUID | None = None
+    context: PlayContext
+    list_id: uuid.UUID | None = None
+    started_at: datetime
+    listened_ms: int = Field(ge=0, le=MAX_EVENT_DURATION_MS)
+
+
+class PlayEventData(_PlayEventFields):
+    """Client-written fields of one play of a recording or a link."""
+
+    @model_validator(mode="after")
+    def _one_source_and_list_context(self) -> PlayEventData:
+        if (self.recording_id is None) == (self.link_id is None):
+            msg = "a play needs exactly one of recording_id and link_id"
+            raise ValueError(msg)
+        if self.list_id is not None and self.context != PlayContext.LIST:
+            msg = "list_id is only set on a play from a list"
+            raise ValueError(msg)
+        return self
+
+
+class PracticeSessionData(_Data):
+    """Client-written fields of one practice session on a recording."""
+
+    recording_id: uuid.UUID
+    tune_id: uuid.UUID | None = None
+    started_at: datetime
+    duration_ms: int = Field(ge=0, le=MAX_EVENT_DURATION_MS)
+    loop_ids: list[uuid.UUID] = Field(default=[], max_length=MAX_LOOPS_PER_RECORDING)
+    speed_percent: int = Field(ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
+    pitch_cents: int = Field(ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
+
+
+class ScanViewData(_Data):
+    """Client-written fields of one look at a tune's scans."""
+
+    tune_id: uuid.UUID
+    context: ScanViewContext
+    list_id: uuid.UUID | None = None
+    started_at: datetime
+    viewed_ms: int = Field(ge=0, le=MAX_EVENT_DURATION_MS)
+
+    @model_validator(mode="after")
+    def _list_context(self) -> ScanViewData:
+        if self.list_id is not None and self.context != ScanViewContext.LIST:
+            msg = "list_id is only set on a view from a list"
+            raise ValueError(msg)
+        return self
 
 
 class _Row(BaseModel):
@@ -389,13 +448,13 @@ class RecordingRow(_RecordingFields, _Row):
     peaks_rev: str | None
 
 
-class NotationPageRow(NotationPageData, _Row):
-    """A stored notation page, as push and pull return it. The storage key stays on the server."""
+class ScanRow(ScanData, _Row):
+    """A stored scan, as push and pull return it. The storage key stays on the server."""
 
     model_config = ConfigDict(extra="ignore")
 
     user_id: uuid.UUID
-    state: NotationPageState
+    state: ScanState
     file_bytes: int | None
 
 
@@ -415,6 +474,42 @@ class UserSettingsRow(UserSettingsData, _Row):
     user_id: uuid.UUID
 
 
+class _EventRow(BaseModel):
+    """Bookkeeping columns an event row carries back out; never edited, so no timestamps."""
+
+    model_config = ConfigDict(extra="ignore", use_enum_values=True)
+
+    id: uuid.UUID
+    server_seq: int
+
+
+class PlayEventRow(_PlayEventFields, _EventRow):
+    """A stored play, as push returns it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class PracticeSessionRow(PracticeSessionData, _EventRow):
+    """A stored practice session, as push returns it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class ScanViewRow(ScanViewData, _EventRow):
+    """A stored scan view, as push returns it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class StatusChangeRow(_EventRow):
+    """A stored status change. The server writes these; no client pushes one."""
+
+    user_tune_id: uuid.UUID
+    from_status: TuneStatus | None
+    to_status: TuneStatus
+    changed_at: datetime
+
+
 DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "tunes": TuneData,
     "user_tunes": UserTuneData,
@@ -422,9 +517,12 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
     "recordings": RecordingData,
-    "notation_pages": NotationPageData,
+    "scans": ScanData,
     "recording_loops": RecordingLoopData,
     "user_settings": UserSettingsData,
+    "play_events": PlayEventData,
+    "practice_sessions": PracticeSessionData,
+    "scan_views": ScanViewData,
 }
 
 ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
@@ -434,7 +532,10 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,
     "recordings": RecordingRow,
-    "notation_pages": NotationPageRow,
+    "scans": ScanRow,
     "recording_loops": RecordingLoopRow,
     "user_settings": UserSettingsRow,
+    "play_events": PlayEventRow,
+    "practice_sessions": PracticeSessionRow,
+    "scan_views": ScanViewRow,
 }

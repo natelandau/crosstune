@@ -53,14 +53,14 @@ database and bucket of every worktree that no longer exists.
 
 ## Run
 
-| Command             | Does                                                                                                                                                                                                                                    |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command             | Does                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `just dev`          | Starts Postgres and RustFS, applies migrations, runs the API on 8000, the web client on 5173, and the site on 4321; start at `localhost:4321`, where Sign in leads to the app. Ctrl-C stops all three. If a port is taken, it names what holds it and offers to stop a Crosstune server left from an earlier session. |
-| `just dev-down`     | Stops Postgres and RustFS.                                                                                                                                                                                                              |
-| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                                                                                                                                    |
-| `just web::run`     | The web client alone.                                                                                                                                                                                                                   |
-| `just site::dev`    | The site alone, on Astro's dev server.                                                                                                                                                                                                  |
-| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                   |
+| `just dev-down`     | Stops Postgres and RustFS.                                                                                                                                                                                                                                                                                            |
+| `just api::run`     | The API alone, reloading on changes under `api/src`.                                                                                                                                                                                                                                                                  |
+| `just web::run`     | The web client alone.                                                                                                                                                                                                                                                                                                 |
+| `just site::dev`    | The site alone, on Astro's dev server.                                                                                                                                                                                                                                                                                |
+| `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                                                                                                 |
 
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
@@ -93,23 +93,23 @@ names, and take `--bucket crosstune-e2e` to read the end-to-end bucket.
 `just api::storage-reset [bucket]` deletes every object in a bucket, the
 one `api/.env` names by default. A restart of the API runs the orphan sweep,
 which deletes every file that has no user row or no recording or
-notation page row in the local database. `docker compose down -v`
+scan row in the local database. `docker compose down -v`
 removes the Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
-| Command                       | Runs                                                                                                  |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `just lint`                   | Every linter in every module, then a spell check.                                                     |
+| Command                       | Runs                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `just lint`                   | Every linter in every module, then a spell check.                                                                     |
 | `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, and the Swift package tests. |
-| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                     |
-| `just web::test [args]`       | Web tests. Args go to vitest.                                                                         |
-| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one. |
-| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                           |
-| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                              |
-| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                    |
-| `just typos [paths]`          | Spell check.                                                                                          |
-| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                          |
+| `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                     |
+| `just web::test [args]`       | Web tests. Args go to vitest.                                                                                         |
+| `just web::stress <n> [args]` | Web tests `n` times, shuffled, a new order each run. Prints failing seeds; `SEED=<seed>` replays one.                 |
+| `just site::test [args]`      | Builds the site, then runs its tests against the output. Args go to vitest.                                           |
+| `just apple::test [args]`     | Swift package tests on the Mac. Args go to `swift test`.                                                              |
+| `just apple::build`           | The app for the iOS Simulator and macOS, unsigned.                                                                    |
+| `just typos [paths]`          | Spell check.                                                                                                          |
+| `just e2e [args]`             | The Playwright suite. Args go to Playwright.                                                                          |
 
 The end-to-end suite:
 
@@ -282,7 +282,7 @@ A change to the shape of a synced row:
 - A local shape change adds a Dexie version with an upgrader on the web
   and appends a migration to `Schema.migrator` on Apple, and extends that
   client's migration test. Neither may drop unsent edits or unuploaded
-  recordings or notation pages. A merged Apple migration is never
+  recordings or scans. A merged Apple migration is never
   edited, since a store that applied it never runs it again, and never
   renamed, since a store holding an identifier the build does not know
   reads as one a newer build wrote and the app deletes it.
@@ -302,7 +302,7 @@ Rollback:
 - A rollback past a release that changed a local database, a web
   rollback or an older TestFlight build, deletes that local database on
   every device and pulls again, losing unsent edits and unuploaded
-  recordings and notation pages. Roll forward instead.
+  recordings and scans. Roll forward instead.
 
 ## Smoke check
 

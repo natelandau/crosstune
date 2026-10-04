@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.locks import advisory_lock_key
 from crosstune.models import UploadSlot
+from crosstune.vocabulary import PlayContext
 
 pytestmark = pytest.mark.anyio
 
@@ -2189,7 +2190,7 @@ async def test_upload_slot_model_names_the_unique_constraints_the_migration_crea
         == set(migrated)
         == {
             "uq_upload_slots_recording_id",
-            "uq_upload_slots_notation_page_id",
+            "uq_upload_slots_scan_id",
         }
     )
 
@@ -2444,3 +2445,426 @@ async def test_downgrade_to_0029_deletes_reencode_jobs(
                 )
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+ACTIVITY_INDEXES = {
+    "ix_status_changes_user_id_server_seq",
+    "ix_status_changes_user_id_changed_at",
+    "ix_play_events_user_id_server_seq",
+    "ix_play_events_user_id_started_at",
+    "ix_practice_sessions_user_id_server_seq",
+    "ix_practice_sessions_user_id_started_at",
+}
+
+
+async def test_0031_creates_activity_tables(session: AsyncSession) -> None:
+    tables = set(
+        (
+            await session.execute(
+                text(
+                    "select table_name from information_schema.tables "
+                    "where table_name in ('status_changes', 'play_events', 'practice_sessions')"
+                )
+            )
+        ).scalars()
+    )
+    indexes = set(
+        (
+            await session.execute(
+                text(
+                    "select indexname from pg_indexes "
+                    "where tablename in ('status_changes', 'play_events', 'practice_sessions')"
+                )
+            )
+        ).scalars()
+    )
+    assert tables == {"status_changes", "play_events", "practice_sessions"}
+    assert indexes >= ACTIVITY_INDEXES
+
+
+async def test_0031_seeds_one_status_row_per_live_user_tune(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user_a = "018f0000-0000-7000-8000-000000000041"
+    user_b = "018f0000-0000-7000-8000-000000000051"
+    user_c = "018f0000-0000-7000-8000-000000000061"
+    tunes = [f"018f0000-0000-7000-8000-00000000004{n}" for n in range(2, 6)]
+    a_late = "018f0000-0000-7000-8000-000000000046"
+    a_early = "018f0000-0000-7000-8000-000000000047"
+    a_gone = "018f0000-0000-7000-8000-000000000048"
+    b_live = "018f0000-0000-7000-8000-000000000052"
+    c_gone = "018f0000-0000-7000-8000-000000000062"
+    early = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    late = datetime(2026, 2, 2, 3, 4, 5, tzinfo=UTC)
+    # Each tuple: id, user, tune, status, created_at, deleted.
+    user_tunes = [
+        (b_live, user_b, tunes[0], "known", early, False),
+        (a_late, user_a, tunes[0], "learning", late, False),
+        (a_early, user_a, tunes[1], "want_to_learn", early, False),
+        (a_gone, user_a, tunes[2], "known", early, True),
+        (c_gone, user_c, tunes[3], "known", early, True),
+    ]
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0030")
+        async with engine.begin() as conn:
+            for user, clerk in ((user_a, "user_a"), (user_b, "user_b"), (user_c, "user_c")):
+                await conn.execute(
+                    text(
+                        "insert into users (id, clerk_user_id, created_at, updated_at) "
+                        "values (:id, :clerk, now(), now())"
+                    ),
+                    {"id": user, "clerk": clerk},
+                )
+            for tune in tunes:
+                await conn.execute(
+                    text(
+                        "insert into tunes (id, owner_user_id, title, created_at, updated_at) "
+                        "values (:id, :user, 'Sally Ann', now(), now())"
+                    ),
+                    {"id": tune, "user": user_a},
+                )
+            for row_id, user, tune, status, created, deleted in user_tunes:
+                await conn.execute(
+                    text(
+                        "insert into user_tunes (id, user_id, tune_id, status, created_at, "
+                        "updated_at, deleted_at) values (:id, :user, :tune, :status, :created, "
+                        "now(), case when :deleted then now() end)"
+                    ),
+                    {
+                        "id": row_id,
+                        "user": user,
+                        "tune": tune,
+                        "status": status,
+                        "created": created,
+                        "deleted": deleted,
+                    },
+                )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = (
+            (
+                await conn.execute(
+                    text(
+                        "select user_id::text, user_tune_id::text, from_status, to_status, "
+                        "changed_at from status_changes order by server_seq"
+                    )
+                )
+            )
+            .tuples()
+            .all()
+        )
+    assert rows == [
+        (user_a, a_early, None, "want_to_learn", early),
+        (user_a, a_late, None, "learning", late),
+        (user_b, b_live, None, "known", early),
+    ]
+
+
+async def _insert_play(
+    session: AsyncSession, *, recording: bool, link: bool, context: str, listened_ms: int
+) -> None:
+    await session.execute(
+        text(
+            "insert into play_events (id, user_id, recording_id, link_id, context, started_at, "
+            "listened_ms, created_at) values (gen_random_uuid(), "
+            "'018f0000-0000-7000-8000-000000000001', :recording, :link, :context, now(), "
+            ":listened, now())"
+        ),
+        {
+            "recording": "018f0000-0000-7000-8000-000000000071" if recording else None,
+            "link": "018f0000-0000-7000-8000-000000000072" if link else None,
+            "context": context,
+            "listened": listened_ms,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("recording", "link", "context", "listened_ms", "constraint"),
+    [
+        (True, True, "row", 0, "ck_play_events_one_source"),
+        (False, False, "row", 0, "ck_play_events_one_source"),
+        (True, False, "radio", 0, "ck_play_events_context"),
+        (True, False, "row", -1, "ck_play_events_listened_ms"),
+    ],
+)
+async def test_play_events_checks_reject_bad_rows(
+    session: AsyncSession,
+    recording: bool,  # noqa: FBT001
+    link: bool,  # noqa: FBT001
+    context: str,
+    listened_ms: int,
+    constraint: str,
+) -> None:
+    await _seed_user(session)
+    with pytest.raises(IntegrityError, match=constraint):
+        async with session.begin_nested():
+            await _insert_play(
+                session, recording=recording, link=link, context=context, listened_ms=listened_ms
+            )
+
+
+@pytest.mark.parametrize("context", list(PlayContext))
+async def test_play_events_checks_accept_every_context(
+    session: AsyncSession, context: PlayContext
+) -> None:
+    await _seed_user(session)
+    await _insert_play(session, recording=True, link=False, context=context.value, listened_ms=0)
+    count = await session.scalar(text("select count(*) from play_events"))
+    assert count == 1
+
+
+async def test_practice_sessions_check_rejects_negative_duration(session: AsyncSession) -> None:
+    await _seed_user(session)
+    insert = (
+        "insert into practice_sessions (id, user_id, recording_id, started_at, duration_ms, "
+        "speed_percent, pitch_cents, created_at) values (gen_random_uuid(), "
+        "'018f0000-0000-7000-8000-000000000001', '018f0000-0000-7000-8000-000000000071', "
+        "now(), :duration, 100, 0, now())"
+    )
+    await session.execute(text(insert), {"duration": 0})
+    with pytest.raises(IntegrityError, match="ck_practice_sessions_duration_ms"):
+        async with session.begin_nested():
+            await session.execute(text(insert), {"duration": -1})
+
+
+async def test_downgrade_to_0030_drops_activity_tables(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0030")
+        async with engine.connect() as conn:
+            remaining = (
+                await conn.execute(
+                    text(
+                        "select count(*) from information_schema.tables "
+                        "where table_name in ('status_changes', 'play_events', 'practice_sessions')"
+                    )
+                )
+            ).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert remaining == 0
+
+
+SCAN_NAMES = {
+    "scans_pkey",
+    "scans_user_id_fkey",
+    "scans_tune_id_fkey",
+    "ck_scans_width",
+    "ck_scans_height",
+    "ck_scans_state",
+    "ix_scans_tune_id",
+    "ix_scans_user_id_server_seq",
+    "upload_slots_scan_id_fkey",
+    "uq_upload_slots_scan_id",
+}
+NOTATION_NAMES = {
+    "notation_pages_pkey",
+    "notation_pages_user_id_fkey",
+    "notation_pages_tune_id_fkey",
+    "ck_notation_pages_width",
+    "ck_notation_pages_height",
+    "ck_notation_pages_state",
+    "ix_notation_pages_tune_id",
+    "ix_notation_pages_user_id_server_seq",
+    "upload_slots_notation_page_id_fkey",
+    "uq_upload_slots_notation_page_id",
+}
+
+
+async def _scan_schema_names(engine) -> set[str]:
+    """Every constraint and index on the scan table and on upload_slots."""
+    async with engine.connect() as conn:
+        rows = await conn.execute(
+            text(
+                "select conname from pg_constraint c join pg_class t on t.oid = c.conrelid "
+                "where t.relname in ('scans', 'notation_pages', 'upload_slots') "
+                "union select indexname from pg_indexes "
+                "where tablename in ('scans', 'notation_pages', 'upload_slots')"
+            )
+        )
+        return set(rows.scalars())
+
+
+async def test_0032_renames_notation_pages_to_scans_keeping_rows_and_slots(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    tune = "018f0000-0000-7000-8000-000000000032"
+    scan = "018f0000-0000-7000-8000-000000000033"
+    expires = datetime(2030, 1, 2, 3, 4, 5, tzinfo=UTC)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0031")
+        assert await _scan_schema_names(engine) >= NOTATION_NAMES
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into tunes (id, owner_user_id, title, modes, is_crooked, "
+                    "created_at, updated_at) values "
+                    "(:id, :user, 't', '{}', false, now(), now())"
+                ),
+                {"id": tune, "user": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into notation_pages (id, user_id, tune_id, width, height, state, "
+                    "file_key, file_bytes, created_at, updated_at) values "
+                    "(:id, :user, :tune, 10, 20, 'ready', 'k/notation/p/page.jpg', 7, "
+                    "now(), now())"
+                ),
+                {"id": scan, "user": user, "tune": tune},
+            )
+            await conn.execute(
+                text(
+                    "insert into upload_slots (id, notation_page_id, user_id, declared_bytes, "
+                    "content_type, expires_at) values "
+                    "(gen_random_uuid(), :scan, :user, 99, 'image/jpeg', :exp)"
+                ),
+                {"scan": scan, "user": user, "exp": expires},
+            )
+
+        await anyio.to_thread.run_sync(command.upgrade, config, "0032")
+        names = await _scan_schema_names(engine)
+        assert names >= SCAN_NAMES
+        assert not {name for name in names if "notation" in name}
+        async with engine.connect() as conn:
+            [row] = (
+                await conn.execute(
+                    text(
+                        "select id::text as id, width, height, state, file_key, file_bytes "
+                        "from scans"
+                    )
+                )
+            ).all()
+            [slot] = (
+                await conn.execute(
+                    text("select scan_id::text as scan_id, declared_bytes from upload_slots")
+                )
+            ).all()
+        assert tuple(row) == (scan, 10, 20, "ready", "k/notation/p/page.jpg", 7)
+        assert tuple(slot) == (scan, 99)
+
+        await anyio.to_thread.run_sync(command.downgrade, config, "0031")
+        names = await _scan_schema_names(engine)
+        assert names >= NOTATION_NAMES
+        assert not {name for name in names if "scan" in name}
+        async with engine.connect() as conn:
+            slot_columns = set(
+                (
+                    await conn.execute(
+                        text(
+                            "select column_name from information_schema.columns "
+                            "where table_name = 'upload_slots'"
+                        )
+                    )
+                ).scalars()
+            )
+            scans_table = (await conn.execute(text("select to_regclass('scans')"))).scalar_one()
+        assert "scan_id" not in slot_columns
+        assert scans_table is None
+        async with engine.connect() as conn:
+            [row] = (
+                await conn.execute(text("select id::text as id, file_key from notation_pages"))
+            ).all()
+            [slot] = (
+                await conn.execute(
+                    text("select notation_page_id::text as page_id from upload_slots")
+                )
+            ).all()
+        assert tuple(row) == (scan, "k/notation/p/page.jpg")
+        assert tuple(slot) == (scan,)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+SCAN_VIEW_INDEXES = {"ix_scan_views_user_id_server_seq", "ix_scan_views_user_id_started_at"}
+
+
+async def test_0033_creates_scan_views(session: AsyncSession) -> None:
+    table = await session.scalar(text("select to_regclass('scan_views')"))
+    indexes = set(
+        (
+            await session.execute(
+                text("select indexname from pg_indexes where tablename = 'scan_views'")
+            )
+        ).scalars()
+    )
+    assert table == "scan_views"
+    assert indexes >= SCAN_VIEW_INDEXES
+
+
+async def _insert_scan_view(
+    session: AsyncSession, *, context: str, list_id: str | None, viewed_ms: int
+) -> None:
+    await session.execute(
+        text(
+            "insert into scan_views (id, user_id, tune_id, context, list_id, started_at, "
+            "viewed_ms, created_at) values (gen_random_uuid(), "
+            "'018f0000-0000-7000-8000-000000000001', '018f0000-0000-7000-8000-000000000073', "
+            ":context, :list_id, now(), :viewed, now())"
+        ),
+        {"context": context, "list_id": list_id, "viewed": viewed_ms},
+    )
+
+
+LIST_ID = "018f0000-0000-7000-8000-000000000074"
+
+
+@pytest.mark.parametrize(
+    ("context", "list_id", "viewed_ms", "constraint"),
+    [
+        ("dock", None, 0, "ck_scan_views_context"),
+        ("row", LIST_ID, 0, "ck_scan_views_list_id_context"),
+        ("tune", LIST_ID, 0, "ck_scan_views_list_id_context"),
+        ("tune", None, -1, "ck_scan_views_viewed_ms"),
+    ],
+)
+async def test_scan_views_checks_reject_bad_rows(
+    session: AsyncSession, context: str, list_id: str | None, viewed_ms: int, constraint: str
+) -> None:
+    await _seed_user(session)
+    with pytest.raises(IntegrityError, match=constraint):
+        async with session.begin_nested():
+            await _insert_scan_view(session, context=context, list_id=list_id, viewed_ms=viewed_ms)
+
+
+@pytest.mark.parametrize(
+    ("context", "list_id"),
+    [("tune", None), ("row", None), ("list", None), ("list", LIST_ID)],
+)
+async def test_scan_views_checks_accept_valid_rows(
+    session: AsyncSession, context: str, list_id: str | None
+) -> None:
+    await _seed_user(session)
+    await _insert_scan_view(session, context=context, list_id=list_id, viewed_ms=0)
+    assert await session.scalar(text("select count(*) from scan_views")) == 1
+
+
+async def test_downgrade_to_0032_drops_scan_views(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0032")
+        async with engine.connect() as conn:
+            table = (await conn.execute(text("select to_regclass('scan_views')"))).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert table is None

@@ -3,10 +3,14 @@
 from crosstune.models.deleted_account import DeletedAccount
 from crosstune.models.job import Job, UploadSlot
 from crosstune.models.list import List, ListItem
-from crosstune.models.notation_page import NotationPage
+from crosstune.models.play_event import PlayEvent
+from crosstune.models.practice_session import PracticeSession
 from crosstune.models.recording import Recording
 from crosstune.models.recording_link import RecordingLink
 from crosstune.models.recording_loop import RecordingLoop
+from crosstune.models.scan import Scan
+from crosstune.models.scan_view import ScanView
+from crosstune.models.status_change import StatusChange
 from crosstune.models.tune import Tune
 from crosstune.models.user import User
 from crosstune.models.user_settings import UserSettings
@@ -17,10 +21,14 @@ __all__ = [
     "Job",
     "List",
     "ListItem",
-    "NotationPage",
+    "PlayEvent",
+    "PracticeSession",
     "Recording",
     "RecordingLink",
     "RecordingLoop",
+    "Scan",
+    "ScanView",
+    "StatusChange",
     "Tune",
     "UploadSlot",
     "User",

@@ -40,6 +40,42 @@ async def test_pull_includes_tombstones(client, auth_headers) -> None:
     assert body["rows"][0]["row"]["deleted_at"] is not None
 
 
+async def test_pull_skips_event_tables(client, auth_headers) -> None:
+    headers = auth_headers("user_a")
+    recording_id, tune_id = uid(), uid()
+    await push(client, headers, recording(recording_id), change("tunes", tune_id, T0, title="X"))
+    results = await push(
+        client,
+        headers,
+        change(
+            "play_events",
+            uid(),
+            T0,
+            recording_id=recording_id,
+            context="row",
+            started_at=T0.isoformat(),
+            listened_ms=30_000,
+        ),
+    )
+    assert results[0]["status"] == "applied"
+    scan_view = await push(
+        client,
+        headers,
+        change(
+            "scan_views",
+            uid(),
+            T0,
+            tune_id=tune_id,
+            context="tune",
+            started_at=T0.isoformat(),
+            viewed_ms=8_000,
+        ),
+    )
+    assert scan_view[0]["status"] == "applied"
+    body = await pull(client, headers)
+    assert {r["table"] for r in body["rows"]} == {"recordings", "tunes"}
+
+
 async def test_pull_spans_tables_in_sequence_order(client, auth_headers) -> None:
     tune, us, lst = uid(), uid(), uid()
     await push(
