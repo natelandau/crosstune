@@ -407,7 +407,7 @@ async def test_database_refuses_overlapping_live_loops(session: AsyncSession) ->
     )
     await session.execute(
         text(
-            "insert into recordings (id, user_id, source, recorded_at, state, created_at, "
+            "insert into recordings (id, user_id, source, added_at, state, created_at, "
             "updated_at) values (:rec, :user, 'microphone', now(), 'ready', now(), now())"
         ),
         {"rec": rec, "user": user},

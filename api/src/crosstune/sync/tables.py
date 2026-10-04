@@ -121,8 +121,9 @@ TABLES: dict[TableName, TableSpec] = {
         RecordingRow,
         "user_id",
         (("tune_id", "tunes"),),
-        # Provenance decides whether the server fetches the file, so it is fixed at creation.
-        insert_only=frozenset({"source", "origin", "origin_url"}),
+        # Provenance decides whether the server fetches the file, so it is fixed at creation,
+        # as is the date the recording was added.
+        insert_only=frozenset({"source", "origin", "origin_url", "added_at"}),
     ),
     "notation_pages": TableSpec(
         "notation_pages",

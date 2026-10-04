@@ -296,6 +296,13 @@ same triggers. A return to the foreground stands in for a visible tab.
 - Provenance: a recording has an `origin`, `own` or the import source, and
   an `origin_url`, set only for an import. Both are fixed when the row is
   first saved, and a later push never changes them.
+- Dates: `added_at` is set once, when the row is created. `recorded_at` is
+  null when unknown and comes with `recorded_precision`: `year`, `month`,
+  `day`, or `time`. A partial date is stored as UTC midnight at the start of
+  its period and is always shown in UTC, so a year never slips a day in a
+  west-of-UTC zone. Only `time` shows in local time. The API refuses a
+  mismatched pair, a partial date off its period's start, and a date more
+  than a day ahead.
 - Import: the client saves a Slippery-Hill link's audio by creating a
   recording with source `import`, which works offline. On push the API
   checks that the address is importable and queues an import job, or fails
@@ -310,6 +317,8 @@ same triggers. A return to the foreground stands in for a visible tab.
   (`recording_max_file_bytes`) and a time limit for the whole download. The
   job uploads the file outside the user lock. Under the lock it checks the
   quota and hands the recording to the existing transcode.
+- When the import's date is still unknown, the job sets its year from the
+  Slippery-Hill page. It never overwrites a date the user set.
 - A 404 or 410 on the file fails the import at once. A network failure
   retries, then ends as "Couldn't reach Slippery-Hill".
 - The PUT signature covers the declared size, so the bucket refuses a file

@@ -28,6 +28,7 @@ from crosstune.vocabulary import (
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
     RecordingOrigin,
+    RecordingPrecision,
     RecordingSource,
     RecordingState,
 )
@@ -50,6 +51,14 @@ class Recording(SyncColumns, Base):
         CheckConstraint("(origin = 'own') = (origin_url is null)", name="ck_recordings_origin_url"),
         CheckConstraint(
             "(source = 'import') = (origin <> 'own')", name="ck_recordings_import_origin"
+        ),
+        CheckConstraint(
+            in_list("recorded_precision", tuple(RecordingPrecision), nullable=True),
+            name="ck_recordings_recorded_precision",
+        ),
+        CheckConstraint(
+            "(recorded_at is null) = (recorded_precision is null)",
+            name="ck_recordings_recorded_date",
         ),
         CheckConstraint(
             in_list("state", tuple(RecordingState), nullable=False), name="ck_recordings_state"
@@ -85,7 +94,11 @@ class Recording(SyncColumns, Base):
     origin_url: Mapped[str | None] = mapped_column(
         String(LIMITS["recordings"]["origin_url"]), nullable=True
     )
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # When the music was played, if known. A partial date is stored as UTC midnight at the
+    # start of its year, month, or day.
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recorded_precision: Mapped[str | None] = mapped_column(String(10), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     state: Mapped[str] = mapped_column(

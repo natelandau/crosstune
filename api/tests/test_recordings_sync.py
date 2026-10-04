@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select, update
 
 from crosstune.models import Job, Recording
+from crosstune.models.user import utc_now
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
@@ -324,7 +326,8 @@ TUNE_PAGE = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
 
 
 def _import(rec: str, at=T0, page: str = TUNE_PAGE, **data) -> dict:
-    return recording(rec, at, source="import", origin="slippery_hill", origin_url=page, **data)
+    fields = {"recorded_at": None, "recorded_precision": None, **data}
+    return recording(rec, at, source="import", origin="slippery_hill", origin_url=page, **fields)
 
 
 async def _job_kinds(verify_session, rec: str) -> list[str]:
@@ -432,3 +435,162 @@ async def test_two_imports_from_one_page_each_queue_a_job(
     assert [r["row"]["state"] for r in results] == ["processing", "processing"]
     assert await _job_kinds(verify_session, first) == ["import"]
     assert await _job_kinds(verify_session, second) == ["import"]
+
+
+@pytest.mark.parametrize(
+    ("recorded_at", "precision"),
+    [(None, "year"), (T0.isoformat(), None)],
+    ids=["precision-without-date", "date-without-precision"],
+)
+async def test_push_refuses_a_recorded_date_without_its_precision(
+    client, auth_headers, verify_session, recorded_at, precision
+) -> None:
+    rec = uid()
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(rec, recorded_at=recorded_at, recorded_precision=precision),
+    )
+    assert result["status"] == "invalid"
+    assert result["reason"] == "invalid fields: recorded_at"
+    assert await verify_session.get(Recording, uuid.UUID(rec)) is None
+
+
+async def test_push_refuses_a_recorded_date_more_than_a_day_ahead(client, auth_headers) -> None:
+    ahead = utc_now() + timedelta(days=1, minutes=5)
+    [result] = await push(
+        client, auth_headers("user_a"), recording(uid(), recorded_at=ahead.isoformat())
+    )
+    assert result["status"] == "invalid"
+    assert result["reason"] == "invalid fields: recorded_at"
+
+
+async def test_push_accepts_a_recorded_date_within_a_day_of_now(client, auth_headers) -> None:
+    """A device clock running ahead, or a zone east of UTC, still saves today's date."""
+    ahead = utc_now() + timedelta(hours=23)
+    [result] = await push(
+        client, auth_headers("user_a"), recording(uid(), recorded_at=ahead.isoformat())
+    )
+    assert result["status"] == "applied"
+
+
+async def test_an_upload_has_no_recorded_date(client, auth_headers) -> None:
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(uid(), source="upload", recorded_at=None, recorded_precision=None),
+    )
+    assert result["status"] == "applied"
+    assert (result["row"]["recorded_at"], result["row"]["recorded_precision"]) == (None, None)
+
+
+async def test_push_refuses_a_recording_without_a_date_added(client, auth_headers) -> None:
+    body = recording(uid())
+    del body["data"]["added_at"]
+    [result] = await push(client, auth_headers("user_a"), body)
+    assert result["status"] == "invalid"
+    assert result["reason"] == "invalid fields: added_at"
+
+
+async def test_a_partial_recorded_date_round_trips_through_pull(client, auth_headers) -> None:
+    rec = uid()
+    year = datetime(1937, 1, 1, tzinfo=UTC)
+    await push(
+        client,
+        auth_headers("user_a"),
+        recording(rec, source="upload", recorded_at=year.isoformat(), recorded_precision="year"),
+    )
+    [pulled] = (await pull(client, auth_headers("user_a")))["rows"]
+    row = pulled["row"]
+    assert row["id"] == rec
+    assert datetime.fromisoformat(row["recorded_at"]) == year
+    assert row["recorded_precision"] == "year"
+    assert datetime.fromisoformat(row["added_at"]) == T0
+
+
+async def test_an_update_keeps_the_date_added(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    [result] = await push(
+        client, auth_headers("user_a"), recording(rec, T1, added_at=T2.isoformat(), label="x")
+    )
+    assert result["status"] == "applied"
+    assert result["row"]["label"] == "x"
+    assert datetime.fromisoformat(result["row"]["added_at"]) == T0
+    stored = await verify_session.get(Recording, uuid.UUID(rec))
+    assert stored.added_at == T0
+
+
+async def test_an_update_can_change_and_clear_the_recorded_date(client, auth_headers) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    month = datetime(1998, 5, 1, tzinfo=UTC)
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(rec, T1, recorded_at=month.isoformat(), recorded_precision="month"),
+    )
+    assert datetime.fromisoformat(result["row"]["recorded_at"]) == month
+    assert result["row"]["recorded_precision"] == "month"
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(rec, T2, recorded_at=None, recorded_precision=None),
+    )
+    assert (result["row"]["recorded_at"], result["row"]["recorded_precision"]) == (None, None)
+
+
+@pytest.mark.parametrize(
+    ("precision", "recorded_at"),
+    [
+        ("year", "1937-01-01T00:00:00Z"),
+        ("month", "1998-05-01T00:00:00Z"),
+        ("day", "1998-10-03T00:00:00Z"),
+        ("day", "1998-10-03T02:00:00+02:00"),
+        ("time", "1998-10-03T16:12:34.5Z"),
+    ],
+    ids=["year", "month", "day", "day-offset-at-utc-midnight", "time"],
+)
+async def test_push_accepts_a_date_at_the_start_of_its_period(
+    client, auth_headers, precision: str, recorded_at: str
+) -> None:
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(uid(), recorded_at=recorded_at, recorded_precision=precision),
+    )
+    assert result["status"] == "applied"
+    assert result["row"]["recorded_precision"] == precision
+
+
+@pytest.mark.parametrize(
+    ("precision", "recorded_at"),
+    [
+        ("year", "1937-05-01T00:00:00Z"),
+        ("year", "1937-01-01T00:00:01Z"),
+        ("month", "1998-05-02T00:00:00Z"),
+        ("month", "1998-05-01T00:00:00.001Z"),
+        ("day", "2026-10-02T22:00:00Z"),
+        ("day", "1998-10-03T00:00:00+02:00"),
+    ],
+    ids=[
+        "year-mid-year",
+        "year-past-midnight",
+        "month-mid-month",
+        "month-past-midnight",
+        "day-local-midnight-east-of-utc",
+        "day-offset-off-utc-midnight",
+    ],
+)
+async def test_push_refuses_a_partial_date_off_the_start_of_its_period(
+    client, auth_headers, verify_session, precision: str, recorded_at: str
+) -> None:
+    rec = uid()
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(rec, recorded_at=recorded_at, recorded_precision=precision),
+    )
+    assert result["status"] == "invalid"
+    assert result["reason"] == "invalid fields: recorded_at"
+    assert await verify_session.get(Recording, uuid.UUID(rec)) is None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -63,7 +64,7 @@ async def seed_import(session: AsyncSession, user: User | None = None) -> Record
         source="import",
         origin="slippery_hill",
         origin_url=PAGE,
-        recorded_at=utc_now(),
+        added_at=utc_now(),
         created_at=utc_now(),
         updated_at=utc_now(),
         state="processing",
@@ -456,3 +457,83 @@ async def test_import_of_a_recording_deleted_during_the_upload_keeps_nothing(
 
     assert store.keys() == []
     assert await _job(verify_session, rec, JobKind.IMPORT) is None
+
+
+async def test_import_dates_the_recording_from_the_page_year(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+    seq_before = rec.server_seq
+    updated_before = rec.updated_at
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert (rec.recorded_at, rec.recorded_precision) == (datetime(1997, 1, 1, tzinfo=UTC), "year")
+    assert rec.server_seq > seq_before
+    assert rec.updated_at == updated_before
+
+
+async def test_import_keeps_a_recorded_date_the_user_set(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    runner, _ = importer
+    mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+    chosen = datetime(1998, 10, 3, tzinfo=UTC)
+    rec.recorded_at, rec.recorded_precision = chosen, "day"
+    await verify_session.commit()
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert (rec.recorded_at, rec.recorded_precision) == (chosen, "day")
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        (
+            '<html><body><audio src="/system/files/recordings/bearcreeksallygoodin_bobholt.mp3">'
+            "</audio></body></html>"
+        ),
+        PAGE_HTML.replace(">1997<", ">19x7<"),
+    ],
+    ids=["no-year", "malformed-year"],
+)
+async def test_import_without_a_page_year_leaves_the_date_unknown(
+    importer, verify_session, mock_http: MockHttp, html: str
+) -> None:
+    runner, _ = importer
+    mock_http.add(PAGE, httpx2.Response(200, text=html))
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert (rec.recorded_at, rec.recorded_precision) == (None, None)
+
+
+async def test_import_of_a_file_address_leaves_the_date_unknown(
+    importer, verify_session, mock_http: MockHttp
+) -> None:
+    """A file address names no page, so there is no year to read."""
+    runner, _ = importer
+    mock_http.add(FILE, httpx2.Response(200, content=AUDIO))
+    rec = await seed_import(verify_session)
+    rec.origin_url = FILE
+    await verify_session.commit()
+
+    await runner.run_once()
+
+    await verify_session.refresh(rec)
+    assert rec.state == "uploaded"
+    assert (rec.recorded_at, rec.recorded_precision) == (None, None)

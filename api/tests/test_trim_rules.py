@@ -24,7 +24,7 @@ def make_recording(**overrides: object) -> Recording:
         "id": uuid.uuid4(),
         "user_id": uuid.uuid4(),
         "source": "upload",
-        "recorded_at": utc_now(),
+        "added_at": utc_now(),
         "created_at": utc_now(),
         "updated_at": utc_now(),
         "state": "ready",

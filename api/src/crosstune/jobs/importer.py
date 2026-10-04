@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, BinaryIO
 from urllib.parse import urlsplit, urlunsplit
 
@@ -34,6 +35,14 @@ OVER_QUOTA = "Storage quota exceeded"
 UNREACHABLE = "Couldn't reach Slippery-Hill"
 
 
+@dataclass(frozen=True)
+class FetchedImport:
+    """A downloaded import: its size in bytes, and the year its page gives, if any."""
+
+    size: int
+    year: int | None
+
+
 class ImportRefused(Exception):  # noqa: N818 -- a refusal, not an error; the name is the job's contract
     """An import no retry can fix. The message is the copy a client shows."""
 
@@ -45,7 +54,7 @@ async def fetch_import(
     *,
     max_bytes: int,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
-) -> int:
+) -> FetchedImport:
     """Download the audio an imported recording's page points at into a local file.
 
     The file is found by resolving `origin_url` again, never from a URL a client sent,
@@ -60,7 +69,7 @@ async def fetch_import(
         timeout: The per-request timeout.
 
     Returns:
-        int: The file's size in bytes.
+        FetchedImport: The file's size, and the page's year when a page was read.
 
     Raises:
         ImportRefused: When the page has no audio, the file is gone, a request leaves
@@ -69,12 +78,13 @@ async def fetch_import(
     """
     try:
         async with asyncio.timeout(DOWNLOAD_TIMEOUT_SECONDS):
-            ref = await _file_ref(client, recording.origin_url or "", timeout)
+            ref, year = await _file_ref(client, recording.origin_url or "", timeout)
             if ref is None:
                 raise ImportRefused(NO_AUDIO)
-            return await _download(
+            size = await _download(
                 client, slippery_hill_file_url(ref), path, max_bytes=max_bytes, timeout=timeout
             )
+            return FetchedImport(size=size, year=year)
     except TimeoutError as exc:
         msg = f"the download took longer than {DOWNLOAD_TIMEOUT_SECONDS} seconds"
         raise httpx2.TimeoutException(msg) from exc
@@ -131,17 +141,17 @@ async def _file_ref(
     client: httpx2.AsyncClient,
     url: str,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
-) -> str | None:
-    """The file ref `url` names, reading the tune page when it is not a file URL.
+) -> tuple[str | None, int | None]:
+    """The file ref `url` names and its page's year, reading the page when it is not a file URL.
 
     Unlike `resolve_link`, a page that cannot be fetched raises, so the job retries
-    instead of reporting a page with no audio.
+    instead of reporting a page with no audio. A file URL has no page, so no year.
     """
     link = unresolved_link(url)
     if link.provider not in IMPORTABLE_PROVIDERS:
-        return None
+        return None, None
     if link.provider_ref is not None:
-        return link.provider_ref
+        return link.provider_ref, None
     chunks: list[bytes] = []
     read = 0
     # Any host the detector calls Slippery-Hill serves the same page, and `_get` only
@@ -154,7 +164,8 @@ async def _file_ref(
             if read >= MAX_PAGE_BYTES:
                 break
     html = b"".join(chunks)[:MAX_PAGE_BYTES].decode("utf-8", errors="replace")
-    return (await asyncio.to_thread(parse_tune_page, html)).ref
+    page_info = await asyncio.to_thread(parse_tune_page, html)
+    return page_info.ref, page_info.year
 
 
 @contextlib.asynccontextmanager
