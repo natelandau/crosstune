@@ -6,14 +6,14 @@ import tunesCsv from '../../../../../fixtures/export/tunes.csv?raw'
 import type {
   ListItemRow,
   ListRow,
-  NotationPageRow,
+  ScanRow,
   RecordingLinkRow,
   RecordingRow,
   TuneRow,
   UserTuneRow,
 } from '../../../api/types'
 import { stripOwnership, type LocalRecording } from '../../../db/types'
-import { notationPageRow, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
+import { scanRow, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
 import {
   audioExtension,
   buildExport,
@@ -32,8 +32,8 @@ interface Fixture {
   list_items: ListItemRow[]
   recording_links: RecordingLinkRow[]
   recordings: (RecordingRow & Required<Pick<RecordingRow, 'recorded_at' | 'recorded_precision'>>)[]
-  notation_pages: NotationPageRow[]
-  local_notation_pages: string[]
+  scans: ScanRow[]
+  local_scans: string[]
   local_files: { recording_id: string; content_type: string | null; extension: string }[]
 }
 
@@ -50,8 +50,8 @@ function fromFixture(data: Fixture): ExportInput {
     listItems: data.list_items.map(stripOwnership),
     links: data.recording_links.map(stripOwnership),
     recordings: data.recordings.map(stripOwnership),
-    notationPages: data.notation_pages.map(stripOwnership),
-    localNotation: new Set(data.local_notation_pages),
+    scans: data.scans.map(stripOwnership),
+    localScans: new Set(data.local_scans),
     localAudio: data.local_files.map((file) => ({
       recordingId: file.recording_id,
       contentType: file.content_type,
@@ -70,8 +70,8 @@ function emptyInput(): ExportInput {
     links: [],
     recordings: [],
     localAudio: [],
-    notationPages: [],
-    localNotation: new Set(),
+    scans: [],
+    localScans: new Set(),
   }
 }
 
@@ -88,7 +88,7 @@ test('matches the golden fixture byte for byte', () => {
   const plan = buildExport(fromFixture(fixture))
   expect(plan.tunesCsv).toBe(tunesCsv)
   expect(plan.listsCsv).toBe(listsCsv)
-  expect([...plan.audio, ...plan.notation].map((a) => a.path).join('\n') + '\n').toBe(paths)
+  expect([...plan.audio, ...plan.scans].map((a) => a.path).join('\n') + '\n').toBe(paths)
 })
 
 test('builds one date formatter per export', () => {
@@ -243,24 +243,24 @@ test('gives a tune titled Unfiled its own folder', () => {
   ])
 })
 
-test("numbers each tune's live, on-device pages from 1 in reading order", () => {
+test("numbers each tune's live, on-device scans from 1 in reading order", () => {
   const plan = buildExport(fromFixture(fixture))
   const id = (n: number) => `00000000-0000-4000-8000-000000000${n}`
-  expect(plan.notation.map((n) => [n.pageId, n.path])).toEqual([
-    [id(723), 'notation/Untitled/1.jpg'],
-    [id(724), 'notation/Untitled/2.jpg'],
-    [id(711), 'notation/Cluck Old Hen/1.jpg'],
-    [id(712), 'notation/cluck old hen (2)/1.jpg'],
-    [id(702), 'notation/Whiskey Before Breakfast/1.jpg'],
-    [id(701), 'notation/Whiskey Before Breakfast/2.jpg'],
+  expect(plan.scans.map((n) => [n.scanId, n.path])).toEqual([
+    [id(723), 'scans/Untitled/1.jpg'],
+    [id(724), 'scans/Untitled/2.jpg'],
+    [id(711), 'scans/Cluck Old Hen/1.jpg'],
+    [id(712), 'scans/cluck old hen (2)/1.jpg'],
+    [id(702), 'scans/Whiskey Before Breakfast/1.jpg'],
+    [id(701), 'scans/Whiskey Before Breakfast/2.jpg'],
   ])
 })
 
-test('leaves out pages of a tune that is not exported', () => {
+test('leaves out scans of a tune that is not exported', () => {
   const input = emptyInput()
   input.tunes = [tuneRow('t1', 'Gone', { deleted_at: '2026-01-02T00:00:00.000Z' })]
   input.userTunes = [userTuneRow('u1', 't1')]
-  input.notationPages = [notationPageRow('p1', 't1'), notationPageRow('p2', 'missing')]
-  input.localNotation = new Set(['p1', 'p2'])
-  expect(buildExport(input).notation).toEqual([])
+  input.scans = [scanRow('p1', 't1'), scanRow('p2', 'missing')]
+  input.localScans = new Set(['p1', 'p2'])
+  expect(buildExport(input).scans).toEqual([])
 })

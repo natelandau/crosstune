@@ -1,15 +1,15 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { NotationFile } from '../../db/notation'
-import { jpegBlob, notationFile } from '../../test/rows'
-import { type PageImage, usePageImage } from './pageImages'
+import type { ScanFile } from '../../db/scans'
+import { jpegBlob, scanFile } from '../../test/rows'
+import { type DecodedImage, useScanImage } from './scanImages'
 
-describe('usePageImage', () => {
-  it('revokes the shown URL as soon as the page has no file', async () => {
+describe('useScanImage', () => {
+  it('revokes the shown URL as soon as the scan has no file', async () => {
     const revoke = vi.spyOn(URL, 'revokeObjectURL')
-    const file = notationFile('p1', await jpegBlob(60, 80))
-    const { result, rerender } = renderHook<PageImage, { shown: NotationFile | undefined }>(
-      ({ shown }) => usePageImage(shown),
+    const file = scanFile('p1', await jpegBlob(60, 80))
+    const { result, rerender } = renderHook<DecodedImage, { shown: ScanFile | undefined }>(
+      ({ shown }) => useScanImage(shown),
       { initialProps: { shown: file } },
     )
     await expect.poll(() => result.current.kind).toBe('ready')

@@ -7,7 +7,7 @@ import { useDb } from '../../db/DbProvider'
 import { useMenu } from '../../ui/Menu'
 import { useLatest } from '../../ui/useLatest'
 import { storedPlayFirst } from '../../db/types'
-import { useNotationTuneIds } from '../notation/useNotationPages'
+import { useScanTuneIds } from '../scans/useScans'
 import { useSettingsRow } from '../settings/useSettingsRow'
 import { ListTuneRow } from './ListRowPlay'
 import { moveMenuItems } from './moveMenu'
@@ -65,7 +65,7 @@ export function ListTunes({
   const openMenu = useMenu()
   const settings = useSettingsRow()
   const playFirst = settings === undefined ? undefined : storedPlayFirst(settings)
-  const notationTunes = useNotationTuneIds()
+  const scanTunes = useScanTuneIds()
   // The screen owns the forwarded ref for its own keyboard shortcut, so entering selection
   // needs a second handle on the same element to close whatever row a swipe left open.
   const list = useRef<HTMLIonListElement>(null)
@@ -143,7 +143,7 @@ export function ListTunes({
                 selection={active ? row : undefined}
                 onOpen={() => onOpen(view.tune.id)}
                 onLongPress={selection?.enabled ? row.onLongPress : undefined}
-                hasNotation={notationTunes.has(view.tune.id)}
+                hasScans={scanTunes.has(view.tune.id)}
                 start={
                   <span
                     slot="start"

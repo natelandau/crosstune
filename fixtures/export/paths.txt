@@ -10,9 +10,9 @@ recordings/Unfiled/2026-09-27 Soldier's Joy take.audio
 recordings/Unfiled/2026-09-29 Sally take.m4a
 recordings/Unfiled/2026-09-30 Unknown reel.m4a
 recordings/Unfiled/2026-10-01.m4a
-notation/Untitled/1.jpg
-notation/Untitled/2.jpg
-notation/Cluck Old Hen/1.jpg
-notation/cluck old hen (2)/1.jpg
-notation/Whiskey Before Breakfast/1.jpg
-notation/Whiskey Before Breakfast/2.jpg
+scans/Untitled/1.jpg
+scans/Untitled/2.jpg
+scans/Cluck Old Hen/1.jpg
+scans/cluck old hen (2)/1.jpg
+scans/Whiskey Before Breakfast/1.jpg
+scans/Whiskey Before Breakfast/2.jpg

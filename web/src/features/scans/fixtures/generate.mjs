@@ -1,6 +1,6 @@
 // Writes the prepareImage test fixtures into this directory. Needs macOS for `sips`, which does
 // the JPEG encoding; everything else is Node's standard library.
-//   node web/src/features/notation/fixtures/generate.mjs
+//   node web/src/features/scans/fixtures/generate.mjs
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -39,7 +39,7 @@ function png(width, height, pixel) {
 }
 
 function jpegFrom(pngBytes, quality) {
-  const dir = mkdtempSync(join(tmpdir(), 'notation-fixtures-'))
+  const dir = mkdtempSync(join(tmpdir(), 'scan-fixtures-'))
   try {
     const source = join(dir, 'in.png')
     const target = join(dir, 'out.jpg')

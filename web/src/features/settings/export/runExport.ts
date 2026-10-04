@@ -35,7 +35,7 @@ export async function readExportInput(
   db: CrosstuneDb,
   userId: string,
   timeZone: string,
-): Promise<{ input: ExportInput; blobs: Map<string, Blob>; notationBlobs: Map<string, Blob> }> {
+): Promise<{ input: ExportInput; blobs: Map<string, Blob>; scanBlobs: Map<string, Blob> }> {
   return db.transaction(
     'r',
     [
@@ -46,8 +46,8 @@ export async function readExportInput(
       db.recording_links,
       db.recordings,
       db.recording_files,
-      db.notation_pages,
-      db.notation_files,
+      db.scans,
+      db.scan_files,
       db.user_settings,
     ],
     async () => {
@@ -59,8 +59,8 @@ export async function readExportInput(
         links,
         recordings,
         files,
-        notationPages,
-        notationFiles,
+        scans,
+        scanFiles,
         settings,
       ] = await Promise.all([
         db.tunes.toArray(),
@@ -70,8 +70,8 @@ export async function readExportInput(
         db.recording_links.toArray(),
         db.recordings.toArray(),
         db.recording_files.toArray(),
-        db.notation_pages.toArray(),
-        db.notation_files.toArray(),
+        db.scans.toArray(),
+        db.scan_files.toArray(),
         db.user_settings.get(settingsId(userId)),
       ])
       const complete = files.filter(isComplete)
@@ -89,11 +89,11 @@ export async function readExportInput(
             recordingId: file.id,
             contentType: file.blob.type || file.mime,
           })),
-          notationPages,
-          localNotation: new Set(notationFiles.map((file) => file.id)),
+          scans,
+          localScans: new Set(scanFiles.map((file) => file.id)),
         },
         blobs: new Map(complete.map((file) => [file.id, file.blob])),
-        notationBlobs: new Map(notationFiles.map((file) => [file.id, file.blob])),
+        scanBlobs: new Map(scanFiles.map((file) => [file.id, file.blob])),
       }
     },
   )
@@ -103,18 +103,18 @@ export interface CreateExportOptions {
   now: Date
   timeZone: string
   signal?: AbortSignal
-  /** Files zipped out of all recording and notation files; the two CSVs are not counted. */
+  /** Files zipped out of all recording and scan files; the two CSVs are not counted. */
   onProgress?: (done: number, total: number) => void
 }
 
-/** Zip both CSVs and every exported recording and notation page, with no network. */
+/** Zip both CSVs and every exported recording and scan, with no network. */
 export async function createExport(
   db: CrosstuneDb,
   userId: string,
   options: CreateExportOptions,
 ): Promise<{ fileName: string; blob: Blob }> {
   const { now, timeZone, signal, onProgress } = options
-  const { input, blobs, notationBlobs } = await readExportInput(db, userId, timeZone)
+  const { input, blobs, scanBlobs } = await readExportInput(db, userId, timeZone)
   const plan = buildExport(input)
 
   const entries: ZipEntry[] = [
@@ -125,8 +125,8 @@ export async function createExport(
     const data = blobs.get(recordingId)
     if (data) entries.push({ path, data })
   }
-  for (const { pageId, path } of plan.notation) {
-    const data = notationBlobs.get(pageId)
+  for (const { scanId, path } of plan.scans) {
+    const data = scanBlobs.get(scanId)
     if (data) entries.push({ path, data })
   }
 

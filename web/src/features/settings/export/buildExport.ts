@@ -5,7 +5,7 @@ import {
   isInstrument,
   type LocalList,
   type LocalListItem,
-  type LocalNotationPage,
+  type LocalScan,
   type LocalRecording,
   type LocalRecordingLink,
   type LocalTune,
@@ -31,9 +31,9 @@ export interface ExportInput {
   links: readonly LocalRecordingLink[]
   recordings: readonly LocalRecording[]
   localAudio: readonly LocalAudio[]
-  notationPages: readonly LocalNotationPage[]
-  /** Ids of the pages whose image this device holds. */
-  localNotation: ReadonlySet<string>
+  scans: readonly LocalScan[]
+  /** Ids of the scans whose image this device holds. */
+  localScans: ReadonlySet<string>
 }
 
 export interface ExportPlan {
@@ -41,8 +41,8 @@ export interface ExportPlan {
   listsCsv: string
   /** Every exported recording with its archive path, in archive order. */
   audio: readonly { recordingId: string; path: string }[]
-  /** Every exported notation page with its archive path, in archive order. */
-  notation: readonly { pageId: string; path: string }[]
+  /** Every exported scan with its archive path, in archive order. */
+  scans: readonly { scanId: string; path: string }[]
   /** Recordings not deleted, exported or not. */
   totalRecordings: number
 }
@@ -218,28 +218,28 @@ function planAudio(
   return { audio, pathsByTune }
 }
 
-/** Archive paths for each exported page: a folder per tune, pages numbered in reading order. */
-function planNotation(
+/** Archive paths for each exported scan: a folder per tune, scans numbered in reading order. */
+function planScans(
   input: ExportInput,
   tunes: readonly ExportedTune[],
-): { pageId: string; path: string }[] {
-  const pagesByTune = groupBy(
-    input.notationPages.filter((page) => !page.deleted_at && input.localNotation.has(page.id)),
-    (page) => page.tune_id,
+): { scanId: string; path: string }[] {
+  const scansByTune = groupBy(
+    input.scans.filter((scan) => !scan.deleted_at && input.localScans.has(scan.id)),
+    (scan) => scan.tune_id,
   )
   const folders = new NameAllocator()
-  const notation: { pageId: string; path: string }[] = []
+  const scans: { scanId: string; path: string }[] = []
   const seen = new Set<string>()
   for (const { tune } of tunes) {
-    const pages = pagesByTune.get(tune.id)
-    if (!pages || seen.has(tune.id)) continue
+    const tuneScans = scansByTune.get(tune.id)
+    if (!tuneScans || seen.has(tune.id)) continue
     seen.add(tune.id)
     const folder = folders.take(tune.title)
-    ;[...pages].sort(byPosition).forEach((page, index) => {
-      notation.push({ pageId: page.id, path: `notation/${folder}/${index + 1}.jpg` })
+    ;[...tuneScans].sort(byPosition).forEach((scan, index) => {
+      scans.push({ scanId: scan.id, path: `scans/${folder}/${index + 1}.jpg` })
     })
   }
-  return notation
+  return scans
 }
 
 function tuningsText(tune: LocalTune, instruments: readonly string[]): string {
@@ -271,14 +271,14 @@ function listRows(input: ExportInput, tunes: readonly ExportedTune[]): string[][
     })
 }
 
-/** Both CSV documents and the archive path of every exported recording and notation page. */
+/** Both CSV documents and the archive path of every exported recording and scan. */
 export function buildExport(input: ExportInput): ExportPlan {
   const format = dateFormatter(input.timeZone)
   const dateOf = (timestamp: string) => format(new Date(time(timestamp)))
 
   const tunes = exportedTunes(input)
   const { audio, pathsByTune } = planAudio(input, tunes, dateOf)
-  const notation = planNotation(input, tunes)
+  const scans = planScans(input, tunes)
   const linksByTune = groupBy(
     input.links.filter((link) => !link.deleted_at),
     (link) => link.tune_id,
@@ -314,7 +314,7 @@ export function buildExport(input: ExportInput): ExportPlan {
     tunesCsv: csvDocument([TUNES_HEADER, ...tuneRows]),
     listsCsv: csvDocument([LISTS_HEADER, ...listRows(input, tunes)]),
     audio,
-    notation,
+    scans,
     totalRecordings: input.recordings.filter((recording) => !recording.deleted_at).length,
   }
 }

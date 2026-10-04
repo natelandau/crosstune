@@ -63,7 +63,7 @@ export interface ReplayedOrder<T> {
 
 /**
  * An ordered collection with its in-flight moves shown before the store holds them, such as a
- * list's tunes or a tune's notation pages. `items` must be the array the query returned, since a
+ * list's tunes or a tune's scans. `items` must be the array the query returned, since a
  * fresh array reads as a fresh read and would retire a move before the screen has caught up.
  */
 export function useReplayedOrder<T>({

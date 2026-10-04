@@ -170,7 +170,7 @@ describe('createApiClient', () => {
     })
   })
 
-  it('calls the notation page slot, confirm, and download routes', async () => {
+  it('calls the scan slot, confirm, and download routes', async () => {
     const calls: string[] = []
     const api = makeClient(async (input) => {
       calls.push(`${input.method} ${new URL(input.url).pathname}`)
@@ -180,13 +180,13 @@ describe('createApiClient', () => {
       if (input.url.endsWith('/uploaded')) return new Response(null, { status: 204 })
       return Response.json({ url: 'https://r2/x', expires_at: '2999-01-01T00:00:00Z' })
     })
-    await api.requestNotationUploadSlot('p1', { bytes: 10, content_type: 'image/jpeg' })
-    await api.notationUploadFinished('p1')
-    expect(await api.notationDownloadUrl('p1')).toMatchObject({ url: 'https://r2/x' })
+    await api.requestScanUploadSlot('p1', { bytes: 10, content_type: 'image/jpeg' })
+    await api.scanUploadFinished('p1')
+    expect(await api.scanDownloadUrl('p1')).toMatchObject({ url: 'https://r2/x' })
     expect(calls).toEqual([
-      'POST /v1/notation-pages/p1/upload-slot',
-      'POST /v1/notation-pages/p1/uploaded',
-      'GET /v1/notation-pages/p1/download',
+      'POST /v1/scans/p1/upload-slot',
+      'POST /v1/scans/p1/uploaded',
+      'GET /v1/scans/p1/download',
     ])
   })
 

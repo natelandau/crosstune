@@ -19,7 +19,7 @@ export interface PreparedImage {
 }
 
 /**
- * Turn a picked file into the JPEG a notation page stores: upright, at most 2400 px on its long
+ * Turn a picked file into the JPEG a scan stores: upright, at most 2400 px on its long
  * edge, transparency on white. Re-encoding from pixels leaves the original's EXIF and location
  * behind.
  */
