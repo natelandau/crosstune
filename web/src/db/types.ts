@@ -1,6 +1,7 @@
 import type {
   ListItemRow,
   ListRow,
+  NotationPageRow,
   RecordingLinkRow,
   RecordingLoopRow,
   RecordingRow,
@@ -26,6 +27,7 @@ export const TABLE_NAMES = [
   'list_items',
   'recording_links',
   'recordings',
+  'notation_pages',
   'recording_loops',
   'user_settings',
 ] as const satisfies readonly TableName[]
@@ -56,6 +58,7 @@ export type LocalListItem = Local<ListItemRow>
 export type LocalUserSettings = Local<UserSettingsRow>
 export type LocalRecording = Local<RecordingRow>
 export type LocalRecordingLoop = Local<RecordingLoopRow>
+export type LocalNotationPage = Local<NotationPageRow>
 
 /** The instruments a settings row holds, or null when there is no usable row. */
 export function storedInstruments(
@@ -126,6 +129,7 @@ export interface LocalRows {
   list_items: LocalListItem
   recording_links: LocalRecordingLink
   recordings: LocalRecording
+  notation_pages: LocalNotationPage
   recording_loops: LocalRecordingLoop
   user_settings: LocalUserSettings
 }
@@ -145,7 +149,8 @@ export interface MetaEntry {
   value: unknown
 }
 
-// The upload and transcode pipeline computes these for a recording; the client only reads them.
+// The upload and transcode pipeline computes these for a recording or a notation page; the
+// client only reads them.
 const RECORDING_PIPELINE_KEYS = [
   'state',
   'duration_ms',
@@ -157,6 +162,7 @@ const RECORDING_PIPELINE_KEYS = [
   'playback_end_ms',
   'playback_rev',
   'peaks_rev',
+  'file_bytes',
 ] as const
 
 const BOOKKEEPING_KEYS = [

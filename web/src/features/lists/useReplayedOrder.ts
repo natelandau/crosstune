@@ -1,10 +1,7 @@
 import { useRef, useState } from 'react'
-import { activeItems, moveItem } from '../../commands/lists'
-import { useDb } from '../../db/DbProvider'
 import { messageFor } from '../../ui/useAction'
 import { useLatest } from '../../ui/useLatest'
 import { placeBeside } from './order'
-import type { ListItemView } from './useLists'
 
 interface Move {
   itemId: string
@@ -13,10 +10,10 @@ interface Move {
   side: 'before' | 'after'
 }
 
-interface Pending {
+interface Pending<T> {
   move: Move
   /** The items on screen, and the order the store held, when this move's write settled. */
-  settled?: { items: readonly ListItemView[]; order: readonly string[] }
+  settled?: { items: readonly T[]; order: readonly string[] }
 }
 
 // Replaying a side rather than a direction is what makes this safe to run twice: an order that
@@ -45,44 +42,52 @@ const sameOrder = (a: readonly string[], b: readonly string[]): boolean => {
  * nothing about which move put it there. A move whose tune or target has left the list stops
  * early, having nothing left to say.
  */
-const replaying = (
-  pending: Pending,
+const replaying = <T>(
+  pending: Pending<T>,
   order: readonly string[],
-  items: readonly ListItemView[],
+  items: readonly T[],
 ): boolean =>
   order.includes(pending.move.itemId) &&
   order.includes(pending.move.targetId) &&
   (pending.settled === undefined ||
     (pending.settled.items === items && !sameOrder(order, pending.settled.order)))
 
-export interface ReplayedOrder {
+export interface ReplayedOrder<T> {
   /** Every item in the order the screen shows: the stored order with each move in flight replayed. */
-  ordered: ListItemView[]
+  ordered: T[]
   /** Send `rows[from]` beside `rows[to]`, showing it there at once and writing it behind. */
-  move: (rows: readonly ListItemView[], from: number, to: number) => void
+  move: (rows: readonly T[], from: number, to: number) => void
   /** What the last move said it did, for a status line. */
   announcement: string
 }
 
 /**
- * A list's order with its in-flight moves shown before the store holds them. `items` must be the
- * array the query returned, since a fresh array reads as a fresh read and would retire a move
- * before the screen has caught up.
+ * An ordered collection with its in-flight moves shown before the store holds them, such as a
+ * list's tunes or a tune's notation pages. `items` must be the array the query returned, since a
+ * fresh array reads as a fresh read and would retire a move before the screen has caught up.
  */
-export function useReplayedOrder({
-  listId,
+export function useReplayedOrder<T>({
   items,
+  idOf,
+  write,
+  readOrder,
+  announce,
   onMoveStart,
   onError,
 }: {
-  listId: string
-  items: readonly ListItemView[]
-  onMoveStart: () => void
+  items: readonly T[]
+  idOf: (item: T) => string
+  /** Store the move of `itemId` just past `targetId`. */
+  write: (itemId: string, targetId: string) => Promise<void>
+  /** The order the store holds now, as ids. */
+  readOrder: () => Promise<string[]>
+  /** What a status line says once `rows[from]` has gone to `to`. */
+  announce: (rows: readonly T[], from: number, to: number) => string
+  onMoveStart?: () => void
   onError: (message: string) => void
-}): ReplayedOrder {
-  const db = useDb()
+}): ReplayedOrder<T> {
   const [announcement, setAnnouncement] = useState('')
-  const [moving, setMoving] = useState<readonly Pending[]>([])
+  const [moving, setMoving] = useState<readonly Pending<T>[]>([])
   const writes = useRef(Promise.resolve())
   // Written in the same task as the commit, so a write that settles later always finds the
   // items that are on screen, never an older read.
@@ -91,38 +96,38 @@ export function useReplayedOrder({
   // Every move still in flight is replayed onto the order the store holds, in the order they
   // were made, which is the order the store applies them in. A failed move drops out and the
   // moves after it land where the store puts them, with no later read to correct.
-  const storedOrder = items.map((view) => view.item.id)
+  const storedOrder = items.map(idOf)
   const inFlight = moving.filter((pending) => replaying(pending, storedOrder, items))
   if (inFlight.length !== moving.length) setMoving(inFlight)
   const order = inFlight.reduce((current, pending) => apply(current, pending.move), storedOrder)
-  const byId = new Map(items.map((view) => [view.item.id, view]))
+  const byId = new Map(items.map((item) => [idOf(item), item]))
   const ordered = order.flatMap((id) => byId.get(id) ?? [])
 
-  const move = (rows: readonly ListItemView[], from: number, to: number) => {
-    const tune = rows[from]
+  const move = (rows: readonly T[], from: number, to: number) => {
+    const moved = rows[from]
     const target = rows[to]
-    if (!tune || !target || from === to) return
-    // A hidden archived tune keeps its place because the target is a visible neighbor.
-    const next: Pending = {
+    if (!moved || !target || from === to) return
+    // A hidden row keeps its place because the target is a visible neighbor.
+    const next: Pending<T> = {
       move: {
-        itemId: tune.item.id,
-        targetId: target.item.id,
+        itemId: idOf(moved),
+        targetId: idOf(target),
         side: from < to ? 'after' : 'before',
       },
     }
-    const said = `Moved ${tune.tune.title} to position ${to + 1} of ${rows.length}`
+    const said = announce(rows, from, to)
     setAnnouncement(said)
-    onMoveStart()
+    onMoveStart?.()
     setMoving((current) => [...current, next])
     writes.current = writes.current
-      .then(() => moveItem(db, listId, next.move.itemId, next.move.targetId))
+      .then(() => write(next.move.itemId, next.move.targetId))
       .then(
         async () => {
           // Read before the await, or a commit landing inside it would leave these two
           // describing different moments and neither of them able to retire the move.
           const shown = shownItemsRef.current
-          const stored = await activeItems(db, listId).then(
-            (rows) => rows.map((item) => item.id),
+          const stored = await readOrder().then(
+            (order) => order,
             () => null,
           )
           setMoving((current) =>
@@ -140,7 +145,7 @@ export function useReplayedOrder({
         },
         (caught: unknown) => {
           setMoving((current) => current.filter((queued) => queued !== next))
-          // The tune is back where it was, so this move's announcement would still claim it moved.
+          // The row is back where it was, so this move's announcement would still claim it moved.
           setAnnouncement((current) => (current === said ? '' : current))
           onError(messageFor(caught))
         },

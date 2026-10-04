@@ -123,6 +123,8 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     params: { path: { recording_id: recordingId } },
   })
 
+  const byPage = (pageId: string) => ({ params: { path: { page_id: pageId } } })
+
   return {
     async push(changes) {
       return unwrap(client.POST('/v1/sync/push', { body: { changes } }))
@@ -167,6 +169,17 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     },
     async peaksUrl(recordingId) {
       return unwrap(client.GET('/v1/recordings/{recording_id}/peaks', byRecording(recordingId)))
+    },
+    async requestNotationUploadSlot(pageId, body) {
+      return unwrap(
+        client.POST('/v1/notation-pages/{page_id}/upload-slot', { ...byPage(pageId), body }),
+      )
+    },
+    async notationUploadFinished(pageId) {
+      return unwrapEmpty(client.POST('/v1/notation-pages/{page_id}/uploaded', byPage(pageId)))
+    },
+    async notationDownloadUrl(pageId) {
+      return unwrap(client.GET('/v1/notation-pages/{page_id}/download', byPage(pageId)))
     },
     async putObject(url, blob, contentType) {
       // A blob read back from IndexedDB is file-backed on iOS, and an iOS home-screen web

@@ -170,6 +170,26 @@ describe('createApiClient', () => {
     })
   })
 
+  it('calls the notation page slot, confirm, and download routes', async () => {
+    const calls: string[] = []
+    const api = makeClient(async (input) => {
+      calls.push(`${input.method} ${new URL(input.url).pathname}`)
+      if (input.url.endsWith('/upload-slot')) {
+        expect(await input.json()).toEqual({ bytes: 10, content_type: 'image/jpeg' })
+      }
+      if (input.url.endsWith('/uploaded')) return new Response(null, { status: 204 })
+      return Response.json({ url: 'https://r2/x', expires_at: '2999-01-01T00:00:00Z' })
+    })
+    await api.requestNotationUploadSlot('p1', { bytes: 10, content_type: 'image/jpeg' })
+    await api.notationUploadFinished('p1')
+    expect(await api.notationDownloadUrl('p1')).toMatchObject({ url: 'https://r2/x' })
+    expect(calls).toEqual([
+      'POST /v1/notation-pages/p1/upload-slot',
+      'POST /v1/notation-pages/p1/uploaded',
+      'GET /v1/notation-pages/p1/download',
+    ])
+  })
+
   describe('presigned transfers', () => {
     // Vitest's jsdom Request shim converts a Blob body through fields laid out for an
     // older jsdom Blob than the one this repo pins; its native Request, one prototype

@@ -19,6 +19,7 @@ export type TuneRow = Schemas['TuneRow']
 export type UserTuneRow = Schemas['UserTuneRow']
 export type RecordingLinkRow = Schemas['RecordingLinkRow']
 export type RecordingLoopRow = Schemas['RecordingLoopRow']
+export type NotationPageRow = Schemas['NotationPageRow']
 export type ListRow = Schemas['ListRow']
 export type ListItemRow = Schemas['ListItemRow']
 export type UserSettingsRow = Schemas['UserSettingsRow']
@@ -28,6 +29,7 @@ export type SignedUrl = Schemas['SignedUrl']
 export type DownloadUrl = Schemas['DownloadUrl']
 export type PeaksUrl = Schemas['PeaksUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
+export type NotationUploadSlotRequest = Schemas['NotationUploadSlotRequest']
 
 export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>
@@ -44,6 +46,9 @@ export interface SyncApi {
   downloadUrl(recordingId: string): Promise<DownloadUrl>
   /** The revision it carries is what the server signed the URL for. */
   peaksUrl(recordingId: string): Promise<PeaksUrl>
+  requestNotationUploadSlot(pageId: string, body: NotationUploadSlotRequest): Promise<SignedUrl>
+  notationUploadFinished(pageId: string): Promise<void>
+  notationDownloadUrl(pageId: string): Promise<SignedUrl>
   /** PUT bytes to a presigned URL. No bearer token: the signature is the credential. */
   putObject(url: string, blob: Blob, contentType: string): Promise<void>
   /** GET bytes from a presigned URL. No bearer token: the signature is the credential. */

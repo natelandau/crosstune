@@ -20,6 +20,7 @@ import { RecordProvider } from '../recording/useRecord'
 import * as recordingsModule from '../recordings/useRecordings'
 import type * as ConfirmModule from '../../ui/Confirm'
 import type * as TunesModule from '../../commands/tunes'
+import { NOTATION } from '../notation/notationCopy'
 import { COMPOSER_LABEL } from './detailFields'
 import { EDIT_TUNE_TITLE } from './TuneFormSheet'
 import { ADD_TO_LIST_TITLE, NOT_IN_LIST, OPEN_LYRICS, TUNE_GONE, TuneScreen } from './TuneScreen'
@@ -251,7 +252,7 @@ describe('TuneScreen', () => {
     await expect.element(page.getByRole('heading', { name: 'Tune', level: 1 })).toBeInTheDocument()
   })
 
-  it('shows the recordings group above the lists group', async () => {
+  it('shows the recordings group, then notation, above the lists group', async () => {
     await db.recordings.put(recordingRow('r1', { tune_id: ids.tuneId, label: 'Jam recording' }))
     show()
     await expect
@@ -259,7 +260,7 @@ describe('TuneScreen', () => {
       .toBeVisible()
     await expect
       .poll(() => Array.from(document.querySelectorAll('h2')).map((h) => h.textContent))
-      .toEqual(['Recordings', 'Lists', 'Notes'])
+      .toEqual(['Recordings', NOTATION, 'Lists', 'Notes'])
     await expect.poll(() => page.getByRole('heading', { level: 1 }).elements()).toHaveLength(1)
   })
 

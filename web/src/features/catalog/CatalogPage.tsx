@@ -20,6 +20,7 @@ import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
 import { useAction } from '../../ui/useAction'
 import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
+import { useNotationTuneIds } from '../notation/useNotationPages'
 import { SelectionFooter } from '../selection/SelectionFooter'
 import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useBulkActions, type SelectionContext } from '../selection/useBulkActions'
@@ -64,6 +65,7 @@ export function CatalogPage() {
   const loadedEntries = useCatalog()
   const [storedFilters, updateFilters, filterError] = useCatalogFilters()
   const loadedInstruments = useInstruments()
+  const notationTunes = useNotationTuneIds()
   // One Screen whether or not the data has loaded: swapping the IonPage element after the
   // router outlet has mounted it would leave the outlet holding a detached page.
   const ready =
@@ -289,6 +291,7 @@ export function CatalogPage() {
                       selection={active ? row : undefined}
                       onOpen={() => openTune(tune.id)}
                       onLongPress={sheetOwnsScreen ? undefined : row.onLongPress}
+                      hasNotation={notationTunes.has(tune.id)}
                       actions={
                         active
                           ? undefined
