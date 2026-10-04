@@ -2,12 +2,15 @@ import CrosstuneAudio
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
+import Observation
 import Testing
 
 @testable import CrosstuneUI
 
-/// Stands in for the device's player, noting what the model asked of it.
+/// Stands in for the device's player, noting what the model asked of it. Observable, as the
+/// device's player is, so the player's activity log hears it start and stop.
 @MainActor
+@Observable
 final class FakeAudio: AudioPlayback {
     var isPlaying = false
     var elapsed: TimeInterval = 0

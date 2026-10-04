@@ -92,6 +92,9 @@ public struct RecordingScreen: View {
             // The pushed screen went with the row, so a row that returns opens on the recording.
             if isGone { path = [] }
         }
+        // Here rather than on the recording's own view, which also goes while the trim screen
+        // is pushed over it.
+        .onDisappear { player.screenClosed() }
         .shellSheet()
     }
 
@@ -397,13 +400,16 @@ private struct RecordingScreenContent: View {
         }
     }
 
-    /// Makes the screen's model once the commands it writes through are at hand.
+    /// Makes the screen's model once the commands it writes through are at hand, and carries on
+    /// the visit, which showing again after the trim screen leaves as it was.
     private func openPractice() {
-        guard practice == nil, let commands else { return }
-        let model = PracticeModel(
-            player: player, recording: rows.recording, file: rows.file, writer: .commands(commands), mode: mode)
-        model.partStructure = rows.partStructure
-        practice = model
+        if practice == nil, let commands {
+            let model = PracticeModel(
+                player: player, recording: rows.recording, file: rows.file, writer: .commands(commands), mode: mode)
+            model.partStructure = rows.partStructure
+            practice = model
+        }
+        practice?.enter()
     }
 
     private func openTrim() {

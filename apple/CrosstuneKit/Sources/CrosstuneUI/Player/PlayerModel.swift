@@ -253,6 +253,18 @@ public final class PlayerModel {
     /// How long a speed or pitch holds still before it is written.
     @ObservationIgnored var settleDelay: Duration = .seconds(1)
 
+    /// Logs each play and recording screen visit.
+    @ObservationIgnored let activity: PlayerActivity
+    /// Follows the state the activity log times.
+    @ObservationIgnored private var following: Task<Void, Never>?
+    /// Whether the queue hears each track's end, as it does from loading a track until it leaves.
+    @ObservationIgnored private var queueHearsTrackEnds = false
+    /// Where plays and practice sessions are written. The shell sets it; without it nothing is.
+    /// One for another store drops the play under way.
+    @ObservationIgnored public var activityWriter: ActivityWriter? {
+        didSet { activity.setWriter(activityWriter) }
+    }
+
     @ObservationIgnored private var fetch: Task<Void, Never>?
     /// Asking for access and finding the loaded Apple Music link's track.
     @ObservationIgnored private var deciding: Task<Void, Never>?
@@ -271,7 +283,7 @@ public final class PlayerModel {
     @ObservationIgnored private var writing: [UUID: Task<Void, Never>] = [:]
     /// Settings that play in place of the row's and the edits, by recording, such as the trim
     /// screen's normal speed and pitch.
-    @ObservationIgnored private var held: [String: PlaybackSettings] = [:]
+    private var held: [String: PlaybackSettings] = [:]
     /// What the audio player was last told, so a change that plays the same is not sent again.
     @ObservationIgnored private var applied: [PlaybackSetting: Int] = [:]
 
@@ -305,10 +317,73 @@ public final class PlayerModel {
     /// - Parameters:
     ///   - audio: Plays recordings; nil is the device's player.
     ///   - appleMusic: Plays Apple Music links in full; nil plays every link in its embed.
-    public init(audio: (any AudioPlayback)? = nil, appleMusic: AppleMusic? = nil) {
+    ///   - clock: Measures how long each play and practice session plays. It stops while the
+    ///     device sleeps, so a sleep never counts as playing time.
+    ///   - now: The wall clock each play and practice session is stamped with.
+    public init(
+        audio: (any AudioPlayback)? = nil, appleMusic: AppleMusic? = nil,
+        clock: @escaping @MainActor () -> SuspendingClock.Instant = { .now },
+        now: @escaping @MainActor () -> Date = Date.init
+    ) {
         self.audio = audio ?? AudioPlayer()
         self.appleMusic = appleMusic
         loops = LoopPlayback(audio: self.audio)
+        activity = PlayerActivity(clock: clock, now: now)
+        self.audio.onTrackEnd = { [weak self] end in self?.trackEnded(end) }
+        appleMusic?.player.onTrackEnd = { [weak self] end in self?.trackEnded(end) }
+        following = Task { [weak self] in
+            for await snapshot in Observations({ @MainActor [weak self] in self?.activitySnapshot }) {
+                guard let snapshot else { continue }
+                self?.activity.feed(snapshot)
+            }
+        }
+    }
+
+    isolated deinit {
+        following?.cancel()
+    }
+
+    /// What the activity log follows, read from the transport that plays the loaded item.
+    var activitySnapshot: ActivitySnapshot {
+        let transport = transport
+        let playing = transport?.isPlaying == true
+        // Read only once stopped, so a playing position's every tick does not wake the log.
+        let atEnd =
+            !playing
+            && transport.map { transport in transport.duration.map { transport.elapsed >= $0 - 1 } ?? false }
+                ?? false
+        return ActivitySnapshot(
+            loaded: loadedSubject, playing: playing,
+            lengthMs: transport?.duration.map { Int64(($0 * 1000).rounded()) } ?? 0,
+            speedPercent: speedPercent, pitchCents: pitchCents,
+            trimming: item.map { held[$0.id] != nil } ?? false,
+            loopID: loops.isRepeating ? loops.selectedID : nil, atEnd: atEnd)
+    }
+
+    private var loadedSubject: PlaySubject? {
+        item.map { PlaySubject(kind: $0.kind, id: $0.id) }
+    }
+
+    private func trackEnded(_ end: TrackEnd) {
+        activity.trackEnded(end)
+        if queueHearsTrackEnds { queue?.playerTrackEnded(end) }
+    }
+
+    /// The recording screen shows `recordingID`: its time there is one visit, logged as practice
+    /// or as a play once it closes.
+    func screenOpened(_ recordingID: String) {
+        activity.screenOpened(recordingID, loaded: loadedSubject, with: activitySnapshot)
+    }
+
+    /// The recording screen has gone.
+    func screenClosed() {
+        activity.screenClosed(loaded: loadedSubject, with: activitySnapshot)
+    }
+
+    /// The app has gone to the background, and may never come back: a paused play and an open
+    /// recording screen visit are written now.
+    public func leftForeground() {
+        activity.leftForeground(loaded: loadedSubject, with: activitySnapshot)
     }
 
     /// Whether `kind` with `id` is the loaded item.
@@ -319,12 +394,14 @@ public final class PlayerModel {
     /// Loads an item and starts it, in place of whatever was loaded. Only a play tap calls this:
     /// opening a screen never loads the player. A link in its embed opens in full, since its
     /// provider's player is what plays it; a recording and a link MusicKit plays play from the
-    /// bar, and a tap on the one already loaded resumes it. Refused, returning false, while a
-    /// take is being recorded.
+    /// bar, and a tap on the one already loaded resumes it, carrying on its play. `origin` is
+    /// where the play is logged as asked for. Refused, returning false, while a take is being
+    /// recorded.
     @discardableResult
-    public func play(_ item: PlayerItem) -> Bool {
+    public func play(_ item: PlayerItem, origin: PlayOrigin = .dock) -> Bool {
         guard !isCapturing() else { return false }
         let same = holds(item.kind, id: item.id)
+        activity.begin(PlaySubject(kind: item.kind, id: item.id), origin: origin, keepsSame: same)
         // A queued song sits in a guard queue that reports to the queue; resuming it after the
         // queue is let go would pause on a guard copy, so it loads again unguarded.
         let queued = queue != nil || audio.holdsSession
@@ -353,19 +430,30 @@ public final class PlayerModel {
     /// as it was, since the queue's controls live there. A track that cannot play here, which
     /// never falls back to an embed, closes the item and reaches
     /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a take is being
-    /// recorded. A song with `autoplay` false loads paused at its start.
+    /// recorded. A song with `autoplay` false loads paused at its start. Each load is a new play,
+    /// logged as asked for from `origin`.
     @discardableResult
-    public func playQueued(_ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool = true) -> Bool {
+    public func playQueued(
+        _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool = true, origin: PlayOrigin = .dock
+    ) -> Bool {
+        loadQueued(item, nowPlaying: nowPlaying, autoplay: autoplay, origin: origin, keepsPlay: false)
+    }
+
+    /// ``playQueued(_:nowPlaying:autoplay:origin:)``, carrying on the open play when `keepsPlay`
+    /// and it is of `item`.
+    private func loadQueued(
+        _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool, origin: PlayOrigin, keepsPlay: Bool
+    ) -> Bool {
         guard !isCapturing() else { return false }
         let same = holds(item.kind, id: item.id)
+        activity.begin(PlaySubject(kind: item.kind, id: item.id), origin: origin, keepsSame: keepsPlay)
         stopAudio()
         loops.reset(forgettingRows: !same)
         self.item = item
         queuedNowPlaying = nowPlaying
         audio.holdsSession = true
         audio.skipsByInterval = false
-        audio.onTrackEnd = { [weak self] end in self?.queue?.playerTrackEnded(end) }
-        appleMusic?.player.onTrackEnd = { [weak self] end in self?.queue?.playerTrackEnded(end) }
+        queueHearsTrackEnds = true
         if item.kind == .recording {
             loadAudio(item)
         } else {
@@ -402,8 +490,7 @@ public final class PlayerModel {
     private func detachQueue() {
         queue = nil
         queuedNowPlaying = nil
-        audio.onTrackEnd = nil
-        appleMusic?.player.onTrackEnd = nil
+        queueHearsTrackEnds = false
         audio.skipsByInterval = true
         audio.holdsSession = false
         audio.releaseSession()
@@ -448,6 +535,7 @@ public final class PlayerModel {
     }
 
     private func unloadItem(keepsExpansion: Bool = false) {
+        activity.itemGone()
         queuedNowPlaying = nil
         stopAudio()
         loops.reset(forgettingRows: true)
@@ -497,9 +585,10 @@ public final class PlayerModel {
         }
     }
 
-    /// Lets go of the store the player writes to: changes still settling are dropped rather
-    /// than written to a store that is closing, and the player closes.
+    /// Lets go of the store the player writes to: changes still settling and the play under way
+    /// are dropped rather than written to a store that is closing, and the player closes.
     public func leaveStore() {
+        activityWriter = nil
         cancelSettling()
         saveSettings = nil
         close()
@@ -546,7 +635,10 @@ public final class PlayerModel {
                 // A paused song stays paused, as with a single link.
                 if case .song? = next.link?.appleMusic {
                     let autoplay = linkAudio == .deciding || music?.isPlaying == true
-                    playQueued(next, nowPlaying: nowPlaying, autoplay: autoplay)
+                    // The same link at a new address is still the play under way.
+                    _ = loadQueued(
+                        next, nowPlaying: nowPlaying, autoplay: autoplay, origin: activity.plays.origin ?? .dock,
+                        keepsPlay: true)
                 } else {
                     queuedItemCannotPlay()
                 }

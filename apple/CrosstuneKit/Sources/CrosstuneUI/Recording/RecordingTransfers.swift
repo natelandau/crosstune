@@ -83,6 +83,7 @@ struct RecordingTransfers: ViewModifier {
                     guard let file = file ?? nil, let fileURL = store.localAudio(file) else { return nil }
                     return RecordingAudioFile(url: fileURL, file: file)
                 }
+                player.activityWriter = .store(store)
                 player.saveSettings = { recordingID, change in
                     try await CrosstuneCommands.Commands(store: store).updateRecording(
                         recordingID, speedPercent: change.speedPercent.map(Patch.value) ?? .keep,

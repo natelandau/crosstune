@@ -418,9 +418,13 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         #expect(!rig.commands.isEnabled)
         #expect(rig.player.queue == nil)
         #expect(rig.player.item?.id == "ra")
-        // Nothing reports the tune's end to the playlist any more.
-        #expect(rig.audio.onTrackEnd == nil)
-        #expect(rig.music.onTrackEnd == nil)
+        // The tune's end no longer reaches the playlist.
+        let asked = rig.resolver.asked
+        rig.audio.end(.finished)
+        rig.music.end(.next)
+        #expect(rig.resolver.asked == asked)
+        #expect(rig.player.item?.id == "ra")
+        #expect(loads(rig) == 1)
     }
 
     @Test func repeatAndShuffleSurviveARestart() {
