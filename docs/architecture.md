@@ -408,7 +408,7 @@ same triggers. A return to the foreground stands in for a visible tab.
 
 | Environment  | API                         | Database             | Clerk instance | Web client                                | Recordings                                                                                        |
 | ------------ | --------------------------- | -------------------- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Local        | uvicorn on port 8000        | Postgres in Docker   | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`                                                                   |
+| Local        | uvicorn on port 8000        | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
 | Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
 | Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
 | Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `my.<domain>`                   | R2 bucket `crosstune-recordings`                                                                  |

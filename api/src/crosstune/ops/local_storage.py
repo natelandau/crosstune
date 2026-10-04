@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
+from dotenv import dotenv_values
 
-from crosstune.config import E2E_BUCKET, LOCAL_BUCKET
+from crosstune.config import E2E_BUCKET, LOCAL_BUCKET, WORKTREE_BUCKET_PREFIX, Settings
 from crosstune.storage.r2 import s3_client
 
 if TYPE_CHECKING:
@@ -20,6 +22,7 @@ ENDPOINT = "http://localhost:9000"
 ACCESS_KEY = "crosstune"
 SECRET_KEY = "crosstune-local-secret"  # noqa: S105 -- the fixed local credential compose.yml sets
 BUCKETS = (LOCAL_BUCKET, E2E_BUCKET)
+_BUCKET_VARIABLE = "CROSSTUNE_STORAGE_BUCKET"
 CORS_ORIGINS = ["http://localhost:5173", "http://localhost:4173"]
 
 
@@ -83,6 +86,51 @@ def empty_bucket(client: S3Client, bucket: str) -> int:
     return removed
 
 
+def copy_bucket(client: S3Client, *, source: str, target: str) -> int:
+    """Copy every object from one bucket into another on the same server. Returns how many."""
+    copied = 0
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=source):
+        for obj in page.get("Contents", []):
+            client.copy_object(
+                Bucket=target, Key=obj["Key"], CopySource={"Bucket": source, "Key": obj["Key"]}
+            )
+            copied += 1
+    return copied
+
+
+def delete_bucket(client: S3Client, bucket: str) -> None:
+    """Delete a bucket, emptying it first, since S3 refuses to delete one that holds objects."""
+    empty_bucket(client, bucket)
+    client.delete_bucket(Bucket=bucket)
+
+
+def _owned_bucket(name: str) -> str:
+    """Accept only a bucket these commands own, as the argparse type of every bucket argument."""
+    if name in BUCKETS or name.startswith(WORKTREE_BUCKET_PREFIX):
+        return name
+    msg = f"{name} is not a local bucket; choose {', '.join(BUCKETS)} or a {WORKTREE_BUCKET_PREFIX}* bucket"
+    raise argparse.ArgumentTypeError(msg)
+
+
+def _configured_bucket() -> str:
+    """Read only the bucket name, the way Settings would, without the checks Settings runs.
+
+    Commands such as storage-setup run where the bucket pairs with another command's
+    database, which Settings refuses, and the default needs only the name.
+    """
+    env_file = Settings.model_config.get("env_file")
+    from_file = dotenv_values(env_file) if isinstance(env_file, str) else {}
+    return os.environ.get(_BUCKET_VARIABLE) or from_file.get(_BUCKET_VARIABLE) or ""
+
+
+def _default_bucket() -> str:
+    """The bucket api/.env names when it is a local one, so a worktree reads its own by default."""
+    configured = _configured_bucket()
+    if configured in BUCKETS or configured.startswith(WORKTREE_BUCKET_PREFIX):
+        return configured
+    return LOCAL_BUCKET
+
+
 def _setup(client: S3Client, _args: argparse.Namespace) -> None:
     wait_until_ready(client)
     for bucket in BUCKETS:
@@ -113,21 +161,22 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cwd", type=Path, default=Path(), help="directory a relative destination is under"
     )
+    default = _default_bucket()
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("setup", help="create both buckets and their CORS rules").set_defaults(
         run=_setup
     )
     ls = commands.add_parser("ls", help="list objects under a prefix")
     ls.add_argument("prefix", nargs="?", default="")
-    ls.add_argument("--bucket", choices=BUCKETS, default=LOCAL_BUCKET)
+    ls.add_argument("--bucket", type=_owned_bucket, default=default)
     ls.set_defaults(run=_ls)
     get = commands.add_parser("get", help="download one object")
     get.add_argument("key")
     get.add_argument("dest", nargs="?")
-    get.add_argument("--bucket", choices=BUCKETS, default=LOCAL_BUCKET)
+    get.add_argument("--bucket", type=_owned_bucket, default=default)
     get.set_defaults(run=_get)
     reset = commands.add_parser("reset", help="delete every object in a bucket")
-    reset.add_argument("bucket", nargs="?", choices=BUCKETS, default=LOCAL_BUCKET)
+    reset.add_argument("bucket", nargs="?", type=_owned_bucket, default=default)
     reset.set_defaults(run=_reset)
     return parser
 

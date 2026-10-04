@@ -31,12 +31,15 @@ every label. The glossary in `docs/product.md` has the reasons.
   The `apple` module needs Xcode. Xcode 27 has no Simulator.app; its
   simulators run in DeviceHub (`open -a DeviceHub`).
 - `just dev` runs Postgres, migrations, the API, the web client, and the
-  site together. Every checkout and worktree shares one Postgres container and
-  database.
+  site together. Every checkout and worktree shares one Postgres container,
+  but each worktree gets its own database and bucket, copied from main's by
+  `just api::worktree-db`, so one branch's migrations never reach another.
+  `just api::worktree-db reset` takes a fresh copy.
 - Create a worktree with `just worktree <branch>`, never `git worktree add`.
   It adds `.worktrees/<branch>`, copies every module's `.env` from the main
-  checkout, and runs `just setup`, so `just e2e` works there. In a worktree
-  made any other way, run `just worktree-env`, then `just setup`. Never run
+  checkout, runs `just setup` so `just e2e` works there, and makes the
+  worktree's database and bucket. In a worktree made any other way, run `just worktree-env`, then
+  `just setup`; `just dev` makes the database and bucket. Never run
   `just dev-setup` in a worktree: it points the git hooks every checkout
   shares at that worktree's venv, and removing the worktree breaks them.
 - `just test` never runs Playwright. `just e2e` does, beside `just dev`,

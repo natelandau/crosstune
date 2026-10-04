@@ -41,6 +41,16 @@ Create a worktree with `just worktree <branch>`: it copies each module's
 there. In a worktree made another way, run `just worktree-env`, then
 `just setup`.
 
+A worktree never uses the main checkout's database or bucket, since
+branches write migrations at the same time. `just api::worktree-db` copies
+the `crosstune` database into `crosstune_wt_<name>` and every object in
+`crosstune-local` into `crosstune-wt-<name>`, migrates the copy, and points
+the worktree's `api/.env` at both. `just worktree` runs it, and so does
+`just dev` in a worktree. The copy is a snapshot of the main checkout;
+`just api::worktree-db reset` replaces it with a fresh one.
+`just worktree` also runs `just api::prune-worktree-dbs`, which drops the
+database and bucket of every worktree that no longer exists.
+
 ## Run
 
 | Command             | Does                                                                                                                                                                                                                                    |
@@ -54,7 +64,8 @@ there. In a worktree made another way, run `just worktree-env`, then
 
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
-and worktree shares one Postgres container and one database. Browsers reach
+and worktree shares one Postgres container, and each worktree has its own
+database in it. Browsers reach
 RustFS through the dev server's `/storage` proxy, so a phone on the dev
 server's Tailscale Serve URL can record and play back too.
 
@@ -77,10 +88,10 @@ An xcconfig reads `//` as a comment, so `$()` splits the slashes.
 RustFS holds local recordings. Its console is at http://localhost:9001,
 sign in with `crosstune` and `crosstune-local-secret`. List objects with
 `just api::storage ls [prefix]` and download one with
-`just api::storage get <key> [dest]`. Both take `--bucket crosstune-e2e` to
-read the end-to-end bucket instead of `crosstune-local`.
-`just api::storage-reset [bucket]` deletes every object in a bucket,
-`crosstune-local` by default. A restart of the API runs the orphan sweep,
+`just api::storage get <key> [dest]`. Both read the bucket `api/.env`
+names, and take `--bucket crosstune-e2e` to read the end-to-end bucket.
+`just api::storage-reset [bucket]` deletes every object in a bucket, the
+one `api/.env` names by default. A restart of the API runs the orphan sweep,
 which deletes every file that has no user row or no recording or
 notation page row in the local database. `docker compose down -v`
 removes the Postgres and RustFS volumes; `just dev-down` keeps them.

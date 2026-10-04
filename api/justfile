@@ -84,9 +84,9 @@ storage-setup:
 storage *args:
     uv run python -m crosstune.ops.local_storage --cwd '{{ invocation_directory() }}' {{ args }}
 
-# Delete every object in a local bucket, crosstune-local by default
+# Delete every object in a local bucket, the one api/.env names by default
 [group('storage')]
-storage-reset bucket='crosstune-local':
+storage-reset *bucket:
     uv run python -m crosstune.ops.local_storage reset {{ bucket }}
 
 # Apply pending migrations
@@ -106,6 +106,31 @@ e2e-db: (_e2e-db "keep")
 # Drop the end-to-end database, recreate it empty, and migrate it to head
 [group('db')]
 e2e-db-reset: (_e2e-db "recreate")
+
+# Give this worktree its own migrated copy of main's database and bucket; `reset` recopies both
+[group('db')]
+worktree-db mode='keep':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case '{{ mode }}' in
+        keep) flags=() ;;
+        reset) flags=(--reset) ;;
+        *) echo "mode is keep or reset, not '{{ mode }}'" >&2; exit 1 ;;
+    esac
+    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    uv run python -m crosstune.ops.local_worktree provision "${flags[@]}"
+    if ! uv run alembic upgrade head; then
+        echo "If alembic cannot locate a revision, main's database ran another branch's migration" >&2
+        echo "and this copy inherited it. Downgrade main's database from that branch, then run" >&2
+        echo "'just api::worktree-db reset'." >&2
+        exit 1
+    fi
+
+# Drop the database and bucket of every worktree that no longer exists
+[group('db')]
+prune-worktree-dbs:
+    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    uv run python -m crosstune.ops.local_worktree prune
 
 # _e2e-db also takes "drop", which leaves no database behind. It has no recipe of its own,
 # because `just e2e` drops what it created and nothing else has a database to drop.
