@@ -9,6 +9,7 @@ name: Release
 # client in one place. Those archives then go to TestFlight. A manual run
 # started from a tag, under "Use workflow from", moves the branch to that tag
 # and uploads that version again, which is how an older version is put back.
+# The site is not part of a release: it deploys production from `main`.
 on:
   push:
     tags: ["v*"]
@@ -32,9 +33,6 @@ jobs:
   web:
     name: Web
     uses: ./.github/workflows/web.yml
-  site:
-    name: Site
-    uses: ./.github/workflows/site.yml
   # The archive job compiles the app, so the check skips its own build.
   apple:
     name: Apple
@@ -43,7 +41,7 @@ jobs:
       skip_build: true
   promote:
     name: Move the production branch to the tag
-    needs: [api, web, site, apple, archive]
+    needs: [api, web, apple, archive]
     runs-on: ubuntu-latest
     steps:
       - name: require a version tag
