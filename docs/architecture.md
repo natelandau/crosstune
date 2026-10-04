@@ -72,8 +72,8 @@ Cloudflare also hosts the DNS zone for the product domain.
 | What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                           |
 | Who owns a row           | The token.                                                                                                                                                                                                                                                                                          |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                 |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Server-only, never synced: users, upload slots, background jobs.                                                     |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file and audio in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes. A shape change starts it over (see Pull). |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, notation pages, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Server-only, never synced: users, upload slots, background jobs.                                                      |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and notation images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes or a notation page is unuploaded, each with its own message. A shape change starts it over (see Pull). |
 | Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                             |
 | Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                      |
 
@@ -121,8 +121,9 @@ Pull:
   chunks, and resets the pull cursor. Other meta, such as filters, stays.
 - A client that finds a local database written by a newer client, as after
   a web rollback or an older TestFlight build, deletes the whole database
-  and pulls from zero. It loses unsent edits, unuploaded recordings, and
-  local preferences such as catalog filters and keep offline.
+  and pulls from zero. It loses unsent edits, unuploaded recordings and
+  notation pages, and local preferences such as catalog filters and keep
+  offline.
 - Where `indexedDB.databases()` is missing, as in Firefox before 126, the
   client cannot see the newer version and opens that database as it is.
 - A pulled row that is also in the outbox with a newer local timestamp keeps
@@ -314,6 +315,8 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The PUT signature covers the declared size, so the bucket refuses a file
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.
+- Notation pages move the same way: an upload slot, a PUT to R2, then a
+  confirm. One quota (`storage_quota_bytes`) covers recordings and pages.
 - ffprobe and ffmpeg read an upload only as a local file, only through the
   demuxers of the audio types an upload may declare, and run with no
   environment but `PATH`. On Linux they run under `prlimit` limits on
@@ -336,8 +339,8 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The Apple app excludes a downloaded recording's file from the device
   backup; a captured file is not excluded, since it is the only copy until
   it uploads.
-- A data export reads only the local store and the audio files the device
-  holds. It never fetches audio.
+- A data export reads only the local store and the audio and notation image
+  files the device holds. It never fetches either.
 - The original upload is a backup. It is never modified, no endpoint serves
   it, and it never counts against a user's quota. A trim cuts from it.
 - A saved trim is clamped on push to the recording's current playback
@@ -363,16 +366,17 @@ same triggers. A return to the foreground stands in for a visible tab.
   prefixed by a version byte and a big-endian points-per-second value (50).
   A client records its own peaks locally while capturing, until the
   server's file is ready to fetch.
-- A local delete drops its audio files through
-  `CrosstuneStore.writeDroppingAudio`. Deleting a recording, a tune, or
+- A local delete drops its audio and notation files through
+  `CrosstuneStore.writeDroppingFiles`. Deleting a recording, a tune, or
   several tunes, and Remove downloaded audio, each run inside it. When the
-  write transaction commits, any audio file no longer named by a row is
-  removed. A failed write keeps both the file and the row. The transfer
-  pass uses the same method for a recording tombstoned elsewhere.
-- After launch recovery, the Apple app deletes every audio file that was
-  in the folder when the store opened and that no row names, such as one a
-  crash left behind. A capture file, and the finished file of a row still
-  capturing, always stay. An imported file never takes a capture's name.
+  write transaction commits, any audio or notation file no longer named by
+  a row is removed. A failed write keeps both the file and the row. The
+  transfer pass uses the same method for a recording tombstoned elsewhere.
+- After launch recovery, the Apple app deletes every audio and notation
+  file that was in the folder when the store opened and that no row names,
+  such as one a crash left behind. A capture file, and the finished file
+  of a row still capturing, always stay. An imported file never takes a
+  capture's name.
 - Each database owns one storage space and holds credentials for no other,
   because the sweep and the purge delete whatever their own database does
   not know.

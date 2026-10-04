@@ -92,13 +92,17 @@ for Android and every browser. The parts that matter:
   those with a per-tune tuning. Tuning fields and filters appear only for
   those.
 - Music services. The musician chooses which services Find recordings
-  offers. All seven start chosen. The choice syncs like every setting.
+  offers. Every service starts chosen. The choice syncs like every setting.
 - Appearance. Light, dark, or system, and a text size: three sizes on the
   web, the device's size shifted up or down on Apple. Per device.
+- Notation. Pages of written music attached to a tune. Scan them on
+  iPhone and iPad, or add an image from a file on Mac and the web. View,
+  reorder, and delete them on every device. Every page downloads to
+  every device and counts toward the same storage as recordings.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
 - Export. One zip from Settings: tunes and lists as spreadsheets, plus the
-  recordings on the device.
+  recordings and notation pages on the device.
 
 ## Designed for, not built
 
@@ -106,7 +110,7 @@ Each has a place in the data model and no code:
 
 - A shared canonical catalog across users, with deduplication
 - Sharing tunes, lists, and recordings between users
-- Sheet music and chord charts
+- Chord charts
 - Melody transcription
 - Paid access
 
