@@ -18,6 +18,35 @@ func uploadBackoff(attempts: Int) -> Duration {
     return min(uploadRetryMax, uploadRetryBase * factor)
 }
 
+/// When a file that failed to upload `attempts` times in a row may next try, counted from `now`.
+func nextUploadAttempt(attempts: Int, from now: Timestamp) -> Timestamp {
+    Timestamp(milliseconds: now.milliseconds + uploadBackoff(attempts: attempts).components.seconds * 1000)
+}
+
+/// A refusal of the request itself, such as a bad type or a file too large, which never succeeds
+/// as it is. An auth, timeout, or rate-limit refusal might on a retry.
+func refusesTheRequestItself(_ refusal: APIStatusError) -> Bool {
+    (400..<500).contains(refusal.status) && ![401, 403, 408, 429].contains(refusal.status)
+}
+
+/// A stop or a refused session: nothing past it can succeed in this run, so a pass ends at once
+/// rather than holding it as one file's failure.
+func endsThePass(_ error: any Error) -> Bool {
+    error is RunStopped || isAuthFailure(error)
+}
+
+/// What ends a download pass: as ``endsThePass(_:)``, or no connection, which every later download
+/// would meet too.
+func endsTheDownloadPass(_ error: any Error) -> Bool {
+    endsThePass(error) || underlying(error) is URLError
+}
+
+/// The size of a file on disk, in bytes.
+func fileSize(_ url: URL) throws -> Int64 {
+    let attributes = try FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))
+    return (attributes[.size] as? NSNumber)?.int64Value ?? 0
+}
+
 /// The type without codec parameters, which is what the signed upload is pinned to.
 func baseContentType(_ contentType: String?) -> String {
     let base = contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces)
@@ -107,7 +136,7 @@ struct Transfers {
             do {
                 try await uploadOne(file.id)
             } catch {
-                if error is RunStopped || isAuthFailure(error) { throw error }
+                if endsThePass(error) { throw error }
                 firstError = firstError ?? error
             }
         }
@@ -166,9 +195,7 @@ struct Transfers {
                     // slot request one.
                     try await requeueRecording(id)
                     return
-                case 400..<500 where ![401, 403, 408, 429].contains(refusal.status):
-                    // A refusal of the request itself (bad type, too large) never succeeds as it
-                    // is; an auth, timeout, or rate-limit refusal might on a retry.
+                case _ where refusesTheRequestItself(refusal):
                     try await settleUpload(id, .failedUpload, error: refusal.message)
                     return
                 default: break
@@ -201,11 +228,6 @@ struct Transfers {
         }
     }
 
-    private func fileSize(_ url: URL) throws -> Int64 {
-        let attributes = try FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))
-        return (attributes[.size] as? NSNumber)?.int64Value ?? 0
-    }
-
     /// A transient failure goes back to captured for a later pass, but not before a backoff that
     /// doubles with each failure in a row, so a lasting error does not resend the same file on
     /// every pass. The file keeps the reason, so a recording that keeps waiting can say why.
@@ -214,12 +236,10 @@ struct Transfers {
         try await store.write { writer in
             guard var file = try RecordingFile.fetchOne(writer.db, key: id) else { return }
             let now = Timestamp.now
-            let delay = uploadBackoff(attempts: file.uploadAttempts)
             file.localState = .captured
             file.error = message
+            file.nextAttemptAt = nextUploadAttempt(attempts: file.uploadAttempts, from: now)
             file.uploadAttempts += 1
-            file.nextAttemptAt = Timestamp(
-                milliseconds: now.milliseconds + delay.components.seconds * 1000)
             file.updatedAt = now
             try file.update(writer.db)
         }
@@ -263,7 +283,7 @@ struct Transfers {
     /// whose audio is gone from disk has no copy to save, so its delete stands.
     func dropTombstonedFiles() async throws {
         let audioFolder = store.audioFolder
-        try await store.writeDroppingAudio { writer in
+        try await store.writeDroppingFiles { writer in
             let files = try RecordingFile.filter(RecordingFile.CodingKeys.localState != LocalFileState.capturing)
                 .fetchAll(writer.db)
             for file in files {
@@ -316,9 +336,7 @@ struct Transfers {
                 } catch {
                     // A stop, no connection, or a refused session ends the pass; anything else is
                     // this recording's problem alone, so it is noted and the rest still download.
-                    if error is RunStopped || underlying(error) is URLError || isAuthFailure(error) {
-                        throw error
-                    }
+                    if endsTheDownloadPass(error) { throw error }
                     downloadRetries.failed(row.id)
                     if let file {
                         try await setFileState(row.id, restingState(file.localState), error: transferMessage(error))
@@ -370,13 +388,9 @@ struct Transfers {
             let newDestination = store.audioFolder.appending(path: name)
             destination = newDestination
             try await api.getObject(signed.url, to: newDestination)
-            // The server keeps the copy, so a device backup would only duplicate it.
-            var values = URLResourceValues()
-            values.isExcludedFromBackup = true
-            var excluded = newDestination
-            try excluded.setResourceValues(values)
+            try CrosstuneStore.setExcludedFromBackup(newDestination, true)
             let bytes = try fileSize(newDestination)
-            try await store.writeDroppingAudio { writer in
+            try await store.writeDroppingFiles { writer in
                 var stored =
                     try RecordingFile.fetchOne(writer.db, key: id) ?? RecordingFile(id: id, localState: .downloaded)
                 stored.localState = .downloaded
@@ -421,7 +435,7 @@ struct Transfers {
         let name = peaksFileName(id, rev: signed.peaksRev)
         let destination = store.audioFolder.appending(path: name)
         try await api.getObject(signed.url, to: destination)
-        try await store.writeDroppingAudio { writer in
+        try await store.writeDroppingFiles { writer in
             // A recording whose audio has never landed here still gets its waveform: there is
             // nothing local to upload, so `uploaded` is the state that lies least.
             var stored =

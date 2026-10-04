@@ -81,9 +81,9 @@ sign in with `crosstune` and `crosstune-local-secret`. List objects with
 read the end-to-end bucket instead of `crosstune-local`.
 `just api::storage-reset [bucket]` deletes every object in a bucket,
 `crosstune-local` by default. A restart of the API runs the orphan sweep,
-which deletes every file that has no user row or no recording row in the
-local database. `docker compose down -v` removes the
-Postgres and RustFS volumes; `just dev-down` keeps them.
+which deletes every file that has no user row or no recording or
+notation page row in the local database. `docker compose down -v`
+removes the Postgres and RustFS volumes; `just dev-down` keeps them.
 
 ## Test
 
@@ -269,10 +269,10 @@ A change to the shape of a synced row:
 - A local shape change adds a Dexie version with an upgrader on the web
   and appends a migration to `Schema.migrator` on Apple, and extends that
   client's migration test. Neither may drop unsent edits or unuploaded
-  recordings. A merged Apple migration is never edited, since a store
-  that applied it never runs it again, and never renamed, since a store
-  holding an identifier the build does not know reads as one a newer
-  build wrote and the app deletes it.
+  recordings or notation pages. A merged Apple migration is never
+  edited, since a store that applied it never runs it again, and never
+  renamed, since a store holding an identifier the build does not know
+  reads as one a newer build wrote and the app deletes it.
 
 Rollback:
 
@@ -287,7 +287,7 @@ Rollback:
 - A rollback past a release that changed a local database, a web
   rollback or an older TestFlight build, deletes that local database on
   every device and pulls again, losing unsent edits and unuploaded
-  recordings. Roll forward instead.
+  recordings and notation pages. Roll forward instead.
 
 ## Smoke check
 

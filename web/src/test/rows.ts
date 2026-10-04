@@ -1,7 +1,9 @@
+import type { NotationFile } from '../db/notation'
 import type { RecordingFile } from '../db/recordings'
 import type {
   LocalRecording,
   LocalRecordingLink,
+  LocalNotationPage,
   LocalRecordingLoop,
   LocalTune,
   LocalUserTune,
@@ -141,4 +143,50 @@ export function loopRow(overrides: Partial<LocalRecordingLoop> = {}): LocalRecor
     color: 0,
     ...overrides,
   }
+}
+
+export function notationPageRow(
+  id: string,
+  tuneId: string,
+  extra: Partial<LocalNotationPage> = {},
+): LocalNotationPage {
+  return {
+    id,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    deleted_at: null,
+    server_seq: 1,
+    tune_id: tuneId,
+    position: 0,
+    width: 600,
+    height: 800,
+    state: 'ready',
+    file_bytes: 1000,
+    ...extra,
+  }
+}
+
+export function notationFile(
+  id: string,
+  blob: Blob,
+  extra: Partial<NotationFile> = {},
+): NotationFile {
+  return {
+    id,
+    blob,
+    origin: 'downloaded',
+    error: null,
+    next_attempt_at: null,
+    upload_attempts: 0,
+    ...extra,
+  }
+}
+
+/** A real JPEG the browser can decode, in one flat color. */
+export async function jpegBlob(width: number, height: number, color = '#222'): Promise<Blob> {
+  const canvas = new OffscreenCanvas(width, height)
+  const context = canvas.getContext('2d')!
+  context.fillStyle = color
+  context.fillRect(0, 0, width, height)
+  return canvas.convertToBlob({ type: 'image/jpeg' })
 }

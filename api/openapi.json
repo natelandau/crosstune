@@ -47,6 +47,7 @@
               "list_items",
               "recording_links",
               "recordings",
+              "notation_pages",
               "recording_loops",
               "user_settings"
             ],
@@ -487,6 +488,197 @@
         "title": "Mode",
         "type": "string"
       },
+      "NotationPageChangeResult": {
+        "description": "The outcome of one change to a notation page.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotationPageRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "notation_pages",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "NotationPageChangeResult",
+        "type": "object"
+      },
+      "NotationPagePullRow": {
+        "description": "A notation page row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/NotationPageRow"
+          },
+          "table": {
+            "const": "notation_pages",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "NotationPagePullRow",
+        "type": "object"
+      },
+      "NotationPageRow": {
+        "description": "A stored notation page, as push and pull return it. The storage key stays on the server.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "file_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Bytes"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/NotationPageState"
+          },
+          "tune_id": {
+            "format": "uuid",
+            "title": "Tune Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "tune_id",
+          "width",
+          "height",
+          "user_id",
+          "state",
+          "file_bytes"
+        ],
+        "title": "NotationPageRow",
+        "type": "object"
+      },
+      "NotationPageState": {
+        "description": "Where a notation page's image is in the upload pipeline.",
+        "enum": [
+          "pending_upload",
+          "ready"
+        ],
+        "title": "NotationPageState",
+        "type": "string"
+      },
+      "NotationUploadSlotRequest": {
+        "description": "What the client is about to upload.",
+        "properties": {
+          "bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "content_type": {
+            "const": "image/jpeg",
+            "title": "Content Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bytes",
+          "content_type"
+        ],
+        "title": "NotationUploadSlotRequest",
+        "type": "object"
+      },
       "PeaksUrl": {
         "description": "A presigned GET for the waveform file, tagged with the revision it was signed for.",
         "properties": {
@@ -599,6 +791,7 @@
                 "mapping": {
                   "list_items": "#/components/schemas/ListItemPullRow",
                   "lists": "#/components/schemas/ListPullRow",
+                  "notation_pages": "#/components/schemas/NotationPagePullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
                   "recording_loops": "#/components/schemas/RecordingLoopPullRow",
                   "recordings": "#/components/schemas/RecordingPullRow",
@@ -626,6 +819,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/NotationPagePullRow"
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLoopPullRow"
@@ -674,6 +870,7 @@
                 "mapping": {
                   "list_items": "#/components/schemas/ListItemChangeResult",
                   "lists": "#/components/schemas/ListChangeResult",
+                  "notation_pages": "#/components/schemas/NotationPageChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
                   "recording_loops": "#/components/schemas/RecordingLoopChangeResult",
                   "recordings": "#/components/schemas/RecordingChangeResult",
@@ -701,6 +898,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/RecordingChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/NotationPageChangeResult"
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLoopChangeResult"
@@ -1726,7 +1926,7 @@
         "type": "object"
       },
       "StorageResponse": {
-        "description": "How much of the recording quota is in use.",
+        "description": "How much of the storage quota is in use.",
         "properties": {
           "max_file_bytes": {
             "title": "Max File Bytes",
@@ -2699,6 +2899,251 @@
         "summary": "Me",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/v1/notation-pages/{page_id}/download": {
+      "get": {
+        "description": "A presigned GET for the image of a ready page.",
+        "operationId": "download_v1_notation_pages__page_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download",
+        "tags": [
+          "notation"
+        ]
+      }
+    },
+    "/v1/notation-pages/{page_id}/upload-slot": {
+      "post": {
+        "description": "A presigned PUT for one page's image, once the file cap and quota allow it.",
+        "operationId": "upload_slot_v1_notation_pages__page_id__upload_slot_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotationUploadSlotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Slot",
+        "tags": [
+          "notation"
+        ]
+      }
+    },
+    "/v1/notation-pages/{page_id}/uploaded": {
+      "post": {
+        "description": "Confirm the image landed and mark the page ready. Repeating the call changes nothing.",
+        "operationId": "upload_finished_v1_notation_pages__page_id__uploaded_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Finished",
+        "tags": [
+          "notation"
         ]
       }
     },

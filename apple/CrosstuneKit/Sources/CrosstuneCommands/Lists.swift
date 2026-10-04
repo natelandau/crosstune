@@ -60,15 +60,6 @@ extension StoreWriter {
         try tombstone(ListItem.self, id: itemID, at: time)
     }
 
-    /// Renumbers `ordered` from 0, writing only the items whose position changed.
-    public func writeOrder(_ ordered: [ListItem], at time: Timestamp = .now) throws {
-        for (position, item) in ordered.enumerated() where item.position != position {
-            var moved = item
-            moved.position = position
-            try put(moved, at: time)
-        }
-    }
-
     /// Moves an item just past the target; see ``moveBeside(_:id:itemID:targetID:)``.
     public func moveItem(listID: String, itemID: String, targetID: String, at time: Timestamp = .now) throws {
         let items = try activeItems(listID: listID)

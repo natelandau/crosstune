@@ -18,6 +18,7 @@ from crosstune.links.resolve import unresolved_link
 from crosstune.models import (
     List,
     ListItem,
+    NotationPage,
     Recording,
     RecordingLink,
     RecordingLoop,
@@ -36,6 +37,7 @@ from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
 from crosstune.vocabulary import (
     MAX_LOOPS_PER_RECORDING,
+    MAX_NOTATION_PAGES_PER_TUNE,
     MIN_LOOP_MS,
     RecordingSource,
     TableName,
@@ -342,6 +344,31 @@ async def _write_keeps_live_count(
     return stored.deleted_at is None and stored.recording_id == recording_id
 
 
+async def _prepare_notation_page(
+    session: AsyncSession, user_id: uuid.UUID, change: Change, data: dict[str, Any]
+) -> ChangeResult | None:
+    """Refuse a page that would move to another tune or exceed the tune's page limit."""
+    stored: NotationPage | None = await session.get(NotationPage, change.id)
+    if stored is not None and stored.user_id == user_id:
+        if stored.tune_id != data["tune_id"]:
+            return _invalid(change, "tune_id is fixed")
+        if stored.updated_at >= change.updated_at or stored.deleted_at is None:
+            return None
+    live = await session.scalar(
+        select(func.count())
+        .select_from(NotationPage)
+        .where(
+            NotationPage.tune_id == data["tune_id"],
+            NotationPage.user_id == user_id,
+            NotationPage.deleted_at.is_(None),
+            NotationPage.id != change.id,
+        )
+    )
+    if (live or 0) >= MAX_NOTATION_PAGES_PER_TUNE:
+        return _invalid(change, "page limit reached")
+    return None
+
+
 async def _after_recording_write(
     session: AsyncSession, current: Recording, at: datetime, *, is_new: bool
 ) -> None:
@@ -373,6 +400,8 @@ async def _prepare(
         _clamp_recording_trim(stored_recording, data)
     elif spec.name == "recording_loops":
         return await _prepare_loop(session, user_id, change, data)
+    elif spec.name == "notation_pages":
+        return await _prepare_notation_page(session, user_id, change, data)
     return None
 
 
@@ -499,7 +528,7 @@ async def _delete(
         )
     ).scalar_one()
     await _cascade(session, spec.name, change.id, change.updated_at, user_id)
-    if spec.name in ("recordings", "tunes"):
+    if spec.name in ("recordings", "notation_pages", "tunes"):
         # A deleted recording, or one a tune delete cascades to, has files only the
         # runner's purge removes, and a purge has no due time to wake it.
         request_runner_wake(session)
@@ -539,6 +568,10 @@ async def _cascade(
             RecordingLoop.recording_id.in_(tune_recording_ids) & (RecordingLoop.user_id == user_id),
         )
         await mark(Recording, (Recording.tune_id == row_id) & (Recording.user_id == user_id))
+        await mark(
+            NotationPage,
+            (NotationPage.tune_id == row_id) & (NotationPage.user_id == user_id),
+        )
     elif table == "user_tunes":
         await mark(ListItem, (ListItem.user_tune_id == row_id) & owned_items)
     elif table == "lists":

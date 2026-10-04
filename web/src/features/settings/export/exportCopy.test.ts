@@ -13,6 +13,6 @@ test('the missing note agrees with any other total', () => {
 })
 
 test('progress reads correctly for any total', () => {
-  expect(exportProgress(1, 1)).toBe('Preparing recording 1 of 1')
-  expect(exportProgress(4, 12)).toBe('Preparing recording 4 of 12')
+  expect(exportProgress(1, 1)).toBe('Preparing file 1 of 1')
+  expect(exportProgress(4, 12)).toBe('Preparing file 4 of 12')
 })

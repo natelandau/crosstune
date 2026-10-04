@@ -1,4 +1,4 @@
-"""Claims queued jobs one at a time and sweeps deleted recordings and abandoned uploads."""
+"""Claims queued jobs one at a time and sweeps deleted files and abandoned uploads."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import and_, func, or_, select, update
 
 from crosstune.db.locks import lock_user
+from crosstune.files.quota import used_bytes
 from crosstune.http import BlockedAddressError
 from crosstune.jobs.importer import (
     IMPORT_MIME,
@@ -28,21 +29,18 @@ from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
 from crosstune.jobs.peaks_job import build_recording_peaks
 from crosstune.jobs.sweep import (
     ABANDONED_SLOT_GRACE,
+    live_pending_page_slot,
     live_pending_slot,
     purge_deleted,
+    purge_deleted_pages,
     release_abandoned_slots,
 )
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
 from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
-from crosstune.models import Job, Recording, UploadSlot
+from crosstune.models import Job, NotationPage, Recording, UploadSlot
 from crosstune.models.user import utc_now
-from crosstune.recordings.service import (
-    bump_server_seq,
-    enqueue_transcode,
-    ensure_trim_job,
-    used_bytes,
-)
+from crosstune.recordings.service import bump_server_seq, enqueue_transcode, ensure_trim_job
 from crosstune.recordings.trim import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME, delete_best_effort, original_key, upload_key
 from crosstune.vocabulary import JobKind
@@ -292,10 +290,10 @@ class JobRunner:
     async def next_due(self) -> datetime:
         """The earliest time a pass could find work that no wake announces.
 
-        That is a backed-off or expired job lock, an upload slot passing its
-        abandonment grace, or the next orphan sweep, which bounds the sleep to
-        `orphan_sweep_seconds`. Purges have no due time; the delete that makes one
-        wakes the runner.
+        That is a backed-off or expired job lock, an upload slot of a pending or
+        deleted row passing its abandonment grace, or the next orphan sweep, which
+        bounds the sleep to `orphan_sweep_seconds`. Other purges have no due time;
+        the delete that makes one wakes the runner.
 
         Returns:
             datetime: When the idle loop should run its next pass.
@@ -304,20 +302,28 @@ class JobRunner:
             job_due = await session.scalar(
                 select(func.min(Job.locked_until)).where(_dispatchable())
             )
-            slot_expiry = await session.scalar(
-                select(func.min(UploadSlot.expires_at))
-                .join(Recording, UploadSlot.recording_id == Recording.id)
-                .where(live_pending_slot())
-            )
+            slot_expiries = [
+                await session.scalar(
+                    select(func.min(UploadSlot.expires_at))
+                    .join(Recording, UploadSlot.recording_id == Recording.id)
+                    .where(or_(live_pending_slot(), Recording.deleted_at.is_not(None)))
+                ),
+                await session.scalar(
+                    select(func.min(UploadSlot.expires_at))
+                    .join(NotationPage, UploadSlot.notation_page_id == NotationPage.id)
+                    .where(or_(live_pending_page_slot(), NotationPage.deleted_at.is_not(None)))
+                ),
+            ]
         candidates = [self._next_orphan_sweep]
         if job_due is not None:
             candidates.append(job_due)
-        if slot_expiry is not None:
-            candidates.append(slot_expiry + ABANDONED_SLOT_GRACE)
+        candidates += [
+            expiry + ABANDONED_SLOT_GRACE for expiry in slot_expiries if expiry is not None
+        ]
         return min(candidates)
 
     async def run_once(self) -> int:
-        """Run one job, purge a batch of deleted recordings, and sweep orphans when due.
+        """Run one job, purge a batch of deleted recordings and pages, and sweep orphans when due.
 
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
@@ -336,13 +342,14 @@ class JobRunner:
         return done
 
     async def sweep_orphans(self) -> int:
-        """Delete the bucket prefixes of users and recordings that have no row."""
+        """Delete the bucket prefixes of users, recordings, and notation pages that have no row."""
         return await sweep_orphan_prefixes(
             self._sessionmaker, self._store, stray_after=STRAY_REVISION_AGE
         )
 
     async def _purge(self) -> int:
-        return await purge_deleted(self._sessionmaker, self._store)
+        purged = await purge_deleted(self._sessionmaker, self._store)
+        return purged + await purge_deleted_pages(self._sessionmaker, self._store)
 
     async def _claim(self) -> Job | None:
         now = utc_now()
@@ -694,7 +701,7 @@ class JobRunner:
                 return
             recording, stored_job = prepared
             used = await used_bytes(session, recording.user_id, exclude=recording.id)
-            if used + size > self._settings.recording_quota_bytes:
+            if used + size > self._settings.storage_quota_bytes:
                 raise ImportRefused(OVER_QUOTA)
             recording.playback_bytes = size
             recording.state = "uploaded"

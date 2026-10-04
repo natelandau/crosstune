@@ -7,7 +7,10 @@ import type { Instrument } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
-import { tuneRow, userTuneRow } from '../../test/rows'
+import { presentedModal } from '../../test/dialogs'
+import { jpegBlob, notationFile, notationPageRow, tuneRow, userTuneRow } from '../../test/rows'
+import { NOTATION } from '../notation/notationCopy'
+import { useNotationTuneIds } from '../notation/useNotationPages'
 import { TuneItem } from './TuneItem'
 
 const played = new Set<Instrument>(['violin', 'five_string_banjo'])
@@ -53,6 +56,22 @@ function SelectableRow() {
         />
       </IonList>
     </>
+  )
+}
+
+/** A screen's one read of which tunes have notation, handed to its row. */
+function NotationRow() {
+  const notationTunes = useNotationTuneIds()
+  return (
+    <IonList>
+      <TuneItem
+        entry={{ tune: tuneRow('s1', "Soldier's Joy"), userTune: userTuneRow('u1', 's1') }}
+        instruments={played}
+        onOpen={() => {}}
+        actions={[{ label: 'Edit', icon: SquarePen, tone: 'neutral', onPress: () => {} }]}
+        hasNotation={notationTunes.has('s1')}
+      />
+    </IonList>
   )
 }
 
@@ -215,5 +234,29 @@ describe('TuneItem', () => {
       }),
     )
     await vi.waitFor(() => expect(onLongPress).toHaveBeenCalledOnce(), { timeout: 2000 })
+    // Lifting the finger releases the guard the hold put on the next click, which would
+    // otherwise stay on the window into the next test.
+    document
+      .querySelector('ion-item')!
+      .dispatchEvent(new PointerEvent('pointerup', { bubbles: true, isPrimary: true }))
+  })
+
+  it('offers Notation only while the tune has a live page, and opens the viewer at page 1', async () => {
+    const db = openTestDb()
+    await db.notation_pages.put(notationPageRow('first', 's1'))
+    renderIonic(<NotationRow />, { db })
+    const notation = page.getByRole('button', { name: `${NOTATION} Soldier's Joy` })
+    await expect.element(notation).toBeInTheDocument()
+    // A tombstoned page is no page, so the action leaves with it.
+    await db.notation_pages.update('first', { deleted_at: '2026-01-02T00:00:00.000Z' })
+    await expect.element(notation).not.toBeInTheDocument()
+    for (const index of [0, 1]) {
+      await db.notation_pages.put(notationPageRow(`p${index}`, 's1', { position: index }))
+      await db.notation_files.put(notationFile(`p${index}`, await jpegBlob(60, 80)))
+    }
+    await notation.click()
+    await expect
+      .poll(() => presentedModal()?.querySelector('ion-title')?.textContent)
+      .toBe('1 of 2')
   })
 })

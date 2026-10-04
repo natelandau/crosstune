@@ -1,11 +1,15 @@
 import { forgetUser } from '../../auth/session'
 import { clearSearchQuery } from '../catalog/searchSession'
+import { pagesLive } from '../../db/notation'
 import { NOT_UPLOADED_STATES } from '../../db/recordings'
 import { deleteDatabase, type CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
 
 export const UNSYNCED_RECORDINGS_ERROR =
   'Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload.'
+
+export const UNSYNCED_NOTATION_ERROR =
+  'Some notation pages have not uploaded yet. Delete them from their tune, or wait until they upload.'
 
 /** The catalog is the user's private data on a possibly shared phone: gone with a sign-out. */
 export async function forgetLocalData({
@@ -19,6 +23,16 @@ export async function forgetLocalData({
   await deleteDatabase(userId)
   forgetUser()
   clearSearchQuery()
+}
+
+/** A captured page the server has not received exists only in this database. The file of a page
+ * that is deleted, or whose tune is, is dropped by the next transfer pass anyway, so it never
+ * holds up a sign-out. */
+async function hasUnuploadedPage(db: CrosstuneDb): Promise<boolean> {
+  const captured = await db.notation_files.where('origin').equals('captured').primaryKeys()
+  const pages = await db.notation_pages.bulkGet(captured)
+  const live = await pagesLive(db, pages)
+  return pages.some((page, i) => live[i] && page?.state === 'pending_upload')
 }
 
 export async function signOutAndForget({
@@ -41,6 +55,7 @@ export async function signOutAndForget({
   if ((await db.recording_files.where('local_state').anyOf(NOT_UPLOADED_STATES).count()) > 0) {
     throw new Error(UNSYNCED_RECORDINGS_ERROR)
   }
+  if (await hasUnuploadedPage(db)) throw new Error(UNSYNCED_NOTATION_ERROR)
   // A stopped engine ignores the triggers, so no sync can reopen the database being deleted.
   engine.stop()
   try {

@@ -3,7 +3,14 @@ import { expect, test, vi } from 'vitest'
 import type { CrosstuneDb } from '../../../db/schema'
 import { settingsId } from '../../../commands/settings'
 import { openTestDb } from '../../../test/db'
-import { recordingFile, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
+import {
+  notationFile,
+  notationPageRow,
+  recordingFile,
+  recordingRow,
+  tuneRow,
+  userTuneRow,
+} from '../../../test/rows'
 import { createExport, downloadBlob, exportCounts, readExportInput } from './runExport'
 
 const USER = 'user_1'
@@ -103,6 +110,27 @@ test('builds a zip of both CSVs and the audio, named for the local date', async 
     'recordings/Cluck Old Hen/2026-09-20.m4a',
   ])
   expect(files['recordings/Cluck Old Hen/2026-09-20.m4a']).toEqual(new Uint8Array([1, 2, 3]))
+})
+
+test('zips each notation page whose image is on the device, and counts it in progress', async () => {
+  const db = openTestDb()
+  await seed(db)
+  await db.notation_pages.bulkPut([
+    notationPageRow('p2', 't1', { position: 1 }),
+    notationPageRow('p1', 't1', { position: 0 }),
+    notationPageRow('p-away', 't1', { position: 2 }),
+  ])
+  await db.notation_files.bulkPut([
+    notationFile('p1', audio([7], 'image/jpeg')),
+    notationFile('p2', audio([8], 'image/jpeg')),
+  ])
+  const onProgress = vi.fn()
+  const { blob } = await createExport(db, USER, { now: NOW, timeZone: ZONE, onProgress })
+  const files = unzipSync(new Uint8Array(await blob.arrayBuffer()))
+  expect(files['notation/Cluck Old Hen/1.jpg']).toEqual(new Uint8Array([7]))
+  expect(files['notation/Cluck Old Hen/2.jpg']).toEqual(new Uint8Array([8]))
+  expect(Object.keys(files).filter((path) => path.startsWith('notation/'))).toHaveLength(2)
+  expect(onProgress.mock.calls.at(-1)).toEqual([3, 3])
 })
 
 test('names the zip for the date in the time zone, not UTC', async () => {

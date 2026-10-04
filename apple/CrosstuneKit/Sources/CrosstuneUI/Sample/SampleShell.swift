@@ -47,6 +47,7 @@
             .task {
                 do {
                     let opened = try await SampleCatalog.makeStore(withAudio: true)
+                    try await SampleNotation.add(to: opened)
                     engine = SyncEngine(store: opened, api: OfflineSyncAPI(), isOffline: { true })
                     store = opened
                 } catch {
@@ -80,6 +81,11 @@
         func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.notConnectedToInternet) }
         func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.notConnectedToInternet) }
         func retryRecording(recordingID: String) async throws { throw URLError(.notConnectedToInternet) }
+        func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL {
+            throw URLError(.notConnectedToInternet)
+        }
+        func notationUploaded(pageID: String) async throws { throw URLError(.notConnectedToInternet) }
+        func notationDownload(pageID: String) async throws -> SignedURL { throw URLError(.notConnectedToInternet) }
         func putObject(_ url: URL, file: URL, contentType: String) async throws {
             throw URLError(.notConnectedToInternet)
         }

@@ -57,7 +57,7 @@ async def test_slot_refuses_a_file_over_the_cap(client, app, auth_headers) -> No
 async def test_slot_refuses_when_quota_would_be_exceeded(
     client, app, auth_headers, verify_session
 ) -> None:
-    app.state.settings.recording_quota_bytes = 1500
+    app.state.settings.storage_quota_bytes = 1500
     first, second = uid(), uid()
     await push(client, auth_headers("user_a"), recording(first), recording(second))
     await verify_session.execute(
@@ -73,7 +73,7 @@ async def test_slot_refuses_when_quota_would_be_exceeded(
 async def test_open_slots_count_toward_quota_until_they_expire(
     client, app, auth_headers, verify_session
 ) -> None:
-    app.state.settings.recording_quota_bytes = 1000
+    app.state.settings.storage_quota_bytes = 1000
     first, second = uid(), uid()
     await push(client, auth_headers("user_a"), recording(first), recording(second))
     assert (await slot(client, auth_headers("user_a"), first, bytes_=800)).status_code == 200
@@ -138,7 +138,7 @@ async def test_slot_returns_a_failed_recording_to_pending_upload(
 async def test_slot_for_a_failed_recording_stops_counting_its_old_upload(
     client, app, auth_headers, verify_session
 ) -> None:
-    app.state.settings.recording_quota_bytes = 1000
+    app.state.settings.storage_quota_bytes = 1000
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec))
     await verify_session.execute(
@@ -185,7 +185,7 @@ async def test_slot_is_unavailable_without_a_store(client, app, auth_headers) ->
 async def test_a_soft_deleted_recordings_slot_no_longer_counts_toward_quota(
     client, app, auth_headers
 ) -> None:
-    app.state.settings.recording_quota_bytes = 1000
+    app.state.settings.storage_quota_bytes = 1000
     first, second = uid(), uid()
     await push(client, auth_headers("user_a"), recording(first), recording(second))
     assert (await slot(client, auth_headers("user_a"), first, bytes_=1000)).status_code == 200
@@ -610,7 +610,7 @@ async def test_uploaded_for_other_user_makes_no_r2_call(
 
 
 async def test_me_reports_storage(client, app, auth_headers, verify_session) -> None:
-    app.state.settings.recording_quota_bytes = 5000
+    app.state.settings.storage_quota_bytes = 5000
     rec = uid()
     await push(client, auth_headers("user_a"), recording(rec))
     await verify_session.execute(

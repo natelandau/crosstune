@@ -18,6 +18,9 @@ export type Instrument = (typeof INSTRUMENTS)[number]
 export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'modal', 'other'] as const
 export type Mode = (typeof MODES)[number]
 
+export const NOTATION_PAGE_STATES = ['pending_upload', 'ready'] as const
+export type NotationPageState = (typeof NOTATION_PAGE_STATES)[number]
+
 export const PLAY_FIRST = ['recordings', 'apple_music'] as const
 export type PlayFirst = (typeof PLAY_FIRST)[number]
 

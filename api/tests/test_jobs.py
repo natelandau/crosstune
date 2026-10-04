@@ -12,10 +12,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.engine import make_sessionmaker
+from crosstune.files.quota import slot_for_recording
 from crosstune.jobs import peaks_job as peaks_job_module
 from crosstune.jobs import runner as runner_module
+from crosstune.jobs import sweep as sweep_module
 from crosstune.jobs import transcode as transcode_module
 from crosstune.jobs import trim as trim_module
 from crosstune.jobs.media import probe
@@ -41,6 +44,8 @@ from tests.fakes import FakeObjectStore
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+    from sqlalchemy import ScalarResult
 
     from crosstune.config import Settings
 
@@ -747,14 +752,37 @@ async def test_run_once_purges_an_upload_deleted_before_it_was_confirmed(
             user_id=user.id,
             declared_bytes=3,
             content_type="audio/mp4",
-            expires_at=utc_now(),
+            expires_at=utc_now() - ABANDONED_SLOT_GRACE - timedelta(minutes=1),
         )
     )
     await verify_session.commit()
     store.put_bytes(upload_key(user.id, rec.id), b"abc", "audio/mp4")
     assert await job_runner.run_once() == 1
     assert store.keys() == []
-    assert await verify_session.get(UploadSlot, rec.id) is None
+    assert await slot_for_recording(verify_session, rec.id) is None
+    assert await job_runner.run_once() == 0
+
+
+async def test_run_once_collects_an_upload_that_lands_after_the_purge(
+    runner, verify_session
+) -> None:
+    """A PUT signed before the delete can land after the purge; the kept slot brings it back."""
+    job_runner, store = runner
+    rec = await _pending_with_slot(verify_session, expired_for=-timedelta(minutes=5))
+    rec.state = "uploaded"
+    rec.playback_bytes = 3
+    rec.deleted_at = utc_now()
+    await verify_session.commit()
+    assert await job_runner.run_once() == 1
+    assert await slot_for_recording(verify_session, rec.id) is not None
+    assert await job_runner.run_once() == 0
+    store.put_bytes(upload_key(rec.user_id, rec.id), b"abc", "audio/mp4")
+    slot = await slot_for_recording(verify_session, rec.id)
+    slot.expires_at = utc_now() - ABANDONED_SLOT_GRACE - timedelta(minutes=1)
+    await verify_session.commit()
+    assert await job_runner.run_once() == 1
+    assert store.keys() == []
+    assert await slot_for_recording(verify_session, rec.id) is None
     assert await job_runner.run_once() == 0
 
 
@@ -797,7 +825,7 @@ async def test_run_once_releases_a_slot_abandoned_past_the_grace(runner, verify_
     store.put_bytes(upload_key(rec.user_id, rec.id), b"abc", "audio/mp4")
     assert await job_runner.run_once() == 1
     assert store.keys() == []
-    assert await verify_session.get(UploadSlot, rec.id) is None
+    assert await slot_for_recording(verify_session, rec.id) is None
     await verify_session.refresh(rec)
     assert (rec.state, rec.playback_bytes, rec.deleted_at) == ("pending_upload", None, None)
     assert rec.server_seq > seq_before
@@ -816,7 +844,7 @@ async def test_release_leaves_a_recording_confirmed_under_a_reissued_slot(
 
     async def reissue_and_confirm(*keys: str) -> None:
         await delete_objects(*keys)
-        slot = await verify_session.get(UploadSlot, rec.id)
+        slot = await slot_for_recording(verify_session, rec.id)
         assert slot is not None
         slot.expires_at = utc_now() + timedelta(hours=1)
         rec.state = "uploaded"
@@ -824,10 +852,10 @@ async def test_release_leaves_a_recording_confirmed_under_a_reissued_slot(
         await verify_session.commit()
 
     monkeypatch.setattr(store, "delete", reissue_and_confirm)
-    await job_runner.run_once()
+    assert await sweep_module.release_abandoned_slots(job_runner._sessionmaker, store) == 0
     await verify_session.refresh(rec)
     assert (rec.state, rec.playback_bytes) == ("uploaded", 7)
-    assert await verify_session.get(UploadSlot, rec.id) is not None
+    assert await slot_for_recording(verify_session, rec.id) is not None
 
 
 async def test_run_once_keeps_a_slot_inside_the_grace(runner, verify_session) -> None:
@@ -837,7 +865,46 @@ async def test_run_once_keeps_a_slot_inside_the_grace(runner, verify_session) ->
     store.put_bytes(upload_key(rec.user_id, rec.id), b"abc", "audio/mp4")
     assert await job_runner.run_once() == 0
     assert store.keys() == [upload_key(rec.user_id, rec.id)]
-    assert await verify_session.get(UploadSlot, rec.id) is not None
+    assert await slot_for_recording(verify_session, rec.id) is not None
+
+
+async def test_purge_leaves_a_recording_undeleted_and_uploaded_meanwhile(
+    runner, verify_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rows are re-read under the locks, so a recording live again keeps its new upload."""
+    job_runner, store = runner
+    user = await make_user(verify_session)
+    rec = await add_recording(verify_session, user, "ready", deleted_at=utc_now(), playback_bytes=3)
+    rec.playback_key = playback_key(user.id, rec.id, REV)
+    await verify_session.commit()
+    store.put_bytes(rec.playback_key, b"abc", "audio/mp4")
+    scalars = AsyncSession.scalars
+    planted = False
+
+    async def undelete_and_upload_after_first_read(
+        session, *args, **kwargs
+    ) -> ScalarResult[Recording]:
+        nonlocal planted
+        result = await scalars(session, *args, **kwargs)
+        if not planted and session is not verify_session:
+            # Lands after the purge picked its candidates and before it touches the bucket.
+            planted = True
+            rec.deleted_at = None
+            rec.playback_key = None
+            rec.state = "uploaded"
+            rec.playback_bytes = 7
+            await verify_session.commit()
+            store.put_bytes(upload_key(user.id, rec.id), b"abcdefg", "audio/mp4")
+        return result
+
+    monkeypatch.setattr(AsyncSession, "scalars", undelete_and_upload_after_first_read)
+    seq_before = rec.server_seq
+    assert await sweep_module.purge_deleted(job_runner._sessionmaker, store) == 0
+    assert planted
+    assert store.get_bytes(upload_key(user.id, rec.id)) == b"abcdefg"
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.playback_bytes) == ("uploaded", 7)
+    assert rec.server_seq == seq_before
 
 
 async def test_run_once_purges_objects_the_row_never_named(runner, verify_session) -> None:
@@ -1217,10 +1284,21 @@ async def test_next_due_is_an_abandoned_slot_past_grace(runner, verify_session) 
     await job_runner.run_once()
     # Past expiry but inside the grace, so it comes due before the hourly sweep.
     rec = await _pending_with_slot(verify_session, expired_for=timedelta(seconds=10))
-    slot = await verify_session.get(UploadSlot, rec.id)
-    deleted = await _pending_with_slot(verify_session, expired_for=timedelta(seconds=20))
+    slot = await slot_for_recording(verify_session, rec.id)
+    confirmed = await _pending_with_slot(verify_session, expired_for=timedelta(seconds=20))
+    confirmed.state = "uploaded"
+    await verify_session.commit()
+    assert await job_runner.next_due() == slot.expires_at + ABANDONED_SLOT_GRACE
+
+
+async def test_next_due_is_a_deleted_rows_slot_past_grace(runner, verify_session) -> None:
+    """A purge keeps a deleted row's slot until no PUT can land, then must run again."""
+    job_runner, _ = runner
+    await job_runner.run_once()
+    deleted = await _pending_with_slot(verify_session, expired_for=timedelta(seconds=10))
     deleted.deleted_at = utc_now()
     await verify_session.commit()
+    slot = await slot_for_recording(verify_session, deleted.id)
     assert await job_runner.next_due() == slot.expires_at + ABANDONED_SLOT_GRACE
 
 

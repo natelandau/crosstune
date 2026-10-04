@@ -134,6 +134,26 @@ enum Schema {
                     """,
                 arguments: [table])
         }
+        migrator.registerMigration("v10") { db in
+            try createSyncTable(db, .notationPages) { t in
+                t.column("tune_id", .text).notNull().indexed()
+                t.column("position", .integer).notNull()
+                t.column("width", .integer).notNull()
+                t.column("height", .integer).notNull()
+                t.column("state", .text).notNull()
+                t.column("file_bytes", .integer)
+            }
+            try db.create(table: "notation_files") { t in
+                t.primaryKey("page_id", .text)
+                t.column("file_name", .text).notNull()
+                t.column("origin", .text).notNull()
+                t.column("error", .text)
+                t.column("upload_attempts", .integer).notNull().defaults(to: 0)
+                t.column("next_attempt_at", .text)
+            }
+            // Pages another client added before this build sit behind the cursor.
+            try repull(db)
+        }
         return migrator
     }()
 

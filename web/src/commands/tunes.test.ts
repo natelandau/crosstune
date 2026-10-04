@@ -4,6 +4,7 @@ import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { addLink } from './links'
 import { addToList, createList } from './lists'
+import { addNotationPages } from './notation'
 import { TUNE_NOT_FOUND } from './messages'
 import { appendChunk, beginCapture, finishCapture } from './recordings'
 import {
@@ -157,6 +158,9 @@ describe('deleteTune', () => {
   it('tombstones the tune and its dependents locally, queuing only the tune delete', async () => {
     const { tuneId, userTuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
     const linkId = await addLink(db, tuneId, { url: 'https://youtu.be/abc', provider: 'youtube' })
+    const [pageId] = await addNotationPages(db, tuneId, [
+      { blob: new Blob(['jpeg']), width: 10, height: 20 },
+    ])
     const listId = await createList(db, 'Tuesday')
     const itemId = await addToList(db, listId, userTuneId)
     const recordingId = 'recording-1'
@@ -178,6 +182,7 @@ describe('deleteTune', () => {
       await db.recording_links.get(linkId),
       await db.list_items.get(itemId),
       await db.recordings.get(recordingId),
+      await db.notation_pages.get(pageId!),
     ]) {
       expect(row?.deleted_at).toBe('2026-09-11T11:00:00.000Z')
     }

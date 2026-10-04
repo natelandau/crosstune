@@ -16,13 +16,14 @@ Crosstune is run by Nathaniel Landau, an individual. This page explains what dat
 - Your account details: your email address and, if you sign in with Google or Apple, the name and profile details they share.
 - Your catalog: your tunes, lists, statuses, notes, and links.
 - Your recordings: the audio you record or add to a tune.
+- Your notation pages: the images of written music you add to a tune.
 
 ## Who processes it
 
 - Clerk handles sign-in. It holds your email address, your name and profile details, and your session data.
 - Neon hosts the database that holds your catalog.
 - Railway runs the Crosstune API.
-- Cloudflare serves this site and the web app. It also stores your recordings in its R2 storage and forwards email sent to support@crosstune.app through Cloudflare Email Routing.
+- Cloudflare serves this site and the web app. It also stores your recordings and notation pages in its R2 storage and forwards email sent to support@crosstune.app through Cloudflare Email Routing.
 - Sentry receives error reports from the API and the web app.
 
 ## The waitlist
@@ -43,7 +44,7 @@ There are no ads and no analytics on Crosstune. We do not sell your data.
 
 ## Storage limit
 
-Free accounts hold 1 GB of recordings.
+Free accounts hold 1 GB of recordings and notation pages together.
 
 ## Deleting your account
 

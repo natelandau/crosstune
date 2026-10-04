@@ -2,6 +2,7 @@ import { IonButton, IonButtons, IonContent, IonHeader, IonTitle, IonToolbar } fr
 import { ArrowLeftToLine, ArrowRightToLine, Pause, Play, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -177,8 +178,10 @@ export function TrimView({
   const playSelection = () => playFrom(latestRef.current.start)
   const keysRef = useLatest({ setAtPlayhead, playSelection })
   // Space is Play selection, so it stops on the end handle like the button. The arrows belong
-  // to a focused handle, which nudges it; with none focused they do nothing here.
-  useEffect(() => {
+  // to a focused handle, which nudges it; with none focused they do nothing here. A layout
+  // effect, so the keys work from the commit that shows the handles rather than after a
+  // passive effect that a busy page can run later.
+  useLayoutEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== '[' && event.key !== ']' && event.key !== ' ') return
       if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return

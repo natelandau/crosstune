@@ -10,12 +10,15 @@ import { renderIonic } from '../../test/ionic'
 import { settleOverlays } from '../../test/overlays'
 import { forceTouch } from '../../test/pointer'
 import { fakeEngine, fakePlayer } from '../../test/providers'
-import { linkRow, recordingFile, recordingRow } from '../../test/rows'
+import { dragRow } from '../../test/reorder'
+import { linkRow, notationPageRow, recordingFile, recordingRow } from '../../test/rows'
 import { closeLinkName } from '../links/linkNames'
+import { NOTATION } from '../notation/notationCopy'
 import type { Player } from '../player/usePlayer'
 import { closeRecordingName, downloadName, playName } from '../recordings/recordingNames'
 import { NOT_PLAYABLE } from './ListRowPlay'
-import { ListTunes, MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './ListTunes'
+import { ListTunes } from './ListTunes'
+import { MOVE_DOWN, MOVE_TO_BOTTOM, MOVE_TO_TOP, MOVE_UP } from './moveMenu'
 import type { ListSelectionHost } from './useListSelection'
 import { useListView } from './useLists'
 
@@ -113,43 +116,6 @@ async function storeOrder(order: string[]) {
   )
 }
 
-/**
- * Ionic's reorder gesture listens for mouse and touch events, not pointer events, and its
- * threshold is zero, so the press itself starts the drag and each move step needs a frame
- * for the gesture's own rAF to run.
- */
-async function dragRow(from: number, to: number) {
-  await vi.waitFor(() =>
-    expect(document.querySelector('ion-reorder-group')?.className).toContain('reorder-enabled'),
-  )
-  await frame()
-  const handles = document.querySelectorAll<HTMLElement>('ion-reorder-group ion-reorder')
-  const start = handles[from]!.getBoundingClientRect()
-  const end = handles[to]!.getBoundingClientRect()
-  const x = start.left + start.width / 2
-  const startY = start.top + start.height / 2
-  const endY = end.top + end.height / 2
-  const at = (y: number, buttons: number) => ({
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    clientX: x,
-    clientY: y,
-    button: 0,
-    buttons,
-  })
-  handles[from]!.dispatchEvent(new MouseEvent('mousedown', at(startY, 1)))
-  await frame()
-  for (let step = 1; step <= 10; step++) {
-    document.dispatchEvent(
-      new MouseEvent('mousemove', at(startY + ((endY - startY) * step) / 10, 1)),
-    )
-    await frame()
-  }
-  document.dispatchEvent(new MouseEvent('mouseup', at(endY, 0)))
-  await frame()
-}
-
 describe('ListTunes', () => {
   it('numbers rows from 1 in stored order inside one list', async () => {
     renderIonic(<Host />, { db })
@@ -157,6 +123,16 @@ describe('ListTunes', () => {
     await expect.poll(shownTitles).toEqual(titles)
     await expect.poll(shownNumbers).toEqual(['1', '2', '3', '4'])
     await expect.poll(() => document.querySelector('ion-list > ion-reorder-group')).not.toBeNull()
+  })
+
+  it('offers Notation on a tune only while it has a live page', async () => {
+    const tune = (await db.tunes.toArray()).find((row) => row.title === 'Cluck Old Hen')!
+    await db.notation_pages.put(notationPageRow('p1', tune.id))
+    renderIonic(<Host />, { db })
+    const notation = page.getByRole('button', { name: `${NOTATION} Cluck Old Hen` })
+    await expect.element(notation).toBeInTheDocument()
+    await db.notation_pages.update('p1', { deleted_at: '2026-01-02T00:00:00.000Z' })
+    await expect.element(notation).not.toBeInTheDocument()
   })
 
   it('moves a tune down from its move menu, stores it, and announces it', async () => {

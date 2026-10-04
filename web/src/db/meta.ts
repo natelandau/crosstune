@@ -6,6 +6,7 @@ export const META_STORAGE = 'storage'
 export const META_KEEP_OFFLINE = 'keep_offline'
 /** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
 export const META_RECORDINGS_ORIGIN = 'recordings_origin'
+export const META_NOTATION_INVERT = 'notation_invert'
 
 export interface StorageFigures {
   used_bytes: number
@@ -49,6 +50,15 @@ export function getKeepOffline(db: CrosstuneDb): Promise<boolean> {
 
 export function setKeepOffline(db: CrosstuneDb, on: boolean): Promise<void> {
   return setMeta(db, META_KEEP_OFFLINE, on)
+}
+
+/** Whether this device shows notation pages as light ink on dark paper. */
+export function getNotationInvert(db: CrosstuneDb): Promise<boolean> {
+  return getMeta(db, META_NOTATION_INVERT, false)
+}
+
+export function setNotationInvert(db: CrosstuneDb, on: boolean): Promise<void> {
+  return setMeta(db, META_NOTATION_INVERT, on)
 }
 
 /** Count pushes the server refused, so a later screen can tell the user what was lost. */

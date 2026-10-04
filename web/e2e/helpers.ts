@@ -47,7 +47,7 @@ function clerkSecretKey(): string {
  * password requirement is what lets a bare email address stand up a user at all.
  */
 export async function createThrowawayUser(): Promise<{ id: string; emailAddress: string }> {
-  const emailAddress = `e2e-delete-${Date.now()}+clerk_test@example.com`
+  const emailAddress = `e2e-delete-${crypto.randomUUID()}+clerk_test@example.com`
   const response = await fetch(CLERK_USERS_URL, {
     method: 'POST',
     headers: {
@@ -60,7 +60,9 @@ export async function createThrowawayUser(): Promise<{ id: string; emailAddress:
     }),
   })
   if (!response.ok) {
-    throw new Error(`Clerk answered ${response.status} creating a throwaway user`)
+    throw new Error(
+      `Clerk answered ${response.status} creating a throwaway user: ${await response.text()}`,
+    )
   }
   const user = (await response.json()) as { id: string }
   return { id: user.id, emailAddress }

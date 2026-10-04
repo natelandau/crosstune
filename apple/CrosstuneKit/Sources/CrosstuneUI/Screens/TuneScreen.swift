@@ -167,6 +167,8 @@ private struct TuneBody: View {
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var deleting: RecordingView?
     @State private var renaming: RecordingView?
+    @State private var addingNotation: NotationAddChoice?
+    @State private var deletingPage: NotationPage?
     @Environment(\.spacing) private var spacing
 
     var body: some View {
@@ -180,6 +182,8 @@ private struct TuneBody: View {
                     .listRowSeparator(.hidden)
             }
             TuneMediaSection(model: model, detail: detail, renaming: $renaming, deleting: $deleting)
+            NotationSection(
+                model: model.notation, tuneID: detail.tune.id, adding: $addingNotation, deleting: $deletingPage)
             if detail.hasLyrics {
                 Section {
                     Button(TuneScreen.openLyrics, systemImage: "text.quote") {
@@ -231,6 +235,33 @@ private struct TuneBody: View {
             Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
         } message: { view in
             Text(RecordingsModel.deleteMessage(view))
+        }
+        .modifier(
+            NotationImport(
+                choice: $addingNotation,
+                onPick: { picks in Task { await model.notation.add(picks) } },
+                onFailure: { model.notation.report($0) })
+        )
+        .coversShell(deletingPage != nil)
+        .confirmationDialog(
+            NotationCopy.deleteTitle,
+            isPresented: Binding {
+                deletingPage != nil
+            } set: {
+                if !$0 { deletingPage = nil }
+            },
+            titleVisibility: .visible, presenting: deletingPage
+        ) { page in
+            Button(NotationCopy.delete, role: .destructive) {
+                Task { await model.notation.delete(page.id) }
+            }
+        } message: { page in
+            Text(NotationCopy.deleteMessage(page))
+        }
+        // Only a new move, never a failed one taking its announcement back.
+        .sensoryFeedback(.impact(weight: .light), trigger: model.notation.announcement) { _, new in new != nil }
+        .onChange(of: model.notation.announcement) { _, announcement in
+            if let announcement { AccessibilityNotification.Announcement(announcement.text).post() }
         }
     }
 
@@ -542,7 +573,7 @@ private struct TuneListsSection: View {
 
 /// A section header that names what its rows belong to, with an optional control at its
 /// trailing edge.
-private struct SectionTitle<Accessory: View>: View {
+struct SectionTitle<Accessory: View>: View {
     let title: String
     let accessory: Accessory
 
@@ -572,7 +603,7 @@ extension SectionTitle where Accessory == EmptyView {
 }
 
 /// A failed write's message, in red beside the control that made it.
-private struct FailureText: View {
+struct FailureText: View {
     let message: String
 
     init(_ message: String) {

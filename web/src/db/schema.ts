@@ -1,10 +1,12 @@
 import Dexie, { type EntityTable, type Table, type Transaction } from 'dexie'
 import { META_PULL_CURSOR } from './meta'
+import type { NotationFile } from './notation'
 import type { RecordingChunk, RecordingFile } from './recordings'
 import {
   TABLE_NAMES,
   type LocalList,
   type LocalListItem,
+  type LocalNotationPage,
   type LocalRecording,
   type LocalRecordingLoop,
   type LocalRecordingLink,
@@ -20,7 +22,7 @@ import {
 // Every store the server refilled as of version 6, plus what could only be pushed or uploaded
 // in an older shape. A fixed list: the upgrade transaction holds only stores that version has.
 const STARTED_OVER = [
-  ...TABLE_NAMES.filter((name) => name !== 'recording_loops'),
+  ...TABLE_NAMES.filter((name) => name !== 'recording_loops' && name !== 'notation_pages'),
   'recording_files',
   'recording_chunks',
   'outbox',
@@ -76,6 +78,8 @@ export class CrosstuneDb extends Dexie {
   user_settings!: Table<LocalUserSettings, string>
   recordings!: Table<LocalRecording, string>
   recording_loops!: Table<LocalRecordingLoop, string>
+  notation_pages!: Table<LocalNotationPage, string>
+  notation_files!: Table<NotationFile, string>
   recording_files!: Table<RecordingFile, string>
   recording_chunks!: Table<RecordingChunk, [string, number]>
   outbox!: EntityTable<OutboxEntry, 'seq'>
@@ -186,6 +190,12 @@ export class CrosstuneDb extends Dexie {
             entry.data.origin_url ??= null
           })
       })
+
+    // A database from before these stores holds none of the server's pages, so it pulls every
+    // row again to fetch them.
+    this.version(11)
+      .stores({ notation_pages: 'id, tune_id, state', notation_files: 'id, origin' })
+      .upgrade(repull)
   }
 
   // Dexie's auto-open on the first query calls this method too.
@@ -241,6 +251,7 @@ export function rowsTable<T extends TableName>(
     list_items: db.list_items,
     recording_links: db.recording_links,
     recordings: db.recordings,
+    notation_pages: db.notation_pages,
     recording_loops: db.recording_loops,
     user_settings: db.user_settings,
   }

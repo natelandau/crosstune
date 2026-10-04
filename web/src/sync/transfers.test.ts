@@ -17,6 +17,7 @@ import { pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { newId } from '../commands/write'
 import { openTestDb } from '../test/db'
+import { transfersSettled } from '../test/transfers'
 import { createFakeApi, serverRecording, serverTune } from '../test/fakeApi'
 import { applyPullPage } from './apply'
 import { FakeLockManager } from '../test/fakeLocks'
@@ -59,18 +60,6 @@ async function captured(): Promise<string> {
     peaks: null,
   })
   return id
-}
-
-/** Resolves once the transfer loop a sync started has finished its pass. */
-function transfersSettled(engine: SyncEngine): Promise<void> {
-  if (engine.transferStatus() !== 'transferring') return Promise.resolve()
-  return new Promise((resolve) => {
-    const unsubscribe = engine.subscribeTransfer((status) => {
-      if (status === 'transferring') return
-      unsubscribe()
-      resolve()
-    })
-  })
 }
 
 async function syncAndTransfer(engine: SyncEngine): Promise<void> {

@@ -29,6 +29,7 @@ from crosstune.vocabulary import (
     AudioQuality,
     Instrument,
     Mode,
+    NotationPageState,
     PlayFirst,
     Provider,
     RecordingOrigin,
@@ -211,6 +212,15 @@ class RecordingData(_Data):
     pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
 
 
+class NotationPageData(_Data):
+    """Client-editable fields of a notation page. The file columns are server-owned."""
+
+    tune_id: uuid.UUID
+    position: int = 0
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
 class _RecordingLoopFields(_Data):
     """Loop fields shared by what a client pushes and what the server returns."""
 
@@ -317,6 +327,16 @@ class RecordingRow(RecordingData, _Row):
     peaks_rev: str | None
 
 
+class NotationPageRow(NotationPageData, _Row):
+    """A stored notation page, as push and pull return it. The storage key stays on the server."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: uuid.UUID
+    state: NotationPageState
+    file_bytes: int | None
+
+
 class RecordingLoopRow(_RecordingLoopFields, _Row):
     """A stored practice loop, as push and pull return it."""
 
@@ -340,6 +360,7 @@ DATA_SCHEMAS: dict[TableName, type[_Data]] = {
     "list_items": ListItemData,
     "recording_links": RecordingLinkData,
     "recordings": RecordingData,
+    "notation_pages": NotationPageData,
     "recording_loops": RecordingLoopData,
     "user_settings": UserSettingsData,
 }
@@ -351,6 +372,7 @@ ROW_SCHEMAS: dict[TableName, type[BaseModel]] = {
     "list_items": ListItemRow,
     "recording_links": RecordingLinkRow,
     "recordings": RecordingRow,
+    "notation_pages": NotationPageRow,
     "recording_loops": RecordingLoopRow,
     "user_settings": UserSettingsRow,
 }

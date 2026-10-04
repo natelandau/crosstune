@@ -22,7 +22,7 @@ from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.errors import AppError, UnauthorizedError, problem_responses
-from crosstune.recordings.service import used_bytes
+from crosstune.files.quota import used_bytes
 from crosstune.storage.store import user_prefix
 from crosstune.users.clerk import ClerkUnavailableError
 from crosstune.users.service import purge_account
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/v1", tags=["users"])
 
 
 class StorageResponse(BaseModel):
-    """How much of the recording quota is in use."""
+    """How much of the storage quota is in use."""
 
     used_bytes: int
     quota_bytes: int
@@ -64,7 +64,7 @@ async def me(request: Request, user: CurrentUser, session: DbSession) -> MeRespo
         created_at=user.created_at,
         storage=StorageResponse(
             used_bytes=await used_bytes(session, user.id),
-            quota_bytes=settings.recording_quota_bytes,
+            quota_bytes=settings.storage_quota_bytes,
             max_file_bytes=settings.recording_max_file_bytes,
         ),
     )

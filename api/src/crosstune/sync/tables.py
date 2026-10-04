@@ -10,6 +10,7 @@ from sqlalchemy import inspect, select
 from crosstune.models import (
     List,
     ListItem,
+    NotationPage,
     Recording,
     RecordingLink,
     RecordingLoop,
@@ -24,6 +25,8 @@ from crosstune.schemas.rows import (
     ListItemData,
     ListItemRow,
     ListRow,
+    NotationPageData,
+    NotationPageRow,
     RecordingData,
     RecordingLinkData,
     RecordingLinkRow,
@@ -84,6 +87,7 @@ TABLE_ORDER: tuple[TableName, ...] = (
     "list_items",
     "recording_links",
     "recordings",
+    "notation_pages",
     "recording_loops",
     "user_settings",
 )
@@ -119,6 +123,14 @@ TABLES: dict[TableName, TableSpec] = {
         (("tune_id", "tunes"),),
         # Provenance decides whether the server fetches the file, so it is fixed at creation.
         insert_only=frozenset({"source", "origin", "origin_url"}),
+    ),
+    "notation_pages": TableSpec(
+        "notation_pages",
+        NotationPage,
+        NotationPageData,
+        NotationPageRow,
+        "user_id",
+        (("tune_id", "tunes"),),
     ),
     "recording_loops": TableSpec(
         "recording_loops",

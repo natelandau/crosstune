@@ -3,8 +3,9 @@ import GRDB
 
 /// One user's on-device catalog: the synced tables, the outbox of unsent changes, and `meta`.
 ///
-/// Each user has a folder, `<root>/<user ID>/`, holding `crosstune.sqlite` and an `audio/`
-/// folder, so two accounts on one device never share data and sign-out removes both together.
+/// Each user has a folder, `<root>/<user ID>/`, holding `crosstune.sqlite`, an `audio/` folder,
+/// and a `notation/` folder, so two accounts on one device never share data and sign-out removes
+/// them together.
 /// Screens read only this store. Every write goes through ``write(_:)``, which stores a row
 /// and queues its change in one transaction.
 public final class CrosstuneStore: Sendable {
@@ -19,6 +20,7 @@ public final class CrosstuneStore: Sendable {
     public let database: DatabasePool
 
     public var audioFolder: URL { folder.appending(path: "audio", directoryHint: .isDirectory) }
+    public var notationFolder: URL { folder.appending(path: "notation", directoryHint: .isDirectory) }
 
     /// The extension of a capture still being written, which launch recovery finds and finishes
     /// even when no row names it.
@@ -26,17 +28,21 @@ public final class CrosstuneStore: Sendable {
     /// The extension of a finished capture, which recovery writes before the row names it.
     public static let finishedExtension = "m4a"
 
-    /// The audio files the folder held when the store opened, the only ones
-    /// ``deleteUnnamedAudio()`` may delete, since anything written after is still settling.
+    /// The files each folder held when the store opened, the only ones ``deleteUnnamedFiles()``
+    /// may delete, since anything written after is still settling.
     private let audioAtOpen: Set<String>
+    private let notationAtOpen: Set<String>
 
     private init(userID: String, folder: URL, database: DatabasePool) {
         self.userID = userID
         self.folder = folder
         self.database = database
-        let audio = folder.appending(path: "audio", directoryHint: .isDirectory)
-        audioAtOpen = Set(
-            (try? FileManager.default.contentsOfDirectory(atPath: audio.path(percentEncoded: false))) ?? [])
+        audioAtOpen = Self.fileNames(in: folder.appending(path: "audio", directoryHint: .isDirectory))
+        notationAtOpen = Self.fileNames(in: folder.appending(path: "notation", directoryHint: .isDirectory))
+    }
+
+    private static func fileNames(in folder: URL) -> Set<String> {
+        Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? [])
     }
 
     /// Where every user's folder lives: `Application Support/Users/`.
@@ -70,38 +76,53 @@ public final class CrosstuneStore: Sendable {
         return CrosstuneStore(userID: userID, folder: folder, database: database)
     }
 
-    /// Deletes every audio file no recording file row names, as a crash leaves between a file and
-    /// its row landing or going. Call once launch recovery has run.
+    /// Deletes every audio file no recording file row names and every page file no notation file
+    /// row names, as a crash leaves between a file and its row landing or going. Call once launch
+    /// recovery has run.
     ///
     /// Only files already there when the store opened are candidates, so an import, download,
-    /// or take written since, whose row lands after its file, is never touched. A capture is
-    /// left for recovery, and so is the finished file of a row still capturing, which recovery
-    /// records.
-    public func deleteUnnamedAudio() async {
-        let named: Set<String>
-        do {
-            named = try await database.read { db in
-                let files = try String.fetchAll(
-                    db, sql: "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL")
-                let peaks = try String.fetchAll(
-                    db, sql: "SELECT peaks_file_name FROM recording_files WHERE peaks_file_name IS NOT NULL")
-                let capturing = try String.fetchAll(
-                    db, sql: "SELECT id FROM recording_files WHERE local_state = ?",
-                    arguments: [LocalFileState.capturing.rawValue])
-                return Set(files + peaks + capturing.map { "\($0).\(Self.finishedExtension)" })
+    /// page, or take written since, whose row lands after its file, is never touched. A capture
+    /// is left for recovery, and so is the finished file of a row still capturing, which
+    /// recovery records.
+    public func deleteUnnamedFiles() async {
+        let audioAtOpen = audioAtOpen
+        let notationAtOpen = notationAtOpen
+        let audioFolder = audioFolder
+        let notationFolder = notationFolder
+        // A write, not a read, so no row naming one of these files can commit between reading the
+        // names and removing the files.
+        try? await database.write { db in
+            let files = try String.fetchAll(
+                db, sql: "SELECT file_name FROM recording_files WHERE file_name IS NOT NULL")
+            let peaks = try String.fetchAll(
+                db, sql: "SELECT peaks_file_name FROM recording_files WHERE peaks_file_name IS NOT NULL")
+            let capturing = try String.fetchAll(
+                db, sql: "SELECT id FROM recording_files WHERE local_state = ?",
+                arguments: [LocalFileState.capturing.rawValue])
+            let named = Set(files + peaks + capturing.map { "\($0).\(Self.finishedExtension)" })
+            let namedPages = try String.fetchSet(db, sql: "SELECT file_name FROM notation_files")
+            for name in audioAtOpen where !named.contains(name) {
+                let file = audioFolder.appending(path: name)
+                guard file.pathExtension != Self.captureExtension else { continue }
+                try? FileManager.default.removeItem(at: file)
             }
-        } catch {
-            return
-        }
-        for name in audioAtOpen where !named.contains(name) {
-            let file = audioFolder.appending(path: name)
-            guard file.pathExtension != Self.captureExtension else { continue }
-            try? FileManager.default.removeItem(at: file)
+            for name in notationAtOpen where !namedPages.contains(name) {
+                try? FileManager.default.removeItem(at: notationFolder.appending(path: name))
+            }
         }
     }
 
-    /// Deletes a user's folder: their database and every audio file. Close their open store
-    /// first.
+    /// Keeps a file in or out of device backups. A file the server holds stays out, where a
+    /// backup would only duplicate it.
+    public static func setExcludedFromBackup(_ url: URL, _ excluded: Bool) throws {
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = excluded
+        var url = url
+        try url.setResourceValues(values)
+    }
+
+    /// Deletes a user's folder: their database, every audio file, and every page file. Close
+    /// their open store first.
     public static func delete(userID: String, root: URL = defaultRoot) throws {
         try removeIfPresent(folder(for: userID, in: root))
     }
@@ -134,27 +155,33 @@ public final class CrosstuneStore: Sendable {
         try await database.write { db in try body(StoreWriter(db: db)) }
     }
 
-    /// Runs `body` as ``write(_:)`` does, then deletes every audio file a recording file row named
-    /// before it and none names after it, whether the row was dropped or its file let go. The
-    /// files go only after the transaction commits, so a write that fails keeps every file its
-    /// rows still point to.
+    /// Runs `body` as ``write(_:)`` does, then deletes every file a row named before it and none
+    /// names after it, whether the row was dropped or its file let go: audio named by recording
+    /// file rows and page images named by notation file rows. The files go only after the
+    /// transaction commits, so a write that fails keeps every file its rows still point to.
     @discardableResult
-    public func writeDroppingAudio<Value: Sendable>(_ body: @escaping @Sendable (StoreWriter) throws -> Value)
+    public func writeDroppingFiles<Value: Sendable>(_ body: @escaping @Sendable (StoreWriter) throws -> Value)
         async throws -> Value
     {
-        let named =
+        let namedAudio =
             """
             SELECT file_name FROM recording_files WHERE file_name IS NOT NULL
             UNION SELECT peaks_file_name FROM recording_files WHERE peaks_file_name IS NOT NULL
             """
-        let (value, dropped) = try await write { writer in
-            let before = Set(try String.fetchAll(writer.db, sql: named))
+        let namedPages = "SELECT file_name FROM notation_files"
+        let (value, droppedAudio, droppedPages) = try await write { writer in
+            let audioBefore = try String.fetchSet(writer.db, sql: namedAudio)
+            let pagesBefore = try String.fetchSet(writer.db, sql: namedPages)
             let value = try body(writer)
-            let after = Set(try String.fetchAll(writer.db, sql: named))
-            return (value, before.subtracting(after))
+            let audioAfter = try String.fetchSet(writer.db, sql: namedAudio)
+            let pagesAfter = try String.fetchSet(writer.db, sql: namedPages)
+            return (value, audioBefore.subtracting(audioAfter), pagesBefore.subtracting(pagesAfter))
         }
-        for name in dropped {
+        for name in droppedAudio {
             try? FileManager.default.removeItem(at: audioFolder.appending(path: name))
+        }
+        for name in droppedPages {
+            try? FileManager.default.removeItem(at: notationFolder.appending(path: name))
         }
         return value
     }
@@ -193,8 +220,10 @@ public final class CrosstuneStore: Sendable {
     }
 
     private static func openDatabase(in folder: URL) throws -> DatabasePool {
-        try FileManager.default.createDirectory(
-            at: folder.appending(path: "audio", directoryHint: .isDirectory), withIntermediateDirectories: true)
+        for name in ["audio", "notation"] {
+            try FileManager.default.createDirectory(
+                at: folder.appending(path: name, directoryHint: .isDirectory), withIntermediateDirectories: true)
+        }
         return try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
     }
 

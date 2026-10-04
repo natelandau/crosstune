@@ -153,6 +153,24 @@ final class FakeSyncAPI: SyncAPI {
         try await transfer("retry \(recordingID)")
     }
 
+    /// The size each notation slot request declared, by page.
+    var notationSlotBytes: [String: Int64] = [:]
+
+    func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL {
+        notationSlotBytes[pageID] = bytes
+        try await transfer("notation-slot \(pageID)")
+        return SignedURL(url: URL(string: "https://bucket.test/put/\(pageID)")!)
+    }
+
+    func notationUploaded(pageID: String) async throws {
+        try await transfer("notation-confirm \(pageID)")
+    }
+
+    func notationDownload(pageID: String) async throws -> SignedURL {
+        try await transfer("notation-url \(pageID)")
+        return SignedURL(url: URL(string: "https://bucket.test/get/\(pageID)")!)
+    }
+
     func putObject(_ url: URL, file: URL, contentType: String) async throws {
         let id = Self.recordingID(in: url)
         try await transfer("put \(id)")

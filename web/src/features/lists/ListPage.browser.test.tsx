@@ -25,7 +25,7 @@ import {
   ListPage,
 } from './ListPage'
 import { ADD_TO_LIST } from './ListPicker'
-import { MOVE_DOWN } from './ListTunes'
+import { MOVE_DOWN } from './moveMenu'
 import { ADD_TUNES } from './TunePickerSheet'
 import { META_LIST_SHOW_ARCHIVED } from './useListShowArchived'
 

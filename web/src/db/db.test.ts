@@ -57,6 +57,8 @@ describe('schema', () => {
       'list_items',
       'lists',
       'meta',
+      'notation_files',
+      'notation_pages',
       'outbox',
       'recording_chunks',
       'recording_files',
@@ -84,13 +86,15 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
     )
-    expect(db.verno).toBe(10)
+    expect(db.verno).toBe(11)
   })
 
   const CURRENT_STORES = [
     'list_items',
     'lists',
     'meta',
+    'notation_files',
+    'notation_pages',
     'outbox',
     'recording_chunks',
     'recording_files',
@@ -148,7 +152,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(10)
+      expect(upgraded.verno).toBe(11)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -248,9 +252,9 @@ describe('schema', () => {
         'rec-captured',
         tune.id,
       ])
-      expect(await getPullCursor(opened)).toBe(42)
+      expect(await getPullCursor(opened)).toBe(0)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(10)
+      expect(opened.verno).toBe(11)
     } finally {
       await opened.delete()
     }
@@ -301,7 +305,45 @@ describe('schema', () => {
       const [linkChange, recordingChange] = await opened.outbox.orderBy('seq').toArray()
       expect(linkChange?.data).toEqual(toChangeData(linkRow('link-1', tune.id)))
       expect(recordingChange?.data).toEqual({ label: 'A part', origin: 'own', origin_url: null })
-      expect(await getPullCursor(opened)).toBe(42)
+      expect(await getPullCursor(opened)).toBe(0)
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('version 11 resets the pull cursor', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v10 = new Dexie(name)
+    v10.version(10).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    await v10.table('outbox').add({
+      table: 'tunes',
+      row_id: tune.id,
+      op: 'upsert',
+      updated_at: tune.updated_at,
+      data: {},
+    })
+    await v10.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v10.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(await getPullCursor(opened)).toBe(0)
+      expect((await opened.outbox.toArray()).map((e) => e.row_id)).toEqual([tune.id])
+      expect(await opened.notation_pages.count()).toBe(0)
     } finally {
       await opened.delete()
     }
@@ -382,17 +424,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v11 = new Dexie(name)
-    v11.version(11).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v11.table('tunes').put({ id: tune.id, title: tune.title })
-    await v11.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v11.close()
+    const v12 = new Dexie(name)
+    v12.version(12).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v12.table('tunes').put({ id: tune.id, title: tune.title })
+    await v12.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v12.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(100)
+      expect(older.backendDB().version).toBe(110)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {
@@ -513,6 +555,7 @@ describe('table helpers', () => {
       'list_items',
       'recording_links',
       'recordings',
+      'notation_pages',
       'recording_loops',
       'user_settings',
     ])

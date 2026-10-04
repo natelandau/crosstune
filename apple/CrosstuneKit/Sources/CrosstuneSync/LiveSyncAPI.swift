@@ -149,6 +149,51 @@ public struct LiveSyncAPI: SyncAPI {
         }
     }
 
+    public func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL {
+        let input = Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input(
+            path: .init(pageId: pageID), body: .json(.init(bytes: Int(bytes), contentType: .imageJpeg)))
+        switch try await client.uploadSlotV1NotationPagesPageIdUploadSlotPost(input) {
+        case .ok(let response): return try signed(try response.body.json)
+        case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
+        case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
+        case .contentTooLarge(let response): throw Self.refusal(413, try? response.body.applicationProblemJson)
+        case .unprocessableContent(let response):
+            throw Self.refusal(422, try? response.body.applicationProblemJson)
+        case .serviceUnavailable(let response):
+            throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
+    public func notationUploaded(pageID: String) async throws {
+        let input = Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Input(path: .init(pageId: pageID))
+        switch try await client.uploadFinishedV1NotationPagesPageIdUploadedPost(input) {
+        case .noContent: return
+        case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
+        case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
+        case .contentTooLarge(let response): throw Self.refusal(413, try? response.body.applicationProblemJson)
+        case .unprocessableContent(let response):
+            throw Self.refusal(422, try? response.body.applicationProblemJson)
+        case .serviceUnavailable(let response):
+            throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
+    public func notationDownload(pageID: String) async throws -> SignedURL {
+        let input = Operations.DownloadV1NotationPagesPageIdDownloadGet.Input(path: .init(pageId: pageID))
+        switch try await client.downloadV1NotationPagesPageIdDownloadGet(input) {
+        case .ok(let response): return try signed(try response.body.json)
+        case .notFound(let response): throw Self.refusal(404, try? response.body.applicationProblemJson)
+        case .conflict(let response): throw Self.refusal(409, try? response.body.applicationProblemJson)
+        case .unprocessableContent(let response):
+            throw Self.refusal(422, try? response.body.applicationProblemJson)
+        case .serviceUnavailable(let response):
+            throw Self.refusal(503, try? response.body.applicationProblemJson)
+        case .undocumented(let status, _): throw APIStatusError(status: status)
+        }
+    }
+
     public func retryRecording(recordingID: String) async throws {
         let input = Operations.RetryV1RecordingsRecordingIdRetryPost.Input(path: .init(recordingId: recordingID))
         switch try await client.retryV1RecordingsRecordingIdRetryPost(input) {
@@ -192,6 +237,10 @@ public struct LiveSyncAPI: SyncAPI {
             throw InvalidSignedURL(value: value)
         }
         return url
+    }
+
+    private func signed(_ value: Components.Schemas.SignedUrl) throws -> SignedURL {
+        SignedURL(url: try signedURL(value.url))
     }
 
     /// A `Retry-After` given in whole seconds. The HTTP-date form, which this API never sends,

@@ -87,8 +87,8 @@ private func countsOnce(_ onDevice: Int, _ total: Int) -> @Sendable () -> AsyncT
     }
 
     @Test func progressReadsCorrectlyForAnyTotal() {
-        #expect(ExportDataSheet.progress(done: 1, total: 1) == "Preparing recording 1 of 1")
-        #expect(ExportDataSheet.progress(done: 4, total: 12) == "Preparing recording 4 of 12")
+        #expect(ExportDataSheet.progress(done: 1, total: 1) == "Preparing file 1 of 1")
+        #expect(ExportDataSheet.progress(done: 4, total: 12) == "Preparing file 4 of 12")
     }
 
     @Test func countsFollowTheStoreWhileTheSheetIsOpen() async throws {

@@ -175,6 +175,7 @@ export async function tombstoneTune(db: CrosstuneDb, tuneId: string, at: string)
     await tombstone(db, 'user_tunes', userTuneId, at, { enqueueDelete: false })
   }
   await tombstoneWhere(db, 'recording_links', 'tune_id', tuneId, at)
+  await tombstoneWhere(db, 'notation_pages', 'tune_id', tuneId, at)
   await tombstoneTuneRecordings(db, tuneId, at)
 }
 

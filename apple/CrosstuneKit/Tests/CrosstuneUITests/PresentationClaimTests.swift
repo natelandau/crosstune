@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-/// Every sheet, dialog, and file picker in the UI covers the shell while it is up, so the record
+/// Every sheet, dialog, and file or photo picker in the UI covers the shell while it is up, so the record
 /// dome hides and the menu commands stand down. A sheet's root view marks itself with
 /// `.shellSheet()` or `.partHeightSheet()`; a dialog, alert, file picker, or share sheet has no
 /// root view of its own, so the view presenting it carries `.coversShell(_:)` on the line before.
@@ -48,6 +48,7 @@ import Testing
                 guard
                     let modifier = [
                         ".confirmationDialog(", ".alert(", ".fileImporter(", ".fileExporter(", ".shareSheet(",
+                        ".photosPicker(",
                     ]
                     .first(where: trimmed.hasPrefix)
                 else { continue }
@@ -87,5 +88,23 @@ import Testing
             }
         }
         #expect(missing.isEmpty, "Mark the sheet's root with .shellSheet() or .partHeightSheet(): \(missing)")
+    }
+
+    /// The notation pickers and viewer are presentations the checks above must see, so a rename
+    /// that hid them from the scan fails here rather than passing quietly.
+    @Test func theNotationPickersAndViewerAreChecked() throws {
+        let sources = try Self.readSources()
+        let menu = try #require(sources.first { $0.name == "NotationAddMenu.swift" })
+        let presentations = menu.lines.map { $0.trimmingCharacters(in: .whitespaces) }
+        #expect(presentations.contains { $0.hasPrefix(".fileImporter(") })
+        #expect(presentations.contains { $0.hasPrefix(".photosPicker(") })
+        #expect(presentations.contains { $0.hasPrefix(".fullScreenCover(") })
+        let viewer = try #require(sources.first { $0.name == "NotationViewer.swift" })
+        #expect(viewer.text.contains("struct NotationViewer: View"))
+        #expect(viewer.text.contains(".shellSheet()"))
+        // A broken page's Delete confirms first, since a captured page is the only copy.
+        #expect(viewer.lines.contains { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".confirmationDialog(") })
+        let scanner = try #require(sources.first { $0.name == "DocumentScanner.swift" })
+        #expect(scanner.text.contains(".shellSheet()"))
     }
 }

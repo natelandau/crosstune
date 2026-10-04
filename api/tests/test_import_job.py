@@ -195,7 +195,7 @@ async def test_import_over_quota_fails(
         store,
         work_root=tmp_path,
         http_client=mock_http.client(),
-        settings=settings.model_copy(update={"recording_quota_bytes": 4096}),
+        settings=settings.model_copy(update={"storage_quota_bytes": 4096}),
     )
     mock_http.add(PAGE, httpx2.Response(200, text=PAGE_HTML))
     mock_http.add(FILE, httpx2.Response(200, content=AUDIO))

@@ -3,6 +3,7 @@
 from crosstune.models.deleted_account import DeletedAccount
 from crosstune.models.job import Job, UploadSlot
 from crosstune.models.list import List, ListItem
+from crosstune.models.notation_page import NotationPage
 from crosstune.models.recording import Recording
 from crosstune.models.recording_link import RecordingLink
 from crosstune.models.recording_loop import RecordingLoop
@@ -16,6 +17,7 @@ __all__ = [
     "Job",
     "List",
     "ListItem",
+    "NotationPage",
     "Recording",
     "RecordingLink",
     "RecordingLoop",

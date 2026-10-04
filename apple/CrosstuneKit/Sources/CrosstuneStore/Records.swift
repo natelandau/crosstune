@@ -9,6 +9,7 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case listItems = "list_items"
     case recordingLinks = "recording_links"
     case recordings
+    case notationPages = "notation_pages"
     case recordingLoops = "recording_loops"
     case userSettings = "user_settings"
 }
@@ -71,11 +72,13 @@ extension SyncedRecord {
 let ownershipKeys: Set<String> = ["owner_user_id", "user_id", "added_by_user_id"]
 
 /// Keys a change never carries: bookkeeping the server owns, ownership, and the fields the
-/// recording upload pipeline computes. The web client's `toChangeData` strips the same list.
+/// recording and notation upload pipelines compute. The web client's `toChangeData` strips the
+/// same list.
 let keysNotInChanges: Set<String> = ownershipKeys.union([
     "id", "updated_at", "deleted_at", "server_seq",
     "state", "duration_ms", "playback_mime", "playback_bytes", "error",
     "source_duration_ms", "playback_start_ms", "playback_end_ms", "playback_rev", "peaks_rev",
+    "file_bytes",
 ])
 
 extension SyncedRecord {
@@ -518,6 +521,63 @@ public struct Recording: SyncedRecord, Hashable {
         self.trimEndMs = trimEndMs
         self.speedPercent = speedPercent
         self.pitchCents = pitchCents
+        self.extra = extra
+    }
+}
+
+/// An image of written music attached to a tune. Its file lives on the device as a
+/// ``NotationFile``.
+public struct NotationPageRecord: SyncedRecord, Hashable {
+    public static let table = SyncTable.notationPages
+
+    public var id: String
+    public var createdAt: Timestamp
+    public var updatedAt: Timestamp
+    public var deletedAt: Timestamp?
+    public var serverSeq: Int64
+    public var tuneID: String
+    public var position: Int
+    /// The image's size in pixels, so a page lays out before its file is on the device.
+    public var width: Int
+    public var height: Int
+    /// The upload pipeline's fields: read here, never sent in a change.
+    public var state: String
+    public var fileBytes: Int64?
+    public var extra: JSONObject
+
+    public enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+        case id
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
+        case serverSeq = "server_seq"
+        case tuneID = "tune_id"
+        case position, width, height, state
+        case fileBytes = "file_bytes"
+        case extra
+    }
+
+    public static let pendingUpload = "pending_upload"
+    public static let ready = "ready"
+
+    public static var wireDefaults: JSONObject { ["position": .integer(0)] }
+
+    public init(
+        id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
+        deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String, position: Int = 0, width: Int,
+        height: Int, state: String = pendingUpload, fileBytes: Int64? = nil, extra: JSONObject = [:]
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        self.deletedAt = deletedAt
+        self.serverSeq = serverSeq
+        self.tuneID = tuneID
+        self.position = position
+        self.width = width
+        self.height = height
+        self.state = state
+        self.fileBytes = fileBytes
         self.extra = extra
     }
 }

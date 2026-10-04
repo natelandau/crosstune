@@ -185,7 +185,7 @@ private struct LyricsEditSheet: View {
 
 /// Disables the device's idle timer while `content` is on screen, restoring it on dismiss and
 /// while the app is not active, since a screen backgrounded mid-reading is not being read.
-private struct KeepsScreenAwake: ViewModifier {
+struct KeepsScreenAwake: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {

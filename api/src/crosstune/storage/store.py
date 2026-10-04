@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 PLAYBACK_MIME = "audio/mp4"
 BEST_EFFORT_DELETE_SECONDS = 3.0
 PEAKS_MIME = "application/octet-stream"
+NOTATION_SEGMENT = "notation"
+NOTATION_MIME = "image/jpeg"
 
 _EXTENSIONS: dict[str, str] = {
     "audio/mp4": "m4a",
@@ -63,6 +65,16 @@ def recording_prefix(user_id: object, recording_id: object) -> str:
 def upload_key(user_id: object, recording_id: object) -> str:
     """Where a client PUTs the raw file."""
     return f"{recording_prefix(user_id, recording_id)}upload"
+
+
+def notation_prefix(user_id: object, page_id: object) -> str:
+    """The key prefix under which a notation page's image lives."""
+    return f"{user_id}/{NOTATION_SEGMENT}/{page_id}/"
+
+
+def notation_key(user_id: object, page_id: object) -> str:
+    """Where a client PUTs a notation page's image, and where it is served from."""
+    return f"{notation_prefix(user_id, page_id)}page.jpg"
 
 
 def new_rev() -> str:

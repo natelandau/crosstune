@@ -22,6 +22,7 @@ from crosstune.links.search.backoff import Backoff
 from crosstune.links.search.registry import SearchTokens
 from crosstune.links.search.registry import adapters as search_adapters
 from crosstune.logging import configure_logging
+from crosstune.notation.router import router as notation_router
 from crosstune.ratelimit import RateLimiter
 from crosstune.recordings.router import router as recordings_router
 from crosstune.schemas.rows import RecordingData
@@ -193,6 +194,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sync_router)
     app.include_router(links_router)
     app.include_router(recordings_router)
+    app.include_router(notation_router)
     _publish_recording_data_schema(app)
 
     @app.get("/healthz", include_in_schema=False)

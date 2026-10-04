@@ -2,6 +2,7 @@ import { ApiError, TransferError } from '../api/client'
 import type {
   Change,
   ChangeResult,
+  NotationUploadSlotRequest,
   PullResponse,
   RecordingRow,
   TuneRow,
@@ -27,6 +28,7 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   list_items: null,
   recording_links: 'added_by_user_id',
   recordings: 'user_id',
+  notation_pages: 'user_id',
   recording_loops: 'user_id',
   user_settings: 'user_id',
 }
@@ -47,6 +49,9 @@ export function createFakeApi() {
   // key for, which a client's own pulled copy of that row can still be behind.
   const downloadSigned = new Map<string, { rev: string; startMs: number }>()
   const peaksSigned = new Map<string, string>()
+  const notationStates = new Map<string, 'pending_upload' | 'ready'>()
+  const notationSlots = new Map<string, NotationUploadSlotRequest>()
+  const putTypes = new Map<string, string>()
   let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 52_428_800 }
   let slotError: unknown = null
   let slotErrorId: string | null = null
@@ -68,6 +73,11 @@ export function createFakeApi() {
             playback_bytes: null,
             error: null,
           }
+        : {}),
+      ...(change.table === 'notation_pages'
+        ? notationStates.get(change.id) === 'ready'
+          ? { state: 'ready', file_bytes: objects.get(`${change.id}/page.jpg`)?.size ?? null }
+          : { state: 'pending_upload', file_bytes: null }
         : {}),
       id: change.id,
       created_at: change.updated_at,
@@ -153,11 +163,31 @@ export function createFakeApi() {
         peaks_rev: peaksSigned.get(recordingId) ?? 'bbbbbbbb',
       }
     },
-    async putObject(url, blob) {
+    async requestNotationUploadSlot(pageId, body) {
+      if (slotError && (slotErrorId === null || slotErrorId === pageId)) throw slotError
+      if ((notationStates.get(pageId) ?? 'pending_upload') !== 'pending_upload') throw conflict()
+      notationSlots.set(pageId, body)
+      return { url: `https://fake.r2/${pageId}/page.jpg`, expires_at: '2999-01-01T00:00:00Z' }
+    },
+    async notationUploadFinished(pageId) {
+      if (confirmError) {
+        const error = confirmError
+        confirmError = null
+        throw error
+      }
+      if (!objects.has(`${pageId}/page.jpg`)) throw conflict()
+      notationStates.set(pageId, 'ready')
+    },
+    async notationDownloadUrl(pageId) {
+      if (notationStates.get(pageId) !== 'ready') throw conflict()
+      return { url: `https://fake.r2/${pageId}/page.jpg`, expires_at: '2999-01-01T00:00:00Z' }
+    },
+    async putObject(url, blob, contentType) {
       const key = new URL(url).pathname.slice(1)
       const recordingId = key.split('/')[0]
       if (putError && (putErrorId === null || putErrorId === recordingId)) throw putError
       objects.set(key, blob)
+      putTypes.set(key, contentType)
     },
     async getObject(url) {
       const blob = objects.get(new URL(url).pathname.slice(1))
@@ -182,6 +212,11 @@ export function createFakeApi() {
     pulls,
     objects,
     recordingStates,
+    notationStates,
+    /** The body of the last slot request for each notation page. */
+    notationSlots,
+    /** The Content-Type each object was PUT with, by key. */
+    putTypes,
     respondToPush(fn: PushResponder) {
       respond = fn
     },

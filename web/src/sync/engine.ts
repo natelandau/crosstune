@@ -5,6 +5,7 @@ import { countInvalidChanges, getPullCursor } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { applyPullPage, applyPushResults, type InvalidChange } from './apply'
+import { notationDownloadPass, notationUploadPass } from './notationTransfers'
 import {
   createDownloadRetries,
   downloadOne,
@@ -207,6 +208,7 @@ export function createSyncEngine({
   const fetchPeaksOnce = oncePerKey((id) => fetchPeaks(db, api, id))
 
   const downloadRetries = createDownloadRetries()
+  const notationRetries = createDownloadRetries()
 
   function stop() {
     stopped = true
@@ -230,17 +232,27 @@ export function createSyncEngine({
     }
   }
 
-  /** Audio moves on its own loop so a long upload never holds up push and pull. */
+  /** Files move on their own loop so a long upload never holds up push and pull. */
   const transfers = createLoop<TransferStatus>({
     idle: 'idle',
     busy: 'transferring',
     run: () =>
       watchingForDeletion(async () => {
         // A row's own transient failure is held rather than thrown immediately, so the
-        // download pass still runs; it is rethrown below once it has.
+        // later passes still run; the first is rethrown below once they have. Pages go
+        // first: they are small, and the reading view needs them more than any one recording.
+        const notationUploadError = await notationUploadPass(db, api)
+        const notationDownloadError = await notationDownloadPass(db, api, notationRetries).then(
+          () => null,
+          (error: unknown) => {
+            if (isAuthFailure(error)) throw error
+            return error
+          },
+        )
         const uploadError = await uploadPass(db, api)
         await downloadPass(db, api, fetchOne, downloadRetries, fetchPeaksOnce)
-        if (uploadError) throw uploadError
+        const held = notationUploadError ?? notationDownloadError ?? uploadError
+        if (held) throw held
       }),
     // A failed fetch while the browser reports a connection means the storage host or a
     // CORS rule refused, which would otherwise sit silently under "offline" forever.

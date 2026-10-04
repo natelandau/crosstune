@@ -2,27 +2,20 @@ import { IonList, IonReorder, IonReorderGroup, type ReorderEndCustomEvent } from
 import { ArrowUpDown, GripVertical, ListX, SquarePen } from 'lucide-react'
 import { useCallback, useRef, type MouseEvent as ReactMouseEvent, type Ref } from 'react'
 import type { Instrument } from '../../api/vocabulary'
-import { useMenu, type MenuItem } from '../../ui/Menu'
+import { activeItems, moveItem } from '../../commands/lists'
+import { useDb } from '../../db/DbProvider'
+import { useMenu } from '../../ui/Menu'
 import { useLatest } from '../../ui/useLatest'
 import { storedPlayFirst } from '../../db/types'
+import { useNotationTuneIds } from '../notation/useNotationPages'
 import { useSettingsRow } from '../settings/useSettingsRow'
 import { ListTuneRow } from './ListRowPlay'
+import { moveMenuItems } from './moveMenu'
 import { useListSelection, type ListSelectionHost } from './useListSelection'
 import type { ListItemView } from './useLists'
 import { useReplayedOrder } from './useReplayedOrder'
 
-export const MOVE_DOWN = 'Move down'
-export const MOVE_TO_BOTTOM = 'Move to bottom'
-export const MOVE_TO_TOP = 'Move to top'
-export const MOVE_UP = 'Move up'
-
-/** Where each menu item sends the tune, read against the rows on screen when it is pressed. */
-const PLACES = {
-  top: () => 0,
-  up: (index: number) => index - 1,
-  down: (index: number) => index + 1,
-  bottom: (_index: number, last: number) => last,
-} as const
+const itemIdOf = (view: ListItemView) => view.item.id
 
 /**
  * A list's tunes in their stored order, reorderable by dragging the grip or from the move menu
@@ -72,6 +65,7 @@ export function ListTunes({
   const openMenu = useMenu()
   const settings = useSettingsRow()
   const playFirst = settings === undefined ? undefined : storedPlayFirst(settings)
+  const notationTunes = useNotationTuneIds()
   // The screen owns the forwarded ref for its own keyboard shortcut, so entering selection
   // needs a second handle on the same element to close whatever row a swipe left open.
   const list = useRef<HTMLIonListElement>(null)
@@ -84,9 +78,14 @@ export function ListTunes({
     [ref],
   )
 
+  const db = useDb()
   const { ordered, move, announcement } = useReplayedOrder({
-    listId,
     items,
+    idOf: itemIdOf,
+    write: (itemId, targetId) => moveItem(db, listId, itemId, targetId),
+    readOrder: async () => (await activeItems(db, listId)).map((item) => item.id),
+    announce: (rows, from, to) =>
+      `Moved ${rows[from]!.tune.title} to position ${to + 1} of ${rows.length}`,
     onMoveStart,
     onError,
   })
@@ -111,27 +110,11 @@ export function ListTunes({
   })
 
   const moveMenu = (event: ReactMouseEvent, view: ListItemView) => {
-    const index = visible.indexOf(view)
-    const last = visible.length - 1
-    const go = (place: (index: number, last: number) => number) => () => {
+    const menu = moveMenuItems(visible.indexOf(view), visible.length, (place) => () => {
       const rows = onScreenRef.current
       const at = rows.findIndex((row) => row.item.id === view.item.id)
       if (at >= 0) move(rows, at, place(at, rows.length - 1))
-    }
-    const menu: MenuItem[] = [
-      ...(index > 0
-        ? [
-            { label: MOVE_TO_TOP, onPress: go(PLACES.top) },
-            { label: MOVE_UP, onPress: go(PLACES.up) },
-          ]
-        : []),
-      ...(index < last
-        ? [
-            { label: MOVE_DOWN, onPress: go(PLACES.down) },
-            { label: MOVE_TO_BOTTOM, onPress: go(PLACES.bottom) },
-          ]
-        : []),
-    ]
+    })
     if (menu.length > 0) openMenu(event, `Move ${view.tune.title}`, menu)
   }
 
@@ -160,6 +143,7 @@ export function ListTunes({
                 selection={active ? row : undefined}
                 onOpen={() => onOpen(view.tune.id)}
                 onLongPress={selection?.enabled ? row.onLongPress : undefined}
+                hasNotation={notationTunes.has(view.tune.id)}
                 start={
                   <span
                     slot="start"

@@ -68,7 +68,7 @@ export async function recoverInterruptedCaptures(
   }
 }
 
-function errorText(error: unknown): string {
+export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -79,6 +79,17 @@ const RETRY_MAX_MS = 30 * 60_000
 /** How long a transfer that failed `attempts` times in a row waits before the next try. */
 export function retryDelayMs(attempts: number): number {
   return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** attempts)
+}
+
+/** A refusal that a later attempt can turn around: the server's own fault, an auth failure, a
+ * timeout, or a rate limit. Any other 4xx refuses the request itself and will not succeed as-is. */
+export function isRetryableRefusal(error: ApiError): boolean {
+  return (
+    error.status < 400 ||
+    error.status >= 500 ||
+    isAuthFailure(error) ||
+    [408, 429].includes(error.status)
+  )
 }
 
 /** A transient failure goes back to captured for the next pass, but not before a backoff
@@ -145,14 +156,8 @@ async function uploadOne(db: CrosstuneDb, api: SyncApi, id: string): Promise<voi
         await requeueRecording(db, id)
         return
       }
-      if (
-        error.status >= 400 &&
-        error.status < 500 &&
-        !isAuthFailure(error) &&
-        ![408, 429].includes(error.status)
-      ) {
-        // A refusal of the request itself (bad mime, too large) will never succeed
-        // as-is; an auth, timeout, or rate-limit refusal might on retry.
+      if (!isRetryableRefusal(error)) {
+        // A refusal of the request itself (bad mime, too large) will never succeed as-is.
         await settleUpload(db, id, 'failed_upload', error.message)
         return
       }

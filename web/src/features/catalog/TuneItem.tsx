@@ -1,8 +1,11 @@
 import { IonLabel } from '@ionic/react'
-import { Fragment, type ReactNode } from 'react'
+import { FileMusic } from 'lucide-react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import { KeyPill } from '../../ui/KeyPill'
+import { NOTATION } from '../notation/notationCopy'
+import { NotationViewer } from '../notation/NotationViewer'
 import { Row, type RowAction } from '../../ui/Row'
 import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
@@ -104,6 +107,7 @@ export function TuneItem({
   description,
   start,
   end,
+  hasNotation = false,
 }: {
   entry: CatalogEntry
   instruments: ReadonlySet<Instrument>
@@ -123,26 +127,48 @@ export function TuneItem({
   description?: string
   start?: ReactNode
   end?: ReactNode
+  /** Whether the tune has a live page, from the screen's one read of every tune's notation. */
+  hasNotation?: boolean
 }) {
   const { tune, userTune } = entry
   const archived = userTune.archived_at !== null
   const selecting = selection !== undefined
+  // Only a row that already offers actions gains this one, so a row stilled for selection or
+  // shown as a search result stays as its screen made it.
+  const [viewing, setViewing] = useState(false)
+  const rowActions =
+    actions && hasNotation
+      ? [
+          {
+            label: NOTATION,
+            icon: FileMusic,
+            tone: 'neutral' as const,
+            onPress: () => setViewing(true),
+          },
+          ...actions,
+        ]
+      : actions
   return (
-    <Row
-      name={tune.title}
-      onOpen={selection ? selection.onToggle : onOpen}
-      openName={selection ? (selection.selected ? 'Deselect' : 'Select') : undefined}
-      actions={actions}
-      disabled={selecting}
-      dimmed={archived}
-      selected={selection?.selected}
-      openId={selecting ? selectionCheckboxId(userTune.id) : undefined}
-      onLongPress={selecting ? undefined : onLongPress}
-      description={description}
-      start={start}
-      end={end}
-    >
-      <TuneLines entry={entry} instruments={instruments} />
-    </Row>
+    <>
+      <Row
+        name={tune.title}
+        onOpen={selection ? selection.onToggle : onOpen}
+        openName={selection ? (selection.selected ? 'Deselect' : 'Select') : undefined}
+        actions={rowActions}
+        disabled={selecting}
+        dimmed={archived}
+        selected={selection?.selected}
+        openId={selecting ? selectionCheckboxId(userTune.id) : undefined}
+        onLongPress={selecting ? undefined : onLongPress}
+        description={description}
+        start={start}
+        end={end}
+      >
+        <TuneLines entry={entry} instruments={instruments} />
+      </Row>
+      {viewing ? (
+        <NotationViewer tuneId={tune.id} startIndex={0} onClose={() => setViewing(false)} />
+      ) : null}
+    </>
   )
 }

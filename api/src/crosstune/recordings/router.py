@@ -16,12 +16,15 @@ from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import (
-    AppError,
-    ConflictError,
-    FileTooLargeError,
-    QuotaExceededError,
-    problem_responses,
+from crosstune.errors import ConflictError, QuotaExceededError, problem_responses
+from crosstune.files.quota import slot_for_recording, used_bytes
+from crosstune.files.urls import (
+    UPLOAD_SIZE_TOLERANCE,
+    UPLOAD_URL_TTL_SECONDS,
+    SignedUrl,
+    file_too_large,
+    presign_get,
+    require_store,
 )
 from crosstune.models import UploadSlot
 from crosstune.models.user import utc_now
@@ -30,22 +33,15 @@ from crosstune.recordings.service import (
     enqueue_transcode,
     owned_recording,
     require_state,
-    slot_for,
     start_import,
-    used_bytes,
 )
 from crosstune.storage.store import upload_key
 
 if TYPE_CHECKING:
     from crosstune.models import Recording
-    from crosstune.storage.store import ObjectStore
 
 router = APIRouter(prefix="/v1/recordings", tags=["recordings"])
 
-UPLOAD_URL_TTL_SECONDS = 3600
-DOWNLOAD_URL_TTL_SECONDS = 3600
-# The signed PUT fixes the length, so this only catches a store that does not enforce it.
-UPLOAD_SIZE_TOLERANCE = 0.05
 # A recording may ask for a slot before its first upload and after one that failed.
 SLOT_STATES = ("pending_upload", "failed")
 # States that mean an earlier confirmation was accepted, so a repeat of it changes nothing.
@@ -63,13 +59,6 @@ class UploadSlotRequest(BaseModel):
     )
 
 
-class SignedUrl(BaseModel):
-    """A presigned URL and when it stops working."""
-
-    url: str
-    expires_at: datetime
-
-
 class DownloadUrl(BaseModel):
     """A presigned GET for the playback file, tagged with the revision and start it was signed for."""
 
@@ -85,26 +74,6 @@ class PeaksUrl(BaseModel):
     url: str
     expires_at: datetime
     peaks_rev: str
-
-
-class StorageUnavailableError(AppError):
-    """No object store is configured, so uploads and downloads cannot be served."""
-
-    def __init__(self) -> None:
-        super().__init__(503, "Service Unavailable", "Recording storage is not configured")
-
-
-def _file_too_large(limit: int) -> FileTooLargeError:
-    msg = f"Files are limited to {limit} bytes"
-    return FileTooLargeError(msg)
-
-
-def require_store(request: Request) -> ObjectStore:
-    """The app's object store, or a 503 when the deployment has none."""
-    store = request.app.state.object_store
-    if store is None:
-        raise StorageUnavailableError
-    return store
 
 
 @router.post("/{recording_id}/upload-slot", responses=problem_responses(404, 409, 413, 503))
@@ -126,14 +95,14 @@ async def upload_slot(
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, *SLOT_STATES)
     if body.bytes > settings.recording_max_file_bytes:
-        raise _file_too_large(settings.recording_max_file_bytes)
+        raise file_too_large(settings.recording_max_file_bytes)
 
     now = utc_now()
-    existing = await slot_for(session, recording.id)
+    existing = await slot_for_recording(session, recording.id)
     # This recording's own slot or failed upload is what the new PUT replaces.
     used = await used_bytes(session, user.id, now, exclude=recording.id)
-    if used + body.bytes > settings.recording_quota_bytes:
-        msg = f"{used} of {settings.recording_quota_bytes} bytes used"
+    if used + body.bytes > settings.storage_quota_bytes:
+        msg = f"{used} of {settings.storage_quota_bytes} bytes used"
         raise QuotaExceededError(msg)
 
     expires_at = now + timedelta(seconds=UPLOAD_URL_TTL_SECONDS)
@@ -183,7 +152,7 @@ async def upload_finished(
     await lock_user(session, user.id)
     # Re-read under the lock: another request may have confirmed or failed this recording meanwhile.
     await session.refresh(recording)
-    slot = await slot_for(session, recording.id)
+    slot = await slot_for_recording(session, recording.id)
     if recording.state in CONFIRMED_STATES and slot is None:
         # A retried call after a lost response: the first one consumed the slot
         # and queued the job.
@@ -197,7 +166,7 @@ async def upload_finished(
         raise ConflictError(msg)
     if info.size > settings.recording_max_file_bytes:
         await store.delete(key)
-        raise _file_too_large(settings.recording_max_file_bytes)
+        raise file_too_large(settings.recording_max_file_bytes)
     if info.size > slot.declared_bytes * (1 + UPLOAD_SIZE_TOLERANCE):
         await store.delete(key)
         msg = f"Uploaded {info.size} bytes but declared {slot.declared_bytes}"
@@ -260,12 +229,6 @@ def _never_arrived(recording: Recording) -> bool:
     )
 
 
-def _presign_get(store: ObjectStore, key: str) -> tuple[str, datetime]:
-    """A presigned GET url for an object key, with the download TTL's own expiry."""
-    url = store.presign_get(key, DOWNLOAD_URL_TTL_SECONDS)
-    return url, utc_now() + timedelta(seconds=DOWNLOAD_URL_TTL_SECONDS)
-
-
 @router.get("/{recording_id}/download", responses=problem_responses(404, 409, 503))
 async def download(
     recording_id: uuid.UUID,
@@ -288,7 +251,7 @@ async def download(
     if key is None or rev is None or start_ms is None:
         msg = "Recording has no playback file"
         raise ConflictError(msg)
-    url, expires_at = _presign_get(store, key)
+    url, expires_at = presign_get(store, key)
     return DownloadUrl(url=url, expires_at=expires_at, playback_rev=rev, playback_start_ms=start_ms)
 
 
@@ -310,5 +273,5 @@ async def peaks(
     if key is None or rev is None:
         msg = "Recording has no peaks file"
         raise ConflictError(msg)
-    url, expires_at = _presign_get(store, key)
+    url, expires_at = presign_get(store, key)
     return PeaksUrl(url=url, expires_at=expires_at, peaks_rev=rev)
