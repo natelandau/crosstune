@@ -1,6 +1,6 @@
 # Crosstune
 
-A tune catalog for folk musicians. `docs/product.md` says what it is and
+A tune catalog and practice app for musicians who learn by ear. `docs/product.md` says what it is and
 why. `docs/README.md` indexes every page under `docs/`.
 
 ## Layout

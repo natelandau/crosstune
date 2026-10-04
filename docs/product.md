@@ -1,40 +1,55 @@
 # Crosstune
 
-Crosstune is a tune catalog for folk musicians. A musician keeps the tunes
-they know and the tunes they want to learn, and reaches a recording of any
-tune in two taps, with or without a network connection.
+Crosstune is a tune catalog and practice app for musicians who learn by
+ear. Each tune holds its status, its recordings, and its links. From that
+catalog a musician records, practices, and builds lists, with or without a
+network connection.
 
 ## Why it exists
 
-Folk musicians learn by ear, from other players at jams and from recordings.
+Musicians who learn by ear learn from recordings and from other players.
 The tools they have do not fit that:
 
-- Jam recordings land in a general voice memo app, mixed with everything else
-  and hard to find.
 - Tune lists live on paper, sorted by key, with a separate list of tunes to
   learn.
+- Recordings of jams, sessions, and solo playing land in a general voice
+  memo app, mixed with everything else and hard to find.
 - A musician's own recording of a tune and the streaming versions live in
   different apps.
-- At a jam, a musician needs the list of tunes they know and a fast reminder
-  of how each one goes.
+- Slowing a recording down, shifting its pitch, and looping the hard part
+  need yet another app.
+- Set lists and practice lists live on paper or in a notes app, apart from
+  the recordings.
 
 ## Who it is for
 
-- Folk musicians of any tradition who attend jams and want a better tool
-  than paper.
+- Musicians who learn by ear, in old-time, bluegrass, Irish, klezmer, and
+  other folk traditions. They play alone, in small sessions, and at large
+  jams.
 - Free at launch. Paid access comes later, so accounts and data must support
   billing without a rewrite.
-- Success is the founder using it at a jam instead of a paper list, and
+- Success is musicians using Crosstune as their one place for tunes,
+  recordings, and practice, in place of paper lists and voice memo apps, and
   other players asking for an account.
 
-## The core loop
+## Use cases
 
-1. Add a tune with its key, tuning, and other attributes.
-2. Mark it known, learning, or want to learn.
-3. Find or paste links to recordings of it, or record it.
-4. At the jam, filter the catalog by key, tap the tune, hear it.
+The catalog is the hub. Every other use case starts from a tune in it, and
+none of them outranks the others.
 
-Everything else supports this loop.
+- Keep track of tunes. Each tune is known, learning, or want to learn. The
+  catalog answers what a musician can play and what to learn next.
+- Record. Capture a large jam, a small session, or one musician playing
+  alone. File the recording under a tune, or leave it unfiled for later.
+- Learn and practice by ear. Play a recording slower or faster, shift its
+  pitch, and loop the hard part. Find and link other versions on streaming
+  services.
+- Keep lists. Ordered, named lists for a set list, a practice plan, a
+  playlist, or any grouping a musician wants.
+
+Jams are one important setting among several. At a jam, a musician filters
+the catalog by key, taps a tune, and hears how it goes. That path stays
+fast. No feature assumes that the musician is at a jam.
 
 ## What it does
 
@@ -46,7 +61,7 @@ for Android and every browser. The parts that matter:
 - Catalog. Tunes with musical attributes (key, mode for each part, tunings,
   genre, type, time signature, part structure, composer), lyrics, where and
   when they were learned, notes, and a status. Tunes can be archived.
-- Lists. Ordered, named lists such as a setlist. A tune can be in many.
+- Lists. Ordered, named lists such as a set list. A tune can be in many.
   Each tune plays from its row: the recording or link the musician pinned,
   or else the one the Play first setting picks. The Apple app also plays a
   list as a playlist of recordings and full Apple Music tracks, with
@@ -94,8 +109,9 @@ Each has a place in the data model and no code:
 
 ## Constraints for every release
 
-- Phone first. The jam-night screen works one-handed, in poor light, in
-  under two taps.
+- Phone first. A screen used with an instrument in hand works one-handed
+  and in poor light. A recording of any tune is at most two taps from the
+  catalog.
 - Offline. The catalog is readable and editable with no signal.
 - API first. The backend never depends on a client. The Apple app and the
   web client use the same endpoints.
@@ -127,4 +143,4 @@ understands it. Tuning values keep their traditional names.
 | Crooked        | A tune with an irregular number of beats or measures in a part.                                                                                                              |
 | Part structure | The order and repeats of a tune's sections: AABB, AABBCC.                                                                                                                    |
 | Status         | Known, learning, or want to learn. Want to learn is labeled "Unknown".                                                                                                       |
-| Jam            | An informal session where musicians play together and learn tunes from each other.                                                                                           |
+| Jam            | An informal gathering where musicians play tunes together and learn from each other, large or small. Irish players call it a session.                                        |
