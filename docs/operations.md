@@ -186,9 +186,9 @@ and fails instead in CI, where the `API` workflow always starts it.
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
   Worker config with a dry run.
-  All three start on every PR and skip their jobs when it touches nothing
-  they cover. `API` and `Web` are required checks, and a skipped job passes
-  a required check.
+  All three start on every PR, skip their jobs when it touches nothing
+  they cover, and are required checks. A skipped job passes a required
+  check.
   `Apple` runs on GitHub's `xcode-27` image: it lints, runs the Swift
   package tests, builds for the iOS Simulator and macOS, and checks the
   generated Swift client and vocabulary file. It runs only when `apple/` or
