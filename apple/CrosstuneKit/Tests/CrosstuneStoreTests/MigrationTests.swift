@@ -443,6 +443,330 @@ private struct V4Fixture {
     }
 }
 
+@Test func migratingToV12KeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v11")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO tunes
+                    (id, created_at, updated_at, server_seq, title, alternate_titles, modes, is_crooked, tunings, extra)
+                VALUES ('t-1', ?, ?, 4, 'Jam', '[]', '[]', 0, '{}', '{}')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}'),
+                    ('user_tunes', 'ut-1', 'delete', ?, NULL)
+                """,
+            arguments: [time, time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '4')")
+    }
+    let before = try queue.read { db in
+        try Row.fetchAll(db, sql: "SELECT * FROM outbox ORDER BY seq")
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v12")
+
+    try queue.read { (db: Database) throws in
+        #expect(try String.fetchAll(db, sql: "SELECT title FROM tunes") == ["Jam"])
+        #expect(try Row.fetchAll(db, sql: "SELECT * FROM outbox ORDER BY seq") == before)
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "4")
+        for table in ["play_events", "practice_sessions", "status_changes"] {
+            #expect(try Int.fetchOne(db, sql: "SELECT count(*) FROM \(table)") == 0)
+        }
+    }
+}
+
+/// Same promise as `v4`'s, for the migration that adds the history tables, which is all it adds.
+@Test func theV12MigrationNeverChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v11")
+    let objects = """
+        SELECT type, name, sql FROM sqlite_master
+        WHERE name NOT LIKE 'sqlite_%' AND name != 'grdb_migrations' AND sql IS NOT NULL
+        ORDER BY name
+        """
+    let before = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    try Schema.migrator.migrate(queue, upTo: "v12")
+    let added = try queue.read { db in
+        try Row.fetchAll(db, sql: objects)
+            .filter { !before.contains($0) }
+            .map { row -> String in
+                let type: String = row["type"]
+                let name: String = row["name"]
+                let sql: String = row["sql"]
+                return "\(type) \(name): \(sql.replacingOccurrences(of: ", ", with: ",\n  "))"
+            }
+            .joined(separator: "\n")
+    }
+    #expect(added == v12Schema)
+}
+
+@Test func migratingToV13KeepsAPendingScanItsImageAndItsQueuedChange() async throws {
+    let root = TemporaryRoot()
+    let folder = try CrosstuneStore.folder(for: "user_a", in: root.url)
+    let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
+    let pool = try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
+    try Schema.migrator.migrate(pool, upTo: "v12")
+    let time = "2026-09-25T12:00:00.000Z"
+    try await pool.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO tunes
+                    (id, created_at, updated_at, server_seq, title, alternate_titles, modes, is_crooked, tunings, extra)
+                VALUES ('t-1', ?, ?, 0, 'Jam', '[]', '[]', 0, '{}', '{}')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO notation_pages
+                    (id, created_at, updated_at, server_seq, tune_id, position, width, height, state, extra)
+                VALUES ('p-1', ?, ?, 0, 't-1', 0, 3, 4, 'pending_upload', '{}')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: "INSERT INTO notation_files (page_id, file_name, origin) VALUES ('p-1', 'p-1-a.jpg', 'captured')")
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}'),
+                    ('notation_pages', 'p-1', 'upsert', ?, '{"tune_id":"t-1","position":0,"width":3,"height":4}'),
+                    ('notation_pages', 'p-0', 'delete', ?, NULL),
+                    ('lists', 'l-1', 'upsert', ?, '{"name":"Set"}')
+                """,
+            arguments: [time, time, time, time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '4')")
+    }
+    let outbox = "SELECT seq, row_id, op, updated_at, data, table_name FROM outbox ORDER BY seq"
+    let before = try await pool.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
+    try pool.close()
+    try Data([1]).write(to: legacy.appending(path: "p-1-a.jpg"))
+
+    let store = try root.open()
+    await store.deleteUnnamedFiles()
+
+    let scan = try #require(try await store.read { db in try ScanRecord.fetchOne(db, key: "p-1") })
+    #expect(scan.state == ScanRecord.pendingUpload)
+    #expect(scan.tuneID == "t-1")
+    let file = try #require(try await store.read { db in try ScanFile.fetchOne(db, key: "p-1") })
+    #expect(file == ScanFile(scanID: "p-1", fileName: "p-1-a.jpg", origin: .captured))
+    let image = store.scansFolder.appending(path: "p-1-a.jpg")
+    #expect(FileManager.default.fileExists(atPath: image.path(percentEncoded: false)))
+    #expect(!FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
+    #expect(try await store.notUploadedScanCount() == 1)
+
+    let after = try await store.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
+    // Every column but the table name stays as it was, `seq` included, so the queue keeps its order.
+    #expect(after.map { $0.dropLast() } == before.map { $0.dropLast() })
+    #expect(after.map { String.fromDatabaseValue($0.last!) } == ["tunes", "scans", "scans", "lists"])
+    let queued = try await store.pendingChanges(limit: 10)
+    #expect(queued.map(\.tableName) == [.tunes, .scans, .scans, .lists])
+    #expect(try await store.meta(.pullCursor, as: Int.self) == 4, "the rows move, so nothing is pulled again")
+}
+
+@Test func openingAStoreMergesALeftoverNotationFolderIntoScans() throws {
+    let root = TemporaryRoot()
+    let folder = try CrosstuneStore.folder(for: "user_a", in: root.url)
+    let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
+    let scans = folder.appending(path: "scans", directoryHint: .isDirectory)
+    for url in [legacy, scans] { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true) }
+    try Data("old".utf8).write(to: legacy.appending(path: "a.jpg"))
+    try Data("kept".utf8).write(to: legacy.appending(path: "b.jpg"))
+    try Data("new".utf8).write(to: scans.appending(path: "a.jpg"))
+
+    try CrosstuneStore.moveLegacyScansFolder(in: folder)
+
+    #expect(!FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
+    #expect(try Data(contentsOf: scans.appending(path: "a.jpg")) == Data("new".utf8))
+    #expect(try Data(contentsOf: scans.appending(path: "b.jpg")) == Data("kept".utf8))
+}
+
+/// Same promise as `v4`'s, for the migration that renames notation pages to scans.
+@Test func theV13MigrationNeverChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v12")
+    let objects = """
+        SELECT type, name, sql FROM sqlite_master
+        WHERE name NOT LIKE 'sqlite_%' AND name != 'grdb_migrations' AND sql IS NOT NULL
+        ORDER BY name
+        """
+    func described(_ rows: [Row]) -> String {
+        rows.map { row -> String in
+            let type: String = row["type"]
+            let name: String = row["name"]
+            let sql: String = row["sql"]
+            return "\(type) \(name): \(sql.replacingOccurrences(of: ", ", with: ",\n  "))"
+        }
+        .joined(separator: "\n")
+    }
+    let before = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    try Schema.migrator.migrate(queue, upTo: "v13")
+    let after = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    #expect(described(before.filter { !after.contains($0) }) == v13Removed)
+    #expect(described(after.filter { !before.contains($0) }) == v13Added)
+}
+
+@Test func migratingToV14KeepsRowsQueuedChangesAndBothCursors() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v13")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        try db.execute(
+            sql: """
+                INSERT INTO tunes
+                    (id, created_at, updated_at, server_seq, title, alternate_titles, modes, is_crooked, tunings, extra)
+                VALUES ('t-1', ?, ?, 4, 'Jam', '[]', '[]', 0, '{}', '{}')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO play_events (id, server_seq, created_at, context, started_at, listened_ms, recording_id)
+                VALUES ('p-1', NULL, ?, 'row', ?, 12000, 'r-1')
+                """,
+            arguments: [time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}'),
+                    ('play_events', 'p-1', 'upsert', ?, '{"context":"row"}'),
+                    ('user_tunes', 'ut-1', 'delete', ?, NULL)
+                """,
+            arguments: [time, time, time])
+        try db.execute(sql: "INSERT INTO meta (key, value) VALUES ('pull_cursor', '4'), ('events_cursor', '9')")
+    }
+    let outbox = "SELECT * FROM outbox ORDER BY seq"
+    let before = try queue.read { db in try Row.fetchAll(db, sql: outbox) }
+
+    try Schema.migrator.migrate(queue, upTo: "v14")
+
+    try queue.read { (db: Database) throws in
+        #expect(try String.fetchAll(db, sql: "SELECT title FROM tunes") == ["Jam"])
+        #expect(try String.fetchAll(db, sql: "SELECT id FROM play_events") == ["p-1"])
+        #expect(try Row.fetchAll(db, sql: outbox) == before)
+        #expect(try Int.fetchOne(db, sql: "SELECT count(*) FROM scan_views") == 0)
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'pull_cursor'") == "4")
+        #expect(try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'events_cursor'") == "9")
+    }
+}
+
+/// Same promise as `v4`'s, for the migration that adds the scan views table, which is all it adds.
+@Test func theV14MigrationNeverChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v13")
+    let objects = """
+        SELECT type, name, sql FROM sqlite_master
+        WHERE name NOT LIKE 'sqlite_%' AND name != 'grdb_migrations' AND sql IS NOT NULL
+        ORDER BY name
+        """
+    let before = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    try Schema.migrator.migrate(queue, upTo: "v14")
+    let after = try queue.read { db in try Row.fetchAll(db, sql: objects) }
+    #expect(after.filter { before.contains($0) }.count == before.count, "nothing is removed or changed")
+    let added = after.filter { !before.contains($0) }
+        .map { row -> String in
+            let type: String = row["type"]
+            let name: String = row["name"]
+            let sql: String = row["sql"]
+            return "\(type) \(name): \(sql.replacingOccurrences(of: ", ", with: ",\n  "))"
+        }
+        .joined(separator: "\n")
+    #expect(added == v14Schema)
+}
+
+private let v14Schema = """
+    table scan_views: CREATE TABLE "scan_views" ("id" TEXT PRIMARY KEY NOT NULL,
+      "server_seq" INTEGER,
+      "created_at" TEXT NOT NULL,
+      "tune_id" TEXT NOT NULL,
+      "context" TEXT NOT NULL,
+      "list_id" TEXT,
+      "started_at" TEXT NOT NULL,
+      "viewed_ms" INTEGER NOT NULL)
+    index scan_views_on_started_at: CREATE INDEX "scan_views_on_started_at" ON "scan_views"("started_at")
+    """
+
+/// The `notation_pages` and `notation_files` shapes here are what `v10` creates, so this also
+/// pins `v10`'s output.
+private let v13Removed = """
+    table notation_files: CREATE TABLE "notation_files" ("page_id" TEXT PRIMARY KEY NOT NULL,
+      "file_name" TEXT NOT NULL,
+      "origin" TEXT NOT NULL,
+      "error" TEXT,
+      "upload_attempts" INTEGER NOT NULL DEFAULT 0,
+      "next_attempt_at" TEXT)
+    table notation_pages: CREATE TABLE "notation_pages" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "tune_id" TEXT NOT NULL,
+      "position" INTEGER NOT NULL,
+      "width" INTEGER NOT NULL,
+      "height" INTEGER NOT NULL,
+      "state" TEXT NOT NULL,
+      "file_bytes" INTEGER,
+      "extra" TEXT NOT NULL)
+    index notation_pages_on_tune_id: CREATE INDEX "notation_pages_on_tune_id" ON "notation_pages"("tune_id")
+    """
+
+private let v13Added = """
+    table scan_files: CREATE TABLE "scan_files" ("scan_id" TEXT PRIMARY KEY NOT NULL,
+      "file_name" TEXT NOT NULL,
+      "origin" TEXT NOT NULL,
+      "error" TEXT,
+      "upload_attempts" INTEGER NOT NULL DEFAULT 0,
+      "next_attempt_at" TEXT)
+    table scans: CREATE TABLE "scans" ("id" TEXT PRIMARY KEY NOT NULL,
+      "created_at" TEXT NOT NULL,
+      "updated_at" TEXT NOT NULL,
+      "deleted_at" TEXT,
+      "server_seq" INTEGER NOT NULL,
+      "tune_id" TEXT NOT NULL,
+      "position" INTEGER NOT NULL,
+      "width" INTEGER NOT NULL,
+      "height" INTEGER NOT NULL,
+      "state" TEXT NOT NULL,
+      "file_bytes" INTEGER,
+      "extra" TEXT NOT NULL)
+    index scans_on_tune_id: CREATE INDEX "scans_on_tune_id" ON "scans"("tune_id")
+    """
+
+private let v12Schema = """
+    table play_events: CREATE TABLE "play_events" ("id" TEXT PRIMARY KEY NOT NULL,
+      "server_seq" INTEGER,
+      "created_at" TEXT NOT NULL,
+      "context" TEXT NOT NULL,
+      "started_at" TEXT NOT NULL,
+      "listened_ms" INTEGER NOT NULL,
+      "recording_id" TEXT,
+      "link_id" TEXT,
+      "list_id" TEXT,
+      "tune_id" TEXT)
+    index play_events_on_started_at: CREATE INDEX "play_events_on_started_at" ON "play_events"("started_at")
+    table practice_sessions: CREATE TABLE "practice_sessions" ("id" TEXT PRIMARY KEY NOT NULL,
+      "server_seq" INTEGER,
+      "created_at" TEXT NOT NULL,
+      "recording_id" TEXT NOT NULL,
+      "tune_id" TEXT,
+      "started_at" TEXT NOT NULL,
+      "duration_ms" INTEGER NOT NULL,
+      "speed_percent" INTEGER NOT NULL,
+      "pitch_cents" INTEGER NOT NULL,
+      "loop_ids" TEXT NOT NULL)
+    index practice_sessions_on_started_at: CREATE INDEX "practice_sessions_on_started_at" ON "practice_sessions"("started_at")
+    table status_changes: CREATE TABLE "status_changes" ("id" TEXT PRIMARY KEY NOT NULL,
+      "server_seq" INTEGER NOT NULL,
+      "user_tune_id" TEXT NOT NULL,
+      "from_status" TEXT,
+      "to_status" TEXT NOT NULL,
+      "changed_at" TEXT NOT NULL)
+    index status_changes_on_changed_at: CREATE INDEX "status_changes_on_changed_at" ON "status_changes"("changed_at")
+    """
+
 private let v5LoopsSchema = """
     table recording_loops: CREATE TABLE "recording_loops" ("id" TEXT PRIMARY KEY NOT NULL,
       "created_at" TEXT NOT NULL,

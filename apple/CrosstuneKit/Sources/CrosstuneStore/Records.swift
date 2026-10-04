@@ -1,7 +1,8 @@
 import Foundation
 import GRDB
 
-/// The tables the API syncs, named as on the wire.
+/// The tables the client pushes, named as on the wire: the synced tables, then the insert-only
+/// event tables, whose rows the sync pull never carries.
 public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case tunes
     case userTunes = "user_tunes"
@@ -9,9 +10,25 @@ public enum SyncTable: String, CaseIterable, Codable, Sendable {
     case listItems = "list_items"
     case recordingLinks = "recording_links"
     case recordings
-    case notationPages = "notation_pages"
+    case scans
     case recordingLoops = "recording_loops"
     case userSettings = "user_settings"
+    case playEvents = "play_events"
+    case practiceSessions = "practice_sessions"
+    case scanViews = "scan_views"
+
+    /// Whether this is an insert-only event table. A queued event row never schedules a sync,
+    /// and sign-out drops one still unsent.
+    public var isEvent: Bool {
+        switch self {
+        case .playEvents, .practiceSessions, .scanViews: true
+        case .tunes, .userTunes, .lists, .listItems, .recordingLinks, .recordings, .scans,
+            .recordingLoops, .userSettings:
+            false
+        }
+    }
+
+    public static let eventTables = allCases.filter(\.isEvent)
 }
 
 /// A local copy of a server row, without its ownership keys, which the server sets from the
@@ -72,7 +89,7 @@ extension SyncedRecord {
 let ownershipKeys: Set<String> = ["owner_user_id", "user_id", "added_by_user_id"]
 
 /// Keys a change never carries: bookkeeping the server owns, ownership, and the fields the
-/// recording and notation upload pipelines compute. The web client's `toChangeData` strips the
+/// recording and scan upload pipelines compute. The web client's `toChangeData` strips the
 /// same list.
 let keysNotInChanges: Set<String> = ownershipKeys.union([
     "id", "updated_at", "deleted_at", "server_seq",
@@ -552,10 +569,10 @@ public struct Recording: SyncedRecord, Hashable {
     }
 }
 
-/// An image of written music attached to a tune. Its file lives on the device as a
-/// ``NotationFile``.
-public struct NotationPageRecord: SyncedRecord, Hashable {
-    public static let table = SyncTable.notationPages
+/// One image attached to a tune: written music, a lyric sheet, or notes. Its file lives on the
+/// device as a ``ScanFile``.
+public struct ScanRecord: SyncedRecord, Hashable {
+    public static let table = SyncTable.scans
 
     public var id: String
     public var createdAt: Timestamp
@@ -564,7 +581,7 @@ public struct NotationPageRecord: SyncedRecord, Hashable {
     public var serverSeq: Int64
     public var tuneID: String
     public var position: Int
-    /// The image's size in pixels, so a page lays out before its file is on the device.
+    /// The image's size in pixels, so a scan lays out before its file is on the device.
     public var width: Int
     public var height: Int
     /// The upload pipeline's fields: read here, never sent in a change.

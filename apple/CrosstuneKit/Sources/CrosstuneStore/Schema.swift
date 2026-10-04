@@ -135,7 +135,7 @@ enum Schema {
                 arguments: [table])
         }
         migrator.registerMigration("v10") { db in
-            try createSyncTable(db, .notationPages) { t in
+            try createSyncTable(db, named: "notation_pages") { t in
                 t.column("tune_id", .text).notNull().indexed()
                 t.column("position", .integer).notNull()
                 t.column("width", .integer).notNull()
@@ -195,6 +195,32 @@ enum Schema {
                         AND json_type(data, '$.recorded_at') = 'text' AND json_type(data, '$.added_at') IS NULL
                     """,
                 arguments: [table])
+        }
+        migrator.registerMigration("v12") { db in
+            try createEventTables(db)
+        }
+        migrator.registerMigration("v13") { db in
+            // The rows move as they are, so no repull is needed. SQLite cannot rename an index,
+            // so the tune index is made again under the new table's name.
+            try db.execute(sql: "ALTER TABLE notation_pages RENAME TO scans")
+            try db.execute(sql: "DROP INDEX notation_pages_on_tune_id")
+            try db.create(index: "scans_on_tune_id", on: "scans", columns: ["tune_id"])
+            try db.execute(sql: "ALTER TABLE notation_files RENAME TO scan_files")
+            try db.execute(sql: "ALTER TABLE scan_files RENAME COLUMN page_id TO scan_id")
+            // The API refuses the old table name, and a queued change keeps its place in line.
+            try db.execute(sql: "UPDATE outbox SET table_name = 'scans' WHERE table_name = 'notation_pages'")
+        }
+        migrator.registerMigration("v14") { db in
+            try db.create(table: "scan_views") { t in
+                t.primaryKey("id", .text)
+                t.column("server_seq", .integer)
+                t.column("created_at", .text).notNull()
+                t.column("tune_id", .text).notNull()
+                t.column("context", .text).notNull()
+                t.column("list_id", .text)
+                t.column("started_at", .text).notNull().indexed()
+                t.column("viewed_ms", .integer).notNull()
+            }
         }
         return migrator
     }()
@@ -318,10 +344,56 @@ enum Schema {
         }
     }
 
+    /// The history tables, in the API's row shape. Event rows are never edited or deleted, so
+    /// they carry none of a synced row's bookkeeping; a play or practice session recorded here
+    /// has no `server_seq` until its push result lands.
+    private static func createEventTables(_ db: Database) throws {
+        try db.create(table: SyncTable.playEvents.rawValue) { t in
+            t.primaryKey("id", .text)
+            t.column("server_seq", .integer)
+            t.column("created_at", .text).notNull()
+            t.column("context", .text).notNull()
+            t.column("started_at", .text).notNull().indexed()
+            t.column("listened_ms", .integer).notNull()
+            t.column("recording_id", .text)
+            t.column("link_id", .text)
+            t.column("list_id", .text)
+            t.column("tune_id", .text)
+        }
+        try db.create(table: SyncTable.practiceSessions.rawValue) { t in
+            t.primaryKey("id", .text)
+            t.column("server_seq", .integer)
+            t.column("created_at", .text).notNull()
+            t.column("recording_id", .text).notNull()
+            t.column("tune_id", .text)
+            t.column("started_at", .text).notNull().indexed()
+            t.column("duration_ms", .integer).notNull()
+            t.column("speed_percent", .integer).notNull()
+            t.column("pitch_cents", .integer).notNull()
+            t.column("loop_ids", .jsonText).notNull()
+        }
+        try db.create(table: "status_changes") { t in
+            t.primaryKey("id", .text)
+            t.column("server_seq", .integer).notNull()
+            t.column("user_tune_id", .text).notNull()
+            t.column("from_status", .text)
+            t.column("to_status", .text).notNull()
+            t.column("changed_at", .text).notNull().indexed()
+        }
+    }
+
     private static func createSyncTable(
         _ db: Database, _ table: SyncTable, columns: (TableDefinition) -> Void
     ) throws {
-        try db.create(table: table.rawValue) { t in
+        try createSyncTable(db, named: table.rawValue, columns: columns)
+    }
+
+    /// For a migration whose table has since been renamed, so it keeps creating the name it
+    /// always did.
+    private static func createSyncTable(
+        _ db: Database, named name: String, columns: (TableDefinition) -> Void
+    ) throws {
+        try db.create(table: name) { t in
             t.primaryKey("id", .text)
             t.column("created_at", .text).notNull()
             t.column("updated_at", .text).notNull()

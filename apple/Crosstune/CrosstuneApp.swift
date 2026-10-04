@@ -15,6 +15,7 @@ struct CrosstuneApp: App {
     init() {
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
+        ScanViewer.moveLegacyInvert()
         let player = PlayerModel.device()
         _player = State(initialValue: player)
         _listPlayback = State(initialValue: ListPlayback.device(player: player))
@@ -39,6 +40,7 @@ struct CrosstuneApp: App {
         }
         .onChange(of: scenePhase, initial: true) {
             session.sceneActivityChanged(isActive: scenePhase == .active)
+            if scenePhase == .background { player.leftForeground() }
         }
 
         #if os(macOS)

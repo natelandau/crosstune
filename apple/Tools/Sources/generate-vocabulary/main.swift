@@ -27,6 +27,11 @@ let arrayNames: [(schema: String, swift: String)] = [
     ("TuneStatus", "statuses"),
 ]
 
+/// Enum schemas emitted as Swift enums inside `Vocabulary`, for a value set the client names
+/// one case at a time rather than lists. A schema missing here is simply not emitted; one
+/// listed but absent from the document fails the run.
+let enumTypes: [String] = ["PlayContext", "ScanViewContext"]
+
 /// A limits namespace to the row schemas it gathers string and array limits from, in the
 /// order they are emitted. A tune and its user row are one form to the client, so their
 /// limits are one namespace. A row missing here fails the run, so a renamed schema cannot
@@ -112,6 +117,22 @@ func render(_ document: [String: Any]) throws -> String {
         }
         let values = enumValues.map(quote).joined(separator: ", ")
         lines.append("    public static let \(swiftName): [String] = [\(values)]")
+    }
+
+    for schemaName in enumTypes {
+        guard let schema = schemas[schemaName] as? [String: Any],
+            schema["type"] as? String == "string",
+            let enumValues = schema["enum"] as? [String]
+        else {
+            throw GenerationError(description: "no string enum schema named \(schemaName); update enumTypes")
+        }
+        lines.append("")
+        lines.append("    public enum \(schemaName): String, CaseIterable, Sendable {")
+        for value in enumValues {
+            let name = camelCase(value)
+            lines.append(name == value ? "        case \(name)" : "        case \(name) = \(quote(value))")
+        }
+        lines.append("    }")
     }
 
     lines.append("")

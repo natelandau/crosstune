@@ -1,0 +1,510 @@
+import CrosstuneCommands
+import CrosstuneStore
+import Foundation
+import GRDB
+import ImageIO
+import Observation
+import SwiftUI
+import os
+
+/// Which scan the pager shows and what its indicator says.
+enum ScanPager {
+    /// The scan the viewer opens on: the one asked for, or the last when scans have gone since.
+    static func initialScan(ids: [String], startIndex: Int) -> String? {
+        guard !ids.isEmpty else { return nil }
+        return ids[min(max(0, startIndex), ids.count - 1)]
+    }
+
+    /// "2 of 3" for the scan on show, counting a scan that has left the tune as the first.
+    static func indicator(shown: String?, ids: [String]) -> String {
+        guard !ids.isEmpty else { return "" }
+        let index = shown.flatMap { ids.firstIndex(of: $0) } ?? 0
+        return ScanCopy.scanCount(index: index, total: ids.count)
+    }
+}
+
+/// How far a scan zooms: fitted to the screen, twice that on a double tap, and up to the
+/// maximum with a pinch.
+enum ScanZoom {
+    static let fit: CGFloat = 1
+    static let double: CGFloat = 2
+    static let maximum: CGFloat = 5
+
+    static func toggled(_ scale: CGFloat) -> CGFloat {
+        scale > fit ? fit : double
+    }
+
+    static func clamped(_ scale: CGFloat) -> CGFloat {
+        min(max(scale, fit), maximum)
+    }
+
+    /// A pan held to how far the zoomed scan overflows its container, so an edge of the scan
+    /// never pulls in past the container's edge. A scan fitted inside `container` keeps its
+    /// aspect ratio, so it may overflow on one axis only.
+    static func clampedOffset(
+        _ offset: CGSize, container: CGSize, aspectRatio: CGFloat, scale: CGFloat
+    ) -> CGSize {
+        guard container.width > 0, container.height > 0, aspectRatio > 0 else { return .zero }
+        let fitted =
+            container.width / container.height > aspectRatio
+            ? CGSize(width: container.height * aspectRatio, height: container.height)
+            : CGSize(width: container.width, height: container.width / aspectRatio)
+        let reach = CGSize(
+            width: max(0, (fitted.width * scale - container.width) / 2),
+            height: max(0, (fitted.height * scale - container.height) / 2))
+        return CGSize(
+            width: min(max(offset.width, -reach.width), reach.width),
+            height: min(max(offset.height, -reach.height), reach.height))
+    }
+}
+
+/// The viewer's live read of a tune: its title and scans, or gone.
+@MainActor
+@Observable
+final class ScanViewerModel {
+    enum Phase: Equatable {
+        case loading
+        case shown(title: String, scans: [Scan])
+        /// The tune is gone, or has no scan left to show.
+        case gone
+    }
+
+    private(set) var failure: String?
+
+    private let store: CrosstuneStore
+    private let query: LiveQuery<Phase>
+    private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "scan-viewer")
+
+    init(store: CrosstuneStore, tuneID: String) {
+        self.store = store
+        query = LiveQuery(store, initial: .loading) { db in
+            guard let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil else { return .gone }
+            let scans = try Scan.fetch(db, tuneID: tuneID)
+            return scans.isEmpty ? .gone : .shown(title: tune.title, scans: scans)
+        }
+    }
+
+    var phase: Phase { query.value }
+    var folder: URL { store.scansFolder }
+
+    func delete(_ scanID: String) async {
+        failure = nil
+        do {
+            try await Commands(store: store).deleteScan(scanID)
+        } catch {
+            Self.logger.warning("Deleting a scan from the viewer failed: \(error)")
+            failure = (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
+        }
+    }
+
+    /// Notes a scan whose file will not decode, once per scan while the viewer is open.
+    @ObservationIgnored private var reported: Set<String> = []
+
+    func reportBroken(_ scanID: String) {
+        guard reported.insert(scanID).inserted else { return }
+        Self.logger.error("A scan image could not be decoded: \(scanID, privacy: .public)")
+    }
+}
+
+/// A tune's scans over the whole shell, one at a time, for reading at a jam: swipe between them,
+/// pinch or double-tap to zoom, Invert for light ink on dark paper. The screen stays awake while
+/// it is up. Full screen on iPhone and iPad; a window-filling sheet on Mac, closed by Escape.
+public struct ScanViewer: View {
+    public static let invertStorageKey = "crosstune.scanInvert"
+    /// Where builds that called scans notation kept the Invert choice.
+    static let legacyInvertStorageKey = "crosstune.notationInvert"
+
+    /// Carries the Invert choice over from ``legacyInvertStorageKey``. Call at launch, before
+    /// any viewer reads it.
+    public static func moveLegacyInvert(in defaults: UserDefaults = .standard) {
+        guard let value = defaults.object(forKey: legacyInvertStorageKey) else { return }
+        if defaults.object(forKey: invertStorageKey) == nil { defaults.set(value, forKey: invertStorageKey) }
+        defaults.removeObject(forKey: legacyInvertStorageKey)
+    }
+
+    private let tuneID: String
+    private let startIndex: Int
+
+    @Environment(\.store) private var store
+    @State private var model: ScanViewerModel?
+
+    public init(tuneID: String, startIndex: Int) {
+        self.tuneID = tuneID
+        self.startIndex = startIndex
+    }
+
+    public var body: some View {
+        Group {
+            if let model {
+                ScanViewerContent(model: model, startIndex: startIndex)
+            } else {
+                Color.clear
+            }
+        }
+        .task(id: tuneID) {
+            guard let store else { return }
+            model = ScanViewerModel(store: store, tuneID: tuneID)
+        }
+        .shellSheet()
+    }
+}
+
+private struct ScanViewerContent: View {
+    let model: ScanViewerModel
+    let startIndex: Int
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        switch model.phase {
+        case .loading:
+            Color.clear
+        case .gone:
+            // A tune deleted, or emptied of scans, while open has nothing left to show.
+            Color.clear.onAppear { dismiss() }
+        case .shown(let title, let scans):
+            ScanViewerBody(model: model, title: title, scans: scans, startIndex: startIndex)
+        }
+    }
+}
+
+/// The pager and its toolbar, once the tune's scans are in hand.
+private struct ScanViewerBody: View {
+    let model: ScanViewerModel
+    let title: String
+    let scans: [Scan]
+
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(ScanViewer.invertStorageKey) private var invert = false
+    @State private var shown: String?
+    @State private var scale = ScanZoom.fit
+    @State private var deleting: Scan?
+
+    /// A Mac sheet's primary action reads as its confirming button, which these are not.
+    private var controlsPlacement: ToolbarItemPlacement {
+        #if os(macOS)
+            .automatic
+        #else
+            .primaryAction
+        #endif
+    }
+
+    private func turn(by step: Int, ids: [String]) {
+        let index = (shown.flatMap { ids.firstIndex(of: $0) } ?? 0) + step
+        guard ids.indices.contains(index) else { return }
+        withAnimation(.snappy) { shown = ids[index] }
+    }
+
+    init(model: ScanViewerModel, title: String, scans: [Scan], startIndex: Int) {
+        self.model = model
+        self.title = title
+        self.scans = scans
+        _shown = State(initialValue: ScanPager.initialScan(ids: scans.map(\.id), startIndex: startIndex))
+    }
+
+    var body: some View {
+        let ids = scans.map(\.id)
+        let shownIndex = shown.flatMap { ids.firstIndex(of: $0) } ?? 0
+        NavigationStack {
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 0) {
+                    ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
+                        ScanSlide(
+                            scan: scan, index: index, folder: model.folder, invert: invert,
+                            // Only the scans beside the one shown hold their image, so twenty
+                            // full scans never sit decoded in memory at once.
+                            isNear: abs(index - shownIndex) <= 1,
+                            scale: scan.id == shown ? $scale : .constant(ScanZoom.fit),
+                            onBroken: { model.reportBroken(scan.id) },
+                            onDelete: { deleting = scan }
+                        )
+                        .containerRelativeFrame([.horizontal, .vertical])
+                        .id(scan.id)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $shown)
+            .scrollIndicators(.never)
+            // A zoomed scan pans under the finger rather than turning to the next.
+            .scrollDisabled(scale > ScanZoom.fit)
+            .background(invert ? Color.black : Color.white)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let failure = model.failure {
+                    FailureText(failure)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.bar)
+                }
+            }
+            .onChange(of: shown) { scale = ScanZoom.fit }
+            .navigationTitle(ScanPager.indicator(shown: shown, ids: ids))
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("\(title) \(ScanCopy.scans.lowercased())")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(ScanCopy.close) { dismiss() }
+                }
+                #if os(macOS)
+                    // A mouse has no swipe, so the Mac turns scans with buttons and the arrow keys.
+                    ToolbarItemGroup(placement: .automatic) {
+                        Button(ScanCopy.previousScan, systemImage: "chevron.left") { turn(by: -1, ids: ids) }
+                            .disabled(shownIndex == 0)
+                            .keyboardShortcut(.leftArrow, modifiers: [])
+                        Button(ScanCopy.nextScan, systemImage: "chevron.right") { turn(by: 1, ids: ids) }
+                            .disabled(shownIndex >= ids.count - 1)
+                            .keyboardShortcut(.rightArrow, modifiers: [])
+                    }
+                #endif
+                ToolbarItemGroup(placement: controlsPlacement) {
+                    Toggle(
+                        isOn: Binding {
+                            scale > ScanZoom.fit
+                        } set: { zoomed in
+                            withAnimation(.snappy) { scale = zoomed ? ScanZoom.double : ScanZoom.fit }
+                        }
+                    ) {
+                        Label(ScanCopy.zoom, systemImage: "plus.magnifyingglass")
+                    }
+                    .toggleStyle(.button)
+                    Toggle(isOn: $invert) {
+                        Label(ScanCopy.invert, systemImage: "circle.lefthalf.filled")
+                    }
+                    .toggleStyle(.button)
+                }
+            }
+        }
+        .modifier(KeepsScreenAwake())
+        .coversShell(deleting != nil)
+        .confirmationDialog(
+            ScanCopy.deleteTitle,
+            isPresented: Binding {
+                deleting != nil
+            } set: {
+                if !$0 { deleting = nil }
+            },
+            titleVisibility: .visible, presenting: deleting
+        ) { scan in
+            Button(ScanCopy.delete, role: .destructive) {
+                Task { await model.delete(scan.id) }
+            }
+        } message: { scan in
+            Text(ScanCopy.deleteMessage(scan))
+        }
+        #if os(macOS)
+            .onExitCommand { dismiss() }
+        #endif
+    }
+}
+
+/// One scan at full size: fitted to the screen, zoomed by a pinch or a double tap, and panned
+/// while zoomed. A scan whose file has not arrived shows its placeholder; one that will not
+/// decode says so and offers Delete.
+private struct ScanSlide: View {
+    let scan: Scan
+    let index: Int
+    let folder: URL
+    let invert: Bool
+    let isNear: Bool
+    @Binding var scale: CGFloat
+    let onBroken: () -> Void
+    let onDelete: () -> Void
+
+    @State private var decoded: (key: String, image: CGImage?)?
+    @State private var pinchStart: CGFloat?
+    @State private var offset: CGSize = .zero
+    @State private var dragStart: CGSize?
+    @State private var size: CGSize = .zero
+
+    var body: some View {
+        let key = scan.file.map { ScanThumbnail.key(scan: scan.record, file: $0) }
+        let image = decoded?.key == key ? decoded?.image : nil
+        Group {
+            if scan.file == nil {
+                placeholder
+            } else if let image, isNear {
+                scanImage(image)
+            } else if key != nil && decoded?.key == key && image == nil {
+                broken
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: isNear ? key : nil) {
+            guard isNear, let key, let file = scan.file, decoded?.key != key else { return }
+            let url = folder.appending(path: file.fileName)
+            let image = await Task.detached(priority: .userInitiated) { ScanThumbnail.decodeFull(url) }.value
+            // A scan that moved out of reach mid-decode keeps neither the pixels nor a report.
+            guard !Task.isCancelled else { return }
+            if image == nil { onBroken() }
+            decoded = (key, image)
+        }
+        .onChange(of: isNear) { _, near in
+            // A scan out of reach lets go of its pixels.
+            if !near { decoded = nil }
+        }
+        .onGeometryChange(for: CGSize.self) {
+            $0.size
+        } action: {
+            size = $0
+            // A turn or resize changes how far the zoomed scan overflows, so the pan follows it.
+            offset = ScanZoom.clampedOffset(offset, container: $0, aspectRatio: scan.aspectRatio, scale: scale)
+        }
+        .onChange(of: scale) { _, new in
+            offset = ScanZoom.clampedOffset(offset, container: size, aspectRatio: scan.aspectRatio, scale: new)
+        }
+    }
+
+    private func scanImage(_ image: CGImage) -> some View {
+        Image(decorative: image, scale: 1)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .modifier(Inverted(isOn: invert))
+            .scaleEffect(scale)
+            .offset(offset)
+            .accessibilityLabel(ScanCopy.scan(index))
+            .accessibilityAddTraits(.isImage)
+            .contentShape(.rect)
+            .onTapGesture(count: 2) {
+                withAnimation(.snappy) { scale = ScanZoom.toggled(scale) }
+            }
+            .gesture(
+                MagnifyGesture()
+                    .onChanged { value in
+                        let start = pinchStart ?? scale
+                        pinchStart = start
+                        scale = ScanZoom.clamped(start * value.magnification)
+                    }
+                    .onEnded { _ in pinchStart = nil }
+            )
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        guard scale > ScanZoom.fit else { return }
+                        let start = dragStart ?? offset
+                        dragStart = start
+                        offset = ScanZoom.clampedOffset(
+                            CGSize(
+                                width: start.width + value.translation.width,
+                                height: start.height + value.translation.height),
+                            container: size, aspectRatio: scan.aspectRatio, scale: scale)
+                    }
+                    .onEnded { _ in dragStart = nil },
+                isEnabled: scale > ScanZoom.fit
+            )
+    }
+
+    private var placeholder: some View {
+        Rectangle()
+            .fill(.quaternary)
+            .aspectRatio(scan.aspectRatio, contentMode: .fit)
+            .frame(maxWidth: 640)
+            .overlay {
+                if scan.record.state == ScanRecord.pendingUpload {
+                    Text(ScanCopy.waiting)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                } else {
+                    ProgressView()
+                        .accessibilityLabel(ScanCopy.downloadingScan(index))
+                }
+            }
+            .padding()
+    }
+
+    private var broken: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            Text(ScanCopy.unreadableScan)
+                .font(.headline)
+                .foregroundStyle(invert ? Color.white : Color.primary)
+            Button(ScanCopy.delete, role: .destructive, action: onDelete)
+                .buttonStyle(.bordered)
+                .accessibilityLabel(ScanCopy.deleteScan(index))
+        }
+        .padding(32)
+    }
+}
+
+/// Light ink on dark paper, when on.
+private struct Inverted: ViewModifier {
+    let isOn: Bool
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.colorInvert()
+        } else {
+            content
+        }
+    }
+}
+
+/// A tune whose scans to show, as the viewer's presentation identity, and where it was asked for.
+struct ScanRequest: Identifiable, Equatable {
+    let tuneID: String
+    let startIndex: Int
+    let origin: ScanViewOrigin
+
+    var id: String { tuneID }
+}
+
+/// The scan viewer the tune screen and tune rows ask for, presented once, over the whole
+/// shell, and the one read of which tunes have scans that every row's Scans action follows.
+/// Each look at the scans is logged into the shell's store, timed while this window is in the
+/// foreground, so each window counts its own viewer.
+struct ScanScreens: ViewModifier {
+    @State private var request: ScanRequest?
+    @State private var tunes: ScanTunes?
+    @State private var log = ScanViewLog()
+    @Environment(\.tuneScreenActions) private var tuneScreenActions
+    @Environment(\.store) private var store
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.tuneScreenActions, withViewScans)
+            .environment(tunes)
+            .task(id: store.map(ObjectIdentifier.init)) {
+                tunes = store.map(ScanTunes.init(store:))
+                // A writer for another account's store drops the view open in this one.
+                log.writer = store.map(ScanViewWriter.store)
+            }
+            .onChange(of: request) { old, new in
+                log.follow(from: old, to: new)
+            }
+            .onChange(of: scenePhase, initial: true) {
+                log.foreground(scenePhase != .background)
+            }
+            #if os(macOS)
+                .sheet(item: $request) { request in
+                    ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
+                    .frame(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900)
+                    .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
+                }
+            #else
+                .fullScreenCover(item: $request) { request in
+                    ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
+                    .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
+                }
+            #endif
+    }
+
+    /// The tune screen's actions as set further out, with the viewer opening on a scan.
+    private var withViewScans: TuneScreenActions {
+        var actions = tuneScreenActions
+        actions.viewScans = { tuneID, startIndex, origin in
+            request = ScanRequest(tuneID: tuneID, startIndex: startIndex, origin: origin)
+        }
+        return actions
+    }
+}

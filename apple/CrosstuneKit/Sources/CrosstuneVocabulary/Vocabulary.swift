@@ -20,6 +20,19 @@ public enum Vocabulary {
     public static let timeSignatures: [String] = ["4/4", "2/4", "2/2", "3/4", "3/2", "6/8", "9/8", "12/8", "other"]
     public static let statuses: [String] = ["known", "learning", "want_to_learn"]
 
+    public enum PlayContext: String, CaseIterable, Sendable {
+        case row
+        case list
+        case dock
+        case recordingScreen = "recording_screen"
+    }
+
+    public enum ScanViewContext: String, CaseIterable, Sendable {
+        case tune
+        case row
+        case list
+    }
+
     public enum Limits {
         public enum Tune {
             public static let alternateTitles = 200

@@ -1,10 +1,11 @@
 import Foundation
 import GRDB
+import Synchronization
 
 /// One user's on-device catalog: the synced tables, the outbox of unsent changes, and `meta`.
 ///
 /// Each user has a folder, `<root>/<user ID>/`, holding `crosstune.sqlite`, an `audio/` folder,
-/// and a `notation/` folder, so two accounts on one device never share data and sign-out removes
+/// and a `scans/` folder, so two accounts on one device never share data and sign-out removes
 /// them together.
 /// Screens read only this store. Every write goes through ``write(_:)``, which stores a row
 /// and queues its change in one transaction.
@@ -18,9 +19,10 @@ public final class CrosstuneStore: Sendable {
     public let folder: URL
     /// Read queries, including `ValueObservation`, run against this.
     public let database: DatabasePool
+    private let closed = Mutex(false)
 
     public var audioFolder: URL { folder.appending(path: "audio", directoryHint: .isDirectory) }
-    public var notationFolder: URL { folder.appending(path: "notation", directoryHint: .isDirectory) }
+    public var scansFolder: URL { folder.appending(path: "scans", directoryHint: .isDirectory) }
 
     /// The extension of a capture still being written, which launch recovery finds and finishes
     /// even when no row names it.
@@ -31,14 +33,14 @@ public final class CrosstuneStore: Sendable {
     /// The files each folder held when the store opened, the only ones ``deleteUnnamedFiles()``
     /// may delete, since anything written after is still settling.
     private let audioAtOpen: Set<String>
-    private let notationAtOpen: Set<String>
+    private let scansAtOpen: Set<String>
 
     private init(userID: String, folder: URL, database: DatabasePool) {
         self.userID = userID
         self.folder = folder
         self.database = database
         audioAtOpen = Self.fileNames(in: folder.appending(path: "audio", directoryHint: .isDirectory))
-        notationAtOpen = Self.fileNames(in: folder.appending(path: "notation", directoryHint: .isDirectory))
+        scansAtOpen = Self.fileNames(in: folder.appending(path: "scans", directoryHint: .isDirectory))
     }
 
     private static func fileNames(in folder: URL) -> Set<String> {
@@ -76,19 +78,19 @@ public final class CrosstuneStore: Sendable {
         return CrosstuneStore(userID: userID, folder: folder, database: database)
     }
 
-    /// Deletes every audio file no recording file row names and every page file no notation file
+    /// Deletes every audio file no recording file row names and every scan image no scan file
     /// row names, as a crash leaves between a file and its row landing or going. Call once launch
     /// recovery has run.
     ///
     /// Only files already there when the store opened are candidates, so an import, download,
-    /// page, or take written since, whose row lands after its file, is never touched. A capture
+    /// scan, or take written since, whose row lands after its file, is never touched. A capture
     /// is left for recovery, and so is the finished file of a row still capturing, which
     /// recovery records.
     public func deleteUnnamedFiles() async {
         let audioAtOpen = audioAtOpen
-        let notationAtOpen = notationAtOpen
+        let scansAtOpen = scansAtOpen
         let audioFolder = audioFolder
-        let notationFolder = notationFolder
+        let scansFolder = scansFolder
         // A write, not a read, so no row naming one of these files can commit between reading the
         // names and removing the files.
         try? await database.write { db in
@@ -100,14 +102,14 @@ public final class CrosstuneStore: Sendable {
                 db, sql: "SELECT id FROM recording_files WHERE local_state = ?",
                 arguments: [LocalFileState.capturing.rawValue])
             let named = Set(files + peaks + capturing.map { "\($0).\(Self.finishedExtension)" })
-            let namedPages = try String.fetchSet(db, sql: "SELECT file_name FROM notation_files")
+            let namedScans = try String.fetchSet(db, sql: "SELECT file_name FROM scan_files")
             for name in audioAtOpen where !named.contains(name) {
                 let file = audioFolder.appending(path: name)
                 guard file.pathExtension != Self.captureExtension else { continue }
                 try? FileManager.default.removeItem(at: file)
             }
-            for name in notationAtOpen where !namedPages.contains(name) {
-                try? FileManager.default.removeItem(at: notationFolder.appending(path: name))
+            for name in scansAtOpen where !namedScans.contains(name) {
+                try? FileManager.default.removeItem(at: scansFolder.appending(path: name))
             }
         }
     }
@@ -121,7 +123,7 @@ public final class CrosstuneStore: Sendable {
         try url.setResourceValues(values)
     }
 
-    /// Deletes a user's folder: their database, every audio file, and every page file. Close
+    /// Deletes a user's folder: their database, every audio file, and every scan file. Close
     /// their open store first.
     public static func delete(userID: String, root: URL = defaultRoot) throws {
         try removeIfPresent(folder(for: userID, in: root))
@@ -141,10 +143,21 @@ public final class CrosstuneStore: Sendable {
         }
     }
 
-    /// Closes the database. The store cannot be used after this.
+    /// Closes the database. The store cannot be used after this. A close that throws leaves the
+    /// store open and usable.
     public func close() throws {
-        try database.close()
+        closed.withLock { $0 = true }
+        do {
+            try database.close()
+        } catch {
+            closed.withLock { $0 = false }
+            throw error
+        }
     }
+
+    /// Whether ``close()`` has been called, so a late write can tell a store being left from a
+    /// real failure.
+    public var isClosed: Bool { closed.withLock { $0 } }
 
     /// Runs `body` in one write transaction: every row it stores and every change it queues
     /// land together, or none do.
@@ -157,7 +170,7 @@ public final class CrosstuneStore: Sendable {
 
     /// Runs `body` as ``write(_:)`` does, then deletes every file a row named before it and none
     /// names after it, whether the row was dropped or its file let go: audio named by recording
-    /// file rows and page images named by notation file rows. The files go only after the
+    /// file rows and scan images named by scan file rows. The files go only after the
     /// transaction commits, so a write that fails keeps every file its rows still point to.
     @discardableResult
     public func writeDroppingFiles<Value: Sendable>(_ body: @escaping @Sendable (StoreWriter) throws -> Value)
@@ -168,20 +181,20 @@ public final class CrosstuneStore: Sendable {
             SELECT file_name FROM recording_files WHERE file_name IS NOT NULL
             UNION SELECT peaks_file_name FROM recording_files WHERE peaks_file_name IS NOT NULL
             """
-        let namedPages = "SELECT file_name FROM notation_files"
-        let (value, droppedAudio, droppedPages) = try await write { writer in
+        let namedScans = "SELECT file_name FROM scan_files"
+        let (value, droppedAudio, droppedScans) = try await write { writer in
             let audioBefore = try String.fetchSet(writer.db, sql: namedAudio)
-            let pagesBefore = try String.fetchSet(writer.db, sql: namedPages)
+            let scansBefore = try String.fetchSet(writer.db, sql: namedScans)
             let value = try body(writer)
             let audioAfter = try String.fetchSet(writer.db, sql: namedAudio)
-            let pagesAfter = try String.fetchSet(writer.db, sql: namedPages)
-            return (value, audioBefore.subtracting(audioAfter), pagesBefore.subtracting(pagesAfter))
+            let scansAfter = try String.fetchSet(writer.db, sql: namedScans)
+            return (value, audioBefore.subtracting(audioAfter), scansBefore.subtracting(scansAfter))
         }
         for name in droppedAudio {
             try? FileManager.default.removeItem(at: audioFolder.appending(path: name))
         }
-        for name in droppedPages {
-            try? FileManager.default.removeItem(at: notationFolder.appending(path: name))
+        for name in droppedScans {
+            try? FileManager.default.removeItem(at: scansFolder.appending(path: name))
         }
         return value
     }
@@ -193,6 +206,11 @@ public final class CrosstuneStore: Sendable {
     /// How many changes are waiting to be pushed.
     public func pendingChangeCount() async throws -> Int {
         try await database.read { db in try OutboxEntry.fetchCount(db) }
+    }
+
+    /// How many changes other than event rows are waiting to be pushed.
+    public func pendingEditCount() async throws -> Int {
+        try await database.read { db in try OutboxEntry.edits.fetchCount(db) }
     }
 
     /// The oldest pending changes, in the order they were first queued.
@@ -220,11 +238,34 @@ public final class CrosstuneStore: Sendable {
     }
 
     private static func openDatabase(in folder: URL) throws -> DatabasePool {
-        for name in ["audio", "notation"] {
+        try moveLegacyScansFolder(in: folder)
+        for name in ["audio", "scans"] {
             try FileManager.default.createDirectory(
                 at: folder.appending(path: name, directoryHint: .isDirectory), withIntermediateDirectories: true)
         }
         return try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
+    }
+
+    /// Builds before the `v13` migration kept scan images in `notation/`. Every scan file row
+    /// names its image relative to the folder, so moving the folder keeps each one reachable,
+    /// a captured image that exists only here included.
+    static func moveLegacyScansFolder(in folder: URL) throws {
+        let manager = FileManager.default
+        let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
+        guard manager.fileExists(atPath: legacy.path(percentEncoded: false)) else { return }
+        let scans = folder.appending(path: "scans", directoryHint: .isDirectory)
+        guard manager.fileExists(atPath: scans.path(percentEncoded: false)) else {
+            try manager.moveItem(at: legacy, to: scans)
+            return
+        }
+        // Both folders exist only if something wrote `scans/` before the move, so merge them
+        // and keep the copy already in `scans/` where a name is in both.
+        for name in try manager.contentsOfDirectory(atPath: legacy.path(percentEncoded: false)) {
+            let target = scans.appending(path: name)
+            guard !manager.fileExists(atPath: target.path(percentEncoded: false)) else { continue }
+            try manager.moveItem(at: legacy.appending(path: name), to: target)
+        }
+        try manager.removeItem(at: legacy)
     }
 
     private static func removeIfPresent(_ url: URL) throws {
@@ -256,6 +297,14 @@ public struct StoreWriter {
             db, table: Record.table, rowID: row.id, op: .upsert, updatedAt: stamped.updatedAt,
             data: stamped.changeData())
         return stamped
+    }
+
+    /// Stores an event, such as a play, and queues its insert, stamped with its creation time.
+    public func record(_ event: some EventRecord) throws {
+        try event.upsert(db)
+        try Outbox.enqueue(
+            db, table: type(of: event).table, rowID: event.id, op: .upsert, updatedAt: event.createdAt,
+            data: event.changeData())
     }
 
     /// Soft-deletes a row and queues its delete. A row a cascading parent's delete already

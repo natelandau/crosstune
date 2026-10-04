@@ -44,7 +44,8 @@ extension StoreWriter {
     }
 
     /// Decodes a server row for `table`, without saving it: a caller decides first whether a
-    /// local write outranks it, then calls the returned closure to store it.
+    /// local write outranks it, then calls the returned closure to store it. An event row's
+    /// creation time stands in for `updated_at`, as it does on its queued insert.
     private func decodeWireRow(table: SyncTable, _ row: JSONObject) throws -> (
         id: String, updatedAt: Timestamp, save: () throws -> Void
     ) {
@@ -54,6 +55,12 @@ extension StoreWriter {
             let record = try Record(wire: row)
             return (record.id, record.updatedAt, { try record.upsert(db) })
         }
+        func decodedEvent<Event: EventRecord>(_: Event.Type) throws -> (
+            id: String, updatedAt: Timestamp, save: () throws -> Void
+        ) {
+            let event = try Event(wire: row)
+            return (event.id, event.createdAt, { try event.upsert(db) })
+        }
         switch table {
         case .tunes: return try decoded(Tune.self)
         case .userTunes: return try decoded(UserTune.self)
@@ -61,16 +68,20 @@ extension StoreWriter {
         case .listItems: return try decoded(ListItem.self)
         case .recordingLinks: return try decoded(RecordingLink.self)
         case .recordings: return try decoded(Recording.self)
-        case .notationPages: return try decoded(NotationPageRecord.self)
+        case .scans: return try decoded(ScanRecord.self)
         case .recordingLoops: return try decoded(RecordingLoop.self)
         case .userSettings: return try decoded(UserSettings.self)
+        case .playEvents: return try decodedEvent(PlayEvent.self)
+        case .practiceSessions: return try decodedEvent(PracticeSession.self)
+        case .scanViews: return try decodedEvent(ScanView.self)
         }
     }
 
     /// Applies the server's answer to a batch of pushed changes: an invalid upsert is reported,
-    /// an applied or stale row overwrites the local one with the server's own (no re-enqueue, no
-    /// re-stamping), and every entry that has not changed since it was sent leaves the outbox. A
-    /// write queued after the batch left, or replaced meanwhile, keeps its entry for the next push.
+    /// an invalid event is deleted without a report, an applied or stale row overwrites the local
+    /// one with the server's own (no re-enqueue, no re-stamping), and every entry that has not
+    /// changed since it was sent leaves the outbox. A write queued after the batch left, or
+    /// replaced meanwhile, keeps its entry for the next push.
     @discardableResult
     public func applyPushResults(sent: [OutboxEntry], results: [PushResult]) throws -> (
         invalid: [InvalidChange], settled: Int
@@ -91,9 +102,15 @@ extension StoreWriter {
             guard unchanged else { continue }
 
             if result.status == .invalid {
-                // The server refuses a delete only for a row it never stored, which is what a
-                // row created and deleted between pushes looks like: nothing was lost either side.
-                if entry.op != .delete {
+                if entry.tableName.isEvent {
+                    // A refused event is not stored for this user, so its local copy would only
+                    // ever count on this device. No edit of the musician's was lost, so it is not
+                    // reported.
+                    try db.execute(
+                        sql: "DELETE FROM \(entry.tableName.rawValue) WHERE id = ?", arguments: [entry.rowID])
+                } else if entry.op != .delete {
+                    // The server refuses a delete only for a row it never stored, which is what a
+                    // row created and deleted between pushes looks like: nothing was lost either side.
                     invalid.append(InvalidChange(table: entry.tableName, id: entry.rowID, reason: result.reason))
                 }
             } else if let row = result.row {
@@ -132,5 +149,21 @@ extension StoreWriter {
 
         try OutboxEntry.deleteAll(db, keys: supersededSeqs)
         try setMeta(.pullCursor, to: nextSince)
+    }
+
+    /// Applies one page of the history pull: each row overwrites any local copy, since the
+    /// server's copy adds only its `server_seq`, and the cursor advances to `nextSince`. A row from a
+    /// table this build does not know is skipped, so the cursor still moves past it.
+    public func applyEventsPage(rows: [(table: String, row: JSONObject)], nextSince: Int64) throws {
+        for (table, row) in rows {
+            switch table {
+            case SyncTable.playEvents.rawValue: try PlayEvent(wire: row).upsert(db)
+            case SyncTable.practiceSessions.rawValue: try PracticeSession(wire: row).upsert(db)
+            case SyncTable.scanViews.rawValue: try ScanView(wire: row).upsert(db)
+            case StatusChange.databaseTableName: try StatusChange(wire: row).upsert(db)
+            default: continue
+            }
+        }
+        try setMeta(.eventsCursor, to: nextSince)
     }
 }

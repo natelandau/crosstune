@@ -7,8 +7,8 @@ public enum TuneRowActions {
     public static let unarchive = "Unarchive"
     public static let select = "Select"
     public static let editSystemImage = "square.and.pencil"
-    public static let notation = NotationCopy.notation
-    public static let notationSystemImage = "music.quarternote.3"
+    public static let scans = ScanCopy.scans
+    public static let scansSystemImage = "music.quarternote.3"
 
     public static func archiveLabel(archived: Bool) -> String {
         archived ? unarchive : archive
@@ -18,43 +18,44 @@ public enum TuneRowActions {
         archived ? "archivebox.fill" : "archivebox"
     }
 
-    /// The row's Notation action, which opens the viewer at the first page, or nil when the tune
-    /// has no live page to show.
-    static func notationAction(
-        tuneID: String, tunesWithPages: Set<String>, open: @escaping @MainActor (String) -> Void
+    /// The row's Scans action, which opens the viewer at the first scan, or nil when the tune
+    /// has no live scan to show.
+    static func scansAction(
+        tuneID: String, tunesWithScans: Set<String>, open: @escaping @MainActor (String) -> Void
     ) -> (@MainActor () -> Void)? {
-        tunesWithPages.contains(tuneID) ? { @MainActor in open(tuneID) } : nil
+        tunesWithScans.contains(tuneID) ? { @MainActor in open(tuneID) } : nil
     }
 
-    /// The row's Notation action from what the shell supplies, nil outside it.
+    /// The row's Scans action from what the shell supplies, nil outside it. `origin` is where
+    /// the look at the scans is logged as opened from.
     @MainActor
-    static func notationAction(
-        tuneID: String, tunesWithPages: NotationTunes?, actions: TuneScreenActions
+    static func scansAction(
+        tuneID: String, tunesWithScans: ScanTunes?, origin: ScanViewOrigin, actions: TuneScreenActions
     ) -> (@MainActor () -> Void)? {
-        guard let tunesWithPages, let view = actions.viewNotation else { return nil }
-        return notationAction(tuneID: tuneID, tunesWithPages: tunesWithPages.ids) { view($0, 0) }
+        guard let tunesWithScans, let view = actions.viewScans else { return nil }
+        return scansAction(tuneID: tuneID, tunesWithScans: tunesWithScans.ids) { view($0, 0, origin) }
     }
 }
 
-/// The Notation action as a row's swipe action or menu item.
-struct NotationRowAction: View {
+/// The Scans action as a row's swipe action or menu item.
+struct ScansRowAction: View {
     let action: @MainActor () -> Void
 
     var body: some View {
-        Button(TuneRowActions.notation, systemImage: TuneRowActions.notationSystemImage, action: action)
+        Button(TuneRowActions.scans, systemImage: TuneRowActions.scansSystemImage, action: action)
             .tint(.indigo)
     }
 }
 
 extension View {
     /// Gives a catalog row its actions: Edit and Archive as trailing swipe actions and as context
-    /// menu items, the menu with a preview of the tune. `onNotation` adds Notation to both, for a
-    /// tune with pages. `onSelect` adds Select to the menu, which enters selection with this row.
+    /// menu items, the menu with a preview of the tune. `onScans` adds Scans to both, for a
+    /// tune with scans. `onSelect` adds Select to the menu, which enters selection with this row.
     /// A row that is selecting has none of them.
     @ViewBuilder
     func catalogRowActions(
         _ entry: CatalogEntry, instruments: Set<String>, isSelecting: Bool = false, onEdit: @escaping () -> Void,
-        onArchive: @escaping () -> Void, onNotation: (@MainActor () -> Void)? = nil, onSelect: (() -> Void)? = nil
+        onArchive: @escaping () -> Void, onScans: (@MainActor () -> Void)? = nil, onSelect: (() -> Void)? = nil
     ) -> some View {
         let archived = entry.isArchived
         if isSelecting {
@@ -72,10 +73,10 @@ extension View {
                     .tint(.orange)
                     Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
                         .tint(.gray)
-                    if let onNotation { NotationRowAction(action: onNotation) }
+                    if let onScans { ScansRowAction(action: onScans) }
                 }
                 .contextMenu {
-                    if let onNotation { NotationRowAction(action: onNotation) }
+                    if let onScans { ScansRowAction(action: onScans) }
                     Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
                     Button(
                         TuneRowActions.archiveLabel(archived: archived),

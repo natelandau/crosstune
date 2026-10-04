@@ -107,6 +107,57 @@ import Testing
         #expect(syncs.count == 1)
     }
 
+    @Test func eventRowsDoNotScheduleSync() async throws {
+        let triggers = triggers()
+        try await started(triggers)
+        try await recordPlay(store, id: "p1")
+        try await recordScanView(store, id: "v1")
+
+        // The watch answers in commit order, so once it has seen this edit it has seen the events.
+        try await createTune(store, title: "A")
+        try await waitUntil { triggers.outboxCount == 2 }
+
+        #expect(try await store.pendingChangeCount() == 4)
+        #expect(sleeper.requested == [SyncTriggers.writeDebounce])
+        #expect(syncs.count == 1)
+        triggers.stop()
+    }
+
+    @Test func aRealEditWithEventsPendingSyncsOnce() async throws {
+        let triggers = triggers()
+        try await started(triggers)
+        try await recordPlay(store, id: "p1")
+        try await createTune(store, title: "A")
+        try await waitUntil { triggers.outboxCount == 2 }
+        #expect(sleeper.requested == [SyncTriggers.writeDebounce])
+
+        sleeper.fire()
+        try await waitUntil { syncs.count == 2 }
+
+        try await recordPlay(store, id: "p2")
+        try await createTune(store, title: "B")
+        try await waitUntil { triggers.outboxCount == 4 }
+        #expect(sleeper.requested == [SyncTriggers.writeDebounce, SyncTriggers.writeDebounce])
+        #expect(syncs.count == 2)
+        triggers.stop()
+    }
+
+    @Test func reEditingAQueuedRowRestartsTheDebounce() async throws {
+        let triggers = triggers()
+        try await started(triggers)
+        let tune = try await createTune(store, title: "A")
+        try await waitUntil { sleeper.requested.count == 1 }
+
+        // The row keeps its one queued entry, so only its new stamp shows the edit.
+        var renamed = tune
+        renamed.title = "B"
+        try await store.write { [renamed] writer in try writer.put(renamed, at: later(1)) }
+
+        try await waitUntil { sleeper.requested.count == 2 }
+        #expect(triggers.outboxCount == 2)
+        triggers.stop()
+    }
+
     @Test func pollsWhileARecordingIsProcessingAndStopsOnceNoneRemain() async throws {
         try await putRecording(state: "uploaded")
         let triggers = triggers()
