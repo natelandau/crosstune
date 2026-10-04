@@ -331,11 +331,37 @@ describe('TrimView', () => {
     const engine = await openTrim('Jam recording')
     engine.pause()
     engine.seek(20_000)
-    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ']', bubbles: true }))
+    press(']')
     await expect.element(await handle(END_HANDLE)).toHaveAttribute('aria-valuenow', '20000')
     engine.seek(4000)
-    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '[', bubbles: true }))
+    press('[')
     await expect.element(await handle(START_HANDLE)).toHaveAttribute('aria-valuenow', '4000')
+  })
+
+  it('takes a key pressed the moment the handles show', async () => {
+    await localRecording('Jam recording')
+    const { engine } = await openScreen('Jam recording')
+    await expect.poll(() => engine.getState().lengthMs).toBeGreaterThan(0)
+    // A mutation observer runs before any later task, so the key arrives before React could
+    // flush a passive effect scheduled by the commit that added the handles.
+    let pressed = false
+    const observer = new MutationObserver(() => {
+      if (pressed || !document.querySelector(`[role="slider"][aria-label="${END_HANDLE}"]`)) {
+        return
+      }
+      pressed = true
+      engine.pause()
+      engine.seek(20_000)
+      press(']')
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    try {
+      await enterTrim()
+    } finally {
+      observer.disconnect()
+    }
+    expect(pressed).toBe(true)
+    await expect.element(await handle(END_HANDLE)).toHaveAttribute('aria-valuenow', '20000')
   })
 
   it('plays the selection and stops within half a tick of the end handle', async () => {
