@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["web/**", "brand/**", "api/openapi.json", ".github/workflows/web.yml", "justfile"]
+    paths: ["web/**", "brand/**", "fixtures/**", "api/openapi.json", ".github/workflows/web.yml", "justfile"]
   workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
@@ -40,7 +40,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(web/|brand/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'
+          pattern: '^(web/|brand/|fixtures/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'
 
   lint:
     needs: changes

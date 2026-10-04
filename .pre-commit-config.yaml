@@ -21,12 +21,13 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
-      # The export fixtures pin exact bytes: CRLF records with LF inside quoted fields.
+      # Every client reads the shared fixtures as they are, so no hook rewrites them. The
+      # export ones pin exact bytes: CRLF records with LF inside quoted fields.
       - id: mixed-line-ending
-        exclude: ^fixtures/export/
+        exclude: ^fixtures/(export|stats)/
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: ^fixtures/export/
+        exclude: ^fixtures/(export|stats)/
 
   - repo: "https://github.com/adrienverge/yamllint.git"
     rev: v1.38.0
@@ -127,7 +128,7 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(web|brand)/
+        files: ^(web|brand|fixtures)/
 
       - id: site-eslint
         name: eslint
@@ -171,4 +172,4 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: ^(apple/|api/openapi\.json$)
+        files: ^(apple/|fixtures/|api/openapi\.json$)
