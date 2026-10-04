@@ -6,6 +6,7 @@ import type { Instrument } from '../../api/vocabulary'
 import type { CrosstuneDb } from '../../db/schema'
 import { MOUSE_QUERY } from '../../platform/pointer'
 import { openTestDb } from '../../test/db'
+import { pressClaimed } from '../../test/keys'
 import { renderScreen } from '../../test/ionic'
 import { tuneRow, userTuneRow } from '../../test/rows'
 import { Screen } from '../../ui/Screen'
@@ -151,19 +152,8 @@ async function startSelecting() {
 }
 
 /** Presses the select-all chord and reports whether the hook claimed the keystroke. */
-async function pressSelectAll(modifier: 'Meta' | 'Control'): Promise<boolean> {
-  let prevented = false
-  const watch = (event: KeyboardEvent) => {
-    if (event.key.toLowerCase() === 'a') prevented = event.defaultPrevented
-  }
-  window.addEventListener('keydown', watch)
-  try {
-    await userEvent.keyboard(`{${modifier}>}a{/${modifier}}`)
-  } finally {
-    window.removeEventListener('keydown', watch)
-  }
-  return prevented
-}
+const pressSelectAll = (modifier: 'Meta' | 'Control') =>
+  pressClaimed(`{${modifier}>}a{/${modifier}}`, (event) => event.key.toLowerCase() === 'a')
 
 beforeEach(() => {
   db = openTestDb()

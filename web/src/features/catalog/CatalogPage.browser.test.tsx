@@ -12,6 +12,7 @@ import * as metaModule from '../../db/meta'
 import { getMeta, setMeta } from '../../db/meta'
 import type { CrosstuneDb } from '../../db/schema'
 import { openTestDb } from '../../test/db'
+import { pressClaimed } from '../../test/keys'
 import { renderIonic, renderScreen } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
 import { fakeEngine } from '../../test/providers'
@@ -189,19 +190,7 @@ async function longPressRow(index: number) {
 }
 
 /** Presses / and reports whether a shortcut claimed it. */
-async function pressSlash(): Promise<boolean> {
-  let prevented = false
-  const probe = (event: KeyboardEvent) => {
-    if (event.key === '/') prevented = event.defaultPrevented
-  }
-  window.addEventListener('keydown', probe)
-  try {
-    await userEvent.keyboard('/')
-  } finally {
-    window.removeEventListener('keydown', probe)
-  }
-  return prevented
-}
+const pressSlash = () => pressClaimed('/', (event) => event.key === '/')
 
 function showInRouter() {
   renderIonic(
