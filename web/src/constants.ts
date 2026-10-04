@@ -216,10 +216,12 @@ export const AUDIO_BITRATES: Record<AudioQuality, number> = {
   low: 48_000,
   standard: 64_000,
   high: 128_000,
+  highest: 160_000,
 }
 
 export const AUDIO_QUALITY_NAMES: Record<AudioQuality, string> = {
   low: 'Low',
   standard: 'Standard',
   high: 'High',
+  highest: 'Highest',
 }

@@ -16,7 +16,7 @@ import Testing
             "other",
         ]
     )
-    #expect(Vocabulary.audioQualities == ["low", "standard", "high"])
+    #expect(Vocabulary.audioQualities == ["low", "standard", "high", "highest"])
     #expect(Vocabulary.recordingSources == ["microphone", "upload", "import"])
     #expect(Vocabulary.recordingOrigins == ["own", "slippery_hill"])
     #expect(Vocabulary.recordingStates == ["pending_upload", "uploaded", "processing", "ready", "failed"])

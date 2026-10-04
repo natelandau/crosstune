@@ -2,7 +2,7 @@
 // The API is the source of every value and limit here; see api/src/crosstune/vocabulary.py.
 
 public enum Vocabulary {
-    public static let audioQualities: [String] = ["low", "standard", "high"]
+    public static let audioQualities: [String] = ["low", "standard", "high", "highest"]
     public static let instruments: [String] = [
         "violin", "five_string_banjo", "tenor_banjo", "guitar", "mandolin", "bouzouki", "mountain_dulcimer",
     ]

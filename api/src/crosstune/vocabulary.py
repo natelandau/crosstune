@@ -112,6 +112,7 @@ class AudioQuality(StrEnum):
     LOW = "low"
     STANDARD = "standard"
     HIGH = "high"
+    HIGHEST = "highest"
 
 
 class PlayFirst(StrEnum):

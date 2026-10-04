@@ -69,11 +69,13 @@ extension Vocabulary {
         "low": "Low",
         "standard": "Standard",
         "high": "High",
+        "highest": "Highest",
     ]
 
     public static let audioBitrates: [String: Int] = [
         "low": 48_000,
         "standard": 64_000,
         "high": 128_000,
+        "highest": 160_000,
     ]
 }

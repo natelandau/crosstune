@@ -45,6 +45,6 @@ import Testing
     @Test func doublesTheRateForStereo() {
         let mono = Vocabulary.audioQualities.compactMap { Vocabulary.audioBitrates[$0] }
         #expect(mono.map { CaptureChannels.bitrate(mono: $0, channels: 1) } == mono)
-        #expect(mono.map { CaptureChannels.bitrate(mono: $0, channels: 2) } == [96_000, 128_000, 256_000])
+        #expect(mono.map { CaptureChannels.bitrate(mono: $0, channels: 2) } == [96_000, 128_000, 256_000, 320_000])
     }
 }

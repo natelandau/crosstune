@@ -2317,3 +2317,56 @@ async def test_downgrade_to_0027_restores_a_recorded_date_on_every_row(
     assert rows == [(TAKE, take_at), (UPLOAD, ADDED), (IMPORT, ADDED)]
     assert columns == 0
     assert nullable == "NO"
+
+
+async def _seed_user_settings(engine, quality: str) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+            )
+        )
+        await conn.execute(
+            text(
+                "insert into user_settings "
+                "(id, user_id, instruments, audio_quality, created_at, updated_at) "
+                "values ('018f0000-0000-7000-8000-000000000041', "
+                "'018f0000-0000-7000-8000-000000000001', '{}', :quality, now(), now())"
+            ),
+            {"quality": quality},
+        )
+
+
+async def test_0029_accepts_highest(engine, truncate_all: None) -> None:
+    await _seed_user_settings(engine, "highest")
+    async with engine.connect() as conn:
+        quality = (await conn.execute(text("select audio_quality from user_settings"))).scalar_one()
+    assert quality == "highest"
+    with pytest.raises(IntegrityError, match="ck_user_settings_audio_quality"):
+        async with engine.begin() as conn:
+            await conn.execute(text("update user_settings set audio_quality = 'lossless'"))
+
+
+async def test_downgrade_to_0028_maps_highest_to_high(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    await _seed_user_settings(engine, "highest")
+    async with engine.connect() as conn:
+        before = (await conn.execute(text("select server_seq from user_settings"))).scalar_one()
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0028")
+        async with engine.connect() as conn:
+            row = (
+                await conn.execute(text("select audio_quality, server_seq from user_settings"))
+            ).one()
+        assert row.audio_quality == "high"
+        assert row.server_seq > before
+        with pytest.raises(IntegrityError, match="ck_user_settings_audio_quality"):
+            async with engine.begin() as conn:
+                await conn.execute(text("update user_settings set audio_quality = 'highest'"))
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+

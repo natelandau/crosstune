@@ -293,7 +293,7 @@ export interface components {
          * @description A capture bitrate preset.
          * @enum {string}
          */
-        AudioQuality: "low" | "standard" | "high";
+        AudioQuality: "low" | "standard" | "high" | "highest";
         /**
          * Change
          * @description One client change. updated_at is the client's clock and decides last-write-wins.
