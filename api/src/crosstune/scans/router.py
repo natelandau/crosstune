@@ -1,12 +1,13 @@
-"""Presigned uploads and downloads for notation page images."""
+"""Presigned uploads and downloads for scan images."""
 
 from __future__ import annotations
 
+import logging
 import uuid  # noqa: TC003 -- FastAPI resolves path parameter annotations at runtime
 from datetime import timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Request, Response
 from pydantic import BaseModel, Field
 
 from crosstune.auth.deps import (
@@ -17,7 +18,7 @@ from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
 from crosstune.errors import ConflictError, QuotaExceededError, problem_responses
-from crosstune.files.quota import slot_for_page, used_bytes
+from crosstune.files.quota import slot_for_scan, used_bytes
 from crosstune.files.urls import (
     UPLOAD_SIZE_TOLERANCE,
     UPLOAD_URL_TTL_SECONDS,
@@ -28,46 +29,48 @@ from crosstune.files.urls import (
 )
 from crosstune.models import UploadSlot
 from crosstune.models.user import utc_now
-from crosstune.notation.service import (
-    bump_page_server_seq,
-    owned_page,
+from crosstune.scans.service import (
+    bump_scan_server_seq,
+    owned_scan,
     require_live,
     require_state,
 )
-from crosstune.storage.store import notation_key
-from crosstune.vocabulary import NotationPageState
+from crosstune.storage.store import delete_best_effort, legacy_scan_key, scan_key
+from crosstune.vocabulary import ScanState
 
-router = APIRouter(prefix="/v1/notation-pages", tags=["notation"])
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/v1/scans", tags=["scans"])
 
 
-class NotationUploadSlotRequest(BaseModel):
+class ScanUploadSlotRequest(BaseModel):
     """What the client is about to upload."""
 
     bytes: int = Field(gt=0)
     content_type: Literal["image/jpeg"]
 
 
-@router.post("/{page_id}/upload-slot", responses=problem_responses(404, 409, 413, 503))
+@router.post("/{scan_id}/upload-slot", responses=problem_responses(404, 409, 413, 503))
 async def upload_slot(
-    page_id: uuid.UUID,
-    body: NotationUploadSlotRequest,
+    scan_id: uuid.UUID,
+    body: ScanUploadSlotRequest,
     request: Request,
     user: CurrentUser,
     session: DbSession,
 ) -> SignedUrl:
-    """A presigned PUT for one page's image, once the file cap and quota allow it."""
+    """A presigned PUT for one scan's image, once the file cap and quota allow it."""
     store = require_store(request)
     settings = request.app.state.settings
     await lock_user(session, user.id)
-    page = await owned_page(session, user.id, page_id)
-    require_state(page, NotationPageState.PENDING_UPLOAD)
-    if body.bytes > settings.notation_max_file_bytes:
-        raise file_too_large(settings.notation_max_file_bytes)
+    scan = await owned_scan(session, user.id, scan_id)
+    require_state(scan, ScanState.PENDING_UPLOAD)
+    if body.bytes > settings.scan_max_file_bytes:
+        raise file_too_large(settings.scan_max_file_bytes)
 
     now = utc_now()
-    existing = await slot_for_page(session, page.id)
-    # This page's own open slot is what the new PUT replaces.
-    used = await used_bytes(session, user.id, now, exclude=page.id)
+    existing = await slot_for_scan(session, scan.id)
+    # This scan's own open slot is what the new PUT replaces.
+    used = await used_bytes(session, user.id, now, exclude=scan.id)
     if used + body.bytes > settings.storage_quota_bytes:
         msg = f"{used} of {settings.storage_quota_bytes} bytes used"
         raise QuotaExceededError(msg)
@@ -76,7 +79,7 @@ async def upload_slot(
     if existing is None:
         session.add(
             UploadSlot(
-                notation_page_id=page.id,
+                scan_id=scan.id,
                 user_id=user.id,
                 declared_bytes=body.bytes,
                 content_type=body.content_type,
@@ -89,73 +92,84 @@ async def upload_slot(
         existing.expires_at = expires_at
     await session.flush()
     url = store.presign_put(
-        notation_key(user.id, page.id), body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS
+        scan_key(user.id, scan.id), body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS
     )
     return SignedUrl(url=url, expires_at=expires_at)
 
 
 @router.post(
-    "/{page_id}/uploaded", status_code=204, responses=problem_responses(404, 409, 413, 503)
+    "/{scan_id}/uploaded", status_code=204, responses=problem_responses(404, 409, 413, 503)
 )
 async def upload_finished(
-    page_id: uuid.UUID,
+    scan_id: uuid.UUID,
     request: Request,
     user: CurrentUser,
     session: DbSession,
+    background: BackgroundTasks,
 ) -> Response:
-    """Confirm the image landed and mark the page ready. Repeating the call changes nothing."""
+    """Confirm the image landed and mark the scan ready. Repeating the call changes nothing."""
     store = require_store(request)
     settings = request.app.state.settings
-    key = notation_key(user.id, page_id)
-    page = await owned_page(session, user.id, page_id)
+    key = scan_key(user.id, scan_id)
+    scan = await owned_scan(session, user.id, scan_id)
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
     info = await store.head(key)
     await lock_user(session, user.id)
-    # Re-read under the lock: another request may have confirmed or deleted this page,
+    # Re-read under the lock: another request may have confirmed or deleted this scan,
     # or deleted its tune, meanwhile.
-    await session.refresh(page)
-    await require_live(session, page)
-    slot = await slot_for_page(session, page.id)
-    if page.state == NotationPageState.READY and slot is None:
+    await session.refresh(scan)
+    await require_live(session, scan)
+    slot = await slot_for_scan(session, scan.id)
+    if scan.state == ScanState.READY and slot is None:
         # A retried call after a lost response: the first one consumed the slot.
         return Response(status_code=204)
-    require_state(page, NotationPageState.PENDING_UPLOAD)
+    require_state(scan, ScanState.PENDING_UPLOAD)
     if slot is None or slot.expires_at <= utc_now():
         msg = "No open upload slot; request a new one"
         raise ConflictError(msg)
     if info is None:
         msg = "No file was uploaded"
         raise ConflictError(msg)
-    if info.size > settings.notation_max_file_bytes:
+    if info.size > settings.scan_max_file_bytes:
         await store.delete(key)
-        raise file_too_large(settings.notation_max_file_bytes)
+        raise file_too_large(settings.scan_max_file_bytes)
     if info.size > slot.declared_bytes * (1 + UPLOAD_SIZE_TOLERANCE):
         await store.delete(key)
         msg = f"Uploaded {info.size} bytes but declared {slot.declared_bytes}"
         raise QuotaExceededError(msg)
 
-    page.state = NotationPageState.READY.value
-    page.file_key = key
-    page.file_bytes = info.size
-    bump_page_server_seq(page)
+    scan.state = ScanState.READY.value
+    scan.file_key = key
+    scan.file_bytes = info.size
+    bump_scan_server_seq(scan)
     await session.delete(slot)
     await session.flush()
+    # A PUT under a slot issued for the legacy key was never confirmed, so no row names
+    # it and no sweep would ever remove it. It runs after the commit so the bucket call
+    # never holds the user's lock.
+    background.add_task(
+        delete_best_effort,
+        store,
+        [legacy_scan_key(user.id, scan.id)],
+        log=log,
+        message="could not delete a legacy scan object",
+    )
     return Response(status_code=204)
 
 
-@router.get("/{page_id}/download", responses=problem_responses(404, 409, 503))
+@router.get("/{scan_id}/download", responses=problem_responses(404, 409, 503))
 async def download(
-    page_id: uuid.UUID,
+    scan_id: uuid.UUID,
     request: Request,
     user: CurrentUser,
     session: DbSession,
 ) -> SignedUrl:
-    """A presigned GET for the image of a ready page."""
+    """A presigned GET for the image of a ready scan."""
     store = require_store(request)
-    page = await owned_page(session, user.id, page_id)
-    require_state(page, NotationPageState.READY)
-    if page.file_key is None:
-        msg = "Page has no image"
+    scan = await owned_scan(session, user.id, scan_id)
+    require_state(scan, ScanState.READY)
+    if scan.file_key is None:
+        msg = "Scan has no image"
         raise ConflictError(msg)
-    url, expires_at = presign_get(store, page.file_key)
+    url, expires_at = presign_get(store, scan.file_key)
     return SignedUrl(url=url, expires_at=expires_at)

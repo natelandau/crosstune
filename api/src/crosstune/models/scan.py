@@ -1,4 +1,4 @@
-"""A page of written music attached to a tune, stored as an image object in R2."""
+"""An image attached to a tune: written music, a lyric sheet, or notes. Stored in R2."""
 
 from __future__ import annotations
 
@@ -10,21 +10,21 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from crosstune.db.base import Base, SyncColumns
 from crosstune.models._checks import in_list
-from crosstune.vocabulary import NotationPageState
+from crosstune.vocabulary import ScanState
 
 
-class NotationPage(SyncColumns, Base):
-    """One page image. The client owns the layout columns; the server owns the file columns."""
+class Scan(SyncColumns, Base):
+    """One scan. The client owns the layout columns; the server owns the file columns."""
 
-    __tablename__ = "notation_pages"
+    __tablename__ = "scans"
     __table_args__ = (
-        CheckConstraint("width > 0", name="ck_notation_pages_width"),
-        CheckConstraint("height > 0", name="ck_notation_pages_height"),
+        CheckConstraint("width > 0", name="ck_scans_width"),
+        CheckConstraint("height > 0", name="ck_scans_height"),
         CheckConstraint(
-            in_list("state", tuple(NotationPageState), nullable=False),
-            name="ck_notation_pages_state",
+            in_list("state", tuple(ScanState), nullable=False),
+            name="ck_scans_state",
         ),
-        Index("ix_notation_pages_user_id_server_seq", "user_id", "server_seq"),
+        Index("ix_scans_user_id_server_seq", "user_id", "server_seq"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
@@ -41,7 +41,7 @@ class NotationPage(SyncColumns, Base):
     width: Mapped[int] = mapped_column(Integer, nullable=False)
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     state: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=NotationPageState.PENDING_UPLOAD.value
+        String(20), nullable=False, default=ScanState.PENDING_UPLOAD.value
     )
     file_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
