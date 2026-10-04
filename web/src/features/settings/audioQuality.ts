@@ -10,4 +10,5 @@ export const QUALITY_LABELS: Record<AudioQuality, string> = {
   low: label('low'),
   standard: label('standard'),
   high: label('high'),
+  highest: label('highest'),
 }

@@ -121,9 +121,9 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
 
     @Test func namesEachQualityWithTheRateItRecordsAt() {
         let mono = Vocabulary.audioQualities.map { SettingsModel.qualityLabel($0, channels: .mono) }
-        #expect(mono == ["Low, 48 kbps", "Standard, 64 kbps", "High, 128 kbps"])
+        #expect(mono == ["Low, 48 kbps", "Standard, 64 kbps", "High, 128 kbps", "Highest, 160 kbps"])
         let stereo = Vocabulary.audioQualities.map { SettingsModel.qualityLabel($0, channels: .stereo) }
-        #expect(stereo == ["Low, 96 kbps", "Standard, 128 kbps", "High, 256 kbps"])
+        #expect(stereo == ["Low, 96 kbps", "Standard, 128 kbps", "High, 256 kbps", "Highest, 320 kbps"])
     }
 
     @Test func namesTheRejectedChangesInTheSingularAndPlural() {

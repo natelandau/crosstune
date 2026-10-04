@@ -180,6 +180,16 @@ final class ChannelSetting {
         await recorder.discard()
     }
 
+    @Test func stereoHighestAsksForThePassThroughRate() async throws {
+        try await Commands(store: store).setAudioQuality(clerkUserID: store.userID, quality: "highest")
+        setting.value = .stereo
+
+        await recorder.start(tuneID: nil)
+
+        #expect(input.writer?.bitrate == 320_000)
+        await recorder.discard()
+    }
+
     @Test func stoppingWhileTheMicrophoneResumesKeepsTheTakeStopped() async throws {
         await recorder.start(tuneID: nil)
         try input.play(seconds: 1)

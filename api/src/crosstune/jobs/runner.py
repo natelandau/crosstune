@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, TypeGuard
 
 import httpx2
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, case, func, or_, select, update
 
 from crosstune.db.locks import lock_user
 from crosstune.files.quota import used_bytes
@@ -27,6 +27,7 @@ from crosstune.jobs.importer import (
 )
 from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
 from crosstune.jobs.peaks_job import build_recording_peaks
+from crosstune.jobs.reencode import reencode
 from crosstune.jobs.sweep import (
     ABANDONED_SLOT_GRACE,
     live_pending_page_slot,
@@ -47,7 +48,7 @@ from crosstune.vocabulary import JobKind, RecordingPrecision
 
 if TYPE_CHECKING:
     import uuid
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -358,7 +359,9 @@ class JobRunner:
             stmt = (
                 select(Job)
                 .where(_claimable(now))
-                .order_by(Job.created_at)
+                # A backfill re-encode waits behind every other kind, so it never delays
+                # a new take or a trim.
+                .order_by(case((Job.kind == JobKind.REENCODE.value, 1), else_=0), Job.created_at)
                 .limit(1)
                 .with_for_update(skip_locked=True)
             )
@@ -395,6 +398,8 @@ class JobRunner:
             await self._trim(job)
         elif job.kind == JobKind.IMPORT.value:
             await self._import(job)
+        elif job.kind == JobKind.REENCODE.value:
+            await self._reencode(job)
         else:
             log.warning(
                 "dropping a job of unknown kind", extra={"kind": job.kind, "job": str(job.id)}
@@ -770,7 +775,7 @@ class JobRunner:
                 except asyncio.CancelledError:
                     await self._release_cancelled_trim_backup(session, job)
                     raise
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 -- any trim failure is a job failure, not a crash
                     # trim() deletes its own uploads when it raises; these are only set
                     # once it has returned and something after it failed.
                     orphaned = [
@@ -778,20 +783,48 @@ class JobRunner:
                         for key in (recording.playback_key, recording.peaks_key)
                         if key not in (None, previous_playback_key, previous_peaks_key)
                     ]
-                    await session.rollback()
-                    stored = await _reload(session, Job, job.id)
-                    reloaded = await self._release_trim_backup(session, job)
-                    if _still_claimed(stored, job):
-                        if stored.attempts >= MAX_ATTEMPTS:
-                            log.exception(
-                                "trim gave up",
-                                extra={"recording": str(job.recording_id), "attempt": job.attempts},
-                            )
-                        await self._fail_trim(session, stored, exc)
-                    await session.commit()
-                    await self._delete_stale(*_unnamed(reloaded, *orphaned))
+                    await self._recover_failed_recut(
+                        session, job, exc, orphaned=orphaned, release_backup=True
+                    )
                     return
         await self._delete_stale(*superseded)
+
+    async def _recover_failed_recut(
+        self,
+        session: AsyncSession,
+        job: Job,
+        exc: Exception,
+        *,
+        orphaned: Sequence[str | None],
+        release_backup: bool,
+    ) -> None:
+        """Roll back a failed trim or re-encode, record the failure, and delete its orphans.
+
+        Args:
+            session: The job's session, with the failed attempt's writes still pending.
+            job: The claimed job.
+            exc: What the attempt raised.
+            orphaned: Files the attempt uploaded that only its rolled-back write named.
+            release_backup: Whether to delete an original backup the attempt copied but
+                never got to name on the row.
+        """
+        await session.rollback()
+        stored = await _reload(session, Job, job.id)
+        if release_backup:
+            reloaded = await self._release_trim_backup(session, job)
+        else:
+            reloaded = await _reload(session, Recording, job.recording_id)
+        if _still_claimed(stored, job):
+            if stored.attempts >= MAX_ATTEMPTS:
+                log.error(
+                    "%s gave up",
+                    job.kind,
+                    exc_info=exc,
+                    extra={"recording": str(job.recording_id), "attempt": job.attempts},
+                )
+            await self._fail_keeping_row(session, stored, exc)
+        await session.commit()
+        await self._delete_stale(*_unnamed(reloaded, *orphaned))
 
     async def _release_cancelled_trim_backup(self, session: AsyncSession, job: Job) -> None:
         """Delete the backup a cancelled trim copied but never named, within a short budget.
@@ -852,19 +885,81 @@ class JobRunner:
                 ),
             )
 
-    async def _fail_trim(self, session: AsyncSession, job: Job, exc: Exception) -> None:
-        """Record a trim failure without ever touching the recording row.
+    async def _fail_keeping_row(self, session: AsyncSession, job: Job, exc: Exception) -> None:
+        """Record a trim or re-encode failure without ever touching the recording row.
 
         The row stays ready on its current files, which clients keep playing
-        correctly through the seek offsets, so a trim that keeps failing stops
-        after its last attempt; `_trim` reports that one.
+        correctly through the seek offsets, so a job that keeps failing stops
+        after its last attempt; its caller reports that one.
         """
         if job.attempts >= MAX_ATTEMPTS:
             await session.delete(job)
             return
         raw = str(exc)
         log.warning(
-            "trim failed",
-            extra={"recording": str(job.recording_id), "attempt": job.attempts, "error": raw},
+            "job failed",
+            extra={
+                "recording": str(job.recording_id),
+                "kind": job.kind,
+                "attempt": job.attempts,
+                "error": raw,
+            },
         )
         _back_off(job, raw)
+
+    async def _reencode(self, job: Job) -> None:
+        """Re-cut one recording's playback file from its original, never leaving ready.
+
+        Like a trim, the download and ffmpeg work run with no transaction open, and the
+        superseded file is deleted only after the commit that stops pointing at it.
+        """
+        async with self._sessionmaker() as session:
+            prepared = await self._prepare_reencode(session, job)
+            if prepared is None:
+                return
+            recording, stored_job = prepared
+            previous_playback_key = recording.playback_key
+            with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
+                try:
+                    async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
+                        replacement = await reencode(session, self._store, recording, Path(folder))
+                    await session.delete(stored_job)
+                    await session.commit()
+                except Exception as exc:  # noqa: BLE001 -- any re-encode failure is a job failure, not a crash
+                    # reencode() deletes its own upload when it raises; this is only set
+                    # once it has returned and something after it failed.
+                    orphaned = _changed(recording.playback_key, previous_playback_key)
+                    await self._recover_failed_recut(
+                        session, job, exc, orphaned=[orphaned], release_backup=False
+                    )
+                    return
+        if replacement is not None:
+            replacement.log_committed()
+            await self._delete_stale(replacement.superseded_key)
+
+    async def _prepare_reencode(
+        self, session: AsyncSession, job: Job
+    ) -> tuple[Recording, Job] | None:
+        """Load the row pair for a re-encode job. Never marks the recording processing.
+
+        Returns:
+            tuple[Recording, Job] | None: The loaded pair, or None when there is
+            nothing to re-cut: the row is gone, soft-deleted, not ready, has no
+            original or no complete playback range, or another claimer has since
+            re-locked the job past our own claim.
+        """
+        async with session.begin():
+            # None of these shapes changes on a retry; a transcode that later readies the
+            # row already encodes at the current rate.
+            return await _load_claimed(
+                session,
+                job,
+                done=lambda recording: (
+                    recording.deleted_at is not None
+                    or recording.state != "ready"
+                    or recording.original_key is None
+                    or recording.playback_key is None
+                    or recording.playback_start_ms is None
+                    or recording.playback_end_ms is None
+                ),
+            )

@@ -16,6 +16,7 @@ import {
   REMOVE_DOWNLOADS,
   REMOVE_DOWNLOADS_FOOTER,
 } from './RecordingGroup'
+import { QUALITY_LABELS } from './audioQuality'
 import { KEEP_OFFLINE_LABEL } from './recordingCopy'
 
 vi.mock('../../commands/settings', { spy: true })
@@ -94,14 +95,14 @@ describe('RecordingGroup', () => {
   it('names the quality row, its preset, and its rate, with no settings row', async () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Recording', level: 2 })).toBeVisible()
-    await expect.element(qualityRow('Standard, 64 kbps')).toBeInTheDocument()
+    await expect.element(qualityRow(QUALITY_LABELS.standard)).toBeInTheDocument()
     expect(await db.user_settings.toArray()).toEqual([])
   })
 
   it('offers every preset with the rate it records at', async () => {
     show()
-    await openQuality('Standard, 64 kbps')
-    await expect.element(page.getByRole('radio', { name: 'Low, 48 kbps' })).toBeVisible()
+    await openQuality(QUALITY_LABELS.standard)
+    await expect.element(page.getByRole('radio', { name: QUALITY_LABELS.low })).toBeVisible()
     await expect
       .poll(() =>
         page
@@ -109,16 +110,16 @@ describe('RecordingGroup', () => {
           .elements()
           .map((option) => option.textContent?.trim()),
       )
-      .toEqual(['Low, 48 kbps', 'Standard, 64 kbps', 'High, 128 kbps'])
+      .toEqual(['Low, 48 kbps', 'Standard, 64 kbps', 'High, 128 kbps', 'Highest, 160 kbps'])
   })
 
   it('stores a chosen quality and queues one settings change', async () => {
     show()
-    await chooseQuality('Standard, 64 kbps', 'High, 128 kbps')
+    await chooseQuality(QUALITY_LABELS.standard, QUALITY_LABELS.high)
     await expect
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
       .toBe('high')
-    await expect.element(qualityRow('High, 128 kbps')).toBeInTheDocument()
+    await expect.element(qualityRow(QUALITY_LABELS.high)).toBeInTheDocument()
     await expect
       .poll(async () => (await pendingBatch(db, 10)).map((entry) => entry.table))
       .toEqual(['user_settings'])
@@ -178,13 +179,13 @@ describe('RecordingGroup', () => {
   it('shows a refused quality under quality, and clears it on the next choice', async () => {
     vi.mocked(setAudioQuality).mockRejectedValue(new Error('Settings are read-only'))
     show()
-    await chooseQuality('Standard, 64 kbps', 'High, 128 kbps')
+    await chooseQuality(QUALITY_LABELS.standard, QUALITY_LABELS.high)
     await expect.element(page.getByRole('alert')).toHaveTextContent('Settings are read-only')
     expect(page.getByText(QUALITY_FOOTER).elements()).toHaveLength(0)
     await expect.element(page.getByText(REMOVE_DOWNLOADS_FOOTER)).toBeVisible()
 
     vi.mocked(setAudioQuality).mockRestore()
-    await chooseQuality('Standard, 64 kbps', 'Low, 48 kbps')
+    await chooseQuality(QUALITY_LABELS.standard, QUALITY_LABELS.low)
     await expect
       .poll(async () => (await db.user_settings.get(settingsId('user_1')))?.audio_quality)
       .toBe('low')

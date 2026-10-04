@@ -116,7 +116,9 @@ private func isExcludedFromBackup(_ url: URL) throws -> Bool? {
 
     try store.applyBackupRule(toNotationFile: "p1.jpg", origin: .captured)
 
-    #expect(try isExcludedFromBackup(url) == false)
+    // Each change to the flag is written at once and again from a background Spotlight queue, so
+    // the exclusion's queued write can land after this clear and hold until the clear's own runs.
+    #expect(try await poll { try isExcludedFromBackup(url) == false })
 }
 
 @Test func aCapturedPageCountsAsNotUploadedUntilTheServerHasIt() async throws {

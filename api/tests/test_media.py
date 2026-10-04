@@ -18,6 +18,7 @@ from crosstune.jobs.media import (
     ffmpeg,
     ffprobe,
     needs_encode,
+    playback_bitrate,
     probe,
     remux,
     run_media_tool,
@@ -90,7 +91,27 @@ async def test_remux_keeps_the_codec_and_writes_a_playable_mp4(media_fixtures, t
     assert 1_900 <= info.duration_ms <= 2_100
 
 
-@pytest.mark.parametrize("name", ["webm", "wav", "mp3", "m4a_high"])
+@pytest.mark.parametrize(
+    ("channels", "source", "expected"),
+    [
+        (1, 48_000, 96_000),
+        (1, 128_000, 128_000),
+        (1, 256_000, 192_000),
+        (1, None, 96_000),
+        (2, 128_000, 192_000),
+        (2, 256_000, 256_000),
+        (2, 1_536_000, 320_000),
+        (2, None, 192_000),
+        (6, 4_608_000, 320_000),
+    ],
+)
+def test_playback_bitrate_follows_the_source_within_floor_and_ceiling(
+    channels: int, source: int | None, expected: int
+) -> None:
+    assert playback_bitrate(channels, source) == expected
+
+
+@pytest.mark.parametrize("name", ["webm", "mp3"])
 async def test_encode_produces_aac_at_the_playback_bitrate(media_fixtures, tmp_path, name) -> None:
     target = tmp_path / "out.m4a"
     await encode(media_fixtures[name], target)
@@ -102,6 +123,22 @@ async def test_encode_produces_aac_at_the_playback_bitrate(media_fixtures, tmp_p
     assert 1_900 <= info.duration_ms <= 2_100
 
 
+async def test_encode_takes_a_high_bitrate_source_to_the_ceiling(media_fixtures, tmp_path) -> None:
+    target = tmp_path / "out.m4a"
+    await encode(media_fixtures["m4a_high"], target)
+    info = await probe(target)
+    assert 150_000 <= (info.bit_rate or 0) <= 230_000
+
+
+async def test_encode_keeps_a_lossless_mono_source_mono(media_fixtures, tmp_path) -> None:
+    target = tmp_path / "out.m4a"
+    await encode(media_fixtures["wav"], target)
+    info = await probe(target)
+    assert info.codec == "aac"
+    assert info.channels == 1
+    assert 1_900 <= info.duration_ms <= 2_100
+
+
 @pytest.mark.parametrize("name", ["wav_stereo", "wav_surround"])
 async def test_encode_gives_stereo_the_stereo_rate(media_fixtures, tmp_path, name) -> None:
     target = tmp_path / "out.m4a"
@@ -109,9 +146,24 @@ async def test_encode_gives_stereo_the_stereo_rate(media_fixtures, tmp_path, nam
     info = await probe(target)
     assert info.codec == "aac"
     assert info.channels == 2
-    # A sine undershoots the encode target, so only the noise fixture pins the rate.
-    if name == "wav_stereo":
-        assert 150_000 <= (info.bit_rate or 0) <= 230_000
+
+
+async def test_encode_takes_a_lossless_stereo_source_to_the_ceiling(
+    media_fixtures, tmp_path
+) -> None:
+    target = tmp_path / "out.m4a"
+    await encode(media_fixtures["wav_stereo"], target)
+    info = await probe(target)
+    # Noise, because the encoder spends far less than its target on a sine. Even on noise
+    # it lands a little under 320 kbps.
+    assert 260_000 <= (info.bit_rate or 0) <= 340_000
+
+
+async def test_cut_keeps_a_160k_source_near_160k(media_fixtures, tmp_path) -> None:
+    target = tmp_path / "out.m4a"
+    await cut(media_fixtures["m4a_160"], target, start_ms=500, end_ms=1500)
+    info = await probe(target)
+    assert 140_000 <= (info.bit_rate or 0) <= 190_000
 
 
 async def test_cut_is_accurate(media_fixtures, tmp_path) -> None:

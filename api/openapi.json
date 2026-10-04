@@ -6,7 +6,8 @@
         "enum": [
           "low",
           "standard",
-          "high"
+          "high",
+          "highest"
         ],
         "title": "AudioQuality",
         "type": "string"

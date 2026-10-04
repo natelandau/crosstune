@@ -52,7 +52,7 @@ async def enqueue_job(
 async def enqueue_job(
     session: AsyncSession,
     recording: Recording,
-    kind: Literal[JobKind.TRANSCODE, JobKind.PEAKS, JobKind.IMPORT],
+    kind: Literal[JobKind.TRANSCODE, JobKind.PEAKS, JobKind.IMPORT, JobKind.REENCODE],
 ) -> Job: ...
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.

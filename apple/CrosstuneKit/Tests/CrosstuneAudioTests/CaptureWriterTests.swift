@@ -22,7 +22,9 @@ import Testing
         #expect(abs(try await duration(of: url) - 1) < 0.1)
     }
 
-    @Test(arguments: [(1, 48_000), (1, 64_000), (1, 128_000), (2, 96_000), (2, 128_000), (2, 256_000)])
+    @Test(arguments: [
+        (1, 48_000), (1, 64_000), (1, 128_000), (1, 160_000), (2, 96_000), (2, 128_000), (2, 256_000), (2, 320_000),
+    ])
     func writesAtEveryQualitysBitrate(channels: Int, bitrate: Int) async throws {
         let root = TemporaryRoot()
         let folder = try root.open().audioFolder

@@ -20,6 +20,7 @@ describe('recordings helpers', () => {
     expect(AUDIO_BITRATES.low).toBe(48000)
     expect(AUDIO_BITRATES.standard).toBe(64000)
     expect(AUDIO_BITRATES.high).toBe(128000)
+    expect(AUDIO_BITRATES.highest).toBe(160000)
     expect(storedAudioQuality(null)).toBe('standard')
     expect(storedAudioQuality({ audio_quality: 'high' })).toBe('high')
     expect(storedAudioQuality({ audio_quality: 'lossless' })).toBe('standard')

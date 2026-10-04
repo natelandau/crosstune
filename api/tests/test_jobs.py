@@ -7,6 +7,7 @@ import logging
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
@@ -16,7 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import slot_for_recording
+from crosstune.jobs import media
 from crosstune.jobs import peaks_job as peaks_job_module
+from crosstune.jobs import recut as recut_module
+from crosstune.jobs import reencode as reencode_module
 from crosstune.jobs import runner as runner_module
 from crosstune.jobs import sweep as sweep_module
 from crosstune.jobs import transcode as transcode_module
@@ -29,15 +33,17 @@ from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
 from crosstune.models import Job, Recording, RecordingLoop, UploadSlot, User
 from crosstune.models.user import new_uuid7, utc_now
-from crosstune.recordings.service import enqueue_job, ensure_trim_job
+from crosstune.recordings.service import attach_playback, enqueue_job, ensure_trim_job
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.store import (
+    PLAYBACK_MIME,
     new_rev,
     original_key,
     peaks_key,
     playback_key,
     recording_prefix,
     upload_key,
+    upload_revision,
 )
 from crosstune.vocabulary import JobKind
 from tests.fakes import FakeObjectStore
@@ -48,6 +54,8 @@ if TYPE_CHECKING:
     from sqlalchemy import ScalarResult
 
     from crosstune.config import Settings
+    from crosstune.jobs.media import Probe
+    from crosstune.storage.store import Revision
 
 pytestmark = pytest.mark.anyio
 
@@ -1504,13 +1512,13 @@ async def test_second_trim_narrows_from_original(
     first_peaks = decode_peaks(store.get_bytes(rec.peaks_key))
 
     cut_sources: list[bytes] = []
-    real_cut = trim_module.cut
+    real_cut = recut_module.cut
 
-    async def recording_cut(source, target, start_ms, end_ms) -> None:
+    async def recording_cut(source, target, start_ms, end_ms, *, info=None) -> None:
         cut_sources.append(source.read_bytes())
-        await real_cut(source, target, start_ms, end_ms)
+        await real_cut(source, target, start_ms, end_ms, info=info)
 
-    monkeypatch.setattr(trim_module, "cut", recording_cut)
+    monkeypatch.setattr(recut_module, "cut", recording_cut)
     await save_trim(verify_session, rec, 500, 1500)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
@@ -1679,9 +1687,9 @@ async def test_trim_requeues_when_changed_during_job(
     rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
     old = (rec.playback_key, rec.peaks_key, rec.playback_start_ms, rec.playback_end_ms)
     await save_trim(verify_session, rec, 200, 1800)
-    real_cut = trim_module.cut
+    real_cut = recut_module.cut
 
-    async def push_trim_then_cut(source, target, start_ms, end_ms) -> None:
+    async def push_trim_then_cut(source, target, start_ms, end_ms, *, info=None) -> None:
         async with make_sessionmaker(engine)() as pusher:
             pushed = await pusher.get(Recording, rec.id)
             pushed.trim_start_ms = 500
@@ -1689,9 +1697,9 @@ async def test_trim_requeues_when_changed_during_job(
             # The running job already holds the one trim slot, so the push queues nothing.
             assert await enqueue_job(pusher, pushed, JobKind.TRIM) is None
             await pusher.commit()
-        await real_cut(source, target, start_ms, end_ms)
+        await real_cut(source, target, start_ms, end_ms, info=info)
 
-    monkeypatch.setattr(trim_module, "cut", push_trim_then_cut)
+    monkeypatch.setattr(recut_module, "cut", push_trim_then_cut)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert (rec.trim_start_ms, rec.trim_end_ms) == (500, 1500)
@@ -1704,7 +1712,7 @@ async def test_trim_requeues_when_changed_during_job(
     assert len(jobs) == 1
     assert jobs[0].attempts == 0
 
-    monkeypatch.setattr(trim_module, "cut", real_cut)
+    monkeypatch.setattr(recut_module, "cut", real_cut)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert (rec.playback_start_ms, rec.playback_end_ms) == (500, 1500)
@@ -1754,7 +1762,7 @@ async def test_a_superseded_trim_failure_leaves_the_new_claim_alone(
     await save_trim(verify_session, rec, 500, 1500)
     reclaimed_until = utc_now() + timedelta(hours=1)
 
-    async def reclaim_then_fail(source, target, start_ms, end_ms) -> None:
+    async def reclaim_then_fail(source, target, start_ms, end_ms, *, info=None) -> None:
         async with make_sessionmaker(engine)() as other:
             job = await other.scalar(select(Job).where(Job.recording_id == rec.id))
             job.locked_until = reclaimed_until
@@ -1763,7 +1771,7 @@ async def test_a_superseded_trim_failure_leaves_the_new_claim_alone(
         msg = "boom on a stale claim"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(trim_module, "cut", reclaim_then_fail)
+    monkeypatch.setattr(recut_module, "cut", reclaim_then_fail)
     assert await job_runner.run_once() == 1
     [job] = await trim_jobs(verify_session, rec)
     assert job.locked_until == reclaimed_until
@@ -1867,10 +1875,10 @@ async def test_a_trim_failure_after_another_pass_finished_the_job_is_quiet(
     await save_trim(verify_session, rec, 500, 1500)
     finish = _finish_elsewhere_then_fail(engine, rec.id)
 
-    async def cut(source, target, start_ms, end_ms) -> None:
+    async def cut(source, target, start_ms, end_ms, *, info=None) -> None:
         await finish()
 
-    monkeypatch.setattr(trim_module, "cut", cut)
+    monkeypatch.setattr(recut_module, "cut", cut)
     assert await job_runner.run_once() == 1
     assert await trim_jobs(verify_session, rec) == []
 
@@ -1928,16 +1936,16 @@ async def test_trim_requeues_when_peaks_change_during_job(
     rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
     await save_trim(verify_session, rec, 500, 1500)
     newer_peaks = peaks_key(rec.user_id, rec.id, new_rev())
-    real_cut = trim_module.cut
+    real_cut = recut_module.cut
 
-    async def swap_peaks_then_cut(source, target, start_ms, end_ms) -> None:
+    async def swap_peaks_then_cut(source, target, start_ms, end_ms, *, info=None) -> None:
         async with make_sessionmaker(engine)() as writer:
             row = await writer.get(Recording, rec.id)
             row.peaks_key = newer_peaks
             await writer.commit()
-        await real_cut(source, target, start_ms, end_ms)
+        await real_cut(source, target, start_ms, end_ms, info=info)
 
-    monkeypatch.setattr(trim_module, "cut", swap_peaks_then_cut)
+    monkeypatch.setattr(recut_module, "cut", swap_peaks_then_cut)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert rec.peaks_key == newer_peaks
@@ -2076,3 +2084,365 @@ async def test_trim_reclamps_loops_to_the_trim_it_wrote(
     await verify_session.refresh(long)
     assert rec.trim_end_ms == rec.source_duration_ms
     assert (long.start_ms, long.end_ms) == (500, rec.source_duration_ms)
+
+
+async def reencode_jobs(verify_session, rec: Recording) -> list[Job]:
+    return list(
+        await verify_session.scalars(
+            select(Job).where(Job.recording_id == rec.id, Job.kind == JobKind.REENCODE.value)
+        )
+    )
+
+
+async def degrade_playback(
+    store: FakeObjectStore, verify_session, rec: Recording, tmp_path, bit_rate: int = 96_000
+) -> None:
+    """Rebuild what the old fixed encode rate left: a playback file far below its original."""
+    work = tmp_path / f"degrade-{uuid.uuid4().hex}"
+    work.mkdir()
+    source, target = work / "original", work / "playback.m4a"
+    await store.download(rec.original_key, source)
+    start_ms, end_ms = rec.playback_start_ms, rec.playback_end_ms
+    await media._to_mp4(
+        source,
+        target,
+        "-c:a",
+        "aac",
+        "-b:a",
+        str(bit_rate),
+        pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
+    )
+    playback = await upload_revision(
+        store, target, PLAYBACK_MIME, partial(playback_key, rec.user_id, rec.id)
+    )
+    attach_playback(
+        rec,
+        playback,
+        duration_ms=(await probe(target)).duration_ms,
+        start_ms=start_ms,
+        end_ms=end_ms,
+    )
+    await verify_session.commit()
+    await verify_session.refresh(rec)
+    if isinstance(store, _WriteTrackingStore):
+        store.written.clear()
+
+
+async def queue_reencode(verify_session, rec: Recording) -> None:
+    await enqueue_job(verify_session, rec, JobKind.REENCODE)
+    await verify_session.commit()
+
+
+async def probe_bit_rate(store: FakeObjectStore, key: str, tmp_path) -> int | None:
+    path = tmp_path / f"probe-{uuid.uuid4().hex}"
+    path.write_bytes(store.get_bytes(key))
+    return (await probe(path)).bit_rate
+
+
+async def test_reencode_lifts_a_playback_file_cut_below_its_original(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    assert rec.original_key is not None
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    old_key, old_rev, old_peaks = rec.playback_key, rec.playback_rev, rec.peaks_key
+    old_range = (rec.playback_start_ms, rec.playback_end_ms)
+    seq_before = rec.server_seq
+    await queue_reencode(verify_session, rec)
+
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert await probe_bit_rate(store, rec.playback_key, tmp_path) >= 150_000
+    assert rec.playback_rev != old_rev
+    assert (rec.playback_start_ms, rec.playback_end_ms) == old_range
+    assert rec.peaks_key == old_peaks
+    assert rec.server_seq > seq_before
+    assert old_key not in set(store.keys())
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_skips_a_recording_already_at_its_target(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    old_rev, seq_before = rec.playback_rev, rec.server_seq
+    await queue_reencode(verify_session, rec)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert store.written == []
+    assert (rec.playback_rev, rec.server_seq) == (old_rev, seq_before)
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+def record_playback_rate(rec: Recording, bit_rate: int) -> None:
+    """Size the row's playback file so its size and duration read as `bit_rate`."""
+    rec.playback_bytes = bit_rate * rec.duration_ms // (8 * 1000)
+
+
+async def test_reencode_discards_a_cut_that_is_no_better(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    """A current rate under the first gate, but within reach of the cut, isolates the second."""
+    job_runner, store = trim_runner
+    rec = await seed_ready(
+        verify_session, store, media_fixtures["wav_stereo"], "audio/wav", tmp_path
+    )
+    # Under 90% of the 320 kbps stereo target, and over what the cut measures divided by 1.1.
+    record_playback_rate(rec, 275_000)
+    await verify_session.commit()
+    old_key, old_rev, seq_before = rec.playback_key, rec.playback_rev, rec.server_seq
+    await queue_reencode(verify_session, rec)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    cut = [key for key in store.written if "/playback-" in key]
+    assert len(cut) == 1
+    assert cut[0] not in set(store.keys())
+    assert (rec.playback_key, rec.playback_rev, rec.server_seq) == (old_key, old_rev, seq_before)
+    assert old_key in set(store.keys())
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_never_targets_more_than_the_original_has(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    """A playback file copied from a low-rate original is already all the original holds."""
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
+    assert rec.original_key is None
+    rec.original_key = original_key(rec.user_id, rec.id, "audio/mp4")
+    store.put_bytes(rec.original_key, store.get_bytes(rec.playback_key), "audio/mp4")
+    await verify_session.commit()
+    old_rev, seq_before = rec.playback_rev, rec.server_seq
+    await queue_reencode(verify_session, rec)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert store.written == []
+    assert (rec.playback_rev, rec.server_seq) == (old_rev, seq_before)
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_skips_a_row_with_no_playback_size(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    rec.playback_bytes = None
+    await verify_session.commit()
+    old_rev, seq_before = rec.playback_rev, rec.server_seq
+    await queue_reencode(verify_session, rec)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert store.written == []
+    assert (rec.playback_rev, rec.server_seq) == (old_rev, seq_before)
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_logs_its_outcome(
+    trim_runner, verify_session, media_fixtures, tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    await queue_reencode(verify_session, rec)
+    with caplog.at_level(logging.INFO, logger=reencode_module.__name__):
+        assert await job_runner.run_once() == 1
+    [record] = [r for r in caplog.records if r.name == reencode_module.__name__]
+    assert record.recording == str(rec.id)
+    assert record.outcome == "replaced"
+    assert record.target_bps == 192_000
+    assert record.source_bps > record.current_bps
+    assert record.cut_bps >= 1.1 * record.current_bps
+
+
+async def test_reencode_logs_no_replacement_when_its_commit_fails(
+    trim_runner,
+    verify_session,
+    media_fixtures,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    old = (rec.playback_key, rec.playback_rev, rec.server_seq)
+    await queue_reencode(verify_session, rec)
+    real_reencode = runner_module.reencode
+
+    async def reencode_then_fail_commit(session, *args, **kwargs) -> reencode_module.Replacement:
+        replacement = await real_reencode(session, *args, **kwargs)
+        assert replacement is not None
+        real_commit = session.commit
+
+        async def fail_once() -> None:
+            session.commit = real_commit
+            msg = "boom at commit"
+            raise RuntimeError(msg)
+
+        session.commit = fail_once
+        return replacement
+
+    monkeypatch.setattr(runner_module, "reencode", reencode_then_fail_commit)
+    with caplog.at_level(logging.INFO, logger=reencode_module.__name__):
+        assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_key, rec.playback_rev, rec.server_seq) == old
+    assert [r for r in caplog.records if r.name == reencode_module.__name__] == []
+    [job] = await reencode_jobs(verify_session, rec)
+    assert job.last_error == "boom at commit"
+
+
+async def test_claim_takes_every_other_kind_before_a_reencode(runner, verify_session) -> None:
+    job_runner, _ = runner
+    user = await make_user(verify_session)
+    backfill = await add_recording(verify_session, user, "ready")
+    take = await add_recording(verify_session, user, "uploaded")
+    earlier = utc_now() - timedelta(minutes=1)
+    verify_session.add(
+        Job(
+            recording_id=backfill.id,
+            user_id=user.id,
+            kind=JobKind.REENCODE.value,
+            created_at=earlier,
+        )
+    )
+    verify_session.add(Job(recording_id=take.id, user_id=user.id, created_at=utc_now()))
+    await verify_session.commit()
+    first = await job_runner._claim()
+    assert first is not None
+    assert (first.recording_id, first.kind) == (take.id, JobKind.TRANSCODE.value)
+    second = await job_runner._claim()
+    assert second is not None
+    assert (second.recording_id, second.kind) == (backfill.id, JobKind.REENCODE.value)
+
+
+async def test_reencode_drops_a_recording_with_no_original(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a"], "audio/mp4", tmp_path)
+    assert rec.original_key is None
+    await queue_reencode(verify_session, rec)
+    assert await job_runner.run_once() == 1
+    assert store.written == []
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_drops_a_deleted_recording(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    await queue_reencode(verify_session, rec)
+    rec.deleted_at = utc_now()
+    await verify_session.commit()
+    job_runner._purge = AsyncMock(return_value=0)
+    assert await job_runner.run_once() == 1
+    assert store.written == []
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_is_stale_when_a_trim_lands_during_the_job(
+    trim_runner, verify_session, engine, media_fixtures, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    await queue_reencode(verify_session, rec)
+    concurrent_key = playback_key(rec.user_id, rec.id, new_rev())
+    real_recut = reencode_module.recut_playback
+
+    async def trim_lands_then_recut(*args, **kwargs) -> tuple[Revision, Probe]:
+        result = await real_recut(*args, **kwargs)
+        async with make_sessionmaker(engine)() as trimmer:
+            row = await trimmer.get(Recording, rec.id)
+            row.trim_start_ms = 500
+            row.playback_key = concurrent_key
+            await trimmer.commit()
+        return result
+
+    monkeypatch.setattr(reencode_module, "recut_playback", trim_lands_then_recut)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert rec.playback_key == concurrent_key
+    cut = [key for key in store.written if "/playback-" in key]
+    assert len(cut) == 1
+    assert cut[0] not in set(store.keys())
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_drops_a_recording_with_no_playback_range(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    rec.playback_start_ms = None
+    rec.playback_end_ms = None
+    await queue_reencode(verify_session, rec)
+    assert await job_runner.run_once() == 1
+    assert store.written == []
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_is_stale_when_the_recording_is_deleted_during_the_job(
+    trim_runner, verify_session, engine, media_fixtures, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    old = (rec.playback_key, rec.playback_rev, rec.server_seq)
+    await queue_reencode(verify_session, rec)
+    real_recut = reencode_module.recut_playback
+
+    async def delete_then_recut(*args, **kwargs) -> tuple[Revision, Probe]:
+        result = await real_recut(*args, **kwargs)
+        async with make_sessionmaker(engine)() as deleter:
+            row = await deleter.get(Recording, rec.id)
+            row.deleted_at = utc_now()
+            await deleter.commit()
+        return result
+
+    monkeypatch.setattr(reencode_module, "recut_playback", delete_then_recut)
+    job_runner._purge = AsyncMock(return_value=0)
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_key, rec.playback_rev, rec.server_seq) == old
+    assert old[0] in set(store.keys())
+    cut = [key for key in store.written if "/playback-" in key]
+    assert len(cut) == 1
+    assert cut[0] not in set(store.keys())
+    assert await reencode_jobs(verify_session, rec) == []
+
+
+async def test_reencode_failure_leaves_the_recording_playing(
+    trim_runner, verify_session, media_fixtures, tmp_path
+) -> None:
+    job_runner, store = trim_runner
+    rec = await seed_ready(verify_session, store, media_fixtures["m4a_high"], "audio/mp4", tmp_path)
+    await degrade_playback(store, verify_session, rec, tmp_path)
+    old = (rec.playback_key, rec.playback_rev, rec.state, rec.server_seq)
+    await queue_reencode(verify_session, rec)
+    store.fail_uploads = True
+
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_key, rec.playback_rev, rec.state, rec.server_seq) == old
+    [job] = await reencode_jobs(verify_session, rec)
+    assert job.attempts == 1
+    assert job.last_error is not None
+
+    stmt = select(Job).where(Job.recording_id == rec.id).execution_options(populate_existing=True)
+    for _ in range(MAX_ATTEMPTS - 1):
+        job = await verify_session.scalar(stmt)
+        job.locked_until = None
+        await verify_session.commit()
+        assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.playback_key, rec.playback_rev, rec.state, rec.server_seq) == old
+    assert rec.error is None
+    assert await reencode_jobs(verify_session, rec) == []

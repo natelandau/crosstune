@@ -27,9 +27,11 @@ import Testing
     #expect(Vocabulary.providerLabels["apple_music"] == "Apple Music")
     #expect(Vocabulary.providerLabels["other"] == "Link")
     #expect(Vocabulary.audioQualityNames["standard"] == "Standard")
+    #expect(Vocabulary.audioQualityNames["highest"] == "Highest")
     #expect(Vocabulary.audioBitrates["low"] == 48_000)
     #expect(Vocabulary.audioBitrates["standard"] == 64_000)
     #expect(Vocabulary.audioBitrates["high"] == 128_000)
+    #expect(Vocabulary.audioBitrates["highest"] == 160_000)
     #expect(Vocabulary.standardTunings["five_string_banjo"] == "Open G (gDGBD)")
     #expect(Vocabulary.standardTunings["violin"] == "Standard (GDAE)")
 }

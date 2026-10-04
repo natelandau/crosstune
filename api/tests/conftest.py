@@ -99,6 +99,7 @@ def media_fixtures(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     # land these files back inside the passthrough range or under the stereo encode target.
     for name, args in {
         "m4a_high": ["-ac", "1", "-c:a", "aac", "-b:a", "256k", "-f", "mp4"],
+        "m4a_160": ["-ac", "1", "-c:a", "aac", "-b:a", "160k", "-f", "mp4"],
         "wav_stereo": ["-ac", "2", "-c:a", "pcm_s16le", "-f", "wav"],
     }.items():
         path = folder / f"noise.{name}"

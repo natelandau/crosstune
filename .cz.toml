@@ -5,6 +5,7 @@
     annotated_tag            = true
     bump_message             = "bump(release): v$current_version → v$new_version"
     changelog_file           = "CHANGELOG.md"
+    major_version_zero       = true
     name                     = "cz_conventional_commits"
     tag_format               = "v$version"
     update_changelog_on_bump = true

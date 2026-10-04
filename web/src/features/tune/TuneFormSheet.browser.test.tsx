@@ -701,14 +701,16 @@ describe('TuneFormSheet', () => {
     const type = page.getByRole('button', { name: `${DETAIL_LABELS.tune_type}, ${NOT_SET}` })
     await expect.element(genre).toBeInTheDocument()
     await expect.element(type).toBeInTheDocument()
-    // A re-render between the two lookups can leave one node detached, so read both together.
+    // Each button lives in its ion-select's shadow root, where the DOM leaves the order of
+    // nodes in different trees to the browser, so compare the rows that hold them.
+    const order = [DETAIL_LABELS.genre, DETAIL_LABELS.tune_type] as string[]
     await expect
-      .poll(
-        () =>
-          genre.element().compareDocumentPosition(type.element()) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
+      .poll(() =>
+        Array.from(document.querySelectorAll('ion-modal [data-detail]'), (row) =>
+          row.getAttribute('data-detail'),
+        ).filter((detail) => detail !== null && order.includes(detail)),
       )
-      .toBeTruthy()
+      .toEqual(order)
   })
 
   it('adds a B part mode row once the first mode is set', async () => {
