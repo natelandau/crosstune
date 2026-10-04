@@ -13,6 +13,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -68,12 +69,31 @@ class Job(Base):
 
 
 class UploadSlot(Base):
-    """A presigned upload the client may still complete. Its declared size counts toward quota."""
+    """A presigned upload the client may still complete. Its declared size counts toward quota.
+
+    Each slot belongs to exactly one recording or one notation page, and each owner has
+    at most one slot.
+    """
 
     __tablename__ = "upload_slots"
+    __table_args__ = (
+        CheckConstraint(
+            "num_nonnulls(recording_id, notation_page_id) = 1", name="ck_upload_slots_one_owner"
+        ),
+        UniqueConstraint("recording_id", name="uq_upload_slots_recording_id"),
+        UniqueConstraint("notation_page_id", name="uq_upload_slots_notation_page_id"),
+    )
 
-    recording_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("recordings.id", ondelete="CASCADE"), primary_key=True
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid7)
+    recording_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("recordings.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    notation_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("notation_pages.id", ondelete="CASCADE"),
+        nullable=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True

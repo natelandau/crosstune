@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, overload
 
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
 from crosstune.db.base import next_server_seq
@@ -12,62 +12,17 @@ from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
 from crosstune.jobs.importer import NOT_IMPORTABLE
 from crosstune.links.detect import detect_provider
-from crosstune.models import Job, Recording, UploadSlot
-from crosstune.models.user import utc_now
+from crosstune.models import Job, Recording
 from crosstune.recordings.trim import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME
 from crosstune.vocabulary import IMPORTABLE_PROVIDERS, JobKind
 
 if TYPE_CHECKING:
     import uuid
-    from datetime import datetime
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from crosstune.storage.store import Revision
-
-
-async def used_bytes(
-    session: AsyncSession,
-    user_id: uuid.UUID,
-    now: datetime | None = None,
-    *,
-    exclude: uuid.UUID | None = None,
-) -> int:
-    """The bytes that count against a user's quota.
-
-    A live recording counts its open upload slot's declared size when it has one,
-    otherwise its playback bytes. The slot stands in for, never adds to, the object
-    already at the upload key: the PUT it signs overwrites that object, and once the
-    slot expires unused the object is still there and counts again.
-
-    Args:
-        session: The session to query through.
-        user_id: Whose storage to sum.
-        now: The moment that decides whether a slot is still open. Defaults to the clock.
-        exclude: A recording to leave out, for a caller sizing that recording's own upload.
-
-    Returns:
-        int: The bytes that count against the user's quota.
-    """
-    now = now or utc_now()
-    open_slots = select(UploadSlot.recording_id).where(
-        UploadSlot.user_id == user_id, UploadSlot.expires_at > now
-    )
-    live = [Recording.user_id == user_id, Recording.deleted_at.is_(None)]
-    if exclude is not None:
-        live.append(Recording.id != exclude)
-    stored = await session.scalar(
-        select(func.coalesce(func.sum(Recording.playback_bytes), 0)).where(
-            *live, Recording.id.not_in(open_slots)
-        )
-    )
-    reserved = await session.scalar(
-        select(func.coalesce(func.sum(UploadSlot.declared_bytes), 0))
-        .join(Recording, Recording.id == UploadSlot.recording_id)
-        .where(*live, UploadSlot.expires_at > now)
-    )
-    return int(stored or 0) + int(reserved or 0)
 
 
 async def owned_recording(
@@ -87,11 +42,6 @@ async def owned_recording(
     if row is None or row.user_id != user_id or row.deleted_at is not None:
         raise NotFoundError
     return row
-
-
-async def slot_for(session: AsyncSession, recording_id: uuid.UUID) -> UploadSlot | None:
-    """The upload slot of a recording, expired or not. Callers check `expires_at`."""
-    return await session.get(UploadSlot, recording_id)
 
 
 @overload

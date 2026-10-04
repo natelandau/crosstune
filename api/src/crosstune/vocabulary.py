@@ -146,6 +146,13 @@ class RecordingState(StrEnum):
     FAILED = "failed"
 
 
+class NotationPageState(StrEnum):
+    """Where a notation page's image is in the upload pipeline."""
+
+    PENDING_UPLOAD = "pending_upload"
+    READY = "ready"
+
+
 class JobKind(StrEnum):
     """What work a queued job asks the runner to do."""
 
@@ -164,6 +171,7 @@ MIN_TRIM_MS: Final[int] = 1000
 MIN_LOOP_MS: Final[int] = 500
 """The shortest range a practice loop may span."""
 MAX_LOOPS_PER_RECORDING: Final[int] = 100
+MAX_NOTATION_PAGES_PER_TUNE: Final[int] = 20
 LOOP_COLOR_COUNT: Final[int] = 6
 """How many palette colors a loop can name; a loop stores an index below this."""
 
@@ -175,6 +183,7 @@ TableName = Literal[
     "list_items",
     "recording_links",
     "recordings",
+    "notation_pages",
     "recording_loops",
     "user_settings",
 ]

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from crosstune.schemas.rows import (
     ListItemRow,
     ListRow,
+    NotationPageRow,
     RecordingLinkRow,
     RecordingLoopRow,
     RecordingRow,
@@ -86,6 +87,13 @@ class RecordingChangeResult(_ChangeResult):
     row: RecordingRow | None = None
 
 
+class NotationPageChangeResult(_ChangeResult):
+    """The outcome of one change to a notation page."""
+
+    table: Literal["notation_pages"]
+    row: NotationPageRow | None = None
+
+
 class RecordingLoopChangeResult(_ChangeResult):
     """The outcome of one change to a recording loop."""
 
@@ -107,6 +115,7 @@ ChangeResult = Annotated[
     | ListItemChangeResult
     | RecordingLinkChangeResult
     | RecordingChangeResult
+    | NotationPageChangeResult
     | RecordingLoopChangeResult
     | UserSettingsChangeResult,
     Field(discriminator="table"),
@@ -119,6 +128,7 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
     "recordings": RecordingChangeResult,
+    "notation_pages": NotationPageChangeResult,
     "recording_loops": RecordingLoopChangeResult,
     "user_settings": UserSettingsChangeResult,
 }
@@ -166,6 +176,13 @@ class RecordingPullRow(BaseModel):
     row: RecordingRow
 
 
+class NotationPagePullRow(BaseModel):
+    """A notation page row in a pull page."""
+
+    table: Literal["notation_pages"]
+    row: NotationPageRow
+
+
 class RecordingLoopPullRow(BaseModel):
     """A recording loop row in a pull page."""
 
@@ -187,6 +204,7 @@ PullRow = Annotated[
     | ListItemPullRow
     | RecordingLinkPullRow
     | RecordingPullRow
+    | NotationPagePullRow
     | RecordingLoopPullRow
     | UserSettingsPullRow,
     Field(discriminator="table"),
@@ -199,6 +217,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,
     "recordings": RecordingPullRow,
+    "notation_pages": NotationPagePullRow,
     "recording_loops": RecordingLoopPullRow,
     "user_settings": UserSettingsPullRow,
 }

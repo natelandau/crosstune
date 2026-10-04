@@ -10,11 +10,12 @@ import anyio
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import UniqueConstraint, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.db.locks import advisory_lock_key
+from crosstune.models import UploadSlot
 
 pytestmark = pytest.mark.anyio
 
@@ -2068,3 +2069,119 @@ async def test_downgrade_to_0024_fails_the_recordings_of_deleted_import_jobs(
     assert (state, error) == ("failed", "Couldn't reach Slippery-Hill")
     assert seq > seq_before[queued]
     assert rows[transcoding] == ("processing", None, seq_before[transcoding])
+
+
+async def test_0027_keeps_recording_slots_and_downgrade_drops_page_slots(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    rec = "018f0000-0000-7000-8000-000000000031"
+    tune = "018f0000-0000-7000-8000-000000000032"
+    page = "018f0000-0000-7000-8000-000000000033"
+    expires = datetime(2030, 1, 2, 3, 4, 5, tzinfo=UTC)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0026")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into recordings (id, user_id, source, recorded_at, state, "
+                    "created_at, updated_at) values "
+                    "(:id, :user, 'microphone', now(), 'pending_upload', now(), now())"
+                ),
+                {"id": rec, "user": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into upload_slots (recording_id, user_id, declared_bytes, "
+                    "content_type, expires_at) values (:rec, :user, 1234, 'audio/mp4', :exp)"
+                ),
+                {"rec": rec, "user": user, "exp": expires},
+            )
+
+        await anyio.to_thread.run_sync(command.upgrade, config, "0027")
+        async with engine.connect() as conn:
+            [slot] = (
+                await conn.execute(
+                    text(
+                        "select id, recording_id::text as recording_id, notation_page_id, "
+                        "declared_bytes, content_type, expires_at from upload_slots"
+                    )
+                )
+            ).all()
+        assert slot.id is not None
+        assert slot.recording_id == rec
+        assert slot.notation_page_id is None
+        assert (slot.declared_bytes, slot.content_type, slot.expires_at) == (
+            1234,
+            "audio/mp4",
+            expires,
+        )
+
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into tunes (id, owner_user_id, title, modes, is_crooked, "
+                    "created_at, updated_at) values "
+                    "(:id, :user, 't', '{}', false, now(), now())"
+                ),
+                {"id": tune, "user": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into notation_pages (id, user_id, tune_id, width, height, "
+                    "created_at, updated_at) values "
+                    "(:id, :user, :tune, 10, 10, now(), now())"
+                ),
+                {"id": page, "user": user, "tune": tune},
+            )
+            await conn.execute(
+                text(
+                    "insert into upload_slots (id, notation_page_id, user_id, declared_bytes, "
+                    "content_type, expires_at) values "
+                    "(gen_random_uuid(), :page, :user, 99, 'image/jpeg', :exp)"
+                ),
+                {"page": page, "user": user, "exp": expires},
+            )
+
+        await anyio.to_thread.run_sync(command.downgrade, config, "0026")
+        async with engine.connect() as conn:
+            rows = (
+                await conn.execute(
+                    text(
+                        "select recording_id::text as recording_id, declared_bytes, "
+                        "content_type, expires_at from upload_slots"
+                    )
+                )
+            ).all()
+        assert [tuple(r) for r in rows] == [(rec, 1234, "audio/mp4", expires)]
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+async def test_upload_slot_model_names_the_unique_constraints_the_migration_creates(
+    session: AsyncSession,
+) -> None:
+    migrated = await session.scalars(
+        text(
+            "select conname from pg_constraint "
+            "where conrelid = 'upload_slots'::regclass and contype = 'u'"
+        )
+    )
+    declared = {c.name for c in UploadSlot.__table__.constraints if isinstance(c, UniqueConstraint)}
+    assert (
+        declared
+        == set(migrated)
+        == {
+            "uq_upload_slots_recording_id",
+            "uq_upload_slots_notation_page_id",
+        }
+    )
