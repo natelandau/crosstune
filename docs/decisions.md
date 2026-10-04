@@ -228,3 +228,8 @@ reopens one without new information. Add a new entry at the end.
   caching to the app, which the split exists to avoid).
 - The waitlist is Clerk's Waitlist mode, not a form of our own. Approval
   and the invitation email are in Clerk, which already owns sign-up.
+- The site deploys production from `main`, not from a version tag. It
+  calls no API and depends on no client version, so the release gate
+  protects nothing for it and would hold copy changes until the next
+  release. The cost: merged copy is live, so copy about an unreleased
+  feature waits until that release ships.

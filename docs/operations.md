@@ -159,11 +159,12 @@ and fails instead in CI, where the `API` workflow always starts it.
 
 - A merge to `main` deploys development. Railway rebuilds the API when a
   file under `api/` changed. Workers Builds uploads the web client under the
-  alias `main` when a file under `web/` changed. The site deploys the same
-  way from `site/`, as its own Worker.
-- A version tag deploys production. The `Release` workflow moves the
-  `production` branch to the tag, and both hosts deploy from that branch.
-  Nothing else writes to `production`.
+  alias `main` when a file under `web/` changed.
+- A merge to `main` that changes a file under `site/` deploys the site to
+  production. The site has no development deploy and no part in a release.
+- A version tag deploys the API and the web client to production. The
+  `Release` workflow moves the `production` branch to the tag, and both
+  hosts deploy from that branch. Nothing else writes to `production`.
 - A pull request from a branch of this repository that changes a file
   under `api/` gets its own API, database, and recording prefix. Any other
   PR's preview uses the development API. A PR from a fork or from
@@ -209,7 +210,8 @@ and fails instead in CI, where the `API` workflow always starts it.
 - A change to `.github/dependabot.yml` makes Dependabot close every grouped
   PR the old config built. Merge the open ones before you push the change.
 - A development deploy waits for CI (Railway's Wait for CI). Production has
-  no host-side gate; the `Release` workflow is the gate.
+  no host-side gate; the `Release` workflow is the gate. The site's gate is
+  the pull request's checks.
 - An idle Railway environment should show the API as sleeping within 10
   minutes. If it never does, something sends outbound traffic: an open
   connection, a timer, or telemetry. `railway logs --network` shows the
@@ -288,6 +290,8 @@ A change to the shape of a synced row:
 Rollback:
 
 - One host: redeploy an earlier build from its dashboard.
+- The site: revert on `main`, or roll back to an earlier version on the
+  `crosstune-site` Worker's Deployments tab. A release does not touch it.
 - Both hosts: Actions tab, `Release` workflow, **Run workflow**, choose the
   older tag under **Use workflow from**. It also uploads that version to
   TestFlight with a new build number, so testers get the build that matches
