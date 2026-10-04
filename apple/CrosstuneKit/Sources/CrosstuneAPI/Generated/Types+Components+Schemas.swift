@@ -653,6 +653,200 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/Mode`.
         public typealias Mode = Swift.String
+        /// The outcome of one change to a notation page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult`.
+        public struct NotationPageChangeResult: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/reason`.
+            public var reason: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/row`.
+            public var row: Components.Schemas.NotationPageRow?
+            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/status`.
+            public var status: Swift.String
+            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case notationPages = "notation_pages"
+            }
+            /// - Remark: Generated from `#/components/schemas/NotationPageChangeResult/table`.
+            public var table: Components.Schemas.NotationPageChangeResult.TablePayload
+            /// Creates a new `NotationPageChangeResult`.
+            ///
+            /// - Parameters:
+            ///   - id:
+            ///   - reason:
+            ///   - row:
+            ///   - status:
+            ///   - table:
+            public init(
+                id: Swift.String,
+                reason: Swift.String? = nil,
+                row: Components.Schemas.NotationPageRow? = nil,
+                status: Swift.String,
+                table: Components.Schemas.NotationPageChangeResult.TablePayload
+            ) {
+                self.id = id
+                self.reason = reason
+                self.row = row
+                self.status = status
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case id
+                case reason
+                case row
+                case status
+                case table
+            }
+        }
+        /// A notation page row in a pull page.
+        ///
+        /// - Remark: Generated from `#/components/schemas/NotationPagePullRow`.
+        public struct NotationPagePullRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/NotationPagePullRow/row`.
+            public var row: Components.Schemas.NotationPageRow
+            /// - Remark: Generated from `#/components/schemas/NotationPagePullRow/table`.
+            @frozen public enum TablePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case notationPages = "notation_pages"
+            }
+            /// - Remark: Generated from `#/components/schemas/NotationPagePullRow/table`.
+            public var table: Components.Schemas.NotationPagePullRow.TablePayload
+            /// Creates a new `NotationPagePullRow`.
+            ///
+            /// - Parameters:
+            ///   - row:
+            ///   - table:
+            public init(
+                row: Components.Schemas.NotationPageRow,
+                table: Components.Schemas.NotationPagePullRow.TablePayload
+            ) {
+                self.row = row
+                self.table = table
+            }
+            public enum CodingKeys: String, CodingKey {
+                case row
+                case table
+            }
+        }
+        /// A stored notation page, as push and pull return it. The storage key stays on the server.
+        ///
+        /// - Remark: Generated from `#/components/schemas/NotationPageRow`.
+        public struct NotationPageRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/created_at`.
+            public var createdAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/deleted_at`.
+            public var deletedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/file_bytes`.
+            public var fileBytes: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/height`.
+            public var height: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/id`.
+            public var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/position`.
+            public var position: Swift.Int?
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/server_seq`.
+            public var serverSeq: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/state`.
+            public var state: Components.Schemas.NotationPageState
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/tune_id`.
+            public var tuneId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/updated_at`.
+            public var updatedAt: Foundation.Date
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/user_id`.
+            public var userId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/NotationPageRow/width`.
+            public var width: Swift.Int
+            /// Creates a new `NotationPageRow`.
+            ///
+            /// - Parameters:
+            ///   - createdAt:
+            ///   - deletedAt:
+            ///   - fileBytes:
+            ///   - height:
+            ///   - id:
+            ///   - position:
+            ///   - serverSeq:
+            ///   - state:
+            ///   - tuneId:
+            ///   - updatedAt:
+            ///   - userId:
+            ///   - width:
+            public init(
+                createdAt: Foundation.Date,
+                deletedAt: Foundation.Date? = nil,
+                fileBytes: Swift.Int? = nil,
+                height: Swift.Int,
+                id: Swift.String,
+                position: Swift.Int? = nil,
+                serverSeq: Swift.Int,
+                state: Components.Schemas.NotationPageState,
+                tuneId: Swift.String,
+                updatedAt: Foundation.Date,
+                userId: Swift.String,
+                width: Swift.Int
+            ) {
+                self.createdAt = createdAt
+                self.deletedAt = deletedAt
+                self.fileBytes = fileBytes
+                self.height = height
+                self.id = id
+                self.position = position
+                self.serverSeq = serverSeq
+                self.state = state
+                self.tuneId = tuneId
+                self.updatedAt = updatedAt
+                self.userId = userId
+                self.width = width
+            }
+            public enum CodingKeys: String, CodingKey {
+                case createdAt = "created_at"
+                case deletedAt = "deleted_at"
+                case fileBytes = "file_bytes"
+                case height
+                case id
+                case position
+                case serverSeq = "server_seq"
+                case state
+                case tuneId = "tune_id"
+                case updatedAt = "updated_at"
+                case userId = "user_id"
+                case width
+            }
+        }
+        /// Where a notation page's image is in the upload pipeline.
+        ///
+        /// - Remark: Generated from `#/components/schemas/NotationPageState`.
+        public typealias NotationPageState = Swift.String
+        /// What the client is about to upload.
+        ///
+        /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest`.
+        public struct NotationUploadSlotRequest: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest/bytes`.
+            public var bytes: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest/content_type`.
+            @frozen public enum ContentTypePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case imageJpeg = "image/jpeg"
+            }
+            /// - Remark: Generated from `#/components/schemas/NotationUploadSlotRequest/content_type`.
+            public var contentType: Components.Schemas.NotationUploadSlotRequest.ContentTypePayload
+            /// Creates a new `NotationUploadSlotRequest`.
+            ///
+            /// - Parameters:
+            ///   - bytes:
+            ///   - contentType:
+            public init(
+                bytes: Swift.Int,
+                contentType: Components.Schemas.NotationUploadSlotRequest.ContentTypePayload
+            ) {
+                self.bytes = bytes
+                self.contentType = contentType
+            }
+            public enum CodingKeys: String, CodingKey {
+                case bytes
+                case contentType = "content_type"
+            }
+        }
         /// A presigned GET for the waveform file, tagged with the revision it was signed for.
         ///
         /// - Remark: Generated from `#/components/schemas/PeaksUrl`.
@@ -771,6 +965,8 @@ extension Components {
                 case listItems(Components.Schemas.ListItemPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/ListPullRow`.
                 case lists(Components.Schemas.ListPullRow)
+                /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/NotationPagePullRow`.
+                case notationPages(Components.Schemas.NotationPagePullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLinkPullRow`.
                 case recordingLinks(Components.Schemas.RecordingLinkPullRow)
                 /// - Remark: Generated from `#/components/schemas/PullResponse/RowsPayload/RecordingLoopPullRow`.
@@ -797,6 +993,8 @@ extension Components {
                         self = .listItems(try .init(from: decoder))
                     case "lists":
                         self = .lists(try .init(from: decoder))
+                    case "notation_pages":
+                        self = .notationPages(try .init(from: decoder))
                     case "recording_links":
                         self = .recordingLinks(try .init(from: decoder))
                     case "recording_loops":
@@ -822,6 +1020,8 @@ extension Components {
                     case let .listItems(value):
                         try value.encode(to: encoder)
                     case let .lists(value):
+                        try value.encode(to: encoder)
+                    case let .notationPages(value):
                         try value.encode(to: encoder)
                     case let .recordingLinks(value):
                         try value.encode(to: encoder)
@@ -890,6 +1090,8 @@ extension Components {
                 case listItems(Components.Schemas.ListItemChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/ListChangeResult`.
                 case lists(Components.Schemas.ListChangeResult)
+                /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/NotationPageChangeResult`.
+                case notationPages(Components.Schemas.NotationPageChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingLinkChangeResult`.
                 case recordingLinks(Components.Schemas.RecordingLinkChangeResult)
                 /// - Remark: Generated from `#/components/schemas/PushResponse/ResultsPayload/RecordingLoopChangeResult`.
@@ -916,6 +1118,8 @@ extension Components {
                         self = .listItems(try .init(from: decoder))
                     case "lists":
                         self = .lists(try .init(from: decoder))
+                    case "notation_pages":
+                        self = .notationPages(try .init(from: decoder))
                     case "recording_links":
                         self = .recordingLinks(try .init(from: decoder))
                     case "recording_loops":
@@ -941,6 +1145,8 @@ extension Components {
                     case let .listItems(value):
                         try value.encode(to: encoder)
                     case let .lists(value):
+                        try value.encode(to: encoder)
+                    case let .notationPages(value):
                         try value.encode(to: encoder)
                     case let .recordingLinks(value):
                         try value.encode(to: encoder)
@@ -2335,7 +2541,7 @@ extension Components {
                 case url
             }
         }
-        /// How much of the recording quota is in use.
+        /// How much of the storage quota is in use.
         ///
         /// - Remark: Generated from `#/components/schemas/StorageResponse`.
         public struct StorageResponse: Codable, Hashable, Sendable {

@@ -43,6 +43,27 @@ public protocol APIProtocol: Sendable {
     func deleteMeV1MeDelete(_ input: Operations.DeleteMeV1MeDelete.Input) async throws -> Operations.DeleteMeV1MeDelete.Output
     /// Download
     ///
+    /// A presigned GET for the image of a ready page.
+    ///
+    /// - Remark: HTTP `GET /v1/notation-pages/{page_id}/download`.
+    /// - Remark: Generated from `#/paths//v1/notation-pages/{page_id}/download/get(download_v1_notation_pages__page_id__download_get)`.
+    func downloadV1NotationPagesPageIdDownloadGet(_ input: Operations.DownloadV1NotationPagesPageIdDownloadGet.Input) async throws -> Operations.DownloadV1NotationPagesPageIdDownloadGet.Output
+    /// Upload Slot
+    ///
+    /// A presigned PUT for one page's image, once the file cap and quota allow it.
+    ///
+    /// - Remark: HTTP `POST /v1/notation-pages/{page_id}/upload-slot`.
+    /// - Remark: Generated from `#/paths//v1/notation-pages/{page_id}/upload-slot/post(upload_slot_v1_notation_pages__page_id__upload_slot_post)`.
+    func uploadSlotV1NotationPagesPageIdUploadSlotPost(_ input: Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input) async throws -> Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Output
+    /// Upload Finished
+    ///
+    /// Confirm the image landed and mark the page ready. Repeating the call changes nothing.
+    ///
+    /// - Remark: HTTP `POST /v1/notation-pages/{page_id}/uploaded`.
+    /// - Remark: Generated from `#/paths//v1/notation-pages/{page_id}/uploaded/post(upload_finished_v1_notation_pages__page_id__uploaded_post)`.
+    func uploadFinishedV1NotationPagesPageIdUploadedPost(_ input: Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Input) async throws -> Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Output
+    /// Download
+    ///
     /// A presigned GET for the playback file of a ready recording.
     ///
     /// Carries the revision and start the signature was issued for, read from the same row
@@ -157,6 +178,53 @@ extension APIProtocol {
     /// - Remark: Generated from `#/paths//v1/me/delete(delete_me_v1_me_delete)`.
     public func deleteMeV1MeDelete(headers: Operations.DeleteMeV1MeDelete.Input.Headers = .init()) async throws -> Operations.DeleteMeV1MeDelete.Output {
         try await deleteMeV1MeDelete(Operations.DeleteMeV1MeDelete.Input(headers: headers))
+    }
+    /// Download
+    ///
+    /// A presigned GET for the image of a ready page.
+    ///
+    /// - Remark: HTTP `GET /v1/notation-pages/{page_id}/download`.
+    /// - Remark: Generated from `#/paths//v1/notation-pages/{page_id}/download/get(download_v1_notation_pages__page_id__download_get)`.
+    public func downloadV1NotationPagesPageIdDownloadGet(
+        path: Operations.DownloadV1NotationPagesPageIdDownloadGet.Input.Path,
+        headers: Operations.DownloadV1NotationPagesPageIdDownloadGet.Input.Headers = .init()
+    ) async throws -> Operations.DownloadV1NotationPagesPageIdDownloadGet.Output {
+        try await downloadV1NotationPagesPageIdDownloadGet(Operations.DownloadV1NotationPagesPageIdDownloadGet.Input(
+            path: path,
+            headers: headers
+        ))
+    }
+    /// Upload Slot
+    ///
+    /// A presigned PUT for one page's image, once the file cap and quota allow it.
+    ///
+    /// - Remark: HTTP `POST /v1/notation-pages/{page_id}/upload-slot`.
+    /// - Remark: Generated from `#/paths//v1/notation-pages/{page_id}/upload-slot/post(upload_slot_v1_notation_pages__page_id__upload_slot_post)`.
+    public func uploadSlotV1NotationPagesPageIdUploadSlotPost(
+        path: Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input.Path,
+        headers: Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input.Headers = .init(),
+        body: Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input.Body
+    ) async throws -> Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Output {
+        try await uploadSlotV1NotationPagesPageIdUploadSlotPost(Operations.UploadSlotV1NotationPagesPageIdUploadSlotPost.Input(
+            path: path,
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Upload Finished
+    ///
+    /// Confirm the image landed and mark the page ready. Repeating the call changes nothing.
+    ///
+    /// - Remark: HTTP `POST /v1/notation-pages/{page_id}/uploaded`.
+    /// - Remark: Generated from `#/paths//v1/notation-pages/{page_id}/uploaded/post(upload_finished_v1_notation_pages__page_id__uploaded_post)`.
+    public func uploadFinishedV1NotationPagesPageIdUploadedPost(
+        path: Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Input.Path,
+        headers: Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Input.Headers = .init()
+    ) async throws -> Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Output {
+        try await uploadFinishedV1NotationPagesPageIdUploadedPost(Operations.UploadFinishedV1NotationPagesPageIdUploadedPost.Input(
+            path: path,
+            headers: headers
+        ))
     }
     /// Download
     ///

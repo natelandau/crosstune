@@ -20,6 +20,7 @@ const ARRAY_NAMES = {
   RecordingSource: 'RECORDING_SOURCES',
   RecordingState: 'RECORDING_STATES',
   SearchStatus: 'SEARCH_STATUSES',
+  NotationPageState: 'NOTATION_PAGE_STATES',
 }
 
 // Exported limits object -> the row schemas whose string limits it gathers. A tune and

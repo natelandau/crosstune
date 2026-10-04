@@ -70,6 +70,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/notation-pages/{page_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download
+         * @description A presigned GET for the image of a ready page.
+         */
+        get: operations["download_v1_notation_pages__page_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notation-pages/{page_id}/upload-slot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Slot
+         * @description A presigned PUT for one page's image, once the file cap and quota allow it.
+         */
+        post: operations["upload_slot_v1_notation_pages__page_id__upload_slot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notation-pages/{page_id}/uploaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Finished
+         * @description Confirm the image landed and mark the page ready. Repeating the call changes nothing.
+         */
+        post: operations["upload_finished_v1_notation_pages__page_id__uploaded_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recordings/{recording_id}/download": {
         parameters: {
             query?: never;
@@ -257,7 +317,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "recording_loops" | "user_settings";
+            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "notation_pages" | "recording_loops" | "user_settings";
             /**
              * Updated At
              * Format: date-time
@@ -482,6 +542,108 @@ export interface components {
          */
         Mode: "major" | "minor" | "mixolydian" | "dorian" | "modal" | "other";
         /**
+         * NotationPageChangeResult
+         * @description The outcome of one change to a notation page.
+         */
+        NotationPageChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["NotationPageRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "notation_pages";
+        };
+        /**
+         * NotationPagePullRow
+         * @description A notation page row in a pull page.
+         */
+        NotationPagePullRow: {
+            row: components["schemas"]["NotationPageRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "notation_pages";
+        };
+        /**
+         * NotationPageRow
+         * @description A stored notation page, as push and pull return it. The storage key stays on the server.
+         */
+        NotationPageRow: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** File Bytes */
+            file_bytes: number | null;
+            /** Height */
+            height: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Server Seq */
+            server_seq: number;
+            state: components["schemas"]["NotationPageState"];
+            /**
+             * Tune Id
+             * Format: uuid
+             */
+            tune_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Width */
+            width: number;
+        };
+        /**
+         * NotationPageState
+         * @description Where a notation page's image is in the upload pipeline.
+         * @enum {string}
+         */
+        NotationPageState: "pending_upload" | "ready";
+        /**
+         * NotationUploadSlotRequest
+         * @description What the client is about to upload.
+         */
+        NotationUploadSlotRequest: {
+            /** Bytes */
+            bytes: number;
+            /**
+             * Content Type
+             * @constant
+             */
+            content_type: "image/jpeg";
+        };
+        /**
          * PeaksUrl
          * @description A presigned GET for the waveform file, tagged with the revision it was signed for.
          */
@@ -540,7 +702,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
+            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["NotationPagePullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
         };
         /**
          * PushRequest
@@ -556,7 +718,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
+            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["NotationPageChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
         };
         /**
          * RecordingChangeResult
@@ -1002,7 +1164,7 @@ export interface components {
         };
         /**
          * StorageResponse
-         * @description How much of the recording quota is in use.
+         * @description How much of the storage quota is in use.
          */
         StorageResponse: {
             /** Max File Bytes */
@@ -1453,6 +1615,200 @@ export interface operations {
             };
             /** @description Bad Gateway */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    download_v1_notation_pages__page_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_slot_v1_notation_pages__page_id__upload_slot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotationUploadSlotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_finished_v1_notation_pages__page_id__uploaded_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
