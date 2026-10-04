@@ -6,68 +6,68 @@ import GRDB
 import Observation
 import os
 
-/// A notation page with this device's file for it, if any.
-public struct NotationPage: Hashable, Sendable, Identifiable {
-    public let record: NotationPageRecord
-    public let file: NotationFile?
+/// A scan with this device's file for it, if any.
+public struct Scan: Hashable, Sendable, Identifiable {
+    public let record: ScanRecord
+    public let file: ScanFile?
 
-    public init(record: NotationPageRecord, file: NotationFile?) {
+    public init(record: ScanRecord, file: ScanFile?) {
         self.record = record
         self.file = file
     }
 
     public var id: String { record.id }
 
-    /// Width over height, from the stored size, so a page lays out before its file arrives.
+    /// Width over height, from the stored size, so a scan lays out before its file arrives.
     public var aspectRatio: CGFloat {
         record.width > 0 && record.height > 0 ? CGFloat(record.width) / CGFloat(record.height) : 0.77
     }
 
-    /// A tune's live pages in page order, each with its file.
-    nonisolated static func fetch(_ db: Database, tuneID: String) throws -> [NotationPage] {
-        let records = NotationPageRecord.sorted(
-            try NotationPageRecord.filter(
-                NotationPageRecord.CodingKeys.tuneID == tuneID && NotationPageRecord.CodingKeys.deletedAt == nil
+    /// A tune's live scans in scan order, each with its file.
+    nonisolated static func fetch(_ db: Database, tuneID: String) throws -> [Scan] {
+        let records = ScanRecord.sorted(
+            try ScanRecord.filter(
+                ScanRecord.CodingKeys.tuneID == tuneID && ScanRecord.CodingKeys.deletedAt == nil
             ).fetchAll(db))
-        let files = try NotationFile.fetchAll(db, keys: records.map(\.id))
-        let fileByID = Dictionary(files.map { ($0.pageID, $0) }, uniquingKeysWith: { first, _ in first })
-        return records.map { NotationPage(record: $0, file: fileByID[$0.id]) }
+        let files = try ScanFile.fetchAll(db, keys: records.map(\.id))
+        let fileByID = Dictionary(files.map { ($0.scanID, $0) }, uniquingKeysWith: { first, _ in first })
+        return records.map { Scan(record: $0, file: fileByID[$0.id]) }
     }
 }
 
-/// What the Notation section shows for a number of pages.
-public struct NotationSectionLayout: Equatable, Sendable {
-    public let pageCount: Int
+/// What the Scans section shows for a number of scans.
+public struct ScansSectionLayout: Equatable, Sendable {
+    public let scanCount: Int
 
-    public init(pageCount: Int) {
-        self.pageCount = pageCount
+    public init(scanCount: Int) {
+        self.scanCount = scanCount
     }
 
-    public var showsEmptyState: Bool { pageCount == 0 }
-    /// Edit reorders and deletes, so it waits for a page to act on.
-    public var showsEdit: Bool { pageCount > 0 }
-    public var canAdd: Bool { pageCount < maxNotationPagesPerTune }
-    public var limitNote: String? { canAdd ? nil : NotationCopy.limitNote }
+    public var showsEmptyState: Bool { scanCount == 0 }
+    /// Edit reorders and deletes, so it waits for a scan to act on.
+    public var showsEdit: Bool { scanCount > 0 }
+    public var canAdd: Bool { scanCount < maxScansPerTune }
+    public var limitNote: String? { canAdd ? nil : ScanCopy.limitNote }
 }
 
 /// One picked image, named for the message that says it could not be read, and prepared when
 /// its turn comes.
-public struct NotationPick: Sendable {
+public struct ScanPick: Sendable {
     public let name: String
-    let prepare: @Sendable () async throws -> PreparedPage
+    let prepare: @Sendable () async throws -> PreparedScan
 
-    public init(name: String, prepare: @escaping @Sendable () async throws -> PreparedPage) {
+    public init(name: String, prepare: @escaping @Sendable () async throws -> PreparedScan) {
         self.name = name
         self.prepare = prepare
     }
 
     /// A photo or file whose bytes `load` reads.
-    public static func data(name: String, load: @escaping @Sendable () async throws -> Data) -> NotationPick {
-        NotationPick(name: name) { try PreparedPage.make(from: try await load()) }
+    public static func data(name: String, load: @escaping @Sendable () async throws -> Data) -> ScanPick {
+        ScanPick(name: name) { try PreparedScan.make(from: try await load()) }
     }
 
     /// A file the file picker returned, read under its security scope.
-    public static func file(_ url: URL) -> NotationPick {
+    public static func file(_ url: URL) -> ScanPick {
         data(name: url.lastPathComponent) {
             // A picked file is outside the app's sandbox until access is asked for.
             let scoped = url.startAccessingSecurityScopedResource()
@@ -77,12 +77,12 @@ public struct NotationPick: Sendable {
     }
 }
 
-/// A tune's notation pages and the writes the Notation section makes, reorders shown at once.
-/// Reads the pages on its own, so an upload's bookkeeping redraws only the section, not the
+/// A tune's scans and the writes the Scans section makes, reorders shown at once.
+/// Reads the scans on its own, so an upload's bookkeeping redraws only the section, not the
 /// whole tune screen.
 @MainActor
 @Observable
-public final class NotationModel {
+public final class ScansModel {
     /// Why the last add, move, or delete failed, or what a pick left out, until the next one.
     public private(set) var failure: String?
     /// The last move, for the screen to read out and to feel.
@@ -92,19 +92,19 @@ public final class NotationModel {
 
     private let store: CrosstuneStore
     private let tuneID: String
-    private let query: LiveQuery<[NotationPage]?>
+    private let query: LiveQuery<[Scan]?>
     private var moves = PendingMoves()
-    /// Counts each read of the pages, so a settled move can tell whether a read has landed since.
+    /// Counts each read of the scans, so a settled move can tell whether a read has landed since.
     private var revision = 0
     @ObservationIgnored private var lastWrite: Task<Void, Never>?
     @ObservationIgnored private var following: Task<Void, Never>?
-    private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "notation")
+    private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "scans")
 
     init(store: CrosstuneStore, tuneID: String) {
         self.store = store
         self.tuneID = tuneID
-        let query = LiveQuery<[NotationPage]?>(store, initial: nil) { db in
-            try NotationPage.fetch(db, tuneID: tuneID)
+        let query = LiveQuery<[Scan]?>(store, initial: nil) { db in
+            try Scan.fetch(db, tuneID: tuneID)
         }
         self.query = query
         following = Task { [weak self] in
@@ -120,24 +120,24 @@ public final class NotationModel {
         following?.cancel()
     }
 
-    private var read: [NotationPage] { query.value ?? [] }
+    private var read: [Scan] { query.value ?? [] }
 
-    /// The tune's pages in stored order with the moves in flight replayed.
-    public var pages: [NotationPage] {
+    /// The tune's scans in stored order with the moves in flight replayed.
+    public var scans: [Scan] {
         let byID = Dictionary(read.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return moves.apply(to: read.map(\.id)).compactMap { byID[$0] }
     }
 
-    public var layout: NotationSectionLayout { NotationSectionLayout(pageCount: pages.count) }
+    public var layout: ScansSectionLayout { ScansSectionLayout(scanCount: scans.count) }
 
-    /// Prepares and stores picked images one at a time, in the order picked, so each page shows
+    /// Prepares and stores picked images one at a time, in the order picked, so each scan shows
     /// as soon as it is ready and a pick past the limit stops where the tune is full. An image
     /// that cannot be read is named and the rest still add.
-    public func add(_ picks: [NotationPick]) async {
+    public func add(_ picks: [ScanPick]) async {
         guard !picks.isEmpty else { return }
         isAdding = true
         failure = nil
-        var room = maxNotationPagesPerTune - pages.count
+        var room = maxScansPerTune - scans.count
         var skipped = 0
         var unreadable: [String] = []
         var stopped: String?
@@ -147,33 +147,33 @@ public final class NotationModel {
                 skipped += 1
                 continue
             }
-            let prepared: PreparedPage
+            let prepared: PreparedScan
             do {
                 // Decoding and encoding a full image is slow, so it runs off the main actor.
                 prepared = try await Task.detached(priority: .userInitiated) { try await pick.prepare() }.value
             } catch {
                 // A photo that would not load reads to the musician the same as one that would
                 // not decode: that image, by name, did not add.
-                Self.logger.info("A picked notation image could not be read: \(error)")
+                Self.logger.info("A picked scan image could not be read: \(error)")
                 unreadable.append(pick.name)
                 continue
             }
             do {
-                try await commands.addNotationPages(tuneID: tuneID, pages: [prepared])
+                try await commands.addScans(tuneID: tuneID, scans: [prepared])
                 room -= 1
-            } catch CommandError.notationPageLimit {
+            } catch CommandError.scanLimit {
                 // Another device filled the tune while this pick was running.
                 skipped += 1
                 room = 0
             } catch {
-                Self.logger.warning("Adding a notation page failed: \(error)")
+                Self.logger.warning("Adding a scan failed: \(error)")
                 stopped = Self.message(error)
                 break
             }
         }
         let said = [
-            unreadable.isEmpty ? nil : NotationCopy.unreadable(unreadable),
-            skipped > 0 ? NotationCopy.pagesNotAdded(skipped) : nil,
+            unreadable.isEmpty ? nil : ScanCopy.unreadable(unreadable),
+            skipped > 0 ? ScanCopy.scansNotAdded(skipped) : nil,
             stopped,
         ].compactMap { $0 }
         failure = said.isEmpty ? nil : said.joined(separator: " ")
@@ -182,41 +182,41 @@ public final class NotationModel {
 
     /// Shows why a picker could not hand over its images.
     func report(_ error: any Error) {
-        Self.logger.warning("A notation picker failed: \(error)")
+        Self.logger.warning("A scan picker failed: \(error)")
         failure = Self.message(error)
     }
 
-    /// Deletes a page and its image on this device.
-    public func delete(_ pageID: String) async {
+    /// Deletes a scan and its image on this device.
+    public func delete(_ scanID: String) async {
         failure = nil
         do {
-            try await Commands(store: store).deleteNotationPage(pageID)
+            try await Commands(store: store).deleteScan(scanID)
         } catch {
-            Self.logger.warning("Deleting a notation page failed: \(error)")
+            Self.logger.warning("Deleting a scan failed: \(error)")
             failure = Self.message(error)
         }
     }
 
-    /// The moves that go somewhere from this page among the pages on screen.
-    func places(for page: NotationPage) -> [MovePlace] {
-        let pages = pages
-        guard let index = pages.firstIndex(where: { $0.id == page.id }) else { return [] }
-        return MovePlace.places(at: index, count: pages.count)
+    /// The moves that go somewhere from this scan among the scans on screen.
+    func places(for scan: Scan) -> [MovePlace] {
+        let scans = scans
+        guard let index = scans.firstIndex(where: { $0.id == scan.id }) else { return [] }
+        return MovePlace.places(at: index, count: scans.count)
     }
 
-    /// Sends a page where the menu says, among the pages on screen when it is chosen.
-    func move(_ page: NotationPage, to place: MovePlace) {
-        let pages = pages
-        guard let index = pages.firstIndex(where: { $0.id == page.id }) else { return }
-        move(from: index, to: place.destination(from: index, count: pages.count))
+    /// Sends a scan where the menu says, among the scans on screen when it is chosen.
+    func move(_ scan: Scan, to place: MovePlace) {
+        let scans = scans
+        guard let index = scans.firstIndex(where: { $0.id == scan.id }) else { return }
+        move(from: index, to: place.destination(from: index, count: scans.count))
     }
 
-    /// Moves the page at `from` to where the page at `to` stands, among the pages on screen.
+    /// Moves the scan at `from` to where the scan at `to` stands, among the scans on screen.
     public func move(from: Int, to: Int) {
-        let pages = pages
-        guard let move = ListMove(ids: pages.map(\.id), from: from, to: to) else { return }
+        let scans = scans
+        guard let move = ListMove(ids: scans.map(\.id), from: from, to: to) else { return }
         let spoken = ListModel.Announcement(
-            id: (announcement?.id ?? 0) + 1, text: NotationCopy.moved(from: from, to: to, total: pages.count))
+            id: (announcement?.id ?? 0) + 1, text: ScanCopy.moved(from: from, to: to, total: scans.count))
         announcement = spoken
         failure = nil
         let handle = moves.begin(move)
@@ -228,9 +228,9 @@ public final class NotationModel {
         lastWrite = Task {
             await previous?.value
             do {
-                try await Commands(store: store).moveNotationPage(move.itemID, targetID: move.targetID)
+                try await Commands(store: store).moveScan(move.itemID, targetID: move.targetID)
             } catch {
-                Self.logger.warning("A notation page move failed: \(error)")
+                Self.logger.warning("A scan move failed: \(error)")
                 moves.drop(handle)
                 if announcement == spoken { announcement = nil }
                 failure = Self.message(error)
@@ -238,7 +238,7 @@ public final class NotationModel {
             }
             let shownRevision = revision
             guard
-                let stored = try? await store.read({ db in try NotationPage.fetch(db, tuneID: tuneID).map(\.id) })
+                let stored = try? await store.read({ db in try Scan.fetch(db, tuneID: tuneID).map(\.id) })
             else {
                 moves.drop(handle)
                 return
@@ -253,11 +253,11 @@ public final class NotationModel {
     }
 }
 
-/// The tunes that hold at least one live page, which decides whether a tune row offers its
-/// Notation action. One query for every row on every screen.
+/// The tunes that hold at least one live scan, which decides whether a tune row offers its
+/// Scans action. One query for every row on every screen.
 @MainActor
 @Observable
-public final class NotationTunes {
+public final class ScanTunes {
     private let query: LiveQuery<Set<String>>
 
     public init(store: CrosstuneStore) {
@@ -269,6 +269,6 @@ public final class NotationTunes {
     nonisolated static func fetch(_ db: Database) throws -> Set<String> {
         Set(
             try String.fetchAll(
-                db, sql: "SELECT DISTINCT tune_id FROM notation_pages WHERE deleted_at IS NULL"))
+                db, sql: "SELECT DISTINCT tune_id FROM scans WHERE deleted_at IS NULL"))
     }
 }

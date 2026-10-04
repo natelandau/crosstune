@@ -3,14 +3,14 @@ import Foundation
 import ImageIO
 import SwiftUI
 
-/// A page at a fixed height: its image downsampled once and cached, a broken-page mark, or a
+/// A scan at a fixed height: its image downsampled once and cached, a broken-scan mark, or a
 /// placeholder of its size while its file is still to come.
-struct NotationThumbnail: View {
+struct ScanThumbnail: View {
     /// The decoded height in pixels: twice the section's 120 pt row, for a sharp image on a
     /// Retina screen.
     nonisolated static let pixelHeight = 240
 
-    let page: NotationPage
+    let scan: Scan
     let index: Int
     let height: CGFloat
 
@@ -18,8 +18,8 @@ struct NotationThumbnail: View {
     @State private var decoded: (key: String, image: CGImage?)?
 
     var body: some View {
-        let size = CGSize(width: height * page.aspectRatio, height: height)
-        let key = page.file.map { Self.key(page: page.record, file: $0) }
+        let size = CGSize(width: height * scan.aspectRatio, height: height)
+        let key = scan.file.map { Self.key(scan: scan.record, file: $0) }
         Group {
             if let key, let image = image(for: key) {
                 Image(decorative: image, scale: 1)
@@ -30,13 +30,13 @@ struct NotationThumbnail: View {
                 placeholder {
                     Image(systemName: "exclamationmark.triangle")
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel(NotationCopy.unreadablePage)
+                        .accessibilityLabel(ScanCopy.unreadableScan)
                 }
-            } else if page.file == nil && page.record.state != NotationPageRecord.pendingUpload {
+            } else if scan.file == nil && scan.record.state != ScanRecord.pendingUpload {
                 placeholder {
                     ProgressView()
                         .controlSize(.small)
-                        .accessibilityLabel(NotationCopy.downloadingPage(index))
+                        .accessibilityLabel(ScanCopy.downloadingScan(index))
                 }
             } else {
                 placeholder { EmptyView() }
@@ -44,8 +44,8 @@ struct NotationThumbnail: View {
         }
         .frame(width: size.width, height: size.height)
         .task(id: key) {
-            guard let key, let file = page.file, let store else { return }
-            let url = store.notationFolder.appending(path: file.fileName)
+            guard let key, let file = scan.file, let store else { return }
+            let url = store.scansFolder.appending(path: file.fileName)
             let image = await Self.load(key: key, url: url, cache: Self.cache)
             guard !Task.isCancelled else { return }
             decoded = (key, image)
@@ -77,13 +77,13 @@ struct NotationThumbnail: View {
             .overlay { content() }
     }
 
-    /// Names a page's decoded image by the page and the file it came from, and nothing that
+    /// Names a scan's decoded image by the scan and the file it came from, and nothing that
     /// changes while a file uploads, so an upload's bookkeeping never decodes it again.
-    static func key(page: NotationPageRecord, file: NotationFile) -> String {
-        "\(page.id)/\(file.fileName)"
+    static func key(scan: ScanRecord, file: ScanFile) -> String {
+        "\(scan.id)/\(file.fileName)"
     }
 
-    // Twenty pages a tune, a few tunes' worth.
+    // Twenty scans a tune, a few tunes' worth.
     private static let cache = ThumbnailCache(countLimit: 100)
 
     /// The image at `url` downsampled to `height` pixels tall, never past its own size, or nil
@@ -96,7 +96,7 @@ struct NotationThumbnail: View {
             let fullHeight = properties[kCGImagePropertyPixelHeight] as? Int, width > 0, fullHeight > 0
         else { return nil }
         let longEdge = max(width, fullHeight)
-        // The thumbnail size names the long edge, so a wide page asks for more than `height`.
+        // The thumbnail size names the long edge, so a wide scan asks for more than `height`.
         let wanted = Int((Double(height) * Double(longEdge) / Double(fullHeight)).rounded())
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -115,7 +115,7 @@ struct NotationThumbnail: View {
     }
 }
 
-/// Decoded thumbnails by page and file, which the system may empty under memory pressure.
+/// Decoded thumbnails by scan and file, which the system may empty under memory pressure.
 @MainActor
 final class ThumbnailCache {
     private let storage = NSCache<NSString, CGImage>()

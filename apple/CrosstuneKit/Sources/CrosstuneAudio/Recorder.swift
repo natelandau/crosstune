@@ -93,7 +93,7 @@ public final class Recorder {
     }
 
     /// Finishes every capture an earlier run left unfinished, as after a crash, except any
-    /// this process is still recording, then deletes the audio and page files no row names. Call
+    /// this process is still recording, then deletes the audio and scan files no row names. Call
     /// when a user's store opens.
     public static func recoverLeftoverCaptures(in store: CrosstuneStore) async {
         await CaptureFinisher(store: store).recoverLeftovers(skipping: active, startedBefore: .now)

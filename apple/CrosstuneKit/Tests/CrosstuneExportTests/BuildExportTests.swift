@@ -59,8 +59,8 @@ private func fixtureInput() throws -> ExportInput {
         localAudio: try objects("local_files").map {
             LocalAudio(recordingID: try string($0, "recording_id"), fileExtension: try string($0, "extension"))
         },
-        notationPages: try objects("notation_pages").map(NotationPageRecord.init(wire:)),
-        localNotation: Set(try ids("local_notation_pages")))
+        scans: try objects("scans").map(ScanRecord.init(wire:)),
+        localScans: Set(try ids("local_scans")))
 }
 
 private func emptyInput() -> ExportInput {
@@ -102,27 +102,27 @@ private func column(_ name: String) -> Int { tunesHeader.firstIndex(of: name)! }
         let plan = buildExport(try fixtureInput())
         #expect(Array(plan.tunesCSV.utf8) == (try fixtureBytes("tunes.csv")))
         #expect(Array(plan.listsCSV.utf8) == (try fixtureBytes("lists.csv")))
-        let paths = plan.audio.map(\.path) + plan.notation.map(\.path)
+        let paths = plan.audio.map(\.path) + plan.scans.map(\.path)
         #expect(Array((paths.joined(separator: "\n") + "\n").utf8) == (try fixtureBytes("paths.txt")))
     }
 
-    @Test func numbersEachTunesLiveOnDevicePagesFromOneInReadingOrder() throws {
+    @Test func numbersEachTunesLiveOnDeviceScansFromOneInReadingOrder() throws {
         let plan = buildExport(try fixtureInput())
         let id = { (n: Int) in "00000000-0000-4000-8000-000000000\(n)" }
-        #expect(plan.notation.map(\.pageID) == [723, 724, 711, 712, 702, 701].map(id))
-        #expect(plan.notation.map(\.path).first == "notation/Untitled/1.jpg")
+        #expect(plan.scans.map(\.scanID) == [723, 724, 711, 712, 702, 701].map(id))
+        #expect(plan.scans.map(\.path).first == "scans/Untitled/1.jpg")
     }
 
-    @Test func leavesOutPagesOfATuneThatIsNotExported() {
+    @Test func leavesOutScansOfATuneThatIsNotExported() {
         var input = emptyInput()
         input.tunes = [tune("t1", "Gone", deleted: true)]
         input.userTunes = [userTune("u1", "t1")]
-        input.notationPages = [
-            NotationPageRecord(id: "p1", tuneID: "t1", width: 1, height: 1),
-            NotationPageRecord(id: "p2", tuneID: "missing", width: 1, height: 1),
+        input.scans = [
+            ScanRecord(id: "p1", tuneID: "t1", width: 1, height: 1),
+            ScanRecord(id: "p2", tuneID: "missing", width: 1, height: 1),
         ]
-        input.localNotation = ["p1", "p2"]
-        #expect(buildExport(input).notation.isEmpty)
+        input.localScans = ["p1", "p2"]
+        #expect(buildExport(input).scans.isEmpty)
     }
 
     @Test func pairsEachExportedPathWithItsRecording() throws {

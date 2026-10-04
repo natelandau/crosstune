@@ -7,8 +7,8 @@ import UniformTypeIdentifiers
     import VisionKit
 #endif
 
-/// A way to add notation pages.
-public enum NotationAddChoice: String, Hashable, Sendable, Identifiable {
+/// A way to add scans.
+public enum ScanAddChoice: String, Hashable, Sendable, Identifiable {
     case scan
     case photo
     case file
@@ -37,13 +37,13 @@ public enum NotationAddChoice: String, Hashable, Sendable, Identifiable {
 
     /// The choices a device offers: Scan only where the document camera runs, which leaves out
     /// the simulator; Choose Photo only with a photo library; Choose File everywhere.
-    static func available(scanSupported: Bool, photoLibrary: Bool) -> [NotationAddChoice] {
+    static func available(scanSupported: Bool, photoLibrary: Bool) -> [ScanAddChoice] {
         (scanSupported ? [.scan] : []) + (photoLibrary ? [.photo] : []) + [.file]
     }
 
     /// The choices this device offers. The Mac has neither the document camera nor the photo
     /// picker, so it offers Choose File alone.
-    @MainActor static var onThisDevice: [NotationAddChoice] {
+    @MainActor static var onThisDevice: [ScanAddChoice] {
         #if os(iOS)
             available(scanSupported: VNDocumentCameraViewController.isSupported, photoLibrary: true)
         #else
@@ -52,24 +52,24 @@ public enum NotationAddChoice: String, Hashable, Sendable, Identifiable {
     }
 }
 
-/// The Notation header's add control: a menu of the ways this device adds pages, or a plain
+/// The Scans header's add control: a menu of the ways this device adds scans, or a plain
 /// button where there is only one.
-struct NotationAddMenu: View {
+struct ScanAddMenu: View {
     let isEnabled: Bool
-    @Binding var choice: NotationAddChoice?
+    @Binding var choice: ScanAddChoice?
 
     var body: some View {
-        let choices = NotationAddChoice.onThisDevice
+        let choices = ScanAddChoice.onThisDevice
         Group {
             if choices.count == 1, let only = choices.first {
-                Button(NotationCopy.addNotation, systemImage: "plus") { choice = only }
+                Button(ScanCopy.addScans, systemImage: "plus") { choice = only }
             } else {
                 Menu {
                     ForEach(choices) { option in
                         Button(option.label, systemImage: option.systemImage) { choice = option }
                     }
                 } label: {
-                    Label(NotationCopy.addNotation, systemImage: "plus")
+                    Label(ScanCopy.addScans, systemImage: "plus")
                 }
             }
         }
@@ -79,9 +79,9 @@ struct NotationAddMenu: View {
 
 /// Presents the picker or scanner the add menu chose and hands what it returns to `onPick`, each
 /// image named for a message that says it could not be read.
-struct NotationImport: ViewModifier {
-    @Binding var choice: NotationAddChoice?
-    let onPick: @MainActor ([NotationPick]) -> Void
+struct ScanImport: ViewModifier {
+    @Binding var choice: ScanAddChoice?
+    let onPick: @MainActor ([ScanPick]) -> Void
     let onFailure: @MainActor (any Error) -> Void
 
     #if os(iOS)
@@ -94,7 +94,7 @@ struct NotationImport: ViewModifier {
             .fileImporter(isPresented: shows(.file), allowedContentTypes: [.image], allowsMultipleSelection: true) {
                 result in
                 switch result {
-                case .success(let urls): onPick(urls.map(NotationPick.file))
+                case .success(let urls): onPick(urls.map(ScanPick.file))
                 case .failure(let error): onFailure(error)
                 }
             }
@@ -106,9 +106,9 @@ struct NotationImport: ViewModifier {
                     photos = []
                     onPick(
                         picked.enumerated().map { offset, item in
-                            NotationPick.data(name: NotationImport.photoName(offset)) {
+                            ScanPick.data(name: ScanImport.photoName(offset)) {
                                 guard let data = try await item.loadTransferable(type: Data.self) else {
-                                    throw PreparedPage.Error.undecodable
+                                    throw PreparedScan.Error.undecodable
                                 }
                                 return data
                             }
@@ -119,8 +119,8 @@ struct NotationImport: ViewModifier {
                         onPick(
                             images.enumerated().map { offset, image in
                                 let scanned = ScannedImage(image: image)
-                                return NotationPick(name: NotationImport.scanName(offset)) {
-                                    try PreparedPage.make(from: scanned.image)
+                                return ScanPick(name: ScanImport.scannedPageName(offset)) {
+                                    try PreparedScan.make(from: scanned.image)
                                 }
                             })
                     })
@@ -130,9 +130,9 @@ struct NotationImport: ViewModifier {
 
     /// A photo has no file name to quote, so it is named by its place in the pick.
     static func photoName(_ offset: Int) -> String { "Photo \(offset + 1)" }
-    static func scanName(_ offset: Int) -> String { "Scanned page \(offset + 1)" }
+    static func scannedPageName(_ offset: Int) -> String { "Scanned page \(offset + 1)" }
 
-    private func shows(_ option: NotationAddChoice) -> Binding<Bool> {
+    private func shows(_ option: ScanAddChoice) -> Binding<Bool> {
         Binding {
             choice == option
         } set: { shown in

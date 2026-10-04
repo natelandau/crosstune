@@ -3,9 +3,9 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// The images the notation tests prepare, drawn here rather than committed so each one says how
+/// The images the scan tests prepare, drawn here rather than committed so each one says how
 /// it was made. They cover the same cases as the web client's `prepareImage` fixtures.
-enum NotationFixtures {
+enum ScanFixtures {
     struct RGBA: Equatable {
         let red: UInt8
         let green: UInt8

@@ -4,27 +4,27 @@
     import CrosstuneStore
     import Foundation
 
-    /// Notation pages for the sample catalog, drawn on the spot rather than shipped: staves with
-    /// a scatter of note heads, enough to tell one page from another.
-    enum SampleNotation {
-        /// Gives the first sample tune three pages, and the second one page the server refused
-        /// for quota, so the section shows both a clean row and a marked page.
+    /// Scans for the sample catalog, drawn on the spot rather than shipped: staves with
+    /// a scatter of note heads, enough to tell one scan from another.
+    enum SampleScans {
+        /// Gives the first sample tune three scans, and the second one scan the server refused
+        /// for quota, so the section shows both a clean row and a marked scan.
         static func add(to store: CrosstuneStore) async throws {
             let commands = Commands(store: store)
             let first = SampleCatalog.entries[0].tune.id
             let second = SampleCatalog.entries[1].tune.id
-            let pages = try await Task.detached { try (1...3).map { try PreparedPage.make(from: page(seed: $0)) } }
+            let scans = try await Task.detached { try (1...3).map { try PreparedScan.make(from: scan(seed: $0)) } }
                 .value
-            try await commands.addNotationPages(tuneID: first, pages: pages)
-            let marked = try await commands.addNotationPages(tuneID: second, pages: [pages[0]])
+            try await commands.addScans(tuneID: first, scans: scans)
+            let marked = try await commands.addScans(tuneID: second, scans: [scans[0]])
             try await store.write { writer in
-                guard var file = try NotationFile.fetchOne(writer.db, key: marked[0]) else { return }
-                file.error = NotationFile.storageFullError
+                guard var file = try ScanFile.fetchOne(writer.db, key: marked[0]) else { return }
+                file.error = ScanFile.storageFullError
                 try file.update(writer.db)
             }
         }
 
-        private static func page(seed: Int) -> CGImage {
+        private static func scan(seed: Int) -> CGImage {
             let width = 1700
             let height = 2200
             let context = CGContext(
@@ -55,7 +55,7 @@
                     context.strokePath()
                 }
             }
-            // The page number, so a reorder shows which page went where.
+            // The scan number, so a reorder shows which scan went where.
             for mark in 0..<seed {
                 let x = width / 2 - seed * 30 + mark * 60
                 context.fillEllipse(in: CGRect(x: x, y: 90, width: 36, height: 36))
@@ -64,7 +64,7 @@
         }
     }
 
-    /// A small fixed-seed generator, so the sample pages draw the same every launch.
+    /// A small fixed-seed generator, so the sample scans draw the same every launch.
     private struct SeededGenerator {
         private var state: UInt64
 

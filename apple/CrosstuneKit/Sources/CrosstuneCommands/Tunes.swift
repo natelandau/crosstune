@@ -236,7 +236,7 @@ extension StoreWriter {
     }
 
     /// Tombstones a tune and everything that hangs off it: its user tune, that user tune's list
-    /// items, its recording links, its notation pages, and its recordings. Only the tune's own
+    /// items, its recording links, its scans, and its recordings. Only the tune's own
     /// delete is queued; the rest ride along with it, as the server's own cascade does.
     public func tombstoneTune(_ tuneID: String, at time: Timestamp = .now) throws {
         try tombstone(Tune.self, id: tuneID, at: time)
@@ -252,7 +252,7 @@ extension StoreWriter {
         for link in links {
             try tombstone(RecordingLink.self, id: link.id, at: time, enqueueDelete: false)
         }
-        try tombstoneTuneNotationPages(tuneID: tuneID, at: time)
+        try tombstoneTuneScans(tuneID: tuneID, at: time)
         try tombstoneTuneRecordings(tuneID: tuneID, at: time)
     }
 

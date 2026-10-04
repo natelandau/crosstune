@@ -2,37 +2,37 @@ import CrosstuneStore
 import Foundation
 import GRDB
 
-/// The only type a notation page's image is stored as, and so the type every PUT is signed for.
-let notationContentType = "image/jpeg"
+/// The only type a scan's image is stored as, and so the type every PUT is signed for.
+let scanContentType = "image/jpeg"
 
-/// The name a downloaded page image takes in the notation folder. A captured image's name
-/// carries a UUID after the page ID, so the two never collide.
-func downloadedPageName(_ pageID: String) -> String { "\(pageID).jpg" }
+/// The name a downloaded scan image takes in the scans folder. A captured image's name
+/// carries a UUID after the scan ID, so the two never collide.
+func downloadedScanName(_ scanID: String) -> String { "\(scanID).jpg" }
 
-/// One run's notation page work: uploads every captured image whose page row has reached the
-/// server, and downloads every ready page with no image here. Pages download whatever keep
-/// offline says: a page is small, and the reading view has to work with no signal.
+/// One run's scan work: uploads every captured image whose scan row has reached the
+/// server, and downloads every ready scan with no image here. Scans download whatever keep
+/// offline says: a scan is small, and the reading view has to work with no signal.
 ///
 /// Every request is preceded by `checkStopped`, as in ``Transfers``.
 @MainActor
-struct NotationTransfers {
+struct ScanTransfers {
     let store: CrosstuneStore
     let api: any SyncAPI
     let checkStopped: @MainActor () throws -> Void
 
     // MARK: Upload
 
-    /// Uploads every captured image waiting to go. A page's own transient failure does not stop
-    /// the rest; the first one is returned, nil when every page settled. A stop or an auth
+    /// Uploads every captured image waiting to go. A scan's own transient failure does not stop
+    /// the rest; the first one is returned, nil when every scan settled. A stop or an auth
     /// failure ends the pass at once.
     func uploadPass() async throws -> (any Error)? {
         try await dropTombstonedFiles()
 
-        let waiting = try await store.read { db -> [(file: NotationFile, serverSeq: Int64)] in
-            let files = try NotationFile.filter(NotationFile.CodingKeys.origin == NotationOrigin.captured).fetchAll(db)
-            let pages = try NotationPageRecord.fetchAll(db, keys: files.map(\.pageID))
-            let serverSeqs = Dictionary(uniqueKeysWithValues: pages.map { ($0.id, $0.serverSeq) })
-            return files.map { ($0, serverSeqs[$0.pageID] ?? 0) }
+        let waiting = try await store.read { db -> [(file: ScanFile, serverSeq: Int64)] in
+            let files = try ScanFile.filter(ScanFile.CodingKeys.origin == ScanOrigin.captured).fetchAll(db)
+            let scans = try ScanRecord.fetchAll(db, keys: files.map(\.scanID))
+            let serverSeqs = Dictionary(uniqueKeysWithValues: scans.map { ($0.id, $0.serverSeq) })
+            return files.map { ($0, serverSeqs[$0.scanID] ?? 0) }
         }
         let storage = try await store.meta(.storage, as: StorageFigures.self)
         let now = Timestamp.now
@@ -40,16 +40,16 @@ struct NotationTransfers {
         for (file, serverSeq) in waiting {
             // A refused row the server has since stored, as after a later edit's push, can take
             // a slot after all.
-            if file.error == NotationFile.refusedError, serverSeq == 0 { continue }
-            // Only the figures a sync refreshes free a page refused for quota; asking for a slot
+            if file.error == ScanFile.refusedError, serverSeq == 0 { continue }
+            // Only the figures a sync refreshes free a scan refused for quota; asking for a slot
             // before they show room would draw the same refusal.
-            if file.error == NotationFile.storageFullError, let storage {
-                let bytes = (try? fileSize(store.notationFolder.appending(path: file.fileName))) ?? 0
+            if file.error == ScanFile.storageFullError, let storage {
+                let bytes = (try? fileSize(store.scansFolder.appending(path: file.fileName))) ?? 0
                 if Int64(storage.usedBytes) + bytes > Int64(storage.quotaBytes) { continue }
             }
             if let next = file.nextAttemptAt, next > now { continue }
             do {
-                try await uploadOne(file.pageID)
+                try await uploadOne(file.scanID)
             } catch {
                 if endsThePass(error) { throw error }
                 firstError = firstError ?? error
@@ -59,35 +59,35 @@ struct NotationTransfers {
     }
 
     private func uploadOne(_ id: String) async throws {
-        let found = try await store.read { db -> (NotationFile, NotationPageRecord, Bool)? in
-            guard let file = try NotationFile.fetchOne(db, key: id), file.origin == .captured,
-                let page = try NotationPageRecord.fetchOne(db, key: id)
+        let found = try await store.read { db -> (ScanFile, ScanRecord, Bool)? in
+            guard let file = try ScanFile.fetchOne(db, key: id), file.origin == .captured,
+                let scan = try ScanRecord.fetchOne(db, key: id)
             else { return nil }
             let queued =
                 try OutboxEntry.filter(
-                    OutboxEntry.CodingKeys.tableName == SyncTable.notationPages.rawValue
+                    OutboxEntry.CodingKeys.tableName == SyncTable.scans.rawValue
                         && OutboxEntry.CodingKeys.rowID == id
                 ).fetchCount(db) > 0
-            return (file, page, queued)
+            return (file, scan, queued)
         }
         // A tombstone that lands mid-pass is settled by the next pass's dropTombstonedFiles.
-        guard let (file, page, queued) = found, page.deletedAt == nil else { return }
-        // The server gives a slot only to a page row it has.
+        guard let (file, scan, queued) = found, scan.deletedAt == nil else { return }
+        // The server gives a slot only to a scan row it has.
         if queued { return }
-        let url = store.notationFolder.appending(path: file.fileName)
+        let url = store.scansFolder.appending(path: file.fileName)
         let onDisk = FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
-        guard page.state == NotationPageRecord.pendingUpload else {
+        guard scan.state == ScanRecord.pendingUpload else {
             if onDisk {
                 try await settleUploaded(file)
             } else {
                 // The server has the image, so dropping the row lets the download pass fetch it.
-                try await store.write { writer in _ = try NotationFile.deleteOne(writer.db, key: id) }
+                try await store.write { writer in _ = try ScanFile.deleteOne(writer.db, key: id) }
             }
             return
         }
         guard onDisk else {
-            // The only copy is gone, so no retry can send it; the page is left for deleting.
-            try await settleUpload(id, error: NotationFile.refusedError)
+            // The only copy is gone, so no retry can send it; the scan is left for deleting.
+            try await settleUpload(id, error: ScanFile.refusedError)
             return
         }
 
@@ -95,13 +95,13 @@ struct NotationTransfers {
         do {
             let bytes = try fileSize(url)
             try checkStopped()
-            slot = try await api.notationUploadSlot(pageID: id, bytes: bytes)
+            slot = try await api.scanUploadSlot(scanID: id, bytes: bytes)
         } catch let stop as RunStopped {
             throw stop
         } catch {
             if let refusal = underlying(error) as? APIStatusError {
                 if refusal.problemType == quotaProblem {
-                    try await settleUpload(id, error: NotationFile.storageFullError)
+                    try await settleUpload(id, error: ScanFile.storageFullError)
                     return
                 }
                 switch refusal.status {
@@ -114,15 +114,15 @@ struct NotationTransfers {
                     // slot. One it did store has since been deleted there, with it or its tune;
                     // pushing it again would win over that tombstone, so the pull brings it
                     // instead.
-                    if page.serverSeq == 0 {
-                        try await settleUpload(id, error: NotationFile.refusedError)
+                    if scan.serverSeq == 0 {
+                        try await settleUpload(id, error: ScanFile.refusedError)
                     } else {
                         try await scheduleRetry(id, after: error)
                     }
                     return
                 default:
                     if refusesTheRequestItself(refusal) {
-                        // No failed state holds a page's only copy, so it waits out the backoff
+                        // No failed state holds a scan's only copy, so it waits out the backoff
                         // without failing the run, and the rest of the queue still moves.
                         try await scheduleRetry(id, after: error)
                         return
@@ -135,9 +135,9 @@ struct NotationTransfers {
 
         do {
             try checkStopped()
-            try await api.putObject(slot.url, file: url, contentType: notationContentType)
+            try await api.putObject(slot.url, file: url, contentType: scanContentType)
             try checkStopped()
-            try await api.notationUploaded(pageID: id)
+            try await api.scanUploaded(scanID: id)
             try await settleUploaded(file)
         } catch let stop as RunStopped {
             throw stop
@@ -151,18 +151,18 @@ struct NotationTransfers {
 
     /// The server holds the image now, so the kept file is a cache like any download and leaves
     /// the device backup.
-    private func settleUploaded(_ file: NotationFile) async throws {
-        // A page deleted mid-upload took its file along, so there is nothing to mark.
-        guard try await settleUpload(file.pageID, origin: .downloaded) else { return }
-        try store.applyBackupRule(toNotationFile: file.fileName, origin: .downloaded)
+    private func settleUploaded(_ file: ScanFile) async throws {
+        // A scan deleted mid-upload took its file along, so there is nothing to mark.
+        guard try await settleUpload(file.scanID, origin: .downloaded) else { return }
+        try store.applyBackupRule(toScanFile: file.fileName, origin: .downloaded)
     }
 
     /// Leaves the retry loop with `error`, or none, starting the try count fresh. False when the
     /// file row is gone.
     @discardableResult
-    private func settleUpload(_ id: String, origin: NotationOrigin? = nil, error: String? = nil) async throws -> Bool {
+    private func settleUpload(_ id: String, origin: ScanOrigin? = nil, error: String? = nil) async throws -> Bool {
         try await store.write { writer in
-            guard var file = try NotationFile.fetchOne(writer.db, key: id) else { return false }
+            guard var file = try ScanFile.fetchOne(writer.db, key: id) else { return false }
             if let origin { file.origin = origin }
             file.error = error
             file.uploadAttempts = 0
@@ -176,7 +176,7 @@ struct NotationTransfers {
     private func scheduleRetry(_ id: String, after error: any Error) async throws {
         let message = transferMessage(error)
         try await store.write { writer in
-            guard var file = try NotationFile.fetchOne(writer.db, key: id) else { return }
+            guard var file = try ScanFile.fetchOne(writer.db, key: id) else { return }
             file.error = message
             file.nextAttemptAt = nextUploadAttempt(attempts: file.uploadAttempts, from: .now)
             file.uploadAttempts += 1
@@ -184,31 +184,31 @@ struct NotationTransfers {
         }
     }
 
-    /// Removes the image and file row of every page whose page or tune was deleted, here or
+    /// Removes the image and file row of every scan whose scan or tune was deleted, here or
     /// elsewhere, or is not here at all. A captured image goes too: unlike an unfiled recording, a
-    /// deleted page has no tune to come back to.
+    /// deleted scan has no tune to come back to.
     func dropTombstonedFiles() async throws {
         try await store.writeDroppingFiles { writer in
             try writer.db.execute(
-                sql: "DELETE FROM notation_files WHERE page_id NOT IN (\(NotationPageRecord.liveIDsSQL))")
+                sql: "DELETE FROM scan_files WHERE scan_id NOT IN (\(ScanRecord.liveIDsSQL))")
         }
     }
 
     // MARK: Download
 
-    /// Fetches the image of every ready page with none here. A stop, no connection, or a refused
-    /// session ends the pass; any other failure is that page's alone, so it backs off in
+    /// Fetches the image of every ready scan with none here. A stop, no connection, or a refused
+    /// session ends the pass; any other failure is that scan's alone, so it backs off in
     /// `retries` and the rest still download.
     func downloadPass(retries: DownloadRetries) async throws {
         let ids = try await store.read { db in
             try String.fetchAll(
                 db,
                 sql: """
-                    SELECT p.id FROM notation_pages p
-                    LEFT JOIN notation_files f ON f.page_id = p.id
-                    WHERE p.state = ? AND f.page_id IS NULL AND p.id IN (\(NotationPageRecord.liveIDsSQL))
+                    SELECT s.id FROM scans s
+                    LEFT JOIN scan_files f ON f.scan_id = s.id
+                    WHERE s.state = ? AND f.scan_id IS NULL AND s.id IN (\(ScanRecord.liveIDsSQL))
                     """,
-                arguments: [NotationPageRecord.ready])
+                arguments: [ScanRecord.ready])
         }
         for id in ids where !retries.isWaiting(id) {
             do {
@@ -223,22 +223,22 @@ struct NotationTransfers {
 
     private func downloadOne(_ id: String) async throws {
         try checkStopped()
-        let signed = try await api.notationDownload(pageID: id)
+        let signed = try await api.scanDownload(scanID: id)
         try checkStopped()
-        let name = downloadedPageName(id)
-        let destination = store.notationFolder.appending(path: name)
+        let name = downloadedScanName(id)
+        let destination = store.scansFolder.appending(path: name)
         do {
             try await api.getObject(signed.url, to: destination)
             // Before the row names the file, so a failure here leaves no row to an unmarked file.
-            try store.applyBackupRule(toNotationFile: name, origin: .downloaded)
-            // A delete of the page or its tune, or a capture, that landed during the fetch wins.
+            try store.applyBackupRule(toScanFile: name, origin: .downloaded)
+            // A delete of the scan or its tune, or a capture, that landed during the fetch wins.
             let kept = try await store.write { writer -> Bool in
                 let live =
                     try Bool.fetchOne(
-                        writer.db, sql: "SELECT EXISTS(\(NotationPageRecord.liveIDsSQL) AND p.id = ?)",
+                        writer.db, sql: "SELECT EXISTS(\(ScanRecord.liveIDsSQL) AND s.id = ?)",
                         arguments: [id]) ?? false
-                guard live, try NotationFile.fetchOne(writer.db, key: id) == nil else { return false }
-                try NotationFile(pageID: id, fileName: name, origin: .downloaded).insert(writer.db)
+                guard live, try ScanFile.fetchOne(writer.db, key: id) == nil else { return false }
+                try ScanFile(scanID: id, fileName: name, origin: .downloaded).insert(writer.db)
                 return true
             }
             if !kept { try? FileManager.default.removeItem(at: destination) }

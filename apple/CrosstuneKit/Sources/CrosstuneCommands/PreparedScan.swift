@@ -3,11 +3,11 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// An image ready to store as a notation page: an upright JPEG, at most 2400 px on its long
+/// An image ready to store as a scan: an upright JPEG, at most 2400 px on its long
 /// edge, transparency on white, with none of the original's metadata.
 ///
 /// Preparing decodes and encodes a full image, so call it off the main thread.
-public struct PreparedPage: Sendable, Equatable {
+public struct PreparedScan: Sendable, Equatable {
     public enum Error: Swift.Error, Equatable {
         /// The data is not an image ImageIO can read.
         case undecodable
@@ -21,7 +21,7 @@ public struct PreparedPage: Sendable, Equatable {
     public let height: Int
 
     /// Prepares a picked photo or file, turning it upright by its orientation tag.
-    public static func make(from data: Data) throws -> PreparedPage {
+    public static func make(from data: Data) throws -> PreparedScan {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0
         else { throw Error.undecodable }
         let options: [CFString: Any] = [
@@ -37,8 +37,8 @@ public struct PreparedPage: Sendable, Equatable {
         return try encode(image, width: image.width, height: image.height)
     }
 
-    /// Prepares a scanned page, which arrives upright.
-    public static func make(from image: CGImage) throws -> PreparedPage {
+    /// Prepares a document camera page, which arrives upright.
+    public static func make(from image: CGImage) throws -> PreparedScan {
         guard image.width > 0, image.height > 0 else { throw Error.undecodable }
         let scale = min(1, Double(maxEdge) / Double(max(image.width, image.height)))
         let width = max(1, Int((Double(image.width) * scale).rounded()))
@@ -48,7 +48,7 @@ public struct PreparedPage: Sendable, Equatable {
 
     /// Draws `image` at the given size onto white and encodes it. Drawing into a fresh bitmap
     /// leaves every metadata property of the source behind.
-    private static func encode(_ image: CGImage, width: Int, height: Int) throws -> PreparedPage {
+    private static func encode(_ image: CGImage, width: Int, height: Int) throws -> PreparedScan {
         guard let sRGB = CGColorSpace(name: CGColorSpace.sRGB),
             let context = CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: sRGB,
@@ -69,12 +69,12 @@ public struct PreparedPage: Sendable, Equatable {
         let properties: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: jpegQuality]
         CGImageDestinationAddImage(destination, flattened, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw Error.undecodable }
-        return PreparedPage(jpeg: withoutMetadataSegments(output as Data), width: width, height: height)
+        return PreparedScan(jpeg: withoutMetadataSegments(output as Data), width: width, height: height)
     }
 
     /// Drops every APP1 (Exif, XMP) and APP13 (Photoshop, IPTC) segment from a JPEG. ImageIO
     /// writes both into every JPEG it encodes, even with no metadata given; they hold only the
-    /// new image's color space and size, but a page carries no Exif at all.
+    /// new image's color space and size, but a scan carries no Exif at all.
     static func withoutMetadataSegments(_ jpeg: Data) -> Data {
         let bytes = [UInt8](jpeg)
         guard bytes.count > 4, bytes[0] == 0xFF, bytes[1] == 0xD8 else { return jpeg }
