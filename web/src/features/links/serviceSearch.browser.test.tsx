@@ -26,7 +26,13 @@ describe('searchesInApp', () => {
     expect(searchesInApp('apple_music')).toBe(true)
     expect(searchesInApp('tidal')).toBe(true)
     expect(searchesInApp('internet_archive')).toBe(true)
-    for (const provider of ['youtube', 'spotify', 'bandcamp', 'soundcloud'] as const) {
+    for (const provider of [
+      'slippery_hill',
+      'youtube',
+      'spotify',
+      'bandcamp',
+      'soundcloud',
+    ] as const) {
       expect(searchesInApp(provider)).toBe(false)
     }
   })

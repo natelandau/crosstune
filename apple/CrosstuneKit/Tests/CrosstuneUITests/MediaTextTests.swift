@@ -12,11 +12,12 @@ private let utc = TimeZone(identifier: "UTC")!
 private let recordedAtText = "Mar 14, 2026 at 8:05\u{202F}PM"
 
 private func recording(
-    label: String? = nil, state: String = "ready", durationMs: Int64? = 42_000
+    label: String? = nil, state: String = "ready", durationMs: Int64? = 42_000, origin: String = "own",
+    source: String = "microphone"
 ) -> Recording {
     Recording(
-        id: "r1", tuneID: "t1", source: "microphone", recordedAt: Timestamp(iso: "2026-03-14T20:05:00.000Z")!,
-        label: label, state: state, durationMs: durationMs)
+        id: "r1", tuneID: "t1", source: source, origin: origin,
+        recordedAt: Timestamp(iso: "2026-03-14T20:05:00.000Z")!, label: label, state: state, durationMs: durationMs)
 }
 
 private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: String? = nil) -> RecordingFile {
@@ -68,6 +69,19 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 }
 
 @Suite struct RecordingMetaTests {
+    @Test func leadsWithTheSiteWhenOfflineToo() {
+        let meta = RecordingText.meta(recording(origin: "slippery_hill"), file: nil, offline: true)
+        #expect(meta == ["Slippery-Hill", "0:42", SyncStatus.offlineLabel])
+    }
+
+    @Test func leadsWithTheSiteAnImportCameFrom() {
+        let meta = RecordingText.meta(
+            recording(origin: "slippery_hill"), file: file(.downloaded), locale: locale, timeZone: utc)
+        #expect(meta == ["Slippery-Hill", "0:42", recordedAtText])
+        #expect(RecordingText.originLabel("own") == nil)
+        #expect(RecordingText.originLabel("future_site") == "future_site")
+    }
+
     @Test func showsTheDateWhenNothingNeedsAttention() {
         let meta = RecordingText.meta(recording(), file: file(.downloaded), locale: locale, timeZone: utc)
         #expect(meta == ["0:42", recordedAtText])
@@ -104,6 +118,12 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     ])
     func namesEachLocalState(state: LocalFileState, label: String) {
         #expect(RecordingText.fileState(recording(), file: file(state)) == label)
+    }
+
+    @Test func callsAnImportWithNoFileYetProcessing() {
+        let pending = recording(state: "pending_upload", origin: "slippery_hill", source: "import")
+        #expect(RecordingText.fileState(pending, file: nil) == "Processing")
+        #expect(RecordingText.fileState(recording(state: "pending_upload"), file: nil) == nil)
     }
 
     @Test func saysNothingForAPlayableRecording() {

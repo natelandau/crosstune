@@ -31,9 +31,28 @@ tsc:
 typos:
     uv run --project ../api typos --config ../.typos.toml . ../brand
 
+# Fail when the committed client types no longer match the committed OpenAPI schema
+[group('lint')]
+contract-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
+    out=.cache/contract-check
+    rm -rf "$out" && mkdir -p "$out"
+    trap 'rm -rf "$out"' EXIT
+    pnpm --silent openapi-typescript ../api/openapi.json -o "$out/schema.d.ts" > /dev/null
+    node scripts/vocabulary.mjs ../api/openapi.json "$out/vocabulary.raw.ts"
+    # Formatted as the committed file's path so prettier applies that file's config.
+    pnpm --silent exec prettier --stdin-filepath src/api/vocabulary.ts < "$out/vocabulary.raw.ts" > "$out/vocabulary.ts"
+    stale=0
+    for f in schema.d.ts vocabulary.ts; do
+        diff -u "src/api/$f" "$out/$f" || stale=1
+    done
+    [ "$stale" -eq 0 ] || { echo "web/src/api is stale; run just contract" >&2; exit 1; }
+
 # Run all linters
 [group('lint')]
-lint: eslint format tsc typos
+lint: eslint format tsc typos contract-check
 
 # Fix lint and formatting where tools can
 [group('lint')]

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError } from '../api/client'
 import {
+  addRecordingFromLink,
   appendChunk,
   beginCapture,
   deleteRecording,
@@ -8,6 +9,7 @@ import {
   storeDownloadedBlob,
   storePeaks,
 } from '../commands/recordings'
+import { addLink } from '../commands/links'
 import { createTune, deleteTune } from '../commands/tunes'
 import { CHUNK_MS } from '../db/recordings'
 import { getStorage, setKeepOffline, setStorage } from '../db/meta'
@@ -108,6 +110,8 @@ async function readyOnServer(id: string, tuneId: string | null = null): Promise<
     tune_id: tuneId,
     label: null,
     source: 'microphone',
+    origin: 'own',
+    origin_url: null,
     recorded_at: AT,
     position: 0,
     state: 'ready',
@@ -136,6 +140,23 @@ describe('uploadPass', () => {
     await uploadPass(db, fake.api)
     expect((await db.recording_files.get(id))?.local_state).toBe('captured')
     expect(fake.objects.size).toBe(0)
+  })
+
+  it('requests no slot for an import row, which has no file', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, {
+      url: 'https://www.slippery-hill.com/recording/7',
+      provider: 'slippery_hill',
+      provider_ref: '7',
+      title: 'Slow version',
+    })
+    const id = await addRecordingFromLink(db, linkId)
+    const slot = vi.spyOn(fake.api, 'requestUploadSlot')
+    await pushed(id)
+    await uploadPass(db, fake.api)
+    expect(slot).not.toHaveBeenCalled()
+    expect(fake.objects.size).toBe(0)
+    expect(await db.recording_files.get(id)).toBeUndefined()
   })
 
   it('requests a slot, puts the blob, and confirms', async () => {

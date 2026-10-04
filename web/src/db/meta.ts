@@ -4,6 +4,8 @@ export const META_PULL_CURSOR = 'pull_cursor'
 export const META_INVALID_CHANGES = 'invalid_changes'
 export const META_STORAGE = 'storage'
 export const META_KEEP_OFFLINE = 'keep_offline'
+/** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
+export const META_RECORDINGS_ORIGIN = 'recordings_origin'
 
 export interface StorageFigures {
   used_bytes: number

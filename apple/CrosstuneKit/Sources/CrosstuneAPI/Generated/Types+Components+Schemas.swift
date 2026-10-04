@@ -1027,6 +1027,10 @@ extension Components {
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingData/label`.
             public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/origin`.
+            public var origin: Components.Schemas.RecordingOrigin?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/origin_url`.
+            public var originUrl: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingData/pitch_cents`.
             public var pitchCents: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/position`.
@@ -1048,6 +1052,8 @@ extension Components {
             /// - Parameters:
             ///   - createdAt:
             ///   - label:
+            ///   - origin:
+            ///   - originUrl:
             ///   - pitchCents:
             ///   - position:
             ///   - recordedAt:
@@ -1059,6 +1065,8 @@ extension Components {
             public init(
                 createdAt: Foundation.Date,
                 label: Swift.String? = nil,
+                origin: Components.Schemas.RecordingOrigin? = nil,
+                originUrl: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
                 position: Swift.Int? = nil,
                 recordedAt: Foundation.Date,
@@ -1070,6 +1078,8 @@ extension Components {
             ) {
                 self.createdAt = createdAt
                 self.label = label
+                self.origin = origin
+                self.originUrl = originUrl
                 self.pitchCents = pitchCents
                 self.position = position
                 self.recordedAt = recordedAt
@@ -1082,6 +1092,8 @@ extension Components {
             public enum CodingKeys: String, CodingKey {
                 case createdAt = "created_at"
                 case label
+                case origin
+                case originUrl = "origin_url"
                 case pitchCents = "pitch_cents"
                 case position
                 case recordedAt = "recorded_at"
@@ -1658,6 +1670,10 @@ extension Components {
                 try encoder.encodeAdditionalProperties(additionalProperties)
             }
         }
+        /// Whose a recording is: the user's own, or the import source it came from.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RecordingOrigin`.
+        public typealias RecordingOrigin = Swift.String
         /// A recording row in a pull page.
         ///
         /// - Remark: Generated from `#/components/schemas/RecordingPullRow`.
@@ -1703,6 +1719,10 @@ extension Components {
             public var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/RecordingRow/label`.
             public var label: Swift.String?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/origin`.
+            public var origin: Components.Schemas.RecordingOrigin?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/origin_url`.
+            public var originUrl: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/peaks_rev`.
             public var peaksRev: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/pitch_cents`.
@@ -1752,6 +1772,8 @@ extension Components {
             ///   - error:
             ///   - id:
             ///   - label:
+            ///   - origin:
+            ///   - originUrl:
             ///   - peaksRev:
             ///   - pitchCents:
             ///   - playbackBytes:
@@ -1779,6 +1801,8 @@ extension Components {
                 error: Swift.String? = nil,
                 id: Swift.String,
                 label: Swift.String? = nil,
+                origin: Components.Schemas.RecordingOrigin? = nil,
+                originUrl: Swift.String? = nil,
                 peaksRev: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
                 playbackBytes: Swift.Int? = nil,
@@ -1806,6 +1830,8 @@ extension Components {
                 self.error = error
                 self.id = id
                 self.label = label
+                self.origin = origin
+                self.originUrl = originUrl
                 self.peaksRev = peaksRev
                 self.pitchCents = pitchCents
                 self.playbackBytes = playbackBytes
@@ -1834,6 +1860,8 @@ extension Components {
                 case error
                 case id
                 case label
+                case origin
+                case originUrl = "origin_url"
                 case peaksRev = "peaks_rev"
                 case pitchCents = "pitch_cents"
                 case playbackBytes = "playback_bytes"
@@ -1879,6 +1907,14 @@ extension Components {
                 self.label = try container.decodeIfPresent(
                     Swift.String.self,
                     forKey: .label
+                )
+                self.origin = try container.decodeIfPresent(
+                    Components.Schemas.RecordingOrigin.self,
+                    forKey: .origin
+                )
+                self.originUrl = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .originUrl
                 )
                 self.peaksRev = try container.decodeIfPresent(
                     Swift.String.self,
@@ -1963,6 +1999,8 @@ extension Components {
                     "error",
                     "id",
                     "label",
+                    "origin",
+                    "origin_url",
                     "peaks_rev",
                     "pitch_cents",
                     "playback_bytes",
@@ -2009,6 +2047,14 @@ extension Components {
                 try container.encodeIfPresent(
                     self.label,
                     forKey: .label
+                )
+                try container.encodeIfPresent(
+                    self.origin,
+                    forKey: .origin
+                )
+                try container.encodeIfPresent(
+                    self.originUrl,
+                    forKey: .originUrl
                 )
                 try container.encodeIfPresent(
                     self.peaksRev,

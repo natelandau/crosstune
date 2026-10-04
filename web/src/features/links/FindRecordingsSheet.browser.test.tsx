@@ -204,9 +204,15 @@ describe('FindRecordingsSheet', () => {
       await expect
         .poll(rows)
         .toEqual(
-          ['Apple Music', 'TIDAL', 'Internet Archive', 'Spotify', 'Bandcamp', 'SoundCloud'].map(
-            searchService,
-          ),
+          [
+            'Apple Music',
+            'TIDAL',
+            'Internet Archive',
+            'Slippery-Hill',
+            'Spotify',
+            'Bandcamp',
+            'SoundCloud',
+          ].map(searchService),
         )
       expect(page.getByRole('button', { name: BACK }).elements()).toHaveLength(0)
       // Picking a service searches it, so its search is the only one made.

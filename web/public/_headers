@@ -8,12 +8,14 @@
 # fails when the two drift. The pitch stage's AudioWorklet loads from a blob:
 # URL and compiles WebAssembly, and worklets follow script-src, not
 # worker-src. Recordings play from blob: URLs and move to and from R2 by fetch.
+# Slippery-Hill files play in an audio element from their own origin, so media-src
+# names it.
 # HSTS is a zone setting, not a header here.
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-KrFaj8HKSvStmhc063VdLDW3of0a3opNtEVHetjM6to=' blob: 'wasm-unsafe-eval' https://clerk.crosstune.app https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.protect.clerk.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://img.clerk.com; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://clerk.crosstune.app https://*.clerk.accounts.dev https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.r2.cloudflarestorage.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io; frame-src https://www.youtube-nocookie.com https://open.spotify.com https://embed.music.apple.com https://embed.tidal.com https://w.soundcloud.com https://bandcamp.com https://archive.org https://challenges.cloudflare.com https://*.protect.clerk.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-KrFaj8HKSvStmhc063VdLDW3of0a3opNtEVHetjM6to=' blob: 'wasm-unsafe-eval' https://clerk.crosstune.app https://*.clerk.accounts.dev https://challenges.cloudflare.com https://*.protect.clerk.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://img.clerk.com; media-src 'self' blob: https://www.slippery-hill.com; worker-src 'self' blob:; connect-src 'self' https://clerk.crosstune.app https://*.clerk.accounts.dev https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.r2.cloudflarestorage.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io; frame-src https://www.youtube-nocookie.com https://open.spotify.com https://embed.music.apple.com https://embed.tidal.com https://w.soundcloud.com https://bandcamp.com https://archive.org https://challenges.cloudflare.com https://*.protect.clerk.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   Permissions-Policy: camera=(), geolocation=(), microphone=(self), payment=(), usb=()
 /sw.js
   Cache-Control: no-cache

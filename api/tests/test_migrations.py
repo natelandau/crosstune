@@ -195,7 +195,6 @@ async def test_0012_moves_tunings_into_the_map_and_renames_banjo(
     assert rows[settings].server_seq > before[settings]
     # A queued offline edit stamped before the migration must still win last-write-wins.
     assert rows[settings].updated_at == STAMPED
-    assert rows[other_settings].server_seq == before[other_settings]
 
 
 async def test_downgrade_to_0011_restores_the_columns_and_strips_new_instruments(
@@ -312,7 +311,6 @@ async def test_0014_renames_a_leftover_banjo_and_merges_a_repeat(
     assert rows[renamed].server_seq > before[renamed]
     assert rows[renamed].updated_at == STAMPED
     assert rows[untouched].instruments == ["violin"]
-    assert rows[untouched].server_seq == before[untouched]
 
 
 async def _seed_user(session: AsyncSession) -> None:
@@ -608,6 +606,7 @@ async def test_recording_links_accept_the_new_providers(session: AsyncSession) -
     new_links = {
         "018f0000-0000-7000-8000-000000000011": "tidal",
         "018f0000-0000-7000-8000-000000000012": "internet_archive",
+        "018f0000-0000-7000-8000-000000000013": "slippery_hill",
     }
     for link_id, provider in new_links.items():
         await session.execute(
@@ -1586,6 +1585,7 @@ async def test_0021_fills_search_providers_for_existing_rows(
         "apple_music",
         "tidal",
         "internet_archive",
+        "slippery_hill",
         "youtube",
         "spotify",
         "bandcamp",
@@ -1643,3 +1643,428 @@ async def test_0022_adds_play_sources_and_play_first(
                 ),
                 {"id": pin_a, "user": user, "tune": tune, "a": pin_a, "b": pin_b},
             )
+
+
+MIGRATION_0023 = (
+    Path(__file__).parents[1] / "src/crosstune/db/migrations/versions/0023_slippery_hill.py"
+)
+
+
+def load_0023():
+    spec = importlib.util.spec_from_file_location("migration_0023", MIGRATION_0023)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        (
+            "https://slippery-hill.com/content/june-apple-2/?x=1",
+            ("slippery_hill", None, "https://www.slippery-hill.com/content/june-apple-2"),
+        ),
+        (
+            "https://www.slippery-hill.com/system/files/recordings/a.mp3",
+            (
+                "slippery_hill",
+                "recordings/a.mp3",
+                "https://www.slippery-hill.com/system/files/recordings/a.mp3",
+            ),
+        ),
+        (
+            "https://www.slippery-hill.com/system/files/../x.mp3",
+            ("slippery_hill", None, "https://www.slippery-hill.com/system/files/../x.mp3"),
+        ),
+        (
+            "https://m.slippery-hill.com/content/june-apple-2",
+            ("slippery_hill", None, "https://www.slippery-hill.com/content/june-apple-2"),
+        ),
+        (
+            "https://www.slippery-hill.com/tune-search?q=x&utm_source=y#top",
+            ("slippery_hill", None, "https://www.slippery-hill.com/tune-search?q=x"),
+        ),
+        (
+            "https://www.slippery-hill.com/system/files/a:b.mp3",
+            ("slippery_hill", None, "https://www.slippery-hill.com/system/files/a:b.mp3"),
+        ),
+        (
+            "https://www.slippery-hill.com/system/files/x%2E.mp3",
+            ("slippery_hill", None, "https://www.slippery-hill.com/system/files/x%2E.mp3"),
+        ),
+        (
+            f"https://www.slippery-hill.com/system/files/{'a' * 197}.mp3",
+            ("slippery_hill", None, f"https://www.slippery-hill.com/system/files/{'a' * 197}.mp3"),
+        ),
+        ("https://example.com/system/files/a.mp3", None),
+        ("http://[abc", None),
+    ],
+)
+def test_0023_redetects_slippery_hill(url: str, expected) -> None:
+    assert load_0023().redetect(url) == expected
+
+
+async def test_0023_backfills_links_and_settings(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    tune = "018f0000-0000-7000-8000-000000000002"
+    settings = "018f0000-0000-7000-8000-000000000003"
+    hill = "018f0000-0000-7000-8000-000000000011"
+    other = "018f0000-0000-7000-8000-000000000012"
+    links = {
+        hill: "https://slippery-hill.com/content/june-apple-2",
+        other: "https://example.com/x.mp3",
+    }
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0022")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "insert into users (id, clerk_user_id, created_at, updated_at) "
+                    "values (:id, 'user_a', now(), now())"
+                ),
+                {"id": user},
+            )
+            await conn.execute(
+                text(
+                    "insert into tunes (id, owner_user_id, title, created_at, updated_at) "
+                    "values (:id, :owner, 'June Apple', now(), now())"
+                ),
+                {"id": tune, "owner": user},
+            )
+            for link_id, url in links.items():
+                await conn.execute(
+                    text(
+                        "insert into recording_links "
+                        "(id, tune_id, added_by_user_id, url, provider, created_at, updated_at) "
+                        "values (:id, :tune, :user, :url, 'other', now(), now())"
+                    ),
+                    {"id": link_id, "tune": tune, "user": user, "url": url},
+                )
+            await conn.execute(
+                text(
+                    "insert into user_settings (id, user_id, instruments, audio_quality, "
+                    "search_providers, created_at, updated_at) "
+                    "values (:id, :user, '{}', 'standard', '{apple_music,youtube}', now(), now())"
+                ),
+                {"id": settings, "user": user},
+            )
+            before_links = dict(
+                (await conn.execute(text("select id::text, server_seq from recording_links")))
+                .tuples()
+                .all()
+            )
+            before_settings = (
+                await conn.execute(text("select server_seq from user_settings"))
+            ).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+    async with engine.connect() as conn:
+        rows = {
+            row.id: row
+            for row in await conn.execute(
+                text("select id::text as id, provider, url, server_seq from recording_links")
+            )
+        }
+        stored = (
+            await conn.execute(text("select search_providers, server_seq from user_settings"))
+        ).one()
+    assert (rows[hill].provider, rows[hill].url) == (
+        "slippery_hill",
+        "https://www.slippery-hill.com/content/june-apple-2",
+    )
+    assert rows[hill].server_seq > before_links[hill]
+    assert (rows[other].provider, rows[other].url, rows[other].server_seq) == (
+        "other",
+        "https://example.com/x.mp3",
+        before_links[other],
+    )
+    assert stored.search_providers == ["apple_music", "slippery_hill", "youtube"]
+    assert stored.server_seq > before_settings
+
+
+async def test_downgrade_to_0022_and_back_restores_head_shape(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    user = "018f0000-0000-7000-8000-000000000001"
+    tune = "018f0000-0000-7000-8000-000000000002"
+    settings = "018f0000-0000-7000-8000-000000000003"
+    link = "018f0000-0000-7000-8000-000000000011"
+    insert_link = text(
+        "insert into recording_links (id, tune_id, added_by_user_id, url, provider, "
+        "created_at, updated_at) values (:id, :tune, :user, 'https://x', 'slippery_hill', "
+        "now(), now())"
+    )
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_a', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into tunes (id, owner_user_id, title, created_at, updated_at) "
+                "values (:id, :owner, 'June Apple', now(), now())"
+            ),
+            {"id": tune, "owner": user},
+        )
+        await conn.execute(
+            text(
+                "insert into recording_links (id, tune_id, added_by_user_id, url, provider, "
+                "provider_ref, created_at, updated_at) values (:id, :tune, :user, "
+                "'https://www.slippery-hill.com/system/files/a.mp3', 'slippery_hill', "
+                "'a.mp3', now(), now())"
+            ),
+            {"id": link, "tune": tune, "user": user},
+        )
+        await conn.execute(
+            text(
+                "insert into user_settings (id, user_id, instruments, audio_quality, "
+                "search_providers, created_at, updated_at) values (:id, :user, '{}', "
+                "'standard', '{apple_music,slippery_hill,youtube}', now(), now())"
+            ),
+            {"id": settings, "user": user},
+        )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0022")
+        async with engine.connect() as conn:
+            reverted = (
+                await conn.execute(
+                    text("select provider, provider_ref from recording_links where id = :id"),
+                    {"id": link},
+                )
+            ).one()
+            providers = (
+                await conn.execute(text("select search_providers from user_settings"))
+            ).scalar_one()
+            default = (
+                await conn.execute(
+                    text(
+                        "select column_default from information_schema.columns "
+                        "where table_name = 'user_settings' and column_name = 'search_providers'"
+                    )
+                )
+            ).scalar_one()
+        assert tuple(reverted) == ("other", None)
+        assert providers == ["apple_music", "youtube"]
+        assert "slippery_hill" not in default
+        with pytest.raises(IntegrityError, match="ck_recording_links_provider"):
+            async with engine.begin() as conn:
+                await conn.execute(
+                    insert_link,
+                    {"id": "018f0000-0000-7000-8000-000000000012", "tune": tune, "user": user},
+                )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        default = (
+            await conn.execute(
+                text(
+                    "select column_default from information_schema.columns "
+                    "where table_name = 'user_settings' and column_name = 'search_providers'"
+                )
+            )
+        ).scalar_one()
+    assert "slippery_hill" in default
+
+
+async def _seed_recording(engine, source: str = "microphone") -> None:
+    user = "018f0000-0000-7000-8000-000000000001"
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values (:id, 'user_a', now(), now())"
+            ),
+            {"id": user},
+        )
+        await conn.execute(
+            text(
+                "insert into recordings (id, user_id, source, recorded_at, state, "
+                "created_at, updated_at) values "
+                "('018f0000-0000-7000-8000-000000000021', :user, :source, now(), 'ready', "
+                "now(), now())"
+            ),
+            {"user": user, "source": source},
+        )
+
+
+async def test_0024_existing_recordings_read_as_own(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0023")
+        await _seed_recording(engine)
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+        async with engine.connect() as conn:
+            row = (await conn.execute(text("select origin, origin_url from recordings"))).one()
+        assert tuple(row) == ("own", None)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+
+
+async def test_downgrade_to_0023_drops_the_columns_and_upgrade_restores_them(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    query = text(
+        "select count(*) from information_schema.columns "
+        "where table_name = 'recordings' and column_name in ('origin', 'origin_url')"
+    )
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0023")
+        async with engine.connect() as conn:
+            assert (await conn.execute(query)).scalar_one() == 0
+        with pytest.raises(IntegrityError, match="ck_recordings_source"):
+            await _seed_recording(engine, source="import")
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        assert (await conn.execute(query)).scalar_one() == 2
+
+
+async def test_0024_downgrade_refuses_while_an_import_exists(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+            )
+        )
+        await conn.execute(
+            text(
+                "insert into recordings (id, user_id, source, origin, origin_url, recorded_at, "
+                "state, created_at, updated_at) values "
+                "('018f0000-0000-7000-8000-000000000021', "
+                "'018f0000-0000-7000-8000-000000000001', 'import', 'slippery_hill', "
+                "'https://www.slippery-hill.com/recording/1', now(), 'ready', now(), now())"
+            )
+        )
+    with pytest.raises(RuntimeError, match="source 'import'"):
+        await anyio.to_thread.run_sync(command.downgrade, config, "0023")
+
+
+async def _seed_job(engine, kind: str) -> None:
+    await _seed_recording(engine)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into jobs (id, recording_id, user_id, kind, attempts, created_at) "
+                "values ('018f0000-0000-7000-8000-000000000031', "
+                "'018f0000-0000-7000-8000-000000000021', "
+                "'018f0000-0000-7000-8000-000000000001', :kind, 0, now())"
+            ),
+            {"kind": kind},
+        )
+
+
+async def test_0025_jobs_accept_the_import_kind(engine, truncate_all: None) -> None:
+    await _seed_job(engine, "import")
+    async with engine.connect() as conn:
+        kinds = (await conn.execute(text("select kind from jobs"))).scalars().all()
+    assert kinds == ["import"]
+
+
+async def test_downgrade_to_0024_deletes_import_jobs_and_upgrade_restores_the_kind(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    await _seed_job(engine, "import")
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0024")
+        async with engine.connect() as conn:
+            assert (await conn.execute(text("select count(*) from jobs"))).scalar_one() == 0
+        with pytest.raises(IntegrityError, match="ck_jobs_kind"):
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        "insert into jobs (id, recording_id, user_id, kind, attempts, "
+                        "created_at) values ('018f0000-0000-7000-8000-000000000032', "
+                        "'018f0000-0000-7000-8000-000000000021', "
+                        "'018f0000-0000-7000-8000-000000000001', 'import', 0, now())"
+                    )
+                )
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into jobs (id, recording_id, user_id, kind, attempts, created_at) "
+                "values ('018f0000-0000-7000-8000-000000000033', "
+                "'018f0000-0000-7000-8000-000000000021', "
+                "'018f0000-0000-7000-8000-000000000001', 'import', 0, now())"
+            )
+        )
+
+
+async def test_downgrade_to_0024_fails_the_recordings_of_deleted_import_jobs(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    queued = "018f0000-0000-7000-8000-000000000021"
+    transcoding = "018f0000-0000-7000-8000-000000000022"
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+            )
+        )
+        await conn.execute(
+            text(
+                "insert into recordings (id, user_id, source, origin, origin_url, recorded_at, "
+                "state, created_at, updated_at) values "
+                "(:queued, '018f0000-0000-7000-8000-000000000001', 'import', 'slippery_hill', "
+                "'https://www.slippery-hill.com/content/x', now(), 'processing', now(), now()), "
+                "(:transcoding, '018f0000-0000-7000-8000-000000000001', 'microphone', 'own', "
+                "null, now(), 'processing', now(), now())"
+            ),
+            {"queued": queued, "transcoding": transcoding},
+        )
+        await conn.execute(
+            text(
+                "insert into jobs (id, recording_id, user_id, kind, attempts, created_at) values "
+                "('018f0000-0000-7000-8000-000000000031', :queued, "
+                "'018f0000-0000-7000-8000-000000000001', 'import', 0, now()), "
+                "('018f0000-0000-7000-8000-000000000032', :transcoding, "
+                "'018f0000-0000-7000-8000-000000000001', 'transcode', 0, now())"
+            ),
+            {"queued": queued, "transcoding": transcoding},
+        )
+    seq_query = text("select id::text, server_seq from recordings")
+    async with engine.connect() as conn:
+        seq_before = dict((await conn.execute(seq_query)).tuples().all())
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0024")
+        async with engine.connect() as conn:
+            rows = {
+                row[0]: row[1:]
+                for row in (
+                    await conn.execute(
+                        text("select id::text, state, error, server_seq from recordings")
+                    )
+                ).tuples()
+            }
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    state, error, seq = rows[queued]
+    assert (state, error) == ("failed", "Couldn't reach Slippery-Hill")
+    assert seq > seq_before[queued]
+    assert rows[transcoding] == ("processing", None, seq_before[transcoding])

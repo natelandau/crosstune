@@ -271,6 +271,8 @@ export function serverRecording(overrides: Partial<RecordingRow> & { id: string 
     tune_id: null,
     label: null,
     source: 'microphone',
+    origin: 'own',
+    origin_url: null,
     recorded_at: '2026-09-11T00:00:00Z',
     position: 0,
     state: 'pending_upload',

@@ -160,10 +160,11 @@ and fails instead in CI, where the `API` workflow always starts it.
   `Preview` workflow creates a Neon branch `pr-<n>` from development and a
   Railway environment `pr-<n>` on the PR branch, with the `pr-<n>/` prefix
   of the preview bucket. A KV entry maps the PR's preview alias to that
-  API. Every push resets the Neon branch, so preview data is lost. Every
-  push also copies into the prefix each object of the development bucket
-  whose copy is missing, has a different size, or is older. Closing the
-  PR deletes the Railway environment, the Neon branch, the KV entry, the
+  API. Every push resets the Neon branch and migrates it to the PR's
+  schema, so preview data is lost. Every push also copies into the prefix
+  each object of the development bucket whose copy is missing, has a
+  different size, or is older. Closing the PR deletes the Railway
+  environment, the Neon branch, the KV entry, the
   `pr-<n>/` prefix, and the `crosstune / pr-<n>` GitHub environment that
   Railway's deploys create. The 90-day lifecycle rule on the preview bucket is
   the backstop for a failed prefix deletion. If cleanup fails, run the

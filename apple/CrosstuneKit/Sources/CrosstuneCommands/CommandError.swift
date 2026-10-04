@@ -9,6 +9,7 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     case listNameRequired
     case tuneNotInList
     case recordingNotFound
+    case linkNotFound
     case loopLimit
     case noRoom
 
@@ -18,6 +19,7 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     public static let listNameRequiredMessage = "A list needs a name"
     public static let tuneNotInListMessage = "Tune not found in list"
     public static let recordingNotFoundMessage = "Recording not found"
+    public static let linkNotFoundMessage = "Link not found"
     public static let loopLimitMessage = "This recording has 100 loops."
     public static let noRoomMessage = "No room for a loop here."
 
@@ -29,6 +31,7 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
         case .listNameRequired: Self.listNameRequiredMessage
         case .tuneNotInList: Self.tuneNotInListMessage
         case .recordingNotFound: Self.recordingNotFoundMessage
+        case .linkNotFound: Self.linkNotFoundMessage
         case .loopLimit: Self.loopLimitMessage
         case .noRoom: Self.noRoomMessage
         }

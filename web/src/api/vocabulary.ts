@@ -29,11 +29,15 @@ export const PROVIDERS = [
   'soundcloud',
   'tidal',
   'internet_archive',
+  'slippery_hill',
   'other',
 ] as const
 export type Provider = (typeof PROVIDERS)[number]
 
-export const RECORDING_SOURCES = ['microphone', 'upload'] as const
+export const RECORDING_ORIGINS = ['own', 'slippery_hill'] as const
+export type RecordingOrigin = (typeof RECORDING_ORIGINS)[number]
+
+export const RECORDING_SOURCES = ['microphone', 'upload', 'import'] as const
 export type RecordingSource = (typeof RECORDING_SOURCES)[number]
 
 export const RECORDING_STATES = [
@@ -92,6 +96,7 @@ export const LINK_LIMITS = {
 
 export const RECORDING_LIMITS = {
   label: 200,
+  origin_url: 2048,
 } as const
 
 export const LOOP_LIMITS = {

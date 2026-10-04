@@ -9,9 +9,11 @@ public enum Vocabulary {
     public static let modes: [String] = ["major", "minor", "mixolydian", "dorian", "modal", "other"]
     public static let playFirsts: [String] = ["recordings", "apple_music"]
     public static let providers: [String] = [
-        "youtube", "spotify", "apple_music", "bandcamp", "soundcloud", "tidal", "internet_archive", "other",
+        "youtube", "spotify", "apple_music", "bandcamp", "soundcloud", "tidal", "internet_archive", "slippery_hill",
+        "other",
     ]
-    public static let recordingSources: [String] = ["microphone", "upload"]
+    public static let recordingOrigins: [String] = ["own", "slippery_hill"]
+    public static let recordingSources: [String] = ["microphone", "upload", "import"]
     public static let recordingStates: [String] = ["pending_upload", "uploaded", "processing", "ready", "failed"]
     public static let searchStatuses: [String] = ["results", "unavailable", "search_only"]
     public static let timeSignatures: [String] = ["4/4", "2/4", "2/2", "3/4", "3/2", "6/8", "9/8", "12/8", "other"]
@@ -43,6 +45,7 @@ public enum Vocabulary {
         }
         public enum Recording {
             public static let label = 200
+            public static let originUrl = 2048
         }
         public enum RecordingLoop {
             public static let label = 100

@@ -63,11 +63,12 @@ public protocol APIProtocol: Sendable {
     func peaksV1RecordingsRecordingIdPeaksGet(_ input: Operations.PeaksV1RecordingsRecordingIdPeaksGet.Input) async throws -> Operations.PeaksV1RecordingsRecordingIdPeaksGet.Output
     /// Retry
     ///
-    /// Transcode the object already in the bucket again, for a recording that failed.
+    /// Process a failed recording again: transcode its file, or fetch an import again.
     ///
-    /// A recording whose uploaded object is gone is uploaded again through a new
-    /// slot instead; this route only re-runs the transcode. Repeating the call changes
-    /// nothing.
+    /// An import whose file never arrived is fetched again, or fails at once when its
+    /// address is not one the server imports from. Any other recording whose uploaded
+    /// object is gone is uploaded again through a new slot; this route only re-runs the
+    /// transcode. Repeating the call changes nothing.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/retry`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)`.
@@ -195,11 +196,12 @@ extension APIProtocol {
     }
     /// Retry
     ///
-    /// Transcode the object already in the bucket again, for a recording that failed.
+    /// Process a failed recording again: transcode its file, or fetch an import again.
     ///
-    /// A recording whose uploaded object is gone is uploaded again through a new
-    /// slot instead; this route only re-runs the transcode. Repeating the call changes
-    /// nothing.
+    /// An import whose file never arrived is fetched again, or fails at once when its
+    /// address is not one the server imports from. Any other recording whose uploaded
+    /// object is gone is uploaded again through a new slot; this route only re-runs the
+    /// transcode. Repeating the call changes nothing.
     ///
     /// - Remark: HTTP `POST /v1/recordings/{recording_id}/retry`.
     /// - Remark: Generated from `#/paths//v1/recordings/{recording_id}/retry/post(retry_v1_recordings__recording_id__retry_post)`.

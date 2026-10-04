@@ -110,8 +110,8 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 
     @Test func countsSearchedServicesOrNone() {
-        #expect(SettingsModel.searchProvidersSummary(["youtube", "tidal"]) == "2 of 7")
-        #expect(SettingsModel.searchProvidersSummary(["tidal", "mixcloud"]) == "1 of 7")
+        #expect(SettingsModel.searchProvidersSummary(["youtube", "tidal"]) == "2 of 8")
+        #expect(SettingsModel.searchProvidersSummary(["tidal", "mixcloud"]) == "1 of 8")
         #expect(SettingsModel.searchProvidersSummary(["mixcloud"]) == SettingsModel.noServices)
         #expect(SettingsModel.searchProvidersSummary([]) == "No services selected")
     }
@@ -166,7 +166,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let store = try await SampleCatalog.makeStore()
         let model = try await loadedModel(store)
         #expect(model.instrumentSummary == "Violin, 5-string banjo")
-        #expect(model.searchProvidersSummary == "5 of 7")
+        #expect(model.searchProvidersSummary == "5 of 8")
         #expect(model.plays("violin"))
         #expect(!model.plays("guitar"))
         #expect(model.audioQuality == "standard")
@@ -334,7 +334,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         let model = try await loadedModel(store)
         #expect(
             model.searchProvidersSummary
-                == "7 of 7")
+                == "8 of 8")
         #expect(searchableProviders.allSatisfy(model.searches))
     }
 
@@ -349,7 +349,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         try await eventually { searchableProviders.allSatisfy(model.searches) }
         #expect(
             model.searchProvidersSummary
-                == "7 of 7")
+                == "8 of 8")
     }
 
     @Test func togglesAServiceAtOnceAndStoresIt() async throws {

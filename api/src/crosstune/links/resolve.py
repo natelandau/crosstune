@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 from crosstune.links.detect import detect_provider, normalize_url
 from crosstune.links.fetch import get_json
 from crosstune.links.opengraph import PageMeta, parse_open_graph
+from crosstune.links.slippery_hill import parse_tune_page
+from crosstune.vocabulary import LIMITS
 
 if TYPE_CHECKING:
     import httpx2
@@ -25,6 +27,7 @@ ITUNES_LOOKUP = "https://itunes.apple.com/lookup"
 ARCHIVE_METADATA = "https://archive.org/metadata/{identifier}/metadata"
 ARCHIVE_ARTWORK = "https://archive.org/services/img/{identifier}"
 MAX_PAGE_BYTES = 512_000
+LINK_LIMITS = LIMITS["recording_links"]
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,13 @@ async def resolve_link(
             title, artwork = await _itunes(client, link.provider_ref, timeout)
         elif link.provider == "internet_archive" and link.provider_ref:
             title, artwork = await _internet_archive(client, link.provider_ref, timeout)
+        elif link.provider == "slippery_hill":
+            # A file URL already carries its ref; only a page URL needs fetching.
+            if ref is None:
+                tune = await asyncio.to_thread(
+                    parse_tune_page, await _read_page(client, link.url, timeout)
+                )
+                title, ref = tune.title, tune.ref
         else:
             page = await _open_graph(client, link.url, timeout)
             title, artwork = page.title, page.image
@@ -76,7 +86,16 @@ async def resolve_link(
                 ref = page.bandcamp_ref
     except Exception:  # noqa: BLE001  -- any upstream failure degrades to an untitled link
         log.warning("link resolution failed", extra={"url": link.url, "provider": link.provider})
-    return replace(link, title=title, artwork_url=artwork, provider_ref=ref)
+    return replace(
+        link,
+        title=title[: LINK_LIMITS["title"]] if title else title,
+        # A ref or artwork address cut short would point somewhere else, so one that
+        # outgrows its column is dropped instead.
+        artwork_url=artwork
+        if artwork is None or len(artwork) <= LINK_LIMITS["artwork_url"]
+        else None,
+        provider_ref=ref if ref is None or len(ref) <= LINK_LIMITS["provider_ref"] else None,
+    )
 
 
 async def _oembed(
@@ -128,13 +147,13 @@ async def _internet_archive(
     return title, ARCHIVE_ARTWORK.format(identifier=identifier)
 
 
-async def _open_graph(
+async def _read_page(
     client: httpx2.AsyncClient,
     url: str,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
-) -> PageMeta:
-    # Streamed and capped: the page is an arbitrary third-party URL and the og tags
-    # a resolver needs are in the head.
+) -> str:
+    # Streamed and capped: the page is an arbitrary third-party URL and the data
+    # a resolver needs is near the top.
     chunks: list[bytes] = []
     read = 0
     async with client.stream(
@@ -146,6 +165,14 @@ async def _open_graph(
             read += len(chunk)
             if read >= MAX_PAGE_BYTES:
                 break
-    body = b"".join(chunks)[:MAX_PAGE_BYTES]
+    return b"".join(chunks)[:MAX_PAGE_BYTES].decode("utf-8", errors="replace")
+
+
+async def _open_graph(
+    client: httpx2.AsyncClient,
+    url: str,
+    timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
+) -> PageMeta:
+    html = await _read_page(client, url, timeout)
     # Up to MAX_PAGE_BYTES of pure-Python parsing, kept off the event loop.
-    return await asyncio.to_thread(parse_open_graph, body.decode("utf-8", errors="replace"))
+    return await asyncio.to_thread(parse_open_graph, html)

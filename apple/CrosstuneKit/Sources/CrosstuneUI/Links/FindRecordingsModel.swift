@@ -1,6 +1,7 @@
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
+import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Observation
@@ -110,6 +111,10 @@ public final class FindRecordingsModel {
     /// The services whose results the sheet shows itself. Every other one opens its own search
     /// page, as does one of these whenever the API answers it search-only.
     public nonisolated static let inlineSearch: Set<String> = ["apple_music", "tidal", "internet_archive"]
+
+    /// The services whose link audio the server can fetch and save as a recording: every
+    /// recording origin but the user's own.
+    public nonisolated static let importable = Set(Vocabulary.recordingOrigins).subtracting(["own"])
 
     public nonisolated static func searchesInApp(_ provider: String) -> Bool { inlineSearch.contains(provider) }
 
@@ -333,7 +338,9 @@ public final class FindRecordingsModel {
 
     /// A result's own player, or nil when it can only open elsewhere.
     nonisolated static func embed(for result: SearchResult) -> Embed? {
-        Embed.for(provider: result.provider, providerRef: result.providerRef, url: result.url, autoplay: true)
+        Embed.for(
+            provider: result.provider, providerRef: result.providerRef, url: result.url, autoplay: true,
+            title: result.title)
     }
 
     private func storeChanged() {

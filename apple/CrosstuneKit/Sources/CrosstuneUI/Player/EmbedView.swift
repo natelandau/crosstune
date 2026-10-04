@@ -14,6 +14,19 @@ extension Embed {
     /// frame's permissions as the provider's embed code sets them.
     var document: String {
         let sandbox = sandbox.map { " sandbox=\"\(Self.attribute($0))\"" } ?? ""
+        let player =
+            switch kind {
+            case .frame:
+                """
+                <iframe src="\(Self.attribute(src))" allow="\(Self.attribute(allow))"\(sandbox) \
+                referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                """
+            case .audio:
+                """
+                <audio controls autoplay src="\(Self.attribute(src))" aria-label="\(Self.attribute(title ?? Self.untitledPlayer))" \
+                style="display:block;width:100%"></audio>
+                """
+            }
         return """
             <!doctype html>
             <html><head>
@@ -21,8 +34,7 @@ extension Embed {
             <style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}\
             iframe{display:block;border:0;width:100%;height:100%}</style>
             </head><body>
-            <iframe src="\(Self.attribute(src))" allow="\(Self.attribute(allow))"\(sandbox) \
-            referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            \(player)
             </body></html>
             """
     }

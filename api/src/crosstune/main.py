@@ -116,6 +116,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.sessionmaker,
             app.state.object_store,
             orphan_sweep_seconds=settings.orphan_sweep_seconds,
+            http_client=app.state.http_client,
+            settings=settings,
         )
         app.state.job_runner.start()
     if built_engine:

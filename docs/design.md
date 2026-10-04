@@ -227,7 +227,8 @@ Every box that searches tunes also offers to create one.
 
 ## Filters
 
-Only the catalog has filters.
+The catalog and the Recordings tab have filters. The list below covers the
+catalog's; the Recordings tab's is described after it.
 
 - The control that opens the filter sheet sits with the search field, not in
   the toolbar, and carries a count: "Filters, 2 set". Filters persist, so a
@@ -249,6 +250,12 @@ Only the catalog has filters.
   narrowed, and is absent when the catalog is empty.
 - Matching ignores case and accents.
 - List screens keep their own Show archived setting.
+
+The Recordings tab has one filter, a rail of All, Mine, and one chip per
+import source the user holds, following the rail rules above. The rail shows
+only while the user holds recordings from more than one source. The choice
+persists per device. A source with no recordings left keeps its chip while
+it is chosen, so the list never narrows in silence.
 
 ## Gestures
 
@@ -423,9 +430,12 @@ Recordings and links share one row shape.
 - A recording's screen opens only from the dock. Its title line up to Close
   is one control ending in an up chevron, and the screen closes with a down
   chevron. A recording row's actions are Rename, Add to tune or Remove from
-  tune, Play first in lists, and Delete. On a tune's own rows, a recording or
-  link can be pinned to play first in lists, and the pinned row shows a pin
-  mark.
+  tune, Play first in lists, and Delete. An imported recording's menu also
+  has Open on and the site's name, which opens the page it came from, and is
+  never a swipe action. A link row's actions are Play first in lists, Add to
+  recordings when the server can save its audio, and Remove. On a tune's own
+  rows, a recording or link can be pinned to play first in lists, and the
+  pinned row shows a pin mark.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.
 

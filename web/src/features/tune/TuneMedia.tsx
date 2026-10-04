@@ -1,8 +1,9 @@
 import { IonButton } from '@ionic/react'
-import { AudioLines, CircleDot, Link, Plus, Search, Trash2 } from 'lucide-react'
+import { AudioLines, CircleDot, Download, Link, Plus, Search, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { removeLink } from '../../commands/links'
+import { addRecordingFromLink } from '../../commands/recordings'
 import { setPlaySource } from '../../commands/tunes'
 import { PROVIDER_LABELS } from '../../constants'
 import { useDb } from '../../db/DbProvider'
@@ -14,11 +15,18 @@ import { useMenu, type MenuItem } from '../../ui/Menu'
 import { useOnline, useSyncEngine } from '../../sync/SyncProvider'
 import { FindRecordingsSheet } from '../links/FindRecordingsSheet'
 import {
+  ADD_TO_RECORDINGS,
   FIND_RECORDINGS,
   SEARCH_NEEDS_CONNECTION,
   searchService,
 } from '../links/findRecordingsCopy'
-import { openServiceSearch, prefillFor, searchesInApp, searchQuery } from '../links/serviceSearch'
+import {
+  IMPORTABLE_PROVIDERS,
+  openServiceSearch,
+  prefillFor,
+  searchesInApp,
+  searchQuery,
+} from '../links/serviceSearch'
 import { LinkItem } from '../links/LinkItem'
 import { PASTE_LINK, PasteLinkSheet } from '../links/PasteLinkSheet'
 import { NEW_RECORDING } from '../recording/RecordModal'
@@ -101,6 +109,12 @@ export function TuneMedia({
           onPress: () => setFinding(true),
         }
 
+  // A live recording that already came from this link's page is the link's audio saved.
+  const canImport = (link: LocalRecordingLink) =>
+    IMPORTABLE_PROVIDERS.some((provider) => provider === link.provider) &&
+    !!link.provider_ref &&
+    !recordings.some((view) => view.recording.origin_url === link.url)
+
   const empty = recordings.length === 0 && links.length === 0
   // On the header rather than below the card, so an empty tune still reaches it and adding stops
   // outweighing the rows it adds to. A plus is what every other screen's add control wears, and
@@ -164,6 +178,17 @@ export function TuneMedia({
                               ),
                             ),
                           ),
+                        ]
+                      : []),
+                    ...(canImport(link)
+                      ? [
+                          {
+                            label: ADD_TO_RECORDINGS,
+                            short: 'Add',
+                            icon: Download,
+                            tone: 'neutral' as const,
+                            onPress: () => run(() => addRecordingFromLink(db, link.id)),
+                          },
                         ]
                       : []),
                     {

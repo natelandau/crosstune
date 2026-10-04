@@ -42,6 +42,8 @@ from tests.fakes import FakeObjectStore
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from crosstune.config import Settings
+
 pytestmark = pytest.mark.anyio
 
 # A fixed revision for fabricated keys in tests that only care about the recording prefix.
@@ -293,9 +295,9 @@ class _DeleteFailsStore(FakeObjectStore):
 
 
 @pytest.fixture
-def runner(engine, tmp_path) -> tuple[JobRunner, FakeObjectStore]:
+def runner(engine, tmp_path, settings: Settings) -> tuple[JobRunner, FakeObjectStore]:
     store = FakeObjectStore()
-    return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path), store
+    return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path, settings=settings), store
 
 
 async def seed(verify_session, store: FakeObjectStore, path, content_type: str) -> Recording:
@@ -428,10 +430,10 @@ async def test_run_once_survives_a_transcode_failure_after_the_transaction_began
 
 
 async def test_run_once_leaves_a_recording_ready_when_deleting_the_upload_fails(
-    engine, verify_session, media_fixtures, tmp_path
+    engine, verify_session, media_fixtures, tmp_path, settings: Settings
 ) -> None:
     store = _DeleteFailsStore()
-    job_runner = JobRunner(make_sessionmaker(engine), store, work_root=tmp_path)
+    job_runner = JobRunner(make_sessionmaker(engine), store, work_root=tmp_path, settings=settings)
     rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
@@ -893,9 +895,13 @@ async def test_sweep_orphans_removes_prefixes_with_no_user(runner, verify_sessio
     assert await job_runner.sweep_orphans() == 0
 
 
-async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> None:
+async def test_run_once_sweeps_orphans_once_per_interval(
+    engine, tmp_path, settings: Settings
+) -> None:
     store = FakeObjectStore()
-    hourly = JobRunner(make_sessionmaker(engine), store, orphan_sweep_seconds=3600)
+    hourly = JobRunner(
+        make_sessionmaker(engine), store, orphan_sweep_seconds=3600, settings=settings
+    )
     first = new_uuid7()
     store.put_bytes(playback_key(first, "r1", REV), b"a", "audio/mp4")
     assert await hourly.run_once() == 1
@@ -903,7 +909,7 @@ async def test_run_once_sweeps_orphans_once_per_interval(engine, tmp_path) -> No
     store.put_bytes(playback_key(second, "r1", REV), b"b", "audio/mp4")
     assert await hourly.run_once() == 0
     assert store.keys() == [playback_key(second, "r1", REV)]
-    always = JobRunner(make_sessionmaker(engine), store, orphan_sweep_seconds=0)
+    always = JobRunner(make_sessionmaker(engine), store, orphan_sweep_seconds=0, settings=settings)
     assert await always.run_once() == 1
     assert store.keys() == []
 
@@ -1056,7 +1062,7 @@ async def test_peaks_cancelled_after_its_upload_deletes_the_object(
 
 
 async def test_sweep_through_a_prefix_leaves_other_environments_alone(
-    engine, verify_session
+    engine, verify_session, settings: Settings
 ) -> None:
     """A pr-N sweep sees only pr-N/, never a sibling preview or the unprefixed keys beside it."""
     user_a = await make_user(verify_session)
@@ -1074,7 +1080,9 @@ async def test_sweep_through_a_prefix_leaves_other_environments_alone(
     ]
     for key in a_keys + others:
         bucket.put_bytes(key, b"a", "audio/mp4")
-    job_runner = JobRunner(make_sessionmaker(engine), PrefixedStore(bucket, "pr-6/"))
+    job_runner = JobRunner(
+        make_sessionmaker(engine), PrefixedStore(bucket, "pr-6/"), settings=settings
+    )
     assert await job_runner.sweep_orphans() == 0
     assert bucket.keys() == sorted(a_keys + others)
     stray = f"pr-6/{playback_key(new_uuid7(), new_uuid7(), REV)}"
@@ -1094,7 +1102,9 @@ class _RecordingDeletesStore(FakeObjectStore):
         self.deleted.append(prefix)
 
 
-async def test_sweep_handles_more_ids_than_postgres_bind_parameters(engine, verify_session) -> None:
+async def test_sweep_handles_more_ids_than_postgres_bind_parameters(
+    engine, verify_session, settings: Settings
+) -> None:
     """Postgres drivers cap bind parameters at 32767, so each id set must bind as one."""
     user = await make_user(verify_session)
     kept = await add_recording(verify_session, user, "ready")
@@ -1107,7 +1117,7 @@ async def test_sweep_handles_more_ids_than_postgres_bind_parameters(engine, veri
         store.put_bytes(playback_key(user.id, stray, REV), b"b", "audio/mp4")
         store.put_bytes(playback_key(gone, new_uuid7(), REV), b"c", "audio/mp4")
         expected += [f"{user.id}/{stray}/", f"{gone}/"]
-    job_runner = JobRunner(make_sessionmaker(engine), store)
+    job_runner = JobRunner(make_sessionmaker(engine), store, settings=settings)
     assert await job_runner.sweep_orphans() == len(expected)
     assert sorted(store.deleted) == sorted(expected)
 
@@ -1323,9 +1333,9 @@ class _WriteTrackingStore(FakeObjectStore):
 
 
 @pytest.fixture
-def trim_runner(engine, tmp_path) -> tuple[JobRunner, _WriteTrackingStore]:
+def trim_runner(engine, tmp_path, settings: Settings) -> tuple[JobRunner, _WriteTrackingStore]:
     store = _WriteTrackingStore()
-    return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path), store
+    return JobRunner(make_sessionmaker(engine), store, work_root=tmp_path, settings=settings), store
 
 
 async def seed_ready(verify_session, store: FakeObjectStore, path, content_type, tmp_path):

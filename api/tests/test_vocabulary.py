@@ -27,6 +27,7 @@ CHECKS = {
     (RecordingLink, "ck_recording_links_provider"): ("provider", vocabulary.Provider, False),
     (Recording, "ck_recordings_source"): ("source", vocabulary.RecordingSource, False),
     (Recording, "ck_recordings_state"): ("state", vocabulary.RecordingState, False),
+    (Recording, "ck_recordings_origin"): ("origin", vocabulary.RecordingOrigin, False),
     (UserSettings, "ck_user_settings_audio_quality"): (
         "audio_quality",
         vocabulary.AudioQuality,
@@ -168,3 +169,7 @@ def test_pulled_rows_store_validated_values_as_plain_strings() -> None:
     )
     assert type(row.model_dump()["state"]) is str
     assert type(row.model_dump()["source"]) is str
+
+
+def test_only_slippery_hill_is_importable() -> None:
+    assert vocabulary.IMPORTABLE_PROVIDERS == (vocabulary.Provider.SLIPPERY_HILL,)

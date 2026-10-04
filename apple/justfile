@@ -26,9 +26,30 @@ format:
 typos:
     uv run --project ../api typos --config ../.typos.toml .
 
+# Fail when the committed Swift client or vocabulary no longer match the OpenAPI schema
+[group('lint')]
+contract-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
+    out=.build/contract-check
+    rm -rf "$out" && mkdir -p "$out/Generated"
+    trap 'rm -rf "$out"' EXIT
+    swift run -q --package-path Tools normalize-contract ../api/openapi.json "$out/openapi.json"
+    swift run -q --package-path Tools swift-openapi-generator generate \
+        --config CrosstuneKit/Sources/CrosstuneAPI/openapi-generator-config.yaml \
+        --output-directory "$out/Generated" \
+        "$out/openapi.json" > /dev/null
+    swift run -q --package-path Tools generate-vocabulary ../api/openapi.json "$out/Vocabulary.swift"
+    swift format --in-place --configuration .swift-format "$out/Vocabulary.swift"
+    stale=0
+    diff -ru CrosstuneKit/Sources/CrosstuneAPI/Generated "$out/Generated" || stale=1
+    diff -u CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift "$out/Vocabulary.swift" || stale=1
+    [ "$stale" -eq 0 ] || { echo "the Swift client is stale; run just contract" >&2; exit 1; }
+
 # Run all linters
 [group('lint')]
-lint: format typos
+lint: format typos contract-check
 
 # Fix formatting where swift format can
 [group('lint')]

@@ -13,7 +13,10 @@ export interface RecordingView {
   tuneTitle: string | null
 }
 
-/** Live recordings with their local file, newest first, unfiled ones first. */
+const isImported = (view: RecordingView) => view.recording.origin !== 'own'
+
+/** Live recordings with their local file, newest first, unfiled ones first.
+ * On a tune's rows, own recordings come before imported ones, each in position order. */
 export function useRecordingsWithFiles({ tuneId }: { tuneId?: string } = {}):
   RecordingView[] | undefined {
   const db = useDb()
@@ -36,7 +39,8 @@ export function useRecordingsWithFiles({ tuneId }: { tuneId?: string } = {}):
         tuneTitle: tune?.title ?? null,
       }
     })
-    if (tuneId) return views
+    // Array.sort is stable, so each group keeps its position order.
+    if (tuneId) return views.sort((a, b) => Number(isImported(a)) - Number(isImported(b)))
     // Parsed, not compared as text: a row written here and one pulled from the server spell
     // the same instant with different fractional-second precision.
     return views.sort((a, b) => {

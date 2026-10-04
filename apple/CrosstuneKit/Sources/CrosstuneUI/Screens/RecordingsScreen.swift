@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 public struct RecordingsScreen: View {
     public static let emptyTitle = "No recordings yet"
     public static let emptyHint = "Use the record button to make one, or upload an audio file."
+    public static let noMatchTitle = "No recordings from this source"
     /// The heading over captures that were never saved as recordings.
     public static let unfinishedHeader = "Not saved"
 
@@ -63,6 +64,7 @@ private struct RecordingsContent: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.detailTune) private var detailTune
     @Environment(\.spacing) private var spacing
+    @Environment(\.openURL) private var openURL
     @State private var pushed: String?
     @State private var importing = false
     @State private var dropTargeted = false
@@ -87,6 +89,14 @@ private struct RecordingsContent: View {
     var body: some View {
         let groups = model.groups
         List {
+            if model.showsRail {
+                RecordingsOriginRail(choice: model.choice, origins: model.origins) { next in
+                    Task { await model.setChoice(next) }
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
             if let storage = model.storage {
                 Section {
                     StorageSummary(storage: storage)
@@ -111,10 +121,18 @@ private struct RecordingsContent: View {
         }
         .overlay {
             if groups?.isEmpty == true && model.unfinished.isEmpty {
-                ContentUnavailableView {
-                    Label(RecordingsScreen.emptyTitle, systemImage: Destination.recordings.systemImage)
-                } description: {
-                    Text(RecordingsScreen.emptyHint)
+                if model.noMatch {
+                    ContentUnavailableView(
+                        RecordingsScreen.noMatchTitle, systemImage: Destination.recordings.systemImage
+                    )
+                    // The rail above stays pressable.
+                    .allowsHitTesting(false)
+                } else {
+                    ContentUnavailableView {
+                        Label(RecordingsScreen.emptyTitle, systemImage: Destination.recordings.systemImage)
+                    } description: {
+                        Text(RecordingsScreen.emptyHint)
+                    }
                 }
             }
         }
@@ -219,6 +237,8 @@ private struct RecordingsContent: View {
         .scaledRowInsets()
         .recordingRowActions(
             filed: view.tuneID != nil,
+            originLabel: RecordingText.originLabel(view.recording.origin),
+            onOpenOrigin: RecordingRowActions.originPage(view.recording).map { page in { openURL(page) } },
             onRename: { renaming = view },
             onAddToTune: { filing = view },
             onRemoveFromTune: { Task { await model.removeFromTune(view.id) } },

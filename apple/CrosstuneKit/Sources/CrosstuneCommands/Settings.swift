@@ -34,7 +34,7 @@ private func storedInstruments(_ row: UserSettings?) -> [String]? {
 /// in the order the API groups results, services that play inline first. Every stored list and
 /// summary follows this order, as the server and the web client do.
 public let searchableProviders = [
-    "apple_music", "tidal", "internet_archive", "youtube", "spotify", "bandcamp", "soundcloud",
+    "apple_music", "tidal", "internet_archive", "slippery_hill", "youtube", "spotify", "bandcamp", "soundcloud",
 ]
 
 /// Known services in ``searchableProviders`` order, then each unrecognized value once, so a

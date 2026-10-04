@@ -67,21 +67,24 @@ for Android and every browser. The parts that matter:
   list as a playlist of recordings and full Apple Music tracks, with
   shuffle and repeat, and next and previous on the lock screen.
 - Links. Paste a URL from YouTube, Spotify, Apple Music, TIDAL, Bandcamp,
-  SoundCloud, the Internet Archive, or any site. The app resolves title and
-  artwork. Supported providers play in an in-app dock; every link also opens
-  the provider. On iPhone, iPad, and Mac, an Apple Music subscriber hears
-  Apple Music tracks and albums in full. Everyone else hears the preview.
+  SoundCloud, the Internet Archive, Slippery-Hill, or any site. The app
+  resolves title and artwork. Supported providers play in an in-app dock;
+  every link also opens the provider. On iPhone, iPad, and Mac, an Apple
+  Music subscriber hears Apple Music tracks and albums in full. Everyone
+  else hears the preview.
 - Find recordings. From a tune, pick one of the musician's chosen services
   and search it. Apple Music, TIDAL, and Internet Archive results play in
-  place and link with one tap. YouTube, Spotify, Bandcamp, and SoundCloud
-  open their own search page. With one service chosen, the tune goes
-  straight to it. Search needs a connection.
-- Recordings. Record with the phone's microphone or upload audio. A
-  recording is filed under a tune or waits unfiled. It plays at once, uploads
-  in the background, and reaches the musician's other devices. A recording
-  can be trimmed for good, and plays at a slower or faster speed and a
-  shifted pitch on every device. A recording keeps labeled practice
-  loops that repeat. Free accounts hold 1 GB.
+  place and link with one tap. YouTube, Spotify, Bandcamp, SoundCloud, and
+  Slippery-Hill open their own search page. With one service chosen, the
+  tune goes straight to it. Search needs a connection.
+- Recordings. Record with the phone's microphone, upload audio, or save the
+  audio of a Slippery-Hill link. A recording is filed under a tune or waits
+  unfiled, and keeps where it came from. A take or an uploaded file plays at
+  once and uploads in the background. Saved link audio is fetched by the
+  server and plays once it is ready. Every recording reaches the musician's
+  other devices. A recording can be trimmed for good, and plays at a slower
+  or faster speed and a shifted pitch on every device. A recording keeps
+  labeled practice loops that repeat. Free accounts hold 1 GB.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.

@@ -5,7 +5,14 @@ import type { LocalRecording } from '../../db/types'
 import { recordingFile, recordingRow } from '../../test/rows'
 import { PROCESS_FAILED, UPLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import type { RecordingView } from './useRecordings'
-import { recordingMeta, recordingTitle, retryKind, rowControl, titleIsDate } from './recordingRow'
+import {
+  originLabel,
+  recordingMeta,
+  recordingTitle,
+  retryKind,
+  rowControl,
+  titleIsDate,
+} from './recordingRow'
 
 function view(
   overrides: {
@@ -80,7 +87,37 @@ describe('titleIsDate', () => {
   })
 })
 
+describe('originLabel', () => {
+  it('names an import source and leaves an own recording unnamed', () => {
+    expect(originLabel('slippery_hill')).toBe('Slippery-Hill')
+    expect(originLabel('own')).toBeNull()
+  })
+})
+
 describe('recordingMeta', () => {
+  it('names an imported recording origin first, once', () => {
+    const result = recordingMeta(
+      view({
+        recording: {
+          origin: 'slippery_hill',
+          origin_url: 'https://www.slippery-hill.com/recording/1',
+          source: 'import',
+          duration_ms: 192_000,
+        },
+      }),
+      null,
+      { dateInTitle: true },
+    )
+    expect(result).toEqual(['Slippery-Hill', '3:12'])
+  })
+
+  it('leaves an own recording meta without an origin', () => {
+    const result = recordingMeta(view({ recording: { duration_ms: 192_000 } }), null, {
+      dateInTitle: true,
+    })
+    expect(result).toEqual(['3:12'])
+  })
+
   it('leaves the date out when the title already carries it', () => {
     const result = recordingMeta(
       view({ recording: { duration_ms: 42_000, state: 'ready' } }),

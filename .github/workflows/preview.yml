@@ -113,6 +113,18 @@ jobs:
           enable-cache: true
           python-version: "3.13"
 
+      # The reset leaves development's schema, and Railway's pre-deploy migration runs only
+      # when it deploys, which waits for CI. A push that fails CI would otherwise leave the
+      # running API on a schema it does not match.
+      - name: migrate the Neon branch to this pull request's schema
+        working-directory: api
+        env:
+          CROSSTUNE_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+        run: |
+          echo "::add-mask::$CROSSTUNE_DATABASE_URL"
+          : "${CROSSTUNE_DATABASE_URL:?the Neon create step produced no db_url}"
+          uv run --no-dev alembic upgrade head
+
       # After the reset, so the audio matches the rows the branch now holds. Only objects
       # missing from the preview are copied, so later pushes copy little.
       - name: seed the preview's recordings from development

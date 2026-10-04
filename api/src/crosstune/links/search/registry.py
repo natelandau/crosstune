@@ -19,6 +19,7 @@ _SEARCH_URLS: dict[Provider, str] = {
     Provider.APPLE_MUSIC: "https://music.apple.com/{country}/search?term={q}",
     Provider.TIDAL: "https://listen.tidal.com/search?q={q}",
     Provider.INTERNET_ARCHIVE: "https://archive.org/search?query={q}",
+    Provider.SLIPPERY_HILL: "https://www.slippery-hill.com/tune-search?search_api_fulltext={q}",
     Provider.YOUTUBE: "https://www.youtube.com/results?search_query={q}",
     Provider.SPOTIFY: "https://open.spotify.com/search/{q}",
     Provider.BANDCAMP: "https://bandcamp.com/search?q={q}&item_type=t",

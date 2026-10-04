@@ -55,6 +55,7 @@ class TableSpec:
     owner_column names the column that must equal the calling user, or is None for a table
     owned through a parent.
     parents lists (foreign key column, parent table) pairs whose target must be owned by the caller.
+    insert_only names client fields a push writes when it creates the row and never changes after.
     """
 
     name: TableName
@@ -63,6 +64,7 @@ class TableSpec:
     row_schema: type[BaseModel]
     owner_column: str | None
     parents: tuple[tuple[str, TableName], ...]
+    insert_only: frozenset[str] = frozenset()
 
     def owned_by(self, user_id: uuid.UUID) -> ColumnElement[bool]:
         """A filter matching the stored rows of this table that `user_id` owns."""
@@ -109,7 +111,14 @@ TABLES: dict[TableName, TableSpec] = {
         (("tune_id", "tunes"),),
     ),
     "recordings": TableSpec(
-        "recordings", Recording, RecordingData, RecordingRow, "user_id", (("tune_id", "tunes"),)
+        "recordings",
+        Recording,
+        RecordingData,
+        RecordingRow,
+        "user_id",
+        (("tune_id", "tunes"),),
+        # Provenance decides whether the server fetches the file, so it is fixed at creation.
+        insert_only=frozenset({"source", "origin", "origin_url"}),
     ),
     "recording_loops": TableSpec(
         "recording_loops",

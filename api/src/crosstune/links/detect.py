@@ -6,6 +6,8 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
+from crosstune.vocabulary import LIMITS
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from urllib.parse import ParseResult
@@ -17,6 +19,11 @@ TIDAL_PATH = re.compile(
     r"^/(?:browse/)?(?:album/\d+/)?(track|album|playlist|video)/([0-9A-Fa-f-]+)"
 )
 ARCHIVE_PATH = re.compile(r"^/details/([A-Za-z0-9._-]+)")
+SLIPPERY_HILL_ORIGIN = "https://www.slippery-hill.com"
+SLIPPERY_HILL_FILES = "/system/files/"
+SLIPPERY_HILL_REF = re.compile(r"(?:[A-Za-z0-9_~%()!*'+,.-]+/)*[A-Za-z0-9_~%()!*'+,.-]+(?i:\.mp3)")
+SLIPPERY_HILL_PAGE = re.compile(r"/content/([A-Za-z0-9-]+)/?")
+MAX_REF = LIMITS["recording_links"]["provider_ref"]
 TRACKING_PARAMS = {
     "utm_source",
     "utm_medium",
@@ -58,6 +65,43 @@ def _archive_ref(parts: ParseResult) -> str | None:
     return match.group(1) if match else None
 
 
+def valid_slippery_hill_ref(ref: str) -> bool:
+    """Report whether `ref` is a safe file path under Slippery-Hill's `/system/files/`."""
+    if not SLIPPERY_HILL_REF.fullmatch(ref):
+        return False
+    # Clients append the ref to the origin, so a dot segment, however it is spelled, could
+    # climb out of the files tree.
+    return "%2e" not in ref.lower() and not {".", ".."} & set(ref.split("/"))
+
+
+def slippery_hill_ref(path: str) -> str | None:
+    """Return the file path under `/system/files/` for a Slippery-Hill MP3, else None.
+
+    Args:
+        path: The percent-encoded URL path.
+    """
+    if not path.startswith(SLIPPERY_HILL_FILES):
+        return None
+    ref = path[len(SLIPPERY_HILL_FILES) :]
+    return ref if valid_slippery_hill_ref(ref) else None
+
+
+def slippery_hill_file_url(ref: str) -> str:
+    """Return the canonical URL of a Slippery-Hill file ref."""
+    return f"{SLIPPERY_HILL_ORIGIN}{SLIPPERY_HILL_FILES}{ref}"
+
+
+def _slippery_hill_ref(parts: ParseResult) -> str | None:
+    return slippery_hill_ref(parts.path)
+
+
+def _slippery_hill_url(parts: ParseResult, ref: str | None) -> str | None:
+    if ref:
+        return slippery_hill_file_url(ref)
+    page = SLIPPERY_HILL_PAGE.fullmatch(parts.path)
+    return f"{SLIPPERY_HILL_ORIGIN}/content/{page.group(1)}" if page else None
+
+
 def _apple_music_ref(parts: ParseResult) -> str | None:
     query = parse_qs(parts.query)
     if "i" in query:
@@ -87,6 +131,7 @@ _PROVIDER_MATCHERS: tuple[
     (lambda host: host == "soundcloud.com", "soundcloud", None),
     (lambda host: host in {"tidal.com", "listen.tidal.com"}, "tidal", _typed_ref(TIDAL_PATH)),
     (lambda host: host == "archive.org", "internet_archive", _archive_ref),
+    (lambda host: host == "slippery-hill.com", "slippery_hill", _slippery_hill_ref),
 )
 
 
@@ -108,15 +153,16 @@ def detect_provider(url: str) -> tuple[str, str | None]:
         return "other", None
     for matches_host, provider, ref_of in _PROVIDER_MATCHERS:
         if matches_host(host):
-            return provider, ref_of(parts) if ref_of else None
+            ref = ref_of(parts) if ref_of else None
+            return provider, ref if ref is None or len(ref) <= MAX_REF else None
     return "other", None
 
 
 def normalize_url(url: str, provider: str, provider_ref: str | None) -> str:
     """Canonical form for storage.
 
-    YouTube, TIDAL, and Internet Archive URLs collapse to one URL per recording; all others
-    drop their tracking parameters.
+    YouTube, TIDAL, Internet Archive, and Slippery-Hill file and tune page URLs collapse
+    to one URL per recording; all others drop their tracking parameters.
     """
     if provider == "youtube" and provider_ref:
         return f"https://www.youtube.com/watch?v={provider_ref}"
@@ -131,6 +177,8 @@ def normalize_url(url: str, provider: str, provider_ref: str | None) -> str:
         # The parser rejects some strings outright, an unclosed IPv6 bracket among them.
         # Such a link is stored as pasted rather than refused.
         return url
+    if provider == "slippery_hill" and (canonical := _slippery_hill_url(parts, provider_ref)):
+        return canonical
     kept = [
         (k, v)
         for k, v in parse_qs(parts.query, keep_blank_values=True).items()

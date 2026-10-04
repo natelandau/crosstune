@@ -113,6 +113,7 @@ private struct RecordingScreenContent: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
+    @Environment(\.openURL) private var openURL
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
@@ -359,8 +360,12 @@ private struct RecordingScreenContent: View {
     private var menu: some View {
         let view = rows.view
         return Menu {
-            ForEach(RecordingMenuItem.items(inTune: view.tuneID != nil, trimBlocker: trimBlocker), id: \.self) {
-                item in
+            ForEach(
+                RecordingMenuItem.items(
+                    inTune: view.tuneID != nil, trimBlocker: trimBlocker,
+                    openOrigin: RecordingMenuItem.openOrigin(for: rows.recording)),
+                id: \.self
+            ) { item in
                 if item == .delete { Divider() }
                 Button(role: item == .delete ? .destructive : nil) {
                     trimNotice = nil
@@ -387,6 +392,7 @@ private struct RecordingScreenContent: View {
         case .rename: renaming = view
         case .addToTune: filing = view
         case .removeFromTune: removeFromTune()
+        case .openOrigin(_, let page): openURL(page)
         case .delete: deleting = view
         }
     }

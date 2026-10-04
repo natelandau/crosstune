@@ -25,12 +25,13 @@ private func view(_ id: String, tune: String?, minutes: Int64) -> RecordingView 
 
 private func putRecording(
     _ store: CrosstuneStore, _ id: String, tuneID: String? = nil, minutes: Int64 = 0, state: String = "ready",
-    file: RecordingFile? = nil
+    file: RecordingFile? = nil, origin: String = "own"
 ) async throws {
     try await store.write { writer in
         try writer.put(
             Recording(
-                id: id, tuneID: tuneID, source: "microphone", recordedAt: later(minutes * 60_000), state: state),
+                id: id, tuneID: tuneID, source: "microphone", origin: origin, recordedAt: later(minutes * 60_000),
+                state: state),
             at: noon)
         try file?.upsert(writer.db)
     }
@@ -92,6 +93,27 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 }
 
+@Suite struct RecordingsOriginRailTests {
+    @Test func labelsTheChoices() {
+        #expect(RecordingsOriginRail.allLabel == "All")
+        #expect(RecordingsOriginRail.mineLabel == "Mine")
+        #expect(RecordingsOriginRail.label(for: "slippery_hill") == "Slippery-Hill")
+        #expect(RecordingRowActions.openOn("Slippery-Hill") == "Open on Slippery-Hill")
+    }
+
+    @Test func putsOwnRecordingsFirstOnATunesRows() {
+        func rec(_ id: String, _ origin: String) -> TuneRecording {
+            TuneRecording(
+                recording: Recording(id: id, tuneID: "t", source: "microphone", origin: origin, recordedAt: noon),
+                file: nil)
+        }
+        let rows = TuneDetail.ownFirst([
+            rec("a", "slippery_hill"), rec("b", "own"), rec("c", "slippery_hill"), rec("d", "own"),
+        ])
+        #expect(rows.map(\.id) == ["b", "d", "a", "c"])
+    }
+}
+
 @MainActor
 @Suite struct RecordingsModelTests {
     @Test func readsLiveRecordingsGroupedWithUnfinishedCapturesAndStorage() async throws {
@@ -124,6 +146,94 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(groups[1].views.map(\.id) == ["filed"])
         #expect(model.unfinished.map(\.id) == ["stuck"])
         #expect(model.storage?.usedBytes == 5)
+    }
+
+    @Test func offersOnlyTheOriginsHeldAndFiltersGroupsByTheChoice() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let (tuneID, _) = try await Commands(store: store).createTune(
+            TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
+        try await putRecording(store, "mine", minutes: 1)
+        try await putRecording(store, "theirs", tuneID: tuneID, minutes: 2, origin: "slippery_hill")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.groups?.count == 2 }
+        #expect(model.origins == ["slippery_hill"])
+        #expect(model.choice == "all")
+        #expect(model.showsRail)
+
+        await model.setChoice("slippery_hill")
+        try await eventually { model.groups?.map(\.title) == ["Kitchen Girl"] }
+        #expect(try await store.meta(.recordingsOrigin, as: String.self) == "slippery_hill")
+        await model.setChoice("own")
+        try await eventually { model.groups?.map(\.title) == ["Unfiled"] }
+        #expect(model.noMatch == false)
+    }
+
+    @Test func keepsAStaleChoiceAsAChipAndSaysNothingMatches() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "mine")
+        try await store.setMeta(.recordingsOrigin, to: "slippery_hill")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.groups != nil }
+        #expect(model.choice == "slippery_hill")
+        #expect(model.origins == ["slippery_hill"])
+        #expect(model.showsRail)
+        #expect(model.groups?.isEmpty == true)
+        #expect(model.noMatch)
+    }
+
+    @Test func showsTheRailForAStaleOwnChoiceWithoutAnExtraChip() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "theirs", origin: "slippery_hill")
+        try await store.setMeta(.recordingsOrigin, to: "own")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.groups != nil }
+        #expect(model.showsRail)
+        #expect(model.origins == ["slippery_hill"])
+        #expect(model.noMatch)
+    }
+
+    @Test func opensOnlyWebPagesOfAnImport() {
+        func page(_ url: String?) -> URL? {
+            RecordingRowActions.originPage(
+                Recording(tuneID: nil, source: "import", origin: "slippery_hill", originURL: url, recordedAt: noon))
+        }
+        #expect(page("http://example.com/a")?.absoluteString == "http://example.com/a")
+        #expect(page("https://example.com/a") != nil)
+        #expect(page("HTTPS://example.com/a") != nil)
+        #expect(page("javascript:alert(1)") == nil)
+        #expect(page("file:///etc/passwd") == nil)
+        #expect(page("not a url") == nil)
+        #expect(page(nil) == nil)
+    }
+
+    @Test func hidesTheRailWithoutAnImportedOriginOrStaleChoice() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "mine")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.groups != nil }
+        #expect(model.origins.isEmpty)
+        #expect(!model.showsRail)
+        await model.setChoice("own")
+        #expect(!model.showsRail)
+    }
+
+    @Test func readsAnUnreadableChoiceAsAll() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "mine")
+        try await store.setMeta(.recordingsOrigin, to: 5)
+        let model = RecordingsModel(store: store)
+        try await eventually { model.groups != nil }
+        #expect(model.choice == "all")
+    }
+
+    @Test func ordersOriginsByVocabularyWithUnknownLast() {
+        #expect(
+            RecordingsModel.sortedOrigins(["zeta", "slippery_hill", "alpha"]) == ["slippery_hill", "alpha", "zeta"])
     }
 
     @Test func hidesStorageUntilTheServerSaysWhatTheQuotaIs() async throws {

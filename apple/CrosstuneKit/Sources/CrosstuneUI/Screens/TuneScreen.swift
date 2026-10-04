@@ -26,6 +26,7 @@ public struct TuneScreen: View {
     public static let noMediaHint = "Record one, find one, or paste a link to one."
     public static let moreActions = "More actions"
     public static let remove = "Remove"
+    public static let addToRecordings = "Add to recordings"
 
     private let tuneID: String
 
@@ -414,6 +415,8 @@ private struct TuneMediaSection: View {
         .recordingRowActions(
             filed: true, pinned: pinned,
             onTogglePin: { Task { await model.setPlaySource(.recording(id: view.id), pinned: pinned) } },
+            originLabel: RecordingText.originLabel(view.recording.origin),
+            onOpenOrigin: RecordingRowActions.originPage(view.recording).map { page in { openURL(page) } },
             onRename: { renaming = view },
             // Every recording here is already filed under the tune being looked at.
             onAddToTune: nil,
@@ -439,6 +442,9 @@ private struct TuneMediaSection: View {
         let remove = Button(TuneScreen.remove, systemImage: "trash", role: .destructive) {
             Task { await model.removeLink(link.id) }
         }
+        let addToRecordings: (() -> Void)? =
+            canAddToRecordings(link: link, recordings: detail.recordings.map(\.recording))
+            ? { Task { await model.addRecordingFromLink(link.id) } } : nil
         return HStack {
             MediaRow(link: row) { tap in
                 switch tap {
@@ -452,9 +458,16 @@ private struct TuneMediaSection: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             remove
             PinAction(pinned: pinned, onTogglePin: togglePin, short: true).tint(.indigo)
+            if let addToRecordings {
+                Button(TuneScreen.addToRecordings, systemImage: "square.and.arrow.down", action: addToRecordings)
+                    .tint(.teal)
+            }
         }
         .contextMenu {
             PinAction(pinned: pinned, onTogglePin: togglePin)
+            if let addToRecordings {
+                Button(TuneScreen.addToRecordings, systemImage: "square.and.arrow.down", action: addToRecordings)
+            }
             remove
         }
     }

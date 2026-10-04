@@ -29,17 +29,17 @@ const openSheet = async () => {
 }
 
 describe('MusicServicesGroup', () => {
-  it('counts all seven services by default', async () => {
+  it('counts all eight services by default', async () => {
     show()
     await expect
-      .element(page.getByRole('button', { name: `${MUSIC_SERVICES} 7 of 7`, exact: true }))
+      .element(page.getByRole('button', { name: `${MUSIC_SERVICES} 8 of 8`, exact: true }))
       .toBeVisible()
   })
 
   it('offers one checkbox per searchable service and no generic link', async () => {
     show()
     await openSheet()
-    expect(page.getByRole('checkbox').elements()).toHaveLength(7)
+    await expect.poll(() => page.getByRole('checkbox').elements()).toHaveLength(8)
     for (const provider of SEARCHABLE_PROVIDERS) {
       await expect.element(box(PROVIDER_LABELS[provider])).toBeChecked()
     }
@@ -54,7 +54,7 @@ describe('MusicServicesGroup', () => {
     await expect.element(box('TIDAL')).not.toBeChecked()
     await page.getByRole('button', { name: 'Done' }).click()
     await expect
-      .element(page.getByRole('button', { name: `${MUSIC_SERVICES} 6 of 7`, exact: true }))
+      .element(page.getByRole('button', { name: `${MUSIC_SERVICES} 7 of 8`, exact: true }))
       .toBeVisible()
   })
 

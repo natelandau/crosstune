@@ -31,11 +31,13 @@ from crosstune.recordings.service import (
     owned_recording,
     require_state,
     slot_for,
+    start_import,
     used_bytes,
 )
 from crosstune.storage.store import upload_key
 
 if TYPE_CHECKING:
+    from crosstune.models import Recording
     from crosstune.storage.store import ObjectStore
 
 router = APIRouter(prefix="/v1/recordings", tags=["recordings"])
@@ -218,11 +220,12 @@ async def retry(
     user: CurrentUser,
     session: DbSession,
 ) -> Response:
-    """Transcode the object already in the bucket again, for a recording that failed.
+    """Process a failed recording again: transcode its file, or fetch an import again.
 
-    A recording whose uploaded object is gone is uploaded again through a new
-    slot instead; this route only re-runs the transcode. Repeating the call changes
-    nothing.
+    An import whose file never arrived is fetched again, or fails at once when its
+    address is not one the server imports from. Any other recording whose uploaded
+    object is gone is uploaded again through a new slot; this route only re-runs the
+    transcode. Repeating the call changes nothing.
     """
     # Without a store there is no runner either, so a queued job would never be claimed.
     require_store(request)
@@ -232,12 +235,29 @@ async def retry(
         # A retried call after a lost response: the first one already queued the job.
         return Response(status_code=204)
     require_state(recording, "failed")
-    recording.state = "uploaded"
-    recording.error = None
-    bump_server_seq(recording)
-    await enqueue_transcode(session, recording)
+    if _never_arrived(recording):
+        await start_import(session, recording)
+    else:
+        recording.state = "uploaded"
+        recording.error = None
+        bump_server_seq(recording)
+        await enqueue_transcode(session, recording)
     await session.flush()
     return Response(status_code=204)
+
+
+def _never_arrived(recording: Recording) -> bool:
+    """Whether a failed import's file never arrived, so it must be fetched again.
+
+    Read from the row, never the bucket: only a committed import sets
+    `playback_bytes`, after its quota check, while an object at the upload key can be
+    a write that landed after its import was abandoned. The re-import overwrites it.
+    """
+    return (
+        recording.source == "import"
+        and recording.original_key is None
+        and recording.playback_bytes is None
+    )
 
 
 def _presign_get(store: ObjectStore, key: str) -> tuple[str, datetime]:

@@ -1,3 +1,4 @@
+import CrosstuneVocabulary
 import Foundation
 
 // A compiled Regex is immutable once built but is not itself Sendable; these are never mutated
@@ -9,6 +10,10 @@ private nonisolated(unsafe) let spotifyPathPattern =
 private nonisolated(unsafe) let tidalPathPattern =
     #/^\/(?:browse\/)?(?:album\/\d+\/)?(track|album|playlist|video)\/([0-9A-Fa-f-]+)/#
 private nonisolated(unsafe) let archivePathPattern = #/^\/details\/([A-Za-z0-9._-]+)/#
+private nonisolated(unsafe) let slipperyHillRefPattern =
+    #/^(?:[A-Za-z0-9_~%()!*'+,.-]+\/)*[A-Za-z0-9_~%()!*'+,.-]+\.mp3$/#.ignoresCase()
+
+private let slipperyHillFilesPrefix = "/system/files/"
 
 /// What a pasted URL turns out to be: a known provider and, when the link names one item, a
 /// `type:id` reference into it.
@@ -32,6 +37,20 @@ private func firstCapture<Pattern: RegexComponent>(_ pattern: Pattern, in path: 
 where Pattern.RegexOutput == (Substring, Substring) {
     guard let match = path.firstMatch(of: pattern) else { return nil }
     return String(match.output.1)
+}
+
+/// Whether `ref` is a file path that cannot climb out of Slippery-Hill's files tree.
+public func isValidSlipperyHillRef(_ ref: String) -> Bool {
+    // The ref is appended to the origin, so a dot segment, however spelled, could escape it.
+    ref.count <= Vocabulary.Limits.Link.providerRef && ref.wholeMatch(of: slipperyHillRefPattern) != nil
+        && !ref.lowercased().contains("%2e")
+        && !ref.split(separator: "/", omittingEmptySubsequences: false).contains { $0 == "." || $0 == ".." }
+}
+
+private func slipperyHillRef(_ path: String) -> String? {
+    guard path.hasPrefix(slipperyHillFilesPrefix) else { return nil }
+    let ref = String(path.dropFirst(slipperyHillFilesPrefix.count))
+    return isValidSlipperyHillRef(ref) ? ref : nil
 }
 
 private func host(of url: URL) -> String {
@@ -128,6 +147,9 @@ public func detectProvider(_ raw: String) -> DetectedProvider {
     if host == "archive.org" {
         return DetectedProvider(
             provider: "internet_archive", providerRef: firstCapture(archivePathPattern, in: url.path))
+    }
+    if host == "slippery-hill.com" {
+        return DetectedProvider(provider: "slippery_hill", providerRef: slipperyHillRef(url.path(percentEncoded: true)))
     }
     return DetectedProvider(provider: "other", providerRef: nil)
 }

@@ -576,6 +576,7 @@
           "soundcloud",
           "tidal",
           "internet_archive",
+          "slippery_hill",
           "other"
         ],
         "title": "Provider",
@@ -792,6 +793,23 @@
             ],
             "default": null,
             "title": "Label"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RecordingOrigin",
+            "default": "own"
+          },
+          "origin_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Origin Url"
           },
           "pitch_cents": {
             "default": 0,
@@ -1200,6 +1218,15 @@
         "title": "RecordingLoopRow",
         "type": "object"
       },
+      "RecordingOrigin": {
+        "description": "Whose a recording is: the user's own, or the import source it came from.",
+        "enum": [
+          "own",
+          "slippery_hill"
+        ],
+        "title": "RecordingOrigin",
+        "type": "string"
+      },
       "RecordingPullRow": {
         "description": "A recording row in a pull page.",
         "properties": {
@@ -1277,6 +1304,22 @@
               }
             ],
             "title": "Label"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RecordingOrigin",
+            "default": "own"
+          },
+          "origin_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin Url"
           },
           "peaks_rev": {
             "anyOf": [
@@ -1457,7 +1500,8 @@
         "description": "How a recording's audio arrived.",
         "enum": [
           "microphone",
-          "upload"
+          "upload",
+          "import"
         ],
         "title": "RecordingSource",
         "type": "string"
@@ -2518,7 +2562,7 @@
               "items": {
                 "$ref": "#/components/schemas/Provider"
               },
-              "maxItems": 7,
+              "maxItems": 8,
               "minItems": 1,
               "title": "Providers",
               "type": "array"
@@ -2808,7 +2852,7 @@
     },
     "/v1/recordings/{recording_id}/retry": {
       "post": {
-        "description": "Transcode the object already in the bucket again, for a recording that failed.\n\nA recording whose uploaded object is gone is uploaded again through a new\nslot instead; this route only re-runs the transcode. Repeating the call changes\nnothing.",
+        "description": "Process a failed recording again: transcode its file, or fetch an import again.\n\nAn import whose file never arrived is fetched again, or fails at once when its\naddress is not one the server imports from. Any other recording whose uploaded\nobject is gone is uploaded again through a new slot; this route only re-runs the\ntranscode. Repeating the call changes nothing.",
         "operationId": "retry_v1_recordings__recording_id__retry_post",
         "parameters": [
           {

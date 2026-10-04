@@ -2,6 +2,7 @@ import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
+import CrosstuneVocabulary
 import Foundation
 import GRDB
 import Observation
@@ -75,6 +76,8 @@ struct RecordingsSnapshot: Equatable, Sendable {
     /// Captures an earlier run left that recovery could not save, newest first.
     var unfinished: [RecordingFile]
     var storage: StorageFigures?
+    /// The stored origin choice: `all`, `own`, or an import source.
+    var choice: String
 }
 
 /// The recordings screen's state: every live recording, grouped by tune with the unfiled ones
@@ -86,8 +89,12 @@ public final class RecordingsModel {
     nonisolated public static let deleteUnsyncedNote = "It has not been uploaded, so this cannot be undone."
     nonisolated public static let deleteSyncedNote = "It is removed from every device."
 
+    nonisolated public static let allChoice = "all"
+
     /// Why the last write failed, until the next one.
     public private(set) var failure: String?
+    /// A choice made here, shown before the store reports it back.
+    private var chosen: String?
 
     private let store: CrosstuneStore
     private let snapshot: LiveQuery<RecordingsSnapshot?>
@@ -100,7 +107,67 @@ public final class RecordingsModel {
 
     /// Nil until the store is read, so an unread store never shows as having no recordings.
     public var groups: [RecordingGroup]? {
-        snapshot.value.map { RecordingGroup.grouped($0.views) }
+        snapshot.value.map { RecordingGroup.grouped(shown($0.views)) }
+    }
+
+    /// Which recordings the screen lists: `all`, `own`, or an import source.
+    public var choice: String { chosen ?? snapshot.value?.choice ?? Self.allChoice }
+
+    /// The import sources to offer, in vocabulary order: the ones recordings come from, and a
+    /// chosen one nothing is left from, so the list never narrows in silence.
+    public var origins: [String] {
+        let held = Set((snapshot.value?.views ?? []).map(\.recording.origin))
+            .subtracting([RecordingText.ownOrigin])
+        let stale = isStale && choice != RecordingText.ownOrigin ? [choice] : []
+        return Self.sortedOrigins(Array(held.union(stale)))
+    }
+
+    /// Whether the origin rail shows: more than one origin to choose between, or a stale choice.
+    public var showsRail: Bool {
+        guard let views = snapshot.value?.views else { return false }
+        let hasOwn = views.contains { $0.recording.origin == RecordingText.ownOrigin }
+        let imported = Set(views.map(\.recording.origin)).subtracting([RecordingText.ownOrigin])
+        return isStale || imported.count > 1 || (imported.count == 1 && hasOwn)
+    }
+
+    /// True when recordings exist but none comes from the chosen source.
+    public var noMatch: Bool {
+        guard let snapshot = snapshot.value else { return false }
+        return !snapshot.views.isEmpty && shown(snapshot.views).isEmpty
+    }
+
+    private var isStale: Bool {
+        let choice = choice
+        guard choice != Self.allChoice, let views = snapshot.value?.views else { return false }
+        return !views.contains { $0.recording.origin == choice }
+    }
+
+    private func shown(_ views: [RecordingView]) -> [RecordingView] {
+        let choice = choice
+        return choice == Self.allChoice ? views : views.filter { $0.recording.origin == choice }
+    }
+
+    /// Vocabulary order, then alphabetical; an origin this build predates sorts last.
+    nonisolated public static func sortedOrigins(_ origins: [String]) -> [String] {
+        let rank = { (origin: String) in
+            Vocabulary.recordingOrigins.firstIndex(of: origin) ?? Vocabulary.recordingOrigins.count
+        }
+        return origins.sorted {
+            rank($0) != rank($1) ? rank($0) < rank($1) : $0.localizedStandardCompare($1) == .orderedAscending
+        }
+    }
+
+    /// Lists one source's recordings, or all of them, and keeps the choice on this device.
+    public func setChoice(_ next: String) async {
+        let previous = chosen
+        chosen = next
+        failure = nil
+        do {
+            try await store.setMeta(.recordingsOrigin, to: next)
+        } catch {
+            chosen = previous
+            report(error)
+        }
     }
 
     /// Captures recovery could not save. A capture this app is recording right now is not one.
@@ -145,7 +212,15 @@ public final class RecordingsModel {
             .sorted { ($0.recordedAt?.milliseconds ?? 0) > ($1.recordedAt?.milliseconds ?? 0) }
         return RecordingsSnapshot(
             views: sorted(views), unfinished: unfinished,
-            storage: try? MetaKey.storage.value(in: db, as: StorageFigures.self))
+            storage: try? MetaKey.storage.value(in: db, as: StorageFigures.self),
+            // An unreadable choice reads as All, so a damaged setting never blanks the screen.
+            choice: storedChoice(db))
+    }
+
+    nonisolated private static func storedChoice(_ db: Database) -> String {
+        guard let stored = try? MetaKey.recordingsOrigin.value(in: db, as: String.self), !stored.isEmpty
+        else { return allChoice }
+        return stored
     }
 
     /// Deletes a recording and its audio on this device.

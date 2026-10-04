@@ -12,11 +12,13 @@ import Testing
     #expect(Vocabulary.statuses == ["known", "learning", "want_to_learn"])
     #expect(
         Vocabulary.providers == [
-            "youtube", "spotify", "apple_music", "bandcamp", "soundcloud", "tidal", "internet_archive", "other",
+            "youtube", "spotify", "apple_music", "bandcamp", "soundcloud", "tidal", "internet_archive", "slippery_hill",
+            "other",
         ]
     )
     #expect(Vocabulary.audioQualities == ["low", "standard", "high"])
-    #expect(Vocabulary.recordingSources == ["microphone", "upload"])
+    #expect(Vocabulary.recordingSources == ["microphone", "upload", "import"])
+    #expect(Vocabulary.recordingOrigins == ["own", "slippery_hill"])
     #expect(Vocabulary.recordingStates == ["pending_upload", "uploaded", "processing", "ready", "failed"])
     #expect(Vocabulary.timeSignatures == ["4/4", "2/4", "2/2", "3/4", "3/2", "6/8", "9/8", "12/8", "other"])
 }

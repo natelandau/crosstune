@@ -18,6 +18,7 @@ const SERVICES = [
   'Apple Music',
   'TIDAL',
   'Internet Archive',
+  'Slippery-Hill',
   'YouTube',
   'Spotify',
   'Bandcamp',

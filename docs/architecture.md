@@ -72,7 +72,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                           |
 | Who owns a row           | The token.                                                                                                                                                                                                                                                                                          |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                 |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Server-only, never synced: users, upload slots, transcode jobs.                                                      |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Server-only, never synced: users, upload slots, background jobs.                                                     |
 | Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file and audio in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes. A shape change starts it over (see Pull). |
 | Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                             |
 | Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                      |
@@ -185,8 +185,11 @@ same triggers. A return to the foreground stands in for a visible tab.
   saves the link untitled, and the API resolves it during the next push, 8
   at a time within a 20 second budget. Stragglers stay untitled.
 - Resolvers: oEmbed for YouTube, Spotify, and SoundCloud. The iTunes lookup
-  for Apple Music. The metadata API for the Internet Archive. Any other URL,
-  Bandcamp and TIDAL included, is fetched and read for Open Graph tags,
+  for Apple Music. The metadata API for the Internet Archive. Slippery-Hill
+  has no API and no Open Graph tags, so the API fetches the tune page under
+  the same cap and address policy and reads its Tune Title, Artist, and
+  audio file. A pasted file URL is not fetched and stays untitled. Any other
+  URL, Bandcamp and TIDAL included, is fetched and read for Open Graph tags,
   capped at 512 KB. A JSON answer over 256 KB is refused. Each request times
   out after 5 seconds. A failure yields an untitled link, never an error.
 - Each user may make 30 link fetches a minute, counted in the API process.
@@ -207,7 +210,9 @@ same triggers. A return to the foreground stands in for a visible tab.
 - Adapters for Apple Music, TIDAL, and the Internet Archive answer inline,
   up to 10 results each. Apple Music and TIDAL need the app's credentials in
   `hosting.md`. A service with no adapter, or with unset credentials,
-  answers `search_only`.
+  answers `search_only`. Slippery-Hill always does: its search page sits
+  behind a Cloudflare challenge for non-browser clients, and its
+  `robots.txt` disallows `/tune-search`.
 - The adapters run at once, each within the 5 second link timeout. A
   failure, a timeout, or a refused credential makes that group
   `unavailable`, never a failed request. Every group carries a `search_url`
@@ -225,10 +230,13 @@ same triggers. A return to the foreground stands in for a visible tab.
   wait. Offline, the client refuses a search without a request.
 - Playback: the client builds each embed URL from the stored provider,
   provider ref, and URL with no network call. One dock above the navigation
-  holds at most one item.
+  holds at most one item. A Slippery-Hill link with a file ref builds an
+  `audio` embed, a plain `<audio>` element on the site's file URL, because
+  the site forbids framing its pages. A link with no ref opens the page.
 - The Apple app plays the same embed in a `WKWebView` that loads a local
-  HTML page holding one iframe pointed at that URL, so nothing here reaches
-  the network either. Playback is refused while a take is recording.
+  HTML page holding one iframe pointed at that URL, or an `<audio>` element
+  for an `audio` embed, so nothing here reaches the network either.
+  Playback is refused while a take is recording.
 - The Apple app plays an Apple Music song or album link through MusicKit's
   `ApplicationMusicPlayer` when three conditions hold. The device allows
   Apple Music access, the account subscribes, and the catalog has the track
@@ -284,6 +292,25 @@ same triggers. A return to the foreground stands in for a visible tab.
   upload's channel count, mono or stereo, and anything with more than two
   channels is mixed down to stereo; stereo gets double the mono bit rate for
   both passthrough and re-encoding.
+- Provenance: a recording has an `origin`, `own` or the import source, and
+  an `origin_url`, set only for an import. Both are fixed when the row is
+  first saved, and a later push never changes them.
+- Import: the client saves a Slippery-Hill link's audio by creating a
+  recording with source `import`, which works offline. On push the API
+  checks that the address is importable and queues an import job, or fails
+  the row with "Can't import from this address." Retry fetches an import
+  again when its file never arrived, and re-runs the transcode for one whose
+  file did.
+- The import job reads the tune page again to find the file, and never
+  trusts a media URL from the client. It downloads over https from
+  `www.slippery-hill.com` only. Each redirect hop is checked for scheme,
+  host, and port, and passes the address policy.
+- The download streams to a temporary file under the per-file cap
+  (`recording_max_file_bytes`) and a time limit for the whole download. The
+  job uploads the file outside the user lock. Under the lock it checks the
+  quota and hands the recording to the existing transcode.
+- A 404 or 410 on the file fails the import at once. A network failure
+  retries, then ends as "Couldn't reach Slippery-Hill".
 - The PUT signature covers the declared size, so the bucket refuses a file
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.

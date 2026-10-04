@@ -78,6 +78,10 @@ describe('_headers', () => {
     }
   })
 
+  it('lets the in-dock audio player load Slippery-Hill files', () => {
+    expect(cspDirective('media-src')).toContain('https://www.slippery-hill.com')
+  })
+
   it('lets the pitch stage load its AudioWorklet and WebAssembly', () => {
     expect(cspDirective('script-src')).toContain('blob:')
     expect(cspDirective('script-src')).toContain("'wasm-unsafe-eval'")

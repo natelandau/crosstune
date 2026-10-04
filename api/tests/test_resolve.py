@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import httpx2
 import pytest
 
@@ -9,9 +11,15 @@ from crosstune.links import resolve as resolve_module
 from crosstune.links.fetch import MAX_JSON_BYTES
 from crosstune.links.opengraph import PageMeta, parse_open_graph
 from crosstune.links.resolve import MAX_PAGE_BYTES, resolve_link
+from crosstune.vocabulary import LIMITS
 from tests.helpers import OEMBED, T0, change, og_html, push, uid
 
 pytestmark = pytest.mark.anyio
+
+SLIPPERY_HILL_PAGE = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
+BEAR_CREEK_HTML = (
+    Path(__file__).parent / "fixtures" / "slippery_hill" / "bear-creek-sally-goodin.html"
+).read_text(encoding="utf-8")
 
 ITUNES = {
     "results": [
@@ -281,6 +289,32 @@ async def test_push_stores_the_canonical_url_of_an_enriched_link(client, auth_he
     assert row["title"] == OEMBED["title"]
 
 
+@pytest.mark.parametrize(
+    ("ref", "stored"),
+    [("../x.mp3", None), ("a:b.mp3", None), ("recordings/a.mp3", "recordings/a.mp3")],
+)
+async def test_push_keeps_only_a_valid_slippery_hill_ref(
+    client, auth_headers, mock_http, ref: str, stored: str | None
+) -> None:
+    tune = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune, T0, title="X"),
+        change(
+            "recording_links",
+            uid(),
+            T0,
+            tune_id=tune,
+            url="https://www.slippery-hill.com/content/june-apple-2",
+            provider="slippery_hill",
+            provider_ref=ref,
+            title="Mine",
+        ),
+    )
+    assert results[1]["row"]["provider_ref"] == stored
+
+
 BANDCAMP_HTML = """<html><head>
 <meta property="og:title" content="Live On Red Barn Radio II, by Tyler Childers">
 <meta name="bc-page-properties" content="{&quot;item_type&quot;:&quot;a&quot;,&quot;item_id&quot;:84352595}">
@@ -498,3 +532,105 @@ async def test_push_holds_no_connection_while_it_resolves_links(
     )
     assert [r["status"] for r in results] == ["applied", "applied"]
     assert seen == [0]
+
+
+async def test_slippery_hill_page_resolves_title_and_ref(mock_http) -> None:
+    mock_http.add(SLIPPERY_HILL_PAGE, httpx2.Response(200, text=BEAR_CREEK_HTML))
+    async with mock_http.client() as client:
+        link = await resolve_link(
+            "https://slippery-hill.com/content/bear-creek-sally-goodin", client, timeout=5.0
+        )
+    assert link.url == SLIPPERY_HILL_PAGE
+    assert link.provider == "slippery_hill"
+    assert link.provider_ref == "recordings/bearcreeksallygoodin_bobholt.mp3"
+    assert link.title == "Bear Creek Sally Goodin - Bob Holt"
+
+
+async def test_slippery_hill_file_url_is_not_fetched(mock_http) -> None:
+    async with mock_http.client() as client:
+        link = await resolve_link(
+            "https://www.slippery-hill.com/system/files/recordings/x.mp3", client, timeout=5.0
+        )
+    assert link.provider == "slippery_hill"
+    assert link.provider_ref == "recordings/x.mp3"
+    assert link.title is None
+    assert not any("slippery-hill" in str(call.url) for call in mock_http.calls)
+
+
+async def test_slippery_hill_page_failure_yields_no_title_or_ref(mock_http) -> None:
+    mock_http.add(SLIPPERY_HILL_PAGE, httpx2.Response(403))
+    async with mock_http.client() as client:
+        link = await resolve_link(SLIPPERY_HILL_PAGE, client, timeout=5.0)
+    assert link.title is None
+    assert link.provider_ref is None
+
+
+async def test_push_stores_the_slippery_hill_ref(client, auth_headers, mock_http) -> None:
+    mock_http.add(SLIPPERY_HILL_PAGE, httpx2.Response(200, text=BEAR_CREEK_HTML))
+    tune = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune, T0, title="X"),
+        change(
+            "recording_links",
+            uid(),
+            T0,
+            tune_id=tune,
+            url=SLIPPERY_HILL_PAGE,
+            provider="slippery_hill",
+        ),
+    )
+    row = results[1]["row"]
+    assert row["provider_ref"] == "recordings/bearcreeksallygoodin_bobholt.mp3"
+    assert row["title"] == "Bear Creek Sally Goodin - Bob Holt"
+
+
+async def test_resolved_title_is_cut_to_the_column_width(mock_http) -> None:
+    mock_http.add(
+        "https://fiddler.bandcamp.com/track/sally-ann",
+        httpx2.Response(200, text=og_html("x" * 400)),
+    )
+    async with mock_http.client() as client:
+        link = await resolve_link(
+            "https://fiddler.bandcamp.com/track/sally-ann", client, timeout=5.0
+        )
+    assert link.title == "x" * LIMITS["recording_links"]["title"]
+
+
+async def test_push_enriches_a_link_whose_page_title_is_overlong(
+    client, auth_headers, mock_http
+) -> None:
+    mock_http.add(
+        "https://fiddler.bandcamp.com/track/sally-ann",
+        httpx2.Response(200, text=og_html("x" * 400)),
+    )
+    tune = uid()
+    results = await push(
+        client,
+        auth_headers("user_a"),
+        change("tunes", tune, T0, title="X"),
+        change(
+            "recording_links",
+            uid(),
+            T0,
+            tune_id=tune,
+            url="https://fiddler.bandcamp.com/track/sally-ann",
+            provider="bandcamp",
+        ),
+    )
+    assert results[1]["status"] == "applied"
+    assert results[1]["row"]["title"] == "x" * LIMITS["recording_links"]["title"]
+
+
+async def test_slippery_hill_page_with_an_overlong_file_path_resolves_no_ref(mock_http) -> None:
+    long_path = f"recordings/{'a' * 200}.mp3"
+    html = (
+        "<html><head><title>Long | Slippery Hill</title></head><body>"
+        f'<audio src="/system/files/{long_path}"></audio></body></html>'
+    )
+    mock_http.add(SLIPPERY_HILL_PAGE, httpx2.Response(200, text=html))
+    async with mock_http.client() as client:
+        link = await resolve_link(SLIPPERY_HILL_PAGE, client, timeout=5.0)
+    assert link.provider == "slippery_hill"
+    assert link.provider_ref is None

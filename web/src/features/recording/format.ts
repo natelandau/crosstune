@@ -56,9 +56,11 @@ const SERVER_LABELS: Record<string, string> = {
 
 /** What to tell the user about a recording that is not simply playable. Empty when it is. */
 export function fileStateLabel(
-  row: { state: string; error: string | null },
+  row: { state: string; error: string | null; source: string },
   file: { local_state: LocalFileState } | undefined,
 ): string {
+  // An import row has no file to upload: until the server answers, it is already being fetched.
+  if (row.source === 'import' && row.state === 'pending_upload') return 'Processing'
   const local = file ? LOCAL_LABELS[file.local_state] : undefined
   if (local !== undefined) return local
   return SERVER_LABELS[row.state] ?? ''

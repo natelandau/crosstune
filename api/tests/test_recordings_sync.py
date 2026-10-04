@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from sqlalchemy import select, update
 
@@ -240,3 +242,193 @@ async def test_user_settings_carry_audio_quality(client, auth_headers) -> None:
         change("user_settings", settings, T1, instruments=["violin"], audio_quality="best"),
     )
     assert bad["status"] == "invalid"
+
+
+async def _origin_fields(verify_session, rec: str) -> tuple:
+    row = (
+        await verify_session.execute(
+            select(Recording.source, Recording.origin, Recording.origin_url).where(
+                Recording.id == uuid.UUID(rec)
+            )
+        )
+    ).one()
+    return tuple(row)
+
+
+async def test_a_pushed_recording_defaults_to_own(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    [result] = await push(client, auth_headers("user_a"), recording(rec))
+    assert result["status"] == "applied"
+    assert await _origin_fields(verify_session, rec) == ("microphone", "own", None)
+
+
+async def test_push_refuses_an_origin_url_on_an_own_recording(client, auth_headers) -> None:
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(uid(), origin_url="https://www.slippery-hill.com/recording/1"),
+    )
+    assert result["status"] == "invalid"
+
+
+async def test_push_refuses_an_import_without_an_origin(client, auth_headers) -> None:
+    [result] = await push(client, auth_headers("user_a"), recording(uid(), source="import"))
+    assert result["status"] == "invalid"
+
+
+async def test_push_keeps_an_imported_origin(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    page = "https://www.slippery-hill.com/recording/1"
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(rec, source="import", origin="slippery_hill", origin_url=page),
+    )
+    assert result["status"] == "applied"
+    assert await _origin_fields(verify_session, rec) == ("import", "slippery_hill", page)
+
+
+PAGE = "https://www.slippery-hill.com/recording/1"
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"source": "microphone", "origin": "slippery_hill", "origin_url": PAGE},
+        {"source": "import", "origin": "own", "origin_url": PAGE},
+        {"source": "import", "origin": "own"},
+        {"source": "import", "origin": "slippery_hill", "origin_url": None},
+        {"source": "upload", "origin": "own", "origin_url": PAGE},
+    ],
+    ids=[
+        "origin-without-import-source",
+        "import-own-with-url",
+        "import-own-without-url",
+        "import-origin-without-url",
+        "upload-own-with-url",
+    ],
+)
+async def test_push_refuses_a_mismatched_provenance(
+    client, auth_headers, verify_session, data: dict
+) -> None:
+    rec = uid()
+    [result] = await push(client, auth_headers("user_a"), recording(rec, **data))
+    assert result["status"] == "invalid"
+    stored = await verify_session.execute(
+        select(Recording.id).where(Recording.id == uuid.UUID(rec))
+    )
+    assert stored.first() is None
+
+
+TUNE_PAGE = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
+
+
+def _import(rec: str, at=T0, page: str = TUNE_PAGE, **data) -> dict:
+    return recording(rec, at, source="import", origin="slippery_hill", origin_url=page, **data)
+
+
+async def _job_kinds(verify_session, rec: str) -> list[str]:
+    jobs = await verify_session.scalars(select(Job).where(Job.recording_id == uuid.UUID(rec)))
+    return [job.kind for job in jobs]
+
+
+async def test_push_of_a_new_import_queues_an_import_job(
+    client, auth_headers, verify_session, fake_runner
+) -> None:
+    rec = uid()
+    [result] = await push(client, auth_headers("user_a"), _import(rec))
+    assert result["status"] == "applied"
+    assert result["row"]["state"] == "processing"
+    assert result["row"]["error"] is None
+    stored = await verify_session.get(Recording, uuid.UUID(rec))
+    assert stored.state == "processing"
+    assert result["row"]["server_seq"] == stored.server_seq
+    assert await _job_kinds(verify_session, rec) == ["import"]
+    assert fake_runner.wakes == 1
+
+
+async def test_push_of_an_import_from_another_host_fails_it(
+    client, auth_headers, verify_session
+) -> None:
+    rec = uid()
+    [result] = await push(
+        client, auth_headers("user_a"), _import(rec, page="https://example.com/x")
+    )
+    assert result["status"] == "applied"
+    assert (result["row"]["state"], result["row"]["error"]) == (
+        "failed",
+        "Can't import from this address.",
+    )
+    stored = await verify_session.get(Recording, uuid.UUID(rec))
+    assert (stored.state, stored.error) == ("failed", "Can't import from this address.")
+    assert await _job_kinds(verify_session, rec) == []
+
+
+async def test_an_update_to_an_import_queues_nothing(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), _import(rec))
+    [result] = await push(client, auth_headers("user_a"), _import(rec, T1, label="Renamed"))
+    assert result["status"] == "applied"
+    assert result["row"]["label"] == "Renamed"
+    assert result["row"]["state"] == "processing"
+    assert await _job_kinds(verify_session, rec) == ["import"]
+
+
+async def test_an_own_recording_pushed_again_as_an_import_queues_nothing(
+    client, auth_headers, verify_session
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    [result] = await push(client, auth_headers("user_a"), _import(rec, T1))
+    assert result["status"] == "applied"
+    assert result["row"]["state"] == "pending_upload"
+    assert await _origin_fields(verify_session, rec) == ("microphone", "own", None)
+    assert await _job_kinds(verify_session, rec) == []
+
+
+async def test_an_update_keeps_an_imports_provenance(client, auth_headers, verify_session) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), _import(rec))
+    [result] = await push(client, auth_headers("user_a"), recording(rec, T1, label="Renamed"))
+    assert result["status"] == "applied"
+    assert result["row"]["label"] == "Renamed"
+    assert (result["row"]["source"], result["row"]["origin"], result["row"]["origin_url"]) == (
+        "import",
+        "slippery_hill",
+        TUNE_PAGE,
+    )
+    assert await _origin_fields(verify_session, rec) == ("import", "slippery_hill", TUNE_PAGE)
+    assert await _job_kinds(verify_session, rec) == ["import"]
+
+
+async def test_a_stale_push_of_an_import_queues_nothing(
+    client, auth_headers, verify_session
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec, T1))
+    [result] = await push(client, auth_headers("user_a"), _import(rec, T0))
+    assert result["status"] == "stale"
+    assert result["row"]["state"] == "pending_upload"
+    assert await _job_kinds(verify_session, rec) == []
+
+
+async def test_deleting_an_unknown_import_creates_nothing(
+    client, auth_headers, verify_session
+) -> None:
+    rec = uid()
+    [result] = await push(
+        client, auth_headers("user_a"), change("recordings", rec, T0, op="delete")
+    )
+    assert result["status"] == "invalid"
+    assert await verify_session.get(Recording, uuid.UUID(rec)) is None
+    assert await _job_kinds(verify_session, rec) == []
+
+
+async def test_two_imports_from_one_page_each_queue_a_job(
+    client, auth_headers, verify_session
+) -> None:
+    first, second = uid(), uid()
+    results = await push(client, auth_headers("user_a"), _import(first), _import(second))
+    assert [r["row"]["state"] for r in results] == ["processing", "processing"]
+    assert await _job_kinds(verify_session, first) == ["import"]
+    assert await _job_kinds(verify_session, second) == ["import"]

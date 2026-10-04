@@ -2,7 +2,6 @@ import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
-import CrosstuneVocabulary
 import Foundation
 import UniformTypeIdentifiers
 
@@ -62,7 +61,7 @@ public enum RecordingImport {
         do {
             return try await Commands(store: store).addUploadedFile(
                 recordingID, fileName: fileName, contentType: mime, bytes: bytes, tuneID: tuneID,
-                label: String(url.deletingPathExtension().lastPathComponent.prefix(Vocabulary.Limits.Recording.label)),
+                label: clippedRecordingLabel(url.deletingPathExtension().lastPathComponent),
                 recordedAt: time, peaksFileName: peaksFileName, at: time)
         } catch {
             cleanUpAfterFailure(fileName: fileName, peaksFileName: peaksFileName, in: store)

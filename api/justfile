@@ -53,7 +53,7 @@ precommit:
 
 # Run all linters
 [group('lint')]
-lint: ruff format ty typos precommit
+lint: ruff format ty typos contract-check precommit
 
 # Run the test suite against a Postgres container; args narrow the run and drop coverage
 [group('test')]
@@ -174,8 +174,22 @@ contract:
     # contract intact instead of truncating it.
     staged="$out.tmp"
     trap 'rm -f "$staged"' EXIT
-    uv run python -c "import json; from crosstune.main import create_app; print(json.dumps(create_app().openapi(), indent=2, sort_keys=True))" > "$staged"
+    just _export-openapi "$staged"
     mv "$staged" "$out"
+
+# Fail when the committed OpenAPI schema no longer matches the code
+[group('lint')]
+contract-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "${CI:-}" in 1|true|yes) echo "skipping contract check: CI runs it as its own job"; exit 0 ;; esac
+    fresh="$(mktemp)"
+    trap 'rm -f "$fresh"' EXIT
+    just _export-openapi "$fresh"
+    diff -u openapi.json "$fresh" || { echo "api/openapi.json is stale; run just contract" >&2; exit 1; }
+
+_export-openapi out:
+    @uv run python -c "import json; from crosstune.main import create_app; print(json.dumps(create_app().openapi(), indent=2, sort_keys=True))" > "{{ out }}"
 
 # Upgrade dependencies
 [group('maintenance')]

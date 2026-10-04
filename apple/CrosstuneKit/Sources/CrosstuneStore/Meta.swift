@@ -15,6 +15,8 @@ public enum MetaKey: String, Sendable {
     case catalogFilters = "catalog_filters"
     /// Whether list screens show archived tunes.
     case listShowArchived = "list_show_archived"
+    /// Which recordings the Recordings screen lists: `all`, `own`, or an import source.
+    case recordingsOrigin = "recordings_origin"
     /// When the last sync run finished.
     case lastSyncedAt = "last_synced_at"
 

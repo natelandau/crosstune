@@ -27,6 +27,7 @@ from crosstune.vocabulary import (
     PITCH_CENTS_MIN,
     SPEED_PERCENT_MAX,
     SPEED_PERCENT_MIN,
+    RecordingOrigin,
     RecordingSource,
     RecordingState,
 )
@@ -42,6 +43,13 @@ class Recording(SyncColumns, Base):
     __table_args__ = (
         CheckConstraint(
             in_list("source", tuple(RecordingSource), nullable=False), name="ck_recordings_source"
+        ),
+        CheckConstraint(
+            in_list("origin", tuple(RecordingOrigin), nullable=False), name="ck_recordings_origin"
+        ),
+        CheckConstraint("(origin = 'own') = (origin_url is null)", name="ck_recordings_origin_url"),
+        CheckConstraint(
+            "(source = 'import') = (origin <> 'own')", name="ck_recordings_import_origin"
         ),
         CheckConstraint(
             in_list("state", tuple(RecordingState), nullable=False), name="ck_recordings_state"
@@ -69,6 +77,14 @@ class Recording(SyncColumns, Base):
     )
     label: Mapped[str | None] = mapped_column(String(LIMITS["recordings"]["label"]), nullable=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Client-owned provenance: "own" for the user's recordings, else the import source and
+    # the page it came from. Only an import has a source of "import".
+    origin: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=RecordingOrigin.OWN.value, server_default="own"
+    )
+    origin_url: Mapped[str | None] = mapped_column(
+        String(LIMITS["recordings"]["origin_url"]), nullable=True
+    )
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
