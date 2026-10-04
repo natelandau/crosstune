@@ -74,6 +74,7 @@ export const SEARCHABLE_PROVIDERS: readonly Provider[] = [
   'apple_music',
   'tidal',
   'internet_archive',
+  'slippery_hill',
   'youtube',
   'spotify',
   'bandcamp',

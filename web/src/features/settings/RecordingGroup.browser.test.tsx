@@ -67,6 +67,8 @@ async function seedDownload(bytes: string) {
     tune_id: null,
     label: null,
     source: 'microphone',
+    origin: 'own',
+    origin_url: null,
     recorded_at: at,
     position: 0,
     state: 'ready',

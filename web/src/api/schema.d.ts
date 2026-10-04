@@ -528,7 +528,7 @@ export interface components {
          * @description Where a recording link points.
          * @enum {string}
          */
-        Provider: "youtube" | "spotify" | "apple_music" | "bandcamp" | "soundcloud" | "tidal" | "internet_archive" | "other";
+        Provider: "youtube" | "spotify" | "apple_music" | "bandcamp" | "soundcloud" | "tidal" | "internet_archive" | "slippery_hill" | "other";
         /**
          * PullResponse
          * @description A page of rows changed since the given cursor.
@@ -596,6 +596,13 @@ export interface components {
              * @default null
              */
             label: string | null;
+            /** @default own */
+            origin: components["schemas"]["RecordingOrigin"];
+            /**
+             * Origin Url
+             * @default null
+             */
+            origin_url: string | null;
             /**
              * Pitch Cents
              * @default 0
@@ -798,6 +805,12 @@ export interface components {
             user_id: string;
         };
         /**
+         * RecordingOrigin
+         * @description Whose a recording is: the user's own, or the import source it came from.
+         * @enum {string}
+         */
+        RecordingOrigin: "own" | "slippery_hill";
+        /**
          * RecordingPullRow
          * @description A recording row in a pull page.
          */
@@ -832,6 +845,10 @@ export interface components {
             id: string;
             /** Label */
             label?: string | null;
+            /** @default own */
+            origin: components["schemas"]["RecordingOrigin"];
+            /** Origin Url */
+            origin_url?: string | null;
             /** Peaks Rev */
             peaks_rev: string | null;
             /**
@@ -895,7 +912,7 @@ export interface components {
          * @description How a recording's audio arrived.
          * @enum {string}
          */
-        RecordingSource: "microphone" | "upload";
+        RecordingSource: "microphone" | "upload" | "import";
         /**
          * RecordingState
          * @description Where a recording's file is in the upload and transcode pipeline.

@@ -1,6 +1,7 @@
 import type { StorageFigures } from '../../db/meta'
 import { isNotUploaded } from '../../db/recordings'
 import { failedTriesLabel, fileStateLabel, formatBytes, formatDuration } from '../recording/format'
+import { providerLabel } from '../links/display'
 import type { RecordingView } from './useRecordings'
 
 export const DELETE_UNSYNCED_NOTE = 'It has not been uploaded, so this cannot be undone.'
@@ -40,6 +41,11 @@ export function titleIsDate(
   return view.recording.label == null && (tuneNamedAbove || view.tuneTitle == null)
 }
 
+/** The site an imported recording came from; null for one made here. */
+export function originLabel(origin: string): string | null {
+  return origin === 'own' ? null : providerLabel({ provider: origin })
+}
+
 /** The meta parts in order, already worded; the row joins them with " · ". */
 export function recordingMeta(
   view: RecordingView,
@@ -60,8 +66,8 @@ export function recordingMeta(
   // A recording that needs nothing from the musician shows when it was made instead of a status,
   // unless its title already says so.
   const date = dateInTitle ? null : recordedAtLabel(recording.recorded_at)
-  return [duration, status || date, tries, storageLabel].filter((part): part is string =>
-    Boolean(part),
+  return [originLabel(recording.origin), duration, status || date, tries, storageLabel].filter(
+    (part): part is string => Boolean(part),
   )
 }
 

@@ -1,4 +1,4 @@
-import type { Provider } from '../../api/vocabulary'
+import { RECORDING_ORIGINS, type Provider, type RecordingOrigin } from '../../api/vocabulary'
 import type { SearchOutcome, SyncEngine } from '../../sync/types'
 import {
   SEARCH_FAILED,
@@ -13,6 +13,11 @@ import { deviceCountry } from './region'
  * as does one of these whenever the API answers it `search_only`.
  */
 const INLINE_SEARCH: readonly Provider[] = ['apple_music', 'tidal', 'internet_archive']
+
+/** The providers whose audio the server can save as a recording from a link: every origin but the user's own. */
+export const IMPORTABLE_PROVIDERS: readonly Provider[] = RECORDING_ORIGINS.filter(
+  (origin): origin is Exclude<RecordingOrigin, 'own'> => origin !== 'own',
+)
 
 export const searchesInApp = (provider: Provider) => INLINE_SEARCH.includes(provider)
 

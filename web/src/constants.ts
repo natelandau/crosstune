@@ -206,6 +206,7 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
   soundcloud: 'SoundCloud',
   tidal: 'TIDAL',
   internet_archive: 'Internet Archive',
+  slippery_hill: 'Slippery-Hill',
   other: 'Link',
 }
 

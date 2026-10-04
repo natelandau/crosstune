@@ -3,6 +3,19 @@ import { VIDEO_HEIGHT_PX } from './playerHeight'
 
 /** A provider's own player for one link, sized to the height its embed asks for. */
 export function EmbedFrame({ embed, title }: { embed: Embed; title: string }) {
+  if (embed.kind === 'audio') {
+    return (
+      <audio
+        key={embed.src}
+        controls
+        autoPlay
+        src={embed.src}
+        title={title}
+        aria-label={title}
+        className="block w-full"
+      />
+    )
+  }
   return (
     // A new src navigates the frame anyway; a fresh element also makes the frame take its
     // sandbox and allow flags before that navigation starts.

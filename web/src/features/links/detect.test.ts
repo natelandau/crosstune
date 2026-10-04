@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest'
 import { detectProvider, youtubeId } from './detect'
 
+const SH = 'https://www.slippery-hill.com'
+const GLAD = '78s/15402%20What%20A%20Glad%20Day%20%20%28Wright%20Brothers%20Quartet%29.mp3'
+// The longest ref a link row stores, and one character past it.
+const LONGEST_REF = `${'a'.repeat(196)}.mp3`
+const OVERLONG_REF = `${'a'.repeat(197)}.mp3`
+// new URL() collapses dot segments before detection sees the path, so those rows end in the
+// ref of the path the browser would actually request.
+const SLIPPERY_HILL_ROWS: [string, string, string | null][] = [
+  [`${SH}/content/bear-creek-sally-goodin?x=1#a`, 'slippery_hill', null],
+  ['https://slippery-hill.com/content/june-apple-2/', 'slippery_hill', null],
+  [
+    `${SH}/system/files/recordings/bearcreeksallygoodin_bobholt.mp3`,
+    'slippery_hill',
+    'recordings/bearcreeksallygoodin_bobholt.mp3',
+  ],
+  [`https://slippery-hill.com/system/files/${GLAD}`, 'slippery_hill', GLAD],
+  [`${SH}/system/files/recordings/a.MP3`, 'slippery_hill', 'recordings/a.MP3'],
+  [`${SH}/system/files/../x.mp3`, 'slippery_hill', null],
+  [`${SH}/system/files/a/%2E%2e/x.mp3`, 'slippery_hill', 'x.mp3'],
+  [`${SH}/system/files/a/./x.mp3`, 'slippery_hill', 'a/x.mp3'],
+  [`${SH}/system/files/a:b.mp3`, 'slippery_hill', null],
+  [`${SH}/system/files/a@b/x.mp3`, 'slippery_hill', null],
+  [`${SH}/system/files/\u00e9.mp3`, 'slippery_hill', '%C3%A9.mp3'],
+  [`${SH}/system/files/a/b%2Ec.mp3`, 'slippery_hill', null],
+  [`${SH}/system/files/x%2E.mp3`, 'slippery_hill', null],
+  [`${SH}/system/files/a.wav`, 'slippery_hill', null],
+  [`${SH}/system/files/${LONGEST_REF}`, 'slippery_hill', LONGEST_REF],
+  [`${SH}/system/files/${OVERLONG_REF}`, 'slippery_hill', null],
+  [`${SH}/tune-search?search_api_fulltext=x`, 'slippery_hill', null],
+]
+
 describe('detectProvider', () => {
   it.each([
     ['https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10', 'youtube', 'dQw4w9WgXcQ'],
@@ -40,6 +71,7 @@ describe('detectProvider', () => {
     ['https://archive.org/search?query=fiddle', 'internet_archive', null],
     ['https://example.com/tune.mp3', 'other', null],
     ['not a url', 'other', null],
+    ...SLIPPERY_HILL_ROWS,
   ])('%s -> %s %s', (url, provider, ref) => {
     expect(detectProvider(url)).toEqual({ provider, provider_ref: ref })
   })

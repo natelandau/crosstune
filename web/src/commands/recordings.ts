@@ -1,7 +1,8 @@
+import { RECORDING_LIMITS } from '../api/vocabulary'
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
-import { RECORDING_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
+import { LINK_NOT_FOUND, RECORDING_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
 import {
   activeByPosition,
   defined,
@@ -48,9 +49,11 @@ async function putRecordingRow(
   id: string,
   fields: {
     tuneId: string | null
-    source: 'microphone' | 'upload'
+    source: 'microphone' | 'upload' | 'import'
     label: string | null
     recordedAt: string
+    origin?: string
+    originUrl?: string
   },
 ): Promise<void> {
   const at = now()
@@ -64,6 +67,8 @@ async function putRecordingRow(
     tune_id: fields.tuneId,
     label: fields.label,
     source: fields.source,
+    origin: fields.origin ?? 'own',
+    origin_url: fields.originUrl ?? null,
     recorded_at: fields.recordedAt,
     position: nextPosition(siblings),
     state: 'pending_upload',
@@ -190,6 +195,36 @@ export async function addUploadedFile(
       source: 'upload',
       label: fields.label,
       recordedAt: new Date(file.lastModified || Date.now()).toISOString(),
+    })
+  })
+  return id
+}
+
+/**
+ * Saves a link's audio as a recording of its tune. Only the row is written: the server sees
+ * `source: 'import'` on push and fetches the audio itself, so there is no file to upload.
+ */
+export async function addRecordingFromLink(db: CrosstuneDb, linkId: string): Promise<string> {
+  let id = newId()
+  await recordingTx(db, async () => {
+    const link = await db.recording_links.get(linkId)
+    if (!link || link.deleted_at) throw new Error(LINK_NOT_FOUND)
+    // A second tap, or another device's push, must not queue a second import of one page.
+    const saved = (await activeRecordingsForTune(db, link.tune_id)).find(
+      (recording) => recording.origin_url === link.url,
+    )
+    if (saved) {
+      id = saved.id
+      return
+    }
+    await putRecordingRow(db, id, {
+      tuneId: link.tune_id,
+      source: 'import',
+      // The server counts code points, so a cut by UTF-16 unit could split an emoji.
+      label: link.title ? [...link.title].slice(0, RECORDING_LIMITS.label).join('') : null,
+      recordedAt: now(),
+      origin: link.provider,
+      originUrl: link.url,
     })
   })
   return id

@@ -233,7 +233,7 @@ describe('storedSearchProviders', () => {
     expect(storedSearchProviders(null)).toEqual(SEARCHABLE_PROVIDERS)
     expect(storedSearchProviders(undefined)).toEqual(SEARCHABLE_PROVIDERS)
     expect(storedSearchProviders({} as LocalUserSettings)).toEqual(SEARCHABLE_PROVIDERS)
-    expect(SEARCHABLE_PROVIDERS).toHaveLength(7)
+    expect(SEARCHABLE_PROVIDERS).toHaveLength(8)
     expect(SEARCHABLE_PROVIDERS).not.toContain('other')
   })
 
@@ -242,6 +242,7 @@ describe('storedSearchProviders', () => {
       'apple_music',
       'tidal',
       'internet_archive',
+      'slippery_hill',
       'youtube',
       'spotify',
       'bandcamp',

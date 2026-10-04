@@ -40,18 +40,35 @@ describe('format', () => {
   })
 
   it('labels the state a user cares about', () => {
-    const row = { state: 'pending_upload', error: null } as const
+    const row = { state: 'pending_upload', error: null, source: 'microphone' } as const
     expect(fileStateLabel(row, { local_state: 'captured' })).toBe(WAITING_TO_UPLOAD)
     expect(fileStateLabel(row, { local_state: 'uploading' })).toBe('Uploading')
     expect(fileStateLabel(row, { local_state: 'blocked_quota' })).toBe(STORAGE_FULL)
     expect(fileStateLabel(row, { local_state: 'failed_upload' })).toBe(UPLOAD_FAILED)
-    expect(fileStateLabel({ state: 'processing', error: null }, { local_state: 'uploaded' })).toBe(
-      'Processing',
-    )
-    expect(fileStateLabel({ state: 'failed', error: 'x' }, { local_state: 'uploaded' })).toBe(
-      PROCESS_FAILED,
-    )
-    expect(fileStateLabel({ state: 'ready', error: null }, { local_state: 'uploaded' })).toBe('')
-    expect(fileStateLabel({ state: 'ready', error: null }, undefined)).toBe('')
+    expect(
+      fileStateLabel(
+        { state: 'processing', error: null, source: 'upload' },
+        { local_state: 'uploaded' },
+      ),
+    ).toBe('Processing')
+    expect(
+      fileStateLabel(
+        { state: 'failed', error: 'x', source: 'upload' },
+        { local_state: 'uploaded' },
+      ),
+    ).toBe(PROCESS_FAILED)
+    expect(
+      fileStateLabel(
+        { state: 'ready', error: null, source: 'upload' },
+        { local_state: 'uploaded' },
+      ),
+    ).toBe('')
+    expect(fileStateLabel({ state: 'ready', error: null, source: 'upload' }, undefined)).toBe('')
+    expect(
+      fileStateLabel({ state: 'pending_upload', error: null, source: 'import' }, undefined),
+    ).toBe('Processing')
+    expect(
+      fileStateLabel({ state: 'pending_upload', error: null, source: 'upload' }, undefined),
+    ).toBe('')
   })
 })

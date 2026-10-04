@@ -165,6 +165,27 @@ export class CrosstuneDb extends Dexie {
 
     // The processing watch queries by state, so a write to any other recording passes it by.
     this.version(9).stores({ recordings: 'id, tune_id, state' })
+
+    // Recordings predate provenance; the API refuses a push that leaves it out.
+    this.version(10)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table('recordings')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            row.origin ??= 'own'
+            row.origin_url ??= null
+          })
+        await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)
+          .modify((entry: OutboxEntry) => {
+            if (!entry.data) return
+            entry.data.origin ??= 'own'
+            entry.data.origin_url ??= null
+          })
+      })
   }
 
   // Dexie's auto-open on the first query calls this method too.

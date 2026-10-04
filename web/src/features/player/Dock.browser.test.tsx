@@ -2,7 +2,7 @@ import { IonContent, IonPage, IonRouterOutlet, IonTabs } from '@ionic/react'
 import { IonReactMemoryRouter } from '@ionic/react-router'
 import { StrictMode } from 'react'
 import { Route } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import { PhoneTabBar } from '../../app/PhoneTabBar'
 import { RECORD_LABEL } from '../../app/tabs'
@@ -18,6 +18,7 @@ import { createTune } from '../../commands/tunes'
 import { newId } from '../../commands/write'
 import type { CrosstuneDb } from '../../db/schema'
 import type { SyncEngine } from '../../sync/types'
+import { stubbedRequests, stubRequests, unstubRequests } from '../../test/commands'
 import { openTestDb } from '../../test/db'
 import { stubMediaGlobals } from '../../test/fakeMedia'
 import { renderIonic } from '../../test/ionic'
@@ -106,6 +107,8 @@ async function remoteRecording(id: string, state = 'ready'): Promise<string> {
     tune_id: tuneId,
     label: 'From my other phone',
     source: 'microphone',
+    origin: 'own',
+    origin_url: null,
     recorded_at: '2026-09-14T20:00:00.000Z',
     position: 0,
     state,
@@ -243,6 +246,43 @@ describe('Dock', () => {
     const frame = dockElement()!.querySelector('iframe')!
     expect(frame.getAttribute('title')).toBe('Cluck Old Hen on YouTube')
     expect(frame.getAttribute('height')).toBe('200')
+  })
+
+  it('plays a Slippery-Hill link in an audio player', async () => {
+    const files = 'https://www.slippery-hill.com/system/files/**'
+    await stubRequests(files)
+    onTestFinished(() => unstubRequests(files))
+    const linkId = await addLink(db, tuneId, {
+      url: 'https://www.slippery-hill.com/content/bear-creek-sally-goodin',
+      provider: 'slippery_hill',
+      provider_ref: 'recordings/bearcreeksallygoodin_bobholt.mp3',
+      title: 'Bear Creek Sally Goodin - Bob Holt',
+    })
+    renderDock([{ label: 'Play link', item: { kind: 'link', id: linkId } }])
+    await page.getByRole('button', { name: 'Play link' }).click()
+
+    await expect.element(dock()).toBeVisible()
+    await expect
+      .poll(() => dockElement()?.querySelector('audio')?.src)
+      .toBe(
+        'https://www.slippery-hill.com/system/files/recordings/bearcreeksallygoodin_bobholt.mp3',
+      )
+    expect(dockElement()!.querySelector('iframe')).toBeNull()
+    await expect
+      .element(dock().getByLabelText('Bear Creek Sally Goodin - Bob Holt'))
+      .toHaveAttribute('src', expect.stringContaining('bearcreeksallygoodin_bobholt.mp3'))
+    await expect.poll(() => stubbedRequests(files)).toBeGreaterThan(0)
+  })
+
+  it('closes itself when a Slippery-Hill link has no file to play', async () => {
+    const linkId = await addLink(db, tuneId, {
+      url: 'https://www.slippery-hill.com/content/bear-creek-sally-goodin',
+      provider: 'slippery_hill',
+    })
+    renderDock([{ label: 'Play link', item: { kind: 'link', id: linkId } }])
+    await page.getByRole('button', { name: 'Play link' }).click()
+
+    await expect.poll(() => dockElement()).toBeNull()
   })
 
   it("marks a recording's title as the way into its screen, and a link's as plain text", async () => {

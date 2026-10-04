@@ -1,10 +1,14 @@
-import { PROVIDERS, type Provider } from '../../api/vocabulary'
+import { LINK_LIMITS, PROVIDERS, type Provider } from '../../api/vocabulary'
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/
 const SPOTIFY_PATH = /^\/(?:intl-[a-z]{2}\/)?(track|album|episode|playlist)\/([A-Za-z0-9]+)/
 // listen.tidal.com nests a track under its album; the track is the recording.
 const TIDAL_PATH = /^\/(?:browse\/)?(?:album\/\d+\/)?(track|album|playlist|video)\/([0-9A-Fa-f-]+)/
 const ARCHIVE_PATH = /^\/details\/([A-Za-z0-9._-]+)/
+
+export const SLIPPERY_HILL_ORIGIN = 'https://www.slippery-hill.com'
+const SLIPPERY_HILL_FILES = '/system/files/'
+const SLIPPERY_HILL_REF = /^(?:[A-Za-z0-9_~%()!*'+,.-]+\/)*[A-Za-z0-9_~%()!*'+,.-]+\.mp3$/i
 
 function typedRef(pattern: RegExp, url: URL): string | null {
   const match = pattern.exec(url.pathname)
@@ -38,6 +42,24 @@ function appleRef(url: URL): string | null {
   return /^\d+$/.test(last) ? last : null
 }
 
+/** Whether `ref` is a file path that cannot climb out of Slippery-Hill's files tree. */
+export function validSlipperyHillRef(ref: string): boolean {
+  // The ref is appended to the origin, so a dot segment, however spelled, could escape it.
+  return (
+    ref.length <= LINK_LIMITS.provider_ref &&
+    SLIPPERY_HILL_REF.test(ref) &&
+    !ref.toLowerCase().includes('%2e') &&
+    !ref.split('/').some((segment) => segment === '.' || segment === '..')
+  )
+}
+
+/** The file ref of a Slippery-Hill `/system/files/` path, or null when it is not a safe MP3. */
+export function slipperyHillRef(path: string): string | null {
+  if (!path.startsWith(SLIPPERY_HILL_FILES)) return null
+  const ref = path.slice(SLIPPERY_HILL_FILES.length)
+  return validSlipperyHillRef(ref) ? ref : null
+}
+
 export function detectProvider(raw: string): { provider: Provider; provider_ref: string | null } {
   let url: URL
   try {
@@ -67,6 +89,9 @@ export function detectProvider(raw: string): { provider: Provider; provider_ref:
   if (h === 'archive.org') {
     const match = ARCHIVE_PATH.exec(url.pathname)
     return { provider: 'internet_archive', provider_ref: match ? match[1]! : null }
+  }
+  if (h === 'slippery-hill.com') {
+    return { provider: 'slippery_hill', provider_ref: slipperyHillRef(url.pathname) }
   }
   return { provider: 'other', provider_ref: null }
 }

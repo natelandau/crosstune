@@ -16,6 +16,8 @@ function processingRecording(overrides: Partial<LocalRecording> = {}): LocalReco
     tune_id: null,
     label: null,
     source: 'microphone',
+    origin: 'own',
+    origin_url: null,
     recorded_at: '2026-09-14T00:00:00.000Z',
     position: 0,
     state: 'processing',

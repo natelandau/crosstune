@@ -15,6 +15,7 @@ import { toggleSearchProvider } from '../../commands/settings'
 import type { SyncEngine } from '../../sync/types'
 import { fakeEngine } from '../../test/providers'
 import {
+  ADD_TO_RECORDINGS,
   FIND_RECORDINGS,
   SEARCH_FAILED,
   SEARCH_NEEDS_CONNECTION,
@@ -135,6 +136,99 @@ const sectionHeaders = () => Array.from(document.querySelectorAll('h2')).map((h)
 const rowTitles = () => Array.from(document.querySelectorAll('h3')).map((h) => h.textContent)
 
 describe('TuneMedia', () => {
+  describe('Add to recordings', () => {
+    const hill = {
+      url: 'https://www.slippery-hill.com/recording/7',
+      provider: 'slippery_hill' as const,
+      provider_ref: '7',
+    }
+    const add = (title: string) =>
+      page.getByRole('button', { name: `${ADD_TO_RECORDINGS} ${title}` })
+
+    it('saves the link as a recording and keeps the link', async () => {
+      await addLink(db, tuneId, { ...hill, title: 'Hill take' })
+      show()
+      await add('Hill take').click()
+      await expect
+        .poll(async () =>
+          (await db.recordings.toArray()).map((r) => [r.source, r.label, r.origin_url]),
+        )
+        .toEqual([['import', 'Hill take', hill.url]])
+      await expect.poll(async () => (await db.recording_links.toArray()).length).toBe(1)
+      await expect.element(page.getByText(/Slippery-Hill · Processing/)).toBeVisible()
+    })
+
+    it('is offered and works offline, and an untitled link reads by its host', async () => {
+      const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      try {
+        await addLink(db, tuneId, hill)
+        show()
+        await add('www.slippery-hill.com').click()
+        await expect
+          .poll(async () => (await db.recordings.toArray()).map((r) => [r.source, r.label]))
+          .toEqual([['import', null]])
+      } finally {
+        onLine.mockRestore()
+      }
+    })
+
+    it('keeps one recording and withdraws the action after a double tap', async () => {
+      await addLink(db, tuneId, { ...hill, title: 'Hill take' })
+      show()
+      const button = add('Hill take')
+      await expect.element(button).toBeVisible()
+      await userEvent.dblClick(button)
+      await expect.poll(async () => db.recordings.count()).toBe(1)
+      await expect.element(add('Hill take')).not.toBeInTheDocument()
+    })
+
+    it('is not offered without a ref, for another provider, or once saved', async () => {
+      await addLink(db, tuneId, { ...hill, provider_ref: null, title: 'No ref' })
+      await addLink(db, tuneId, { ...youtube, title: 'Tube' })
+      await addLink(db, tuneId, {
+        ...hill,
+        url: 'https://www.slippery-hill.com/recording/8',
+        provider_ref: '8',
+        title: 'Saved',
+      })
+      await db.recordings.put(
+        recordingRow('r1', {
+          tune_id: tuneId,
+          label: 'Saved',
+          source: 'import',
+          origin: 'slippery_hill',
+          origin_url: 'https://www.slippery-hill.com/recording/8',
+        }),
+      )
+      show()
+      await expect.element(page.getByRole('heading', { name: 'Tube' })).toBeVisible()
+      await expect.element(page.getByRole('heading', { name: 'No ref' })).toBeVisible()
+      await expect
+        .element(page.getByRole('heading', { name: 'Saved', level: 3 }).first())
+        .toBeVisible()
+      await expect
+        .poll(() =>
+          page.getByRole('button', { name: new RegExp(`^${ADD_TO_RECORDINGS}`) }).elements(),
+        )
+        .toHaveLength(0)
+    })
+
+    it('is offered again once the saved recording is deleted', async () => {
+      await addLink(db, tuneId, { ...hill, title: 'Hill take' })
+      await db.recordings.put(
+        recordingRow('r1', {
+          tune_id: tuneId,
+          source: 'import',
+          origin: 'slippery_hill',
+          origin_url: hill.url,
+          deleted_at: '2026-02-01T00:00:00.000Z',
+        }),
+      )
+      show()
+      await expect.element(add('Hill take')).toBeVisible()
+    })
+  })
+
   it('names the empty state and the one way into adding a recording', async () => {
     show()
     await expect.element(page.getByText(NO_MEDIA_TITLE)).toBeVisible()
@@ -192,6 +286,30 @@ describe('TuneMedia', () => {
     const list = page.getByRole('list', { name: 'Recordings' })
     await expect.element(list.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     await expect.element(list.getByRole('heading', { name: 'Slow version' })).toBeVisible()
+  })
+
+  it('lists own recordings before imported ones, whatever their positions', async () => {
+    await db.recordings.put(
+      recordingRow('imported', {
+        tune_id: tuneId,
+        label: 'Imported take',
+        origin: 'slippery_hill',
+        origin_url: 'https://www.slippery-hill.com/recording/1',
+        source: 'import',
+        position: 0,
+        recorded_at: '2026-03-14T20:05:00.000Z',
+      }),
+    )
+    await db.recordings.put(
+      recordingRow('own', {
+        tune_id: tuneId,
+        label: 'Own take',
+        position: 1,
+        recorded_at: '2026-01-01T12:00:00.000Z',
+      }),
+    )
+    show()
+    await expect.poll(rowTitles).toEqual(['Own take', 'Imported take'])
   })
 
   it("sits a link's provider line where a recording's metadata sits", async () => {

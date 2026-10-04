@@ -16,8 +16,16 @@ import { ADD_TO_TUNE_TITLE } from './AddToTuneSheet'
 import { RECORDING_NAME_LABEL, RENAME } from './recordingCopy'
 import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from './recordingRow'
 import { RENAME_RECORDING_TITLE } from './RenameRecordingSheet'
-import { NO_RECORDINGS_HINT, NO_RECORDINGS_TITLE, RecordingsPage } from './RecordingsPage'
+import { providerLabel } from '../links/display'
+import {
+  NO_MATCHING_RECORDINGS_TITLE,
+  NO_RECORDINGS_HINT,
+  NO_RECORDINGS_TITLE,
+  RecordingsPage,
+} from './RecordingsPage'
 import { NOT_AUDIO_ERROR, refusedFile } from './addAudioFiles'
+import { ALL_RECORDINGS, MY_RECORDINGS, RECORDINGS_FILTER_LABEL } from './RecordingsOriginFilter'
+import { META_RECORDINGS_ORIGIN } from '../../db/meta'
 import { UPLOAD_AUDIO } from './UploadButton'
 import { DELETE_RECORDING_TITLE } from './useRecordingActions'
 import { useRecordingsWithFiles } from './useRecordings'
@@ -27,6 +35,8 @@ vi.mock('../../commands/recordings', { spy: true })
 vi.mock('./useRecordings', { spy: true })
 
 let db: CrosstuneDb
+
+const SLIPPERY = providerLabel({ provider: 'slippery_hill' })
 
 beforeEach(() => {
   db = openTestDb()
@@ -403,5 +413,97 @@ describe('RecordingsPage', () => {
     show()
     await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
     await expect.poll(() => document.querySelectorAll('h1')).toHaveLength(1)
+  })
+
+  describe('origin filter', () => {
+    const rail = () => page.getByRole('group', { name: RECORDINGS_FILTER_LABEL })
+    const chip = (name: string) => page.getByRole('button', { name, exact: true })
+
+    it('shows no rail while every recording is own', async () => {
+      await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
+      show()
+      await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
+      await expect.element(rail()).not.toBeInTheDocument()
+    })
+
+    it('narrows to an import source and hides a tune group left empty', async () => {
+      const tuneId = await addTune("Soldier's Joy")
+      await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
+      await db.recordings.put(
+        recordingRow('r2', { tune_id: tuneId, label: 'Imported take', origin: 'slippery_hill' }),
+      )
+      show()
+      await expect.element(rail()).toBeVisible()
+      await expect
+        .poll(() => rail().element().textContent)
+        .toBe(`${ALL_RECORDINGS}${MY_RECORDINGS}${SLIPPERY}`)
+      await expect.element(chip(ALL_RECORDINGS)).toHaveAttribute('aria-pressed', 'true')
+      await expect.poll(groupNames).toEqual(['Unfiled', "Soldier's Joy"])
+      await chip(SLIPPERY).click()
+      await expect.poll(groupNames).toEqual(["Soldier's Joy"])
+      await expect
+        .element(page.getByRole('heading', { name: 'Jam recording' }))
+        .not.toBeInTheDocument()
+      await chip(MY_RECORDINGS).click()
+      await expect.poll(groupNames).toEqual(['Unfiled'])
+    })
+
+    it('keeps the choice across a remount', async () => {
+      await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
+      await db.recordings.put(
+        recordingRow('r2', { label: 'Imported take', origin: 'slippery_hill' }),
+      )
+      const first = show()
+      await chip(SLIPPERY).click()
+      await expect
+        .poll(async () => (await db.meta.get(META_RECORDINGS_ORIGIN))?.value)
+        .toBe('slippery_hill')
+      await first.unmount()
+      show()
+      await expect.element(chip(SLIPPERY)).toHaveAttribute('aria-pressed', 'true')
+      await expect.element(page.getByRole('heading', { name: 'Imported take' })).toBeVisible()
+      await expect
+        .element(page.getByRole('heading', { name: 'Jam recording' }))
+        .not.toBeInTheDocument()
+    })
+
+    it('keeps a chosen source on the rail once none of its recordings remain', async () => {
+      await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
+      await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
+      show()
+      await expect.element(chip(SLIPPERY)).toHaveAttribute('aria-pressed', 'true')
+      await expect
+        .element(page.getByRole('heading', { name: 'Jam recording' }))
+        .not.toBeInTheDocument()
+      await expect.poll(groupNames).toEqual([])
+      await expect.element(page.getByText(NO_MATCHING_RECORDINGS_TITLE)).toBeVisible()
+      await chip(ALL_RECORDINGS).click()
+      await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
+      await expect.element(rail()).not.toBeInTheDocument()
+    })
+
+    it('lists an unknown origin after the known ones, and a stale choice by rank', async () => {
+      await db.meta.put({ key: META_RECORDINGS_ORIGIN, value: 'slippery_hill' })
+      await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
+      await db.recordings.put(recordingRow('r2', { label: 'Odd take', origin: 'zzz_new_site' }))
+      show()
+      await expect.element(rail()).toBeVisible()
+      await expect
+        .poll(() => rail().element().textContent)
+        .toBe(
+          `${ALL_RECORDINGS}${MY_RECORDINGS}${SLIPPERY}${providerLabel({ provider: 'zzz_new_site' })}`,
+        )
+    })
+
+    it('still lists recordings when the stored choice cannot be read', async () => {
+      const get = db.meta.get.bind(db.meta) as (key: string) => Promise<unknown>
+      vi.spyOn(db.meta, 'get').mockImplementation(((key: string) =>
+        key === META_RECORDINGS_ORIGIN
+          ? Promise.reject(new Error('store failed'))
+          : get(key)) as never)
+      await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
+      show()
+      await expect.element(page.getByRole('heading', { name: 'Jam recording' })).toBeVisible()
+    })
   })
 })

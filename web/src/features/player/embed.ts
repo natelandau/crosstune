@@ -1,7 +1,9 @@
 import type { LocalRecordingLink } from '../../db/types'
-import { youtubeId } from '../links/detect'
+import { SLIPPERY_HILL_ORIGIN, validSlipperyHillRef, youtubeId } from '../links/detect'
 
 export interface Embed {
+  /** A provider page in an iframe, or a plain audio element for a direct file. */
+  kind: 'frame' | 'audio'
   src: string
   /** Pixel height, or 'video' for a 200px-tall video player. */
   height: number | 'video'
@@ -46,6 +48,7 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
       const id = youtubeId(link)
       if (!id) return null
       return {
+        kind: 'frame',
         src: `https://www.youtube-nocookie.com/embed/${id}?playsinline=1${autoplay ? '&autoplay=1' : ''}`,
         height: 'video',
         allow: YOUTUBE_ALLOW,
@@ -56,6 +59,7 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
       if (!match) return null
       const [, kind, id] = match
       return {
+        kind: 'frame',
         src: `https://open.spotify.com/embed/${kind}/${id}`,
         height: 152,
         allow: SPOTIFY_ALLOW,
@@ -67,6 +71,7 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
       url.protocol = 'https:'
       url.hostname = 'embed.music.apple.com'
       return {
+        kind: 'frame',
         src: url.toString(),
         height: 175,
         allow: APPLE_ALLOW,
@@ -78,6 +83,7 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
       if (!match) return null
       const [, kind, id] = match
       return {
+        kind: 'frame',
         src: `https://embed.tidal.com/${kind}s/${id}`,
         height: kind === 'track' ? 120 : kind === 'video' ? 'video' : 150,
         allow: TIDAL_ALLOW,
@@ -88,6 +94,7 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
       const url = parseUrl(link.url)
       if (!url || !SOUNDCLOUD_HOST.test(url.hostname)) return null
       return {
+        kind: 'frame',
         src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(link.url)}${autoplay ? '&auto_play=true' : ''}`,
         height: 166,
         allow: BASIC_ALLOW,
@@ -98,6 +105,7 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
       if (!match) return null
       const [, kind, id] = match
       return {
+        kind: 'frame',
         src: `https://bandcamp.com/EmbeddedPlayer/${kind}=${id}/size=large/artwork=small/tracklist=false/transparent=true/`,
         height: 120,
         allow: BASIC_ALLOW,
@@ -105,7 +113,21 @@ export function embedFor(link: EmbeddableLink, options?: { autoplay?: boolean })
     }
     case 'internet_archive': {
       if (!ARCHIVE_REF.test(ref)) return null
-      return { src: `https://archive.org/embed/${ref}`, height: 60, allow: ARCHIVE_ALLOW }
+      return {
+        kind: 'frame',
+        src: `https://archive.org/embed/${ref}`,
+        height: 60,
+        allow: ARCHIVE_ALLOW,
+      }
+    }
+    case 'slippery_hill': {
+      if (!validSlipperyHillRef(ref)) return null
+      return {
+        kind: 'audio',
+        src: `${SLIPPERY_HILL_ORIGIN}/system/files/${ref}`,
+        height: 60,
+        allow: 'autoplay',
+      }
     }
     default:
       return null

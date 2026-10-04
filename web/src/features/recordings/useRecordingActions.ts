@@ -1,4 +1,4 @@
-import { FolderInput, FolderOutput, Pencil, Scissors, Trash2 } from 'lucide-react'
+import { ExternalLink, FolderInput, FolderOutput, Pencil, Scissors, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { setPlaySource } from '../../commands/tunes'
@@ -11,9 +11,19 @@ import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { pinRowAction } from '../tune/playSourceText'
 import { TRIM } from '../recording-screen/TrimView'
-import { RENAME } from './recordingCopy'
-import { deleteRecordingMessage } from './recordingRow'
+import { openOn, RENAME } from './recordingCopy'
+import { deleteRecordingMessage, originLabel } from './recordingRow'
 import type { RecordingView } from './useRecordings'
+
+/** Only a page, never a script or a local scheme, may be opened from a stored URL. */
+export function isWebUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 export const DELETE_RECORDING_TITLE = 'Delete this recording?'
 export const REMOVE_FROM_TUNE = 'Remove from tune'
@@ -29,7 +39,10 @@ export interface RecordingActions {
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
   /** A row's actions: rename it, file or unfile it, delete it. */
   actionsFor: (view: RecordingView) => RowAction[]
-  /** The recording screen's menu: trim it, rename it, file or unfile it, delete it. */
+  /**
+   * The recording screen's menu: trim it, rename it, file or unfile it, open it on the site it
+   * came from, delete it.
+   */
   menuFor: (view: RecordingView) => MenuItem[]
 }
 
@@ -138,6 +151,18 @@ export function useRecordingActions({
       ? { label: RENAME, icon: Pencil, tone: 'neutral', onPress: () => onRename(view) }
       : null
 
+  const openOriginAction = (view: RecordingView): RowAction | null => {
+    const { origin, origin_url: url } = view.recording
+    const site = originLabel(origin)
+    if (!site || !url || !isWebUrl(url)) return null
+    return {
+      label: openOn(site),
+      icon: ExternalLink,
+      tone: 'neutral',
+      onPress: () => window.open(url, '_blank', 'noopener,noreferrer'),
+    }
+  }
+
   const pinAction = (view: RecordingView): RowAction | null => {
     if (!pin) return null
     const id = view.recording.id
@@ -166,7 +191,9 @@ export function useRecordingActions({
             },
           ]
         : []),
-      ...[renameAction(view), file].filter((action): action is RowAction => action !== null),
+      ...[renameAction(view), file, openOriginAction(view)].filter(
+        (action): action is RowAction => action !== null,
+      ),
       deleteAction(view),
     ]
   }

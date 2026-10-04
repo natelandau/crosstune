@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { RECORDING_LIMITS } from '../api/vocabulary'
 import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { loopRow } from '../test/rows'
-import { TUNE_NOT_FOUND } from './messages'
+import { LINK_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
 import {
+  addRecordingFromLink,
   addUploadedFile,
   appendChunk,
   beginCapture,
@@ -20,6 +22,7 @@ import {
   defaultRecordingLabel,
   updateRecording,
 } from './recordings'
+import { addLink, removeLink } from './links'
 import { createTune, deleteTune } from './tunes'
 import { newId } from './write'
 
@@ -315,6 +318,8 @@ describe('keep offline and local audio', () => {
       tune_id: null,
       label: null,
       source: 'microphone',
+      origin: 'own',
+      origin_url: null,
       recorded_at: AT,
       position: 0,
       state: 'ready',
@@ -364,5 +369,91 @@ describe('keep offline and local audio', () => {
     expect((await db.recording_files.get(ready))?.blob).toBeNull()
     expect((await db.recording_files.get(processing))?.blob).not.toBeNull()
     expect((await db.recording_files.get(failed))?.blob).not.toBeNull()
+  })
+})
+
+describe('addRecordingFromLink', () => {
+  const link = {
+    url: 'https://www.slippery-hill.com/recording/7',
+    provider: 'slippery_hill' as const,
+    provider_ref: '7',
+    title: 'Slow version',
+  }
+
+  it('writes an import row from the link and queues it with no file', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, link)
+    const id = await addRecordingFromLink(db, linkId)
+    expect(await db.recordings.get(id)).toMatchObject({
+      tune_id: tuneId,
+      label: 'Slow version',
+      source: 'import',
+      origin: 'slippery_hill',
+      origin_url: link.url,
+      state: 'pending_upload',
+    })
+    expect(await db.recording_files.get(id)).toBeUndefined()
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({
+      tune_id: tuneId,
+      label: 'Slow version',
+      source: 'import',
+      origin: 'slippery_hill',
+      origin_url: link.url,
+    })
+    expect(await db.outbox.where('table').equals('recordings').count()).toBe(1)
+    expect((await db.recording_links.get(linkId))?.deleted_at).toBeNull()
+  })
+
+  it('adds the link only once, however often it is asked', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, link)
+    const first = await addRecordingFromLink(db, linkId)
+    const second = await addRecordingFromLink(db, linkId)
+    expect(second).toBe(first)
+    expect(await db.recordings.count()).toBe(1)
+    expect(await db.outbox.where('table').equals('recordings').count()).toBe(1)
+  })
+
+  it('adds the link once when asked twice at the same time', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, link)
+    const [first, second] = await Promise.all([
+      addRecordingFromLink(db, linkId),
+      addRecordingFromLink(db, linkId),
+    ])
+    expect(second).toBe(first)
+    expect(await db.recordings.count()).toBe(1)
+    expect(await db.outbox.where('table').equals('recordings').count()).toBe(1)
+  })
+
+  it('adds the link again once its recording is deleted', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, link)
+    const first = await addRecordingFromLink(db, linkId)
+    await deleteRecording(db, first)
+    const second = await addRecordingFromLink(db, linkId)
+    expect(second).not.toBe(first)
+  })
+
+  it('leaves the label empty for an untitled link', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, { ...link, title: '' })
+    const id = await addRecordingFromLink(db, linkId)
+    expect((await db.recordings.get(id))?.label).toBeNull()
+  })
+
+  it('cuts a long link title to the longest label a recording takes', async () => {
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, { ...link, title: '\u{1F3BB}'.repeat(250) })
+    const id = await addRecordingFromLink(db, linkId)
+    expect((await db.recordings.get(id))?.label).toBe('\u{1F3BB}'.repeat(RECORDING_LIMITS.label))
+  })
+
+  it('rejects a link that is missing or removed', async () => {
+    await expect(addRecordingFromLink(db, 'nope')).rejects.toThrow(LINK_NOT_FOUND)
+    const { tuneId } = await createTune(db, { title: 'Reel' }, { status: 'learning' })
+    const linkId = await addLink(db, tuneId, link)
+    await removeLink(db, linkId)
+    await expect(addRecordingFromLink(db, linkId)).rejects.toThrow(LINK_NOT_FOUND)
   })
 })

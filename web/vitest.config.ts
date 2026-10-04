@@ -2,6 +2,7 @@ import { playwright } from '@vitest/browser-playwright'
 import { fileURLToPath } from 'node:url'
 import { searchForWorkspaceRoot } from 'vite'
 import { defineConfig, mergeConfig } from 'vitest/config'
+import type { BrowserCommand } from 'vitest/node'
 import viteConfig from './vite.config.ts'
 
 // Chromium tests share a CI runner's few cores with Vite and each other, so a race the code
@@ -9,6 +10,25 @@ import viteConfig from './vite.config.ts'
 // github-actions reporter lists every test that needed one in the job summary, so each stays
 // visible until it is fixed. Locally a failure is never retried.
 const browserRetry = process.env.CI ? 2 : 0
+
+// Answer the requests matching a URL pattern with an empty 204 for as long as a test holds the
+// stub, and count the requests answered, so a test can use a third-party URL, such as an
+// autoplaying audio file, without downloading it.
+const stubbed = new Map<string, number>()
+const stubRequests: BrowserCommand<[pattern: string]> = async (context, pattern) => {
+  stubbed.set(pattern, 0)
+  await context.page.route(pattern, async (route) => {
+    stubbed.set(pattern, (stubbed.get(pattern) ?? 0) + 1)
+    await route.fulfill({ status: 204 })
+  })
+}
+const stubbedRequests: BrowserCommand<[pattern: string]> = (_context, pattern) =>
+  stubbed.get(pattern) ?? 0
+const unstubRequests: BrowserCommand<[pattern: string]> = async (context, pattern) => {
+  stubbed.delete(pattern)
+  await context.page.unroute(pattern)
+}
+const commands = { stubRequests, stubbedRequests, unstubRequests }
 
 // Logic runs under jsdom. Anything that renders an Ionic component runs in Chromium, because
 // Ionic is web components with shadow DOM and jsdom does not render them.
@@ -67,6 +87,7 @@ export default defineConfig((env) =>
                 enabled: true,
                 headless: true,
                 provider: playwright(),
+                commands,
                 instances: [{ browser: 'chromium' }],
                 viewport: { width: 390, height: 844 },
               },
@@ -83,6 +104,7 @@ export default defineConfig((env) =>
                 enabled: true,
                 headless: true,
                 provider: playwright(),
+                commands,
                 instances: [{ browser: 'chromium' }],
                 viewport: { width: 390, height: 844 },
               },

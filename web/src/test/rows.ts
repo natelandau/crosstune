@@ -83,6 +83,8 @@ export function recordingRow(id: string, extra: Partial<LocalRecording> = {}): L
     tune_id: null,
     label: null,
     source: 'microphone',
+    origin: 'own',
+    origin_url: null,
     recorded_at: '2026-01-01T12:00:00.000Z',
     position: 0,
     state: 'ready',
