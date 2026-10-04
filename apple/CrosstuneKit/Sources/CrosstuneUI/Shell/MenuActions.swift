@@ -48,9 +48,14 @@ extension FocusedValues {
     @Entry public var skipBackAction: MenuAction?
     /// Skips the loaded item forward. Published by the shell with ``playPauseAction``.
     @Entry public var skipForwardAction: MenuAction?
+    /// Plays the playing list's next tune. Published by the shell while a list plays.
+    @Entry public var nextTuneAction: MenuAction?
+    /// Plays the playing list's previous tune. Published by the shell with ``nextTuneAction``.
+    @Entry public var previousTuneAction: MenuAction?
     /// Opens the loaded recording's screen. Published by the shell while a recording is loaded.
     @Entry public var goToRecordingAction: MenuAction?
-    /// Unloads the player. Published by the shell while something is loaded.
+    /// Unloads the player. Published by the shell while something is loaded, or while a
+    /// playlist's end message shows.
     @Entry public var closePlayerAction: MenuAction?
     /// Shows the catalog. Published by the shell.
     @Entry public var showCatalogAction: MenuAction?

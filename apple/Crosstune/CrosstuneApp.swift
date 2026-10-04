@@ -6,7 +6,8 @@ import SwiftUI
 @main
 struct CrosstuneApp: App {
     @State private var session: AccountSession
-    @State private var player = PlayerModel.device()
+    @State private var player: PlayerModel
+    @State private var listPlayback: ListPlayback
     @State private var stage = EmbedStage()
     @State private var recorders = RecorderHost()
     @Environment(\.scenePhase) private var scenePhase
@@ -14,6 +15,9 @@ struct CrosstuneApp: App {
     init() {
         // Before any window can start an export, so only zips a past run left behind go.
         ExportArchive.removeLeftovers()
+        let player = PlayerModel.device()
+        _player = State(initialValue: player)
+        _listPlayback = State(initialValue: ListPlayback.device(player: player))
         let configuration = AppConfiguration.main
         _session = State(
             initialValue: AccountSession(
@@ -70,6 +74,6 @@ struct CrosstuneApp: App {
     }
 
     private var root: some View {
-        RootView(session: session, player: player, stage: stage, recorders: recorders)
+        RootView(session: session, player: player, listPlayback: listPlayback, stage: stage, recorders: recorders)
     }
 }

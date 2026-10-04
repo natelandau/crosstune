@@ -7,6 +7,8 @@ import SwiftUI
 /// menu shortcut never fires and a Command-Left one would take the key from every text field.
 struct ShellControls: ViewModifier {
     let player: PlayerModel
+    /// The playlist driving the player, when the app has one.
+    let playback: ListPlayback?
     /// The window the shell lives in, where Go to recording opens the recording's screen.
     let window: UUID
     /// False while a sheet or dialog covers the shell, which stands every command down.
@@ -31,7 +33,18 @@ struct ShellControls: ViewModifier {
                 \.goToRecordingAction,
                 isActive && player.item?.kind == .recording ? MenuAction { player.expand(in: window) } : nil
             )
-            .focusedSceneValue(\.closePlayerAction, isActive && player.isLoaded ? MenuAction { player.close() } : nil)
+            .focusedSceneValue(
+                \.closePlayerAction,
+                isActive && PlayerBar.isShown(player, playback)
+                    ? MenuAction { PlayerBar.closePlayer(player, playback) } : nil
+            )
+            .focusedSceneValue(
+                \.nextTuneAction, isActive && playback?.isActive == true ? MenuAction { playback?.next() } : nil
+            )
+            .focusedSceneValue(
+                \.previousTuneAction,
+                isActive && playback?.isActive == true ? MenuAction { playback?.previous() } : nil
+            )
             .focusedSceneValue(\.showCatalogAction, isActive ? MenuAction { show(.catalog) } : nil)
             .focusedSceneValue(\.showRecordingsAction, isActive ? MenuAction { show(.recordings) } : nil)
             .onKeyPress(.space, phases: .down) { press in

@@ -17,6 +17,8 @@ struct AppCommands: Commands {
     @FocusedValue(\.isPlaying) private var isPlaying
     @FocusedValue(\.skipBackAction) private var skipBack
     @FocusedValue(\.skipForwardAction) private var skipForward
+    @FocusedValue(\.nextTuneAction) private var nextTune
+    @FocusedValue(\.previousTuneAction) private var previousTune
     @FocusedValue(\.goToRecordingAction) private var goToRecording
     @FocusedValue(\.closePlayerAction) private var closePlayer
     @FocusedValue(\.showCatalogAction) private var showCatalog
@@ -53,6 +55,11 @@ struct AppCommands: Commands {
             item(isPlaying == true ? RecordingPlayerText.pause : RecordingPlayerText.play, playPause)
             item(MenuCommand.skipBack, skipBack)
             item(MenuCommand.skipForward, skipForward)
+            Divider()
+            item(PlaylistControlText.next, nextTune)
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+            item(PlaylistControlText.previous, previousTune)
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
             Divider()
             item(MenuCommand.goToRecording, goToRecording)
                 .keyboardShortcut("l")

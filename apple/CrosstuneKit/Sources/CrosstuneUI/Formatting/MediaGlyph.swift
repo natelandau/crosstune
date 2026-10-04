@@ -14,6 +14,7 @@ public enum MediaGlyph: Hashable, Sendable {
 /// Words recording and link rows share.
 public enum MediaText {
     public static let play = "Play"
+    public static let pause = "Pause"
     public static let closePlayer = "Close player"
     public static let retry = "Retry"
     /// Why a play tap does nothing while a take is being recorded.

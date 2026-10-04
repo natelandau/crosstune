@@ -182,6 +182,15 @@ reopens one without new information. Add a new entry at the end.
 - `SystemMusicPlayer` was rejected. It replaces the Music app's own queue
   and keeps playing after Crosstune closes.
 
+## Playlist mode on Apple only, for recordings and Apple Music songs
+
+- A list plays as a playlist only in the Apple app. It plays recordings and
+  full Apple Music tracks, and skips a tune with neither.
+- Embeds stop when an iPhone locks, so a list cannot play through them
+  without a musician touching the phone. Next, previous, and the end of a
+  track need an engine the app controls.
+- A list row still plays any link from its own play button, embeds included.
+
 ## GRDB for the Apple app's local store
 
 - The Apple app keeps each user's catalog in SQLite through GRDB.

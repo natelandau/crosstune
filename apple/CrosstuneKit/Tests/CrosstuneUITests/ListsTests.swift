@@ -1,3 +1,4 @@
+import CrosstuneAudio
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
@@ -698,5 +699,210 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(!ListRowPlay.isLoaded(.play(item), holds: { _, _ in false }))
         #expect(
             !ListRowPlay.isLoaded(.open(URL(string: "https://example.com")!, linkTitle: "x"), holds: { _, _ in true }))
+    }
+}
+
+@Suite struct PlaylistRecordingsTests {
+    private func recording(_ id: String, state: String = "ready") -> Recording {
+        Recording(id: id, tuneID: "t", source: "microphone", recordedAt: noon, state: state)
+    }
+
+    private func file(_ id: String, _ state: LocalFileState, name: String? = "a.m4a") -> RecordingFile {
+        RecordingFile(id: id, localState: state, fileName: name)
+    }
+
+    @Test func keepsARecordingWithAudioOnThisDeviceEvenOffline() {
+        let local = recording("a", state: "pending")
+        let kept = RecordingText.playlistCapable(
+            [local], files: ["a": file("a", .downloaded)], online: false)
+        #expect(kept == [local])
+    }
+
+    @Test func keepsAReadyServerCopyOnlyWhileOnline() {
+        let ready = recording("a")
+        #expect(RecordingText.playlistCapable([ready], files: [:], online: true) == [ready])
+        #expect(RecordingText.playlistCapable([ready], files: [:], online: false).isEmpty)
+    }
+
+    @Test func dropsARecordingWithNoAudioAnywhere() {
+        let silent = recording("a", state: "pending")
+        #expect(RecordingText.playlistCapable([silent], files: [:], online: true).isEmpty)
+        // A capture still being written is not playable.
+        let capturing = recording("b", state: "pending")
+        #expect(
+            RecordingText.playlistCapable([capturing], files: ["b": file("b", .capturing)], online: true).isEmpty)
+    }
+
+    @Test func keepsTheOrderOfWhatRemains() {
+        let kept = RecordingText.playlistCapable(
+            [recording("a"), recording("b", state: "pending"), recording("c")], files: [:], online: true)
+        #expect(kept.map(\.id) == ["a", "c"])
+    }
+}
+
+@Suite struct ListPlayTextTests {
+    @Test func countsTheTunesThatWillPlay() {
+        #expect(ListPlayText.count(playable: 14, total: 20) == "14 of 20 tunes will play")
+    }
+
+    @Test func saysWhenNothingCanPlay() {
+        let none = PlaylistReport(playable: [], skipped: [.nothing: ["a"]], total: 1)
+        #expect(ListPlayText.line(for: none) == "No tunes in this list can play")
+        let one = PlaylistReport(playable: ["a"], skipped: [:], total: 1)
+        #expect(ListPlayText.line(for: one) == "1 of 1 tunes will play")
+    }
+}
+
+@Suite struct ListRowTapTests {
+    @Test func jumpsWithinThePlayingListAndPlaysAloneOtherwise() {
+        #expect(ListRowPlay.tap(listPlaying: true) == .jump)
+        #expect(ListRowPlay.tap(listPlaying: false) == .single)
+    }
+
+    @Test func neverCallsThePlayingRowNotPlayable() {
+        #expect(ListRowText.hint(hasAction: false, isCurrent: false, isSelecting: false) == ListRowText.notPlayable)
+        #expect(ListRowText.hint(hasAction: false, isCurrent: true, isSelecting: false).isEmpty)
+        #expect(ListRowText.hint(hasAction: false, isCurrent: false, isSelecting: true).isEmpty)
+        #expect(ListRowText.hint(hasAction: true, isCurrent: false, isSelecting: false).isEmpty)
+    }
+
+    @Test func marksTheCurrentTuneOfThePlayingListWhateverItsRowActionIs() {
+        func now(_ list: String?, _ tune: String?) -> Bool {
+            ListRowPlay.isNowPlaying(listID: "l1", playingListID: list, currentTuneID: tune, tuneID: "t1")
+        }
+        #expect(now("l1", "t1"))
+        #expect(!now("l1", "t2"))
+        #expect(!now("l2", "t1"))
+        #expect(!now(nil, nil))
+    }
+}
+
+@MainActor
+@Suite struct PlaylistResolverTests {
+    private let root = TemporaryRoot()
+    private let session = "sample_list_session"
+
+    private func tamLin(_ store: CrosstuneStore) async throws -> String {
+        try await store.read { db in try Tune.filter(Tune.CodingKeys.title == "Tam Lin").fetchOne(db)!.id }
+    }
+
+    private func resolve(
+        _ store: CrosstuneStore, listID: String? = nil, tuneID: String, access: AppleMusicAccessState = .fullTracks,
+        online: Bool = true
+    ) async -> ListPlayback.Turn? {
+        let resolver = ListPlayback.resolver(
+            store: store, access: FakeAccess(access), online: { online },
+            playFirst: { UserSettings.playFirstRecordings })
+        return await resolver(listID ?? session, tuneID)
+    }
+
+    private func putLocalRecording(_ store: CrosstuneStore, tuneID: String) async throws {
+        try await store.write { writer in
+            try writer.put(
+                Recording(id: "local", tuneID: tuneID, source: "microphone", recordedAt: noon, state: "pending"),
+                at: noon)
+            try RecordingFile(id: "local", localState: .captured, fileName: "local.m4a").upsert(writer.db)
+        }
+    }
+
+    @Test func passesOverARecordingWithNoAudio() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let id = try await tamLin(store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(id: "silent", tuneID: id, source: "microphone", recordedAt: noon, state: "pending"),
+                at: noon)
+        }
+        #expect(await resolve(store, tuneID: id) == nil)
+    }
+
+    @Test func playsTheSongWhenTheOnlyRecordingHasNoAudio() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let id = try await tamLin(store)
+        let song = RecordingLink(
+            id: "song", tuneID: id, url: "https://music.apple.com/us/song/x/1", provider: "apple_music")
+        try await store.write { writer in
+            try writer.put(
+                Recording(id: "silent", tuneID: id, source: "microphone", recordedAt: noon, state: "pending"),
+                at: noon)
+            try writer.put(song, at: noon)
+        }
+        let turn = await resolve(store, tuneID: id)
+        #expect(turn?.item == PlayerItem.link(song))
+        #expect(turn?.title == "Tam Lin")
+    }
+
+    @Test func playsARecordingWithAudioOnThisDevice() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let id = try await tamLin(store)
+        try await putLocalRecording(store, tuneID: id)
+        let turn = await resolve(store, tuneID: id, online: false)
+        #expect(turn?.item.id == "local")
+        #expect(turn?.title == "Tam Lin")
+    }
+
+    @Test func skipsATuneRemovedFromTheList() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let id = try await tamLin(store)
+        try await putLocalRecording(store, tuneID: id)
+        #expect(await resolve(store, tuneID: id) != nil)
+        let itemID = try await store.read { db in
+            try ListItem.filter(ListItem.CodingKeys.listID == session).fetchAll(db).first {
+                try UserTune.fetchOne(db, key: $0.userTuneID)?.tuneID == id
+            }!.id
+        }
+        try await store.write { writer in try writer.removeFromList(itemID, at: noon) }
+        #expect(await resolve(store, tuneID: id) == nil)
+    }
+
+    @Test func skipsATuneThatIsNotInThePlayingList() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let id = try await tamLin(store)
+        try await putLocalRecording(store, tuneID: id)
+        #expect(await resolve(store, listID: "sample_list_waltzes", tuneID: id) == nil)
+    }
+
+    @Test(arguments: [true, false])
+    func playsExactlyTheTunesTheReportSaysWillPlay(online: Bool) async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let id = try await tamLin(store)
+        try await store.write { writer in
+            try writer.put(
+                Recording(id: "silent", tuneID: id, source: "microphone", recordedAt: noon, state: "pending"),
+                at: noon)
+            try writer.put(
+                RecordingLink(id: "spotify", tuneID: id, url: "https://open.spotify.com/track/x", provider: "spotify"),
+                at: noon)
+        }
+        let contents = try #require(
+            try await store.read { db in try ListContents.fetch(db, listID: session) })
+        let report = playlistReport(
+            entries: contents.entries.map { $0.playlistEntry(online: online) },
+            playFirst: UserSettings.playFirstRecordings, fullTracks: true, online: online)
+        #expect(report.skipped[.recordingsNotHere]?.contains(id) == true)
+        for entry in contents.entries {
+            let turn = await resolve(store, tuneID: entry.tune.id, online: online)
+            #expect((turn != nil) == report.playable.contains(entry.tune.id), "\(entry.tune.title)")
+        }
+    }
+}
+
+@Suite struct WhatPlaysTests {
+    @Test func showsGroupsInOrderWithoutEmptyOnes() {
+        let report = PlaylistReport(
+            playable: [],
+            skipped: [.needsConnection: ["d"], .nothing: ["a", "b"], .needsSubscription: ["c"], .noCapableLink: []],
+            total: 4)
+        let groups = WhatPlaysText.groups(report)
+        #expect(groups.map(\.reason) == [.nothing, .needsSubscription, .needsConnection])
+        #expect(groups.first?.tuneIDs == ["a", "b"])
+        #expect(WhatPlaysText.groupTitle(.noCapableLink) == "Only links that can't play in a list")
+    }
+
+    @Test func listsRecordingsNotOnThisDeviceLast() {
+        let report = PlaylistReport(
+            playable: [], skipped: [.recordingsNotHere: ["e"], .needsConnection: ["d"], .nothing: ["a"]], total: 3)
+        #expect(WhatPlaysText.groups(report).map(\.reason) == [.nothing, .needsConnection, .recordingsNotHere])
+        #expect(WhatPlaysText.groupTitle(.recordingsNotHere) == "Recordings that aren't on this device yet")
     }
 }

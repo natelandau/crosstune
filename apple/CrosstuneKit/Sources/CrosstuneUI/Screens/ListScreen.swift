@@ -1,3 +1,6 @@
+import CrosstuneAudio
+import CrosstuneAuth
+import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneSync
 import SwiftUI
@@ -108,6 +111,16 @@ private struct ListTunes: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(PlayerModel.self) private var player: PlayerModel?
+    @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
+    @Environment(AccountSession.self) private var session: AccountSession?
+    @Environment(RecorderHost.self) private var recorders: RecorderHost?
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    /// Whether this device plays Apple Music in full, nil until read.
+    @State private var appleMusic: AppleMusicAccessState?
+    @State private var showsWhatPlays = false
+    /// A tune chosen in the What plays sheet, opened once the sheet has gone.
+    @State private var chosen: String?
     @State private var pushed: String?
     @State private var picking = false
     /// A tune the picker asked to create, opened once the picker has gone.
@@ -137,6 +150,16 @@ private struct ListTunes: View {
                         .padding(.vertical, spacing.stackGap)
                 }
             }
+            // Inside the Mac's pane bar, so the bar stays at the top of the pane.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if !rows.isEmpty, !selection.isActive, hasReadAppleMusic {
+                    ListPlayControls(
+                        report: playReport(rows), canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
+                        onPlay: { startPlaylist(playReport(rows), shuffled: false) },
+                        onShuffle: { startPlaylist(playReport(rows), shuffled: true) },
+                        onWhatPlays: { showsWhatPlays = true })
+                }
+            }
             #if os(iOS)
                 .toolbar {
                     if !selection.isActive { toolbar(rows) }
@@ -158,6 +181,11 @@ private struct ListTunes: View {
                         rows.map { ($0.tune.id, $0.item.id) }, uniquingKeysWith: { first, _ in first })),
                 focusedRow: $focusedRow
             )
+            .task { await readAppleMusic() }
+            .onChange(of: scenePhase) {
+                if scenePhase == .active { Task { await readAppleMusic() } }
+            }
+            .onChange(of: session?.hasNetwork) { Task { await readAppleMusic() } }
             .modifier(RefreshesBySync(engine: engine))
             // The menu's New tune files the tune in this list, as the picker's add row does.
             .newTuneContext(listID: list.id)
@@ -167,6 +195,20 @@ private struct ListTunes: View {
                     listID: list.id,
                     onCreate: { creating = .new(title: $0, listID: list.id) },
                     onLateFailure: model.report)
+            }
+            .sheet(isPresented: $showsWhatPlays, onDismiss: openChosen) {
+                WhatPlaysSheet(
+                    report: playReport(rows),
+                    titles: Dictionary(
+                        rows.map { ($0.tune.id, $0.tune.title) }, uniquingKeysWith: { first, _ in first }),
+                    access: appleMusic, onChoose: { chosen = $0 },
+                    onAllow: {
+                        guard let access = player?.appleMusic?.access else { return }
+                        Task { appleMusic = await access.request() }
+                    },
+                    onOpenSettings: {
+                        if let url = AppleMusicRowAction.systemSettingsURL { openURL(url) }
+                    })
             }
             .sheet(item: $form) { target in
                 TuneFormSheet(target: target) { _ in }
@@ -217,6 +259,40 @@ private struct ListTunes: View {
         }
     }
 
+    /// Controls wait for the access read, so the count never flashes a subscription skip.
+    private var hasReadAppleMusic: Bool {
+        player?.appleMusic?.access == nil || appleMusic != nil
+    }
+
+    private func readAppleMusic() async {
+        guard let access = player?.appleMusic?.access else { return }
+        appleMusic = await access.current()
+    }
+
+    private func playReport(_ rows: [ListEntry]) -> PlaylistReport {
+        let online = session?.hasNetwork ?? true
+        return playlistReport(
+            entries: rows.map { $0.playlistEntry(online: online) }, playFirst: model.playFirst,
+            fullTracks: appleMusic == .fullTracks, online: online)
+    }
+
+    /// Starting a playlist stops whatever was loaded.
+    private func startPlaylist(_ report: PlaylistReport, shuffled: Bool) {
+        guard let listPlayback else { return }
+        player?.close()
+        listPlayback.start(listID: list.id, name: list.name, report: report, shuffled: shuffled)
+    }
+
+    private func openChosen() {
+        guard let id = chosen else { return }
+        chosen = nil
+        if let detailTune {
+            detailTune.wrappedValue = id
+        } else {
+            pushed = id
+        }
+    }
+
     private var addTunesButton: some View {
         Button(ListScreen.addTunes, systemImage: "plus") { picking = true }
     }
@@ -252,7 +328,10 @@ private struct ListTunes: View {
         let tuneRow = TuneRow(
             tune: entry.tune, userTune: entry.userTune, instruments: model.instruments, position: position
         )
-        let hint = !selection.isActive && playAction == nil ? ListRowText.notPlayable : ""
+        let isCurrent = ListRowPlay.isNowPlaying(
+            listID: list.id, playingListID: listPlayback?.listID, currentTuneID: listPlayback?.currentTuneID,
+            tuneID: entry.tune.id)
+        let hint = ListRowText.hint(hasAction: playAction != nil, isCurrent: isCurrent, isSelecting: selection.isActive)
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
         return HStack(spacing: spacing(4)) {
@@ -276,7 +355,7 @@ private struct ListTunes: View {
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
             if !selection.isActive {
-                ListRowPlayButton(entry: entry, action: playAction)
+                ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
             }
             if reorderable {
                 moveMenu(entry, isChosen: detailTune?.wrappedValue == entry.tune.id)
@@ -301,6 +380,7 @@ private struct ListTunes: View {
         } preview: {
             TunePreview(entry: entry.catalogEntry, instruments: model.instruments)
         }
+        .listRowBackground(isCurrent && !selection.isActive ? Color.accentColor.opacity(0.12) : nil)
         .accessibilityFocused($focusedRow, equals: entry.tune.id)
         .tag(entry.tune.id)
         .moveDisabled(!reorderable)

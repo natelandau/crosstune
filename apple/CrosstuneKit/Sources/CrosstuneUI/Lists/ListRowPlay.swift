@@ -7,10 +7,22 @@ public enum ListRowText {
     /// Spoken after a row whose tune has nothing to play.
     public static let notPlayable = "No recordings or links"
 
+    /// What a row says after its title: ``notPlayable`` for a tune with nothing to play, never
+    /// for the tune its list is playing, whose source the playlist chose, nor while selecting.
+    public static func hint(hasAction: Bool, isCurrent: Bool, isSelecting: Bool) -> String {
+        hasAction || isCurrent || isSelecting ? "" : notPlayable
+    }
+
     /// The play button's name: "Play Soldier's Joy", or "Close player for Soldier's Joy" once
     /// its item is loaded.
     public static func playLabel(tuneTitle: String, loaded: Bool) -> String {
         loaded ? "\(MediaText.closePlayer) for \(tuneTitle)" : "\(MediaText.play) \(tuneTitle)"
+    }
+
+    /// The play button's name on the tune a playing list is on: "Pause Soldier's Joy" while it
+    /// plays, "Play Soldier's Joy" once paused.
+    public static func nowPlayingLabel(tuneTitle: String, isPlaying: Bool) -> String {
+        isPlaying ? "\(MediaText.pause) \(tuneTitle)" : "\(MediaText.play) \(tuneTitle)"
     }
 
     /// The control's name for an action: the play label, "Open <link>" as the tune screen names
@@ -68,6 +80,29 @@ public enum ListRowPlay {
         }
     }
 
+    /// What a tap on a row other than the playing tune does, while its list plays as a playlist or not.
+    public enum Tap: Equatable, Sendable {
+        /// Another tune of the playing list: move the playlist there.
+        case jump
+        /// The row's source plays on its own.
+        case single
+    }
+
+    public static func tap(listPlaying: Bool) -> Tap {
+        listPlaying ? .jump : .single
+    }
+
+    /// Whether the row is the tune its list is playing now. That row shows the now-playing
+    /// button whatever its own play action is, since the playlist chooses its source separately.
+    static func isNowPlaying(listID: String, playingListID: String?, currentTuneID: String?, tuneID: String) -> Bool {
+        playingListID == listID && currentTuneID == tuneID
+    }
+
+    /// The symbol on the tune a playing list is on: a speaker while it sounds, play once paused.
+    static func nowPlayingSymbol(isPlaying: Bool) -> String {
+        isPlaying ? "speaker.wave.2.fill" : "play.fill"
+    }
+
     /// Whether the action's item is the one the player holds, which the button shows as stop.
     static func isLoaded(_ action: Action, holds: (PlayerItem.Kind, String) -> Bool) -> Bool {
         guard case .play(let item) = action else { return false }
@@ -97,12 +132,42 @@ public enum ListRowPlay {
 struct ListRowPlayButton: View {
     let entry: ListEntry
     let action: ListRowPlay.Action?
+    let listID: String
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
+    @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
 
+    private var isNowPlaying: Bool {
+        ListRowPlay.isNowPlaying(
+            listID: listID, playingListID: listPlayback?.listID, currentTuneID: listPlayback?.currentTuneID,
+            tuneID: entry.tune.id)
+    }
+
     var body: some View {
+        if isNowPlaying {
+            // Until the tune loads, the transport still plays the tune being left.
+            let settled = listPlayback?.isSettled ?? false
+            let isPlaying = settled && player?.transport?.isPlaying == true
+            Button {
+                guard settled, let transport = player?.transport else { return }
+                if transport.isPlaying { transport.pause() } else { transport.play() }
+            } label: {
+                Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
+                    .font(.title3)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .disabled(!settled)
+            .accessibilityLabel(ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: isPlaying))
+        } else {
+            rowButton
+        }
+    }
+
+    @ViewBuilder private var rowButton: some View {
         switch action {
         case nil:
             Image(systemName: "circle.slash")
@@ -120,13 +185,9 @@ struct ListRowPlayButton: View {
                     ListRowText.label(for: .downloading, tuneTitle: entry.tune.title, loaded: false) ?? "")
         case let action?:
             let loaded = ListRowPlay.isLoaded(action) { player?.holds($0, id: $1) ?? false }
+            let listPlaying = listPlayback?.listID == listID
             Button {
-                switch action {
-                case .play(let item):
-                    if loaded { player?.close() } else { player?.play(item) }
-                case .open(let url, _): openURL(url)
-                case .downloading, .inert: break
-                }
+                tapped(action, loaded: loaded, listPlaying: listPlaying)
             } label: {
                 Image(systemName: ListRowPlay.symbol(for: action, loaded: loaded) ?? "play.fill")
                     .font(.title3)
@@ -137,5 +198,34 @@ struct ListRowPlayButton: View {
             .disabled(ListRowPlay.isBlocked(action, capturing: recorders?.isCapturing ?? false))
             .accessibilityLabel(ListRowText.label(for: action, tuneTitle: entry.tune.title, loaded: loaded) ?? "")
         }
+    }
+
+    private func tapped(_ action: ListRowPlay.Action, loaded: Bool, listPlaying: Bool) {
+        switch action {
+        case .play(let item):
+            switch ListRowPlay.tap(listPlaying: listPlaying) {
+            case .jump:
+                Task {
+                    if let listPlayback, await listPlayback.jump(to: entry.tune.id) { return }
+                    playAlone(item, loaded: false)
+                }
+            case .single:
+                playAlone(item, loaded: loaded)
+            }
+        case .open(let url, _): openURL(url)
+        case .downloading, .inert: break
+        }
+    }
+
+    /// Plays the row's source by itself, in place of any playlist and whatever else is loaded.
+    private func playAlone(_ item: PlayerItem, loaded: Bool) {
+        if loaded {
+            player?.close()
+            return
+        }
+        if listPlayback?.isActive == true {
+            player?.close()
+        }
+        player?.play(item)
     }
 }
