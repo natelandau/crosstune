@@ -128,6 +128,8 @@ private struct ListTunes: View {
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
     @State private var selection = TuneSelection()
+    /// How far the rows are pulled down past their top.
+    @State private var overscroll: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
     @AccessibilityFocusState private var focusedRow: String?
@@ -137,6 +139,13 @@ private struct ListTunes: View {
         let rows = model.rows
         content(rows)
             .listStyle(.plain)
+            #if os(iOS)
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    max(0, -(geometry.contentOffset.y + geometry.contentInsets.top))
+                } action: { _, pulled in
+                    overscroll = pulled
+                }
+            #endif
             .overlay {
                 if let showArchived = model.showArchived {
                     emptyState(rows, showArchived: showArchived)
@@ -157,7 +166,11 @@ private struct ListTunes: View {
                         report: playReport(rows), canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
                         onPlay: { startPlaylist(playReport(rows), shuffled: false) },
                         onShuffle: { startPlaylist(playReport(rows), shuffled: true) },
-                        onWhatPlays: { showsWhatPlays = true })
+                        onWhatPlays: { showsWhatPlays = true }
+                    )
+                    // Pinned while the rows scroll, but a pull past the top carries the controls
+                    // down with the title and rows.
+                    .offset(y: overscroll)
                 }
             }
             #if os(iOS)
