@@ -140,3 +140,22 @@ setup:
 [group('maintenance')]
 clean:
     rm -rf .build CrosstuneKit/.build Tools/.build
+
+# Delete Xcode's DerivedData for Crosstune checkouts that no longer exist
+[group('maintenance')]
+prune-derived-data:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Xcode never deletes the folder of a removed worktree. Only Crosstune-* folders are
+    # candidates, so the caches every project shares stay.
+    root="$HOME/Library/Developer/Xcode/DerivedData"
+    [ -d "$root" ] || exit 0
+    for dir in "$root"/Crosstune-*; do
+        # A folder without a recorded project may still be in use, so only a missing project counts
+        [ -f "$dir/info.plist" ] || continue
+        project="$(/usr/libexec/PlistBuddy -c 'Print :WorkspacePath' "$dir/info.plist" 2>/dev/null || true)"
+        if [ -n "$project" ] && [ ! -e "$project" ]; then
+            rm -rf "$dir"
+            echo "removed ${dir##*/} (${project})"
+        fi
+    done

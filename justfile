@@ -95,6 +95,7 @@ worktree branch:
     just --justfile '{{ justfile() }}' --working-directory "$path" worktree-env
     cd "$path"
     just api::setup web::setup site::setup apple::setup
+    just --justfile '{{ justfile() }}' apple::prune-derived-data
     echo "worktree ready at $path"
 
 # Copy the main checkout's .env files into this worktree, replacing any already here
