@@ -21,11 +21,12 @@ import {
   fileStateLabel,
   formatDuration,
   NOT_AVAILABLE,
+  recordingDateLabel,
 } from '../recording/format'
 import { Practice } from '../practice/Practice'
 import { AddToTuneSheet } from '../recordings/AddToTuneSheet'
-import { recordedAtLabel, recordingTitle } from '../recordings/recordingRow'
-import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
+import { recordingTitle } from '../recordings/recordingRow'
+import { EditRecordingSheet } from '../recordings/EditRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
 import { shownPeaks, trimmedLengthMs, trimPending } from './recordingRange'
@@ -193,7 +194,7 @@ function Loaded({
   const syncEngine = useSyncEngine()
   const engine = usePlaybackEngine()
   const openMenu = useMenu()
-  const [renaming, setRenaming] = useState<RecordingView | null>(null)
+  const [editing, setEditing] = useState<RecordingView | null>(null)
   const [filing, setFiling] = useState<RecordingView | null>(null)
   const [trimNotice, setTrimNotice] = useState<string | null>(null)
   const [practiceError, setPracticeError] = useState<string | null>(null)
@@ -207,7 +208,7 @@ function Loaded({
   const actions = useRecordingActions({
     onTrim: openTrim,
     trimBlocked: trimBlocker(recording, file, audio),
-    onRename: setRenaming,
+    onEdit: setEditing,
     onAddToTune: setFiling,
     onDeleted: onClose,
   })
@@ -293,7 +294,7 @@ function Loaded({
 
   const sheets = (
     <>
-      <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
+      <EditRecordingSheet view={editing} onClose={() => setEditing(null)} />
       <AddToTuneSheet view={filing} onClose={() => setFiling(null)} />
     </>
   )
@@ -334,7 +335,7 @@ function Loaded({
                 data-recording-subtitle
                 className="type-footnote truncate text-(--ion-color-medium)"
               >
-                {recordedAtLabel(recording.recorded_at)} · {formatDuration(rowLengthMs)}
+                {recordingDateLabel(recording)} · {formatDuration(rowLengthMs)}
               </span>
             </span>
           </IonTitle>

@@ -136,6 +136,15 @@ class RecordingOrigin(StrEnum):
     SLIPPERY_HILL = "slippery_hill"
 
 
+class RecordingPrecision(StrEnum):
+    """How much of a recording's recorded date is known."""
+
+    YEAR = "year"
+    MONTH = "month"
+    DAY = "day"
+    TIME = "time"
+
+
 class RecordingState(StrEnum):
     """Where a recording's file is in the upload and transcode pipeline."""
 

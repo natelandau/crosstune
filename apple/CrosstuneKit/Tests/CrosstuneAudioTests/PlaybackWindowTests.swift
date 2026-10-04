@@ -7,7 +7,7 @@ import Testing
 
 private func recording(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 4000) -> Recording {
     Recording(
-        tuneID: nil, source: "captured", recordedAt: noon, sourceDurationMs: sourceDurationMs,
+        tuneID: nil, source: "captured", addedAt: noon, sourceDurationMs: sourceDurationMs,
         trimStartMs: trimStartMs, trimEndMs: trimEndMs)
 }
 

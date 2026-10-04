@@ -1,4 +1,6 @@
+import type { RecordingPrecision } from '../../api/vocabulary'
 import type { LocalFileState } from '../../db/recordings'
+import { isRecordingPrecision } from '../../db/types'
 
 export const DOWNLOAD_FAILED = "Couldn't download"
 export const DOWNLOADING = 'Downloading'
@@ -15,6 +17,56 @@ export function formatDuration(ms: number | null | undefined): string {
   const minutes = Math.floor(total / 60)
   const seconds = total % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+const TAKEN_AT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+const ADDED_ON = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
+const TAKEN_TIME = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' })
+
+// A partial date is stored as UTC midnight at the start of its period, so it is read in UTC:
+// read locally west of UTC, 1937 would read as 1936.
+const PARTIAL: Record<Exclude<RecordingPrecision, 'time'>, Intl.DateTimeFormat> = {
+  year: new Intl.DateTimeFormat(undefined, { year: 'numeric', timeZone: 'UTC' }),
+  month: new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+  day: new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }),
+}
+
+/** When the music was played, worded only as far as its precision knows. */
+export function recordedDateLabel(recordedAt: string, precision: RecordingPrecision): string {
+  const date = new Date(recordedAt)
+  return precision === 'time' ? TAKEN_AT.format(date) : PARTIAL[precision].format(date)
+}
+
+/** The time of day a take was recorded, in local time like the rest of an exact date. */
+export function recordedTime(recordedAt: string): string {
+  return TAKEN_TIME.format(new Date(recordedAt))
+}
+
+/** The day a recording was added, in local time since `added_at` is an exact instant. */
+export function addedDay(addedAt: string): string {
+  return ADDED_ON.format(new Date(addedAt))
+}
+
+export function addedDateLabel(addedAt: string): string {
+  return `Added ${addedDay(addedAt)}`
+}
+
+interface DatedRow {
+  added_at: string
+  recorded_at: string | null
+  recorded_precision: string | null
+}
+
+/** The recorded date, or null when it is unknown or its precision is one this client predates. */
+export function knownRecordedDate(row: DatedRow): string | null {
+  return row.recorded_at && isRecordingPrecision(row.recorded_precision)
+    ? recordedDateLabel(row.recorded_at, row.recorded_precision)
+    : null
+}
+
+/** The recorded date when known, else when the recording was added. */
+export function recordingDateLabel(row: DatedRow): string {
+  return knownRecordedDate(row) ?? addedDateLabel(row.added_at)
 }
 
 /** `m:ss.t`, for placing a trim handle to the tenth of a second. */

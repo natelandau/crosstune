@@ -976,6 +976,11 @@
         "additionalProperties": false,
         "description": "Client-editable fields of a recording. The file columns are server-owned.",
         "properties": {
+          "added_at": {
+            "format": "date-time",
+            "title": "Added At",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1024,9 +1029,28 @@
             "type": "integer"
           },
           "recorded_at": {
-            "format": "date-time",
-            "title": "Recorded At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recorded At"
+          },
+          "recorded_precision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordingPrecision"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "source": {
             "$ref": "#/components/schemas/RecordingSource"
@@ -1074,7 +1098,7 @@
         "required": [
           "created_at",
           "source",
-          "recorded_at"
+          "added_at"
         ],
         "title": "RecordingData",
         "type": "object"
@@ -1427,6 +1451,17 @@
         "title": "RecordingOrigin",
         "type": "string"
       },
+      "RecordingPrecision": {
+        "description": "How much of a recording's recorded date is known.",
+        "enum": [
+          "year",
+          "month",
+          "day",
+          "time"
+        ],
+        "title": "RecordingPrecision",
+        "type": "string"
+      },
       "RecordingPullRow": {
         "description": "A recording row in a pull page.",
         "properties": {
@@ -1449,6 +1484,11 @@
       "RecordingRow": {
         "description": "A stored recording, as push and pull return it. Storage keys stay on the server.",
         "properties": {
+          "added_at": {
+            "format": "date-time",
+            "title": "Added At",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1600,9 +1640,26 @@
             "type": "integer"
           },
           "recorded_at": {
-            "format": "date-time",
-            "title": "Recorded At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded At"
+          },
+          "recorded_precision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordingPrecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "server_seq": {
             "title": "Server Seq",
@@ -1680,7 +1737,7 @@
           "server_seq",
           "created_at",
           "source",
-          "recorded_at",
+          "added_at",
           "user_id",
           "state",
           "duration_ms",

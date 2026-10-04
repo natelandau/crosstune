@@ -8,6 +8,7 @@ import { renderIonic } from '../../test/ionic'
 import { MORE_ACTIONS } from '../../ui/Menu'
 import { ADD_TUNE } from './CatalogPage'
 import { SEARCH_TUNES } from './TuneSearch'
+import { FILTERS } from '../../ui/filterCopy'
 
 // The settings screen reads the account from Clerk, which only answers under a ClerkProvider.
 vi.mock('@clerk/react', () => ({
@@ -63,14 +64,14 @@ describe('CatalogPage on iOS', () => {
     try {
       renderIonic(<Shell initialPath="/catalog" />, { db })
       await expect.element(control(MORE_ACTIONS)).toBeVisible()
-      for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
+      for (const name of [FILTERS, ADD_TUNE, MORE_ACTIONS]) {
         const box = () => buttonHost(name).getBoundingClientRect()
         await expect.poll(() => box().height, { message: name }).toBeGreaterThanOrEqual(44)
         await expect.poll(() => box().width, { message: name }).toBeGreaterThanOrEqual(44)
       }
       await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('zzz')
       await expect.element(control(MORE_ACTIONS)).not.toBeInTheDocument()
-      for (const name of ['Filters', ADD_TUNE]) {
+      for (const name of [FILTERS, ADD_TUNE]) {
         const box = () => buttonHost(name).getBoundingClientRect()
         await expect.poll(() => box().height, { message: name }).toBeGreaterThanOrEqual(44)
         await expect.poll(() => box().width, { message: name }).toBeGreaterThanOrEqual(44)

@@ -1,5 +1,6 @@
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
 import Testing
 
@@ -31,7 +32,7 @@ import Testing
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         let recordingID = try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now)).id
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now)).id
         }
 
         try await commands.updateRecording(recordingID, label: .value("Recording 2"), tuneID: .value(tuneID))
@@ -50,8 +51,8 @@ import Testing
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", recordedAt: .now))
-            try writer.put(Recording(id: "r2", tuneID: nil, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", addedAt: .now))
+            try writer.put(Recording(id: "r2", tuneID: nil, source: "microphone", addedAt: .now))
         }
 
         try await commands.updateRecording("r2", tuneID: .value(tuneID))
@@ -65,7 +66,7 @@ import Testing
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", recordedAt: .now, position: 3))
+            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", addedAt: .now, position: 3))
         }
 
         try await commands.updateRecording("r1", tuneID: .value(nil))
@@ -80,7 +81,7 @@ import Testing
         let store = try root.open()
         let commands = Commands(store: store)
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now))
             try RecordingFile(id: "r1", localState: .failedUpload, error: "bad type").insert(writer.db)
         }
 
@@ -98,7 +99,7 @@ import Testing
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await commands.deleteTune(tuneID)
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now))
         }
         let before = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
 
@@ -113,7 +114,7 @@ import Testing
         let store = try root.open()
         let commands = Commands(store: store)
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now))
         }
 
         try await commands.updateRecording(
@@ -155,7 +156,7 @@ import Testing
         let store = try root.open()
         let commands = Commands(store: store)
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now))
             try RecordingFile(id: "r1", localState: .captured).insert(writer.db)
         }
 
@@ -173,7 +174,7 @@ import Testing
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", addedAt: .now))
             try RecordingFile(id: "r1", localState: .captured).insert(writer.db)
         }
 
@@ -192,11 +193,11 @@ import Testing
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await store.write { writer in
-            try writer.put(Recording(id: "r2", tuneID: tuneID, source: "microphone", recordedAt: .now, position: 1))
-            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", recordedAt: .now, position: 0))
+            try writer.put(Recording(id: "r2", tuneID: tuneID, source: "microphone", addedAt: .now, position: 1))
+            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", addedAt: .now, position: 0))
             try writer.put(
                 Recording(
-                    id: "r3", deletedAt: .now, tuneID: tuneID, source: "microphone", recordedAt: .now,
+                    id: "r3", deletedAt: .now, tuneID: tuneID, source: "microphone", addedAt: .now,
                     position: 2))
         }
 
@@ -226,7 +227,7 @@ import Testing
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await store.write { writer in
-            try writer.put(Recording(id: "r0", tuneID: tuneID, source: "microphone", recordedAt: noon))
+            try writer.put(Recording(id: "r0", tuneID: tuneID, source: "microphone", addedAt: noon))
         }
         try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: tuneID, recordedAt: noon)
 
@@ -235,9 +236,15 @@ import Testing
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
         #expect(row.tuneID == tuneID)
         #expect(row.source == "microphone")
+        #expect(row.addedAt == noon)
         #expect(row.recordedAt == noon)
+        #expect(row.recordedPrecision == RecordingPrecision.time.rawValue)
         #expect(row.label == defaultRecordingLabel(recordedAt: noon))
         #expect(row.position == 1)
+        let queued = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == "r1" })
+        #expect(queued.data?["added_at"] == .string(noon.iso))
+        #expect(queued.data?["recorded_at"] == .string(noon.iso))
+        #expect(queued.data?["recorded_precision"] == .string("time"))
         let file = try #require(try await store.read { db in try RecordingFile.fetchOne(db, key: "r1") })
         #expect(file.localState == .captured)
         #expect(file.fileName == "r1.m4a")
@@ -294,16 +301,166 @@ import Testing
         let store = try root.open()
 
         let id = try await Commands(store: store).addUploadedFile(
-            fileName: "take.wav", contentType: nil, bytes: 99, tuneID: nil, label: "Take", recordedAt: noon)
+            fileName: "take.wav", contentType: nil, bytes: 99, tuneID: nil, label: "Take", at: noon)
 
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
         #expect(row.source == "upload")
         #expect(row.label == "Take")
-        #expect(row.recordedAt == noon)
+        #expect(row.addedAt == noon)
+        #expect(row.recordedAt == nil)
+        #expect(row.recordedPrecision == nil)
+        let queued = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == id })
+        #expect(queued.data?["added_at"] == .string(noon.iso))
+        #expect(queued.data?["recorded_at"] == .null)
+        #expect(queued.data?["recorded_precision"] == .null)
         let file = try #require(try await store.read { db in try RecordingFile.fetchOne(db, key: id) })
         #expect(file.localState == .captured)
         #expect(file.contentType == "application/octet-stream")
         #expect(file.bytes == 99)
+    }
+}
+
+@Suite struct RecordingDateTests {
+    private func take(_ store: CrosstuneStore) async throws -> String {
+        let commands = Commands(store: store)
+        try await commands.beginCapture("r1", fileName: "r1.aac", tuneID: nil, recordedAt: noon)
+        try await commands.finishCapture("r1", fileName: "r1.m4a", bytes: 1, durationMs: 1, at: noon)
+        return "r1"
+    }
+
+    private func row(_ store: CrosstuneStore, _ id: String) async throws -> Recording {
+        try #require(try await store.read { db in try Recording.fetchOne(db, key: id) })
+    }
+
+    @Test func thePrecisionsAreTheAPIsOwn() {
+        #expect(RecordingPrecision.allCases.map(\.rawValue) == Vocabulary.recordingPrecisions)
+    }
+
+    @Test func writesAPartialDateAndQueuesItKeepingWhenItWasAdded() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await take(store)
+        let year = try #require(Timestamp(iso: "1937-01-01T00:00:00.000Z"))
+
+        try await Commands(store: store).updateRecordingDate(id, recordedAt: year, precision: .year)
+
+        let saved = try await row(store, id)
+        #expect(saved.addedAt == noon)
+        #expect(saved.recordedAt == year)
+        #expect(saved.recordedPrecision == "year")
+        let queued = try #require(try await store.pendingChanges(limit: 10).first { $0.rowID == id })
+        #expect(queued.data?["recorded_at"] == .string(year.iso))
+        #expect(queued.data?["recorded_precision"] == .string("year"))
+        #expect(queued.data?["added_at"] == .string(noon.iso))
+    }
+
+    @Test func clearsTheRecordedDateAndKeepsWhenItWasAdded() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await take(store)
+
+        try await Commands(store: store).updateRecordingDate(id, recordedAt: nil, precision: nil)
+
+        let saved = try await row(store, id)
+        #expect(saved.addedAt == noon)
+        #expect(saved.recordedAt == nil)
+        #expect(saved.recordedPrecision == nil)
+    }
+
+    @Test func refusesADateWithoutItsPrecisionOrTheReverse() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await take(store)
+        let before = try await row(store, id)
+        let commands = Commands(store: store)
+
+        await #expect(throws: CommandError.recordedDateMismatch) {
+            try await commands.updateRecordingDate(id, recordedAt: noon, precision: nil)
+        }
+        await #expect(throws: CommandError.recordedDateMismatch) {
+            try await commands.updateRecordingDate(id, recordedAt: nil, precision: .year)
+        }
+        #expect(try await row(store, id) == before)
+        #expect(CommandError.recordedDateMismatch.errorDescription == CommandError.recordedDateMismatchMessage)
+    }
+
+    @Test func refusesAPartialDateOffTheStartOfItsPeriod() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await take(store)
+        let commands = Commands(store: store)
+
+        for (iso, precision) in [
+            ("1937-05-01T00:00:00.000Z", RecordingPrecision.year),
+            ("1998-05-02T00:00:00.000Z", .month),
+            ("1998-10-03T04:00:00.000Z", .day),
+            ("1998-10-03T00:00:00.001Z", .day),
+        ] {
+            let at = try #require(Timestamp(iso: iso))
+            await #expect(throws: CommandError.recordedDateOffPeriod) {
+                try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
+            }
+        }
+        #expect(try await row(store, id).recordedAt == noon)
+
+        for (iso, precision) in [
+            ("1937-01-01T00:00:00.000Z", RecordingPrecision.year),
+            ("1998-05-01T00:00:00.000Z", .month),
+            ("1998-10-03T00:00:00.000Z", .day),
+            ("1998-10-03T04:12:30.500Z", .time),
+        ] {
+            let at = try #require(Timestamp(iso: iso))
+            try await commands.updateRecordingDate(id, recordedAt: at, precision: precision)
+            #expect(try await row(store, id).recordedAt == at)
+        }
+    }
+
+    @Test func acceptsADateExactlyADayAhead() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await take(store)
+        let commands = Commands(store: store)
+        let now = Timestamp(iso: "2026-10-04T12:00:00.000Z")!
+        let edge = Timestamp(iso: "2026-10-05T00:00:00.000Z")!
+
+        try await commands.updateRecordingDate(id, recordedAt: edge, precision: .day, at: now)
+        #expect(try await row(store, id).recordedAt == edge)
+        await #expect(throws: CommandError.recordedDateFuture) {
+            try await commands.updateRecordingDate(
+                id, recordedAt: Timestamp(iso: "2026-10-06T00:00:00.000Z")!, precision: .day, at: now)
+        }
+    }
+
+    @Test func refusesAPartialDateMoreThanADayAheadButNotATime() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let id = try await take(store)
+        let commands = Commands(store: store)
+        let now = Timestamp.now
+        let ahead = Timestamp(milliseconds: now.milliseconds + 48 * 60 * 60_000)
+
+        await #expect(throws: CommandError.recordedDateFuture) {
+            try await commands.updateRecordingDate(
+                id, recordedAt: Timestamp(iso: "2999-06-01T00:00:00.000Z")!, precision: .month, at: now)
+        }
+        await #expect(throws: CommandError.recordedDateFuture) {
+            try await commands.updateRecordingDate(
+                id, recordedAt: Timestamp(iso: "2999-01-01T00:00:00.000Z")!, precision: .year, at: now)
+        }
+        #expect(try await row(store, id).recordedAt == noon)
+
+        // A captured time saves whatever the device clock says.
+        try await commands.updateRecordingDate(id, recordedAt: ahead, precision: .time, at: now)
+        #expect(try await row(store, id).recordedAt == ahead)
+    }
+
+    @Test func refusesAMissingRecording() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+
+        await #expect(throws: CommandError.recordingNotFound) {
+            try await Commands(store: store).updateRecordingDate("missing", recordedAt: nil, precision: nil)
+        }
     }
 }
 
@@ -401,7 +558,7 @@ import Testing
         let url = store.audioFolder.appending(path: "\(id).m4a")
         try Data(repeating: 1, count: bytes).write(to: url)
         try await store.write { writer in
-            try Recording(id: id, createdAt: noon, tuneID: nil, source: "microphone", recordedAt: noon, state: state)
+            try Recording(id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon, state: state)
                 .insert(writer.db)
             try RecordingFile(id: id, localState: local, fileName: "\(id).m4a", bytes: Int64(bytes)).insert(writer.db)
         }

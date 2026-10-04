@@ -115,8 +115,8 @@ import Testing
             {
               "id": "recording-1", "created_at": "2026-09-20T18:04:11Z", "updated_at": "2026-09-21T02:15:40Z",
               "deleted_at": null, "server_seq": 6, "user_id": "owner-1",
-              "tune_id": null, "source": "microphone", "recorded_at": "2026-09-20T18:04:11Z",
-              "label": null, "position": 0, "state": "ready", "duration_ms": 5000,
+              "tune_id": null, "source": "microphone", "added_at": "2026-09-20T18:04:11Z",
+              "recorded_at": "2026-09-20T18:04:11Z", "recorded_precision": "time", "label": null, "position": 0, "state": "ready", "duration_ms": 5000,
               "playback_mime": "audio/mp4", "playback_bytes": 2048, "error": null,
               "source_duration_ms": 5200, "playback_start_ms": 0, "playback_end_ms": 5000,
               "playback_rev": "abc12345", "peaks_rev": "def67890"
@@ -135,8 +135,9 @@ import Testing
 
 @Test func changeDataCarriesOnlyEditableFields() throws {
     let recording = Recording(
-        createdAt: noon, deletedAt: noon, serverSeq: 42, tuneID: nil, source: "microphone", recordedAt: noon,
-        state: "ready", durationMs: 1000, playbackMime: "audio/mp4", playbackBytes: 2048, error: "none",
+        createdAt: noon, deletedAt: noon, serverSeq: 42, tuneID: nil, source: "microphone", addedAt: noon,
+        recordedAt: noon, recordedPrecision: "time", state: "ready", durationMs: 1000, playbackMime: "audio/mp4",
+        playbackBytes: 2048, error: "none",
         extra: ["user_id": .string("someone"), "added_by_user_id": .string("someone"), "mood": .string("jolly")])
 
     let data = try recording.changeData()
@@ -144,7 +145,8 @@ import Testing
     #expect(
         Set(data.keys)
             == [
-                "created_at", "tune_id", "source", "origin", "origin_url", "recorded_at", "label", "position",
+                "created_at", "tune_id", "source", "origin", "origin_url", "added_at", "recorded_at",
+                "recorded_precision", "label", "position",
                 "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "mood",
             ])
     #expect(data["created_at"] == .string("2026-09-25T12:00:00.000Z"))
@@ -208,7 +210,7 @@ import Testing
     let list = TuneList(name: "Jam", position: 3)
     let item = ListItem(listID: list.id, userTuneID: userTune.id)
     let link = RecordingLink(tuneID: tune.id, url: "https://example.com", provider: "youtube", artworkURL: "a")
-    let recording = Recording(tuneID: tune.id, source: "upload", recordedAt: noon, durationMs: 5)
+    let recording = Recording(tuneID: tune.id, source: "upload", addedAt: noon, durationMs: 5)
     let settings = UserSettings(instruments: ["violin", "banjo"])
 
     try await store.write { writer in

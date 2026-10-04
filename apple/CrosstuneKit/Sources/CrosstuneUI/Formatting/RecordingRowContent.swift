@@ -41,8 +41,8 @@ public struct RecordingRowContent: Hashable, Sendable {
     public init(
         recording: Recording, file: RecordingFile?, tuneTitle: String?, tuneNamedAbove: Bool = false,
         loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false, offline: Bool = false,
-        playBlocked: Bool = false,
-        storage: StorageFigures? = nil, locale: Locale = .current, timeZone: TimeZone = .current
+        playBlocked: Bool = false, storage: StorageFigures? = nil, sort: RecordingSort? = nil,
+        locale: Locale = .current, timeZone: TimeZone = .current
     ) {
         let title = RecordingText.title(
             recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove, locale: locale, timeZone: timeZone)
@@ -52,7 +52,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         meta = RecordingText.meta(
             recording, file: file, storage: storage, offline: offlineDownload,
             dateInTitle: RecordingText.titleIsDate(recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove),
-            locale: locale, timeZone: timeZone
+            sort: sort, locale: locale, timeZone: timeZone
         ).joined(separator: " · ")
         let blockedPlay = playBlocked && control == .play
         isDimmed = offlineDownload || blockedPlay

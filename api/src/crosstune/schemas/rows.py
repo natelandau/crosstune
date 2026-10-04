@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import (
@@ -12,6 +12,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -33,6 +34,7 @@ from crosstune.vocabulary import (
     PlayFirst,
     Provider,
     RecordingOrigin,
+    RecordingPrecision,
     RecordingSource,
     RecordingState,
     TimeSignature,
@@ -53,6 +55,9 @@ URL_SCHEME = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*):")
 URL_EDGE = "".join(chr(code) for code in range(0x21))
 URL_IGNORED = str.maketrans("", "", "\t\n\r")
 WEB_SCHEMES = frozenset({"http", "https"})
+# How far past the server's clock a pushed recorded date may be: a device clock that runs
+# ahead, or a date picked in a zone east of UTC, still saves today.
+RECORDED_AT_LEEWAY = timedelta(days=1)
 
 
 def _distinct(values: list[str]) -> list[str]:
@@ -196,20 +201,77 @@ class ListItemData(_Data):
     position: int = 0
 
 
-class RecordingData(_Data):
-    """Client-editable fields of a recording. The file columns are server-owned."""
+class _RecordingFields(_Data):
+    """Recording fields. Only a push checks the recorded date against the clock and its period."""
 
     tune_id: uuid.UUID | None = None
     label: str | None = Field(default=None, max_length=LIMITS["recordings"]["label"])
     source: RecordingSource
     origin: RecordingOrigin = Field(default=RecordingOrigin.OWN, validate_default=True)
     origin_url: str | None = Field(default=None, max_length=LIMITS["recordings"]["origin_url"])
-    recorded_at: datetime
+    added_at: datetime
+    # Declared before recorded_at so recorded_at's validators can read it.
+    recorded_precision: RecordingPrecision | None = None
+    # Validated even when left out, so a precision sent without a date is refused.
+    recorded_at: datetime | None = Field(default=None, validate_default=True)
     position: int = 0
     trim_start_ms: int = Field(default=0, ge=0)
     trim_end_ms: int | None = Field(default=None, ge=0)
     speed_percent: int = Field(default=100, ge=SPEED_PERCENT_MIN, le=SPEED_PERCENT_MAX)
     pitch_cents: int = Field(default=0, ge=PITCH_CENTS_MIN, le=PITCH_CENTS_MAX)
+
+    @field_validator("recorded_at")
+    @classmethod
+    def _date_matches_precision(
+        cls, recorded_at: datetime | None, info: ValidationInfo
+    ) -> datetime | None:
+        # A precision that failed its own validation is absent here and already refused.
+        if "recorded_precision" in info.data and (recorded_at is None) != (
+            info.data["recorded_precision"] is None
+        ):
+            msg = "recorded_at is set exactly when recorded_precision is"
+            raise ValueError(msg)
+        return recorded_at
+
+
+def _period_start(at: datetime, precision: str) -> datetime:
+    """The UTC midnight that starts the year, month, or day holding `at`."""
+    day = at.replace(hour=0, minute=0, second=0, microsecond=0)
+    if precision == RecordingPrecision.YEAR:
+        return day.replace(month=1, day=1)
+    if precision == RecordingPrecision.MONTH:
+        return day.replace(day=1)
+    return day
+
+
+class RecordingData(_RecordingFields):
+    """Client-editable fields of a recording. The file columns are server-owned."""
+
+    @field_validator("recorded_at")
+    @classmethod
+    def _plausible_date(cls, recorded_at: datetime | None, info: ValidationInfo) -> datetime | None:
+        if recorded_at is None:
+            return None
+        utc = (recorded_at if recorded_at.tzinfo else recorded_at.replace(tzinfo=UTC)).astimezone(
+            UTC
+        )
+        precision = info.data.get("recorded_precision")
+        # A time is a capture, so a device clock running fast must still sync. Only a date
+        # typed in by a person (partial precision) can be wrong about the future.
+        if (
+            precision not in (None, RecordingPrecision.TIME)
+            and utc > datetime.now(UTC) + RECORDED_AT_LEEWAY
+        ):
+            msg = "recorded_at must not be in the future"
+            raise ValueError(msg)
+        # Every client formats a partial date in UTC, so one stored off its period's UTC
+        # start would show the neighboring day, month, or year.
+        if precision not in (None, RecordingPrecision.TIME) and utc != _period_start(
+            utc, precision
+        ):
+            msg = "a partial recorded_at must be UTC midnight at the start of its period"
+            raise ValueError(msg)
+        return recorded_at
 
 
 class NotationPageData(_Data):
@@ -309,7 +371,7 @@ class ListItemRow(ListItemData, _Row):
     model_config = ConfigDict(extra="ignore")
 
 
-class RecordingRow(RecordingData, _Row):
+class RecordingRow(_RecordingFields, _Row):
     """A stored recording, as push and pull return it. Storage keys stay on the server."""
 
     model_config = ConfigDict(extra="ignore")

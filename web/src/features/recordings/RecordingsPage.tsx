@@ -1,68 +1,47 @@
 import { useIonRouter } from '@ionic/react'
 import { AudioLines } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useDb } from '../../db/DbProvider'
 import { SyncRefresher } from '../../sync/SyncRefresher'
 import { EmptyState } from '../../ui/EmptyState'
+import { FiltersButton } from '../../ui/FiltersButton'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Screen } from '../../ui/Screen'
+import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
 import { messageFor } from '../../ui/useAction'
-import { useRowArrowKeys } from '../../ui/useShortcut'
+import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
+import { NOTHING_MATCHES } from '../catalog/CatalogPage'
+import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
 import { addAudioFiles } from './addAudioFiles'
 import { AddToTuneSheet } from './AddToTuneSheet'
+import { arrangeRecordings } from './arrangeRecordings'
 import { RecordingItem } from './RecordingItem'
-import { RECORDING_ORIGINS } from '../../api/vocabulary'
-import { RecordingsOriginFilter } from './RecordingsOriginFilter'
+import { RecordingsFilters } from './RecordingsFilters'
+import { RecordingsFilterSheet } from './RecordingsFilterSheet'
 import { retryKind } from './recordingRow'
-import { RenameRecordingSheet } from './RenameRecordingSheet'
+import { useRecordingsSort } from './recordingsSort'
+import { EditRecordingSheet } from './EditRecordingSheet'
+import { SortMenuButton } from './SortMenuButton'
 import { Storage } from './Storage'
+import { TuneLabelLine } from './TuneLabelLine'
 import { UploadButton } from './UploadButton'
 import { useRecordingActions } from './useRecordingActions'
 import { useRecordingsOrigin } from './useRecordingsOrigin'
 import { useRecordingsWithFiles, type RecordingView } from './useRecordings'
 
 export const NO_RECORDINGS_TITLE = 'No recordings yet'
-export const NO_MATCHING_RECORDINGS_TITLE = 'No recordings from this source'
 export const NO_RECORDINGS_HINT = 'Use the record button to make one, or upload an audio file.'
-
-interface RecordingGroup {
-  tuneId: string | null
-  title: string
-  views: RecordingView[]
-}
-
-/** Unfiled recordings first, then one group per tune in order of its newest recording. */
-function groupByTune(views: readonly RecordingView[]): RecordingGroup[] {
-  const groups = new Map<string | null, RecordingGroup>()
-  for (const view of views) {
-    const group = groups.get(view.tuneId)
-    if (group) group.views.push(view)
-    else {
-      groups.set(view.tuneId, {
-        tuneId: view.tuneId,
-        title: view.tuneTitle ?? 'Unfiled',
-        views: [view],
-      })
-    }
-  }
-  return [...groups.values()]
-}
-
-/** Vocabulary order; an origin the client predates sorts last. */
-function sortOrigins(origins: readonly string[]): string[] {
-  const rank = (origin: string) => {
-    const at = (RECORDING_ORIGINS as readonly string[]).indexOf(origin)
-    return at === -1 ? RECORDING_ORIGINS.length : at
-  }
-  return [...origins].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-}
+export const SEARCH_RECORDINGS = 'Search recordings'
+export const FILED_HEADER = 'Filed'
+export const UNFILED_HEADER = 'Unfiled'
+export const FILTERS_DISABLED_REASON = 'All recordings are yours'
 
 /** Import sources the user holds. */
 function heldOrigins(views: readonly RecordingView[]): string[] {
   const held = new Set(views.map((view) => view.recording.origin))
   held.delete('own')
-  return sortOrigins([...held])
+  return [...held]
 }
 
 export function RecordingsPage() {
@@ -74,32 +53,57 @@ export function RecordingsPage() {
   const ready = loadedViews !== undefined && choice !== undefined
   const router = useIonRouter()
   const [filing, setFiling] = useState<RecordingView | null>(null)
-  const [renaming, setRenaming] = useState<RecordingView | null>(null)
+  const [editing, setEditing] = useState<RecordingView | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const openTune = (tuneId: string) => router.push(`/recordings/${tuneId}`, 'forward', 'push')
+  const openTuneOf = ({ tuneId }: RecordingView) => (tuneId ? () => openTune(tuneId) : undefined)
   const { error, setUploadError, retry, actionsFor } = useRecordingActions({
-    onRename: setRenaming,
+    onEdit: setEditing,
     onAddToTune: setFiling,
+    onOpenTune: (view) => openTuneOf(view)?.(),
   })
   const groupsRef = useRef<HTMLDivElement>(null)
   useRowArrowKeys(groupsRef)
+  const searchRef = useRef<SearchFieldHandle>(null)
+  useSearchShortcut(useCallback(() => searchRef.current?.focus(), []))
 
   const imported = useMemo(() => (loadedViews ? heldOrigins(loadedViews) : []), [loadedViews])
-  const groups = useMemo(() => {
+  const shown = useMemo(() => {
     if (!loadedViews) return []
-    const shown =
-      choice === undefined || choice === 'all'
-        ? loadedViews
-        : loadedViews.filter((view) => view.recording.origin === choice)
-    return groupByTune(shown)
+    return choice === undefined || choice === 'all'
+      ? loadedViews
+      : loadedViews.filter((view) => view.recording.origin === choice)
   }, [loadedViews, choice])
 
-  // A chosen source nothing is left from keeps its chip, so the list never narrows in silence.
-  const stale =
-    choice !== undefined &&
-    choice !== 'all' &&
-    !(loadedViews ?? []).some((view) => view.recording.origin === choice)
-  const origins = stale && choice !== 'own' ? sortOrigins([...imported, choice]) : imported
-  const hasOwn = (loadedViews ?? []).some((view) => view.recording.origin === 'own')
-  const showRail = stale || imported.length > 1 || (imported.length === 1 && hasOwn)
+  const filterSet = choice !== undefined && choice !== 'all'
+  // Nothing to tell apart until a recording comes from somewhere else; a set filter still needs
+  // its way back to All. With no recordings the empty state explains the screen, so the
+  // disabled control says nothing.
+  const filtersDisabled = !ready || (imported.length === 0 && !filterSet)
+  const filtersReason = ready && loadedViews.length > 0 ? FILTERS_DISABLED_REASON : undefined
+
+  const sort = useRecordingsSort()
+  const [query, setQuery] = useState(() => readSearchQuery('recordings'))
+  const changeQuery = (value: string) => {
+    setQuery(value)
+    writeSearchQuery('recordings', value)
+  }
+  const arrangement = useMemo(() => arrangeRecordings(shown, sort, query), [shown, sort, query])
+  const { unfiled, filed } = arrangement
+  const filedEmpty = filed.kind === 'flat' ? filed.views.length === 0 : filed.groups.length === 0
+
+  const item = (view: RecordingView, extra: { headingLevel?: 4; onOpenTune?: () => void }) => (
+    <RecordingItem
+      key={view.recording.id}
+      view={view}
+      actions={actionsFor(view)}
+      error={retryKind(view) === 'upload' ? view.file?.error : null}
+      tuneNamedAbove
+      sort={sort.sort}
+      onRetry={(kind) => retry(view, kind)}
+      {...extra}
+    />
+  )
 
   const addDropped = (files: File[]) => {
     setUploadError(null)
@@ -112,59 +116,73 @@ export function RecordingsPage() {
       level="top"
       grouped
       end={<UploadButton tuneId={null} onError={setUploadError} />}
+      search={
+        <SearchField
+          ref={searchRef}
+          name={SEARCH_RECORDINGS}
+          value={query}
+          onInput={changeQuery}
+          onEnter={() => searchRef.current?.blur()}
+        />
+      }
+      searchEnd={
+        <>
+          <SortMenuButton />
+          <FiltersButton
+            setCount={filterSet ? 1 : 0}
+            disabled={filtersDisabled}
+            disabledReason={filtersReason}
+            onOpen={() => setFiltersOpen(true)}
+          />
+        </>
+      }
       refresher={<SyncRefresher />}
       onDropFiles={addDropped}
     >
       <h1 className="sr-only">Recordings</h1>
+      {ready ? <RecordingsFilters choice={choice} onChange={choose} /> : null}
       <Storage />
       {ready ? (
         <>
-          {showRail ? (
-            <RecordingsOriginFilter choice={choice} origins={origins} onChange={choose} />
+          {loadedViews.length === 0 ? (
+            <EmptyState icon={AudioLines} title={NO_RECORDINGS_TITLE} hint={NO_RECORDINGS_HINT} />
+          ) : unfiled.length === 0 && filedEmpty ? (
+            <EmptyState icon={AudioLines} title={NOTHING_MATCHES} />
           ) : null}
-          {groups.length === 0 ? (
-            loadedViews.length === 0 ? (
-              <EmptyState icon={AudioLines} title={NO_RECORDINGS_TITLE} hint={NO_RECORDINGS_HINT} />
-            ) : (
-              <EmptyState icon={AudioLines} title={NO_MATCHING_RECORDINGS_TITLE} />
-            )
-          ) : null}
-          {/* One container across every group, so the arrow keys walk the whole screen rather
-              than stopping at the last row of a group. */}
+          {/* One container across both lists, so the arrow keys walk the whole screen rather
+              than stopping at the last row of a list. */}
           <div ref={groupsRef}>
-            {groups.map((group) => {
-              const tuneId = group.tuneId
-              return (
-                <Group
-                  key={tuneId ?? ''}
-                  header={group.title}
-                  headerNames
-                  onHeaderOpen={
-                    tuneId
-                      ? () => router.push(`/recordings/${tuneId}`, 'forward', 'push')
-                      : undefined
-                  }
-                  headerOpenName={tuneId ? 'Open' : undefined}
-                  name={group.title}
-                >
-                  {group.views.map((view) => (
-                    <RecordingItem
-                      key={view.recording.id}
-                      view={view}
-                      actions={actionsFor(view)}
-                      error={retryKind(view) === 'upload' ? view.file?.error : null}
-                      tuneNamedAbove={tuneId !== null}
-                      onRetry={(kind) => retry(view, kind)}
-                    />
-                  ))}
-                </Group>
-              )
-            })}
+            {unfiled.length > 0 ? (
+              <Group header={UNFILED_HEADER} name={UNFILED_HEADER}>
+                {unfiled.map((view) => item(view, {}))}
+              </Group>
+            ) : null}
+            {filedEmpty ? null : (
+              <Group header={FILED_HEADER} name={FILED_HEADER}>
+                {filed.kind === 'flat'
+                  ? filed.views.map((view) => item(view, { onOpenTune: openTuneOf(view) }))
+                  : filed.groups.flatMap((group) => [
+                      <TuneLabelLine
+                        key={`tune:${group.tuneId}`}
+                        title={group.tuneTitle}
+                        onOpen={() => openTune(group.tuneId)}
+                      />,
+                      ...group.views.map((view) => item(view, { headingLevel: 4 })),
+                    ])}
+              </Group>
+            )}
           </div>
           {error ? <InlineError className="px-(--form-inset) py-2">{error}</InlineError> : null}
+          <RecordingsFilterSheet
+            open={filtersOpen}
+            choice={choice}
+            origins={imported}
+            onChange={choose}
+            onClose={() => setFiltersOpen(false)}
+          />
         </>
       ) : null}
-      <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
+      <EditRecordingSheet view={editing} onClose={() => setEditing(null)} />
       <AddToTuneSheet view={filing} onClose={() => setFiling(null)} />
     </Screen>
   )

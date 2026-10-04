@@ -220,6 +220,20 @@ import Testing
         #expect(!MenuGates.find(isShown: true, sheetsOpen: true))
     }
 
+    @Test func sortByActsOnlyWhileTheRecordingsShowWithNoSheetUp() {
+        #expect(MenuGates.sort(isShown: true, sheetsOpen: false))
+        #expect(!MenuGates.sort(isShown: false, sheetsOpen: false))
+        #expect(!MenuGates.sort(isShown: true, sheetsOpen: true))
+    }
+
+    @Test func sortByOffersEveryRecordingSort() {
+        #expect(MenuCommand.sortBy == "Sort By")
+        #expect(
+            RecordingSortChoices.items(for: .default).map(\.label) == [
+                "Date added", "Date recorded", "Title", "Tune",
+            ])
+    }
+
     @Test func recordStandsDownUnderASheetWhileSelectingOrForAPendingTakeOrACapture() {
         #expect(MenuGates.record(sheetsOpen: false, selecting: false, takePending: false, capturing: false))
         #expect(!MenuGates.record(sheetsOpen: true, selecting: false, takePending: false, capturing: false))

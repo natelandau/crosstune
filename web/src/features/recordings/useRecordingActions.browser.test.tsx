@@ -7,8 +7,9 @@ import { recordingRow } from '../../test/rows'
 import { InlineError } from '../../ui/InlineError'
 import { TRIM } from '../recording-screen/TrimView'
 import { DELETE } from '../../ui/Confirm'
-import { openOn, RENAME } from './recordingCopy'
-import { useRecordingActions } from './useRecordingActions'
+import { openOn, EDIT } from './recordingCopy'
+import { GO_TO_TUNE } from './recordingNames'
+import { REMOVE_FROM_TUNE, useRecordingActions } from './useRecordingActions'
 import type { RecordingView } from './useRecordings'
 
 /** Stands in for a list of recordings: one line for every refusal, wherever the control sits. */
@@ -59,7 +60,7 @@ describe('useRecordingActions', () => {
     const onTrim = vi.fn()
     function Actions({ blocked }: { blocked?: string }) {
       const { actionsFor, menuFor } = useRecordingActions({
-        onRename: () => {},
+        onEdit: () => {},
         onTrim,
         trimBlocked: blocked,
       })
@@ -94,7 +95,7 @@ describe('useRecordingActions', () => {
       </>,
       { db: openTestDb() },
     )
-    await expect.element(page.getByRole('button', { name: `Row ${RENAME}` })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: `Row ${EDIT}` })).toBeVisible()
     const labels = () =>
       page
         .getByRole('button')
@@ -102,9 +103,9 @@ describe('useRecordingActions', () => {
         .map((element) => element.textContent)
     await expect
       .poll(() => labels().filter((label) => label?.startsWith('Row ')))
-      .toEqual([`Row ${RENAME}`, `Row ${DELETE}`])
+      .toEqual([`Row ${EDIT}`, `Row ${DELETE}`])
     await expect
-      .poll(() => labels().indexOf(`Menu ${RENAME}`) - labels().indexOf(`Menu ${TRIM}`))
+      .poll(() => labels().indexOf(`Menu ${EDIT}`) - labels().indexOf(`Menu ${TRIM}`))
       .toBe(1)
     const blocked = page.getByRole('button', { name: `Blocked menu ${TRIM}` })
     await expect.element(blocked).toBeDisabled()
@@ -126,7 +127,7 @@ describe('useRecordingActions', () => {
       { recording: recordingRow('own'), file: undefined, tuneId: null, tuneTitle: null },
     ]
     function Actions() {
-      const { actionsFor, menuFor } = useRecordingActions({ onRename: () => {} })
+      const { actionsFor, menuFor } = useRecordingActions({ onEdit: () => {} })
       return (
         <>
           {views.map((view) => (
@@ -149,7 +150,7 @@ describe('useRecordingActions', () => {
     renderIonic(<Actions />, { db: openTestDb() })
     const imported = page.getByRole('region', { name: 'imported' })
     const own = page.getByRole('region', { name: 'own' })
-    await expect.element(own.getByRole('button', { name: `Row ${RENAME}` })).toBeVisible()
+    await expect.element(own.getByRole('button', { name: `Row ${EDIT}` })).toBeVisible()
     await expect
       .element(imported.getByRole('button', { name: `Menu ${openOn('Slippery-Hill')}` }))
       .toBeVisible()
@@ -177,7 +178,7 @@ describe('useRecordingActions', () => {
       tuneTitle: null,
     }))
     function Actions() {
-      const { menuFor } = useRecordingActions({ onRename: () => {} })
+      const { menuFor } = useRecordingActions({ onEdit: () => {} })
       return (
         <>
           {views.map((view) => (
@@ -199,19 +200,69 @@ describe('useRecordingActions', () => {
     await expect.element(open('https')).toBeVisible()
     await expect
       .element(
-        page
-          .getByRole('region', { name: 'script' })
-          .getByRole('button', { name: `Menu ${RENAME}` }),
+        page.getByRole('region', { name: 'script' }).getByRole('button', { name: `Menu ${EDIT}` }),
       )
       .toBeVisible()
     await expect
       .element(
-        page
-          .getByRole('region', { name: 'garbage' })
-          .getByRole('button', { name: `Menu ${RENAME}` }),
+        page.getByRole('region', { name: 'garbage' }).getByRole('button', { name: `Menu ${EDIT}` }),
       )
       .toBeVisible()
     await expect.poll(() => open('script').elements()).toHaveLength(0)
     await expect.poll(() => open('garbage').elements()).toHaveLength(0)
+  })
+
+  it('offers Go to tune after Remove from tune on a filed view only', async () => {
+    const recording = recordingRow('r1', { label: 'Jam recording' })
+    const filed: RecordingView = { recording, file: undefined, tuneId: 't1', tuneTitle: 'Reel' }
+    const unfiled: RecordingView = { ...filed, tuneId: null, tuneTitle: null }
+    const onOpenTune = vi.fn()
+    function Actions({ view, prefix }: { view: RecordingView; prefix: string }) {
+      const { actionsFor } = useRecordingActions({ onOpenTune })
+      return actionsFor(view).map((action) => (
+        <button type="button" key={action.label} onClick={action.onPress}>
+          {`${prefix} ${action.label}`}
+        </button>
+      ))
+    }
+    renderIonic(
+      <>
+        <Actions view={filed} prefix="Filed" />
+        <Actions view={unfiled} prefix="Unfiled" />
+      </>,
+      { db: openTestDb() },
+    )
+    const labels = () =>
+      page
+        .getByRole('button')
+        .elements()
+        .map((element) => element.textContent)
+    await expect
+      .poll(() => labels().filter((label) => label?.startsWith('Filed ')))
+      .toEqual([`Filed ${REMOVE_FROM_TUNE}`, `Filed ${GO_TO_TUNE}`, `Filed ${DELETE}`])
+    expect(labels()).not.toContain(`Unfiled ${GO_TO_TUNE}`)
+    await page.getByRole('button', { name: `Filed ${GO_TO_TUNE}` }).click()
+    await expect.poll(() => onOpenTune).toHaveBeenCalledWith(filed)
+  })
+
+  it('leaves Go to tune out of a filed view without a handler', async () => {
+    const recording = recordingRow('r1', { label: 'Jam recording' })
+    const filed: RecordingView = { recording, file: undefined, tuneId: 't1', tuneTitle: 'Reel' }
+    function Actions() {
+      const { actionsFor } = useRecordingActions({})
+      return actionsFor(filed).map((action) => (
+        <button type="button" key={action.label}>
+          {action.label}
+        </button>
+      ))
+    }
+    renderIonic(<Actions />, { db: openTestDb() })
+    const labels = () =>
+      page
+        .getByRole('button')
+        .elements()
+        .map((element) => element.textContent)
+    await expect.poll(labels).toContain(REMOVE_FROM_TUNE)
+    expect(labels()).not.toContain(GO_TO_TUNE)
   })
 })

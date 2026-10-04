@@ -750,6 +750,11 @@ export interface components {
          */
         RecordingData: {
             /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+            /**
              * Created At
              * Format: date-time
              */
@@ -778,9 +783,11 @@ export interface components {
             position: number;
             /**
              * Recorded At
-             * Format: date-time
+             * @default null
              */
-            recorded_at: string;
+            recorded_at: string | null;
+            /** @default null */
+            recorded_precision: components["schemas"]["RecordingPrecision"] | null;
             source: components["schemas"]["RecordingSource"];
             /**
              * Speed Percent
@@ -974,6 +981,12 @@ export interface components {
          */
         RecordingOrigin: "own" | "slippery_hill";
         /**
+         * RecordingPrecision
+         * @description How much of a recording's recorded date is known.
+         * @enum {string}
+         */
+        RecordingPrecision: "year" | "month" | "day" | "time";
+        /**
          * RecordingPullRow
          * @description A recording row in a pull page.
          */
@@ -990,6 +1003,11 @@ export interface components {
          * @description A stored recording, as push and pull return it. Storage keys stay on the server.
          */
         RecordingRow: {
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
             /**
              * Created At
              * Format: date-time
@@ -1034,11 +1052,9 @@ export interface components {
              * @default 0
              */
             position: number;
-            /**
-             * Recorded At
-             * Format: date-time
-             */
-            recorded_at: string;
+            /** Recorded At */
+            recorded_at?: string | null;
+            recorded_precision?: components["schemas"]["RecordingPrecision"] | null;
             /** Server Seq */
             server_seq: number;
             source: components["schemas"]["RecordingSource"];

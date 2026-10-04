@@ -75,7 +75,7 @@ import Testing
             ).insert(writer.db)
             try writer.put(
                 Recording(
-                    id: id, createdAt: noon, tuneID: nil, source: "microphone", recordedAt: noon,
+                    id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon,
                     state: "pending_upload"))
             try OutboxEntry.deleteAll(writer.db)
         }

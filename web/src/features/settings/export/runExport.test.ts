@@ -23,7 +23,7 @@ async function seed(db: CrosstuneDb) {
   await db.tunes.put(tuneRow('t1', 'Cluck Old Hen'))
   await db.user_tunes.put(userTuneRow('u1', 't1'))
   await db.recordings.bulkPut([
-    recordingRow('r-ok', { tune_id: 't1', recorded_at: '2026-09-20T12:00:00.000Z' }),
+    recordingRow('r-ok', { tune_id: 't1', added_at: '2026-09-20T12:00:00.000Z' }),
     recordingRow('r-capturing', { tune_id: 't1' }),
     recordingRow('r-downloading', { tune_id: 't1' }),
     recordingRow('r-deleted', { tune_id: 't1', deleted_at: '2026-09-21T00:00:00.000Z' }),

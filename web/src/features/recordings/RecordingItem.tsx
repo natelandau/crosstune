@@ -1,6 +1,6 @@
 import { IonButton, IonLabel, IonSpinner } from '@ionic/react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CloudDownload } from 'lucide-react'
+import { ChevronRight, CloudDownload, ExternalLink } from 'lucide-react'
 import { useDb } from '../../db/DbProvider'
 import { getStorage } from '../../db/meta'
 import { OFFLINE } from '../../sync/labels'
@@ -12,8 +12,17 @@ import { CLOSE_PLAYER } from '../player/transportCopy'
 import { PlayGlyph, Slot, StopGlyph } from '../../ui/rowGlyphs'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, formatDuration } from '../recording/format'
-import { DOWNLOAD, downloadingName, PLAY } from './recordingNames'
-import { recordingMeta, recordingTitle, retryKind, rowControl, titleIsDate } from './recordingRow'
+import { DOWNLOAD, downloadingName, openTuneName, PLAY } from './recordingNames'
+import type { RecordingSort } from './arrangeRecordings'
+import { openOn } from './recordingCopy'
+import {
+  originLink,
+  recordingMeta,
+  recordingTitle,
+  retryKind,
+  rowControl,
+  titleIsDate,
+} from './recordingRow'
 import { useDownload } from './useDownload'
 import type { RecordingView } from './useRecordings'
 
@@ -28,6 +37,9 @@ export function RecordingItem({
   error,
   tuneNamedAbove = false,
   pinned = false,
+  onOpenTune,
+  headingLevel = 3,
+  sort,
   onRetry,
 }: {
   view: RecordingView
@@ -38,6 +50,12 @@ export function RecordingItem({
   error?: string | null
   /** True in a list whose heading above this row already names the recording's tune. */
   tuneNamedAbove?: boolean
+  /** Shows the recording's tune as a line that opens it; left out where the tune is not shown. */
+  onOpenTune?: () => void
+  /** The title's heading level, one below the heading of the group the row sits in. */
+  headingLevel?: 3 | 4
+  /** The list's sort, which picks the meta line's date; left out, it shows the recorded date. */
+  sort?: RecordingSort
   onRetry: (kind: 'upload' | 'transcode') => void
 }) {
   const { recording, file } = view
@@ -66,7 +84,10 @@ export function RecordingItem({
     ? [formatDuration(recording.duration_ms ?? file?.local_duration_ms), OFFLINE].filter(
         (part): part is string => Boolean(part),
       )
-    : recordingMeta(view, storage ?? null, { dateInTitle: titleIsDate(view, { tuneNamedAbove }) })
+    : recordingMeta(view, storage ?? null, {
+        dateInTitle: titleIsDate(view, { tuneNamedAbove }),
+        sort,
+      })
   const meta = metaParts.join(' · ')
 
   const open =
@@ -122,6 +143,44 @@ export function RecordingItem({
 
   const shownError = error ?? (fetch === 'failed' ? DOWNLOAD_FAILED : null)
 
+  const Heading = headingLevel === 4 ? 'h4' : 'h3'
+  const origin = originLink(recording)
+  // Its own block, so the tune line after it starts a line of its own.
+  const sourceLine = origin ? (
+    <div>
+      <a
+        href={origin.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={openOn(origin.site)}
+        className="type-footnote inline-flex min-h-11 max-w-full items-center gap-1 text-left"
+      >
+        <span className="truncate">{origin.site}</span>
+        <ExternalLink aria-hidden="true" className="size-4 shrink-0" />
+      </a>
+    </div>
+  ) : null
+  const tuneLine =
+    onOpenTune && view.tuneTitle ? (
+      <button
+        type="button"
+        aria-label={openTuneName(view.tuneTitle)}
+        className="type-footnote inline-flex min-h-11 max-w-full items-center gap-1 text-left"
+        onClick={onOpenTune}
+      >
+        <span className="truncate">{view.tuneTitle}</span>
+        <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
+      </button>
+    ) : null
+  const note =
+    sourceLine || tuneLine || shownError ? (
+      <>
+        {sourceLine}
+        {tuneLine}
+        {shownError ? <InlineError>{shownError}</InlineError> : null}
+      </>
+    ) : undefined
+
   return (
     <Row
       name={title}
@@ -129,13 +188,12 @@ export function RecordingItem({
       dimmed={offlineDownload}
       start={start}
       end={end}
-      note={shownError ? <InlineError>{shownError}</InlineError> : undefined}
+      note={note}
       {...open}
     >
       <IonLabel className="my-2.5 overflow-hidden">
-        {/* A level below the heading of the group this row sits in, which is a tune's own row. */}
         <div className="flex items-center gap-1.5">
-          <h3 className="type-headline truncate">{title}</h3>
+          <Heading className="type-headline truncate">{title}</Heading>
           {pinned ? <PinnedMark /> : null}
         </div>
         <p className="type-subheadline truncate tabular-nums">{meta}</p>

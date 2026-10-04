@@ -15,7 +15,7 @@ private let noon = Timestamp.now
         let store = try root.open()
         let commands = Commands(store: store)
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: .now))
         }
         return (store, commands, "r1")
     }
@@ -64,7 +64,7 @@ private let noon = Timestamp.now
         try await store.write { writer in
             try writer.put(
                 Recording(
-                    id: "r1", tuneID: nil, source: "microphone", recordedAt: .now, sourceDurationMs: duration,
+                    id: "r1", tuneID: nil, source: "microphone", addedAt: .now, sourceDurationMs: duration,
                     trimStartMs: start, trimEndMs: end))
         }
         return (store, Commands(store: store))
@@ -263,7 +263,7 @@ private let noon = Timestamp.now
         let commands = Commands(store: store)
         let (tuneID, _) = try await commands.createTune(TuneInput(title: "X"), userTune: UserTuneInput(status: "known"))
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: tuneID, source: "microphone", addedAt: .now))
         }
         let created = try await commands.addLoop(recordingID: "r1", startMs: 0, endMs: 1000, label: nil)
 

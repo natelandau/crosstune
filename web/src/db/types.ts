@@ -16,6 +16,8 @@ import {
   type Instrument,
   type PlayFirst,
   type Provider,
+  RECORDING_PRECISIONS,
+  type RecordingPrecision,
 } from '../api/vocabulary'
 
 export type { TableName }
@@ -34,6 +36,10 @@ export const TABLE_NAMES = [
 
 export function isInstrument(value: unknown): value is Instrument {
   return typeof value === 'string' && (INSTRUMENTS as readonly string[]).includes(value)
+}
+
+export function isRecordingPrecision(value: unknown): value is RecordingPrecision {
+  return typeof value === 'string' && (RECORDING_PRECISIONS as readonly string[]).includes(value)
 }
 
 // The server sets ownership from the token; local rows never carry it.
@@ -56,7 +62,9 @@ export type LocalRecordingLink = Local<RecordingLinkRow>
 export type LocalList = Local<ListRow>
 export type LocalListItem = Local<ListItemRow>
 export type LocalUserSettings = Local<UserSettingsRow>
-export type LocalRecording = Local<RecordingRow>
+// Pull always carries both recorded fields, so the local row holds them, null when unknown.
+export type LocalRecording = Local<Omit<RecordingRow, 'recorded_at' | 'recorded_precision'>> &
+  Local<Required<Pick<RecordingRow, 'recorded_at' | 'recorded_precision'>>>
 export type LocalRecordingLoop = Local<RecordingLoopRow>
 export type LocalNotationPage = Local<NotationPageRow>
 

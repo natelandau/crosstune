@@ -77,7 +77,9 @@ final class ChannelSetting {
         #expect(input.stopped)
         let row = try #require(try await store.read { db in try Recording.fetchOne(db, key: saved) })
         #expect(row.tuneID == tuneID)
-        #expect(row.label == defaultRecordingLabel(recordedAt: row.recordedAt))
+        let recordedAt = try #require(row.recordedAt)
+        #expect(row.recordedPrecision == RecordingPrecision.time.rawValue)
+        #expect(row.label == defaultRecordingLabel(recordedAt: recordedAt))
         #expect(try await store.read { db in try RecordingFile.fetchOne(db, key: saved) }?.localState == .captured)
         #expect(fileExists(CaptureFinisher(store: store).finishedURL(saved)))
     }

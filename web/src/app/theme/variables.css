@@ -584,6 +584,23 @@ ion-item.menu-warning {
 ion-item.menu-danger {
   --color: var(--ion-color-danger);
 }
+button.menu-choice.menu-warning {
+  color: var(--ion-color-warning);
+}
+button.menu-choice.menu-danger {
+  color: var(--ion-color-danger);
+}
+
+/* The rule before a single-choice popover's destructive item, matching menu-divider. */
+.menu-choice-separator {
+  border-top: 1px solid var(--ion-background-color-step-150, rgba(0, 0, 0, 0.13));
+}
+
+/* An action sheet icon made of two icons side by side, from iconPairSource, at its 52:24 shape
+   instead of ion-icon's square. */
+.action-sheet-button.menu-icon-pair .action-sheet-icon {
+  width: calc(1em * 52 / 24);
+}
 
 .ion-palette-dark {
   --color-record: #ff453a;

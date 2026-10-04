@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSession'
+import { clearSearchQueries, readSearchQuery, writeSearchQuery } from './searchSession'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -8,15 +8,31 @@ afterEach(() => {
 
 describe('searchSession', () => {
   it('reads back the written query', () => {
-    expect(readSearchQuery()).toBe('')
-    writeSearchQuery('soldier')
-    expect(readSearchQuery()).toBe('soldier')
+    expect(readSearchQuery('catalog')).toBe('')
+    writeSearchQuery('catalog', 'soldier')
+    expect(readSearchQuery('catalog')).toBe('soldier')
   })
 
-  it('clears the query', () => {
-    writeSearchQuery('soldier')
-    clearSearchQuery()
-    expect(readSearchQuery()).toBe('')
+  it('keeps each screen its own query', () => {
+    writeSearchQuery('catalog', 'soldier')
+    writeSearchQuery('recordings', 'jig')
+    expect(readSearchQuery('catalog')).toBe('soldier')
+    expect(readSearchQuery('recordings')).toBe('jig')
+  })
+
+  it('removes the entry when the query is emptied', () => {
+    writeSearchQuery('recordings', 'jig')
+    writeSearchQuery('recordings', '')
+    expect(readSearchQuery('recordings')).toBe('')
+    expect(sessionStorage.length).toBe(0)
+  })
+
+  it('clears every screen', () => {
+    writeSearchQuery('catalog', 'soldier')
+    writeSearchQuery('recordings', 'jig')
+    clearSearchQueries()
+    expect(readSearchQuery('catalog')).toBe('')
+    expect(readSearchQuery('recordings')).toBe('')
     expect(sessionStorage.length).toBe(0)
   })
 
@@ -27,7 +43,7 @@ describe('searchSession', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked')
     })
-    expect(() => writeSearchQuery('soldier')).not.toThrow()
-    expect(readSearchQuery()).toBe('')
+    expect(() => writeSearchQuery('catalog', 'soldier')).not.toThrow()
+    expect(readSearchQuery('catalog')).toBe('')
   })
 })

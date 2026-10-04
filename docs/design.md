@@ -206,7 +206,8 @@ Everywhere the app lists tunes it uses one row.
 
 ## Search and create
 
-Every box that searches tunes also offers to create one.
+Every box that searches tunes also offers to create one; a recordings search
+does not.
 
 - A non-empty query shows an add row under the results: `Add "query"`, or
   `Add another "query"` when the title exists. Titles are not unique, so an
@@ -222,13 +223,16 @@ Every box that searches tunes also offers to create one.
   marked "In this list" and inert. Pickers search archived tunes too.
 - The search field is named for what it searches and its placeholder repeats
   that. "Clear search" appears while the field has focus.
+- A search matches stored names, a row's parent's name included, never text
+  composed for display, such as a title made from a date.
 - Query text lasts the browser session and filters persist. Opening the new
   tune form and signing out clear the query.
 
 ## Filters
 
-The catalog and the Recordings tab have filters. The list below covers the
-catalog's; the Recordings tab's is described after it.
+The catalog and the Recordings tab each open a filter sheet from the Filters
+control at the search field's trailing edge, with a count and removable
+capsules. Only the catalog shows facet rails on screen.
 
 - The control that opens the filter sheet sits with the search field, not in
   the toolbar, and carries a count: "Filters, 2 set". Filters persist, so a
@@ -243,6 +247,9 @@ catalog's; the Recordings tab's is described after it.
   only. Done closes it.
 - A set filter shows on the screen as a removable capsule. A tuning capsule
   names its instrument, since two instruments can share a tuning's name.
+- A Filters control that cannot run stays in place, disabled, with its
+  reason to assistive technology. It is silent while the list loads and when
+  there is nothing at all to filter.
 - A rail of chips stays on one line at every width and text size. It scrolls,
   fades at its end while there is more, and scrolls the chosen chip into
   view.
@@ -250,12 +257,6 @@ catalog's; the Recordings tab's is described after it.
   narrowed, and is absent when the catalog is empty.
 - Matching ignores case and accents.
 - List screens keep their own Show archived setting.
-
-The Recordings tab has one filter, a rail of All, Mine, and one chip per
-import source the user holds, following the rail rules above. The rail shows
-only while the user holds recordings from more than one source. The choice
-persists per device. A source with no recordings left keeps its chip while
-it is chosen, so the list never narrows in silence.
 
 ## Gestures
 
@@ -357,6 +358,8 @@ no form route and no save bar.
 - A form rejects as little as possible. Every limit that can be a cap
   enforced while typing is one. What is left shows under its field, takes
   focus, marks the field invalid, and clears at the first keystroke.
+- A date known only in part is entered as Year, then an optional Month,
+  then an optional Day, with a Clear date control.
 - Which fields a form shows is decided when it opens. Nothing disappears
   mid-edit.
 - The primary action is disabled while a write is pending or the form cannot
@@ -402,7 +405,7 @@ surface.
   differs from the mode's default. At the default, it shows only its name.
 - A control that cannot run right now stays in place, disabled. Its reason
   goes to assistive technology, not onto the screen.
-- Actions on the whole screen, such as Rename or Delete, live in its `⋯`
+- Actions on the whole screen, such as Edit or Delete, live in its `⋯`
   menu, not in the panel.
 
 ## Recording and link rows
@@ -415,10 +418,19 @@ Recordings and links share one row shape.
 - The title is the most specific name available: typed, then resolved, then
   composed from the date. A part a heading above already carries is dropped.
 - The second line joins metadata with middle dots, or on a link is the link
-  out. A red third line carries a transfer error and a Retry, which retries
-  at once.
-- A state that needs nothing shows the creation date, unless the title is
-  already composed from it. Words are reserved for what needs attention.
+  out. On a recording it holds the duration and one date, or a status word.
+- A recording imported from a site adds a source line: the site's name and
+  an external-link icon. It opens the page the recording came from.
+- A row in a list not grouped by its parent adds a line naming the
+  parent with a chevron. That line is its own control, only as wide as the
+  name, and opens the parent, so a tap beside it plays. A red line
+  carries a transfer error and a Retry, which retries at once, and follows
+  the parent line.
+- A line that is its own control is only as wide as its text and keeps its
+  own 44 target. When two show, the row grows.
+- A state that needs nothing shows a date, unless the title is already
+  composed from it. The date follows the sort: under Date added it reads
+  "Added <date>". Words are reserved for what needs attention.
 - Sizes truncate rather than round. Durations read `m:ss`. The provider is
   named once per row.
 - Rows that answer one question share one list under one header, the
@@ -429,15 +441,31 @@ Recordings and links share one row shape.
   At most one item is loaded, and it stays loaded while the musician browses.
 - A recording's screen opens only from the dock. Its title line up to Close
   is one control ending in an up chevron, and the screen closes with a down
-  chevron. A recording row's actions are Rename, Add to tune or Remove from
-  tune, Play first in lists, and Delete. An imported recording's menu also
-  has Open on and the site's name, which opens the page it came from, and is
-  never a swipe action. A link row's actions are Play first in lists, Add to
-  recordings when the server can save its audio, and Remove. On a tune's own
-  rows, a recording or link can be pinned to play first in lists, and the
-  pinned row shows a pin mark.
+  chevron. A recording row's actions are Edit, Add to tune or Remove from
+  tune, Go to tune on a filed recording, Play first in lists, and Delete. An
+  imported recording's menu also has Open on and the site's name, which
+  opens the page it came from, and is never a swipe action. A link row's
+  actions are Play first in lists, Add to recordings when the server can
+  save its audio, and Remove. On a tune's own rows, a recording or link can
+  be pinned to play first in lists, and the pinned row shows a pin mark.
 - A live recording refuses a swipe dismissal. Discarding captured audio
   confirms first.
+
+## Sorting
+
+- A sort control is one menu named Sort beside the list it orders: in the
+  search row, just before Filters. It marks the current choice, and choosing
+  it again reverses the order.
+- The current choice shows its direction with an arrow, down for newest
+  first or Z to A, and says it in words to assistive technology.
+- Dates start newest first and names start at A.
+- A sort choice is per device. Sign-out leaves it alone.
+- An item with no name sorts after the named ones.
+- A date that may be known only in part, such as a recording's year, sorts
+  as the start of its period. An unknown date sorts last in either
+  direction.
+- A list grouped by a parent stays one card, with a short heading line per
+  group that opens the parent. Its rows drop what that line already says.
 
 ## Search results from other services
 
@@ -500,9 +528,9 @@ equivalent below.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
   Undo button replaces the web's toast.
 - Native search replaces the web's toolbar search field, except on the
-  catalog. There the field is the app's own, pinned under the navigation
-  bar with the filter control at its trailing edge, because the system
-  field takes no accessory.
+  catalog and Recordings. There the field is the app's own, pinned under
+  the navigation bar with the filter control at its trailing edge, because
+  the system field takes no accessory.
 - On the Mac, a control sits over the pane it acts on. A Mac toolbar puts
   a content column's trailing items over the detail column, so the
   content column's own actions, selection's included, sit in a bar
@@ -513,6 +541,8 @@ equivalent below.
   own row under them.
 - A segmented control is allowed for a short closed choice. Status still
   stays a rail of capsules, because each carries its own dot color.
+- On the Mac, View > Sort By carries the sort of the screen that shows, when
+  it has one.
 - A long press opens the native context menu. Its Select item, and a
   Select toolbar button, enter selection, replacing the web's long-press
   gesture.

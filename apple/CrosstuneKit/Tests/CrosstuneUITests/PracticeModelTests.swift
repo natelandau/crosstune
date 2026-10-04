@@ -17,7 +17,7 @@ private let audioURL = URL(filePath: "/tmp/r1-aaaaaaaa.m4a")
 
 private func take(trimStartMs: Int64 = 0, trimEndMs: Int64? = nil, sourceDurationMs: Int64? = 60_000) -> Recording {
     Recording(
-        id: "r1", tuneID: nil, source: "microphone", recordedAt: noon, label: "Jam", state: "ready",
+        id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: "Jam", state: "ready",
         sourceDurationMs: sourceDurationMs, trimStartMs: trimStartMs, trimEndMs: trimEndMs, speedPercent: 100,
         pitchCents: 0)
 }

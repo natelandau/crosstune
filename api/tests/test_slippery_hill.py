@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from crosstune.links.slippery_hill import TunePage, parse_tune_page
 
@@ -24,7 +27,7 @@ def field(name: str, item: str | None) -> str:
 def test_reads_title_and_artist_and_file() -> None:
     page = parse_tune_page(fixture("bear-creek-sally-goodin.html"))
     assert page == TunePage(
-        "Bear Creek Sally Goodin - Bob Holt", "recordings/bearcreeksallygoodin_bobholt.mp3"
+        "Bear Creek Sally Goodin - Bob Holt", "recordings/bearcreeksallygoodin_bobholt.mp3", 1997
     )
 
 
@@ -33,12 +36,13 @@ def test_reads_an_encoded_78_path() -> None:
     assert page == TunePage(
         "What A Glad Day - Wright Brothers Quartet",
         "78s/15402%20What%20A%20Glad%20Day%20%20%28Wright%20Brothers%20Quartet%29.mp3",
+        None,
     )
 
 
 def test_falls_back_to_the_title_tag() -> None:
     page = parse_tune_page("<html><head><title>Sally Ann | Slippery-Hill</title></head></html>")
-    assert page == TunePage("Sally Ann", None)
+    assert page == TunePage("Sally Ann", None, None)
 
 
 def test_reads_an_absolute_source_on_the_bare_host() -> None:
@@ -119,3 +123,30 @@ def test_reads_an_audio_src_with_no_source() -> None:
 def test_refuses_a_protocol_relative_off_host_src() -> None:
     html = '<audio><source src="//evil.example/system/files/x.mp3"></audio>'
     assert parse_tune_page(html).ref is None
+
+
+def test_reads_the_year() -> None:
+    html = field("field-r-tune-title", "Tune") + field("field-r-year", " 1937 ")
+    assert parse_tune_page(html).year == 1937
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        None,
+        "",
+        "1799",
+        str(datetime.now(UTC).year + 1),
+        "1930s",
+        "c. 1937",
+        "\u0661\u0669\u0663\u0667",
+    ],
+)
+def test_a_missing_or_unlikely_year_is_unknown(item: str | None) -> None:
+    assert parse_tune_page(field("field-r-year", item)).year is None
+
+
+def test_the_oldest_and_newest_years_are_kept() -> None:
+    this_year = datetime.now(UTC).year
+    assert parse_tune_page(field("field-r-year", "1800")).year == 1800
+    assert parse_tune_page(field("field-r-year", str(this_year))).year == this_year

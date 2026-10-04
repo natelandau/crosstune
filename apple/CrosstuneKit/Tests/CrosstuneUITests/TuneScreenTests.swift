@@ -258,7 +258,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
     private let tuneID = "t1"
 
     private func recording(label: String?) -> Recording {
-        Recording(id: "r1", createdAt: noon, tuneID: tuneID, source: "microphone", recordedAt: noon, label: label)
+        Recording(id: "r1", createdAt: noon, tuneID: tuneID, source: "microphone", addedAt: noon, label: label)
     }
 
     @Test func namesAnUnlabeledRecordingForItsTuneEvenUnderTheTunesOwnHeading() {
@@ -276,6 +276,7 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         )
         let locale = Locale(identifier: "en_US")
         let untitled = PlayerItem.recording(recording(label: nil), tuneTitle: nil, locale: locale, timeZone: .gmt)
-        #expect(untitled.title == "Recording, \(RecordingText.recordedAt(noon, locale: locale, timeZone: .gmt))")
+        // No recorded date, so the title falls back to the day it was added.
+        #expect(untitled.title == "Recording, Sep 25, 2026")
     }
 }

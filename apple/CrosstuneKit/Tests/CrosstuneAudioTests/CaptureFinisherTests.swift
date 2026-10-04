@@ -245,7 +245,7 @@ private func beginTone(
         let id = newID()
         let name = CaptureFiles.captureName(id)
         try await Commands(store: first).addUploadedFile(
-            id, fileName: name, contentType: "audio/aac", bytes: 1, tuneID: nil, label: "Jam", recordedAt: noon,
+            id, fileName: name, contentType: "audio/aac", bytes: 1, tuneID: nil, label: "Jam",
             at: noon)
         try writeTone(to: first.audioFolder.appending(path: name), seconds: 0.5)
         try first.close()

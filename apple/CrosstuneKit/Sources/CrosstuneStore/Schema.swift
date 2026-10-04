@@ -154,6 +154,48 @@ enum Schema {
             // Pages another client added before this build sit behind the cursor.
             try repull(db)
         }
+        migrator.registerMigration("v11") { db in
+            // The server splits the date the same way, so no repull is needed. The one date
+            // always said when the row was added; it says when the music was played only for a
+            // take, the one source captured as it was played.
+            let table = SyncTable.recordings.rawValue
+            try db.execute(sql: "ALTER TABLE recordings RENAME COLUMN recorded_at TO added_at")
+            try db.alter(table: table) { t in
+                t.add(column: "recorded_at", .text)
+                t.add(column: "recorded_precision", .text)
+            }
+            try db.execute(
+                sql: """
+                    UPDATE recordings SET recorded_at = added_at, recorded_precision = 'time'
+                    WHERE source = 'microphone' AND json_type(extra, '$.added_at') IS NULL
+                    """)
+            // A row pulled from a server that already split the date kept the new fields in
+            // `extra`, and its one date column holds the server's recorded date.
+            try db.execute(
+                sql: """
+                    UPDATE recordings
+                    SET added_at = json_extract(extra, '$.added_at'),
+                        recorded_at = CASE WHEN json_type(extra, '$.recorded_precision') = 'text'
+                            THEN added_at END,
+                        recorded_precision = json_extract(extra, '$.recorded_precision')
+                    WHERE json_type(extra, '$.added_at') = 'text'
+                    """)
+            try db.execute(
+                sql: "UPDATE recordings SET extra = json_remove(extra, '$.added_at', '$.recorded_precision')")
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data,
+                        '$.added_at', json_extract(data, '$.recorded_at'),
+                        '$.recorded_at', CASE WHEN json_extract(data, '$.source') = 'microphone'
+                            THEN json_extract(data, '$.recorded_at') END,
+                        '$.recorded_precision', CASE WHEN json_extract(data, '$.source') = 'microphone'
+                            THEN 'time' END)
+                    WHERE table_name = ? AND data IS NOT NULL
+                        AND json_type(data, '$.recorded_at') = 'text' AND json_type(data, '$.added_at') IS NULL
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 

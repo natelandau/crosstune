@@ -770,7 +770,7 @@ async def test_0006_unfiles_a_recording_when_its_tune_is_deleted(session: AsyncS
     )
     await session.execute(
         text(
-            "insert into recordings (id, user_id, tune_id, source, recorded_at, position, "
+            "insert into recordings (id, user_id, tune_id, source, added_at, position, "
             "created_at, updated_at) values ('018f0000-0000-7000-8000-00000000001c', "
             "'018f0000-0000-7000-8000-00000000001a', '018f0000-0000-7000-8000-00000000001b', "
             "'microphone', now(), 0, now(), now())"
@@ -795,7 +795,7 @@ async def test_0006_rejects_an_unknown_recording_state(session: AsyncSession) ->
     with pytest.raises(DBAPIError):
         await session.execute(
             text(
-                "insert into recordings (id, user_id, source, recorded_at, position, state, "
+                "insert into recordings (id, user_id, source, added_at, position, state, "
                 "created_at, updated_at) values ('018f0000-0000-7000-8000-00000000000d', "
                 "'018f0000-0000-7000-8000-00000000000c', 'microphone', now(), 0, 'done', "
                 "now(), now())"
@@ -1290,9 +1290,9 @@ async def test_downgrade_to_0016_drops_the_new_columns_and_non_transcode_jobs(
         )
         await conn.execute(
             text(
-                "insert into recordings (id, user_id, source, recorded_at, state, "
-                "created_at, updated_at) values "
-                "(:id, :user, 'microphone', now(), 'ready', now(), now())"
+                "insert into recordings (id, user_id, source, added_at, recorded_at, "
+                "recorded_precision, state, created_at, updated_at) values "
+                "(:id, :user, 'microphone', now(), now(), 'time', 'ready', now(), now())"
             ),
             {"id": recording, "user": user},
         )
@@ -1877,7 +1877,19 @@ async def test_downgrade_to_0022_and_back_restores_head_shape(
     assert "slippery_hill" in default
 
 
-async def _seed_recording(engine, source: str = "microphone") -> None:
+SEED_RECORDING = text(
+    "insert into recordings (id, user_id, source, added_at, recorded_at, recorded_precision, "
+    "state, created_at, updated_at) values ('018f0000-0000-7000-8000-000000000021', :user, "
+    ":source, now(), now(), 'time', 'ready', now(), now())"
+)
+SEED_RECORDING_BEFORE_0028 = text(
+    "insert into recordings (id, user_id, source, recorded_at, state, created_at, updated_at) "
+    "values ('018f0000-0000-7000-8000-000000000021', :user, :source, now(), 'ready', now(), "
+    "now())"
+)
+
+
+async def _seed_recording(engine, source: str = "microphone", *, before_0028: bool = False) -> None:
     user = "018f0000-0000-7000-8000-000000000001"
     async with engine.begin() as conn:
         await conn.execute(
@@ -1888,12 +1900,7 @@ async def _seed_recording(engine, source: str = "microphone") -> None:
             {"id": user},
         )
         await conn.execute(
-            text(
-                "insert into recordings (id, user_id, source, recorded_at, state, "
-                "created_at, updated_at) values "
-                "('018f0000-0000-7000-8000-000000000021', :user, :source, now(), 'ready', "
-                "now(), now())"
-            ),
+            SEED_RECORDING_BEFORE_0028 if before_0028 else SEED_RECORDING,
             {"user": user, "source": source},
         )
 
@@ -1905,7 +1912,7 @@ async def test_0024_existing_recordings_read_as_own(
     config.set_main_option("sqlalchemy.url", database_url)
     try:
         await anyio.to_thread.run_sync(command.downgrade, config, "0023")
-        await _seed_recording(engine)
+        await _seed_recording(engine, before_0028=True)
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
         async with engine.connect() as conn:
             row = (await conn.execute(text("select origin, origin_url from recordings"))).one()
@@ -1928,7 +1935,7 @@ async def test_downgrade_to_0023_drops_the_columns_and_upgrade_restores_them(
         async with engine.connect() as conn:
             assert (await conn.execute(query)).scalar_one() == 0
         with pytest.raises(IntegrityError, match="ck_recordings_source"):
-            await _seed_recording(engine, source="import")
+            await _seed_recording(engine, source="import", before_0028=True)
     finally:
         await anyio.to_thread.run_sync(command.upgrade, config, "head")
     async with engine.connect() as conn:
@@ -1949,7 +1956,7 @@ async def test_0024_downgrade_refuses_while_an_import_exists(
         )
         await conn.execute(
             text(
-                "insert into recordings (id, user_id, source, origin, origin_url, recorded_at, "
+                "insert into recordings (id, user_id, source, origin, origin_url, added_at, "
                 "state, created_at, updated_at) values "
                 "('018f0000-0000-7000-8000-000000000021', "
                 "'018f0000-0000-7000-8000-000000000001', 'import', 'slippery_hill', "
@@ -2030,11 +2037,11 @@ async def test_downgrade_to_0024_fails_the_recordings_of_deleted_import_jobs(
         )
         await conn.execute(
             text(
-                "insert into recordings (id, user_id, source, origin, origin_url, recorded_at, "
+                "insert into recordings (id, user_id, source, origin, origin_url, added_at, "
                 "state, created_at, updated_at) values "
                 "(:queued, '018f0000-0000-7000-8000-000000000001', 'import', 'slippery_hill', "
                 "'https://www.slippery-hill.com/content/x', now(), 'processing', now(), now()), "
-                "(:transcoding, '018f0000-0000-7000-8000-000000000001', 'microphone', 'own', "
+                "(:transcoding, '018f0000-0000-7000-8000-000000000001', 'upload', 'own', "
                 "null, now(), 'processing', now(), now())"
             ),
             {"queued": queued, "transcoding": transcoding},
@@ -2185,3 +2192,128 @@ async def test_upload_slot_model_names_the_unique_constraints_the_migration_crea
             "uq_upload_slots_notation_page_id",
         }
     )
+
+
+ADDED = datetime(2026, 5, 1, 9, 30, tzinfo=UTC)
+TAKE = "018f0000-0000-7000-8000-000000000021"
+UPLOAD = "018f0000-0000-7000-8000-000000000022"
+IMPORT = "018f0000-0000-7000-8000-000000000023"
+DATES = text(
+    "select id::text, added_at, recorded_at, recorded_precision from recordings order by id"
+)
+
+
+async def _seed_three_sources(engine) -> None:
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "insert into users (id, clerk_user_id, created_at, updated_at) "
+                "values ('018f0000-0000-7000-8000-000000000001', 'user_a', now(), now())"
+            )
+        )
+        await conn.execute(
+            text(
+                "insert into recordings (id, user_id, source, origin, origin_url, recorded_at, "
+                "state, created_at, updated_at) values "
+                "(:take, '018f0000-0000-7000-8000-000000000001', 'microphone', 'own', null, "
+                ":at, 'ready', now(), now()), "
+                "(:upload, '018f0000-0000-7000-8000-000000000001', 'upload', 'own', null, "
+                ":at, 'ready', now(), now()), "
+                "(:import, '018f0000-0000-7000-8000-000000000001', 'import', 'slippery_hill', "
+                "'https://www.slippery-hill.com/content/x', :at, 'ready', now(), now())"
+            ),
+            {"take": TAKE, "upload": UPLOAD, "import": IMPORT, "at": ADDED},
+        )
+
+
+async def test_0028_keeps_only_a_takes_recorded_date(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0027")
+        await _seed_three_sources(engine)
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    async with engine.connect() as conn:
+        rows = (await conn.execute(DATES)).tuples().all()
+    assert rows == [
+        (TAKE, ADDED, ADDED, "time"),
+        (UPLOAD, ADDED, None, None),
+        (IMPORT, ADDED, None, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "update recordings set recorded_precision = null",
+        "update recordings set recorded_at = null",
+    ],
+    ids=["date-without-precision", "precision-without-date"],
+)
+async def test_0028_refuses_a_recorded_date_without_its_precision(
+    engine, truncate_all: None, statement: str
+) -> None:
+    await _seed_recording(engine, source="upload")
+    with pytest.raises(IntegrityError, match="ck_recordings_recorded_date"):
+        async with engine.begin() as conn:
+            await conn.execute(text(statement))
+
+
+async def test_0028_refuses_an_unknown_precision(engine, truncate_all: None) -> None:
+    await _seed_recording(engine, source="upload")
+    with pytest.raises(IntegrityError, match="ck_recordings_recorded_precision"):
+        async with engine.begin() as conn:
+            await conn.execute(text("update recordings set recorded_precision = 'decade'"))
+
+
+async def test_downgrade_to_0027_restores_a_recorded_date_on_every_row(
+    engine, database_url: str, truncate_all: None
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", database_url)
+    take_at = datetime(1998, 10, 3, 16, 12, tzinfo=UTC)
+    try:
+        await anyio.to_thread.run_sync(command.downgrade, config, "0027")
+        await _seed_three_sources(engine)
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("update recordings set recorded_at = :at where id = :id"),
+                {"at": take_at, "id": TAKE},
+            )
+        await anyio.to_thread.run_sync(command.downgrade, config, "0027")
+        async with engine.connect() as conn:
+            rows = (
+                (
+                    await conn.execute(
+                        text("select id::text, recorded_at from recordings order by id")
+                    )
+                )
+                .tuples()
+                .all()
+            )
+            columns = (
+                await conn.execute(
+                    text(
+                        "select count(*) from information_schema.columns "
+                        "where table_name = 'recordings' "
+                        "and column_name in ('added_at', 'recorded_precision')"
+                    )
+                )
+            ).scalar_one()
+            nullable = (
+                await conn.execute(
+                    text(
+                        "select is_nullable from information_schema.columns "
+                        "where table_name = 'recordings' and column_name = 'recorded_at'"
+                    )
+                )
+            ).scalar_one()
+    finally:
+        await anyio.to_thread.run_sync(command.upgrade, config, "head")
+    assert rows == [(TAKE, take_at), (UPLOAD, ADDED), (IMPORT, ADDED)]
+    assert columns == 0
+    assert nullable == "NO"

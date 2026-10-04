@@ -40,7 +40,7 @@ import Testing
             ).insert(writer.db)
             try writer.put(
                 Recording(
-                    id: id, createdAt: noon, tuneID: nil, source: "microphone", recordedAt: noon,
+                    id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon,
                     state: recordingState))
             if !queued { try OutboxEntry.deleteAll(writer.db) }
         }
@@ -55,7 +55,7 @@ import Testing
     ) async throws {
         try await store.write { writer in
             try Recording(
-                id: id, createdAt: noon, tuneID: nil, source: "microphone", recordedAt: noon, state: "ready",
+                id: id, createdAt: noon, tuneID: nil, source: "microphone", addedAt: noon, state: "ready",
                 playbackMime: "audio/mp4", playbackRev: playbackRev, peaksRev: peaksRev
             ).insert(writer.db)
             try file?.insert(writer.db)
@@ -98,7 +98,7 @@ import Testing
             try writer.put(
                 Recording(
                     id: "imp", createdAt: noon, tuneID: nil, source: "import", origin: "slippery_hill",
-                    originURL: "https://slippery-hill.com/recording/42", recordedAt: noon))
+                    originURL: "https://slippery-hill.com/recording/42", addedAt: noon))
         }
         let engine = engine()
 
@@ -460,7 +460,8 @@ import Testing
         [
             "id": .string(id), "created_at": .string(noon.iso), "updated_at": .string(later(60_000).iso),
             "deleted_at": .string(later(60_000).iso), "server_seq": .integer(5), "source": .string("microphone"),
-            "recorded_at": .string(noon.iso), "position": .integer(0), "state": .string("ready"),
+            "added_at": .string(noon.iso), "recorded_at": .string(noon.iso), "recorded_precision": .string("time"),
+            "position": .integer(0), "state": .string("ready"),
         ]
     }
 

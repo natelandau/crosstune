@@ -10,14 +10,20 @@ private let locale = Locale(identifier: "en_US")
 private let utc = TimeZone(identifier: "UTC")!
 // Foundation puts a narrow no-break space before the day period.
 private let recordedAtText = "Mar 14, 2026 at 8:05\u{202F}PM"
+private let takenAt = "2026-03-14T20:05:00.000Z"
 
+private func at(_ iso: String) -> Timestamp { Timestamp(iso: iso)! }
+
+/// A take by default: added and recorded at one instant, to the minute.
 private func recording(
     label: String? = nil, state: String = "ready", durationMs: Int64? = 42_000, origin: String = "own",
-    source: String = "microphone"
+    source: String = "microphone", addedAt: String = takenAt,
+    recorded: (at: String, precision: String)? = (takenAt, "time")
 ) -> Recording {
     Recording(
-        id: "r1", tuneID: "t1", source: source, origin: origin,
-        recordedAt: Timestamp(iso: "2026-03-14T20:05:00.000Z")!, label: label, state: state, durationMs: durationMs)
+        id: "r1", tuneID: "t1", source: source, origin: origin, addedAt: at(addedAt),
+        recordedAt: recorded.map { at($0.at) }, recordedPrecision: recorded?.precision, label: label, state: state,
+        durationMs: durationMs)
 }
 
 private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: String? = nil) -> RecordingFile {
@@ -60,6 +66,16 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
         #expect(RecordingText.title(recording(label: "Jam"), tuneTitle: "Cluck Old Hen", tuneNamedAbove: true) == "Jam")
     }
 
+    @Test func titlesAnUntitledRecordingWithAnUnknownRecordedDateByWhenItWasAdded() {
+        let unknown = recording(addedAt: "2026-10-04T15:00:00.000Z", recorded: nil)
+        #expect(RecordingText.title(unknown, tuneTitle: nil, locale: locale, timeZone: utc) == "Recording, Oct 4, 2026")
+    }
+
+    @Test func titlesAnUntitledRecordingWithAPartialRecordedDateAtItsPrecision() {
+        let year = recording(recorded: ("1937-01-01T00:00:00.000Z", "year"))
+        #expect(RecordingText.title(year, tuneTitle: nil, locale: locale, timeZone: utc) == "Recording, 1937")
+    }
+
     @Test func isADateOnlyWhenItFallsThroughToOne() {
         #expect(RecordingText.titleIsDate(recording(), tuneTitle: nil))
         #expect(!RecordingText.titleIsDate(recording(), tuneTitle: "Cluck Old Hen"))
@@ -69,17 +85,56 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
 }
 
 @Suite struct RecordingMetaTests {
-    @Test func leadsWithTheSiteWhenOfflineToo() {
-        let meta = RecordingText.meta(recording(origin: "slippery_hill"), file: nil, offline: true)
-        #expect(meta == ["Slippery-Hill", "0:42", SyncStatus.offlineLabel])
+    @Test func namesNoSiteForAnImportedRecording() {
+        let imported = recording(durationMs: 192_000, origin: "slippery_hill", source: "import")
+        #expect(RecordingText.meta(imported, file: file(.downloaded), dateInTitle: true) == ["3:12"])
+        #expect(
+            RecordingText.meta(imported, file: nil, offline: true) == ["3:12", SyncStatus.offlineLabel])
+        #expect(RecordingText.originLabel("own") == nil)
+        #expect(RecordingText.originLabel("future_site") == LinkText.providerLabel("other"))
     }
 
-    @Test func leadsWithTheSiteAnImportCameFrom() {
+    @Test func showsWhenARecordingWasAddedUnderDateAdded() {
+        let year = recording(addedAt: "2026-10-04T15:00:00.000Z", recorded: ("1937-01-01T00:00:00.000Z", "year"))
+        let meta = RecordingText.meta(year, file: file(.downloaded), sort: .added, locale: locale, timeZone: utc)
+        #expect(meta == ["0:42", "Added Oct 4, 2026"])
+    }
+
+    @Test func showsTheRecordedDateOrWhenItWasAddedIfUnknownUnderDateRecorded() {
+        let added = "2026-10-04T15:00:00.000Z"
+        let month = recording(durationMs: nil, addedAt: added, recorded: ("1998-05-01T00:00:00.000Z", "month"))
+        #expect(
+            RecordingText.meta(month, file: file(.downloaded), sort: .recorded, locale: locale, timeZone: utc) == [
+                "May 1998"
+            ])
+        let unknown = recording(durationMs: nil, addedAt: added, recorded: nil)
+        #expect(
+            RecordingText.meta(unknown, file: file(.downloaded), sort: .recorded, locale: locale, timeZone: utc) == [
+                "Added Oct 4, 2026"
+            ])
+    }
+
+    @Test func keepsTheAddedDateUnderDateAddedWhenTheTitleShowsTheRecordedDate() {
+        let year = recording(
+            durationMs: nil, addedAt: "2026-10-04T15:00:00.000Z", recorded: ("1937-01-01T00:00:00.000Z", "year"))
         let meta = RecordingText.meta(
-            recording(origin: "slippery_hill"), file: file(.downloaded), locale: locale, timeZone: utc)
-        #expect(meta == ["Slippery-Hill", "0:42", recordedAtText])
-        #expect(RecordingText.originLabel("own") == nil)
-        #expect(RecordingText.originLabel("future_site") == "future_site")
+            year, file: file(.downloaded), dateInTitle: true, sort: .added, locale: locale, timeZone: utc)
+        #expect(meta == ["Added Oct 4, 2026"])
+    }
+
+    @Test func leavesTheAddedDateOutUnderDateAddedWhenTheTitleAlreadyShowsIt() {
+        let unknown = recording(durationMs: nil, recorded: nil)
+        #expect(RecordingText.meta(unknown, file: file(.downloaded), dateInTitle: true, sort: .added).isEmpty)
+    }
+
+    @Test func treatsARecordedDateWhosePrecisionThisClientPredatesAsUnknown() {
+        let newer = recording(
+            durationMs: nil, addedAt: "2026-10-04T15:00:00.000Z", recorded: ("1930-01-01T00:00:00.000Z", "decade"))
+        #expect(
+            RecordingText.meta(newer, file: file(.downloaded), sort: .recorded, locale: locale, timeZone: utc) == [
+                "Added Oct 4, 2026"
+            ])
+        #expect(RecordingText.title(newer, tuneTitle: nil, locale: locale, timeZone: utc) == "Recording, Oct 4, 2026")
     }
 
     @Test func showsTheDateWhenNothingNeedsAttention() {
@@ -161,6 +216,82 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
     }
 }
 
+@Suite struct RecordingDateTextTests {
+    @Test func formatsAPartialDateAtItsPrecision() {
+        #expect(RecordingText.recordedDate(at("1937-01-01T00:00:00Z"), precision: .year, locale: locale) == "1937")
+        #expect(
+            RecordingText.recordedDate(at("1998-05-01T00:00:00Z"), precision: .month, locale: locale) == "May 1998")
+        #expect(
+            RecordingText.recordedDate(at("1998-09-01T00:00:00Z"), precision: .month, locale: locale) == "Sep 1998")
+        #expect(
+            RecordingText.recordedDate(at("1998-10-03T00:00:00Z"), precision: .day, locale: locale) == "Oct 3, 1998")
+    }
+
+    @Test func formatsATakeWithItsDateAndTime() {
+        #expect(
+            RecordingText.recordedDate(at("2026-10-03T16:12:00Z"), precision: .time, locale: locale, timeZone: utc)
+                == "Oct 3, 2026 at 4:12\u{202F}PM")
+    }
+
+    @Test func keepsAPartialDateInItsOwnPeriodWestOfUTC() throws {
+        let west = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        // Proves the zone bites: local time reads the stored instant as the year before.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = west
+        #expect(calendar.component(.year, from: at("1937-01-01T00:00:00Z").date) == 1936)
+        #expect(
+            RecordingText.recordedDate(at("1937-01-01T00:00:00Z"), precision: .year, locale: locale, timeZone: west)
+                == "1937")
+        #expect(
+            RecordingText.recordedDate(at("1998-05-01T00:00:00Z"), precision: .month, locale: locale, timeZone: west)
+                == "May 1998")
+        #expect(
+            RecordingText.recordedDate(at("1998-10-03T00:00:00Z"), precision: .day, locale: locale, timeZone: west)
+                == "Oct 3, 1998")
+    }
+
+    @Test func readsATakeAndTheAddedDayInTheGivenZone() throws {
+        let west = try #require(TimeZone(identifier: "America/Los_Angeles"))
+        #expect(
+            RecordingText.recordedDate(at("2026-10-03T16:12:00Z"), precision: .time, locale: locale, timeZone: west)
+                == "Oct 3, 2026 at 9:12\u{202F}AM")
+        #expect(RecordingText.added(at("2026-10-04T03:00:00Z"), locale: locale, timeZone: west) == "Added Oct 3, 2026")
+    }
+
+    @Test func namesTheDayARecordingWasAdded() {
+        #expect(RecordingText.added(at("2026-10-04T15:00:00Z"), locale: locale, timeZone: utc) == "Added Oct 4, 2026")
+    }
+
+    @Test func showsTheRecordedDateWhenKnownAndWhenItWasAddedOtherwise() {
+        let added = "2026-10-04T15:00:00Z"
+        let year = recording(addedAt: added, recorded: ("1937-01-01T00:00:00Z", "year"))
+        #expect(RecordingText.date(year, locale: locale, timeZone: utc) == "1937")
+        #expect(
+            RecordingText.date(recording(addedAt: added, recorded: nil), locale: locale, timeZone: utc)
+                == "Added Oct 4, 2026")
+    }
+}
+
+@Suite struct RecordingSourceLineTests {
+    private func imported(_ url: String?, origin: String = "slippery_hill") -> Recording {
+        Recording(id: "r1", tuneID: nil, source: "import", origin: origin, originURL: url, addedAt: at(takenAt))
+    }
+
+    @Test func namesTheSiteAnImportCameFromAndOpensItsPage() throws {
+        let page = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
+        let line = try #require(MediaRow.SourceLine(recording: imported(page)))
+        #expect(line.title == "Slippery-Hill")
+        #expect(line.url == URL(string: page))
+        #expect(line.name == "Open on Slippery-Hill")
+    }
+
+    @Test func showsNoSourceForAnOwnRecordingOrAPageItCannotOpen() {
+        #expect(MediaRow.SourceLine(recording: recording()) == nil)
+        #expect(MediaRow.SourceLine(recording: imported(nil)) == nil)
+        #expect(MediaRow.SourceLine(recording: imported("javascript:alert(1)")) == nil)
+    }
+}
+
 @Suite struct RecordingControlTests {
     @Test func closeBeatsPlayForALoadedItem() {
         #expect(RecordingText.control(recording(), file: nil, loaded: true, downloading: false) == .close)
@@ -231,6 +362,14 @@ private func file(_ state: LocalFileState, fileName: String? = "r1.m4a", error: 
             recording: recording(), file: file(.downloaded), tuneTitle: nil, locale: locale, timeZone: utc)
         #expect(row.title == "Recording, \(recordedAtText)")
         #expect(row.meta == "0:42")
+    }
+
+    @Test func showsWhenItWasAddedUnderDateAddedBesideARecordedDateTitle() {
+        let row = RecordingRowContent(
+            recording: recording(), file: file(.downloaded), tuneTitle: nil, sort: .added, locale: locale,
+            timeZone: utc)
+        #expect(row.title == "Recording, \(recordedAtText)")
+        #expect(row.meta == "0:42 · Added Mar 14, 2026")
     }
 
     @Test func dimsADownloadOffline() {

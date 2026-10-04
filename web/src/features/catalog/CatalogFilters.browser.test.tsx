@@ -16,6 +16,7 @@ import {
   type Facet,
   type FacetValues,
 } from './filters'
+import { FILTERS, removeFilterLabel } from '../../ui/filterCopy'
 
 const facets: FacetValues = {
   ...facetValues([]),
@@ -215,12 +216,12 @@ describe('CatalogFilters', () => {
     renderIonic(<Host start={{ ...DEFAULT_FILTERS, mode: 'major', archived: true }} />, {
       db: openTestDb(),
     })
-    const pill = page.getByRole('button', { name: 'Remove filter major' })
+    const pill = page.getByRole('button', { name: removeFilterLabel('major') })
     // A pill removes a filter; it is not a toggle, so it never announces aria-pressed.
     await expect.element(pill).not.toHaveAttribute('aria-pressed')
     await pill.click()
     await expect.poll(() => state().mode).toBe('all')
-    await page.getByRole('button', { name: 'Remove filter Archived shown' }).click()
+    await page.getByRole('button', { name: removeFilterLabel('Archived shown') }).click()
     await expect.poll(() => state().archived).toBe(false)
   })
 
@@ -234,12 +235,12 @@ describe('CatalogFilters', () => {
       { db: openTestDb() },
     )
     const mandolin = page.getByRole('button', {
-      name: `Remove filter ${withInstrumentLabel('mandolin', standard)}`,
+      name: removeFilterLabel(withInstrumentLabel('mandolin', standard)),
     })
     await expect
       .element(
         page.getByRole('button', {
-          name: `Remove filter ${withInstrumentLabel('violin', standard)}`,
+          name: removeFilterLabel(withInstrumentLabel('violin', standard)),
         }),
       )
       .toBeVisible()
@@ -307,7 +308,7 @@ describe('CatalogFilters', () => {
 describe('CatalogFilterSheet', () => {
   it('gives each facet row the shared field shape and the text inset', async () => {
     renderIonic(<Host sheet />, { db: openTestDb() })
-    await expect.element(page.getByText('Filters')).toBeVisible()
+    await expect.element(page.getByText(FILTERS)).toBeVisible()
     const open = () => document.querySelector('ion-modal:not(.overlay-hidden)')!
     await expect
       .poll(() => Array.from(open().querySelectorAll('[data-row-label]')).map((e) => e.textContent))

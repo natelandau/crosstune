@@ -11,7 +11,7 @@ private func entry(
     _ tuneID: String, recordings: Int = 0, playable: Bool = true, links: [(String, String)] = []
 ) -> PlaylistEntry {
     let rows = (0..<recordings).map {
-        Recording(id: "\(tuneID)-r\($0)", createdAt: noon, tuneID: tuneID, source: "microphone", recordedAt: noon)
+        Recording(id: "\(tuneID)-r\($0)", createdAt: noon, tuneID: tuneID, source: "microphone", addedAt: noon)
     }
     return PlaylistEntry(
         userTune: UserTune(tuneID: tuneID, status: "known"), recordings: rows,

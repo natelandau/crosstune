@@ -90,7 +90,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.meta(.keepOffline, as: Bool.self) == nil)
     #expect(
         try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == [
-            "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+            "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
         ])
 }
 
@@ -137,7 +137,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.pendingChangeCount() == 1)
     #expect(
         try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == [
-            "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+            "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
         ])
     #expect(try await store.read { db in try db.columns(in: "tunes").map(\.name) }.contains("nickname") == false)
     #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: audio).path()))

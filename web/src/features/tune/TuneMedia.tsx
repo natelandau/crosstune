@@ -33,7 +33,7 @@ import { NEW_RECORDING } from '../recording/RecordModal'
 import { useRecord } from '../recording/useRecord'
 import { retryKind } from '../recordings/recordingRow'
 import { RecordingItem } from '../recordings/RecordingItem'
-import { RenameRecordingSheet } from '../recordings/RenameRecordingSheet'
+import { EditRecordingSheet } from '../recordings/EditRecordingSheet'
 import { useRecordingActions } from '../recordings/useRecordingActions'
 import type { RecordingView } from '../recordings/useRecordings'
 import { useSearchProviders } from '../settings/searchProviders'
@@ -64,7 +64,7 @@ export function TuneMedia({
   const engine = useSyncEngine()
   const providers = useSearchProviders()
   const [pasting, setPasting] = useState(false)
-  const [renaming, setRenaming] = useState<RecordingView | null>(null)
+  const [editing, setEditing] = useState<RecordingView | null>(null)
   const [finding, setFinding] = useState(false)
   // No Add to tune: every recording here is already filed under the tune being looked at.
   // The pin is read here rather than passed down, so the rows that show it are the ones that
@@ -77,7 +77,7 @@ export function TuneMedia({
   const pinnedRecordingId = userTune?.play_recording_id ?? null
   const pinnedLinkId = userTune?.play_link_id ?? null
   const { error, run, retry, actionsFor } = useRecordingActions({
-    onRename: setRenaming,
+    onEdit: setEditing,
     pin: userTune ? { userTuneId: userTune.id, recordingId: pinnedRecordingId } : undefined,
   })
 
@@ -205,7 +205,7 @@ export function TuneMedia({
         )}
       </Group>
       <PasteLinkSheet tuneId={pasting ? tuneId : null} onClose={() => setPasting(false)} />
-      <RenameRecordingSheet view={renaming} onClose={() => setRenaming(null)} />
+      <EditRecordingSheet view={editing} onClose={() => setEditing(null)} />
       <FindRecordingsSheet
         tuneId={finding ? tuneId : null}
         service={only ?? undefined}

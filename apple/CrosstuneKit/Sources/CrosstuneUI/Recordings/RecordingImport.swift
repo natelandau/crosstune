@@ -62,7 +62,7 @@ public enum RecordingImport {
             return try await Commands(store: store).addUploadedFile(
                 recordingID, fileName: fileName, contentType: mime, bytes: bytes, tuneID: tuneID,
                 label: clippedRecordingLabel(url.deletingPathExtension().lastPathComponent),
-                recordedAt: time, peaksFileName: peaksFileName, at: time)
+                peaksFileName: peaksFileName, at: time)
         } catch {
             cleanUpAfterFailure(fileName: fileName, peaksFileName: peaksFileName, in: store)
             throw error

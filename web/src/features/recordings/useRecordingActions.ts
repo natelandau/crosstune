@@ -1,4 +1,12 @@
-import { ExternalLink, FolderInput, FolderOutput, Pencil, Scissors, Trash2 } from 'lucide-react'
+import {
+  ArrowRight,
+  ExternalLink,
+  FolderInput,
+  FolderOutput,
+  Pencil,
+  Scissors,
+  Trash2,
+} from 'lucide-react'
 import { useState } from 'react'
 import { deleteRecording, retryUpload, updateRecording } from '../../commands/recordings'
 import { setPlaySource } from '../../commands/tunes'
@@ -11,19 +19,10 @@ import type { RowAction } from '../../ui/Row'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { pinRowAction } from '../tune/playSourceText'
 import { TRIM } from '../recording-screen/TrimView'
-import { openOn, RENAME } from './recordingCopy'
-import { deleteRecordingMessage, originLabel } from './recordingRow'
+import { openOn, EDIT } from './recordingCopy'
+import { GO_TO_TUNE } from './recordingNames'
+import { deleteRecordingMessage, originLink } from './recordingRow'
 import type { RecordingView } from './useRecordings'
-
-/** Only a page, never a script or a local scheme, may be opened from a stored URL. */
-export function isWebUrl(value: string): boolean {
-  try {
-    const { protocol } = new URL(value)
-    return protocol === 'http:' || protocol === 'https:'
-  } catch {
-    return false
-  }
-}
 
 export const DELETE_RECORDING_TITLE = 'Delete this recording?'
 export const REMOVE_FROM_TUNE = 'Remove from tune'
@@ -37,29 +36,30 @@ export interface RecordingActions {
   /** Runs any other mutation the same list offers, reporting it on the same one line. */
   run: (action: () => Promise<unknown>) => void
   retry: (view: RecordingView, kind: 'upload' | 'transcode') => void
-  /** A row's actions: rename it, file or unfile it, delete it. */
+  /** A row's actions: edit it, file or unfile it, delete it. */
   actionsFor: (view: RecordingView) => RowAction[]
   /**
-   * The recording screen's menu: trim it, rename it, file or unfile it, open it on the site it
+   * The recording screen's menu: trim it, edit it, file or unfile it, open it on the site it
    * came from, delete it.
    */
   menuFor: (view: RecordingView) => MenuItem[]
 }
 
 /**
- * What every list of recordings, and the recording screen, does to a recording: rename it,
+ * What every list of recordings, and the recording screen, does to a recording: edit it,
  * file it, delete it, unstick it.
  */
 export function useRecordingActions({
-  onRename,
+  onEdit,
   onTrim,
   trimBlocked,
   onAddToTune,
+  onOpenTune,
   onDeleted,
   pin,
 }: {
-  /** Left out where nothing offers Rename. */
-  onRename?: (view: RecordingView) => void
+  /** Left out where nothing offers Edit. */
+  onEdit?: (view: RecordingView) => void
   /** Left out where nothing offers Trim; only the recording screen's menu does, switching to
    * the trim view in place. */
   onTrim?: () => void
@@ -69,6 +69,8 @@ export function useRecordingActions({
   onDeleted?: () => void
   /** Left out by a list where every recording is already filed under the tune it belongs to. */
   onAddToTune?: (view: RecordingView) => void
+  /** Left out where nothing offers Go to tune; a filed recording's row opens its tune. */
+  onOpenTune?: (view: RecordingView) => void
   /** Left out where nothing offers pinning; only a tune's own list does. */
   pin?: { userTuneId: string; recordingId: string | null }
 }): RecordingActions {
@@ -139,6 +141,11 @@ export function useRecordingActions({
     }
   }
 
+  const goToTuneAction = (view: RecordingView): RowAction | null =>
+    onOpenTune && view.tuneId
+      ? { label: GO_TO_TUNE, icon: ArrowRight, tone: 'neutral', onPress: () => onOpenTune(view) }
+      : null
+
   const deleteAction = (view: RecordingView): RowAction => ({
     label: DELETE,
     icon: Trash2,
@@ -146,15 +153,13 @@ export function useRecordingActions({
     onPress: () => void remove(view),
   })
 
-  const renameAction = (view: RecordingView): RowAction | null =>
-    onRename
-      ? { label: RENAME, icon: Pencil, tone: 'neutral', onPress: () => onRename(view) }
-      : null
+  const editAction = (view: RecordingView): RowAction | null =>
+    onEdit ? { label: EDIT, icon: Pencil, tone: 'neutral', onPress: () => onEdit(view) } : null
 
   const openOriginAction = (view: RecordingView): RowAction | null => {
-    const { origin, origin_url: url } = view.recording
-    const site = originLabel(origin)
-    if (!site || !url || !isWebUrl(url)) return null
+    const link = originLink(view.recording)
+    if (!link) return null
+    const { site, url } = link
     return {
       label: openOn(site),
       icon: ExternalLink,
@@ -173,9 +178,13 @@ export function useRecordingActions({
   }
 
   const actionsFor = (view: RecordingView): RowAction[] =>
-    [renameAction(view), filing(view), pinAction(view), deleteAction(view)].filter(
-      (action): action is RowAction => action !== null,
-    )
+    [
+      editAction(view),
+      filing(view),
+      goToTuneAction(view),
+      pinAction(view),
+      deleteAction(view),
+    ].filter((action): action is RowAction => action !== null)
 
   const menuFor = (view: RecordingView): MenuItem[] => {
     const file = filing(view)
@@ -191,7 +200,7 @@ export function useRecordingActions({
             },
           ]
         : []),
-      ...[renameAction(view), file, openOriginAction(view)].filter(
+      ...[editAction(view), file, openOriginAction(view)].filter(
         (action): action is RowAction => action !== null,
       ),
       deleteAction(view),

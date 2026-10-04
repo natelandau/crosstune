@@ -362,10 +362,6 @@ private struct V4Fixture {
         #expect(rows.map { $0["origin"] as String } == ["own", "slippery_hill"])
         #expect(rows.map { $0["origin_url"] as String? } == [nil, "https://www.slippery-hill.com/recordings/1"])
         #expect(rows.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
-        let imported = try #require(try Recording.fetchOne(db, key: "r-2"))
-        #expect(imported.origin == "slippery_hill")
-        #expect(imported.originURL == "https://www.slippery-hill.com/recordings/1")
-        #expect(imported.extra == ["theme": .string("dark")])
 
         let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
         #expect(
@@ -376,6 +372,73 @@ private struct V4Fixture {
                 // No row to read, so the queued change takes the default.
                 #"{"label":"Take 4","origin":"own","origin_url":null}"#,
                 #"{"title":"Jam"}"#,
+            ])
+    }
+}
+
+@Test func theV11MigrationSplitsTheRecordingDateAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v10")
+    let time = "2026-09-25T12:00:00.000Z"
+    let played = "2026-09-20T18:04:11.000Z"
+    try queue.write { db in
+        // `r-4` was pulled after the server split the date, so this build kept the new fields
+        // in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, recorded_at, position, state, extra)
+                VALUES
+                    ('r-1', ?, ?, 0, 'microphone', ?, 0, 'ready', '{}'),
+                    ('r-2', ?, ?, 0, 'upload', ?, 1, 'ready', '{}'),
+                    ('r-3', ?, ?, 0, 'import', ?, 2, 'ready', '{}'),
+                    ('r-4', ?, ?, 3, 'import', '1937-01-01T00:00:00.000Z', 3, 'ready',
+                        '{"added_at":"2026-09-24T09:00:00.000Z","recorded_precision":"year","theme":"dark"}')
+                """,
+            arguments: [time, time, played, time, time, played, time, time, played, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Take 1","recorded_at":"\(played)","source":"microphone"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2","recorded_at":"\(played)","source":"upload"}'),
+                    ('recordings', 'r-3', 'delete', ?, NULL),
+                    ('recordings', 'r-4', 'upsert', ?,
+                        '{"added_at":"2026-09-24T09:00:00.000Z","recorded_at":"1937-01-01T00:00:00.000Z","recorded_precision":"year","source":"import"}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam","recorded_at":"x"}')
+                """,
+            arguments: [time, time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v11")
+
+    try queue.read { db in
+        let rows = try Row.fetchAll(
+            db, sql: "SELECT added_at, recorded_at, recorded_precision, extra FROM recordings ORDER BY id")
+        #expect(rows.map { $0["added_at"] as String } == [played, played, played, "2026-09-24T09:00:00.000Z"])
+        #expect(rows.map { $0["recorded_at"] as String? } == [played, nil, nil, "1937-01-01T00:00:00.000Z"])
+        #expect(rows.map { $0["recorded_precision"] as String? } == ["time", nil, nil, "year"])
+        #expect(rows.map { $0["extra"] as String } == ["{}", "{}", "{}", #"{"theme":"dark"}"#])
+        let take = try #require(try Recording.fetchOne(db, key: "r-1"))
+        #expect(take.addedAt == Timestamp(iso: played))
+        #expect(take.recordedAt == Timestamp(iso: played))
+        #expect(take.recordedPrecision == "time")
+        let upload = try #require(try Recording.fetchOne(db, key: "r-2"))
+        #expect(upload.addedAt == Timestamp(iso: played))
+        #expect(upload.recordedAt == nil)
+        #expect(upload.recordedPrecision == nil)
+        let pulled = try #require(try Recording.fetchOne(db, key: "r-4"))
+        #expect(pulled.recordedPrecision == "year")
+        #expect(pulled.extra == ["theme": .string("dark")])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"label":"Take 1","recorded_at":"\#(played)","source":"microphone","added_at":"\#(played)","recorded_precision":"time"}"#,
+                #"{"label":"Take 2","recorded_at":null,"source":"upload","added_at":"\#(played)","recorded_precision":null}"#,
+                nil,
+                // Already in the new shape, so left as queued.
+                #"{"added_at":"2026-09-24T09:00:00.000Z","recorded_at":"1937-01-01T00:00:00.000Z","recorded_precision":"year","source":"import"}"#,
+                #"{"title":"Jam","recorded_at":"x"}"#,
             ])
     }
 }

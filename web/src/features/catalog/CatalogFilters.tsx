@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { Capsule, PressTarget } from '../../ui/Capsule'
+import { removeFilterLabel } from '../../ui/filterCopy'
 import { KeyPill } from '../../ui/KeyPill'
 import { Rail } from '../../ui/Rail'
 import { tuningKeyInstrument, withInstrumentLabel } from '../settings/instruments'
@@ -118,7 +119,7 @@ export function CatalogFilters({
             <Capsule
               key={pill.key}
               filled
-              label={`Remove filter ${pill.label}`}
+              label={removeFilterLabel(pill.label)}
               onPress={() => onChange(pill.patch)}
             >
               {pill.label}

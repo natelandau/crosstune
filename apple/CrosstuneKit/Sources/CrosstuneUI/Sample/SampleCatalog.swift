@@ -229,7 +229,8 @@
             return RecordingEntry(
                 recording: Recording(
                     id: id, createdAt: recordedAt, tuneID: tuneEntry?.tune.id, source: "microphone",
-                    recordedAt: recordedAt, label: label, state: state, durationMs: seconds.map { $0 * 1000 }),
+                    recordedAt: recordedAt, recordedPrecision: RecordingPrecision.time.rawValue, label: label,
+                    state: state, durationMs: seconds.map { $0 * 1000 }),
                 file: file.map {
                     RecordingFile(
                         id: id, localState: $0, fileName: "\(id).m4a", contentType: "audio/mp4",

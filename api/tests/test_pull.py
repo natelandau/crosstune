@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.helpers import T0, T1, change, pull, push, uid
+from tests.helpers import T0, T1, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
 
@@ -129,7 +129,7 @@ async def test_pull_scopes_every_table_to_the_caller(client, auth_headers) -> No
                 provider="other",
                 title="A take",
             ),
-            change("recordings", rec, T0, source="microphone", recorded_at=T0.isoformat()),
+            recording(rec, T0),
             change("recording_loops", loop, T0, recording_id=rec, start_ms=0, end_ms=4000, color=0),
         )
         return {

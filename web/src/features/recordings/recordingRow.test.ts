@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PROVIDER_LABELS } from '../../constants'
 import type { StorageFigures } from '../../db/meta'
 import type { RecordingFile } from '../../db/recordings'
 import type { LocalRecording } from '../../db/types'
@@ -61,10 +62,39 @@ describe('recordingTitle', () => {
     ).toBe('Jam recording')
   })
 
+  it('titles an untitled recording with an unknown recorded date by when it was added', () => {
+    expect(
+      recordingTitle(
+        view({
+          recording: {
+            label: null,
+            added_at: '2026-10-04T15:00:00.000Z',
+            recorded_at: null,
+            recorded_precision: null,
+          },
+        }),
+      ),
+    ).toBe('Recording, Oct 4, 2026')
+  })
+
+  it('titles an untitled recording with a partial recorded date at its precision', () => {
+    expect(
+      recordingTitle(
+        view({
+          recording: {
+            label: null,
+            recorded_at: '1937-01-01T00:00:00.000Z',
+            recorded_precision: 'year',
+          },
+        }),
+      ),
+    ).toBe('Recording, 1937')
+  })
+
   it('falls back to Recording, <date> when there is neither', () => {
-    // A literal string, not derived from the module's own toLocaleString call, so a format
-    // regression in recordedAtLabel cannot pass silently. vitest.config.ts pins TZ and LANG so
-    // this reads the same wherever the suite runs.
+    // A literal string, not derived from the module's own formatter, so a format regression
+    // in the title's date cannot pass silently. vitest.config.ts pins TZ so this reads the same
+    // wherever the suite runs.
     const recordedAt = '2026-03-14T20:05:00.000Z'
     expect(recordingTitle(view({ recording: { label: null, recorded_at: recordedAt } }))).toBe(
       'Recording, Mar 14, 2026, 8:05 PM',
@@ -91,11 +121,12 @@ describe('originLabel', () => {
   it('names an import source and leaves an own recording unnamed', () => {
     expect(originLabel('slippery_hill')).toBe('Slippery-Hill')
     expect(originLabel('own')).toBeNull()
+    expect(originLabel('future_site')).toBe(PROVIDER_LABELS.other)
   })
 })
 
 describe('recordingMeta', () => {
-  it('names an imported recording origin first, once', () => {
+  it('names no site for an imported recording', () => {
     const result = recordingMeta(
       view({
         recording: {
@@ -108,14 +139,69 @@ describe('recordingMeta', () => {
       null,
       { dateInTitle: true },
     )
-    expect(result).toEqual(['Slippery-Hill', '3:12'])
+    expect(result).toEqual(['3:12'])
   })
 
-  it('leaves an own recording meta without an origin', () => {
-    const result = recordingMeta(view({ recording: { duration_ms: 192_000 } }), null, {
-      dateInTitle: true,
-    })
-    expect(result).toEqual(['3:12'])
+  it('shows when a recording was added under Date added', () => {
+    const result = recordingMeta(
+      view({
+        recording: {
+          duration_ms: 42_000,
+          added_at: '2026-10-04T15:00:00.000Z',
+          recorded_at: '1937-01-01T00:00:00.000Z',
+          recorded_precision: 'year',
+        },
+      }),
+      null,
+      { sort: 'added' },
+    )
+    expect(result).toEqual(['0:42', 'Added Oct 4, 2026'])
+  })
+
+  it('shows the recorded date, or when it was added if unknown, under Date recorded', () => {
+    const added_at = '2026-10-04T15:00:00.000Z'
+    const known = recordingMeta(
+      view({
+        recording: {
+          added_at,
+          recorded_at: '1998-05-01T00:00:00.000Z',
+          recorded_precision: 'month',
+        },
+      }),
+      null,
+      { sort: 'recorded' },
+    )
+    expect(known).toEqual(['May 1998'])
+    const unknown = recordingMeta(
+      view({ recording: { added_at, recorded_at: null, recorded_precision: null } }),
+      null,
+      { sort: 'recorded' },
+    )
+    expect(unknown).toEqual(['Added Oct 4, 2026'])
+  })
+
+  it('keeps the added date under Date added when the title shows the recorded date', () => {
+    const result = recordingMeta(
+      view({
+        recording: {
+          added_at: '2026-10-04T15:00:00.000Z',
+          recorded_at: '1937-01-01T00:00:00.000Z',
+          recorded_precision: 'year',
+        },
+      }),
+      null,
+      { dateInTitle: true, sort: 'added' },
+    )
+    expect(result).toEqual(['Added Oct 4, 2026'])
+  })
+
+  it('leaves the added date out under Date added when the title already shows it', () => {
+    const result = recordingMeta(
+      view({ recording: { recorded_at: null, recorded_precision: null } }),
+      null,
+      { dateInTitle: true, sort: 'added' },
+    )
+    expect(result).toEqual([])
   })
 
   it('leaves the date out when the title already carries it', () => {

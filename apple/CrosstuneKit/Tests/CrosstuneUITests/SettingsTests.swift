@@ -314,7 +314,7 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         ] {
             try Data(repeating: 0, count: bytes).write(to: store.audioFolder.appending(path: "\(id).m4a"))
             try await store.write { writer in
-                try Recording(id: id, tuneID: nil, source: "microphone", recordedAt: noon, state: state)
+                try Recording(id: id, tuneID: nil, source: "microphone", addedAt: noon, state: state)
                     .insert(writer.db)
                 try RecordingFile(id: id, localState: local, fileName: "\(id).m4a", bytes: Int64(bytes))
                     .insert(writer.db)

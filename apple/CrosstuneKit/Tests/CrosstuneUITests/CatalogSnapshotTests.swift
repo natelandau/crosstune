@@ -25,7 +25,8 @@ struct CatalogStandIn: View {
             facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments), visible: visible,
             outcome: outcome, total: total, archivedCount: entries.count(where: \.isArchived))
         VStack(alignment: .leading, spacing: 8) {
-            CatalogSearchField(
+            FilterSearchField(
+                prompt: CatalogScreen.searchPrompt,
                 query: .constant(query), isFocused: $searchFocused,
                 filterCount: filters.sheetCount, onSubmit: {}, onFilters: {})
             CatalogFilterBar(results: results, errors: [], onChange: { _ in })

@@ -5,7 +5,6 @@ import SwiftUI
 /// set.
 struct CatalogFilterBar: View {
     nonisolated static let archivedShown = "Archived shown"
-    nonisolated static let removeFilter = "Remove filter"
     nonisolated static let allKeys = "All keys"
     nonisolated static let allTypes = "All types"
     /// The id of a rail's leading All chip.
@@ -160,67 +159,5 @@ private struct ChoiceCapsuleLabel: View {
             .padding(.vertical, spacing.chipVertical)
             .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
             .tapTarget()
-    }
-}
-
-/// The control that opens the filter sheet, in the search field on iPhone and iPad and the
-/// toolbar on the Mac. It shows and says the count of set sheet filters, since filters persist
-/// and a stale one must announce itself.
-struct CatalogFiltersButton: View {
-    nonisolated static let filters = "Filters"
-    static let systemImage = "line.3.horizontal.decrease"
-
-    /// The spoken name, with the count once one is set: "Filters, 2 set".
-    nonisolated static func name(setCount: Int) -> String {
-        setCount > 0 ? "\(filters), \(setCount) set" : filters
-    }
-
-    let setCount: Int
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: Self.systemImage)
-                    .symbolVariant(setCount > 0 ? .circle.fill : .circle)
-                if setCount > 0 {
-                    Text(setCount, format: .number)
-                        .monospacedDigit()
-                }
-            }
-            #if os(iOS)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.rect)
-            #endif
-        }
-        .accessibilityLabel(Self.name(setCount: setCount))
-        .help(Self.name(setCount: setCount))
-    }
-}
-
-/// A set filter as a filled capsule named for its value, which removes the filter when pressed.
-private struct RemoveFilterCapsule: View {
-    let label: String
-    let action: () -> Void
-
-    @Environment(\.spacing) private var spacing
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: spacing(6)) {
-                Text(label)
-                    .lineLimit(1)
-                Image(systemName: "xmark")
-                    .font(.caption.weight(.semibold))
-            }
-            .font(.subheadline)
-            .foregroundStyle(.white)
-            .padding(.horizontal, spacing(12))
-            .padding(.vertical, spacing.chipVertical)
-            .background(.tint, in: .capsule)
-            .tapTarget()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(CatalogFilterBar.removeFilter) \(label)")
     }
 }

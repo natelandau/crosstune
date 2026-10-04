@@ -38,7 +38,7 @@ private func songItem(_ url: String = queuedSong) throws -> PlayerItem {
 }
 
 private func recordingItem() -> PlayerItem {
-    let row = Recording(id: "r1", tuneID: "t1", source: "microphone", recordedAt: noon, label: "Jam", state: "ready")
+    let row = Recording(id: "r1", tuneID: "t1", source: "microphone", addedAt: noon, label: "Jam", state: "ready")
     return .recording(row, tuneTitle: "Kitchen Girl")
 }
 

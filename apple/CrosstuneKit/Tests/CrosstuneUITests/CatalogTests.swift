@@ -137,8 +137,8 @@ private func ids(_ entries: [CatalogEntry]) -> [String] { entries.map(\.tune.id)
         #expect(filters.sheetCount == 3)
         #expect(filters.sheetReset == CatalogFilters(status: "learning", facets: [.key: "D", .tuneType: "Reel"]))
         #expect(CatalogFilters(status: "known", facets: [.key: "D", .tuneType: "Reel"]).sheetCount == 0)
-        #expect(CatalogFiltersButton.name(setCount: 0) == "Filters")
-        #expect(CatalogFiltersButton.name(setCount: 2) == "Filters, 2 set")
+        #expect(FiltersButton.name(setCount: 0) == "Filters")
+        #expect(FiltersButton.name(setCount: 2) == "Filters, 2 set")
     }
 
     @Test func keepsKeyAndTypeOnTheScreenAndTheRestInTheSheet() {

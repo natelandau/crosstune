@@ -12,7 +12,7 @@ private let album = "https://music.apple.com/us/album/x/2"
 private func rec(_ id: String, tuneID: String? = tune, deleted: Bool = false) -> Recording {
     Recording(
         id: id, createdAt: noon, deletedAt: deleted ? noon : nil, tuneID: tuneID, source: "microphone",
-        recordedAt: noon)
+        addedAt: noon)
 }
 
 private func link(_ id: String, _ provider: String, url: String? = nil, tuneID: String = tune, deleted: Bool = false)

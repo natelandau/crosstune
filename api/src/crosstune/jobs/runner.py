@@ -7,7 +7,7 @@ import contextlib
 import logging
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeGuard
 
@@ -43,7 +43,7 @@ from crosstune.models.user import utc_now
 from crosstune.recordings.service import bump_server_seq, enqueue_transcode, ensure_trim_job
 from crosstune.recordings.trim import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME, delete_best_effort, original_key, upload_key
-from crosstune.vocabulary import JobKind
+from crosstune.vocabulary import JobKind, RecordingPrecision
 
 if TYPE_CHECKING:
     import uuid
@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     from crosstune.config import Settings
+    from crosstune.jobs.importer import FetchedImport
     from crosstune.storage.store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -648,7 +649,7 @@ class JobRunner:
                 try:
                     async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
                         path = Path(folder) / "import"
-                        size = await fetch_import(
+                        fetched = await fetch_import(
                             self._import_client(),
                             recording,
                             path,
@@ -657,7 +658,7 @@ class JobRunner:
                         )
                         write.written = True
                         await self._store.upload(path, write.key, IMPORT_MIME)
-                        await self._commit_import(session, job, size, write)
+                        await self._commit_import(session, job, fetched, write)
                 except asyncio.CancelledError:
                     # A commit the cancel interrupted may have landed and queued a transcode
                     # of this file, so only an upload that never reached a commit is removed.
@@ -686,11 +687,13 @@ class JobRunner:
         return self._http_client
 
     async def _commit_import(
-        self, session: AsyncSession, job: Job, size: int, write: _ImportWrite
+        self, session: AsyncSession, job: Job, fetched: FetchedImport, write: _ImportWrite
     ) -> None:
         """Under the user's lock, check the quota and hand the uploaded file to a transcode.
 
-        Leaves `write.committed` false when the job is no longer this attempt's to finish.
+        Dates the recording from its page's year unless it already has a recorded date,
+        which the user may have set while the file downloaded. Leaves `write.committed`
+        false when the job is no longer this attempt's to finish.
 
         Raises:
             ImportRefused: When the file would take the user past their quota.
@@ -701,9 +704,12 @@ class JobRunner:
                 return
             recording, stored_job = prepared
             used = await used_bytes(session, recording.user_id, exclude=recording.id)
-            if used + size > self._settings.storage_quota_bytes:
+            if used + fetched.size > self._settings.storage_quota_bytes:
                 raise ImportRefused(OVER_QUOTA)
-            recording.playback_bytes = size
+            if fetched.year is not None and recording.recorded_at is None:
+                recording.recorded_at = datetime(fetched.year, 1, 1, tzinfo=UTC)
+                recording.recorded_precision = RecordingPrecision.YEAR.value
+            recording.playback_bytes = fetched.size
             recording.state = "uploaded"
             recording.error = None
             bump_server_seq(recording)

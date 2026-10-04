@@ -28,6 +28,11 @@ CHECKS = {
     (Recording, "ck_recordings_source"): ("source", vocabulary.RecordingSource, False),
     (Recording, "ck_recordings_state"): ("state", vocabulary.RecordingState, False),
     (Recording, "ck_recordings_origin"): ("origin", vocabulary.RecordingOrigin, False),
+    (Recording, "ck_recordings_recorded_precision"): (
+        "recorded_precision",
+        vocabulary.RecordingPrecision,
+        True,
+    ),
     (UserSettings, "ck_user_settings_audio_quality"): (
         "audio_quality",
         vocabulary.AudioQuality,
@@ -85,6 +90,16 @@ def test_loop_start_and_length_check_constraints_match_their_sql() -> None:
     assert str(_constraint(RecordingLoop, "ck_recording_loops_min_length").sqltext) == (
         f"deleted_at IS NOT NULL OR end_ms - start_ms >= {vocabulary.MIN_LOOP_MS}"
     )
+
+
+def test_recorded_date_check_constraint_pairs_the_date_and_its_precision() -> None:
+    assert str(_constraint(Recording, "ck_recordings_recorded_date").sqltext) == (
+        "(recorded_at is null) = (recorded_precision is null)"
+    )
+
+
+def test_a_recorded_date_is_as_precise_as_a_year_month_day_or_time() -> None:
+    assert [p.value for p in vocabulary.RecordingPrecision] == ["year", "month", "day", "time"]
 
 
 def test_modes_check_lists_every_mode_and_the_cap() -> None:
@@ -155,7 +170,9 @@ def test_pulled_rows_store_validated_values_as_plain_strings() -> None:
         deleted_at=None,
         server_seq=1,
         source="microphone",
+        added_at=NOW,
         recorded_at=NOW,
+        recorded_precision="time",
         state="ready",
         duration_ms=None,
         playback_mime=None,
@@ -169,6 +186,7 @@ def test_pulled_rows_store_validated_values_as_plain_strings() -> None:
     )
     assert type(row.model_dump()["state"]) is str
     assert type(row.model_dump()["source"]) is str
+    assert type(row.model_dump()["recorded_precision"]) is str
 
 
 def test_only_slippery_hill_is_importable() -> None:

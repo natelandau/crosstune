@@ -17,6 +17,7 @@ const ARRAY_NAMES = {
   AudioQuality: 'AUDIO_QUALITIES',
   PlayFirst: 'PLAY_FIRST',
   RecordingOrigin: 'RECORDING_ORIGINS',
+  RecordingPrecision: 'RECORDING_PRECISIONS',
   RecordingSource: 'RECORDING_SOURCES',
   RecordingState: 'RECORDING_STATES',
   SearchStatus: 'SEARCH_STATUSES',

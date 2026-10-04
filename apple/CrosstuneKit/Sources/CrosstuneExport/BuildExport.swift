@@ -190,11 +190,11 @@ private func planAudio(_ input: ExportInput, tunes: [ExportedTune], dateText: Da
         var files = NameAllocator()
         let ordered = recordings.stablySorted { a, b in
             if a.position != b.position { return a.position < b.position }
-            if a.recordedAt != b.recordedAt { return a.recordedAt < b.recordedAt }
+            if a.addedAt != b.addedAt { return a.addedAt < b.addedAt }
             return codeUnitsAscending(a.id, b.id)
         }
         return ordered.map { recording in
-            let date = dateText(recording.recordedAt)
+            let date = dateText(recording.addedAt)
             let stem = recording.label.flatMap { $0.isEmpty ? nil : "\(date) \($0)" } ?? date
             let ext = audioByID[recording.id].flatMap { $0.fileExtension.isEmpty ? nil : $0.fileExtension } ?? "audio"
             let path = "recordings/\(folder)/\(files.take(stem, ext: ext))"

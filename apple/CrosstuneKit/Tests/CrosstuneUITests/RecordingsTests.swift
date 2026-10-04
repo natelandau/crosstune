@@ -19,21 +19,39 @@ private func eventually(_ condition: () async throws -> Bool) async throws {
 private func view(_ id: String, tune: String?, minutes: Int64) -> RecordingView {
     RecordingView(
         recording: Recording(
-            id: id, tuneID: tune, source: "microphone", recordedAt: later(minutes * 60_000), state: "ready"),
+            id: id, tuneID: tune, source: "microphone", addedAt: later(minutes * 60_000), state: "ready"),
         file: nil, tuneID: tune, tuneTitle: tune.map { "Tune \($0)" })
 }
 
 private func putRecording(
-    _ store: CrosstuneStore, _ id: String, tuneID: String? = nil, minutes: Int64 = 0, state: String = "ready",
-    file: RecordingFile? = nil, origin: String = "own"
+    _ store: CrosstuneStore, _ id: String, tuneID: String? = nil, label: String? = nil, minutes: Int64 = 0,
+    state: String = "ready", file: RecordingFile? = nil, origin: String = "own"
 ) async throws {
+    var draft = Recording(
+        id: id, tuneID: tuneID, source: "microphone", addedAt: later(minutes * 60_000), state: state)
+    draft.label = label
+    draft.origin = origin
+    let recording = draft
     try await store.write { writer in
-        try writer.put(
-            Recording(
-                id: id, tuneID: tuneID, source: "microphone", origin: origin, recordedAt: later(minutes * 60_000),
-                state: state),
-            at: noon)
+        try writer.put(recording, at: noon)
         try file?.upsert(writer.db)
+    }
+}
+
+private let losAngeles = TimeZone(identifier: "America/Los_Angeles")!
+
+private func putDated(_ store: CrosstuneStore, _ id: String, at: Timestamp, precision: String) async throws {
+    let recording = Recording(
+        id: id, tuneID: nil, source: "microphone", addedAt: noon, recordedAt: at, recordedPrecision: precision,
+        state: "ready")
+    try await store.write { writer in try writer.put(recording, at: noon) }
+}
+
+/// The filed recordings of an arrangement, in order, whether flat or under their tunes.
+private func filedViews(_ arrangement: RecordingArrangement) -> [RecordingView] {
+    switch arrangement.filed {
+    case .flat(let views): views
+    case .byTune(let tunes): tunes.flatMap(\.views)
     }
 }
 
@@ -60,32 +78,10 @@ private struct RefusingSyncAPI: SyncAPI {
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }
 }
 
-@Suite struct RecordingGroupTests {
-    @Test func putsUnfiledFirstThenEachTuneByItsNewestRecording() {
-        let views = RecordingsModel.sorted([
-            view("a_old", tune: "a", minutes: 1),
-            view("loose_old", tune: nil, minutes: 2),
-            view("b_new", tune: "b", minutes: 9),
-            view("a_new", tune: "a", minutes: 5),
-            view("loose_new", tune: nil, minutes: 3),
-        ])
-        #expect(views.map(\.id) == ["loose_new", "loose_old", "b_new", "a_new", "a_old"])
-
-        let groups = RecordingGroup.grouped(views)
-        #expect(groups.map(\.title) == ["Unfiled", "Tune b", "Tune a"])
-        #expect(groups.map(\.tuneID) == [nil, "b", "a"])
-        #expect(groups.map { $0.views.map(\.id) } == [["loose_new", "loose_old"], ["b_new"], ["a_new", "a_old"]])
-    }
-
-    @Test func leavesOutAnUnfiledGroupWhenEveryRecordingIsFiled() {
-        let groups = RecordingGroup.grouped([view("a", tune: "a", minutes: 1)])
-        #expect(groups.map(\.title) == ["Tune a"])
-        #expect(RecordingGroup.grouped([]).isEmpty)
-    }
-
+@Suite struct RecordingDeleteMessageTests {
     @Test func warnsThatARecordingNeverUploadedCannotComeBack() {
         let waiting = RecordingView(
-            recording: Recording(id: "r", tuneID: nil, source: "microphone", recordedAt: noon, state: "pending_upload"),
+            recording: Recording(id: "r", tuneID: nil, source: "microphone", addedAt: noon, state: "pending_upload"),
             file: RecordingFile(id: "r", localState: .captured), tuneID: nil, tuneTitle: nil)
         #expect(RecordingsModel.deleteMessage(waiting) == RecordingsModel.deleteUnsyncedNote)
         let uploaded = RecordingView(
@@ -96,18 +92,24 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 }
 
-@Suite struct RecordingsOriginRailTests {
-    @Test func labelsTheChoices() {
-        #expect(RecordingsOriginRail.allLabel == "All")
-        #expect(RecordingsOriginRail.mineLabel == "Mine")
-        #expect(RecordingsOriginRail.label(for: "slippery_hill") == "Slippery-Hill")
+@Suite struct RecordingsFilterTests {
+    @Test func labelsTheFilterAndItsChoices() {
+        #expect(RecordingsListText.source == "Source")
+        #expect(RecordingsListText.all == "All")
+        #expect(RecordingsListText.mine == "Mine")
+        #expect(RecordingsListText.filtersDisabledReason == "All recordings are yours")
+        #expect(RecordingsFilterSheet.label(for: RecordingsModel.allChoice) == "All")
+        #expect(RecordingsFilterSheet.label(for: "own") == "Mine")
+        #expect(RecordingsFilterSheet.label(for: "slippery_hill") == "Slippery-Hill")
+        #expect(FiltersButton.name(setCount: 1) == "Filters, 1 set")
+        #expect(RemoveFilterCapsule.name("Slippery-Hill") == "Remove filter Slippery-Hill")
         #expect(RecordingRowActions.openOn("Slippery-Hill") == "Open on Slippery-Hill")
     }
 
     @Test func putsOwnRecordingsFirstOnATunesRows() {
         func rec(_ id: String, _ origin: String) -> TuneRecording {
             TuneRecording(
-                recording: Recording(id: id, tuneID: "t", source: "microphone", origin: origin, recordedAt: noon),
+                recording: Recording(id: id, tuneID: "t", source: "microphone", origin: origin, addedAt: noon),
                 file: nil)
         }
         let rows = TuneDetail.ownFirst([
@@ -141,17 +143,19 @@ private struct RefusingSyncAPI: SyncAPI {
         }
 
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups != nil }
-        let groups = try #require(model.groups)
+        try await eventually { model.arrangement(.default) != nil }
+        let arrangement = try #require(model.arrangement(.default))
         // A recording whose tune was deleted elsewhere reads as unfiled.
-        #expect(groups.map(\.title) == ["Unfiled", "Kitchen Girl"])
-        #expect(groups[0].views.map(\.id) == ["loose", "orphan"])
-        #expect(groups[1].views.map(\.id) == ["filed"])
+        #expect(arrangement.unfiled.map(\.id) == ["loose", "orphan"])
+        #expect(arrangement.filed == .flat(filedViews(arrangement)))
+        #expect(filedViews(arrangement).map(\.id) == ["filed"])
+        #expect(filedViews(arrangement).first?.tuneTitle == "Kitchen Girl")
+        #expect(!model.hasNoRecordings)
         #expect(model.unfinished.map(\.id) == ["stuck"])
         #expect(model.storage?.usedBytes == 5)
     }
 
-    @Test func offersOnlyTheOriginsHeldAndFiltersGroupsByTheChoice() async throws {
+    @Test func offersTheSitesHeldAndFiltersTheListsByTheChoice() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let (tuneID, _) = try await Commands(store: store).createTune(
@@ -159,49 +163,147 @@ private struct RefusingSyncAPI: SyncAPI {
         try await putRecording(store, "mine", minutes: 1)
         try await putRecording(store, "theirs", tuneID: tuneID, minutes: 2, origin: "slippery_hill")
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups?.count == 2 }
-        #expect(model.origins == ["slippery_hill"])
+        try await eventually { model.arrangement(.default).map(filedViews)?.map(\.id) == ["theirs"] }
+        #expect(model.arrangement(.default)?.unfiled.map(\.id) == ["mine"])
+        #expect(model.sourceOptions == ["all", "own", "slippery_hill"])
         #expect(model.choice == "all")
-        #expect(model.showsRail)
+        #expect(model.filterCount == 0)
+        #expect(model.filtersGate == .enabled)
 
         await model.setChoice("slippery_hill")
-        try await eventually { model.groups?.map(\.title) == ["Kitchen Girl"] }
+        try await eventually { model.arrangement(.default)?.unfiled.isEmpty == true }
+        #expect(model.arrangement(.default).map(filedViews)?.map(\.id) == ["theirs"])
         #expect(try await store.meta(.recordingsOrigin, as: String.self) == "slippery_hill")
+        #expect(model.filterCount == 1)
         await model.setChoice("own")
-        try await eventually { model.groups?.map(\.title) == ["Unfiled"] }
-        #expect(model.noMatch == false)
+        try await eventually { model.arrangement(.default).map(filedViews)?.isEmpty == true }
+        #expect(model.arrangement(.default)?.unfiled.map(\.id) == ["mine"])
     }
 
-    @Test func keepsAStaleChoiceAsAChipAndSaysNothingMatches() async throws {
+    @Test func resetReturnsTheSourceToAll() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "theirs", origin: "slippery_hill")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+        await model.setChoice("slippery_hill")
+        await model.resetSource()
+        #expect(model.choice == "all")
+        #expect(model.filterCount == 0)
+        #expect(try await store.meta(.recordingsOrigin, as: String.self) == "all")
+    }
+
+    @Test func keepsAStaleSiteAsAnOptionWhileItIsChosen() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await putRecording(store, "mine")
         try await store.setMeta(.recordingsOrigin, to: "slippery_hill")
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups != nil }
+        try await eventually { model.arrangement(.default) != nil }
         #expect(model.choice == "slippery_hill")
-        #expect(model.origins == ["slippery_hill"])
-        #expect(model.showsRail)
-        #expect(model.groups?.isEmpty == true)
-        #expect(model.noMatch)
+        #expect(model.sourceOptions == ["all", "own", "slippery_hill"])
+        #expect(model.filterCount == 1)
+        // A set source keeps its way back to All, even with only own recordings.
+        #expect(model.filtersGate == .enabled)
+        let arrangement = model.arrangement(.default)
+        #expect(arrangement?.isEmpty == true)
+        #expect(model.showsNothingMatches(arrangement))
+
+        await model.setChoice("all")
+        #expect(model.sourceOptions == ["all", "own"])
     }
 
-    @Test func showsTheRailForAStaleOwnChoiceWithoutAnExtraChip() async throws {
+    @Test func aStaleOwnChoiceAddsNoExtraOption() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await putRecording(store, "theirs", origin: "slippery_hill")
         try await store.setMeta(.recordingsOrigin, to: "own")
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups != nil }
-        #expect(model.showsRail)
-        #expect(model.origins == ["slippery_hill"])
-        #expect(model.noMatch)
+        try await eventually { model.arrangement(.default) != nil }
+        #expect(model.sourceOptions == ["all", "own", "slippery_hill"])
+        #expect(model.showsNothingMatches(model.arrangement(.default)))
+    }
+
+    @Test func disablesFiltersWithOnlyOwnRecordingsAndSaysWhy() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "mine")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+        #expect(model.sourceOptions == ["all", "own"])
+        #expect(model.filtersGate == .disabled(reason: RecordingsListText.filtersDisabledReason))
+        await model.setChoice("own")
+        #expect(model.filtersGate == .enabled)
+        #expect(model.filterCount == 1)
+    }
+
+    @Test func disablesFiltersSilentlyUntilLoadedAndWithNoRecordings() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = RecordingsModel(store: store)
+        #expect(model.filtersGate == .disabled(reason: nil))
+        try await eventually { model.arrangement(.default) != nil }
+        #expect(model.filtersGate == .disabled(reason: nil))
+        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+    }
+
+    @Test func saysNothingMatchesWhenASearchNarrowsToNothing() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "mine", label: "Waltz")
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        model.query = "reel"
+        #expect(model.showsNothingMatches(model.arrangement(.default)))
+    }
+
+    @Test func saysNothingMatchesWhenOnlyCapturesAreLeftOut() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            try RecordingFile(id: "stuck", localState: .capturing, fileName: "stuck.aac", recordedAt: noon)
+                .insert(writer.db)
+        }
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+        #expect(model.hasNoRecordings)
+        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        model.query = "waltz"
+        #expect(model.showsNothingMatches(model.arrangement(.default)))
+        model.query = ""
+        await model.setChoice("slippery_hill")
+        #expect(model.showsNothingMatches(model.arrangement(.default)))
+    }
+
+    @Test func hidesNotSavedWhileAQueryOrASiteIsSet() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "theirs", origin: "slippery_hill")
+        try await store.write { writer in
+            try RecordingFile(id: "stuck", localState: .capturing, fileName: "stuck.aac", recordedAt: noon)
+                .insert(writer.db)
+        }
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+        #expect(model.showsUnfinished)
+        await model.setChoice("own")
+        #expect(model.showsUnfinished)
+        // Captures are the musician's own, and match no search.
+        #expect(!model.showsNothingMatches(model.arrangement(.default)))
+        model.query = "  "
+        #expect(model.showsUnfinished)
+        model.query = "waltz"
+        #expect(!model.showsUnfinished)
+        model.query = ""
+        await model.setChoice("slippery_hill")
+        #expect(!model.showsUnfinished)
     }
 
     @Test func opensOnlyWebPagesOfAnImport() {
         func page(_ url: String?) -> URL? {
             RecordingRowActions.originPage(
-                Recording(tuneID: nil, source: "import", origin: "slippery_hill", originURL: url, recordedAt: noon))
+                Recording(tuneID: nil, source: "import", origin: "slippery_hill", originURL: url, addedAt: noon))
         }
         #expect(page("http://example.com/a")?.absoluteString == "http://example.com/a")
         #expect(page("https://example.com/a") != nil)
@@ -212,25 +314,13 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(page(nil) == nil)
     }
 
-    @Test func hidesTheRailWithoutAnImportedOriginOrStaleChoice() async throws {
-        let root = TemporaryRoot()
-        let store = try root.open()
-        try await putRecording(store, "mine")
-        let model = RecordingsModel(store: store)
-        try await eventually { model.groups != nil }
-        #expect(model.origins.isEmpty)
-        #expect(!model.showsRail)
-        await model.setChoice("own")
-        #expect(!model.showsRail)
-    }
-
     @Test func readsAnUnreadableChoiceAsAll() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await putRecording(store, "mine")
         try await store.setMeta(.recordingsOrigin, to: 5)
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups != nil }
+        try await eventually { model.arrangement(.default) != nil }
         #expect(model.choice == "all")
     }
 
@@ -244,8 +334,9 @@ private struct RefusingSyncAPI: SyncAPI {
         let store = try root.open()
         try await store.setMeta(.storage, to: StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0))
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups != nil }
+        try await eventually { model.arrangement(.default) != nil }
         #expect(model.storage == nil)
+        #expect(model.hasNoRecordings)
     }
 
     @Test func discardsAnUnfinishedCaptureAndItsAudio() async throws {
@@ -274,13 +365,49 @@ private struct RefusingSyncAPI: SyncAPI {
         try await putRecording(store, "filed", tuneID: tuneID)
         try await putRecording(store, "loose", minutes: 1)
         let model = RecordingsModel(store: store)
-        try await eventually { model.groups?.count == 2 }
+        try await eventually { model.arrangement(.default).map(filedViews)?.count == 1 }
 
         await model.removeFromTune("filed")
-        try await eventually { model.groups?.map(\.title) == ["Unfiled"] }
+        try await eventually { model.arrangement(.default)?.unfiled.map(\.id) == ["loose", "filed"] }
+        #expect(model.arrangement(.default).map(filedViews) == [])
         await model.delete("loose")
-        try await eventually { model.groups?.first?.views.map(\.id) == ["filed"] }
+        try await eventually { model.arrangement(.default)?.unfiled.map(\.id) == ["filed"] }
         #expect(model.failure == nil)
+    }
+
+    @Test func searchingATunesTitleLeavesOnlyThatTunesRecordings() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let commands = Commands(store: store)
+        let (joy, _) = try await commands.createTune(
+            TuneInput(title: "Soldier's Joy"), userTune: UserTuneInput(status: "known"))
+        let (girl, _) = try await commands.createTune(
+            TuneInput(title: "Kitchen Girl"), userTune: UserTuneInput(status: "known"))
+        try await putRecording(store, "joy_old", tuneID: joy, minutes: 1)
+        try await putRecording(store, "girl", tuneID: girl, minutes: 2)
+        try await putRecording(store, "joy_new", tuneID: joy, minutes: 3)
+        try await putRecording(store, "loose", minutes: 4)
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default) != nil }
+
+        model.query = "soldier's joy"
+        let arrangement = try #require(model.arrangement(.default))
+        #expect(arrangement.unfiled.isEmpty)
+        #expect(filedViews(arrangement).map(\.id) == ["joy_new", "joy_old"])
+    }
+
+    @Test func keepsTheQueryAcrossStoreWrites() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "jig", label: "Jig take", minutes: 1)
+        try await putRecording(store, "reel", label: "Reel take", minutes: 2)
+        let model = RecordingsModel(store: store)
+        try await eventually { model.arrangement(.default)?.unfiled.count == 2 }
+
+        model.query = "jig"
+        try await putRecording(store, "jig2", label: "Second jig", minutes: 3)
+        try await eventually { model.arrangement(.default)?.unfiled.map(\.id) == ["jig2", "jig"] }
+        #expect(model.query == "jig")
     }
 
     @Test func reportsAWriteThatFails() async throws {
@@ -290,38 +417,222 @@ private struct RefusingSyncAPI: SyncAPI {
         await model.removeFromTune("missing")
         #expect(model.failure == CommandError.recordingNotFoundMessage)
     }
+
+    @Test func clearsAFailureOnRequest() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = RecordingsModel(store: store)
+        await model.removeFromTune("missing")
+        #expect(model.failure != nil)
+        model.clearFailure()
+        #expect(model.failure == nil)
+    }
+}
+
+@MainActor
+@Suite struct RecordingsScreenPartsTests {
+    @Test func aTuneLineIsAControlOfItsOwnBesideTheRow() {
+        let row = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
+        #expect(row.controlNames == ["Play Take 1, 1:02", "Open Soldier's Joy"])
+
+        let unfiled = MediaRow(glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {})
+        #expect(unfiled.controlNames == ["Play Take 1, 1:02"])
+    }
+
+    @Test func drawsItsInnerControlsInReadingOrderWithRetryAtTheTrailingEdge() {
+        let row = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
+            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
+        #expect(row.innerControls.map(\.name) == ["Open Soldier's Joy", "Retry Take 1"])
+        #expect(row.innerControls.map(\.isTrailing) == [false, true])
+        #expect(row.controlNames == ["Play Take 1, 1:02", "Open Soldier's Joy", "Retry Take 1"])
+    }
+
+    @Test func anImportsSourceLineComesBeforeTheTuneLine() throws {
+        let page = try #require(URL(string: "https://www.slippery-hill.com/content/bear-creek-sally-goodin"))
+        let row = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
+            tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}),
+            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
+        #expect(
+            row.controlNames == [
+                "Play Take 1, 1:02", "Open on Slippery-Hill", "Open Soldier's Joy", "Retry Take 1",
+            ])
+        #expect(row.innerControls.map(\.isTrailing) == [false, false, true])
+        #expect(row.stacksLineControls, "two padded line targets would overlap")
+        let sourceOnly = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            sourceLine: MediaRow.SourceLine(title: "Slippery-Hill", url: page),
+            retry: MediaRow.Retry(name: "Retry Take 1", action: {}))
+        #expect(!sourceOnly.stacksLineControls, "one line reaches into the row's space without growing it")
+        let tuneOnly = MediaRow(
+            glyph: .play, title: "Take 1", secondLine: .text("1:02"), verb: "Play", action: {},
+            tuneLine: MediaRow.TuneLine(title: "Soldier's Joy", action: {}))
+        #expect(!tuneOnly.stacksLineControls)
+        #expect(
+            MediaRow.SourceLine(title: "Slippery-Hill", url: page).name == RecordingRowActions.openOn("Slippery-Hill"))
+    }
+
+    @Test func filedRowsOfferGoToTuneAfterRemoveFromTune() {
+        let menu = RecordingRowAction.menu(
+            filed: true, canAddToTune: true, canGoToTune: true, canPin: false, originSite: nil)
+        #expect(
+            menu.map(\.title) == [
+                RecordingRowActions.edit, RecordingRowActions.removeFromTune, RecordingsListText.goToTune,
+                RecordingRowActions.delete,
+            ])
+        let swipe = RecordingRowAction.swipe(filed: true, canAddToTune: true, canGoToTune: true, canPin: false)
+        #expect(
+            swipe.map(\.title) == [
+                RecordingRowActions.delete, RecordingRowActions.removeFromTune, RecordingsListText.goToTune,
+                RecordingRowActions.edit,
+            ])
+    }
+
+    @Test func goToTuneStaysOutWithoutItsActionOrATune() {
+        let unasked = RecordingRowAction.menu(
+            filed: true, canAddToTune: false, canGoToTune: false, canPin: true, originSite: nil)
+        #expect(!unasked.contains(.goToTune))
+        #expect(unasked.contains(.pin))
+        let unfiled = RecordingRowAction.menu(
+            filed: false, canAddToTune: true, canGoToTune: true, canPin: false, originSite: nil)
+        #expect(
+            unfiled.map(\.title) == [
+                RecordingRowActions.edit, RecordingRowActions.addToTune, RecordingRowActions.delete,
+            ])
+    }
+
+    @Test func offersOpenOnInTheMenuBeforeDeleteButNeverInTheSwipe() {
+        let menu = RecordingRowAction.menu(
+            filed: true, canAddToTune: true, canGoToTune: true, canPin: false, originSite: "Slippery-Hill")
+        #expect(
+            menu.map(\.title) == [
+                RecordingRowActions.edit, RecordingRowActions.removeFromTune, RecordingsListText.goToTune,
+                RecordingRowActions.openOn("Slippery-Hill"), RecordingRowActions.delete,
+            ])
+        let swipe = RecordingRowAction.swipe(filed: true, canAddToTune: true, canGoToTune: true, canPin: false)
+        #expect(!swipe.contains(.openOrigin(site: "Slippery-Hill")))
+    }
 }
 
 @MainActor
 @Suite struct RecordingSheetModelTests {
-    @Test func renamesARecordingAndClearsItsNameWhenLeftBlank() async throws {
+    @Test func savesATrimmedNameAndClearsItWhenLeftBlank() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         try await putRecording(store, "r1")
-        let rename = RenameRecordingModel(store: store, recordingID: "r1", label: nil)
-        #expect(!rename.isEdited)
-        rename.setName("  Take 2  ")
-        #expect(rename.isEdited)
-        #expect(await rename.save())
-        #expect(!(await rename.save()))
+        let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: stored)
+        #expect(!edit.isEdited)
+        edit.setName("  Take 2  ")
+        #expect(edit.isEdited)
+        #expect(await edit.save())
+        #expect(!(await edit.save()))
         let label = try await store.read { db in try Recording.fetchOne(db, key: "r1")?.label }
         #expect(label == "Take 2")
 
-        let clear = RenameRecordingModel(store: store, recordingID: "r1", label: "Take 2")
+        let named = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let clear = EditRecordingModel(store: store, recording: named)
+        #expect(clear.name == "Take 2")
         clear.setName("   ")
         #expect(await clear.save())
         let cleared = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
         #expect(cleared?.label == nil)
     }
 
-    @Test func reportsARenameThatFails() async throws {
+    @Test func reportsAnEditThatFails() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let rename = RenameRecordingModel(store: store, recordingID: "missing", label: nil)
-        #expect(!(await rename.save()))
-        #expect(rename.failure == CommandError.recordingNotFoundMessage)
-        rename.setName("x")
-        #expect(rename.failure == nil)
+        let missing = Recording(id: "missing", tuneID: nil, source: "microphone", addedAt: noon)
+        let edit = EditRecordingModel(store: store, recording: missing)
+        #expect(!(await edit.save()))
+        #expect(edit.failure == CommandError.recordingNotFoundMessage)
+        edit.setName("x")
+        #expect(edit.failure == nil)
+    }
+
+    @Test func keepsATakesExactTimeWhenOnlyTheNameChanges() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let taken = try #require(Timestamp(iso: "2026-10-04T01:30:12.345Z"))
+        try await putDated(store, "r1", at: taken, precision: RecordingPrecision.time.rawValue)
+        let stored = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: stored, timeZone: losAngeles)
+        #expect(edit.date.keepsTime)
+        edit.setName("Jam at Tom's")
+        #expect(await edit.save())
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.label == "Jam at Tom's")
+        #expect(saved?.recordedAt == taken)
+        #expect(saved?.recordedPrecision == RecordingPrecision.time.rawValue)
+    }
+
+    @Test func writesNoDateWhenTheDatePartsAreLeftAlone() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        // A precision newer than this build opens as no date; saving the name must not clear it.
+        let stored = try #require(Timestamp(iso: "1998-06-21T00:00:00.000Z"))
+        try await putDated(store, "r1", at: stored, precision: "season")
+        let recording = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: recording, timeZone: losAngeles)
+        #expect(edit.date.year.isEmpty)
+        edit.setName("Summer jam")
+        #expect(await edit.save())
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.label == "Summer jam")
+        #expect(saved?.recordedAt == stored)
+        #expect(saved?.recordedPrecision == "season")
+    }
+
+    @Test func savesAYearAsUTCMidnightOnItsFirstDayWestOfUTC() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "r1")
+        let recording = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: recording, timeZone: losAngeles)
+        edit.setYear("1937")
+        #expect(edit.isEdited)
+        #expect(await edit.save())
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.recordedAt == Timestamp(iso: "1937-01-01T00:00:00.000Z"))
+        #expect(saved?.recordedPrecision == RecordingPrecision.year.rawValue)
+    }
+
+    @Test func clearsTheDateToUnknown() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let year = try #require(Timestamp(iso: "1937-01-01T00:00:00.000Z"))
+        try await putDated(store, "r1", at: year, precision: RecordingPrecision.year.rawValue)
+        let recording = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let edit = EditRecordingModel(store: store, recording: recording, timeZone: losAngeles)
+        #expect(edit.date.year == "1937")
+        edit.clearDate()
+        #expect(await edit.save())
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.recordedAt == nil)
+        #expect(saved?.recordedPrecision == nil)
+    }
+
+    @Test func refusesAYearAfterThisOneAndWritesNothing() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await putRecording(store, "r1")
+        let recording = try #require(try await store.read { db in try Recording.fetchOne(db, key: "r1") })
+        let now = try #require(Timestamp(iso: "2026-10-04T12:00:00.000Z"))
+        let edit = EditRecordingModel(store: store, recording: recording, timeZone: losAngeles, now: { now })
+        edit.setName("Take 2")
+        edit.setYear("2027")
+        #expect(!(await edit.save()))
+        #expect(edit.dateFailure == CommandError.recordedDateFutureMessage)
+        let saved = try await store.read { db in try Recording.fetchOne(db, key: "r1") }
+        #expect(saved?.label == nil)
+        #expect(saved?.recordedAt == nil)
+        edit.setYear("1998")
+        #expect(edit.dateFailure == nil)
     }
 
     @Test func filesARecordingUnderThePickedTune() async throws {
@@ -523,7 +834,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 
     @Test func dimsAPlayWhileATakeIsRecordedAndSaysWhy() throws {
-        let recording = Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: noon, state: "ready")
+        let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
         let blocked = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, playBlocked: true)
         #expect(blocked.isDimmed)
@@ -553,7 +864,7 @@ private struct RefusingSyncAPI: SyncAPI {
     }
 
     @Test func saysCouldNotDownloadOnlyWhileTheRowStillOffersADownload() {
-        let recording = Recording(id: "r1", tuneID: nil, source: "microphone", recordedAt: noon, state: "ready")
+        let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
         let failed = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, downloadFailed: true)
         #expect(failed.error == RecordingText.downloadFailed)
         #expect(failed.tap == .download)
@@ -577,5 +888,208 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(host.isCapturing)
         host.release()
         #expect(!host.isCapturing)
+    }
+}
+
+/// The Edit sheet's date, read and written west of UTC, where a local read of a partial date
+/// lands in the period before it.
+@Suite struct RecordingDateDraftTests {
+    private let now = Timestamp(iso: "2026-10-04T12:00:00.000Z")!
+
+    private func at(_ iso: String) -> Timestamp { Timestamp(iso: iso)! }
+
+    private func draft(_ iso: String? = nil, _ precision: RecordingPrecision? = nil) -> RecordingDateDraft {
+        RecordingDateDraft(recordedAt: iso.map(at), precision: precision, timeZone: losAngeles)
+    }
+
+    private func parts(_ draft: RecordingDateDraft) -> [String] {
+        [draft.year, draft.month.map(String.init) ?? "", draft.day.map(String.init) ?? ""]
+    }
+
+    @Test func opensAPartialDateInUTCWestOfIt() {
+        // Proves the zone bites: local time reads the stored instant as the year before.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = losAngeles
+        #expect(calendar.component(.year, from: at("1937-01-01T00:00:00Z").date) == 1936)
+        #expect(parts(draft("1937-01-01T00:00:00.000Z", .year)) == ["1937", "", ""])
+        #expect(parts(draft("1998-05-01T00:00:00.000Z", .month)) == ["1998", "5", ""])
+        #expect(parts(draft("1998-10-03T00:00:00.000Z", .day)) == ["1998", "10", "3"])
+        #expect(!draft("1937-01-01T00:00:00.000Z", .year).keepsTime)
+    }
+
+    @Test func opensATakeAsTheLocalDayItShowsAndKeepsItsTime() {
+        // 01:30 UTC on Oct 4 is still Oct 3 in Los Angeles.
+        let take = draft("2026-10-04T01:30:00.000Z", .time)
+        #expect(parts(take) == ["2026", "10", "3"])
+        #expect(take.keepsTime)
+        #expect(take.keptTake == at("2026-10-04T01:30:00.000Z"))
+    }
+
+    @Test func opensAnUnknownDateAsNoParts() {
+        let unknown = draft()
+        #expect(parts(unknown) == ["", "", ""])
+        #expect(unknown.isEmpty)
+        #expect(!unknown.isChanged)
+    }
+
+    @Test func storesAYearAsUTCMidnightOnJanuaryFirst() throws {
+        var year = draft()
+        year.setYear("1937")
+        let resolved = try year.resolved(now: now)
+        #expect(resolved.at == at("1937-01-01T00:00:00.000Z"))
+        #expect(resolved.precision == .year)
+    }
+
+    @Test func storesAMonthAndADayAtUTCMidnightOnTheirFirstDay() throws {
+        var month = draft()
+        month.setYear("1998")
+        month.setMonth(5)
+        let byMonth = try month.resolved(now: now)
+        #expect(byMonth.at == at("1998-05-01T00:00:00.000Z"))
+        #expect(byMonth.precision == .month)
+        month.setMonth(10)
+        month.setDay(3)
+        let byDay = try month.resolved(now: now)
+        #expect(byDay.at == at("1998-10-03T00:00:00.000Z"))
+        #expect(byDay.precision == .day)
+    }
+
+    @Test func readsABlankYearAsNoDateWhateverMonthIsLeftBehindIt() throws {
+        var blank = draft("1998-10-03T00:00:00.000Z", .day)
+        blank.setYear("")
+        #expect(blank.month == 10)
+        let resolved = try blank.resolved(now: now)
+        #expect(resolved.at == nil)
+        #expect(resolved.precision == nil)
+    }
+
+    @Test func refusesAYearThatIsNotFourDigits() {
+        var short = draft()
+        short.setYear("98")
+        #expect(throws: RecordingDateDraft.Problem.yearFormat) { try short.resolved(now: now) }
+        short.setYear("0999")
+        #expect(throws: RecordingDateDraft.Problem.yearFormat) { try short.resolved(now: now) }
+        #expect(RecordingDateDraft.Problem.yearFormat.message == "Enter the year as four digits.")
+    }
+
+    @Test func refusesAYearAfterThisOneAndAMonthNotYetBegun() {
+        var future = draft()
+        future.setYear("2027")
+        #expect(throws: RecordingDateDraft.Problem.future) { try future.resolved(now: now) }
+        future.setYear("2026")
+        future.setMonth(12)
+        #expect(throws: RecordingDateDraft.Problem.future) { try future.resolved(now: now) }
+        #expect(RecordingDateDraft.Problem.future.message == CommandError.recordedDateFutureMessage)
+    }
+
+    @Test func acceptsADayWithinTheClockLeeway() throws {
+        var tomorrow = draft()
+        tomorrow.setYear("2026")
+        tomorrow.setMonth(10)
+        tomorrow.setDay(5)
+        let resolved = try tomorrow.resolved(now: now)
+        #expect(resolved.at == at("2026-10-05T00:00:00.000Z"))
+        #expect(resolved.precision == .day)
+    }
+
+    @Test func takesOnlyDigitsUpToFour() {
+        var year = draft()
+        year.setYear("19a37 5")
+        #expect(year.year == "1937")
+    }
+
+    @Test func enablesMonthOnceAYearIsSetAndDayOnceAMonthIs() {
+        var date = draft()
+        #expect(!date.isMonthEnabled)
+        #expect(!date.isDayEnabled)
+        date.setYear("199")
+        #expect(!date.isMonthEnabled)
+        date.setYear("1998")
+        #expect(date.isMonthEnabled)
+        #expect(!date.isDayEnabled)
+        date.setMonth(5)
+        #expect(date.isDayEnabled)
+    }
+
+    @Test func endsFebruaryAtThe29thInALeapYearAndThe28thOtherwise() {
+        var february = draft()
+        february.setYear("2024")
+        february.setMonth(2)
+        #expect(february.dayCount == 29)
+        february.setYear("2023")
+        #expect(february.dayCount == 28)
+        february.setYear("1900")
+        #expect(february.dayCount == 28)
+    }
+
+    @Test func offers31DaysWhileTheYearIsUnfinishedAndNoneWithoutAMonth() {
+        var date = draft()
+        date.setYear("1998")
+        #expect(date.dayCount == 0)
+        date.setMonth(4)
+        date.setYear("19")
+        #expect(date.dayCount == 31)
+    }
+
+    @Test func keepsAChosenDayWhileTheYearIsRetyped() {
+        var date = draft("2024-02-29T00:00:00.000Z", .day)
+        date.setYear("202")
+        #expect(date.day == 29)
+        date.setYear("2024")
+        #expect(date.day == 29)
+        date.setYear("2023")
+        #expect(date.day == nil, "Feb 29 reads as Any in a common year rather than rolling over")
+    }
+
+    @Test func dropsADayTheNewMonthLacksAndAnyDayWithoutAMonth() {
+        var date = draft("1998-03-31T00:00:00.000Z", .day)
+        date.setMonth(4)
+        #expect(date.day == nil)
+        date.setDay(30)
+        date.setMonth(nil)
+        #expect(date.day == nil)
+    }
+
+    @Test func dropsATakesTimeOnceItsDatePartsChange() throws {
+        var take = draft("2026-10-04T01:30:00.000Z", .time)
+        let kept = try take.resolved(now: now)
+        #expect(kept.at == at("2026-10-04T01:30:00.000Z"))
+        #expect(kept.precision == .time)
+        take.setDay(2)
+        #expect(take.isChanged)
+        #expect(!take.keepsTime)
+        #expect(take.keptTake == nil)
+        let moved = try take.resolved(now: now)
+        #expect(moved.at == at("2026-10-02T00:00:00.000Z"))
+        #expect(moved.precision == .day)
+        take.setDay(3)
+        #expect(!take.isChanged)
+        #expect(take.keepsTime)
+    }
+
+    @Test func clearsEveryPart() {
+        var date = draft("1998-10-03T00:00:00.000Z", .day)
+        #expect(!date.isEmpty)
+        date.clear()
+        #expect(parts(date) == ["", "", ""])
+        #expect(date.isEmpty)
+        #expect(date.isChanged)
+    }
+
+    @Test func notesATakesTimeInTheLocalZone() {
+        let note = EditRecordingText.recordedAtNote(
+            at("2026-10-04T01:30:00.000Z"), locale: Locale(identifier: "en_US"), timeZone: losAngeles)
+        #expect(note == "Recorded at 6:30\u{202F}PM")
+    }
+
+    @Test func namesTheSheetAndItsFields() {
+        #expect(EditRecordingText.title == "Edit recording")
+        #expect(EditRecordingText.nameHeader == "Name")
+        #expect(EditRecordingText.dateHeader == "Date recorded")
+        #expect(
+            [EditRecordingText.year, EditRecordingText.month, EditRecordingText.day]
+                == ["Year", "Month", "Day"])
+        #expect(EditRecordingText.any == "Any")
+        #expect(EditRecordingText.clearDate == "Clear date")
     }
 }

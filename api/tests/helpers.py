@@ -39,7 +39,13 @@ def change(table: str, id_: str, updated_at: datetime, op: str = "upsert", **dat
 
 
 def recording(id_: str, at=T0, **data) -> dict:
-    fields = {"source": "microphone", "recorded_at": at.isoformat(), "position": 0}
+    fields = {
+        "source": "microphone",
+        "added_at": at.isoformat(),
+        "recorded_at": at.isoformat(),
+        "recorded_precision": "time",
+        "position": 0,
+    }
     fields.update(data)
     return change("recordings", id_, at, **fields)
 

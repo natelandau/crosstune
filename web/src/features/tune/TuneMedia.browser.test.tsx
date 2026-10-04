@@ -27,9 +27,9 @@ import { ADD_LINK, PASTE_LINK } from '../links/PasteLinkSheet'
 import { NEW_RECORDING } from '../recording/RecordModal'
 import type * as RecordModule from '../recording/useRecord'
 import { RecordProvider } from '../recording/useRecord'
-import { RECORDING_NAME_LABEL, RENAME } from '../recordings/recordingCopy'
+import { RECORDING_NAME_LABEL, EDIT } from '../recordings/recordingCopy'
 import { DELETE_SYNCED_NOTE } from '../recordings/recordingRow'
-import { RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
+import { EDIT_RECORDING_TITLE } from '../recordings/EditRecordingSheet'
 import { DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import { useRecordingsWithFiles } from '../recordings/useRecordings'
 import { DONT_PLAY_FIRST, PLAY_FIRST_IN_LISTS, PLAYS_FIRST } from './playSourceText'
@@ -155,7 +155,7 @@ describe('TuneMedia', () => {
         )
         .toEqual([['import', 'Hill take', hill.url]])
       await expect.poll(async () => (await db.recording_links.toArray()).length).toBe(1)
-      await expect.element(page.getByText(/Slippery-Hill · Processing/)).toBeVisible()
+      await expect.element(page.getByText('Processing', { exact: true })).toBeVisible()
     })
 
     it('is offered and works offline, and an untitled link reads by its host', async () => {
@@ -309,6 +309,7 @@ describe('TuneMedia', () => {
       }),
     )
     show()
+    await expect.element(page.getByRole('heading', { name: 'Own take' })).toBeVisible()
     await expect.poll(rowTitles).toEqual(['Own take', 'Imported take'])
   })
 
@@ -365,11 +366,11 @@ describe('TuneMedia', () => {
       .toBe(0)
   })
 
-  it('offers Rename, Remove from tune, and Delete on a row', async () => {
+  it('offers Edit, Remove from tune, and Delete on a row', async () => {
     await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam recording' }))
     show()
     await expect
-      .element(page.getByRole('button', { name: `${RENAME} Jam recording` }))
+      .element(page.getByRole('button', { name: `${EDIT} Jam recording` }))
       .toBeInTheDocument()
     await expect
       .element(page.getByRole('button', { name: 'Remove from tune Jam recording' }))
@@ -377,14 +378,14 @@ describe('TuneMedia', () => {
     await expect
       .element(page.getByRole('button', { name: 'Delete Jam recording' }))
       .toBeInTheDocument()
-    await expect.element(page.getByRole('button', { name: /^Edit / })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: /^Rename / })).not.toBeInTheDocument()
   })
 
-  it('renames a recording from its own row', async () => {
+  it('edits a recording from its own row', async () => {
     await db.recordings.put(recordingRow('r1', { tune_id: tuneId, label: 'Jam recording' }))
     show()
-    await page.getByRole('button', { name: `${RENAME} Jam recording` }).click()
-    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
+    await page.getByRole('button', { name: `${EDIT} Jam recording` }).click()
+    await expect.element(page.getByText(EDIT_RECORDING_TITLE)).toBeVisible()
     await page.getByRole('textbox', { name: RECORDING_NAME_LABEL }).fill('Barn dance')
     await page.getByRole('button', { name: 'Save' }).click()
     await vi.waitFor(async () => expect((await db.recordings.get('r1'))?.label).toBe('Barn dance'))

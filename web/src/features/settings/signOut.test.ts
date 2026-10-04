@@ -21,7 +21,8 @@ describe('signOutAndForget', () => {
   it('flushes the outbox, stops sync, signs out of Clerk, then deletes the local database', async () => {
     const { userId, db } = freshUser()
     await createTune(db, { title: 'X' }, { status: 'known' })
-    writeSearchQuery('X')
+    writeSearchQuery('catalog', 'X')
+    writeSearchQuery('recordings', 'jig')
     const sync = vi.fn(async () => {
       await db.outbox.clear()
     })
@@ -34,7 +35,8 @@ describe('signOutAndForget', () => {
     expect(stop.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0]!)
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
     expect(rememberedUser()).toBeNull()
-    expect(readSearchQuery()).toBe('')
+    expect(readSearchQuery('catalog')).toBe('')
+    expect(readSearchQuery('recordings')).toBe('')
   })
 
   it('refuses while edits are still queued so the deletion cannot take them', async () => {

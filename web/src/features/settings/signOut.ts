@@ -1,5 +1,5 @@
 import { forgetUser } from '../../auth/session'
-import { clearSearchQuery } from '../catalog/searchSession'
+import { clearSearchQueries } from '../catalog/searchSession'
 import { pagesLive } from '../../db/notation'
 import { NOT_UPLOADED_STATES } from '../../db/recordings'
 import { deleteDatabase, type CrosstuneDb } from '../../db/schema'
@@ -22,7 +22,7 @@ export async function forgetLocalData({
   db.close()
   await deleteDatabase(userId)
   forgetUser()
-  clearSearchQuery()
+  clearSearchQueries()
 }
 
 /** A captured page the server has not received exists only in this database. The file of a page

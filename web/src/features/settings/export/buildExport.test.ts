@@ -12,7 +12,7 @@ import type {
   TuneRow,
   UserTuneRow,
 } from '../../../api/types'
-import { stripOwnership } from '../../../db/types'
+import { stripOwnership, type LocalRecording } from '../../../db/types'
 import { notationPageRow, recordingRow, tuneRow, userTuneRow } from '../../../test/rows'
 import {
   audioExtension,
@@ -31,7 +31,7 @@ interface Fixture {
   lists: ListRow[]
   list_items: ListItemRow[]
   recording_links: RecordingLinkRow[]
-  recordings: RecordingRow[]
+  recordings: (RecordingRow & Required<Pick<RecordingRow, 'recorded_at' | 'recorded_precision'>>)[]
   notation_pages: NotationPageRow[]
   local_notation_pages: string[]
   local_files: { recording_id: string; content_type: string | null; extension: string }[]
@@ -132,6 +132,26 @@ test('pairs each exported path with its recording', () => {
     [id(681), 'recordings/Unfiled/2026-09-29 Sally take.m4a'],
     [id(671), 'recordings/Unfiled/2026-09-30 Unknown reel.m4a'],
     [id(691), 'recordings/Unfiled/2026-10-01.m4a'],
+  ])
+})
+
+test('names a recording by when it was added, whatever its recorded date', () => {
+  const recording = (id: string, patch: Partial<LocalRecording>) =>
+    recordingRow(id, { tune_id: null, added_at: '2026-03-05T15:00:00.000Z', ...patch })
+  const plan = buildExport({
+    ...emptyInput(),
+    recordings: [
+      recording('a', { recorded_at: '1937-01-01T00:00:00.000Z', recorded_precision: 'year' }),
+      recording('b', { recorded_at: null, recorded_precision: null }),
+    ],
+    localAudio: [
+      { recordingId: 'a', contentType: 'audio/mp4' },
+      { recordingId: 'b', contentType: 'audio/mp4' },
+    ],
+  })
+  expect(plan.audio.map((a) => a.path)).toEqual([
+    'recordings/Unfiled/2026-03-05.m4a',
+    'recordings/Unfiled/2026-03-05 (2).m4a',
   ])
 })
 

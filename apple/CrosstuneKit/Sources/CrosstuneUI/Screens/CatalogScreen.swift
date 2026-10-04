@@ -8,7 +8,7 @@ public struct CatalogScreen: View {
     public static let addTune = "Add tune"
     public static let noTunesTitle = "No tunes yet"
     public static let noTunesHint = "Add the first tune you know."
-    public static let nothingMatches = "Nothing matches"
+    nonisolated public static let nothingMatches = "Nothing matches"
 
     /// The empty state's title when no tune carries the typed title.
     nonisolated public static func noTuneCalled(_ title: String) -> String {
@@ -55,7 +55,8 @@ private struct CatalogContent: View {
             .listStyle(.plain)
             .safeAreaBar(edge: .top) {
                 HStack(spacing: spacing.stackGap) {
-                    CatalogSearchField(
+                    FilterSearchField(
+                        prompt: CatalogScreen.searchPrompt,
                         query: $model.query, isFocused: $searchFocused,
                         filterCount: selection.isActive ? nil : results.map(filterCount),
                         onSubmit: submitSearch
@@ -286,7 +287,9 @@ struct RefreshesBySync: ViewModifier {
 struct PushesTune: ViewModifier {
     @Binding var tuneID: String?
     let isPushing: Bool
-    let zoom: Namespace.ID
+    /// Where the tune's row marks its zoom source, or nil for the standard push when the tune
+    /// opens from somewhere with no single source to zoom out of.
+    let zoom: Namespace.ID?
 
     @Environment(\.stackTune) private var stackTune
 
@@ -297,7 +300,7 @@ struct PushesTune: ViewModifier {
                     // A list opened from the tune pushes its own tunes, which the shell does not keep.
                     .environment(\.stackTune, nil)
                     #if os(iOS)
-                        .navigationTransition(.zoom(sourceID: tuneID, in: zoom))
+                        .modifier(ZoomsFromSource(sourceID: tuneID, zoom: zoom))
                     #endif
             }
             .onChange(of: tuneID) {
@@ -315,6 +318,21 @@ struct PushesTune: ViewModifier {
             content
         }
     }
+
+    #if os(iOS)
+        private struct ZoomsFromSource: ViewModifier {
+            let sourceID: String
+            let zoom: Namespace.ID?
+
+            func body(content: Content) -> some View {
+                if let zoom {
+                    content.navigationTransition(.zoom(sourceID: sourceID, in: zoom))
+                } else {
+                    content
+                }
+            }
+        }
+    #endif
 
     /// The pushed tune, which the stack's own pop also clears from the shell at once: the
     /// screen's `task` runs as the pop reveals it, before `onChange` would, and would push the

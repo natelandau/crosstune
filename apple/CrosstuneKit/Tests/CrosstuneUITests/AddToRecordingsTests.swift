@@ -13,7 +13,7 @@ private func link(provider: String = "slippery_hill", ref: String? = "42") -> Re
 private func saved(url: String?, deleted: Bool = false) -> Recording {
     Recording(
         deletedAt: deleted ? Timestamp.now : nil, tuneID: "t1", source: "import", origin: "slippery_hill",
-        originURL: url, recordedAt: Timestamp.now)
+        originURL: url, addedAt: Timestamp.now)
 }
 
 @Suite struct AddToRecordingsTests {

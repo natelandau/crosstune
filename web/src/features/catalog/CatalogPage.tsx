@@ -1,19 +1,12 @@
 import { IonButton, IonList, useIonRouter } from '@ionic/react'
-import {
-  Archive,
-  ArchiveRestore,
-  Ellipsis,
-  Music,
-  Plus,
-  SlidersHorizontal,
-  SquarePen,
-} from 'lucide-react'
+import { Archive, ArchiveRestore, Ellipsis, Music, Plus, SquarePen } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../api/vocabulary'
 import { setArchived } from '../../commands/tunes'
 import { useDb } from '../../db/DbProvider'
 import { SyncRefresher } from '../../sync/SyncRefresher'
 import { EmptyState } from '../../ui/EmptyState'
+import { FiltersButton } from '../../ui/FiltersButton'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
@@ -44,7 +37,7 @@ import {
 } from './filters'
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
 import { HiddenMatchNote, SearchOfferRow } from './SearchOffer'
-import { clearSearchQuery, readSearchQuery, writeSearchQuery } from './searchSession'
+import { readSearchQuery, writeSearchQuery } from './searchSession'
 import { TuneItem } from './TuneItem'
 import { SEARCH_TUNES } from './TuneSearch'
 import { useCatalog } from './useCatalog'
@@ -53,6 +46,7 @@ import { useCatalogFilters } from './useCatalogFilters'
 export const ADD_TUNE = 'Add tune'
 export const NO_TUNES_HINT = 'Add the first tune you know.'
 export const NO_TUNES_TITLE = 'No tunes yet'
+export const NOTHING_MATCHES = 'Nothing matches'
 
 const NO_ENTRIES: CatalogEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
@@ -76,7 +70,7 @@ export function CatalogPage() {
   const db = useDb()
   const router = useIonRouter()
   const { error, run } = useAction()
-  const [query, setQuery] = useState(readSearchQuery)
+  const [query, setQuery] = useState(() => readSearchQuery('catalog'))
   const [sheetOpen, setSheetOpen] = useState(false)
   const [form, setForm] = useState<TuneFormTarget | null>(null)
   const searchRef = useRef<SearchFieldHandle>(null)
@@ -152,12 +146,12 @@ export function CatalogPage() {
 
   const changeQuery = (value: string) => {
     setQuery(value)
-    writeSearchQuery(value)
+    writeSearchQuery('catalog', value)
   }
   const openTune = (tuneId: string) => router.push(`/catalog/${tuneId}`, 'forward', 'push')
   const createFromSearch = (title: string) => {
     // A tune created from the search ends that search, whatever the form's outcome.
-    clearSearchQuery()
+    writeSearchQuery('catalog', '')
     setQuery('')
     setForm({ kind: 'new', title })
   }
@@ -174,7 +168,7 @@ export function CatalogPage() {
   const sheetOwnsScreen = sheetOpen || form !== null
 
   const noTunes = entries.length === 0 && !query.trim()
-  let emptyTitle = noTunes ? NO_TUNES_TITLE : 'Nothing matches'
+  let emptyTitle = noTunes ? NO_TUNES_TITLE : NOTHING_MATCHES
   if (outcome.kind === 'create' && !outcome.another)
     emptyTitle = `No tune called "${outcome.title}"`
 
@@ -222,18 +216,7 @@ export function CatalogPage() {
         />
       }
       searchEnd={
-        active ? undefined : (
-          <IonButton
-            className="toolbar-control"
-            aria-label={setCount > 0 ? `Filters, ${setCount} set` : 'Filters'}
-            onClick={() => setSheetOpen(true)}
-          >
-            <SlidersHorizontal
-              aria-hidden="true"
-              className={`size-6 ${setCount > 0 ? 'fill-current' : ''}`}
-            />
-          </IonButton>
-        )
+        active ? undefined : <FiltersButton setCount={setCount} onOpen={() => setSheetOpen(true)} />
       }
       refresher={<SyncRefresher />}
       footer={

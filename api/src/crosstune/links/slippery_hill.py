@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
@@ -15,7 +16,10 @@ SOURCE_FIELD = "field--name-field-r-source"
 # Some pages keep the artist in this taxonomy field instead of the link field.
 SOURCE_TERM_FIELD = "field--name-field-r-source-term"
 UPLOAD_FIELD = "field--name-field-r-uploaded-file"
-FIELDS = (TUNE_FIELD, SOURCE_FIELD, SOURCE_TERM_FIELD)
+YEAR_FIELD = "field--name-field-r-year"
+FIELDS = (TUNE_FIELD, SOURCE_FIELD, SOURCE_TERM_FIELD, YEAR_FIELD)
+# No recording is older than this, so an earlier year is a typo.
+EARLIEST_YEAR = 1800
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,7 @@ class TunePage:
 
     title: str | None
     ref: str | None
+    year: int | None
 
 
 class _TunePageParser(HTMLParser):
@@ -104,12 +109,20 @@ def _file_ref(src: str | None) -> str | None:
     return slippery_hill_ref(parts.path)
 
 
+def _year(text: str | None) -> int | None:
+    if text is None or not (text.isascii() and text.isdigit()):
+        return None
+    year = int(text)
+    return year if EARLIEST_YEAR <= year <= datetime.now(UTC).year else None
+
+
 def parse_tune_page(html: str) -> TunePage:
-    """Read a tune's title and audio file ref so a pasted page link names its recording.
+    """Read a tune's title, audio file ref, and year from its page.
 
     The title joins the tune and artist fields, falls back to the `<title>` tag
     without its site suffix, and the ref is the audio source in the uploaded-file field,
-    else the first one anywhere, on the site's own host.
+    else the first one anywhere, on the site's own host. The year is the year field's
+    value, or None when it is missing or not a plausible year.
     """
     parser = _TunePageParser()
     parser.feed(html)
@@ -118,4 +131,8 @@ def parse_tune_page(html: str) -> TunePage:
     title: str | None = " - ".join(parts) or None
     if title is None and parser.page_title:
         title = parser.page_title.strip().removesuffix(TITLE_SUFFIX).strip() or None
-    return TunePage(title=title, ref=parser.upload_ref or parser.any_ref)
+    return TunePage(
+        title=title,
+        ref=parser.upload_ref or parser.any_ref,
+        year=_year(parser.fields.get(YEAR_FIELD)),
+    )

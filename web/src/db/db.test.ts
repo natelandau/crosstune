@@ -86,7 +86,7 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
     )
-    expect(db.verno).toBe(11)
+    expect(db.verno).toBe(12)
   })
 
   const CURRENT_STORES = [
@@ -152,7 +152,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(11)
+      expect(upgraded.verno).toBe(12)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -254,7 +254,7 @@ describe('schema', () => {
       ])
       expect(await getPullCursor(opened)).toBe(0)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(11)
+      expect(opened.verno).toBe(12)
     } finally {
       await opened.delete()
     }
@@ -349,6 +349,140 @@ describe('schema', () => {
     }
   })
 
+  it('version 12 splits a recording date into when it was added and when it was played', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v11 = new Dexie(name)
+    v11.version(11).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+      notation_pages: 'id, tune_id, state',
+      notation_files: 'id, origin',
+    })
+    // A version 11 row holds its one date as recorded_at and has no precision.
+    const legacy = (id: string, source: string, recordedAt: string) => {
+      const row: Record<string, unknown> = recordingRow(id, { source, recorded_at: recordedAt })
+      delete row.added_at
+      delete row.recorded_precision
+      return row as { id: string; updated_at: string }
+    }
+    const rows = [
+      legacy('take', 'microphone', '2026-01-01T12:00:00.000Z'),
+      legacy('upload', 'upload', '2026-02-01T12:00:00.000Z'),
+      legacy('import', 'import', '2026-03-01T12:00:00.000Z'),
+    ]
+    await v11.table('recordings').bulkPut(rows)
+    await v11.table('outbox').bulkAdd([
+      ...rows.map((row) => ({
+        table: 'recordings',
+        row_id: row.id,
+        op: 'upsert',
+        updated_at: row.updated_at,
+        data: { ...row },
+      })),
+      {
+        table: 'recordings',
+        row_id: 'gone',
+        op: 'delete',
+        updated_at: '2026-04-01T00:00:00.000Z',
+        data: null,
+      },
+    ])
+    v11.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      const expected = {
+        take: {
+          added_at: '2026-01-01T12:00:00.000Z',
+          recorded_at: '2026-01-01T12:00:00.000Z',
+          recorded_precision: 'time',
+        },
+        upload: {
+          added_at: '2026-02-01T12:00:00.000Z',
+          recorded_at: null,
+          recorded_precision: null,
+        },
+        import: {
+          added_at: '2026-03-01T12:00:00.000Z',
+          recorded_at: null,
+          recorded_precision: null,
+        },
+      }
+      for (const [id, dates] of Object.entries(expected)) {
+        expect(await opened.recordings.get(id)).toMatchObject(dates)
+        expect((await pendingFor(opened, 'recordings', id))?.data).toMatchObject(dates)
+      }
+      expect((await pendingFor(opened, 'recordings', 'gone'))?.data).toBeNull()
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('version 12 leaves a recording already in the new shape alone', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v11 = new Dexie(name)
+    v11.version(11).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+      notation_pages: 'id, tune_id, state',
+      notation_files: 'id, origin',
+    })
+    const dated = recordingRow('import', {
+      source: 'import',
+      added_at: '2026-03-01T12:00:00.000Z',
+      recorded_at: '1937-01-01T00:00:00.000Z',
+      recorded_precision: 'year',
+    })
+    const queued = recordingRow('upload', {
+      source: 'upload',
+      added_at: '2026-02-01T12:00:00.000Z',
+      recorded_at: '1998-05-01T00:00:00.000Z',
+      recorded_precision: 'month',
+    })
+    await v11.table('recordings').bulkPut([dated, queued])
+    await v11.table('outbox').add({
+      table: 'recordings',
+      row_id: queued.id,
+      op: 'upsert',
+      updated_at: queued.updated_at,
+      data: toChangeData(queued),
+    })
+    v11.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(await opened.recordings.get(dated.id)).toEqual(dated)
+      expect(await opened.recordings.get(queued.id)).toEqual(queued)
+      expect((await pendingFor(opened, 'recordings', queued.id))?.data).toEqual(
+        toChangeData(queued),
+      )
+    } finally {
+      await opened.delete()
+    }
+  })
+
   it('reads stored and queued recordings as own when a version 9 database opens', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
     const v9 = new Dexie(name)
@@ -424,17 +558,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v12 = new Dexie(name)
-    v12.version(12).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v12.table('tunes').put({ id: tune.id, title: tune.title })
-    await v12.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v12.close()
+    const v13 = new Dexie(name)
+    v13.version(13).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v13.table('tunes').put({ id: tune.id, title: tune.title })
+    await v13.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v13.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(110)
+      expect(older.backendDB().version).toBe(120)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {

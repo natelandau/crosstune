@@ -23,6 +23,7 @@ struct AppCommands: Commands {
     @FocusedValue(\.closePlayerAction) private var closePlayer
     @FocusedValue(\.showCatalogAction) private var showCatalog
     @FocusedValue(\.showRecordingsAction) private var showRecordings
+    @FocusedValue(\.recordingsSort) private var recordingsSort
 
     var body: some Commands {
         // Command-N is New tune, so New Window keeps its place with Option.
@@ -48,6 +49,12 @@ struct AppCommands: Commands {
             item(Destination.recordingsTitle, showRecordings)
                 .keyboardShortcut("2")
             Divider()
+        }
+        CommandGroup(after: .sidebar) {
+            Menu(MenuCommand.sortBy) {
+                RecordingSortChoices(choice: recordingsSort ?? .constant(.default))
+            }
+            .disabled(recordingsSort == nil)
         }
         // Space and Command-Left and Command-Right are heard by the shell, which leaves them to a
         // focused field, so their items carry no shortcut.

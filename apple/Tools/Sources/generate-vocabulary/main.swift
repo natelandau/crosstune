@@ -19,6 +19,7 @@ let arrayNames: [(schema: String, swift: String)] = [
     ("PlayFirst", "playFirsts"),
     ("Provider", "providers"),
     ("RecordingOrigin", "recordingOrigins"),
+    ("RecordingPrecision", "recordingPrecisions"),
     ("RecordingSource", "recordingSources"),
     ("RecordingState", "recordingStates"),
     ("SearchStatus", "searchStatuses"),

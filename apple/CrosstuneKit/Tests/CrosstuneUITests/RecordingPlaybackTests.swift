@@ -131,7 +131,7 @@ private func playable(_ url: URL = audioURL) -> RecordingAudioFile {
 private let loadAndPlay = ["load", "setWindow", "setRate(100)", "setPitch(0)", "play"]
 
 private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") -> Recording {
-    Recording(id: id, tuneID: "t1", source: "microphone", recordedAt: noon, label: label, state: "ready")
+    Recording(id: id, tuneID: "t1", source: "microphone", addedAt: noon, label: label, state: "ready")
 }
 
 @MainActor

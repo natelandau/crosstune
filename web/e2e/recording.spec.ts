@@ -20,7 +20,7 @@ import { MORE_ACTIONS } from '../src/ui/Menu'
 // check never sees it stable. Reduced motion turns the pulse off.
 test.use({ reducedMotion: 'reduce' })
 
-/** File an unfiled row under `title` from its swipe action, and return its row under that tune. */
+/** File an unfiled row under `title` from its swipe action, and return its row in Filed. */
 async function addToTune(page: Page, row: Locator, title: string): Promise<Locator> {
   await swipeLeft(page, row)
   // The swipe actions are a sibling of the row inside ion-item-sliding, not a descendant of it,
@@ -34,10 +34,11 @@ async function addToTune(page: Page, row: Locator, title: string): Promise<Locat
   // content is slotted light DOM rather than a descendant of it.
   await page.getByRole('searchbox', { name: 'Search tunes' }).fill(title)
   await page.getByRole('button', { name: `Add to ${title}` }).click()
-  // A tune's group is headed by the tune's own row, so the recording is never the first item.
+  // Every filed recording shares one list, and each row there names its tune on its tune line.
   const filed = page
-    .getByRole('list', { name: title })
+    .getByRole('list', { name: 'Filed', exact: true })
     .getByRole('listitem')
+    .filter({ hasText: title })
     .filter({ hasText: DEFAULT_LABEL })
     .first()
   await expect(filed).toContainText(DEFAULT_LABEL)
@@ -51,7 +52,16 @@ test('record, add the recording to a tune, and play it back on the device', asyn
 
   const unfiled = await recordUnfiled(page, 6)
   const row = await addToTune(page, unfiled, title)
-  await row.getByRole('button', { name: /^Play / }).click()
+  // At the title, clear of the tune line under it, which is a separate control that opens the tune.
+  const play = row.getByRole('button', { name: /^Play / })
+  const control = (await play.boundingBox())!
+  const heading = (await row.getByRole('heading', { name: DEFAULT_LABEL }).boundingBox())!
+  await play.click({
+    position: {
+      x: heading.x - control.x + Math.min(heading.width / 2, 16),
+      y: heading.y - control.y + heading.height / 2,
+    },
+  })
   const player = page.getByRole('region', { name: 'Player' })
   // Every recording reaches the dock from a Play tap, so it starts playing on its own.
   await expect(player.getByRole('button', { name: PAUSE })).toBeVisible()
