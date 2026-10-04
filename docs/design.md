@@ -223,8 +223,8 @@ does not.
   marked "In this list" and inert. Pickers search archived tunes too.
 - The search field is named for what it searches and its placeholder repeats
   that. "Clear search" appears while the field has focus.
-- A search matches typed names and the parent's name, never a title composed
-  from a date.
+- A search matches stored names, a row's parent's name included, never text
+  composed for display, such as a title made from a date.
 - Query text lasts the browser session and filters persist. Opening the new
   tune form and signing out clear the query.
 
@@ -540,8 +540,8 @@ equivalent below.
   own row under them.
 - A segmented control is allowed for a short closed choice. Status still
   stays a rail of capsules, because each carries its own dot color.
-- On the Mac, View > Sort By carries the Recordings sort while that screen
-  shows.
+- On the Mac, View > Sort By carries the sort of the screen that shows, when
+  it has one.
 - A long press opens the native context menu. Its Select item, and a
   Select toolbar button, enter selection, replacing the web's long-press
   gesture.
