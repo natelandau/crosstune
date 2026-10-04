@@ -18,6 +18,7 @@ public struct AppShell: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @State private var catalog: CatalogModel?
+    @State private var recordings: RecordingsModel?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
     /// Above the layout, so the shell's own sheets hide the iPhone record dome too.
@@ -67,6 +68,7 @@ public struct AppShell: View {
             .environment(player)
             .environment(recorders)
             .environment(catalog)
+            .environment(recordings)
             .environment(\.openSheets, openSheets)
             .environment(\.domeCover, domeCover)
             .environment(\.selecting, selecting)
@@ -78,10 +80,11 @@ public struct AppShell: View {
                     player: player, playback: listPlayback, window: playerWindow,
                     isActive: MenuGates.controls(sheetsOpen: openSheets.isCovered), show: show(_:))
             )
-            // Made here rather than by the catalog screen, which a Mac or iPad sidebar tears down,
-            // so the search lasts the app session and leaves with the signed-in shell.
+            // Made here rather than by their screens, which a Mac or iPad sidebar tears down, so
+            // each search lasts the app session and leaves with the signed-in shell.
             .task(id: ObjectIdentifier(store)) {
                 catalog = CatalogModel(store: store)
+                recordings = RecordingsModel(store: store)
             }
             .onAppear {
                 player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }

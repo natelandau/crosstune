@@ -117,7 +117,7 @@ private struct RecordingScreenContent: View {
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
-    @State private var renaming: RecordingView?
+    @State private var editing: RecordingView?
     @State private var filing: RecordingView?
     /// A tune the add to tune sheet asked to start, opened once that sheet has gone.
     @State private var creating: String?
@@ -210,8 +210,8 @@ private struct RecordingScreenContent: View {
         ) {
             await loadPeaks()
         }
-        .sheet(item: $renaming) { view in
-            RenameRecordingSheet(view: view)
+        .sheet(item: $editing) { view in
+            EditRecordingSheet(view: view)
         }
         .sheet(item: $filing, onDismiss: openCreated) { view in
             AddToTuneSheet(recordingID: view.id) { title in creating = title }
@@ -340,7 +340,7 @@ private struct RecordingScreenContent: View {
     }
 
     private var subtitle: String {
-        let date = RecordingText.recordedAt(rows.recording.recordedAt)
+        let date = RecordingText.date(rows.recording)
         guard let length = RecordingText.duration(milliseconds: rows.trimmedLengthMs) else { return date }
         return "\(date) · \(length)"
     }
@@ -389,7 +389,7 @@ private struct RecordingScreenContent: View {
     private func choose(_ item: RecordingMenuItem, _ view: RecordingView) {
         switch item {
         case .trim: openTrim()
-        case .rename: renaming = view
+        case .edit: editing = view
         case .addToTune: filing = view
         case .removeFromTune: removeFromTune()
         case .openOrigin(_, let page): openURL(page)

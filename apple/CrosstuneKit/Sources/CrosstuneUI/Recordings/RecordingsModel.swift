@@ -27,33 +27,6 @@ public struct RecordingView: Identifiable, Hashable, Sendable {
     }
 }
 
-/// The recordings screen's recordings under one heading: the unfiled ones, or one tune's.
-public struct RecordingGroup: Identifiable, Hashable, Sendable {
-    public static let unfiled = "Unfiled"
-
-    /// The tune the group heads, nil for the unfiled group.
-    public let tuneID: String?
-    public let title: String
-    public let views: [RecordingView]
-
-    public var id: String { tuneID ?? "" }
-
-    /// Unfiled recordings first, then one group per tune, in the order `views` meets them. Fed
-    /// ``RecordingsModel/sorted(_:)``, each tune's group lands in order of its newest recording.
-    public static func grouped(_ views: [RecordingView]) -> [RecordingGroup] {
-        var order: [String?] = []
-        var members: [String?: [RecordingView]] = [:]
-        for view in views {
-            if members[view.tuneID] == nil { order.append(view.tuneID) }
-            members[view.tuneID, default: []].append(view)
-        }
-        return order.map { tuneID in
-            let views = members[tuneID] ?? []
-            return RecordingGroup(tuneID: tuneID, title: views.first?.tuneTitle ?? unfiled, views: views)
-        }
-    }
-}
-
 /// What a capture recovery could not save shows in its row. The row answers a tap by asking to
 /// delete it, since there is nothing else to do with it.
 public struct UnfinishedCaptureRowContent: Hashable, Sendable {
@@ -64,8 +37,8 @@ public struct UnfinishedCaptureRowContent: Hashable, Sendable {
     public let verb = RecordingRowActions.delete
 
     public init(capture: RecordingFile, locale: Locale = .current, timeZone: TimeZone = .current) {
-        let started = RecordingText.recordedAt(
-            capture.recordedAt ?? capture.updatedAt, locale: locale, timeZone: timeZone)
+        let started = RecordingText.recordedDate(
+            capture.recordedAt ?? capture.updatedAt, precision: .time, locale: locale, timeZone: timeZone)
         title = "\(RecordingText.recording), \(started)"
     }
 }
@@ -80,8 +53,9 @@ struct RecordingsSnapshot: Equatable, Sendable {
     var choice: String
 }
 
-/// The recordings screen's state: every live recording, grouped by tune with the unfiled ones
-/// first, captures left unfinished, the account's storage, and the writes the screen makes.
+/// The recordings screen's state: every live recording, captures left unfinished, the account's
+/// storage, and the writes the screen makes. One model lives as long as the signed-in shell, so
+/// the query lasts the app session, as the catalog's does.
 @MainActor
 @Observable
 public final class RecordingsModel {
@@ -95,6 +69,8 @@ public final class RecordingsModel {
     public private(set) var failure: String?
     /// A choice made here, shown before the store reports it back.
     private var chosen: String?
+    /// What the search box holds.
+    public var query = ""
 
     private let store: CrosstuneStore
     private let snapshot: LiveQuery<RecordingsSnapshot?>
@@ -105,35 +81,57 @@ public final class RecordingsModel {
         snapshot = LiveQuery(store, initial: nil, fetch: Self.fetch)
     }
 
-    /// Nil until the store is read, so an unread store never shows as having no recordings.
-    public var groups: [RecordingGroup]? {
-        snapshot.value.map { RecordingGroup.grouped(shown($0.views)) }
+    /// The recordings from the chosen source in the chosen order, narrowed by ``query``. Nil until
+    /// the store is read, so an unread store never shows as having no recordings.
+    public func arrangement(_ sort: SortChoice) -> RecordingArrangement? {
+        snapshot.value.map { RecordingArrangement.arrange(shown($0.views), choice: sort, query: query) }
+    }
+
+    /// Whether the store holds no live recordings at all, whatever the source or query. False
+    /// until the store is read.
+    public var hasNoRecordings: Bool {
+        snapshot.value?.views.isEmpty ?? false
     }
 
     /// Which recordings the screen lists: `all`, `own`, or an import source.
     public var choice: String { chosen ?? snapshot.value?.choice ?? Self.allChoice }
 
-    /// The import sources to offer, in vocabulary order: the ones recordings come from, and a
-    /// chosen one nothing is left from, so the list never narrows in silence.
-    public var origins: [String] {
+    /// The Source choices: All, Mine, then each import site the recordings come from in
+    /// vocabulary order, plus a chosen site nothing is left from, so the list never narrows in
+    /// silence.
+    public var sourceOptions: [String] {
         let held = Set((snapshot.value?.views ?? []).map(\.recording.origin))
             .subtracting([RecordingText.ownOrigin])
         let stale = isStale && choice != RecordingText.ownOrigin ? [choice] : []
-        return Self.sortedOrigins(Array(held.union(stale)))
+        return [Self.allChoice, RecordingText.ownOrigin] + Self.sortedOrigins(Array(held.union(stale)))
     }
 
-    /// Whether the origin rail shows: more than one origin to choose between, or a stale choice.
-    public var showsRail: Bool {
-        guard let views = snapshot.value?.views else { return false }
-        let hasOwn = views.contains { $0.recording.origin == RecordingText.ownOrigin }
-        let imported = Set(views.map(\.recording.origin)).subtracting([RecordingText.ownOrigin])
-        return isStale || imported.count > 1 || (imported.count == 1 && hasOwn)
+    /// How many filters are set: the source, unless it is All.
+    public var filterCount: Int { choice == Self.allChoice ? 0 : 1 }
+
+    /// Whether the Filters control opens its sheet. It waits silently for the store; with no
+    /// import there is nothing to tell apart, though a set source keeps its way back to All.
+    /// With no recordings the empty state explains the screen, so the disabled control says
+    /// nothing.
+    var filtersGate: FiltersGate {
+        guard let views = snapshot.value?.views else { return .disabled(reason: nil) }
+        let imported = views.contains { $0.recording.origin != RecordingText.ownOrigin }
+        if imported || filterCount > 0 { return .enabled }
+        return .disabled(reason: views.isEmpty ? nil : RecordingsListText.filtersDisabledReason)
     }
 
-    /// True when recordings exist but none comes from the chosen source.
-    public var noMatch: Bool {
-        guard let snapshot = snapshot.value else { return false }
-        return !snapshot.views.isEmpty && shown(snapshot.views).isEmpty
+    /// Whether the captures never saved show. They are the musician's own and have no label or
+    /// tune for a search to match, so a query or an import site hides them.
+    public var showsUnfinished: Bool {
+        let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return !searching && (choice == Self.allChoice || choice == RecordingText.ownOrigin) && !unfinished.isEmpty
+    }
+
+    /// Whether recordings or unsaved captures exist but the source, the search, or both leave
+    /// nothing on screen.
+    public func showsNothingMatches(_ arrangement: RecordingArrangement?) -> Bool {
+        guard let arrangement, !(hasNoRecordings && unfinished.isEmpty) else { return false }
+        return arrangement.isEmpty && !showsUnfinished
     }
 
     private var isStale: Bool {
@@ -155,6 +153,11 @@ public final class RecordingsModel {
         return origins.sorted {
             rank($0) != rank($1) ? rank($0) < rank($1) : $0.localizedStandardCompare($1) == .orderedAscending
         }
+    }
+
+    /// Lists every recording again, whatever the source.
+    public func resetSource() async {
+        await setChoice(Self.allChoice)
     }
 
     /// Lists one source's recordings, or all of them, and keeps the choice on this device.
@@ -187,14 +190,6 @@ public final class RecordingsModel {
         return view.recording.state == "pending_upload" && notUploaded ? deleteUnsyncedNote : deleteSyncedNote
     }
 
-    /// Live recordings, unfiled first, then newest first.
-    nonisolated public static func sorted(_ views: [RecordingView]) -> [RecordingView] {
-        views.sorted { a, b in
-            if (a.tuneID == nil) != (b.tuneID == nil) { return a.tuneID == nil }
-            return a.recording.recordedAt.milliseconds > b.recording.recordedAt.milliseconds
-        }
-    }
-
     nonisolated static func fetch(_ db: Database) throws -> RecordingsSnapshot {
         let live = try Recording.filter(Recording.CodingKeys.deletedAt == nil).fetchAll(db)
         let files = try RecordingFile.fetchAll(db)
@@ -211,7 +206,7 @@ public final class RecordingsModel {
         let unfinished = files.filter { $0.localState == .capturing }
             .sorted { ($0.recordedAt?.milliseconds ?? 0) > ($1.recordedAt?.milliseconds ?? 0) }
         return RecordingsSnapshot(
-            views: sorted(views), unfinished: unfinished,
+            views: views, unfinished: unfinished,
             storage: try? MetaKey.storage.value(in: db, as: StorageFigures.self),
             // An unreadable choice reads as All, so a damaged setting never blanks the screen.
             choice: storedChoice(db))
@@ -256,6 +251,12 @@ public final class RecordingsModel {
             }
         }
         if let refusal { failure = refusal }
+    }
+
+    /// Drops a failure the musician has left the screen without dismissing, so it is not
+    /// waiting when they return.
+    public func clearFailure() {
+        failure = nil
     }
 
     /// Keeps the failure of a write made elsewhere on this screen, such as a Retry.

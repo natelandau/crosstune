@@ -27,6 +27,26 @@ private func activeRecordings(tuneID: String, db: Database) throws -> [Recording
 /// The type every finished capture is stored as.
 public let capturedContentType = "audio/mp4"
 
+/// The server's allowance for a device clock running ahead.
+public let recordedAtLeewayMs: Int64 = 24 * 60 * 60 * 1000
+
+private func checkRecordedDate(_ at: Timestamp?, precision: RecordingPrecision?, now: Timestamp) throws {
+    guard let at, let precision else {
+        if at != nil || precision != nil { throw CommandError.recordedDateMismatch }
+        return
+    }
+    if at.milliseconds > now.milliseconds + recordedAtLeewayMs { throw CommandError.recordedDateFuture }
+    if precision == .time { return }
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = .gmt
+    let parts = calendar.dateComponents([.year, .month, .day], from: at.date)
+    let start = DateComponents(
+        year: parts.year, month: precision == .year ? 1 : parts.month, day: precision == .day ? parts.day : 1)
+    guard let periodStart = calendar.date(from: start), Timestamp(periodStart) == at else {
+        throw CommandError.recordedDateOffPeriod
+    }
+}
+
 extension StoreWriter {
     public func activeRecordingsForTune(_ tuneID: String) throws -> [Recording] {
         try activeRecordings(tuneID: tuneID, db: db)
@@ -76,10 +96,11 @@ extension StoreWriter {
         try file.delete(db)
     }
 
-    /// Adds a recording from an audio file already copied into the user's audio folder.
+    /// Adds a recording from an audio file already copied into the user's audio folder. When the
+    /// music was played stays unknown: a file's dates usually record a download or copy.
     public func addUploadedFile(
         _ recordingID: String = newID(), fileName: String, contentType: String?, bytes: Int64, tuneID: String?,
-        label: String?, recordedAt: Timestamp, peaksFileName: String? = nil, at time: Timestamp = .now
+        label: String?, peaksFileName: String? = nil, at time: Timestamp = .now
     ) throws -> String {
         try RecordingFile(
             id: recordingID, localState: .captured, fileName: fileName,
@@ -87,7 +108,7 @@ extension StoreWriter {
             updatedAt: time
         ).save(db)
         try putNewRecording(
-            recordingID, tuneID: tuneID, source: "upload", label: label, recordedAt: recordedAt, at: time)
+            recordingID, tuneID: tuneID, source: "upload", label: label, recordedAt: nil, at: time)
         return recordingID
     }
 
@@ -105,19 +126,22 @@ extension StoreWriter {
         try putNewRecording(
             recordingID, tuneID: link.tuneID, source: "import",
             label: link.title.flatMap { $0.isEmpty ? nil : clippedRecordingLabel($0) },
-            recordedAt: time, origin: link.provider, originURL: link.url, at: time)
+            recordedAt: nil, origin: link.provider, originURL: link.url, at: time)
         return recordingID
     }
 
+    /// `recordedAt` is known only for a take, which was added the moment it was played.
     private func putNewRecording(
-        _ recordingID: String, tuneID: String?, source: String, label: String?, recordedAt: Timestamp,
+        _ recordingID: String, tuneID: String?, source: String, label: String?, recordedAt: Timestamp?,
         origin: String = "own", originURL: String? = nil, at time: Timestamp
     ) throws {
         let siblings = try tuneID.map(activeRecordingsForTune) ?? []
         try put(
             Recording(
                 id: recordingID, createdAt: time, tuneID: tuneID, source: source, origin: origin,
-                originURL: originURL, recordedAt: recordedAt, label: label, position: nextPosition(siblings)),
+                originURL: originURL, addedAt: recordedAt ?? time, recordedAt: recordedAt,
+                recordedPrecision: recordedAt == nil ? nil : RecordingPrecision.time.rawValue, label: label,
+                position: nextPosition(siblings)),
             at: time)
     }
 
@@ -146,13 +170,35 @@ extension StoreWriter {
         recording.speedPercent = speedPercent.resolved(from: recording.speedPercent)
         recording.pitchCents = pitchCents.resolved(from: recording.pitchCents)
         try put(recording, at: time)
+        try requeueFailedUpload(recordingID, at: time)
+    }
 
+    /// An edit re-pushes the row, so a failed upload gets another try with it.
+    private func requeueFailedUpload(_ recordingID: String, at time: Timestamp) throws {
         if var file = try RecordingFile.fetchOne(db, key: recordingID), file.localState == .failedUpload {
             file.localState = .captured
             file.error = nil
             file.updatedAt = time
             try file.update(db)
         }
+    }
+
+    /// Sets when a recording's music was played, or clears it with both nil. A failed upload is
+    /// put back in the queue, as for any edit. Refuses a date push would refuse, so a bad edit
+    /// never sits in the outbox: a date without its precision or the reverse, one more than a
+    /// day past `time`, or a partial date off UTC midnight at the start of its year, month, or
+    /// day.
+    public func updateRecordingDate(
+        _ recordingID: String, recordedAt: Timestamp?, precision: RecordingPrecision?, at time: Timestamp = .now
+    ) throws {
+        try checkRecordedDate(recordedAt, precision: precision, now: time)
+        guard var recording = try Recording.fetchOne(db, key: recordingID), recording.deletedAt == nil else {
+            throw CommandError.recordingNotFound
+        }
+        recording.recordedAt = recordedAt
+        recording.recordedPrecision = precision?.rawValue
+        try put(recording, at: time)
+        try requeueFailedUpload(recordingID, at: time)
     }
 
     /// Puts a file that failed to upload, or keeps failing, back at the front of the queue. The
@@ -222,12 +268,12 @@ extension Commands {
     @discardableResult
     public func addUploadedFile(
         _ recordingID: String = newID(), fileName: String, contentType: String?, bytes: Int64, tuneID: String?,
-        label: String?, recordedAt: Timestamp, peaksFileName: String? = nil, at time: Timestamp = .now
+        label: String?, peaksFileName: String? = nil, at time: Timestamp = .now
     ) async throws -> String {
         try await store.write { writer in
             try writer.addUploadedFile(
                 recordingID, fileName: fileName, contentType: contentType, bytes: bytes, tuneID: tuneID, label: label,
-                recordedAt: recordedAt, peaksFileName: peaksFileName, at: time)
+                peaksFileName: peaksFileName, at: time)
         }
     }
 
@@ -256,6 +302,14 @@ extension Commands {
             try writer.updateRecording(
                 recordingID, label: label, tuneID: tuneID, trimStartMs: trimStartMs, trimEndMs: trimEndMs,
                 speedPercent: speedPercent, pitchCents: pitchCents, at: time)
+        }
+    }
+
+    public func updateRecordingDate(
+        _ recordingID: String, recordedAt: Timestamp?, precision: RecordingPrecision?, at time: Timestamp = .now
+    ) async throws {
+        try await store.write { writer in
+            try writer.updateRecordingDate(recordingID, recordedAt: recordedAt, precision: precision, at: time)
         }
     }
 

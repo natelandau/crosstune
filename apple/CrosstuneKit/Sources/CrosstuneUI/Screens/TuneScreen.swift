@@ -166,7 +166,7 @@ private struct TuneBody: View {
     @Environment(\.commands) private var commands
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var deleting: RecordingView?
-    @State private var renaming: RecordingView?
+    @State private var editing: RecordingView?
     @State private var addingNotation: NotationAddChoice?
     @State private var deletingPage: NotationPage?
     @Environment(\.spacing) private var spacing
@@ -181,7 +181,7 @@ private struct TuneBody: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
-            TuneMediaSection(model: model, detail: detail, renaming: $renaming, deleting: $deleting)
+            TuneMediaSection(model: model, detail: detail, editing: $editing, deleting: $deleting)
             NotationSection(
                 model: model.notation, tuneID: detail.tune.id, adding: $addingNotation, deleting: $deletingPage)
             if detail.hasLyrics {
@@ -219,8 +219,8 @@ private struct TuneBody: View {
         #else
             .listStyle(.inset)
         #endif
-        .sheet(item: $renaming) { view in
-            RenameRecordingSheet(view: view)
+        .sheet(item: $editing) { view in
+            EditRecordingSheet(view: view)
         }
         .coversShell(deleting != nil)
         .confirmationDialog(
@@ -357,7 +357,7 @@ private struct TuneMediaSection: View {
     @Environment(\.playerWindow) private var window
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
-    @Binding var renaming: RecordingView?
+    @Binding var editing: RecordingView?
     @Binding var deleting: RecordingView?
 
     var body: some View {
@@ -448,7 +448,7 @@ private struct TuneMediaSection: View {
             onTogglePin: { Task { await model.setPlaySource(.recording(id: view.id), pinned: pinned) } },
             originLabel: RecordingText.originLabel(view.recording.origin),
             onOpenOrigin: RecordingRowActions.originPage(view.recording).map { page in { openURL(page) } },
-            onRename: { renaming = view },
+            onEdit: { editing = view },
             // Every recording here is already filed under the tune being looked at.
             onAddToTune: nil,
             onRemoveFromTune: {

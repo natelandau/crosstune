@@ -1229,6 +1229,8 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/RecordingData`.
         public struct RecordingData: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RecordingData/added_at`.
+            public var addedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingData/created_at`.
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingData/label`.
@@ -1242,7 +1244,9 @@ extension Components {
             /// - Remark: Generated from `#/components/schemas/RecordingData/position`.
             public var position: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingData/recorded_at`.
-            public var recordedAt: Foundation.Date
+            public var recordedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/RecordingData/recorded_precision`.
+            public var recordedPrecision: Components.Schemas.RecordingPrecision?
             /// - Remark: Generated from `#/components/schemas/RecordingData/source`.
             public var source: Components.Schemas.RecordingSource
             /// - Remark: Generated from `#/components/schemas/RecordingData/speed_percent`.
@@ -1256,6 +1260,7 @@ extension Components {
             /// Creates a new `RecordingData`.
             ///
             /// - Parameters:
+            ///   - addedAt:
             ///   - createdAt:
             ///   - label:
             ///   - origin:
@@ -1263,25 +1268,29 @@ extension Components {
             ///   - pitchCents:
             ///   - position:
             ///   - recordedAt:
+            ///   - recordedPrecision:
             ///   - source:
             ///   - speedPercent:
             ///   - trimEndMs:
             ///   - trimStartMs:
             ///   - tuneId:
             public init(
+                addedAt: Foundation.Date,
                 createdAt: Foundation.Date,
                 label: Swift.String? = nil,
                 origin: Components.Schemas.RecordingOrigin? = nil,
                 originUrl: Swift.String? = nil,
                 pitchCents: Swift.Int? = nil,
                 position: Swift.Int? = nil,
-                recordedAt: Foundation.Date,
+                recordedAt: Foundation.Date? = nil,
+                recordedPrecision: Components.Schemas.RecordingPrecision? = nil,
                 source: Components.Schemas.RecordingSource,
                 speedPercent: Swift.Int? = nil,
                 trimEndMs: Swift.Int? = nil,
                 trimStartMs: Swift.Int? = nil,
                 tuneId: Swift.String? = nil
             ) {
+                self.addedAt = addedAt
                 self.createdAt = createdAt
                 self.label = label
                 self.origin = origin
@@ -1289,6 +1298,7 @@ extension Components {
                 self.pitchCents = pitchCents
                 self.position = position
                 self.recordedAt = recordedAt
+                self.recordedPrecision = recordedPrecision
                 self.source = source
                 self.speedPercent = speedPercent
                 self.trimEndMs = trimEndMs
@@ -1296,6 +1306,7 @@ extension Components {
                 self.tuneId = tuneId
             }
             public enum CodingKeys: String, CodingKey {
+                case addedAt = "added_at"
                 case createdAt = "created_at"
                 case label
                 case origin
@@ -1303,6 +1314,7 @@ extension Components {
                 case pitchCents = "pitch_cents"
                 case position
                 case recordedAt = "recorded_at"
+                case recordedPrecision = "recorded_precision"
                 case source
                 case speedPercent = "speed_percent"
                 case trimEndMs = "trim_end_ms"
@@ -1880,6 +1892,10 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/RecordingOrigin`.
         public typealias RecordingOrigin = Swift.String
+        /// How much of a recording's recorded date is known.
+        ///
+        /// - Remark: Generated from `#/components/schemas/RecordingPrecision`.
+        public typealias RecordingPrecision = Swift.String
         /// A recording row in a pull page.
         ///
         /// - Remark: Generated from `#/components/schemas/RecordingPullRow`.
@@ -1913,6 +1929,8 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/RecordingRow`.
         public struct RecordingRow: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/added_at`.
+            public var addedAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingRow/created_at`.
             public var createdAt: Foundation.Date
             /// - Remark: Generated from `#/components/schemas/RecordingRow/deleted_at`.
@@ -1946,7 +1964,9 @@ extension Components {
             /// - Remark: Generated from `#/components/schemas/RecordingRow/position`.
             public var position: Swift.Int?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/recorded_at`.
-            public var recordedAt: Foundation.Date
+            public var recordedAt: Foundation.Date?
+            /// - Remark: Generated from `#/components/schemas/RecordingRow/recorded_precision`.
+            public var recordedPrecision: Components.Schemas.RecordingPrecision?
             /// - Remark: Generated from `#/components/schemas/RecordingRow/server_seq`.
             public var serverSeq: Swift.Int
             /// - Remark: Generated from `#/components/schemas/RecordingRow/source`.
@@ -1972,6 +1992,7 @@ extension Components {
             /// Creates a new `RecordingRow`.
             ///
             /// - Parameters:
+            ///   - addedAt:
             ///   - createdAt:
             ///   - deletedAt:
             ///   - durationMs:
@@ -1989,6 +2010,7 @@ extension Components {
             ///   - playbackStartMs:
             ///   - position:
             ///   - recordedAt:
+            ///   - recordedPrecision:
             ///   - serverSeq:
             ///   - source:
             ///   - sourceDurationMs:
@@ -2001,6 +2023,7 @@ extension Components {
             ///   - userId:
             ///   - additionalProperties: A container of undocumented properties.
             public init(
+                addedAt: Foundation.Date,
                 createdAt: Foundation.Date,
                 deletedAt: Foundation.Date? = nil,
                 durationMs: Swift.Int? = nil,
@@ -2017,7 +2040,8 @@ extension Components {
                 playbackRev: Swift.String? = nil,
                 playbackStartMs: Swift.Int? = nil,
                 position: Swift.Int? = nil,
-                recordedAt: Foundation.Date,
+                recordedAt: Foundation.Date? = nil,
+                recordedPrecision: Components.Schemas.RecordingPrecision? = nil,
                 serverSeq: Swift.Int,
                 source: Components.Schemas.RecordingSource,
                 sourceDurationMs: Swift.Int? = nil,
@@ -2030,6 +2054,7 @@ extension Components {
                 userId: Swift.String,
                 additionalProperties: OpenAPIRuntime.OpenAPIObjectContainer = .init()
             ) {
+                self.addedAt = addedAt
                 self.createdAt = createdAt
                 self.deletedAt = deletedAt
                 self.durationMs = durationMs
@@ -2047,6 +2072,7 @@ extension Components {
                 self.playbackStartMs = playbackStartMs
                 self.position = position
                 self.recordedAt = recordedAt
+                self.recordedPrecision = recordedPrecision
                 self.serverSeq = serverSeq
                 self.source = source
                 self.sourceDurationMs = sourceDurationMs
@@ -2060,6 +2086,7 @@ extension Components {
                 self.additionalProperties = additionalProperties
             }
             public enum CodingKeys: String, CodingKey {
+                case addedAt = "added_at"
                 case createdAt = "created_at"
                 case deletedAt = "deleted_at"
                 case durationMs = "duration_ms"
@@ -2077,6 +2104,7 @@ extension Components {
                 case playbackStartMs = "playback_start_ms"
                 case position
                 case recordedAt = "recorded_at"
+                case recordedPrecision = "recorded_precision"
                 case serverSeq = "server_seq"
                 case source
                 case sourceDurationMs = "source_duration_ms"
@@ -2090,6 +2118,10 @@ extension Components {
             }
             public init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.addedAt = try container.decode(
+                    Foundation.Date.self,
+                    forKey: .addedAt
+                )
                 self.createdAt = try container.decode(
                     Foundation.Date.self,
                     forKey: .createdAt
@@ -2154,9 +2186,13 @@ extension Components {
                     Swift.Int.self,
                     forKey: .position
                 )
-                self.recordedAt = try container.decode(
+                self.recordedAt = try container.decodeIfPresent(
                     Foundation.Date.self,
                     forKey: .recordedAt
+                )
+                self.recordedPrecision = try container.decodeIfPresent(
+                    Components.Schemas.RecordingPrecision.self,
+                    forKey: .recordedPrecision
                 )
                 self.serverSeq = try container.decode(
                     Swift.Int.self,
@@ -2199,6 +2235,7 @@ extension Components {
                     forKey: .userId
                 )
                 additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [
+                    "added_at",
                     "created_at",
                     "deleted_at",
                     "duration_ms",
@@ -2216,6 +2253,7 @@ extension Components {
                     "playback_start_ms",
                     "position",
                     "recorded_at",
+                    "recorded_precision",
                     "server_seq",
                     "source",
                     "source_duration_ms",
@@ -2230,6 +2268,10 @@ extension Components {
             }
             public func encode(to encoder: any Swift.Encoder) throws {
                 var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(
+                    self.addedAt,
+                    forKey: .addedAt
+                )
                 try container.encode(
                     self.createdAt,
                     forKey: .createdAt
@@ -2294,9 +2336,13 @@ extension Components {
                     self.position,
                     forKey: .position
                 )
-                try container.encode(
+                try container.encodeIfPresent(
                     self.recordedAt,
                     forKey: .recordedAt
+                )
+                try container.encodeIfPresent(
+                    self.recordedPrecision,
+                    forKey: .recordedPrecision
                 )
                 try container.encode(
                     self.serverSeq,

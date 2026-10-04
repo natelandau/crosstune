@@ -15,8 +15,8 @@ private let audioBytes = Data("not really audio".utf8)
 private func seededStore(_ root: TemporaryRoot) async throws -> CrosstuneStore {
     let store = try root.open()
     let tune = Tune(title: "Angeline the Baker")
-    let kept = Recording(tuneID: tune.id, source: "capture", recordedAt: noon)
-    let remote = Recording(tuneID: tune.id, source: "capture", recordedAt: later(1000))
+    let kept = Recording(tuneID: tune.id, source: "capture", addedAt: noon)
+    let remote = Recording(tuneID: tune.id, source: "capture", addedAt: later(1000))
     try await store.write { writer in
         try writer.put(tune)
         try writer.put(UserTune(tuneID: tune.id, status: "learning"))
@@ -50,11 +50,11 @@ private final class Calls: @unchecked Sendable {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(title: "Cluck Old Hen")
-    let onDevice = Recording(tuneID: tune.id, source: "capture", recordedAt: noon)
-    let noRow = Recording(tuneID: tune.id, source: "capture", recordedAt: noon)
-    let capturing = Recording(tuneID: tune.id, source: "capture", recordedAt: noon)
-    let missingFile = Recording(tuneID: tune.id, source: "capture", recordedAt: noon)
-    let deleted = Recording(deletedAt: noon, tuneID: tune.id, source: "capture", recordedAt: noon)
+    let onDevice = Recording(tuneID: tune.id, source: "capture", addedAt: noon)
+    let noRow = Recording(tuneID: tune.id, source: "capture", addedAt: noon)
+    let capturing = Recording(tuneID: tune.id, source: "capture", addedAt: noon)
+    let missingFile = Recording(tuneID: tune.id, source: "capture", addedAt: noon)
+    let deleted = Recording(deletedAt: noon, tuneID: tune.id, source: "capture", addedAt: noon)
     try await store.write { writer in
         try writer.put(tune)
         try writer.put(UserTune(tuneID: tune.id, status: "learning"))
@@ -80,7 +80,7 @@ private final class Calls: @unchecked Sendable {
     let root = TemporaryRoot()
     let store = try root.open()
     let tune = Tune(title: "Cluck Old Hen")
-    let recording = Recording(tuneID: tune.id, source: "capture", recordedAt: noon)
+    let recording = Recording(tuneID: tune.id, source: "capture", addedAt: noon)
     try await store.write { writer in
         try writer.put(tune)
         try writer.put(UserTune(tuneID: tune.id, status: "learning"))
@@ -238,7 +238,7 @@ private final class Calls: @unchecked Sendable {
 @Test func onlyLiveRecordingsHaveTheirAudioPinned() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
-    let deleted = Recording(deletedAt: noon, tuneID: nil, source: "capture", recordedAt: noon)
+    let deleted = Recording(deletedAt: noon, tuneID: nil, source: "capture", addedAt: noon)
     let orphanID = UUID().uuidString.lowercased()
     try await store.write { writer in
         try writer.put(deleted)

@@ -67,7 +67,7 @@ private let listName = "Session"
 
 private func recording(_ tune: String) -> PlayerItem {
     let row = Recording(
-        id: "r\(tune)", tuneID: tune, source: "microphone", recordedAt: noon, label: "Take \(tune)", state: "ready")
+        id: "r\(tune)", tuneID: tune, source: "microphone", addedAt: noon, label: "Take \(tune)", state: "ready")
     return .recording(row, tuneTitle: "Tune \(tune)")
 }
 

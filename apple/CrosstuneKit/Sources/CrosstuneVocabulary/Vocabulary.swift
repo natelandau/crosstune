@@ -13,6 +13,7 @@ public enum Vocabulary {
         "other",
     ]
     public static let recordingOrigins: [String] = ["own", "slippery_hill"]
+    public static let recordingPrecisions: [String] = ["year", "month", "day", "time"]
     public static let recordingSources: [String] = ["microphone", "upload", "import"]
     public static let recordingStates: [String] = ["pending_upload", "uploaded", "processing", "ready", "failed"]
     public static let searchStatuses: [String] = ["results", "unavailable", "search_only"]

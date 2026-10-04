@@ -13,6 +13,9 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     case loopLimit
     case noRoom
     case notationPageLimit
+    case recordedDateMismatch
+    case recordedDateFuture
+    case recordedDateOffPeriod
 
     public static let tuneNotFoundMessage = "Tune not found"
     public static let tuneTitleRequiredMessage = "A tune needs a title"
@@ -24,6 +27,9 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
     public static let loopLimitMessage = "This recording has 100 loops."
     public static let noRoomMessage = "No room for a loop here."
     public static let notationPageLimitMessage = "A tune holds at most 20 pages."
+    public static let recordedDateMismatchMessage = "A recorded date and its precision are set together"
+    public static let recordedDateFutureMessage = "A recorded date cannot be in the future"
+    public static let recordedDateOffPeriodMessage = "A partial recorded date starts its period at UTC midnight"
 
     public var errorDescription: String? {
         switch self {
@@ -37,6 +43,9 @@ public enum CommandError: LocalizedError, Equatable, Sendable {
         case .loopLimit: Self.loopLimitMessage
         case .noRoom: Self.noRoomMessage
         case .notationPageLimit: Self.notationPageLimitMessage
+        case .recordedDateMismatch: Self.recordedDateMismatchMessage
+        case .recordedDateFuture: Self.recordedDateFutureMessage
+        case .recordedDateOffPeriod: Self.recordedDateOffPeriodMessage
         }
     }
 }

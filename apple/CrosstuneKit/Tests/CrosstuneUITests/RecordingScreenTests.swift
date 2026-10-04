@@ -20,7 +20,7 @@ private func take(
     label: String? = "Jam at Mike's"
 ) -> Recording {
     Recording(
-        id: "r1", tuneID: nil, source: "microphone", recordedAt: noon, label: label, state: "ready",
+        id: "r1", tuneID: nil, source: "microphone", addedAt: noon, label: label, state: "ready",
         sourceDurationMs: 4000, trimStartMs: trimStartMs, trimEndMs: trimEndMs, speedPercent: speedPercent,
         pitchCents: pitchCents)
 }
@@ -269,17 +269,18 @@ private final class Writes {
         #expect(audio.calls.count == before)
     }
 
-    @Test func theMoreMenuOffersTrimRenameAddToTuneAndDelete() {
+    @Test func theMoreMenuOffersTrimEditAddToTuneAndDelete() {
         #expect(
             RecordingMenuItem.items(inTune: false, trimBlocker: nil) == [
-                .trim(blocker: nil), .rename, .addToTune, .delete,
+                .trim(blocker: nil), .edit, .addToTune, .delete,
             ])
         #expect(
             RecordingMenuItem.items(inTune: true, trimBlocker: RecordingScreenText.trimBusy) == [
-                .trim(blocker: RecordingScreenText.trimBusy), .rename, .removeFromTune, .delete,
+                .trim(blocker: RecordingScreenText.trimBusy), .edit, .removeFromTune, .delete,
             ])
         #expect(RecordingMenuItem.trim(blocker: nil).label == "Trim")
-        #expect(RecordingMenuItem.rename.label == RecordingRowActions.rename)
+        #expect(RecordingMenuItem.edit.label == RecordingRowActions.edit)
+        #expect(RecordingRowActions.edit == "Edit")
         #expect(RecordingMenuItem.addToTune.label == RecordingRowActions.addToTune)
         #expect(RecordingMenuItem.delete.label == RecordingRowActions.delete)
     }
@@ -287,14 +288,14 @@ private final class Writes {
     @Test func theMoreMenuOpensAnImportedRecordingOnItsSiteBeforeDelete() throws {
         let page = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
         func imported(_ url: String?, origin: String = "slippery_hill") -> Recording {
-            Recording(tuneID: nil, source: "import", origin: origin, originURL: url, recordedAt: noon)
+            Recording(tuneID: nil, source: "import", origin: origin, originURL: url, addedAt: noon)
         }
         let open = try #require(RecordingMenuItem.openOrigin(for: imported(page)))
         #expect(open == .openOrigin(site: "Slippery-Hill", page: try #require(URL(string: page))))
         #expect(open.label == RecordingRowActions.openOn("Slippery-Hill"))
         #expect(
             RecordingMenuItem.items(inTune: true, trimBlocker: nil, openOrigin: open) == [
-                .trim(blocker: nil), .rename, .removeFromTune, open, .delete,
+                .trim(blocker: nil), .edit, .removeFromTune, open, .delete,
             ])
         #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
         #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)

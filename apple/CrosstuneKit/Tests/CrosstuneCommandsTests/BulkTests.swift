@@ -281,7 +281,7 @@ private func activeItems(_ store: CrosstuneStore, _ listID: String) async throws
         let listID = try await commands.createList("Tuesday jam")
         try await commands.addToList(listID, userTuneID: a.userTuneID)
         try await store.write { writer in
-            try writer.put(Recording(id: "r1", tuneID: a.tuneID, source: "microphone", recordedAt: .now))
+            try writer.put(Recording(id: "r1", tuneID: a.tuneID, source: "microphone", addedAt: .now))
             try RecordingFile(id: "r1", localState: .captured).insert(writer.db)
         }
 

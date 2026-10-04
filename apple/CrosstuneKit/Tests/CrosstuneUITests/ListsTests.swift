@@ -665,7 +665,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let store = try await SampleCatalog.makeStore(root: root.url)
         let tam = try await entry("Tam Lin", in: store)
         let processing = Recording(
-            id: "r_processing", tuneID: tam.tune.id, source: "upload", recordedAt: now, state: "processing")
+            id: "r_processing", tuneID: tam.tune.id, source: "upload", addedAt: now, state: "processing")
         let silent = ListEntry(
             item: tam.item, tune: tam.tune, userTune: tam.userTune, recordings: [processing], files: [:],
             links: [])
@@ -704,7 +704,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
 
 @Suite struct PlaylistRecordingsTests {
     private func recording(_ id: String, state: String = "ready") -> Recording {
-        Recording(id: id, tuneID: "t", source: "microphone", recordedAt: noon, state: state)
+        Recording(id: id, tuneID: "t", source: "microphone", addedAt: noon, state: state)
     }
 
     private func file(_ id: String, _ state: LocalFileState, name: String? = "a.m4a") -> RecordingFile {
@@ -799,7 +799,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
     private func putLocalRecording(_ store: CrosstuneStore, tuneID: String) async throws {
         try await store.write { writer in
             try writer.put(
-                Recording(id: "local", tuneID: tuneID, source: "microphone", recordedAt: noon, state: "pending"),
+                Recording(id: "local", tuneID: tuneID, source: "microphone", addedAt: noon, state: "pending"),
                 at: noon)
             try RecordingFile(id: "local", localState: .captured, fileName: "local.m4a").upsert(writer.db)
         }
@@ -810,7 +810,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let id = try await tamLin(store)
         try await store.write { writer in
             try writer.put(
-                Recording(id: "silent", tuneID: id, source: "microphone", recordedAt: noon, state: "pending"),
+                Recording(id: "silent", tuneID: id, source: "microphone", addedAt: noon, state: "pending"),
                 at: noon)
         }
         #expect(await resolve(store, tuneID: id) == nil)
@@ -823,7 +823,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
             id: "song", tuneID: id, url: "https://music.apple.com/us/song/x/1", provider: "apple_music")
         try await store.write { writer in
             try writer.put(
-                Recording(id: "silent", tuneID: id, source: "microphone", recordedAt: noon, state: "pending"),
+                Recording(id: "silent", tuneID: id, source: "microphone", addedAt: noon, state: "pending"),
                 at: noon)
             try writer.put(song, at: noon)
         }
@@ -868,7 +868,7 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         let id = try await tamLin(store)
         try await store.write { writer in
             try writer.put(
-                Recording(id: "silent", tuneID: id, source: "microphone", recordedAt: noon, state: "pending"),
+                Recording(id: "silent", tuneID: id, source: "microphone", addedAt: noon, state: "pending"),
                 at: noon)
             try writer.put(
                 RecordingLink(id: "spotify", tuneID: id, url: "https://open.spotify.com/track/x", provider: "spotify"),

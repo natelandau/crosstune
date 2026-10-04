@@ -86,7 +86,7 @@ private func userTune(_ id: String, _ tuneID: String, status: String = "known") 
 private func recording(_ id: String, tuneID: String? = nil) -> Recording {
     Recording(
         id: id, createdAt: newYearsDay, tuneID: tuneID, source: "microphone",
-        recordedAt: Timestamp(iso: "2026-01-01T12:00:00Z")!)
+        addedAt: Timestamp(iso: "2026-01-01T12:00:00Z")!)
 }
 
 /// The fields of each tune row, for documents whose rows hold no quoted fields.

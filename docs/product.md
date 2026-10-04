@@ -79,12 +79,13 @@ for Android and every browser. The parts that matter:
   tune goes straight to it. Search needs a connection.
 - Recordings. Record with the phone's microphone, upload audio, or save the
   audio of a Slippery-Hill link. A recording is filed under a tune or waits
-  unfiled, and keeps where it came from. A take or an uploaded file plays at
-  once and uploads in the background. Saved link audio is fetched by the
-  server and plays once it is ready. Every recording reaches the musician's
-  other devices. A recording can be trimmed for good, and plays at a slower
-  or faster speed and a shifted pitch on every device. A recording keeps
-  labeled practice loops that repeat. Free accounts hold 1 GB.
+  unfiled, and keeps where it came from, when it was added, and, when known,
+  when it was recorded. A take or an uploaded file plays at once and uploads
+  in the background. Saved link audio is fetched by the server and plays once
+  it is ready. Every recording reaches the musician's other devices. A
+  recording can be trimmed for good, and plays at a slower or faster speed
+  and a shifted pitch on every device. A recording keeps labeled practice
+  loops that repeat. Free accounts hold 1 GB.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.

@@ -415,6 +415,12 @@ public struct RecordingLoop: SyncedRecord, Hashable {
     }
 }
 
+/// How much of a recording's recorded date is known. A partial date is stored as UTC midnight
+/// at the start of its year, month, or day.
+public enum RecordingPrecision: String, CaseIterable, Codable, Sendable {
+    case year, month, day, time
+}
+
 public struct Recording: SyncedRecord, Hashable {
     public static let table = SyncTable.recordings
 
@@ -429,7 +435,12 @@ public struct Recording: SyncedRecord, Hashable {
     public var origin: String
     /// The page an imported recording came from.
     public var originURL: String?
-    public var recordedAt: Timestamp
+    /// When the recording was added to the library. Fixed once the server has the row.
+    public var addedAt: Timestamp
+    /// When the music was played, nil when unknown. Set exactly when `recordedPrecision` is.
+    public var recordedAt: Timestamp?
+    /// How much of `recordedAt` is known, as a ``RecordingPrecision`` raw value.
+    public var recordedPrecision: String?
     public var label: String?
     public var position: Int
     /// The upload pipeline's fields: read here, never sent in a change.
@@ -459,7 +470,9 @@ public struct Recording: SyncedRecord, Hashable {
         case tuneID = "tune_id"
         case source, origin
         case originURL = "origin_url"
+        case addedAt = "added_at"
         case recordedAt = "recorded_at"
+        case recordedPrecision = "recorded_precision"
         case label, position, state
         case durationMs = "duration_ms"
         case playbackMime = "playback_mime"
@@ -487,7 +500,8 @@ public struct Recording: SyncedRecord, Hashable {
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String?, source: String,
-        origin: String = "own", originURL: String? = nil, recordedAt: Timestamp, label: String? = nil,
+        origin: String = "own", originURL: String? = nil, addedAt: Timestamp? = nil,
+        recordedAt: Timestamp? = nil, recordedPrecision: String? = nil, label: String? = nil,
         position: Int = 0, state: String = "pending_upload",
         durationMs: Int64? = nil, playbackMime: String? = nil, playbackBytes: Int64? = nil,
         error: String? = nil, sourceDurationMs: Int64? = nil, playbackStartMs: Int64? = nil,
@@ -504,7 +518,9 @@ public struct Recording: SyncedRecord, Hashable {
         self.source = source
         self.origin = origin
         self.originURL = originURL
+        self.addedAt = addedAt ?? createdAt
         self.recordedAt = recordedAt
+        self.recordedPrecision = recordedPrecision
         self.label = label
         self.position = position
         self.state = state
@@ -522,6 +538,17 @@ public struct Recording: SyncedRecord, Hashable {
         self.speedPercent = speedPercent
         self.pitchCents = pitchCents
         self.extra = extra
+    }
+
+    /// The precision of `recordedAt`, nil when the date is unknown or carries a precision newer
+    /// than this build.
+    public var precision: RecordingPrecision? { recordedPrecision.flatMap(RecordingPrecision.init) }
+
+    /// When the music was played and how much of it is known, nil when unknown. A precision newer
+    /// than this build reads as unknown, so sorting and display agree on which dates they trust.
+    public var knownRecordedDate: (at: Timestamp, precision: RecordingPrecision)? {
+        guard let recordedAt, let precision else { return nil }
+        return (recordedAt, precision)
     }
 }
 

@@ -24,7 +24,7 @@ import Testing
 
     func putRecording(id: String = "r1", state: String) async throws {
         try await store.write { writer in
-            try writer.put(Recording(id: id, tuneID: nil, source: "microphone", recordedAt: noon, state: state))
+            try writer.put(Recording(id: id, tuneID: nil, source: "microphone", addedAt: noon, state: state))
         }
     }
 

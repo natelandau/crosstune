@@ -12,7 +12,7 @@ private func row(
     speedPercent: Int = 75, pitchCents: Int = 200
 ) -> Recording {
     Recording(
-        id: id, tuneID: nil, source: "microphone", recordedAt: noon, label: nil, state: "ready",
+        id: id, tuneID: nil, source: "microphone", addedAt: noon, label: nil, state: "ready",
         sourceDurationMs: sourceDurationMs, trimStartMs: trimStartMs, trimEndMs: trimEndMs,
         speedPercent: speedPercent, pitchCents: pitchCents)
 }

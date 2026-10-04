@@ -334,7 +334,7 @@ import Testing
         let recordingID = newID()
         try await store.write { writer in
             try writer.put(
-                Recording(id: recordingID, createdAt: noon, tuneID: tuneID, source: "microphone", recordedAt: noon),
+                Recording(id: recordingID, createdAt: noon, tuneID: tuneID, source: "microphone", addedAt: noon),
                 at: noon)
             try RecordingFile(id: recordingID, localState: .captured, updatedAt: noon).insert(writer.db)
         }

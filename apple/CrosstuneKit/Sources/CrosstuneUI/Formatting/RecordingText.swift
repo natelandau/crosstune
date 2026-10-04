@@ -1,6 +1,5 @@
 import CrosstuneStore
 import CrosstuneSync
-import CrosstuneVocabulary
 import Foundation
 
 /// How a recording reads in its row: title, metadata, and what its leading control does.
@@ -58,22 +57,64 @@ public enum RecordingText {
         return fraction == 0 ? "\(whole) \(unit)" : "\(whole).\(fraction) \(unit)"
     }
 
-    /// When the recording was made, as a medium date and short time.
-    public static func recordedAt(_ time: Timestamp, locale: Locale = .current, timeZone: TimeZone = .current)
-        -> String
-    {
-        time.date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale, timeZone: timeZone))
+    /// When the music was played, worded only as far as its precision knows. A take reads as a
+    /// medium date and short time in `timeZone`.
+    public static func recordedDate(
+        _ at: Timestamp, precision: RecordingPrecision, locale: Locale = .current, timeZone: TimeZone = .current
+    ) -> String {
+        // A partial date is stored as UTC midnight at the start of its period, so it is read in
+        // UTC: read locally west of UTC, 1937 would read as 1936.
+        let partial = Date.FormatStyle(locale: locale, timeZone: .gmt)
+        return switch precision {
+        case .year: at.date.formatted(partial.year())
+        case .month: at.date.formatted(partial.month(.abbreviated).year())
+        case .day: at.date.formatted(Date.FormatStyle(date: .abbreviated, locale: locale, timeZone: .gmt))
+        case .time:
+            at.date.formatted(
+                Date.FormatStyle(date: .abbreviated, time: .shortened, locale: locale, timeZone: timeZone))
+        }
+    }
+
+    /// The day a recording was added, in `timeZone` since `addedAt` is an exact instant.
+    public static func addedDay(_ at: Timestamp, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        at.date.formatted(Date.FormatStyle(date: .abbreviated, locale: locale, timeZone: timeZone))
+    }
+
+    /// `Added <day>`.
+    public static func added(_ at: Timestamp, locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        "Added \(addedDay(at, locale: locale, timeZone: timeZone))"
+    }
+
+    /// The recorded date, or nil when it is unknown or its precision is one this build predates.
+    public static func knownRecordedDate(
+        _ recording: Recording, locale: Locale = .current, timeZone: TimeZone = .current
+    ) -> String? {
+        recording.knownRecordedDate.map {
+            recordedDate($0.at, precision: $0.precision, locale: locale, timeZone: timeZone)
+        }
+    }
+
+    /// The recorded date when known, else when the recording was added.
+    public static func date(
+        _ recording: Recording, locale: Locale = .current, timeZone: TimeZone = .current
+    ) -> String {
+        knownRecordedDate(recording, locale: locale, timeZone: timeZone)
+            ?? added(recording.addedAt, locale: locale, timeZone: timeZone)
     }
 
     /// The most specific name available: the recording's label, then its tune's title, then when
-    /// it was made. Under a heading that already names the tune, the tune is skipped.
+    /// it was played, else the day it was added. Under a heading that already names the tune, the
+    /// tune is skipped.
     public static func title(
         _ recording: Recording, tuneTitle: String?, tuneNamedAbove: Bool = false, locale: Locale = .current,
         timeZone: TimeZone = .current
     ) -> String {
         if let label = recording.label { return label }
         if !tuneNamedAbove, let tuneTitle { return tuneTitle }
-        return "\(Self.recording), \(recordedAt(recording.recordedAt, locale: locale, timeZone: timeZone))"
+        let date =
+            knownRecordedDate(recording, locale: locale, timeZone: timeZone)
+            ?? addedDay(recording.addedAt, locale: locale, timeZone: timeZone)
+        return "\(Self.recording), \(date)"
     }
 
     /// True when `title` falls through to the date, which the second line then leaves out.
@@ -102,20 +143,29 @@ public enum RecordingText {
     }
 
     /// The parts of the row's second line, in order, for joining with middle dots. A recording
-    /// that needs nothing shows when it was made in place of a status, unless `dateInTitle`
-    /// says its title already does. `offline` marks a
-    /// download that cannot start, and replaces the status. The file's own length stands in
-    /// until the server reports the recording's.
+    /// that needs nothing shows a date in place of a status, unless `dateInTitle` says its title
+    /// already shows the same one. Under Date added the date is when the recording was added;
+    /// under every other sort, or none, it is when it was played. `offline` marks a download that
+    /// cannot start, and replaces the status. The file's own length stands in until the server
+    /// reports the recording's.
     public static func meta(
         _ recording: Recording, file: RecordingFile?, storage: StorageFigures? = nil, offline: Bool = false,
-        dateInTitle: Bool = false, locale: Locale = .current, timeZone: TimeZone = .current
+        dateInTitle: Bool = false, sort: RecordingSort? = nil, locale: Locale = .current,
+        timeZone: TimeZone = .current
     ) -> [String] {
         let length = duration(milliseconds: recording.durationMs ?? file?.localDurationMs)
-        let origin = originLabel(recording.origin)
-        if offline { return [origin, length, SyncStatus.offlineLabel].compactMap { $0 } }
-        let status =
-            fileState(recording, file: file)
-            ?? (dateInTitle ? nil : recordedAt(recording.recordedAt, locale: locale, timeZone: timeZone))
+        if offline { return [length, SyncStatus.offlineLabel].compactMap { $0 } }
+        // The title's date is the recorded one when known, so under Date added it differs and stays.
+        let titleShowsSameDate = dateInTitle && (sort != .added || recording.knownRecordedDate == nil)
+        let date: String? =
+            if titleShowsSameDate {
+                nil
+            } else if sort == .added {
+                added(recording.addedAt, locale: locale, timeZone: timeZone)
+            } else {
+                Self.date(recording, locale: locale, timeZone: timeZone)
+            }
+        let status = fileState(recording, file: file) ?? date
         let waiting = file?.localState == .captured || file?.localState == .uploading
         let attempts = file?.uploadAttempts ?? 0
         let tries = waiting && attempts > 0 ? failedTries(attempts) : nil
@@ -124,15 +174,16 @@ public enum RecordingText {
             storageUsed =
                 "\(bytes(Int64(storage.usedBytes))) of \(bytes(Int64(storage.quotaBytes))) used"
         }
-        return [origin, length, status, tries, storageUsed].compactMap { $0 }
+        return [length, status, tries, storageUsed].compactMap { $0 }
     }
 
     /// The origin of a recording made on a device of the account's own.
     public static let ownOrigin = "own"
 
-    /// The site an imported recording came from, nil for one made here.
+    /// The site an imported recording came from, nil for one made here. A site this build
+    /// predates reads as a plain link, as a link from it does.
     public static func originLabel(_ origin: String) -> String? {
-        origin == ownOrigin ? nil : Vocabulary.providerLabels[origin] ?? origin
+        origin == ownOrigin ? nil : LinkText.providerLabel(origin)
     }
 
     /// Whether this device holds audio it can play. A capture still being written is not
