@@ -31,10 +31,14 @@ public struct ExportInput: Sendable {
     public var links: [RecordingLink]
     public var recordings: [Recording]
     public var localAudio: [LocalAudio]
+    public var notationPages: [NotationPageRecord]
+    /// Ids of the pages whose image this device holds.
+    public var localNotation: Set<String>
 
     public init(
         timeZone: TimeZone, instruments: [String], tunes: [Tune], userTunes: [UserTune], lists: [TuneList],
-        listItems: [ListItem], links: [RecordingLink], recordings: [Recording], localAudio: [LocalAudio]
+        listItems: [ListItem], links: [RecordingLink], recordings: [Recording], localAudio: [LocalAudio],
+        notationPages: [NotationPageRecord] = [], localNotation: Set<String> = []
     ) {
         self.timeZone = timeZone
         self.instruments = instruments
@@ -45,6 +49,8 @@ public struct ExportInput: Sendable {
         self.links = links
         self.recordings = recordings
         self.localAudio = localAudio
+        self.notationPages = notationPages
+        self.localNotation = localNotation
     }
 }
 
@@ -53,6 +59,8 @@ public struct ExportPlan: Sendable {
     public var listsCSV: String
     /// Every exported recording with its archive path, in archive order.
     public var audio: [(recordingID: String, path: String)]
+    /// Every exported notation page with its archive path, in archive order.
+    public var notation: [(pageID: String, path: String)]
     /// Recordings not deleted, exported or not.
     public var totalRecordings: Int
 }
@@ -206,6 +214,25 @@ private func planAudio(_ input: ExportInput, tunes: [ExportedTune], dateText: Da
     return (audio, pathsByTune)
 }
 
+/// Archive paths for each exported page: a folder per tune, pages numbered in reading order.
+private func planNotation(_ input: ExportInput, tunes: [ExportedTune]) -> [(pageID: String, path: String)] {
+    let exported = input.notationPages.filter { $0.deletedAt == nil && input.localNotation.contains($0.id) }
+    let pagesByTune = grouped(exported) { $0.tuneID }
+    var folders = NameAllocator()
+    var seen = Set<String>()
+    var notation: [(pageID: String, path: String)] = []
+    for exported in tunes {
+        let id = exported.tune.id
+        guard let pages = pagesByTune[id], seen.insert(id).inserted else { continue }
+        let folder = folders.take(exported.tune.title)
+        let ordered = pages.stablySorted { byPosition($0, $1, position: \.position) }
+        for (index, page) in ordered.enumerated() {
+            notation.append((pageID: page.id, path: "notation/\(folder)/\(index + 1).jpg"))
+        }
+    }
+    return notation
+}
+
 private func tuningsText(_ tune: Tune, instruments: [String]) -> String {
     let chosen = Set(instruments.filter(Vocabulary.instruments.contains))
     return Vocabulary.instruments
@@ -231,11 +258,12 @@ private func listRows(_ input: ExportInput, tunes: [ExportedTune]) -> [[String]]
         }
 }
 
-/// Both CSV documents and the archive path of every exported recording.
+/// Both CSV documents and the archive path of every exported recording and notation page.
 public func buildExport(_ input: ExportInput) -> ExportPlan {
     let dateText = DateText(timeZone: input.timeZone)
     let tunes = exportedTunes(input)
     let (audio, pathsByTune) = planAudio(input, tunes: tunes, dateText: dateText)
+    let notation = planNotation(input, tunes: tunes)
     let linksByTune = grouped(input.links.filter { $0.deletedAt == nil }) { $0.tuneID }
 
     let tuneRows = tunes.map { exported -> [String] in
@@ -269,6 +297,6 @@ public func buildExport(_ input: ExportInput) -> ExportPlan {
     return ExportPlan(
         tunesCSV: csvDocument([tunesHeader] + tuneRows),
         listsCSV: csvDocument([listsHeader] + listRows(input, tunes: tunes)),
-        audio: audio,
+        audio: audio, notation: notation,
         totalRecordings: input.recordings.count { $0.deletedAt == nil })
 }

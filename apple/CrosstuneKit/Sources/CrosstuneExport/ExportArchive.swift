@@ -6,10 +6,13 @@ import GRDB
 enum ExportArchiveError: LocalizedError, Equatable {
     /// The plan exports a recording with no local file, which `prepare` never produces.
     case noLocalAudio(String)
+    /// The plan exports a notation page with no local image, which `prepare` never produces.
+    case noLocalNotation(String)
 
     var errorDescription: String? {
         switch self {
         case .noLocalAudio: "A recording's audio is no longer on this device. Try exporting again."
+        case .noLocalNotation: "A notation page's image is no longer on this device. Try exporting again."
         }
     }
 }
@@ -87,7 +90,8 @@ public enum ExportArchive {
         let zip = job.appending(path: "\(name).zip")
         do {
             try FileManager.default.createDirectory(at: pinned, withIntermediateDirectories: true)
-            let (plan, sources) = try await prepare(store: store, timeZone: timeZone, pinningInto: pinned)
+            let (plan, sources, notationSources) = try await prepare(
+                store: store, timeZone: timeZone, pinningInto: pinned)
             let documents = [
                 ZipEntry(path: "tunes.csv", source: .data(Data(plan.tunesCSV.utf8))),
                 ZipEntry(path: "lists.csv", source: .data(Data(plan.listsCSV.utf8))),
@@ -98,11 +102,18 @@ public enum ExportArchive {
                 }
                 return ZipEntry(path: item.path, source: .file(source))
             }
+            let notation = try plan.notation.map { item in
+                guard let source = notationSources[item.pageID] else {
+                    throw ExportArchiveError.noLocalNotation(item.pageID)
+                }
+                return ZipEntry(path: item.path, source: .file(source))
+            }
             try beforeWriting()
 
-            progress(0, audio.count)
-            try writeStoredZip(documents + audio, to: zip, modified: now, timeZone: timeZone) { written in
-                if written > documents.count { progress(written - documents.count, audio.count) }
+            let files = audio + notation
+            progress(0, files.count)
+            try writeStoredZip(documents + files, to: zip, modified: now, timeZone: timeZone) { written in
+                if written > documents.count { progress(written - documents.count, files.count) }
             }
             // The zip is complete, so a pin that will not go is left for removeLeftovers.
             try? FileManager.default.removeItem(at: pinned)
@@ -122,23 +133,25 @@ public enum ExportArchive {
         try? FileManager.default.removeItem(at: root)
     }
 
-    /// The export plan, and a pinned copy of the audio file for each recording it exports.
+    /// The export plan, and a pinned copy of the audio file for each recording it exports and of
+    /// the image file for each notation page.
     ///
     /// A sync can delete or replace a recording's file at any moment, so each one is hard-linked
     /// (or, failing that, cloned) into `folder` before the plan counts it. The zip then reads
     /// files no sync touches, and a file already gone counts as not on this device.
     private static func prepare(store: CrosstuneStore, timeZone: TimeZone, pinningInto folder: URL) async throws -> (
-        ExportPlan, [String: URL]
+        ExportPlan, [String: URL], [String: URL]
     ) {
         let settingsRow = settingsID(clerkUserID: store.userID)
-        let (input, files) = try await store.read { db in
+        let (input, files, pageFiles) = try await store.read { db in
             let settings = try UserSettings.fetchOne(db, key: settingsRow).flatMap { $0.deletedAt == nil ? $0 : nil }
             let input = ExportInput(
                 timeZone: timeZone, instruments: settings?.instruments ?? [], tunes: try Tune.fetchAll(db),
                 userTunes: try UserTune.fetchAll(db), lists: try TuneList.fetchAll(db),
                 listItems: try ListItem.fetchAll(db), links: try RecordingLink.fetchAll(db),
-                recordings: try Recording.fetchAll(db), localAudio: [])
-            return (input, try RecordingFile.fetchAll(db))
+                recordings: try Recording.fetchAll(db), localAudio: [],
+                notationPages: try NotationPageRecord.fetchAll(db))
+            return (input, try RecordingFile.fetchAll(db), try NotationFile.fetchAll(db))
         }
 
         var sources: [String: URL] = [:]
@@ -153,9 +166,19 @@ public enum ExportArchive {
             localAudio.append(LocalAudio(recordingID: file.id, fileName: fileName))
         }
 
+        var notationSources: [String: URL] = [:]
+        let livePages = Set(input.notationPages.filter { $0.deletedAt == nil }.map(\.id))
+        for file in pageFiles where livePages.contains(file.pageID) {
+            // The prefix keeps a page's pin from sharing a name with an audio pin.
+            let pinned = folder.appending(path: "notation-\(file.fileName)")
+            guard try pin(store.notationFolder.appending(path: file.fileName), at: pinned) else { continue }
+            notationSources[file.pageID] = pinned
+        }
+
         var complete = input
         complete.localAudio = localAudio
-        return (buildExport(complete), sources)
+        complete.localNotation = Set(notationSources.keys)
+        return (buildExport(complete), sources, notationSources)
     }
 
     /// Links `source` at `destination`, or clones it where a link cannot be made. Returns false

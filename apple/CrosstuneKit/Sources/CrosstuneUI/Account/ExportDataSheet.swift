@@ -3,14 +3,14 @@ import CrosstuneStore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Zips the tunes, lists, and every recording this device holds, then hands the zip to the
+/// Zips the tunes, lists, and every recording and notation page this device holds, then hands the zip to the
 /// share sheet on iPhone or a save panel on the Mac. Held open while an export runs, so Cancel
 /// is the one way out and nothing it abandons is handed off.
 public struct ExportDataSheet: View {
     public static let title = "Export data"
     public static let action = "Export"
     public static let completeNote =
-        "Exports your tunes and lists as spreadsheets, with every recording, in one zip file."
+        "Exports your tunes and lists as spreadsheets, with every recording and notation page, in one zip file."
 
     public static func note(onDevice: Int, total: Int) -> String {
         guard onDevice < total else { return completeNote }
@@ -19,7 +19,7 @@ public struct ExportDataSheet: View {
     }
 
     public static func progress(done: Int, total: Int) -> String {
-        "Preparing recording \(done) of \(total)"
+        "Preparing file \(done) of \(total)"
     }
 
     @Environment(\.dismiss) private var dismiss
