@@ -58,7 +58,7 @@ public struct AppShell: View {
                     showRecordings: { recordingsShown += 1 })
             )
             .modifier(LyricsScreens())
-            .modifier(NotationScreens())
+            .modifier(ScanScreens())
             .modifier(RecordingTransfers(store: store, player: player))
             .modifier(PlayerLinkWatch(store: store, player: player))
             .modifier(PlayerRecordingWatch(store: store, player: player))
@@ -73,6 +73,7 @@ public struct AppShell: View {
             .environment(\.domeCover, domeCover)
             .environment(\.selecting, selecting)
             .environment(\.playerWindow, playerWindow)
+            .environment(\.openCatalogRoot, MenuAction { showRoot(.catalog) })
             .focusedSceneValue(\.recordAction, canRecord ? MenuAction(record) : nil)
             .focusedSceneValue(\.syncNowAction, engine.map { engine in MenuAction { Task { await engine.sync() } } })
             .modifier(
@@ -117,6 +118,14 @@ public struct AppShell: View {
             }
         #endif
         place.sidebar = destination == .recordings ? .recordings : .catalog
+    }
+
+    private func showRoot(_ destination: Destination) {
+        #if os(iOS)
+            place.showRoot(destination, inTabs: usesTabs == true)
+        #else
+            place.showRoot(destination, inTabs: false)
+        #endif
     }
 
     private func record() {

@@ -14,6 +14,9 @@ extension EnvironmentValues {
     /// shows it in the detail column and a switch back pushes it again. Nil in the split view and
     /// on a screen pushed over the tab's own.
     @Entry var stackTune: Binding<String?>?
+    /// Shows the Catalog at its root in this window, as from a stats value. Nil outside the
+    /// shell, as in the Mac Settings window, which cannot switch the main window's destination.
+    @Entry var openCatalogRoot: MenuAction?
     /// This window's identity for the shared player, so only the window that asks for the
     /// player in full shows it. Nil outside the shell.
     @Entry var playerWindow: UUID?

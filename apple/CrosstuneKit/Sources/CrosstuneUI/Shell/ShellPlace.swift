@@ -21,6 +21,27 @@ final class ShellPlace {
     }
     /// The tune pushed on each tab, over its list on the Lists tab.
     var tabTunes: [Destination: String] = [:]
+    /// What the split view's Settings column has pushed, kept while another row is chosen so
+    /// coming back finds it, as the iPhone's Settings tab keeps its stack.
+    var settingsPath: [StatsRoute] = []
+
+    /// Shows `destination` at its root: in the tab bar, its tab with nothing pushed; in the split
+    /// view, its sidebar row. The Lists tab's root has no sidebar row, so it falls back to the
+    /// catalog.
+    func showRoot(_ destination: Destination, inTabs: Bool) {
+        if inTabs {
+            tabTunes[destination] = nil
+            if destination == .lists { tabList = nil }
+            tab = destination
+        } else {
+            sidebar =
+                switch destination {
+                case .catalog, .lists: .catalog
+                case .recordings: .recordings
+                case .settings: .settings
+                }
+        }
+    }
 
     /// Carries the split view's place into the tab bar.
     func enterTabs() {

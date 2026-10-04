@@ -49,17 +49,9 @@ struct SplitShell: View {
                 #endif
                 .clearsPlayer(playerFrame)
         } content: {
-            content
+            contentColumn
                 .clearsPlayer(playerFrame)
                 .navigationSplitViewColumnWidth(min: 300, ideal: 340)
-                .toolbar {
-                    if recordShows && !sidebarHoldsRecord {
-                        ToolbarItem(placement: .navigation) {
-                            RecordToolbarButton(action: onRecord)
-                        }
-                    }
-                }
-                .syncBadgeToolbar()
                 .environment(\.detailTune, $place.detailTune)
                 .environment(\.sidebarSelection, $place.sidebar)
         } detail: {
@@ -187,6 +179,28 @@ struct SplitShell: View {
 
     private func row(_ destination: Destination) -> some View {
         Label(destination.title, systemImage: destination.systemImage)
+    }
+
+    /// A link in a column with no stack of its own replaces the detail column, so Settings,
+    /// which pushes its stats screen, gets a stack that keeps the push in its column.
+    @ViewBuilder private var contentColumn: some View {
+        if place.sidebar == .settings {
+            NavigationStack(path: $place.settingsPath) { contentWithToolbar }
+        } else {
+            contentWithToolbar
+        }
+    }
+
+    private var contentWithToolbar: some View {
+        content
+            .toolbar {
+                if recordShows && !sidebarHoldsRecord {
+                    ToolbarItem(placement: .navigation) {
+                        RecordToolbarButton(action: onRecord)
+                    }
+                }
+            }
+            .syncBadgeToolbar()
     }
 
     @ViewBuilder private var content: some View {

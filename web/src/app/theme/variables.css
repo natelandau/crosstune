@@ -113,6 +113,14 @@
   --loop-5: #6b3fc4;
   --loop-5-tint: rgba(107, 63, 196, 0.2);
 
+  /* The stats heatmap's four steps, from the lightest active day to the busiest: one hue, the
+     brand slate, so the steps read as amounts and never as categories. Even the lightest clears
+     3:1 against the page, so a day with any activity never reads as empty. */
+  --heat-1: #8794aa;
+  --heat-2: #6b7891;
+  --heat-3: #4a566d;
+  --heat-4: #2a3342;
+
   /* The content column on the wide frame, in px so the text size setting scales the type
      and not the column. About 70 characters of body text. */
   --measure: none;
@@ -259,7 +267,7 @@ html.ios ion-modal .sheet-toolbar ion-buttons[slot='end'] {
    below its own text width so the tune's name gives up its own letters rather than the
    controls giving up the bar. */
 html.ios ion-modal .lyrics-toolbar ion-title,
-html.ios ion-modal .notation-toolbar ion-title {
+html.ios ion-modal .scan-toolbar ion-title {
   position: relative;
   padding-inline: 8px;
 }
@@ -274,10 +282,10 @@ html.ios ion-modal .notation-toolbar ion-title {
   }
 }
 
-/* A page of written music is read at a glance from a stand, so the viewer takes the whole
+/* A scan is read at a glance from a stand, so the viewer takes the whole
    screen on every frame rather than Ionic's 600px dialog. */
 @media only screen and (min-width: 768px) and (min-height: 600px) {
-  ion-modal.notation-modal {
+  ion-modal.scan-modal {
     --width: 100%;
     --height: 100%;
     --border-radius: 0;
@@ -683,6 +691,13 @@ button.menu-choice.menu-danger {
   --loop-4-tint: rgba(15, 128, 138, 0.3);
   --loop-5: #7d56d8;
   --loop-5-tint: rgba(125, 86, 216, 0.3);
+
+  /* Brighter with activity on a dark page, the reverse of the light steps; the lightest still
+     clears 3:1 on both platforms' dark pages. */
+  --heat-1: #59647a;
+  --heat-2: #7d89a0;
+  --heat-3: #a6b0c4;
+  --heat-4: #d3d8e3;
 }
 
 /* The record dome in the phone tab bar. --tab-bar-cap is how far its top rises above the bar,
