@@ -117,3 +117,57 @@ def test_a_url_the_parser_rejects_is_other_and_kept_as_pasted(url: str) -> None:
     # urlparse raises on an unbalanced IPv6 bracket; neither function may let that escape.
     assert detect_provider(url) == ("other", None)
     assert normalize_url(url, "other", None) == url
+
+
+SH = "https://www.slippery-hill.com"
+GLAD = "78s/15402%20What%20A%20Glad%20Day%20%20%28Wright%20Brothers%20Quartet%29.mp3"
+# The longest ref a link row stores, and one character past it.
+LONGEST_REF = "a" * 196 + ".mp3"
+OVERLONG_REF = "a" * 197 + ".mp3"
+
+
+@pytest.mark.parametrize(
+    ("url", "ref", "canonical"),
+    [
+        (
+            f"{SH}/content/bear-creek-sally-goodin?x=1#a",
+            None,
+            f"{SH}/content/bear-creek-sally-goodin",
+        ),
+        ("https://slippery-hill.com/content/june-apple-2/", None, f"{SH}/content/june-apple-2"),
+        (
+            f"{SH}/system/files/recordings/bearcreeksallygoodin_bobholt.mp3",
+            "recordings/bearcreeksallygoodin_bobholt.mp3",
+            f"{SH}/system/files/recordings/bearcreeksallygoodin_bobholt.mp3",
+        ),
+        (f"https://slippery-hill.com/system/files/{GLAD}", GLAD, f"{SH}/system/files/{GLAD}"),
+        (
+            f"{SH}/system/files/recordings/a.MP3",
+            "recordings/a.MP3",
+            f"{SH}/system/files/recordings/a.MP3",
+        ),
+        (f"{SH}/system/files/../x.mp3", None, f"{SH}/system/files/../x.mp3"),
+        (f"{SH}/system/files/a/%2E%2e/x.mp3", None, f"{SH}/system/files/a/%2E%2e/x.mp3"),
+        (f"{SH}/system/files/a/./x.mp3", None, f"{SH}/system/files/a/./x.mp3"),
+        (f"{SH}/system/files/a:b.mp3", None, f"{SH}/system/files/a:b.mp3"),
+        (f"{SH}/system/files/a@b/x.mp3", None, f"{SH}/system/files/a@b/x.mp3"),
+        (f"{SH}/system/files/\u00e9.mp3", None, f"{SH}/system/files/\u00e9.mp3"),
+        (f"{SH}/system/files/a/b%2Ec.mp3", None, f"{SH}/system/files/a/b%2Ec.mp3"),
+        (f"{SH}/system/files/x%2E.mp3", None, f"{SH}/system/files/x%2E.mp3"),
+        (f"{SH}/system/files/a.wav", None, f"{SH}/system/files/a.wav"),
+        (
+            f"{SH}/system/files/{LONGEST_REF}",
+            LONGEST_REF,
+            f"{SH}/system/files/{LONGEST_REF}",
+        ),
+        (f"{SH}/system/files/{OVERLONG_REF}", None, f"{SH}/system/files/{OVERLONG_REF}"),
+        (
+            f"{SH}/tune-search?search_api_fulltext=x",
+            None,
+            f"{SH}/tune-search?search_api_fulltext=x",
+        ),
+    ],
+)
+def test_detects_slippery_hill(url: str, ref: str | None, canonical: str) -> None:
+    assert detect_provider(url) == ("slippery_hill", ref)
+    assert normalize_url(url, "slippery_hill", ref) == canonical

@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import request_runner_wake
-from crosstune.links.detect import detect_provider, normalize_url
+from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
 from crosstune.links.resolve import unresolved_link
 from crosstune.models import (
     List,
@@ -30,11 +30,16 @@ from crosstune.recordings.loops import (
     loop_bounds,
     reclamp_recording_loops,
 )
-from crosstune.recordings.service import ensure_trim_job
+from crosstune.recordings.service import ensure_trim_job, start_import
 from crosstune.recordings.trim import clamp_trim
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
 from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
-from crosstune.vocabulary import MAX_LOOPS_PER_RECORDING, MIN_LOOP_MS, TableName
+from crosstune.vocabulary import (
+    MAX_LOOPS_PER_RECORDING,
+    MIN_LOOP_MS,
+    RecordingSource,
+    TableName,
+)
 
 if TYPE_CHECKING:
     import uuid
@@ -218,17 +223,20 @@ def _enrich_recording_link(
             data["provider"] = provider
             data["provider_ref"] = ref
 
+    # A client-sent ref is appended to the site origin, so only a valid one is kept.
+    if data["provider"] == "slippery_hill" and not valid_slippery_hill_ref(
+        data.get("provider_ref") or ""
+    ):
+        data["provider_ref"] = None
 
-async def _clamp_recording_trim(
-    session: AsyncSession, recording_id: uuid.UUID, data: dict[str, Any]
-) -> None:
+
+def _clamp_recording_trim(stored: Recording | None, data: dict[str, Any]) -> None:
     """Keep a pushed trim inside the stored row's playback range, in place.
 
-    Reads the row already in the database rather than the pushed values, so a stale
+    Uses the row already in the database rather than the pushed values, so a stale
     push (rejected by the upsert's timestamp check below) never has its rewritten
     trim mistaken for what was actually written.
     """
-    stored: Recording | None = await session.get(Recording, recording_id)
     low = (stored.playback_start_ms or 0) if stored else 0
     high = stored.playback_end_ms if stored else None
     source_end = stored.source_duration_ms if stored else None
@@ -334,10 +342,19 @@ async def _write_keeps_live_count(
     return stored.deleted_at is None and stored.recording_id == recording_id
 
 
-async def _after_recording_write(session: AsyncSession, current: Recording, at: datetime) -> None:
+async def _after_recording_write(
+    session: AsyncSession, current: Recording, at: datetime, *, is_new: bool
+) -> None:
     # Queued from the row as committed by the upsert, in the same transaction as the push.
     await ensure_trim_job(session, current)
     await reclamp_recording_loops(session, current, at)
+    # Only a row this push created starts an import, so an update never queues a second
+    # fetch and an existing recording can't be turned into one.
+    if is_new and current.source == RecordingSource.IMPORT:
+        await start_import(session, current)
+        # The result is serialized from this row, and server_seq is still a SQL expression.
+        await session.flush()
+        await session.refresh(current)
 
 
 async def _prepare(
@@ -347,12 +364,13 @@ async def _prepare(
     change: Change,
     data: dict[str, Any],
     resolved_links: Mapping[str, ResolvedLink] | None,
+    stored_recording: Recording | None,
 ) -> ChangeResult | None:
     """Apply a table's pre-write rules to `data` in place, returning a rejection if any."""
     if spec.name == "recording_links":
         _enrich_recording_link(data, resolved_links)
     elif spec.name == "recordings":
-        await _clamp_recording_trim(session, change.id, data)
+        _clamp_recording_trim(stored_recording, data)
     elif spec.name == "recording_loops":
         return await _prepare_loop(session, user_id, change, data)
     return None
@@ -382,7 +400,12 @@ async def _upsert(
     if reason:
         return _invalid(change, reason)
 
-    rejection = await _prepare(session, spec, user_id, change, data, resolved_links)
+    stored_recording: Recording | None = (
+        await session.get(Recording, change.id) if spec.name == "recordings" else None
+    )
+    rejection = await _prepare(
+        session, spec, user_id, change, data, resolved_links, stored_recording
+    )
     if rejection:
         return rejection
 
@@ -393,7 +416,11 @@ async def _upsert(
     model: Any = spec.model
     stmt = insert(model).values(**values, server_seq=next_server_seq())
     excluded = stmt.excluded
-    set_ = {k: getattr(excluded, k) for k in values if k not in ("id", "created_at")}
+    set_ = {
+        k: getattr(excluded, k)
+        for k in values
+        if k not in ("id", "created_at") and k not in spec.insert_only
+    }
     # The value the insert already drew, so an update spends one sequence value, not two.
     set_["server_seq"] = excluded.server_seq
     # Strictly newer wins, and only over a stored row the caller owns: for list_items that
@@ -419,7 +446,9 @@ async def _upsert(
     current, status = resolved
 
     if spec.name == "recordings" and status == "applied":
-        await _after_recording_write(session, current, change.updated_at)
+        await _after_recording_write(
+            session, current, change.updated_at, is_new=stored_recording is None
+        )
 
     return _result(spec, change, status, current)
 

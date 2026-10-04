@@ -78,6 +78,7 @@ class Provider(StrEnum):
     SOUNDCLOUD = "soundcloud"
     TIDAL = "tidal"
     INTERNET_ARCHIVE = "internet_archive"
+    SLIPPERY_HILL = "slippery_hill"
     OTHER = "other"
 
 
@@ -86,11 +87,15 @@ SEARCHABLE_PROVIDERS: Final[tuple[Provider, ...]] = (
     Provider.APPLE_MUSIC,
     Provider.TIDAL,
     Provider.INTERNET_ARCHIVE,
+    Provider.SLIPPERY_HILL,
     Provider.YOUTUBE,
     Provider.SPOTIFY,
     Provider.BANDCAMP,
     Provider.SOUNDCLOUD,
 )
+
+# Every provider whose audio the server will fetch into a recording.
+IMPORTABLE_PROVIDERS: Final[tuple[Provider, ...]] = (Provider.SLIPPERY_HILL,)
 
 
 class SearchStatus(StrEnum):
@@ -121,6 +126,14 @@ class RecordingSource(StrEnum):
 
     MICROPHONE = "microphone"
     UPLOAD = "upload"
+    IMPORT = "import"
+
+
+class RecordingOrigin(StrEnum):
+    """Whose a recording is: the user's own, or the import source it came from."""
+
+    OWN = "own"
+    SLIPPERY_HILL = "slippery_hill"
 
 
 class RecordingState(StrEnum):
@@ -139,6 +152,7 @@ class JobKind(StrEnum):
     TRANSCODE = "transcode"
     TRIM = "trim"
     PEAKS = "peaks"
+    IMPORT = "import"
 
 
 SPEED_PERCENT_MIN: Final[int] = 50
@@ -193,6 +207,7 @@ LIMITS: Final[dict[str, dict[str, int]]] = {
     },
     "recordings": {
         "label": 200,
+        "origin_url": 2048,
     },
     "recording_loops": {
         "label": 100,

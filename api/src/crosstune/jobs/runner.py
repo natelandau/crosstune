@@ -6,14 +6,24 @@ import asyncio
 import contextlib
 import logging
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeGuard
 
+import httpx2
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import and_, func, or_, select, update
 
 from crosstune.db.locks import lock_user
+from crosstune.http import BlockedAddressError
+from crosstune.jobs.importer import (
+    IMPORT_MIME,
+    OVER_QUOTA,
+    UNREACHABLE,
+    ImportRefused,
+    fetch_import,
+)
 from crosstune.jobs.media import SUBPROCESS_TIMEOUT_SECONDS, MediaError
 from crosstune.jobs.peaks_job import build_recording_peaks
 from crosstune.jobs.sweep import (
@@ -27,7 +37,12 @@ from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
 from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
-from crosstune.recordings.service import bump_server_seq, ensure_trim_job
+from crosstune.recordings.service import (
+    bump_server_seq,
+    enqueue_transcode,
+    ensure_trim_job,
+    used_bytes,
+)
 from crosstune.recordings.trim import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME, delete_best_effort, original_key, upload_key
 from crosstune.vocabulary import JobKind
@@ -39,6 +54,7 @@ if TYPE_CHECKING:
     from sqlalchemy import ColumnElement
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+    from crosstune.config import Settings
     from crosstune.storage.store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -123,6 +139,33 @@ async def _load_claimed(
     return recording, stored_job
 
 
+async def _load_locked(session: AsyncSession, job: Job) -> tuple[Recording, Job] | None:
+    """Take the job's user lock and re-read its row pair fresh, as `_load_claimed` does.
+
+    Re-read rather than taken from the identity map, since the rows may have changed
+    while the job worked with no transaction open.
+    """
+    await lock_user(session, job.user_id)
+    current = await _reload(session, Recording, job.recording_id)
+    stored_job = await _reload(session, Job, job.id)
+    if current is None or not _still_claimed(stored_job, job):
+        return None
+    if current.deleted_at is not None:
+        await session.delete(stored_job)
+        return None
+    return current, stored_job
+
+
+@dataclass
+class _ImportWrite:
+    """How far an import got toward its upload object, for cleanup after a failure."""
+
+    key: str
+    written: bool = False
+    committing: bool = False
+    committed: bool = False
+
+
 def _back_off(job: Job, raw: str) -> None:
     """Keep the failure on the job and delay its retry, instead of hammering a bad file."""
     job.last_error = raw[:LAST_ERROR_CHARS]
@@ -151,6 +194,8 @@ def _client_message(exc: Exception) -> str:
         return "The audio could not be read"
     if isinstance(exc, _STORAGE_ERRORS):
         return "Storage was unavailable"
+    if isinstance(exc, (httpx2.HTTPError, BlockedAddressError)):
+        return UNREACHABLE
     return "Processing failed"
 
 
@@ -164,9 +209,13 @@ class JobRunner:
         *,
         orphan_sweep_seconds: float = 3600.0,
         work_root: Path | None = None,
+        http_client: httpx2.AsyncClient | None = None,
+        settings: Settings,
     ) -> None:
         self._sessionmaker = sessionmaker
         self._store = store
+        self._http_client = http_client
+        self._settings = settings
         self._orphan_sweep_seconds = orphan_sweep_seconds
         self._next_orphan_sweep = utc_now()
         self._work_root = work_root
@@ -336,6 +385,8 @@ class JobRunner:
             await self._peaks(job)
         elif job.kind == JobKind.TRIM.value:
             await self._trim(job)
+        elif job.kind == JobKind.IMPORT.value:
+            await self._import(job)
         else:
             log.warning(
                 "dropping a job of unknown kind", extra={"kind": job.kind, "job": str(job.id)}
@@ -466,12 +517,32 @@ class JobRunner:
         return prepared
 
     async def _fail(
-        self, session: AsyncSession, job: Job, recording: Recording, exc: Exception
+        self,
+        session: AsyncSession,
+        job: Job,
+        recording: Recording,
+        exc: Exception,
+        *,
+        retry_state: str = "uploaded",
     ) -> None:
+        """Fail the recording on the last attempt, else hold the job back for a retry.
+
+        Args:
+            session: The session to write through, in the caller's transaction.
+            job: The claimed job.
+            recording: The job's recording.
+            exc: What the attempt raised.
+            retry_state: The recording's state while it waits for the retry.
+        """
         raw = str(exc)
         log.warning(
-            "transcode failed",
-            extra={"recording": str(recording.id), "attempt": job.attempts, "error": raw},
+            "job failed",
+            extra={
+                "recording": str(recording.id),
+                "kind": job.kind,
+                "attempt": job.attempts,
+                "error": raw,
+            },
         )
         await lock_user(session, recording.user_id)
         if job.attempts >= MAX_ATTEMPTS:
@@ -481,7 +552,7 @@ class JobRunner:
             bump_server_seq(recording)
             await session.delete(job)
             return
-        recording.state = "uploaded"
+        recording.state = retry_state
         bump_server_seq(recording)
         _back_off(job, raw)
 
@@ -547,6 +618,117 @@ class JobRunner:
             await session.delete(job)
             return
         _back_off(job, raw)
+
+    async def _import(self, job: Job) -> None:
+        """Fetch an imported recording's audio into its upload object and queue a transcode.
+
+        The download and the bucket write run with no transaction open and no lock held,
+        so the user's pushes never wait on Slippery-Hill or the bucket. Only then does a
+        transaction take the user's lock, check the quota, and hand the recording to a
+        transcode, so two imports can't both fit in the same free space. Any failure
+        between the write and that commit deletes the object.
+        """
+        async with self._sessionmaker() as session:
+            async with session.begin():
+                prepared = await _load_claimed(
+                    session, job, done=lambda recording: recording.deleted_at is not None
+                )
+            if prepared is None:
+                return
+            recording, _ = prepared
+            write = _ImportWrite(key=upload_key(recording.user_id, recording.id))
+            with tempfile.TemporaryDirectory(dir=self._work_root) as folder:
+                try:
+                    async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
+                        path = Path(folder) / "import"
+                        size = await fetch_import(
+                            self._import_client(),
+                            recording,
+                            path,
+                            max_bytes=self._settings.recording_max_file_bytes,
+                            timeout=self._settings.link_resolve_timeout_seconds,
+                        )
+                        write.written = True
+                        await self._store.upload(path, write.key, IMPORT_MIME)
+                        await self._commit_import(session, job, size, write)
+                except asyncio.CancelledError:
+                    # A commit the cancel interrupted may have landed and queued a transcode
+                    # of this file, so only an upload that never reached a commit is removed.
+                    if write.written and not write.committing:
+                        await self._delete_stale(write.key)
+                    raise
+                except Exception as exc:  # noqa: BLE001 -- any import failure is a job failure, not a crash
+                    current: Recording | None = None
+                    async with session.begin():
+                        current = await _reload(session, Recording, job.recording_id)
+                        stored_job = await _reload(session, Job, job.id)
+                        if current is not None and _still_claimed(stored_job, job):
+                            await self._fail_import(session, stored_job, current, exc)
+                    if write.written:
+                        await self._discard_upload(current, write.key)
+                    return
+            if write.written and not write.committed:
+                async with session.begin():
+                    current = await _reload(session, Recording, job.recording_id)
+                await self._discard_upload(current, write.key)
+
+    def _import_client(self) -> httpx2.AsyncClient:
+        if self._http_client is None:
+            msg = "the job runner has no HTTP client for imports"
+            raise RuntimeError(msg)
+        return self._http_client
+
+    async def _commit_import(
+        self, session: AsyncSession, job: Job, size: int, write: _ImportWrite
+    ) -> None:
+        """Under the user's lock, check the quota and hand the uploaded file to a transcode.
+
+        Leaves `write.committed` false when the job is no longer this attempt's to finish.
+
+        Raises:
+            ImportRefused: When the file would take the user past their quota.
+        """
+        async with session.begin():
+            prepared = await _load_locked(session, job)
+            if prepared is None:
+                return
+            recording, stored_job = prepared
+            used = await used_bytes(session, recording.user_id, exclude=recording.id)
+            if used + size > self._settings.recording_quota_bytes:
+                raise ImportRefused(OVER_QUOTA)
+            recording.playback_bytes = size
+            recording.state = "uploaded"
+            recording.error = None
+            bump_server_seq(recording)
+            await session.delete(stored_job)
+            await enqueue_transcode(session, recording)
+            write.committing = True
+        write.committed = True
+
+    async def _discard_upload(self, recording: Recording | None, key: str) -> None:
+        """Delete an import's upload object unless the row shows a landed commit using it.
+
+        A commit that raised can still have landed, and another pass may have finished
+        the job. Only that commit sets `playback_bytes`, and the transcode it queued may
+        already have moved the row on to `processing` or `failed` while it still needs
+        the file.
+        """
+        if recording is None or recording.playback_bytes is None:
+            await self._delete_stale(key)
+
+    async def _fail_import(
+        self, session: AsyncSession, job: Job, recording: Recording, exc: Exception
+    ) -> None:
+        """Fail a refused import at once; retry anything else while it stays processing."""
+        if not isinstance(exc, ImportRefused):
+            await self._fail(session, job, recording, exc, retry_state="processing")
+            return
+        log.info("import refused", extra={"recording": str(recording.id), "error": str(exc)})
+        await lock_user(session, recording.user_id)
+        recording.state = "failed"
+        recording.error = str(exc)
+        bump_server_seq(recording)
+        await session.delete(job)
 
     async def _trim(self, job: Job) -> None:
         """Re-cut one recording's playback file to its saved trim, never leaving ready.

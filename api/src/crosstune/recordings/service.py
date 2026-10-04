@@ -10,11 +10,13 @@ from sqlalchemy.dialects.postgresql import insert
 from crosstune.db.base import next_server_seq
 from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
+from crosstune.jobs.importer import NOT_IMPORTABLE
+from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording, UploadSlot
 from crosstune.models.user import utc_now
 from crosstune.recordings.trim import needs_trim
 from crosstune.storage.store import PLAYBACK_MIME
-from crosstune.vocabulary import JobKind
+from crosstune.vocabulary import IMPORTABLE_PROVIDERS, JobKind
 
 if TYPE_CHECKING:
     import uuid
@@ -98,7 +100,9 @@ async def enqueue_job(
 ) -> Job | None: ...
 @overload
 async def enqueue_job(
-    session: AsyncSession, recording: Recording, kind: Literal[JobKind.TRANSCODE, JobKind.PEAKS]
+    session: AsyncSession,
+    recording: Recording,
+    kind: Literal[JobKind.TRANSCODE, JobKind.PEAKS, JobKind.IMPORT],
 ) -> Job: ...
 async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind) -> Job | None:
     """Queue one job for the recording and wake the runner once the request commits.
@@ -135,6 +139,32 @@ async def enqueue_job(session: AsyncSession, recording: Recording, kind: JobKind
 async def enqueue_transcode(session: AsyncSession, recording: Recording) -> Job:
     """Add a transcode job for the recording and wake the runner once the request commits."""
     return await enqueue_job(session, recording, JobKind.TRANSCODE)
+
+
+def importable(recording: Recording) -> bool:
+    """Whether an import's `origin_url` is on the host its `origin` names, one we import from."""
+    return (
+        recording.origin in IMPORTABLE_PROVIDERS
+        and detect_provider(recording.origin_url or "")[0] == recording.origin
+    )
+
+
+async def start_import(session: AsyncSession, recording: Recording) -> None:
+    """Queue the fetch of an import, or fail it at once when its address is not importable.
+
+    Takes a new server_seq for any change, so every device pulls the state set here. An
+    import already failed for its address is left untouched.
+    """
+    if importable(recording):
+        recording.state = "processing"
+        recording.error = None
+        await enqueue_job(session, recording, JobKind.IMPORT)
+    elif (recording.state, recording.error) == ("failed", NOT_IMPORTABLE):
+        return
+    else:
+        recording.state = "failed"
+        recording.error = NOT_IMPORTABLE
+    bump_server_seq(recording)
 
 
 async def ensure_trim_job(session: AsyncSession, recording: Recording) -> None:

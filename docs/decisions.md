@@ -31,8 +31,8 @@ reopens one without new information. Add a new entry at the end.
 - Find recordings lists results from Apple Music, TIDAL, and the Internet
   Archive inside the app. Apple Music and TIDAL use the app's own
   credentials, so no user signs in to a music service.
-- YouTube, Spotify, Bandcamp, and SoundCloud get a row that opens the
-  service's own search page:
+- YouTube, Spotify, Bandcamp, SoundCloud, and Slippery-Hill get a row that
+  opens the service's own search page:
   - YouTube: the Data API quota allows about 100 searches a day for the
     whole project.
   - Spotify: a new app in Development Mode allows 5 users and needs the
@@ -41,6 +41,9 @@ reopens one without new information. Add a new entry at the end.
   - SoundCloud: API access is granted case by case and needs an Artist Pro
     account.
   - Bandcamp: no public API.
+  - Slippery-Hill: no API, its search page sits behind a Cloudflare
+    challenge for non-browser clients, and `robots.txt` disallows
+    `/tune-search`.
 - Apple Music search uses the Apple Music API with a developer token. iTunes
   Search was rejected: it allows about 20 calls a minute per IP address, and
   every search leaves from the API's one address.

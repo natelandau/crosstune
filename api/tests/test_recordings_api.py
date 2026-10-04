@@ -6,9 +6,10 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from crosstune.models import Job, Recording, UploadSlot
+from crosstune.storage.store import upload_key
 from tests.helpers import T1, change, push, recording, uid
 
 if TYPE_CHECKING:
@@ -417,6 +418,111 @@ async def test_retry_requeues_a_failed_recording(client, auth_headers, verify_se
     assert before.server_seq > seq_before
     assert before.updated_at == updated_before
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is not None
+
+
+TUNE_PAGE = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
+
+
+async def _failed_import(client, auth_headers, verify_session, page: str = TUNE_PAGE) -> Recording:
+    rec = uid()
+    await push(
+        client,
+        auth_headers("user_a"),
+        recording(
+            rec,
+            source="import",
+            origin="slippery_hill",
+            origin_url=page,
+        ),
+    )
+    await verify_session.execute(delete(Job).where(Job.recording_id == rec))
+    await verify_session.execute(
+        update(Recording)
+        .where(Recording.id == rec)
+        .values(state="failed", error="Couldn't reach Slippery-Hill")
+    )
+    await verify_session.commit()
+    return await verify_session.scalar(select(Recording).where(Recording.id == rec))
+
+
+async def test_retry_reimports_a_failed_import_with_no_file(
+    client, auth_headers, verify_session, fake_runner
+) -> None:
+    stored = await _failed_import(client, auth_headers, verify_session)
+    seq_before, wakes_before = stored.server_seq, fake_runner.wakes
+    response = await client.post(
+        f"/v1/recordings/{stored.id}/retry", headers=auth_headers("user_a")
+    )
+    assert response.status_code == 204
+    await verify_session.refresh(stored)
+    assert (stored.state, stored.error) == ("processing", None)
+    assert stored.server_seq > seq_before
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == stored.id))).all()
+    assert [job.kind for job in jobs] == ["import"]
+    assert fake_runner.wakes == wakes_before + 1
+
+
+async def test_retry_fails_an_import_from_another_host(
+    client, auth_headers, verify_session
+) -> None:
+    stored = await _failed_import(client, auth_headers, verify_session, "https://example.com/x")
+    response = await client.post(
+        f"/v1/recordings/{stored.id}/retry", headers=auth_headers("user_a")
+    )
+    assert response.status_code == 204
+    await verify_session.refresh(stored)
+    assert (stored.state, stored.error) == ("failed", "Can't import from this address.")
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == stored.id)) is None
+
+
+async def test_retry_twice_leaves_a_refused_import_untouched(
+    client, auth_headers, verify_session
+) -> None:
+    stored = await _failed_import(client, auth_headers, verify_session, "https://example.com/x")
+    url = f"/v1/recordings/{stored.id}/retry"
+    assert (await client.post(url, headers=auth_headers("user_a"))).status_code == 204
+    await verify_session.refresh(stored)
+    seq_after_first = stored.server_seq
+    assert (await client.post(url, headers=auth_headers("user_a"))).status_code == 204
+    await verify_session.refresh(stored)
+    assert (stored.state, stored.error) == ("failed", "Can't import from this address.")
+    assert stored.server_seq == seq_after_first
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == stored.id)) is None
+
+
+async def test_retry_reimports_a_failed_import_with_a_stray_object(
+    client, auth_headers, verify_session, object_store, fake_runner
+) -> None:
+    """An object the import never committed was never checked against the quota."""
+    stored = await _failed_import(client, auth_headers, verify_session)
+    object_store.put_bytes(upload_key(stored.user_id, stored.id), b"mp3", "audio/mpeg")
+    response = await client.post(
+        f"/v1/recordings/{stored.id}/retry", headers=auth_headers("user_a")
+    )
+    assert response.status_code == 204
+    await verify_session.refresh(stored)
+    assert (stored.state, stored.error) == ("processing", None)
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == stored.id))).all()
+    assert [job.kind for job in jobs] == ["import"]
+
+
+async def test_retry_retranscodes_a_failed_import_with_its_file(
+    client, auth_headers, verify_session, object_store
+) -> None:
+    stored = await _failed_import(client, auth_headers, verify_session)
+    object_store.put_bytes(upload_key(stored.user_id, stored.id), b"mp3", "audio/mpeg")
+    await verify_session.execute(
+        update(Recording).where(Recording.id == stored.id).values(playback_bytes=3)
+    )
+    await verify_session.commit()
+    response = await client.post(
+        f"/v1/recordings/{stored.id}/retry", headers=auth_headers("user_a")
+    )
+    assert response.status_code == 204
+    await verify_session.refresh(stored)
+    assert (stored.state, stored.error) == ("uploaded", None)
+    jobs = (await verify_session.scalars(select(Job).where(Job.recording_id == stored.id))).all()
+    assert [job.kind for job in jobs] == ["transcode"]
 
 
 async def test_retry_twice_answers_204_and_queues_one_job(

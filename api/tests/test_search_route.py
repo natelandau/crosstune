@@ -145,6 +145,20 @@ async def test_unconfigured_service_is_search_only(client, auth_headers, mock_ht
     assert _outbound(mock_http) == []
 
 
+async def test_slippery_hill_answers_search_only(client, auth_headers, mock_http) -> None:
+    response = await client.get(
+        URL, params=_params("slippery_hill", q="cumberland gap"), headers=auth_headers("user_123")
+    )
+
+    [group] = response.json()["groups"]
+    assert group["provider"] == "slippery_hill"
+    assert group["status"] == "search_only"
+    assert group["search_url"] == (
+        "https://www.slippery-hill.com/tune-search?search_api_fulltext=cumberland%20gap"
+    )
+    assert _outbound(mock_http) == []
+
+
 async def test_only_search_only_services_makes_no_outbound_call(
     client, auth_headers, mock_http
 ) -> None:

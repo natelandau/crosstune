@@ -31,6 +31,7 @@ from crosstune.vocabulary import (
     Mode,
     PlayFirst,
     Provider,
+    RecordingOrigin,
     RecordingSource,
     RecordingState,
     TimeSignature,
@@ -200,6 +201,8 @@ class RecordingData(_Data):
     tune_id: uuid.UUID | None = None
     label: str | None = Field(default=None, max_length=LIMITS["recordings"]["label"])
     source: RecordingSource
+    origin: RecordingOrigin = Field(default=RecordingOrigin.OWN, validate_default=True)
+    origin_url: str | None = Field(default=None, max_length=LIMITS["recordings"]["origin_url"])
     recorded_at: datetime
     position: int = 0
     trim_start_ms: int = Field(default=0, ge=0)
