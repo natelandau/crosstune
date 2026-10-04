@@ -1,4 +1,5 @@
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 
 public enum RecordingSort: String, CaseIterable, Sendable {
@@ -118,7 +119,7 @@ public struct RecordingArrangement: Equatable, Sendable {
     nonisolated private static let folding: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
 
     public static func arrange(_ views: [RecordingView], choice: SortChoice, query: String) -> RecordingArrangement {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let needle = trimmedText(query)
         let visible = needle.isEmpty ? views : views.filter { matches($0, needle) }
         let unfiled = visible.filter { $0.tuneID == nil }
         let filed = visible.filter { $0.tuneID != nil }
@@ -181,7 +182,7 @@ public struct RecordingArrangement: Equatable, Sendable {
     }
 
     nonisolated private static func label(_ view: RecordingView) -> String {
-        view.recording.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        trimmedText(view.recording.label ?? "")
     }
 
     nonisolated private static func compare(_ a: String, _ b: String) -> Int {
@@ -207,9 +208,7 @@ public struct RecordingArrangement: Equatable, Sendable {
     }
 
     nonisolated private static func matches(_ view: RecordingView, _ needle: String) -> Bool {
-        [label(view), view.tuneTitle ?? ""].contains {
-            $0.range(of: needle, options: folding, locale: Locale.current) != nil
-        }
+        [label(view), view.tuneTitle ?? ""].contains { containsText($0, needle) }
     }
 
     nonisolated private static func groupByTune(_ views: [RecordingView], descending: Bool) -> [TuneRecordings] {

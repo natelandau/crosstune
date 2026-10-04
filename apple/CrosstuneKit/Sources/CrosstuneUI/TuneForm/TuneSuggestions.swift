@@ -36,25 +36,21 @@ public enum TuneSuggestions {
 
     // MARK: - Counting spellings
 
-    private static func same(_ a: String, _ b: String) -> Bool {
-        a.compare(b, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
-    }
-
     private static func ordered(_ a: String, _ b: String) -> Bool {
         a.compare(b, options: [.caseInsensitive, .diacriticInsensitive], range: nil, locale: .current)
             == .orderedAscending
     }
 
     private static func trimmed(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
+        trimmedText(value)
     }
 
     private static func lookup<T>(_ table: [String: T], _ key: String) -> T? {
-        table.first { same($0.key, key) }?.value
+        table.first { sameText($0.key, key) }?.value
     }
 
     private static func without(_ values: [String], _ taken: [String]) -> [String] {
-        values.filter { value in !taken.contains { same($0, value) } }
+        values.filter { value in !taken.contains { sameText($0, value) } }
     }
 
     /// One value's spellings, grouped by the first seen.
@@ -73,7 +69,7 @@ public enum TuneSuggestions {
         for raw in values {
             guard let value = raw.map(trimmed), !value.isEmpty else { continue }
             let index: Int
-            if let found = groups.firstIndex(where: { same($0.firstSeen, value) }) {
+            if let found = groups.firstIndex(where: { sameText($0.firstSeen, value) }) {
                 index = found
             } else {
                 groups.append(Spellings(firstSeen: value))
@@ -87,7 +83,7 @@ public enum TuneSuggestions {
             }
         }
         return groups.map { group in
-            if let known = canonical.first(where: { same($0, group.firstSeen) }) { return (known, group.total) }
+            if let known = canonical.first(where: { sameText($0, group.firstSeen) }) { return (known, group.total) }
             var best = group.counts[0]
             for entry in group.counts.dropFirst() where entry.count > best.count { best = entry }
             return (best.spelling, group.total)

@@ -1,15 +1,15 @@
 import type { TimeSignature } from '../../api/vocabulary'
 import { GENRES, GENRE_TYPES, TUNE_TYPES, TYPE_TIME_SIGNATURES } from '../../constants'
+import { sameText } from '../../text/fold'
 import type { CatalogEntry } from '../catalog/filters'
 
 /** The composer a player writes for a tune with no known author. */
 export const TRADITIONAL = 'Traditional'
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-const same = (a: string, b: string) => collator.compare(a, b) === 0
 
 function lookup<T>(table: Record<string, T>, key: string): T | undefined {
-  const found = Object.keys(table).find((name) => same(name, key))
+  const found = Object.keys(table).find((name) => sameText(name, key))
   return found === undefined ? undefined : table[found]
 }
 
@@ -21,7 +21,7 @@ interface Spellings {
 }
 
 function display(group: Spellings, canonical: readonly string[]): string {
-  const known = canonical.find((name) => same(name, group.firstSeen))
+  const known = canonical.find((name) => sameText(name, group.firstSeen))
   if (known !== undefined) return known
   let best = group.firstSeen
   let bestCount = 0
@@ -46,7 +46,7 @@ function tally(
   for (const raw of values) {
     const value = raw?.trim()
     if (!value) continue
-    let group = groups.find((g) => same(g.firstSeen, value))
+    let group = groups.find((g) => sameText(g.firstSeen, value))
     if (group === undefined) {
       group = { firstSeen: value, total: 0, counts: new Map() }
       groups.push(group)
@@ -66,7 +66,7 @@ function mostFirst(counts: Map<string, number>): string[] {
 }
 
 function without(values: readonly string[], taken: readonly string[]): string[] {
-  return values.filter((value) => !taken.some((t) => same(t, value)))
+  return values.filter((value) => !taken.some((t) => sameText(t, value)))
 }
 
 /** Type suggestions for a tune: its genre's types, else the catalog's by use, then the rest. */
