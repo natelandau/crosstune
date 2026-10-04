@@ -115,7 +115,8 @@ import Testing
 
         // The watch answers in commit order, so once it has seen this edit it has seen the events.
         try await createTune(store, title: "A")
-        try await waitUntil { triggers.outboxCount == 2 }
+        // The debounce asks for its wait from its own task, after the count updates.
+        try await waitUntil { triggers.outboxCount == 2 && sleeper.requested.count == 1 }
 
         #expect(try await store.pendingChangeCount() == 4)
         #expect(sleeper.requested == [SyncTriggers.writeDebounce])
@@ -128,7 +129,7 @@ import Testing
         try await started(triggers)
         try await recordPlay(store, id: "p1")
         try await createTune(store, title: "A")
-        try await waitUntil { triggers.outboxCount == 2 }
+        try await waitUntil { triggers.outboxCount == 2 && sleeper.requested.count == 1 }
         #expect(sleeper.requested == [SyncTriggers.writeDebounce])
 
         sleeper.fire()
@@ -136,7 +137,7 @@ import Testing
 
         try await recordPlay(store, id: "p2")
         try await createTune(store, title: "B")
-        try await waitUntil { triggers.outboxCount == 4 }
+        try await waitUntil { triggers.outboxCount == 4 && sleeper.requested.count == 2 }
         #expect(sleeper.requested == [SyncTriggers.writeDebounce, SyncTriggers.writeDebounce])
         #expect(syncs.count == 2)
         triggers.stop()
