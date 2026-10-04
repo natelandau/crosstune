@@ -213,6 +213,7 @@ describe('RecordingsPage', () => {
       }),
     ])
     show()
+    await expect.element(filedList()).toBeVisible()
     await expect.poll(titlesIn(filedList())).toEqual(['Bravo', 'Charlie', 'Alpha'])
     await pickSort(SORT_LABELS.title)
     await expect.poll(titlesIn(filedList())).toEqual(['Alpha', 'Bravo', 'Charlie'])
@@ -294,6 +295,7 @@ describe('RecordingsPage', () => {
       }),
     ])
     show()
+    await expect.element(unfiledList()).toBeVisible()
     await expect
       .poll(titlesIn(unfiledList()))
       .toEqual(['Newest added, date unknown', 'Later take', 'Old take'])
@@ -326,6 +328,7 @@ describe('RecordingsPage', () => {
     await expect.poll(titlesIn(filedList())).toEqual(['Alpha', 'Bravo'])
     unmount()
     show()
+    await expect.element(filedList()).toBeVisible()
     await expect.poll(titlesIn(filedList())).toEqual(['Alpha', 'Bravo'])
   })
 
@@ -832,6 +835,7 @@ describe('RecordingsPage', () => {
         recordingRow('r2', { tune_id: tuneId, label: 'Imported take', origin: 'slippery_hill' }),
       )
       show()
+      await expect.element(filedList()).toBeVisible()
       await expect.poll(groupNames).toEqual([UNFILED_HEADER, FILED_HEADER])
       await chooseSource(SLIPPERY)
       await expect.poll(groupNames).toEqual([FILED_HEADER])

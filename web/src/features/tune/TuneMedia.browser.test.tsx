@@ -309,6 +309,7 @@ describe('TuneMedia', () => {
       }),
     )
     show()
+    await expect.element(page.getByRole('heading', { name: 'Own take' })).toBeVisible()
     await expect.poll(rowTitles).toEqual(['Own take', 'Imported take'])
   })
 
