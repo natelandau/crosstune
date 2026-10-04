@@ -219,7 +219,11 @@ function Loaded({
   const recordingId = recording.id
   useLayoutEffect(() => {
     if (!trimming) return
-    recordingScreen.hold(recordingId, { speedPercent: 100, pitchCents: 0, shown: false })
+    recordingScreen.hold(recordingId, {
+      speedPercent: 100,
+      pitchCents: 0,
+      trimming: true,
+    })
     return () => recordingScreen.hold(recordingId, null)
   }, [recordingScreen, recordingId, trimming])
   const settingsRef = useLatest({ speed: recording.speed_percent, pitch: recording.pitch_cents })

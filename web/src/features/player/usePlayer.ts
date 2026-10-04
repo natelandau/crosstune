@@ -1,11 +1,13 @@
 import { createContext, useContext } from 'react'
+import type { PlayOrigin } from './playLog'
 
 export type PlayerItem = { kind: 'link'; id: string } | { kind: 'recording'; id: string }
 
 export interface Player {
   item: PlayerItem | null
-  /** Load an item with autoplay, replacing anything loaded. */
-  play: (item: PlayerItem) => void
+  /** Load an item with autoplay, replacing anything loaded. `origin` names the surface that
+   * asked, for the play log; omitted, it is the dock. */
+  play: (item: PlayerItem, origin?: PlayOrigin) => void
   /** Unload the player. */
   close: () => void
   /**

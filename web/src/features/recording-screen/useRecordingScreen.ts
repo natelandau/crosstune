@@ -1,12 +1,11 @@
-import { createContext, useContext, useSyncExternalStore } from 'react'
+import { createContext, useContext } from 'react'
 
 /** Speed and pitch the screen is playing but has not yet written; null where it matches the row. */
 export interface HeldSettings {
   speedPercent: number | null
   pitchCents: number | null
-  /** The musician's own settings on their way to the row, which the screen shows in its place;
-   * false for a value only played, such as the trim view's 100%. */
-  shown: boolean
+  /** True for the trim view's hold. Time it plays is neither practice nor practice settings. */
+  trimming: boolean
 }
 
 export interface RecordingScreen {
@@ -40,10 +39,4 @@ export const RecordingScreenContext = createContext<RecordingScreen>(detached)
 
 export function useRecordingScreen(): RecordingScreen {
   return useContext(RecordingScreenContext)
-}
-
-/** The hold for `id`, re-rendering the caller whenever it changes. */
-export function useHeldSettings(id: string): HeldSettings | null {
-  const { held, subscribe } = useRecordingScreen()
-  return useSyncExternalStore(subscribe, () => held(id))
 }

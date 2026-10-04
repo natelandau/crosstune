@@ -733,6 +733,8 @@ describe('Dock', () => {
         pitchUnavailable: false,
         loop: null,
         repeat: false,
+        speedPercent: 100,
+        pitchCents: 0,
       })
   })
 
