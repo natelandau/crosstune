@@ -344,6 +344,33 @@ private struct RefusingSyncAPI: SyncAPI {
             FileManager.default.fileExists(atPath: store.audioFolder.appending(path: name).path(percentEncoded: false)))
     }
 
+    @Test func importsEveryFileOfABatchAndNamesTheOneItRefused() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = RecordingsModel(store: store)
+        let urls = [
+            try write("Jam.m4a", bytes: 1_000, in: root),
+            try write("notes.txt", bytes: 10, in: root),
+            try write("Reel.wav", bytes: 1_000, in: root),
+        ]
+
+        await model.importAudio(from: urls)
+
+        #expect(model.failure == RecordingImport.refused("notes.txt", RecordingImport.notAudio))
+        let labels = try await store.read { db in try Recording.fetchAll(db).map(\.label) }
+        #expect(Set(labels) == ["Jam", "Reel"])
+    }
+
+    @Test func aSingleRefusedFileKeepsTheBareMessage() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let model = RecordingsModel(store: store)
+
+        await model.importAudio(from: [try write("notes.txt", bytes: 10, in: root)])
+
+        #expect(model.failure == RecordingImport.notAudio)
+    }
+
     @Test func refusesWhatTheServerWouldNeverTake() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

@@ -22,7 +22,8 @@ import {
 } from './RenameRecordingSheet'
 import { Storage, STORAGE_USED } from './Storage'
 import type { RecordingView } from './useRecordings'
-import { EMPTY_FILE_ERROR, NOT_AUDIO_ERROR, UPLOAD_AUDIO, UploadButton } from './UploadButton'
+import { EMPTY_FILE_ERROR, NOT_AUDIO_ERROR, refusedFile } from './addAudioFiles'
+import { UPLOAD_AUDIO, UploadButton } from './UploadButton'
 import { CANCEL } from '../../ui/Confirm'
 import { measureDuration } from '../recording/measureDuration'
 
@@ -348,6 +349,21 @@ describe('UploadButton', () => {
       }),
     )
     expect(vi.mocked(measureDuration)).toHaveBeenCalledWith(file)
+  })
+
+  it('adds every file picked at once, naming the one it refused', async () => {
+    renderIonic(<UploadButton tuneId={null} />, { db })
+    await expect.element(page.getByRole('button', { name: 'Upload' })).toBeVisible()
+    expect(picker()).toHaveAttribute('multiple')
+    const jam = new File(['abc'], 'jam.m4a', { type: 'audio/mp4' })
+    const reel = new File(['abc'], 'reel.wav', { type: 'audio/wav' })
+    await userEvent
+      .setup({ applyAccept: false })
+      .upload(picker(), [new File([], 'empty.wav', { type: 'audio/wav' }), jam, reel])
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(refusedFile('empty.wav', EMPTY_FILE_ERROR))
+    expect(vi.mocked(addUploadedFile).mock.calls.map(([, file]) => file)).toEqual([jam, reel])
   })
 
   it('hands a refusal to a caller that takes one instead of showing its own line', async () => {

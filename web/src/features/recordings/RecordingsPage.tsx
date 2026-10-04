@@ -1,12 +1,15 @@
 import { useIonRouter } from '@ionic/react'
 import { AudioLines } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
+import { useDb } from '../../db/DbProvider'
 import { SyncRefresher } from '../../sync/SyncRefresher'
 import { EmptyState } from '../../ui/EmptyState'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Screen } from '../../ui/Screen'
+import { messageFor } from '../../ui/useAction'
 import { useRowArrowKeys } from '../../ui/useShortcut'
+import { addAudioFiles } from './addAudioFiles'
 import { AddToTuneSheet } from './AddToTuneSheet'
 import { RecordingItem } from './RecordingItem'
 import { retryKind } from './recordingRow'
@@ -43,6 +46,7 @@ function groupByTune(views: readonly RecordingView[]): RecordingGroup[] {
 }
 
 export function RecordingsPage() {
+  const db = useDb()
   const loadedViews = useRecordingsWithFiles()
   // One Screen whether or not the data has loaded: swapping the IonPage element after the
   // router outlet has mounted it would leave the outlet holding a detached page.
@@ -59,6 +63,11 @@ export function RecordingsPage() {
 
   const groups = useMemo(() => (loadedViews ? groupByTune(loadedViews) : []), [loadedViews])
 
+  const addDropped = (files: File[]) => {
+    setUploadError(null)
+    addAudioFiles(db, files, null).catch((caught: unknown) => setUploadError(messageFor(caught)))
+  }
+
   return (
     <Screen
       title="Recordings"
@@ -66,6 +75,7 @@ export function RecordingsPage() {
       grouped
       end={<UploadButton tuneId={null} onError={setUploadError} />}
       refresher={<SyncRefresher />}
+      onDropFiles={addDropped}
     >
       <h1 className="sr-only">Recordings</h1>
       <Storage />

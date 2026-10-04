@@ -164,10 +164,23 @@ public final class RecordingsModel {
         await run { _ in try await Recorder.discardUnfinishedCapture(capture.id, in: store) }
     }
 
-    /// Adds an audio file picked from the device as an unfiled recording.
-    public func importAudio(from url: URL) async {
-        let store = store
-        await run { _ in try await RecordingImport.add(url, to: store, tuneID: nil) }
+    /// Adds audio files picked or dropped from the device as unfiled recordings, each in turn,
+    /// so one refusal never costs the rest of the batch. Keeps the first refusal, named for its
+    /// file when there were several.
+    public func importAudio(from urls: [URL]) async {
+        failure = nil
+        var refusal: String?
+        for url in urls {
+            do {
+                try await RecordingImport.add(url, to: store, tuneID: nil)
+            } catch {
+                Self.logger.warning("An audio import failed: \(error)")
+                let message = ListModel.message(error)
+                refusal =
+                    refusal ?? (urls.count > 1 ? RecordingImport.refused(url.lastPathComponent, message) : message)
+            }
+        }
+        if let refusal { failure = refusal }
     }
 
     /// Keeps the failure of a write made elsewhere on this screen, such as a Retry.

@@ -65,6 +65,7 @@ private struct RecordingsContent: View {
     @Environment(\.spacing) private var spacing
     @State private var pushed: String?
     @State private var importing = false
+    @State private var dropTargeted = false
     @State private var filing: RecordingView?
     @State private var renaming: RecordingView?
     /// A tune the add to tune sheet asked to start, with the recording to file under it, opened
@@ -135,12 +136,29 @@ private struct RecordingsContent: View {
             .paneBar { uploadButton.labelStyle(.iconOnly) }
         #endif
         .coversShell(importing)
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio]) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio], allowsMultipleSelection: true) {
+            result in
             switch result {
-            case .success(let url): Task { await model.importAudio(from: url) }
+            case .success(let urls): Task { await model.importAudio(from: urls) }
             case .failure(let error): model.report(error)
             }
         }
+        #if os(macOS)
+            .dropDestination(for: URL.self) { urls, _ in
+                // A link dragged from a browser arrives as a URL too, and has no file to add.
+                let files = urls.filter(\.isFileURL)
+                guard !files.isEmpty else { return false }
+                Task { await model.importAudio(from: files) }
+                return true
+            } isTargeted: {
+                dropTargeted = $0
+            }
+            .overlay {
+                if dropTargeted {
+                    Rectangle().strokeBorder(.tint, lineWidth: 2).allowsHitTesting(false)
+                }
+            }
+        #endif
         .modifier(RefreshesBySync(engine: engine))
         .modifier(PushesTune(tuneID: $pushed, isPushing: detailTune == nil, zoom: zoom))
         .sheet(item: $renaming) { view in

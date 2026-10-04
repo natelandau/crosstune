@@ -10,9 +10,14 @@ import UniformTypeIdentifiers
 public enum RecordingImport {
     /// The toolbar control that picks a file.
     public static let upload = "Upload"
-    public static let uploadAudio = "Upload audio file"
+    public static let uploadAudio = "Upload audio files"
     public static let notAudio = "Choose an audio file."
     public static let emptyFile = "This file is empty."
+
+    /// A refusal from a batch of files, named for the file it refused.
+    public static func refused(_ fileName: String, _ message: String) -> String {
+        "\(fileName): \(message)"
+    }
 
     public static func tooLarge(_ maxFileBytes: Int) -> String {
         "Files are limited to \(RecordingText.bytes(Int64(maxFileBytes)))."
