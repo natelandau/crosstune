@@ -170,6 +170,7 @@ class JobKind(StrEnum):
     TRIM = "trim"
     PEAKS = "peaks"
     IMPORT = "import"
+    REENCODE = "reencode"
 
 
 SPEED_PERCENT_MIN: Final[int] = 50

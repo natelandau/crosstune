@@ -8,8 +8,8 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from crosstune.db.locks import lock_user
-from crosstune.jobs.media import cut, probe
 from crosstune.jobs.peaks import build_peaks, slice_peaks
+from crosstune.jobs.recut import recut_playback
 from crosstune.models.user import utc_now
 from crosstune.recordings.loops import reclamp_recording_loops
 from crosstune.recordings.service import attach_peaks, attach_playback, bump_server_seq
@@ -20,7 +20,6 @@ from crosstune.storage.store import (
     delete_best_effort,
     original_key,
     peaks_key,
-    playback_key,
     upload_revision,
 )
 
@@ -142,9 +141,9 @@ async def _cut_and_upload(
     source = work_dir / "original"
     target = work_dir / "playback.m4a"
     await store.download(original, source)
-    # The kept range is on the source timeline, which is the original's own timeline.
-    await cut(source, target, start_ms, end_ms)
-    duration_ms = (await probe(target)).duration_ms
+    playback, info = await recut_playback(
+        store, recording, source=source, kept=kept, target=target, uploaded=uploaded
+    )
 
     peaks_path = work_dir / "peaks.bin"
     if recording.peaks_key is not None:
@@ -157,14 +156,14 @@ async def _cut_and_upload(
     else:
         peaks_path.write_bytes(await build_peaks(target))
 
-    ids = (recording.user_id, recording.id)
-    playback = await upload_revision(
-        store, target, PLAYBACK_MIME, partial(playback_key, *ids), uploaded=uploaded
-    )
     peaks = await upload_revision(
-        store, peaks_path, PEAKS_MIME, partial(peaks_key, *ids), uploaded=uploaded
+        store,
+        peaks_path,
+        PEAKS_MIME,
+        partial(peaks_key, recording.user_id, recording.id),
+        uploaded=uploaded,
     )
-    return _Cut(playback=playback, duration_ms=duration_ms, peaks=peaks)
+    return _Cut(playback=playback, duration_ms=info.duration_ms, peaks=peaks)
 
 
 def _apply(recording: Recording, result: _Cut, start_ms: int, end_ms: int) -> list[str]:

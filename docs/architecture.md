@@ -372,6 +372,9 @@ same triggers. A return to the foreground stands in for a visible tab.
   new revisioned peaks file, and deletes the superseded objects only once
   the commit that stops pointing at them has landed. A failed trim leaves
   the old files in place, and the recording keeps playing them.
+- The re-encode job re-cuts a recording's current range from its original
+  when that would raise the playback file's bit rate. It never touches the
+  peaks file, and drops its cut if the row changed while it ran.
 - The peaks file holds one linear peak-amplitude byte per 20 ms window,
   prefixed by a version byte and a big-endian points-per-second value (50).
   A client records its own peaks locally while capturing, until the

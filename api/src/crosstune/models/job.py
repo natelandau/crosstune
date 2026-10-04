@@ -26,7 +26,7 @@ from crosstune.vocabulary import JobKind
 
 
 class Job(Base):
-    """Work waiting for the runner: a transcode, a trim, or a peaks build.
+    """Work waiting for the runner: a transcode, trim, peaks build, import, or re-encode.
 
     Deleted once the runner finishes the work it names.
     """
@@ -41,6 +41,12 @@ class Job(Base):
             "recording_id",
             unique=True,
             postgresql_where=text(f"kind = '{JobKind.TRIM.value}'"),
+        ),
+        Index(
+            "ux_jobs_recording_id_reencode",
+            "recording_id",
+            unique=True,
+            postgresql_where=text(f"kind = '{JobKind.REENCODE.value}'"),
         ),
     )
 
