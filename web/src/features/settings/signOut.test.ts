@@ -1,7 +1,8 @@
 import Dexie from 'dexie'
 import { describe, expect, it, vi } from 'vitest'
 import { rememberedUser, rememberUser } from '../../auth/session'
-import { addNotationPages } from '../../commands/notation'
+import { recordEvent } from '../../commands/events'
+import { addScans } from '../../commands/scans'
 import { addUploadedFile, setFileState } from '../../commands/recordings'
 import { createTune } from '../../commands/tunes'
 import { databaseName, openDatabase } from '../../db/schema'
@@ -9,7 +10,8 @@ import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
 import { serverTune } from '../../test/fakeApi'
 import { fakeEngine } from '../../test/providers'
 import { applyPullPage } from '../../sync/apply'
-import { signOutAndForget, UNSYNCED_NOTATION_ERROR, UNSYNCED_RECORDINGS_ERROR } from './signOut'
+import { playEventRow, scanViewRow } from '../../test/rows'
+import { signOutAndForget, UNSYNCED_SCANS_ERROR, UNSYNCED_RECORDINGS_ERROR } from './signOut'
 
 function freshUser() {
   const userId = `user_${crypto.randomUUID()}`
@@ -54,6 +56,28 @@ describe('signOutAndForget', () => {
     await db.delete()
   })
 
+  it('sign-out ignores event rows when counting unsent changes', async () => {
+    const { userId, db } = freshUser()
+    await recordEvent(db, 'play_events', playEventRow('play-1'))
+    await recordEvent(db, 'scan_views', scanViewRow('view-1'))
+    const signOut = vi.fn(async () => {})
+    await signOutAndForget({ db, userId, engine: fakeEngine(), signOut })
+    expect(signOut).toHaveBeenCalled()
+    expect(await Dexie.exists(databaseName(userId))).toBe(false)
+  })
+
+  it('still refuses a real edit queued beside an event', async () => {
+    const { userId, db } = freshUser()
+    await recordEvent(db, 'play_events', playEventRow('play-1'))
+    await createTune(db, { title: 'X' }, { status: 'known' })
+    const signOut = vi.fn(async () => {})
+    await expect(signOutAndForget({ db, userId, engine: fakeEngine(), signOut })).rejects.toThrow(
+      'have not synced',
+    )
+    expect(signOut).not.toHaveBeenCalled()
+    await db.delete()
+  })
+
   it('refuses while a recording has not uploaded so the deletion cannot take it', async () => {
     const { userId, db } = freshUser()
     const id = await addUploadedFile(db, new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }), {
@@ -75,10 +99,10 @@ describe('signOutAndForget', () => {
     await db.delete()
   })
 
-  it('refuses sign-out while a captured page is not uploaded', async () => {
+  it('refuses sign-out while a captured scan is not uploaded', async () => {
     const { userId, db } = freshUser()
     const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
-    const [pageId] = await addNotationPages(db, tuneId, [
+    const [scanId] = await addScans(db, tuneId, [
       { blob: new Blob(['jpeg']), width: 10, height: 20 },
     ])
     await db.outbox.clear()
@@ -86,22 +110,22 @@ describe('signOutAndForget', () => {
     const signOut = vi.fn(async () => {})
     await expect(
       signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut }),
-    ).rejects.toThrow(UNSYNCED_NOTATION_ERROR)
+    ).rejects.toThrow(UNSYNCED_SCANS_ERROR)
     expect(stop).not.toHaveBeenCalled()
     expect(signOut).not.toHaveBeenCalled()
-    expect(await db.notation_files.count()).toBe(1)
+    expect(await db.scan_files.count()).toBe(1)
 
     // Once uploaded, the file is only a cache of what the server holds.
-    await db.notation_files.update(pageId!, { origin: 'downloaded' })
+    await db.scan_files.update(scanId!, { origin: 'downloaded' })
     await signOutAndForget({ db, userId, engine: fakeEngine({ stop }), signOut })
     expect(signOut).toHaveBeenCalledOnce()
     expect(await Dexie.exists(databaseName(userId))).toBe(false)
   })
 
-  it('signs out past a captured page whose tune was deleted on another device', async () => {
+  it('signs out past a captured scan whose tune was deleted on another device', async () => {
     const { userId, db } = freshUser()
     const { tuneId } = await createTune(db, { title: 'X' }, { status: 'known' })
-    await addNotationPages(db, tuneId, [{ blob: new Blob(['jpeg']), width: 10, height: 20 }])
+    await addScans(db, tuneId, [{ blob: new Blob(['jpeg']), width: 10, height: 20 }])
     await db.outbox.clear()
     const deletedAt = '2026-10-03T21:00:00.000Z'
     await applyPullPage(

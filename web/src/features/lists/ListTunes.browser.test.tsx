@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { Instrument } from '../../api/vocabulary'
 import { addToList, createList } from '../../commands/lists'
@@ -11,9 +11,10 @@ import { settleOverlays } from '../../test/overlays'
 import { forceTouch } from '../../test/pointer'
 import { fakeEngine, fakePlayer } from '../../test/providers'
 import { dragRow } from '../../test/reorder'
-import { linkRow, notationPageRow, recordingFile, recordingRow } from '../../test/rows'
-import { closeLinkName } from '../links/linkNames'
-import { NOTATION } from '../notation/notationCopy'
+import { linkRow, scanRow, recordingFile, recordingRow } from '../../test/rows'
+import { CLOSE, closeLinkName } from '../links/linkNames'
+import { SCANS } from '../scans/scanCopy'
+import { SCAN_VIEW_THRESHOLD_MS } from '../scans/scanViewLog'
 import type { Player } from '../player/usePlayer'
 import { closeRecordingName, downloadName, playName } from '../recordings/recordingNames'
 import { NOT_PLAYABLE } from './ListRowPlay'
@@ -125,14 +126,40 @@ describe('ListTunes', () => {
     await expect.poll(() => document.querySelector('ion-list > ion-reorder-group')).not.toBeNull()
   })
 
-  it('offers Notation on a tune only while it has a live page', async () => {
+  it('offers Scans on a tune only while it has a live scan', async () => {
     const tune = (await db.tunes.toArray()).find((row) => row.title === 'Cluck Old Hen')!
-    await db.notation_pages.put(notationPageRow('p1', tune.id))
+    await db.scans.put(scanRow('p1', tune.id))
     renderIonic(<Host />, { db })
-    const notation = page.getByRole('button', { name: `${NOTATION} Cluck Old Hen` })
-    await expect.element(notation).toBeInTheDocument()
-    await db.notation_pages.update('p1', { deleted_at: '2026-01-02T00:00:00.000Z' })
-    await expect.element(notation).not.toBeInTheDocument()
+    const scans = page.getByRole('button', { name: `${SCANS} Cluck Old Hen` })
+    await expect.element(scans).toBeInTheDocument()
+    await db.scans.update('p1', { deleted_at: '2026-01-02T00:00:00.000Z' })
+    await expect.element(scans).not.toBeInTheDocument()
+  })
+
+  it('logs a look at the scans from a row action as a view in this list', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    const start = new Date('2026-10-04T12:00:00.000Z')
+    vi.setSystemTime(start)
+    const tune = (await db.tunes.toArray()).find((row) => row.title === 'Cluck Old Hen')!
+    await db.scans.put(scanRow('p1', tune.id))
+    renderIonic(<Host />, { db })
+    await page.getByRole('button', { name: `${SCANS} Cluck Old Hen` }).click()
+    await expect.element(page.getByRole('button', { name: CLOSE })).toBeVisible()
+    vi.setSystemTime(start.getTime() + SCAN_VIEW_THRESHOLD_MS)
+    await page.getByRole('button', { name: CLOSE }).click()
+    await expect
+      .poll(() => db.scan_views.toArray())
+      .toEqual([
+        expect.objectContaining({
+          tune_id: tune.id,
+          context: 'list',
+          list_id: listId,
+          viewed_ms: SCAN_VIEW_THRESHOLD_MS,
+        }),
+      ])
   })
 
   it('moves a tune down from its move menu, stores it, and announces it', async () => {
@@ -593,7 +620,9 @@ describe('ListTunes row play', () => {
     const player = fakePlayer()
     show(player)
     await page.getByRole('button', { name: playName(SPEAR) }).click()
-    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'rec1' })
+    await expect
+      .poll(() => player.play)
+      .toHaveBeenCalledWith({ kind: 'recording', id: 'rec1' }, { context: 'list', listId })
   })
 
   it('shows stop for a loaded recording', async () => {

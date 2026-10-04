@@ -2,7 +2,8 @@ import { ApiError, TransferError } from '../api/client'
 import type {
   Change,
   ChangeResult,
-  NotationUploadSlotRequest,
+  EventsResponse,
+  ScanUploadSlotRequest,
   PullResponse,
   RecordingRow,
   TuneRow,
@@ -10,6 +11,7 @@ import type {
   TableName,
   UserTuneRow,
 } from '../api/types'
+import { isEventTable } from '../db/types'
 
 function conflict(detail?: string): ApiError {
   return new ApiError(
@@ -28,15 +30,21 @@ const OWNER_COLUMN: Record<TableName, string | null> = {
   list_items: null,
   recording_links: 'added_by_user_id',
   recordings: 'user_id',
-  notation_pages: 'user_id',
+  scans: 'user_id',
   recording_loops: 'user_id',
   user_settings: 'user_id',
+  play_events: 'user_id',
+  practice_sessions: 'user_id',
+  scan_views: 'user_id',
 }
 
 export function createFakeApi() {
   const pushes: Change[][] = []
   const pulls: number[] = []
   const pullQueue: PullResponse[] = []
+  const eventPulls: number[] = []
+  // An Error in the queue is thrown by the call that reaches it, so a test can fail one page.
+  const eventsQueue: (EventsResponse | Error)[] = []
   let failWith: unknown = null
   let serverSeq = 0
   const objects = new Map<string, Blob>()
@@ -49,8 +57,8 @@ export function createFakeApi() {
   // key for, which a client's own pulled copy of that row can still be behind.
   const downloadSigned = new Map<string, { rev: string; startMs: number }>()
   const peaksSigned = new Map<string, string>()
-  const notationStates = new Map<string, 'pending_upload' | 'ready'>()
-  const notationSlots = new Map<string, NotationUploadSlotRequest>()
+  const scanStates = new Map<string, 'pending_upload' | 'ready'>()
+  const scanSlots = new Map<string, ScanUploadSlotRequest>()
   const putTypes = new Map<string, string>()
   let storage = { used_bytes: 0, quota_bytes: 1_073_741_824, max_file_bytes: 52_428_800 }
   let slotError: unknown = null
@@ -63,6 +71,10 @@ export function createFakeApi() {
   function appliedRow(change: Change): Record<string, unknown> {
     serverSeq++
     const owner = OWNER_COLUMN[change.table]
+    if (isEventTable(change.table)) {
+      // Event rows are insert-only, so they carry no updated_at or deleted_at.
+      return { ...change.data, id: change.id, server_seq: serverSeq, [owner!]: 'server-user' }
+    }
     return {
       ...change.data,
       ...(change.table === 'recordings'
@@ -74,9 +86,9 @@ export function createFakeApi() {
             error: null,
           }
         : {}),
-      ...(change.table === 'notation_pages'
-        ? notationStates.get(change.id) === 'ready'
-          ? { state: 'ready', file_bytes: objects.get(`${change.id}/page.jpg`)?.size ?? null }
+      ...(change.table === 'scans'
+        ? scanStates.get(change.id) === 'ready'
+          ? { state: 'ready', file_bytes: objects.get(`${change.id}/scan.jpg`)?.size ?? null }
           : { state: 'pending_upload', file_bytes: null }
         : {}),
       id: change.id,
@@ -101,6 +113,12 @@ export function createFakeApi() {
     async pull(since) {
       pulls.push(since)
       return pullQueue.shift() ?? { rows: [], next_since: since, has_more: false }
+    },
+    async events(since) {
+      eventPulls.push(since)
+      const page = eventsQueue.shift() ?? { rows: [], next_since: since, has_more: false }
+      if (page instanceof Error) throw page
+      return page
     },
     async resolveLink(url) {
       return { url, provider: 'other', provider_ref: null, title: 'Resolved', artwork_url: null }
@@ -163,24 +181,24 @@ export function createFakeApi() {
         peaks_rev: peaksSigned.get(recordingId) ?? 'bbbbbbbb',
       }
     },
-    async requestNotationUploadSlot(pageId, body) {
-      if (slotError && (slotErrorId === null || slotErrorId === pageId)) throw slotError
-      if ((notationStates.get(pageId) ?? 'pending_upload') !== 'pending_upload') throw conflict()
-      notationSlots.set(pageId, body)
-      return { url: `https://fake.r2/${pageId}/page.jpg`, expires_at: '2999-01-01T00:00:00Z' }
+    async requestScanUploadSlot(scanId, body) {
+      if (slotError && (slotErrorId === null || slotErrorId === scanId)) throw slotError
+      if ((scanStates.get(scanId) ?? 'pending_upload') !== 'pending_upload') throw conflict()
+      scanSlots.set(scanId, body)
+      return { url: `https://fake.r2/${scanId}/scan.jpg`, expires_at: '2999-01-01T00:00:00Z' }
     },
-    async notationUploadFinished(pageId) {
+    async scanUploadFinished(scanId) {
       if (confirmError) {
         const error = confirmError
         confirmError = null
         throw error
       }
-      if (!objects.has(`${pageId}/page.jpg`)) throw conflict()
-      notationStates.set(pageId, 'ready')
+      if (!objects.has(`${scanId}/scan.jpg`)) throw conflict()
+      scanStates.set(scanId, 'ready')
     },
-    async notationDownloadUrl(pageId) {
-      if (notationStates.get(pageId) !== 'ready') throw conflict()
-      return { url: `https://fake.r2/${pageId}/page.jpg`, expires_at: '2999-01-01T00:00:00Z' }
+    async scanDownloadUrl(scanId) {
+      if (scanStates.get(scanId) !== 'ready') throw conflict()
+      return { url: `https://fake.r2/${scanId}/scan.jpg`, expires_at: '2999-01-01T00:00:00Z' }
     },
     async putObject(url, blob, contentType) {
       const key = new URL(url).pathname.slice(1)
@@ -210,11 +228,12 @@ export function createFakeApi() {
     api,
     pushes,
     pulls,
+    eventPulls,
     objects,
     recordingStates,
-    notationStates,
-    /** The body of the last slot request for each notation page. */
-    notationSlots,
+    scanStates,
+    /** The body of the last slot request for each scan. */
+    scanSlots,
     /** The Content-Type each object was PUT with, by key. */
     putTypes,
     respondToPush(fn: PushResponder) {
@@ -222,6 +241,9 @@ export function createFakeApi() {
     },
     queuePull(...pages: PullResponse[]) {
       pullQueue.push(...pages)
+    },
+    queueEvents(...pages: (EventsResponse | Error)[]) {
+      eventsQueue.push(...pages)
     },
     fail(error: unknown) {
       failWith = error

@@ -2,13 +2,17 @@ import Dexie from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
 import openapi from '../../../api/openapi.json'
 import { openTestDb } from '../test/db'
-import { linkRow, recordingRow } from '../test/rows'
+import { createFakeApi } from '../test/fakeApi'
+import { linkRow, playEventRow, recordingRow, scanFile, scanRow, scanViewRow } from '../test/rows'
+import { transfersSettled } from '../test/transfers'
+import { createSyncEngine } from '../sync/engine'
 import {
   getKeepOffline,
   getMeta,
   getPullCursor,
   META_KEEP_OFFLINE,
   META_PULL_CURSOR,
+  META_SCAN_INVERT,
   setMeta,
   setPullCursor,
 } from './meta'
@@ -17,6 +21,7 @@ import {
   CrosstuneDb,
   databaseName,
   deleteDatabase,
+  eventTables,
   openDatabase,
   repull,
   rowsTable,
@@ -51,20 +56,24 @@ const tune: LocalTune = {
 }
 
 describe('schema', () => {
-  it('opens with every synced table plus outbox and meta', async () => {
+  it('opens with every synced and event table plus outbox and meta', async () => {
     await db.open()
     expect(db.tables.map((t) => t.name).sort()).toEqual([
       'list_items',
       'lists',
       'meta',
-      'notation_files',
-      'notation_pages',
       'outbox',
+      'play_events',
+      'practice_sessions',
       'recording_chunks',
       'recording_files',
       'recording_links',
       'recording_loops',
       'recordings',
+      'scan_files',
+      'scan_views',
+      'scans',
+      'status_changes',
       'tunes',
       'user_settings',
       'user_tunes',
@@ -86,21 +95,25 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name)).toEqual(
       expect.arrayContaining(['recordings', 'recording_files', 'recording_chunks']),
     )
-    expect(db.verno).toBe(12)
+    expect(db.verno).toBe(15)
   })
 
   const CURRENT_STORES = [
     'list_items',
     'lists',
     'meta',
-    'notation_files',
-    'notation_pages',
     'outbox',
+    'play_events',
+    'practice_sessions',
     'recording_chunks',
     'recording_files',
     'recording_links',
     'recording_loops',
     'recordings',
+    'scan_files',
+    'scan_views',
+    'scans',
+    'status_changes',
     'tunes',
     'user_settings',
     'user_tunes',
@@ -152,7 +165,7 @@ describe('schema', () => {
     const upgraded = new CrosstuneDb(name)
     try {
       await upgraded.open()
-      expect(upgraded.verno).toBe(12)
+      expect(upgraded.verno).toBe(15)
       expect(Array.from(upgraded.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       for (const table of upgraded.tables) {
         if (table.name !== 'meta') expect(await table.count(), table.name).toBe(0)
@@ -254,7 +267,7 @@ describe('schema', () => {
       ])
       expect(await getPullCursor(opened)).toBe(0)
       expect(await opened.recording_loops.count()).toBe(0)
-      expect(opened.verno).toBe(12)
+      expect(opened.verno).toBe(15)
     } finally {
       await opened.delete()
     }
@@ -285,7 +298,7 @@ describe('schema', () => {
         row_id: link.id,
         op: 'upsert',
         updated_at: link.updated_at,
-        data: toChangeData(link),
+        data: toChangeData(link, 'recording_links'),
       },
       {
         table: 'recordings',
@@ -303,7 +316,7 @@ describe('schema', () => {
       await opened.open()
       expect(await opened.recording_links.get(link.id)).toEqual(linkRow('link-1', tune.id))
       const [linkChange, recordingChange] = await opened.outbox.orderBy('seq').toArray()
-      expect(linkChange?.data).toEqual(toChangeData(linkRow('link-1', tune.id)))
+      expect(linkChange?.data).toEqual(toChangeData(linkRow('link-1', tune.id), 'recording_links'))
       expect(recordingChange?.data).toEqual({ label: 'A part', origin: 'own', origin_url: null })
       expect(await getPullCursor(opened)).toBe(0)
     } finally {
@@ -343,7 +356,7 @@ describe('schema', () => {
       await opened.open()
       expect(await getPullCursor(opened)).toBe(0)
       expect((await opened.outbox.toArray()).map((e) => e.row_id)).toEqual([tune.id])
-      expect(await opened.notation_pages.count()).toBe(0)
+      expect(await opened.scans.count()).toBe(0)
     } finally {
       await opened.delete()
     }
@@ -466,7 +479,7 @@ describe('schema', () => {
       row_id: queued.id,
       op: 'upsert',
       updated_at: queued.updated_at,
-      data: toChangeData(queued),
+      data: toChangeData(queued, 'recordings'),
     })
     v11.close()
 
@@ -476,7 +489,7 @@ describe('schema', () => {
       expect(await opened.recordings.get(dated.id)).toEqual(dated)
       expect(await opened.recordings.get(queued.id)).toEqual(queued)
       expect((await pendingFor(opened, 'recordings', queued.id))?.data).toEqual(
-        toChangeData(queued),
+        toChangeData(queued, 'recordings'),
       )
     } finally {
       await opened.delete()
@@ -536,6 +549,196 @@ describe('schema', () => {
     }
   })
 
+  it('a v12 database keeps rows and outbox and gains the event stores', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v12 = new Dexie(name)
+    v12.version(12).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      notation_pages: 'id, tune_id, state',
+      notation_files: 'id, origin',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    await v12.table('tunes').put(tune)
+    await v12.table('outbox').add({
+      table: 'tunes',
+      row_id: tune.id,
+      op: 'upsert',
+      updated_at: tune.updated_at,
+      data: toChangeData(tune, 'tunes'),
+    })
+    await v12.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v12.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(await opened.tunes.get(tune.id)).toEqual(tune)
+      expect((await opened.outbox.toArray()).map((e) => e.row_id)).toEqual([tune.id])
+      expect(await getPullCursor(opened)).toBe(42)
+      const backend = opened.backendDB()
+      expect(Array.from(backend.objectStoreNames).sort()).toEqual(CURRENT_STORES)
+      const tx = backend.transaction(['play_events', 'practice_sessions', 'status_changes'])
+      expect(Array.from(tx.objectStore('play_events').indexNames)).toEqual(['started_at'])
+      expect(Array.from(tx.objectStore('practice_sessions').indexNames)).toEqual(['started_at'])
+      expect(Array.from(tx.objectStore('status_changes').indexNames)).toEqual(['changed_at'])
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('moves notation pages, their files, queued changes, and invert to scans at v14', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v13 = new Dexie(name)
+    v13.version(13).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      notation_pages: 'id, tune_id, state',
+      notation_files: 'id, origin',
+      play_events: 'id, started_at',
+      practice_sessions: 'id, started_at',
+      status_changes: 'id, changed_at',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const pending = scanRow('scan-1', tune.id, {
+      server_seq: 0,
+      state: 'pending_upload',
+      file_bytes: null,
+    })
+    const file = scanFile('scan-1', new Blob(['jpeg'], { type: 'image/jpeg' }), {
+      origin: 'captured',
+    })
+    await v13.table('tunes').put(tune)
+    await v13.table('notation_pages').put(pending)
+    await v13.table('notation_files').put(file)
+    await v13.table('outbox').bulkAdd([
+      {
+        table: 'tunes',
+        row_id: tune.id,
+        op: 'upsert',
+        updated_at: tune.updated_at,
+        data: toChangeData(tune, 'tunes'),
+      },
+      {
+        table: 'notation_pages',
+        row_id: pending.id,
+        op: 'upsert',
+        updated_at: pending.updated_at,
+        data: toChangeData(pending, 'scans'),
+      },
+    ])
+    await v13.table('meta').bulkPut([
+      { key: 'notation_invert', value: true },
+      { key: META_PULL_CURSOR, value: 42 },
+    ])
+    v13.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(Array.from(opened.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
+      expect(await opened.scans.get(pending.id)).toEqual(pending)
+      expect(await opened.scans.where('state').equals('pending_upload').primaryKeys()).toEqual([
+        pending.id,
+      ])
+      const moved = await opened.scan_files.where('origin').equals('captured').toArray()
+      expect(moved.map((f) => f.id)).toEqual([file.id])
+      expect(await moved[0]?.blob.text()).toBe('jpeg')
+      const queued = await opened.outbox.orderBy('seq').toArray()
+      expect(queued.map((e) => [e.seq, e.table, e.row_id])).toEqual([
+        [1, 'tunes', tune.id],
+        [2, 'scans', pending.id],
+      ])
+      expect(await pendingFor(opened, 'scans', pending.id)).toMatchObject({ op: 'upsert' })
+      expect(await getMeta(opened, META_SCAN_INVERT, false)).toBe(true)
+      expect(await opened.meta.get('notation_invert')).toBeUndefined()
+      expect(await getPullCursor(opened)).toBe(42)
+
+      // The moved scan still pushes and uploads.
+      const fake = createFakeApi()
+      const engine = createSyncEngine({ db: opened, api: fake.api, isOnline: () => true })
+      await engine.sync()
+      await transfersSettled(engine)
+      engine.stop()
+      expect(fake.pushes.flat().map((c) => c.table)).toContain('scans')
+      expect(await fake.objects.get(`${pending.id}/scan.jpg`)?.text()).toBe('jpeg')
+      expect(await opened.scan_files.get(pending.id)).toMatchObject({ origin: 'downloaded' })
+    } finally {
+      await opened.delete()
+    }
+  })
+
+  it('a v14 database keeps rows, outbox, and events and gains the scan views store', async () => {
+    const name = `crosstune-test-${crypto.randomUUID()}`
+    const v14 = new Dexie(name)
+    v14.version(14).stores({
+      tunes: 'id, title',
+      user_tunes: 'id, tune_id',
+      recording_links: 'id, tune_id',
+      lists: 'id',
+      list_items: 'id, list_id, user_tune_id',
+      user_settings: 'id',
+      recordings: 'id, tune_id, state',
+      recording_loops: 'id, recording_id',
+      recording_files: 'id, local_state',
+      recording_chunks: '[recording_id+idx], recording_id',
+      scans: 'id, tune_id, state',
+      scan_files: 'id, origin',
+      play_events: 'id, started_at',
+      practice_sessions: 'id, started_at',
+      status_changes: 'id, changed_at',
+      outbox: '++seq, &[table+row_id]',
+      meta: 'key',
+    })
+    const play = playEventRow('play-1')
+    await v14.table('tunes').put(tune)
+    await v14.table('play_events').put(play)
+    await v14.table('outbox').add({
+      table: 'play_events',
+      row_id: play.id,
+      op: 'upsert',
+      updated_at: play.created_at,
+      data: toChangeData(play, 'play_events'),
+    })
+    await v14.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v14.close()
+
+    const opened = new CrosstuneDb(name)
+    try {
+      await opened.open()
+      expect(await opened.tunes.get(tune.id)).toEqual(tune)
+      expect(await opened.play_events.get(play.id)).toEqual(play)
+      expect((await opened.outbox.toArray()).map((e) => [e.table, e.row_id])).toEqual([
+        ['play_events', play.id],
+      ])
+      expect(await getPullCursor(opened)).toBe(42)
+      const backend = opened.backendDB()
+      expect(Array.from(backend.objectStoreNames).sort()).toEqual(CURRENT_STORES)
+      const tx = backend.transaction(['scan_views'])
+      expect(Array.from(tx.objectStore('scan_views').indexNames)).toEqual(['started_at'])
+    } finally {
+      await opened.delete()
+    }
+  })
+
   it('repull forgets only the pull cursor', async () => {
     await db.tunes.put(tune)
     await enqueue(db, {
@@ -543,7 +746,7 @@ describe('schema', () => {
       row_id: tune.id,
       op: 'upsert',
       updated_at: tune.updated_at,
-      data: toChangeData(tune),
+      data: toChangeData(tune, 'tunes'),
     })
     await setPullCursor(db, 9)
     await setMeta(db, META_KEEP_OFFLINE, true)
@@ -558,17 +761,17 @@ describe('schema', () => {
 
   it('deletes a database a newer client wrote and opens it fresh', async () => {
     const name = `crosstune-test-${crypto.randomUUID()}`
-    const v13 = new Dexie(name)
-    v13.version(13).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
-    await v13.table('tunes').put({ id: tune.id, title: tune.title })
-    await v13.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
-    v13.close()
+    const v16 = new Dexie(name)
+    v16.version(16).stores({ tunes: 'id, title', pieces: 'id', meta: 'key' })
+    await v16.table('tunes').put({ id: tune.id, title: tune.title })
+    await v16.table('meta').put({ key: META_PULL_CURSOR, value: 42 })
+    v16.close()
 
     const older = new CrosstuneDb(name)
     try {
       // A query auto-opens, the path the app takes.
       expect(await older.tunes.count()).toBe(0)
-      expect(older.backendDB().version).toBe(120)
+      expect(older.backendDB().version).toBe(150)
       expect(Array.from(older.backendDB().objectStoreNames).sort()).toEqual(CURRENT_STORES)
       expect(await getPullCursor(older)).toBe(0)
     } finally {
@@ -622,14 +825,14 @@ describe('outbox', () => {
       row_id: tune.id,
       op: 'upsert',
       updated_at: tune.updated_at,
-      data: toChangeData(tune),
+      data: toChangeData(tune, 'tunes'),
     })
     await enqueue(db, {
       table: 'tunes',
       row_id: tune.id,
       op: 'upsert',
       updated_at: '2026-09-11T00:00:01.000Z',
-      data: toChangeData({ ...tune, title: "Soldier's Joy (D)" }),
+      data: toChangeData({ ...tune, title: "Soldier's Joy (D)" }, 'tunes'),
     })
     const entries = await pendingBatch(db)
     expect(entries).toHaveLength(1)
@@ -681,6 +884,15 @@ describe('table helpers', () => {
     expect(await rowsTable(db, 'lists').get(list.id)).toEqual(list)
   })
 
+  it('eventTables lists every event store', () => {
+    expect(eventTables(db).map((t) => t.name)).toEqual([
+      'play_events',
+      'practice_sessions',
+      'scan_views',
+      'status_changes',
+    ])
+  })
+
   it('syncTables lists every synced table', () => {
     expect(syncTables(db).map((t) => t.name)).toEqual([
       'tunes',
@@ -689,7 +901,7 @@ describe('table helpers', () => {
       'list_items',
       'recording_links',
       'recordings',
-      'notation_pages',
+      'scans',
       'recording_loops',
       'user_settings',
     ])
@@ -698,7 +910,7 @@ describe('table helpers', () => {
 
 describe('row shaping', () => {
   it('strips bookkeeping from change data and ownership from server rows', () => {
-    const data = toChangeData(tune)
+    const data = toChangeData(tune, 'tunes')
     expect(Object.keys(data).sort()).toEqual([
       'alternate_titles',
       'composer',
@@ -733,7 +945,27 @@ describe('row shaping', () => {
       playback_rev: 'abc12345',
       peaks_rev: 'def67890',
     })
-    const data = toChangeData(row)
+    const data = toChangeData(row, 'recordings')
     for (const key of Object.keys(data)) expect(allowed).toContain(key)
+  })
+
+  it('scan view change data carries exactly the fields ScanViewData accepts', () => {
+    const allowed = Object.keys(openapi.components.schemas.ScanViewData.properties).sort()
+    const data = toChangeData(scanViewRow('view-1', { server_seq: 3 }), 'scan_views')
+    expect(Object.keys(data).sort()).toEqual(allowed)
+  })
+
+  it('scan change data leaves out the server-owned file columns', () => {
+    const data = toChangeData(
+      scanRow('scan-1', 'tune-1', { state: 'pending_upload', file_bytes: null }),
+      'scans',
+    )
+    expect(Object.keys(data).sort()).toEqual([
+      'created_at',
+      'height',
+      'position',
+      'tune_id',
+      'width',
+    ])
   })
 })

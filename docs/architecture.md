@@ -66,16 +66,16 @@ Cloudflare also hosts the DNS zone for the product domain.
 
 ## Sources of truth
 
-| Question                 | Answer                                                                                                                                                                                                                                                                                              |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                           |
-| Who owns a row           | The token.                                                                                                                                                                                                                                                                                          |
-| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                 |
-| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, notation pages, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Server-only, never synced: users, upload slots, background jobs.                                                      |
-| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and notation images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes or a notation page is unuploaded, each with its own message. A shape change starts it over (see Pull). |
-| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                             |
-| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                      |
+| Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                                                                                                                                                                                               |
+| Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                                                                                                                                                                                     |
+| Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs. |
+| Which local database     | One per user, named after the user, so two accounts on one phone never share data: an IndexedDB database on the web, a folder holding the SQLite file, audio, and scan images in the Apple app. Sign-out deletes it, and refuses while the outbox holds unsent changes other than history events (plays, practice sessions, and scan views), or while a scan is unuploaded, each with its own message. A shape change starts it over (see Pull).                        |
+| Which version is running | The `version` in `web/package.json` and the API package version. Each is its side's Sentry release tag. The client sends its own in `X-Client-Version`.                                                                                                                                                                                                                                                                                                                 |
+| Host settings            | The host dashboards, recorded in `hosting.md`.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Sync
 
@@ -96,6 +96,11 @@ Push:
   else. Only that change is refused. The client drops it and reports to
   Sentry. A recording link whose URL names a scheme other than http or https
   is invalid. A URL with no scheme is accepted, as the paste sheet accepts it.
+- Plays, practice sessions, and scan views are insert-only: a replayed insert is a no-op
+  and an edit or delete is `invalid`. They are accepted against a
+  soft-deleted recording, link, list, or tune, so a device that played
+  or viewed something another device deleted still lands its history. A parent that
+  never existed or belongs to someone else is `invalid`.
 - A tune delete cascades to its user record, links, and list items. A list
   delete cascades to its items.
 - A row carrying an unknown field, or missing a required one, is
@@ -109,8 +114,13 @@ Push:
 
 Pull:
 
-- Rows with `server_seq` above the cursor, every table, oldest first, 500
-  per page. A fresh install pulls from zero.
+- Rows with `server_seq` above the cursor, every table but the history
+  tables, oldest first, 500 per page. A fresh install pulls from zero.
+- History rows come from `GET /v1/sync/events`, which pages like the main
+  pull on a cursor of its own: plays, practice sessions, scan views, and
+  status changes above it, oldest first. The client runs it only when the
+  stats page opens. Event rows never schedule a sync, and sign-out's
+  unsent-changes check ignores them.
 - A local database shape change migrates the device's database in place.
   It keeps every row, every unsent edit, and every recording the server
   does not have yet, with its audio. A migration that adds a field only
@@ -122,8 +132,7 @@ Pull:
 - A client that finds a local database written by a newer client, as after
   a web rollback or an older TestFlight build, deletes the whole database
   and pulls from zero. It loses unsent edits, unuploaded recordings and
-  notation pages, and local preferences such as catalog filters and keep
-  offline.
+  scans, and local preferences such as catalog filters and keep offline.
 - Where `indexedDB.databases()` is missing, as in Firefox before 126, the
   client cannot see the newer version and opens that database as it is.
 - A pulled row that is also in the outbox with a newer local timestamp keeps
@@ -325,8 +334,11 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The PUT signature covers the declared size, so the bucket refuses a file
   of any other length. A slot expired for more than an hour without a
   confirmation is released, and the runner deletes whatever its PUT left.
-- Notation pages move the same way: an upload slot, a PUT to R2, then a
-  confirm. One quota (`storage_quota_bytes`) covers recordings and pages.
+- Scans move the same way: an upload slot, a PUT to R2, then a confirm.
+  One quota (`storage_quota_bytes`) covers recordings and scans. A scan's
+  image goes under the user's `scans/` key prefix. An image stored under
+  the older `notation/` prefix keeps its key, and purges and orphan
+  sweeps look under both.
 - ffprobe and ffmpeg read an upload only as a local file, only through the
   demuxers of the audio types an upload may declare, and run with no
   environment but `PATH`. On Linux they run under `prlimit` limits on
@@ -349,7 +361,7 @@ same triggers. A return to the foreground stands in for a visible tab.
 - The Apple app excludes a downloaded recording's file from the device
   backup; a captured file is not excluded, since it is the only copy until
   it uploads.
-- A data export reads only the local store and the audio and notation image
+- A data export reads only the local store and the audio and scan image
   files the device holds. It never fetches either.
 - The original upload is a backup. It is never modified, no endpoint serves
   it, and it never counts against a user's quota. A trim cuts from it.
@@ -379,13 +391,13 @@ same triggers. A return to the foreground stands in for a visible tab.
   prefixed by a version byte and a big-endian points-per-second value (50).
   A client records its own peaks locally while capturing, until the
   server's file is ready to fetch.
-- A local delete drops its audio and notation files through
+- A local delete drops its audio and scan files through
   `CrosstuneStore.writeDroppingFiles`. Deleting a recording, a tune, or
   several tunes, and Remove downloaded audio, each run inside it. When the
-  write transaction commits, any audio or notation file no longer named by
+  write transaction commits, any audio or scan file no longer named by
   a row is removed. A failed write keeps both the file and the row. The
   transfer pass uses the same method for a recording tombstoned elsewhere.
-- After launch recovery, the Apple app deletes every audio and notation
+- After launch recovery, the Apple app deletes every audio and scan
   file that was in the folder when the store opened and that no row names,
   such as one a crash left behind. A capture file, and the finished file
   of a row still capturing, always stay. An imported file never takes a
@@ -419,12 +431,12 @@ same triggers. A return to the foreground stands in for a visible tab.
 
 ## Environments
 
-| Environment  | API                         | Database             | Clerk instance | Web client                                | Recordings                                                                                        |
-| ------------ | --------------------------- | -------------------- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Environment  | API                         | Database                                    | Clerk instance | Web client                                | Recordings                                                                                        |
+| ------------ | --------------------------- | ------------------------------------------- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Local        | uvicorn on port 8000        | Postgres in Docker, a database per worktree | Development    | Vite dev server, proxies `/v1`            | RustFS bucket `crosstune-local`, `crosstune-wt-<name>` in a worktree                              |
-| Development  | Railway, generated hostname | Neon development     | Development    | Worker preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
-| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>` | Development    | Worker preview at `<alias>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
-| Production   | Railway, `api.<domain>`     | Neon production      | Production     | Worker on `my.<domain>`                   | R2 bucket `crosstune-recordings`                                                                  |
+| Development  | Railway, generated hostname | Neon development                            | Development    | Worker preview at `main-crosstune-web`    | R2 bucket `crosstune-recordings-dev`                                                              |
+| Pull request | Railway `pr-<n>`, generated | Neon branch `pr-<n>`                        | Development    | Worker preview at `<alias>-crosstune-web` | R2 bucket `crosstune-recordings-preview`, prefix `pr-<n>/`, seeded from development on every push |
+| Production   | Railway, `api.<domain>`     | Neon production                             | Production     | Worker on `my.<domain>`                   | R2 bucket `crosstune-recordings`                                                                  |
 
 Development runs the head of `main`. Production runs the commit the last
 version tag promoted. A pull request environment runs the PR branch with the
@@ -443,5 +455,5 @@ API.
 | API asleep           | The first request boots it. Clients retry a 502 or 504 for about 15 s before treating it as down.  |
 | R2                   | Audio already on the device works. Uploads wait and retry. A first download elsewhere fails.       |
 | Neon                 | The API returns 500s. The client behaves as if the API were down.                                  |
-| A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.           |
+| A streaming provider | New links save untitled. Embeds fail. Its search group offers only its own search page.            |
 | Sentry or GitHub     | Nothing visible. Errors are dropped, or deploys and checks wait.                                   |

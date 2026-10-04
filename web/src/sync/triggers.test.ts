@@ -1,8 +1,12 @@
+import { liveQuery } from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordEvent } from '../commands/events'
 import { createTune } from '../commands/tunes'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
+import { countUnsentChanges } from '../db/outbox'
 import { openTestDb } from '../test/db'
+import { playEventRow, scanViewRow } from '../test/rows'
 import { PROCESSING_POLL_MS, startSyncTriggers, WRITE_DEBOUNCE_MS } from './triggers'
 import type { SyncEngine } from './types'
 
@@ -63,6 +67,7 @@ function fakeEngine(): SyncEngine & { calls: number } {
     onAccountDeleted: () => () => {},
     stop: () => {},
     resume: () => {},
+    pullEvents: async () => {},
   }
   return engine
 }
@@ -123,6 +128,49 @@ describe('startSyncTriggers', () => {
     expect(vi.getTimerCount()).toBe(0)
     await vi.advanceTimersByTimeAsync(WRITE_DEBOUNCE_MS)
     expect(engine.calls).toBe(1)
+  })
+
+  it.each([
+    ['play', () => recordEvent(db, 'play_events', playEventRow('play-1'))],
+    ['scan view', () => recordEvent(db, 'scan_views', scanViewRow('view-1'))],
+  ])('a %s in the outbox does not schedule a sync', async (_name, record) => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const engine = fakeEngine()
+    const stop = startSyncTriggers(engine, db, { debounceMs: WRITE_DEBOUNCE_MS })
+    // The same query as the trigger's, subscribed after it, so on each write it re-reads the
+    // outbox after the trigger's read; the total proves this run saw the event.
+    const seen: number[][] = []
+    const watch = liveQuery(async () => [
+      await countUnsentChanges(db),
+      await db.outbox.count(),
+    ]).subscribe((counts) => seen.push(counts))
+    try {
+      await record()
+      await expect.poll(() => seen.at(-1)).toEqual([0, 1])
+      expect(vi.getTimerCount()).toBe(0)
+      await vi.advanceTimersByTimeAsync(WRITE_DEBOUNCE_MS)
+      expect(engine.calls).toBe(1)
+    } finally {
+      watch.unsubscribe()
+      stop()
+    }
+  })
+
+  it('a real edit with an event pending schedules one sync', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const engine = fakeEngine()
+    const stop = startSyncTriggers(engine, db, { debounceMs: WRITE_DEBOUNCE_MS })
+    try {
+      await recordEvent(db, 'play_events', playEventRow('play-1'))
+      await createTune(db, { title: 'A' }, { status: 'known' })
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBeGreaterThan(0))
+      await vi.advanceTimersByTimeAsync(WRITE_DEBOUNCE_MS)
+      expect(engine.calls).toBe(2)
+      await vi.advanceTimersByTimeAsync(WRITE_DEBOUNCE_MS)
+      expect(engine.calls).toBe(2)
+    } finally {
+      stop()
+    }
   })
 
   it('polls while a live recording is uploaded or processing and stops once none remain', async () => {

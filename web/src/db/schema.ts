@@ -1,28 +1,41 @@
 import Dexie, { type EntityTable, type Table, type Transaction } from 'dexie'
-import { META_PULL_CURSOR } from './meta'
-import type { NotationFile } from './notation'
+import { META_PULL_CURSOR, META_SCAN_INVERT } from './meta'
 import type { RecordingChunk, RecordingFile } from './recordings'
+import type { ScanFile } from './scans'
 import {
   TABLE_NAMES,
   type LocalList,
   type LocalListItem,
-  type LocalNotationPage,
+  type LocalPlayEvent,
+  type LocalPracticeSession,
   type LocalRecording,
   type LocalRecordingLoop,
   type LocalRecordingLink,
   type LocalRows,
+  type LocalScan,
+  type LocalScanView,
+  type LocalStatusChange,
   type LocalTune,
   type LocalUserSettings,
   type LocalUserTune,
   type MetaEntry,
   type OutboxEntry,
-  type TableName,
+  type SyncTableName,
 } from './types'
+
+// The invert setting's key before version 14.
+const LEGACY_INVERT_KEY = 'notation_invert'
 
 // Every store the server refilled as of version 6, plus what could only be pushed or uploaded
 // in an older shape. A fixed list: the upgrade transaction holds only stores that version has.
 const STARTED_OVER = [
-  ...TABLE_NAMES.filter((name) => name !== 'recording_loops' && name !== 'notation_pages'),
+  'tunes',
+  'user_tunes',
+  'lists',
+  'list_items',
+  'recording_links',
+  'recordings',
+  'user_settings',
   'recording_files',
   'recording_chunks',
   'outbox',
@@ -78,10 +91,14 @@ export class CrosstuneDb extends Dexie {
   user_settings!: Table<LocalUserSettings, string>
   recordings!: Table<LocalRecording, string>
   recording_loops!: Table<LocalRecordingLoop, string>
-  notation_pages!: Table<LocalNotationPage, string>
-  notation_files!: Table<NotationFile, string>
+  scans!: Table<LocalScan, string>
+  scan_files!: Table<ScanFile, string>
   recording_files!: Table<RecordingFile, string>
   recording_chunks!: Table<RecordingChunk, [string, number]>
+  play_events!: Table<LocalPlayEvent, string>
+  practice_sessions!: Table<LocalPracticeSession, string>
+  status_changes!: Table<LocalStatusChange, string>
+  scan_views!: Table<LocalScanView, string>
   outbox!: EntityTable<OutboxEntry, 'seq'>
   meta!: Table<MetaEntry, string>
   private newerChecked: Promise<void> | undefined
@@ -210,6 +227,40 @@ export class CrosstuneDb extends Dexie {
             if (entry.data) splitRecordingDate(entry.data)
           })
       })
+
+    // New stores need no reshaping, so rows and the outbox stay as they are.
+    this.version(13).stores({
+      play_events: 'id, started_at',
+      practice_sessions: 'id, started_at',
+      status_changes: 'id, changed_at',
+    })
+
+    // The notation stores become the scan stores. Rows, images, queued changes, and the invert
+    // setting move across, so pending uploads and unsent edits carry on.
+    this.version(14)
+      .stores({
+        scans: 'id, tune_id, state',
+        scan_files: 'id, origin',
+        notation_pages: null,
+        notation_files: null,
+      })
+      .upgrade(async (tx) => {
+        await tx.table('scans').bulkPut(await tx.table('notation_pages').toArray())
+        await tx.table('scan_files').bulkPut(await tx.table('notation_files').toArray())
+        await tx
+          .table('outbox')
+          .filter((entry: { table: string }) => entry.table === 'notation_pages')
+          .modify((entry: { table: string }) => {
+            entry.table = 'scans'
+          })
+        const invert = await tx.table('meta').get(LEGACY_INVERT_KEY)
+        if (invert) {
+          await tx.table('meta').put({ key: META_SCAN_INVERT, value: invert.value })
+          await tx.table('meta').delete(LEGACY_INVERT_KEY)
+        }
+      })
+
+    this.version(15).stores({ scan_views: 'id, started_at' })
   }
 
   // Dexie's auto-open on the first query calls this method too.
@@ -264,9 +315,9 @@ export async function deleteDatabase(userId: string): Promise<void> {
   await Dexie.delete(databaseName(userId))
 }
 
-type RowsTables = { [K in TableName]: Table<LocalRows[K], string> }
+type RowsTables = { [K in SyncTableName]: Table<LocalRows[K], string> }
 
-export function rowsTable<T extends TableName>(
+export function rowsTable<T extends SyncTableName>(
   db: CrosstuneDb,
   name: T,
 ): Table<LocalRows[T], string> {
@@ -278,7 +329,7 @@ export function rowsTable<T extends TableName>(
     list_items: db.list_items,
     recording_links: db.recording_links,
     recordings: db.recordings,
-    notation_pages: db.notation_pages,
+    scans: db.scans,
     recording_loops: db.recording_loops,
     user_settings: db.user_settings,
   }
@@ -287,4 +338,9 @@ export function rowsTable<T extends TableName>(
 
 export function syncTables(db: CrosstuneDb): Table[] {
   return TABLE_NAMES.map((name) => db[name])
+}
+
+/** The activity history stores, filled by recorded events, their push results, and the events pull. */
+export function eventTables(db: CrosstuneDb): Table[] {
+  return [db.play_events, db.practice_sessions, db.scan_views, db.status_changes]
 }

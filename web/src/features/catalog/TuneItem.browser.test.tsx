@@ -1,16 +1,18 @@
 import { IonList } from '@ionic/react'
 import { SquarePen } from 'lucide-react'
 import { useState } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import type { Instrument } from '../../api/vocabulary'
 import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { forceTouch } from '../../test/pointer'
 import { presentedModal } from '../../test/dialogs'
-import { jpegBlob, notationFile, notationPageRow, tuneRow, userTuneRow } from '../../test/rows'
-import { NOTATION } from '../notation/notationCopy'
-import { useNotationTuneIds } from '../notation/useNotationPages'
+import { jpegBlob, scanFile, scanRow, tuneRow, userTuneRow } from '../../test/rows'
+import { CLOSE } from '../links/linkNames'
+import { SCANS } from '../scans/scanCopy'
+import { SCAN_VIEW_THRESHOLD_MS } from '../scans/scanViewLog'
+import { useScanTuneIds } from '../scans/useScans'
 import { TuneItem } from './TuneItem'
 
 const played = new Set<Instrument>(['violin', 'five_string_banjo'])
@@ -59,9 +61,9 @@ function SelectableRow() {
   )
 }
 
-/** A screen's one read of which tunes have notation, handed to its row. */
-function NotationRow() {
-  const notationTunes = useNotationTuneIds()
+/** A screen's one read of which tunes have scans, handed to its row. */
+function ScansRow() {
+  const scanTunes = useScanTuneIds()
   return (
     <IonList>
       <TuneItem
@@ -69,7 +71,7 @@ function NotationRow() {
         instruments={played}
         onOpen={() => {}}
         actions={[{ label: 'Edit', icon: SquarePen, tone: 'neutral', onPress: () => {} }]}
-        hasNotation={notationTunes.has('s1')}
+        hasScans={scanTunes.has('s1')}
       />
     </IonList>
   )
@@ -241,22 +243,50 @@ describe('TuneItem', () => {
       .dispatchEvent(new PointerEvent('pointerup', { bubbles: true, isPrimary: true }))
   })
 
-  it('offers Notation only while the tune has a live page, and opens the viewer at page 1', async () => {
+  it('offers Scans only while the tune has a live scan, and opens the viewer at scan 1', async () => {
     const db = openTestDb()
-    await db.notation_pages.put(notationPageRow('first', 's1'))
-    renderIonic(<NotationRow />, { db })
-    const notation = page.getByRole('button', { name: `${NOTATION} Soldier's Joy` })
-    await expect.element(notation).toBeInTheDocument()
-    // A tombstoned page is no page, so the action leaves with it.
-    await db.notation_pages.update('first', { deleted_at: '2026-01-02T00:00:00.000Z' })
-    await expect.element(notation).not.toBeInTheDocument()
+    await db.scans.put(scanRow('first', 's1'))
+    renderIonic(<ScansRow />, { db })
+    const scans = page.getByRole('button', { name: `${SCANS} Soldier's Joy` })
+    await expect.element(scans).toBeInTheDocument()
+    // A tombstoned scan is no scan, so the action leaves with it.
+    await db.scans.update('first', { deleted_at: '2026-01-02T00:00:00.000Z' })
+    await expect.element(scans).not.toBeInTheDocument()
     for (const index of [0, 1]) {
-      await db.notation_pages.put(notationPageRow(`p${index}`, 's1', { position: index }))
-      await db.notation_files.put(notationFile(`p${index}`, await jpegBlob(60, 80)))
+      await db.scans.put(scanRow(`p${index}`, 's1', { position: index }))
+      await db.scan_files.put(scanFile(`p${index}`, await jpegBlob(60, 80)))
     }
-    await notation.click()
+    await scans.click()
     await expect
       .poll(() => presentedModal()?.querySelector('ion-title')?.textContent)
       .toBe('1 of 2')
+  })
+
+  it('logs a look at the scans from the row action as a row view', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    const start = new Date('2026-10-04T12:00:00.000Z')
+    vi.setSystemTime(start)
+    const db = openTestDb()
+    await db.scans.put(scanRow('p0', 's1'))
+    renderIonic(<ScansRow />, { db })
+    await page.getByRole('button', { name: `${SCANS} Soldier's Joy` }).click()
+    await expect
+      .poll(() => presentedModal()?.querySelector('ion-title')?.textContent)
+      .toBe('1 of 1')
+    vi.setSystemTime(start.getTime() + SCAN_VIEW_THRESHOLD_MS)
+    await page.getByRole('button', { name: CLOSE }).click()
+    await expect
+      .poll(() => db.scan_views.toArray())
+      .toEqual([
+        expect.objectContaining({
+          tune_id: 's1',
+          context: 'row',
+          list_id: null,
+          viewed_ms: SCAN_VIEW_THRESHOLD_MS,
+        }),
+      ])
   })
 })

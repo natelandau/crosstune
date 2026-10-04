@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
+import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, updateTune } from '../commands/tunes'
-import { getInvalidChangeCount, getPullCursor } from '../db/meta'
+import { getEventsCursor, getInvalidChangeCount, getPullCursor } from '../db/meta'
 import { pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { createFakeApi, serverTune } from '../test/fakeApi'
+import { playEventRow, scanViewRow } from '../test/rows'
 import { BACKOFF_MS, classifyFailure, createSyncEngine } from './engine'
 import { ACCOUNT_DELETED_PROBLEM } from './errors'
 import type { Provider } from '../api/vocabulary'
+import type { EventRow } from '../api/types'
 import type { SyncApi, SyncStatus } from './types'
 
 let db: CrosstuneDb
@@ -384,6 +387,201 @@ describe('createSyncEngine', () => {
         kind: 'failed',
       })
     })
+  })
+})
+
+function pulledPlay(id: string, serverSeq: number): EventRow {
+  return {
+    table: 'play_events',
+    row: { ...playEventRow(id), context: 'row', server_seq: serverSeq },
+  }
+}
+
+function pulledSession(id: string, serverSeq: number): EventRow {
+  return {
+    table: 'practice_sessions',
+    row: {
+      id,
+      created_at: '2026-01-01T12:00:00.000Z',
+      started_at: '2026-01-01T12:00:00.000Z',
+      duration_ms: 60_000,
+      recording_id: 'rec-1',
+      tune_id: null,
+      loop_ids: [],
+      speed_percent: 100,
+      pitch_cents: 0,
+      server_seq: serverSeq,
+    },
+  }
+}
+
+function pulledScanView(id: string, serverSeq: number): EventRow {
+  return {
+    table: 'scan_views',
+    row: { ...scanViewRow(id), context: 'tune', server_seq: serverSeq },
+  }
+}
+
+function pulledStatusChange(id: string, serverSeq: number): EventRow {
+  return {
+    table: 'status_changes',
+    row: {
+      id,
+      user_tune_id: 'ut-1',
+      from_status: null,
+      to_status: 'learning',
+      changed_at: '2026-01-01T12:00:00.000Z',
+      server_seq: serverSeq,
+    },
+  }
+}
+
+describe('events', () => {
+  it('pullEvents pages until caught up and stores the cursor', async () => {
+    fake.queueEvents(
+      {
+        rows: [pulledPlay('play-1', 3), pulledSession('session-1', 5)],
+        next_since: 5,
+        has_more: true,
+      },
+      {
+        rows: [pulledScanView('view-1', 7), pulledStatusChange('change-1', 9)],
+        next_since: 9,
+        has_more: false,
+      },
+    )
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    await engine.pullEvents()
+    expect(fake.eventPulls).toEqual([0, 5])
+    expect(await getEventsCursor(db)).toBe(9)
+    expect(await db.scan_views.get('view-1')).toEqual(pulledScanView('view-1', 7).row)
+    expect(await db.play_events.get('play-1')).toEqual(pulledPlay('play-1', 3).row)
+    expect(await db.practice_sessions.get('session-1')).toEqual(pulledSession('session-1', 5).row)
+    expect(await db.status_changes.get('change-1')).toEqual(pulledStatusChange('change-1', 9).row)
+    expect(await getPullCursor(db)).toBe(0)
+
+    await engine.pullEvents()
+    expect(fake.eventPulls).toEqual([0, 5, 9])
+  })
+
+  it('events pull keeps applied pages when a later page fails', async () => {
+    fake.queueEvents(
+      { rows: [pulledPlay('play-1', 3)], next_since: 3, has_more: true },
+      new ApiError(500, null),
+    )
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    await expect(engine.pullEvents()).rejects.toThrow(ApiError)
+    expect(await getEventsCursor(db)).toBe(3)
+    expect(await db.play_events.count()).toBe(1)
+
+    fake.queueEvents({ rows: [pulledPlay('play-2', 4)], next_since: 4, has_more: false })
+    await engine.pullEvents()
+    expect(fake.eventPulls).toEqual([0, 3, 3])
+    expect(await getEventsCursor(db)).toBe(4)
+    expect(await db.play_events.count()).toBe(2)
+  })
+
+  it('pullEvents does nothing offline', async () => {
+    fake.queueEvents({ rows: [pulledPlay('play-1', 3)], next_since: 3, has_more: false })
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => false })
+    await engine.pullEvents()
+    expect(fake.eventPulls).toEqual([])
+    expect(await getEventsCursor(db)).toBe(0)
+    expect(await db.play_events.count()).toBe(0)
+  })
+
+  it('push applies an event result into its store', async () => {
+    const play = playEventRow('play-1')
+    await recordEvent(db, 'play_events', play)
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    await engine.sync()
+    expect(fake.pushes[0]).toEqual([
+      {
+        table: 'play_events',
+        op: 'upsert',
+        id: 'play-1',
+        updated_at: play.created_at,
+        data: expect.not.objectContaining({ id: expect.anything() }),
+      },
+    ])
+    expect(await db.play_events.get('play-1')).toEqual({ ...play, server_seq: 1 })
+    expect(await pendingBatch(db)).toHaveLength(0)
+  })
+
+  it('push applies a scan view result into its store', async () => {
+    const view = scanViewRow('view-1', { context: 'row' })
+    await recordEvent(db, 'scan_views', view)
+    const engine = createSyncEngine({ db, api: fake.api, isOnline: () => true })
+    await engine.sync()
+    expect(fake.pushes[0]?.map((c) => [c.table, c.op, c.id])).toEqual([
+      ['scan_views', 'upsert', 'view-1'],
+    ])
+    expect(await db.scan_views.get('view-1')).toEqual({ ...view, server_seq: 1 })
+    expect(await pendingBatch(db)).toHaveLength(0)
+  })
+
+  it('a sync queued behind an events pull that finds the account deleted never pushes', async () => {
+    await createTune(db, { title: 'X' }, { status: 'known' })
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const api: SyncApi = {
+      ...fake.api,
+      async events() {
+        await gate
+        throw new ApiError(401, {
+          type: ACCOUNT_DELETED_PROBLEM,
+          title: 'Unauthorized',
+          status: 401,
+          detail: 'This account was deleted',
+        })
+      },
+    }
+    const engine = createSyncEngine({ db, api, isOnline: () => true })
+    const onAccountDeleted = vi.fn()
+    engine.onAccountDeleted(onAccountDeleted)
+    const pulling = engine.pullEvents()
+    const syncing = engine.sync()
+    expect(engine.status()).toBe('syncing')
+    release()
+    await expect(pulling).rejects.toThrow(ApiError)
+    await syncing
+    expect(onAccountDeleted).toHaveBeenCalledOnce()
+    expect(fake.pushes).toEqual([])
+    expect(fake.pulls).toEqual([])
+  })
+
+  it('pullEvents waits for a push in flight', async () => {
+    await createTune(db, { title: 'X' }, { status: 'known' })
+    const order: string[] = []
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    fake.respondToPush(async (changes) => {
+      await gate
+      order.push('push')
+      return changes.map((c) => ({ table: c.table, id: c.id, status: 'applied' as const }))
+    })
+    const api: SyncApi = {
+      ...fake.api,
+      async events(since) {
+        order.push('events')
+        return fake.api.events(since)
+      },
+    }
+    const engine = createSyncEngine({ db, api, isOnline: () => true })
+    const syncing = engine.sync()
+    await expect.poll(() => fake.pushes.length).toBe(1)
+    const pulling = engine.pullEvents()
+    // Reads queued after the events pull's own cursor read: an overlapping pull would have
+    // called the API by the time they land. The order below holds however the race goes.
+    await getEventsCursor(db)
+    await getEventsCursor(db)
+    release()
+    await Promise.all([syncing, pulling])
+    expect(order).toEqual(['push', 'events'])
   })
 })
 

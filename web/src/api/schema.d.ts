@@ -70,66 +70,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/notation-pages/{page_id}/download": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download
-         * @description A presigned GET for the image of a ready page.
-         */
-        get: operations["download_v1_notation_pages__page_id__download_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/notation-pages/{page_id}/upload-slot": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Slot
-         * @description A presigned PUT for one page's image, once the file cap and quota allow it.
-         */
-        post: operations["upload_slot_v1_notation_pages__page_id__upload_slot_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/notation-pages/{page_id}/uploaded": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Upload Finished
-         * @description Confirm the image landed and mark the page ready. Repeating the call changes nothing.
-         */
-        post: operations["upload_finished_v1_notation_pages__page_id__uploaded_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/recordings/{recording_id}/download": {
         parameters: {
             query?: never;
@@ -244,6 +184,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/scans/{scan_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download
+         * @description A presigned GET for the image of a ready scan.
+         */
+        get: operations["download_v1_scans__scan_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scans/{scan_id}/upload-slot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Slot
+         * @description A presigned PUT for one scan's image, once the file cap and quota allow it.
+         */
+        post: operations["upload_slot_v1_scans__scan_id__upload_slot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scans/{scan_id}/uploaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Finished
+         * @description Confirm the image landed and mark the scan ready. Repeating the call changes nothing.
+         */
+        post: operations["upload_finished_v1_scans__scan_id__uploaded_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sync/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events
+         * @description The caller's plays, practice sessions and status changes after `since`, oldest first.
+         */
+        get: operations["events_v1_sync_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sync/pull": {
         parameters: {
             query?: never;
@@ -317,7 +337,7 @@ export interface components {
              * Table
              * @enum {string}
              */
-            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "notation_pages" | "recording_loops" | "user_settings";
+            table: "tunes" | "user_tunes" | "lists" | "list_items" | "recording_links" | "recordings" | "scans" | "recording_loops" | "user_settings" | "play_events" | "practice_sessions" | "scan_views";
             /**
              * Updated At
              * Format: date-time
@@ -340,6 +360,18 @@ export interface components {
             playback_start_ms: number;
             /** Url */
             url: string;
+        };
+        /**
+         * EventsResponse
+         * @description A page of history rows after the given cursor.
+         */
+        EventsResponse: {
+            /** Has More */
+            has_more: boolean;
+            /** Next Since */
+            next_since: number;
+            /** Rows */
+            rows: (components["schemas"]["PlayEventPullRow"] | components["schemas"]["PracticeSessionPullRow"] | components["schemas"]["ScanViewPullRow"] | components["schemas"]["StatusChangePullRow"])[];
         };
         /**
          * FrettedTuning
@@ -542,108 +574,6 @@ export interface components {
          */
         Mode: "major" | "minor" | "mixolydian" | "dorian" | "modal" | "other";
         /**
-         * NotationPageChangeResult
-         * @description The outcome of one change to a notation page.
-         */
-        NotationPageChangeResult: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Reason */
-            reason?: string | null;
-            row?: components["schemas"]["NotationPageRow"] | null;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "applied" | "stale" | "invalid";
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            table: "notation_pages";
-        };
-        /**
-         * NotationPagePullRow
-         * @description A notation page row in a pull page.
-         */
-        NotationPagePullRow: {
-            row: components["schemas"]["NotationPageRow"];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            table: "notation_pages";
-        };
-        /**
-         * NotationPageRow
-         * @description A stored notation page, as push and pull return it. The storage key stays on the server.
-         */
-        NotationPageRow: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Deleted At */
-            deleted_at: string | null;
-            /** File Bytes */
-            file_bytes: number | null;
-            /** Height */
-            height: number;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Position
-             * @default 0
-             */
-            position: number;
-            /** Server Seq */
-            server_seq: number;
-            state: components["schemas"]["NotationPageState"];
-            /**
-             * Tune Id
-             * Format: uuid
-             */
-            tune_id: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * User Id
-             * Format: uuid
-             */
-            user_id: string;
-            /** Width */
-            width: number;
-        };
-        /**
-         * NotationPageState
-         * @description Where a notation page's image is in the upload pipeline.
-         * @enum {string}
-         */
-        NotationPageState: "pending_upload" | "ready";
-        /**
-         * NotationUploadSlotRequest
-         * @description What the client is about to upload.
-         */
-        NotationUploadSlotRequest: {
-            /** Bytes */
-            bytes: number;
-            /**
-             * Content Type
-             * @constant
-             */
-            content_type: "image/jpeg";
-        };
-        /**
          * PeaksUrl
          * @description A presigned GET for the waveform file, tagged with the revision it was signed for.
          */
@@ -659,11 +589,240 @@ export interface components {
             url: string;
         };
         /**
+         * PlayContext
+         * @description Where a play was started from.
+         * @enum {string}
+         */
+        PlayContext: "row" | "list" | "dock" | "recording_screen";
+        /**
+         * PlayEventChangeResult
+         * @description The outcome of pushing one play.
+         */
+        PlayEventChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["PlayEventRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "play_events";
+        };
+        /**
+         * PlayEventData
+         * @description Client-written fields of one play of a recording or a link.
+         */
+        PlayEventData: {
+            context: components["schemas"]["PlayContext"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Link Id
+             * @default null
+             */
+            link_id: string | null;
+            /**
+             * List Id
+             * @default null
+             */
+            list_id: string | null;
+            /** Listened Ms */
+            listened_ms: number;
+            /**
+             * Recording Id
+             * @default null
+             */
+            recording_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Tune Id
+             * @default null
+             */
+            tune_id: string | null;
+        };
+        /**
+         * PlayEventPullRow
+         * @description A play row in an events page.
+         */
+        PlayEventPullRow: {
+            row: components["schemas"]["PlayEventRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "play_events";
+        };
+        /**
+         * PlayEventRow
+         * @description A stored play, as push returns it.
+         */
+        PlayEventRow: {
+            context: components["schemas"]["PlayContext"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Link Id */
+            link_id?: string | null;
+            /** List Id */
+            list_id?: string | null;
+            /** Listened Ms */
+            listened_ms: number;
+            /** Recording Id */
+            recording_id?: string | null;
+            /** Server Seq */
+            server_seq: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Tune Id */
+            tune_id?: string | null;
+        };
+        /**
          * PlayFirst
          * @description Which kind of source a list plays first when a tune has both and none is pinned.
          * @enum {string}
          */
         PlayFirst: "recordings" | "apple_music";
+        /**
+         * PracticeSessionChangeResult
+         * @description The outcome of pushing one practice session.
+         */
+        PracticeSessionChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["PracticeSessionRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "practice_sessions";
+        };
+        /**
+         * PracticeSessionData
+         * @description Client-written fields of one practice session on a recording.
+         */
+        PracticeSessionData: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /**
+             * Loop Ids
+             * @default []
+             */
+            loop_ids: string[];
+            /** Pitch Cents */
+            pitch_cents: number;
+            /**
+             * Recording Id
+             * Format: uuid
+             */
+            recording_id: string;
+            /** Speed Percent */
+            speed_percent: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Tune Id
+             * @default null
+             */
+            tune_id: string | null;
+        };
+        /**
+         * PracticeSessionPullRow
+         * @description A practice session row in an events page.
+         */
+        PracticeSessionPullRow: {
+            row: components["schemas"]["PracticeSessionRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "practice_sessions";
+        };
+        /**
+         * PracticeSessionRow
+         * @description A stored practice session, as push returns it.
+         */
+        PracticeSessionRow: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Loop Ids
+             * @default []
+             */
+            loop_ids: string[];
+            /** Pitch Cents */
+            pitch_cents: number;
+            /**
+             * Recording Id
+             * Format: uuid
+             */
+            recording_id: string;
+            /** Server Seq */
+            server_seq: number;
+            /** Speed Percent */
+            speed_percent: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Tune Id */
+            tune_id?: string | null;
+        };
         /**
          * Problem
          * @description An RFC 9457 problem details body, the shape of every error this API returns.
@@ -702,7 +861,7 @@ export interface components {
             /** Next Since */
             next_since: number;
             /** Rows */
-            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["NotationPagePullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
+            rows: (components["schemas"]["TunePullRow"] | components["schemas"]["UserTunePullRow"] | components["schemas"]["ListPullRow"] | components["schemas"]["ListItemPullRow"] | components["schemas"]["RecordingLinkPullRow"] | components["schemas"]["RecordingPullRow"] | components["schemas"]["ScanPullRow"] | components["schemas"]["RecordingLoopPullRow"] | components["schemas"]["UserSettingsPullRow"])[];
         };
         /**
          * PushRequest
@@ -718,7 +877,7 @@ export interface components {
          */
         PushResponse: {
             /** Results */
-            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["NotationPageChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"])[];
+            results: (components["schemas"]["TuneChangeResult"] | components["schemas"]["UserTuneChangeResult"] | components["schemas"]["ListChangeResult"] | components["schemas"]["ListItemChangeResult"] | components["schemas"]["RecordingLinkChangeResult"] | components["schemas"]["RecordingChangeResult"] | components["schemas"]["ScanChangeResult"] | components["schemas"]["RecordingLoopChangeResult"] | components["schemas"]["UserSettingsChangeResult"] | components["schemas"]["PlayEventChangeResult"] | components["schemas"]["PracticeSessionChangeResult"] | components["schemas"]["ScanViewChangeResult"])[];
         };
         /**
          * RecordingChangeResult
@@ -1123,6 +1282,212 @@ export interface components {
             url: string;
         };
         /**
+         * ScanChangeResult
+         * @description The outcome of one change to a scan.
+         */
+        ScanChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["ScanRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "scans";
+        };
+        /**
+         * ScanPullRow
+         * @description A scan row in a pull page.
+         */
+        ScanPullRow: {
+            row: components["schemas"]["ScanRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "scans";
+        };
+        /**
+         * ScanRow
+         * @description A stored scan, as push and pull return it. The storage key stays on the server.
+         */
+        ScanRow: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** File Bytes */
+            file_bytes: number | null;
+            /** Height */
+            height: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Server Seq */
+            server_seq: number;
+            state: components["schemas"]["ScanState"];
+            /**
+             * Tune Id
+             * Format: uuid
+             */
+            tune_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Width */
+            width: number;
+        };
+        /**
+         * ScanState
+         * @description Where a scan's image is in the upload pipeline.
+         * @enum {string}
+         */
+        ScanState: "pending_upload" | "ready";
+        /**
+         * ScanUploadSlotRequest
+         * @description What the client is about to upload.
+         */
+        ScanUploadSlotRequest: {
+            /** Bytes */
+            bytes: number;
+            /**
+             * Content Type
+             * @constant
+             */
+            content_type: "image/jpeg";
+        };
+        /**
+         * ScanViewChangeResult
+         * @description The outcome of pushing one scan view.
+         */
+        ScanViewChangeResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason?: string | null;
+            row?: components["schemas"]["ScanViewRow"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "applied" | "stale" | "invalid";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "scan_views";
+        };
+        /**
+         * ScanViewContext
+         * @description Where a look at a tune's scans was started from.
+         * @enum {string}
+         */
+        ScanViewContext: "tune" | "row" | "list";
+        /**
+         * ScanViewData
+         * @description Client-written fields of one look at a tune's scans.
+         */
+        ScanViewData: {
+            context: components["schemas"]["ScanViewContext"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * List Id
+             * @default null
+             */
+            list_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Tune Id
+             * Format: uuid
+             */
+            tune_id: string;
+            /** Viewed Ms */
+            viewed_ms: number;
+        };
+        /**
+         * ScanViewPullRow
+         * @description A scan view row in an events page.
+         */
+        ScanViewPullRow: {
+            row: components["schemas"]["ScanViewRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "scan_views";
+        };
+        /**
+         * ScanViewRow
+         * @description A stored scan view, as push returns it.
+         */
+        ScanViewRow: {
+            context: components["schemas"]["ScanViewContext"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** List Id */
+            list_id?: string | null;
+            /** Server Seq */
+            server_seq: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Tune Id
+             * Format: uuid
+             */
+            tune_id: string;
+            /** Viewed Ms */
+            viewed_ms: number;
+        };
+        /**
          * SearchGroup
          * @description One service's answer to a search, and its own search page as the fallback.
          */
@@ -1177,6 +1542,43 @@ export interface components {
             expires_at: string;
             /** Url */
             url: string;
+        };
+        /**
+         * StatusChangePullRow
+         * @description A status change row in an events page.
+         */
+        StatusChangePullRow: {
+            row: components["schemas"]["StatusChangeRow"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            table: "status_changes";
+        };
+        /**
+         * StatusChangeRow
+         * @description A stored status change. The server writes these; no client pushes one.
+         */
+        StatusChangeRow: {
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            from_status: components["schemas"]["TuneStatus"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Server Seq */
+            server_seq: number;
+            to_status: components["schemas"]["TuneStatus"];
+            /**
+             * User Tune Id
+             * Format: uuid
+             */
+            user_tune_id: string;
         };
         /**
          * StorageResponse
@@ -1649,200 +2051,6 @@ export interface operations {
             };
         };
     };
-    download_v1_notation_pages__page_id__download_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                page_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SignedUrl"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    upload_slot_v1_notation_pages__page_id__upload_slot_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                page_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NotationUploadSlotRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SignedUrl"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Content Too Large */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    upload_finished_v1_notation_pages__page_id__uploaded_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                page_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Content Too Large */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     download_v1_recordings__recording_id__download_get: {
         parameters: {
             query?: never;
@@ -2142,6 +2350,231 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    download_v1_scans__scan_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_slot_v1_scans__scan_id__upload_slot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScanUploadSlotRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedUrl"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_finished_v1_scans__scan_id__uploaded_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events_v1_sync_events_get: {
+        parameters: {
+            query?: {
+                since?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

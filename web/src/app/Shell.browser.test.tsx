@@ -3,13 +3,15 @@ import { page } from 'vitest/browser'
 import { addTunesToList } from '../commands/bulk'
 import { createList } from '../commands/lists'
 import { createTune } from '../commands/tunes'
+import { SEARCH_TUNES } from '../features/catalog/TuneSearch'
 import { NEW_RECORDING } from '../features/recording/RecordModal'
+import { keyCellLabel, STATS_TITLE, summaryLine } from '../features/stats/copy'
 import { NO_RECORDINGS_TITLE } from '../features/recordings/RecordingsPage'
 import { openTestDb } from '../test/db'
 import { FakeRecorder, stubMediaGlobals } from '../test/fakeMedia'
 import { renderIonic } from '../test/ionic'
 import { Shell } from './Shell'
-import { RECORD_LABEL } from './tabs'
+import { RECORD_LABEL, TABS } from './tabs'
 import { CANCEL } from '../ui/Confirm'
 
 // The settings screen reads the account from Clerk, which only answers under a ClerkProvider.
@@ -21,6 +23,8 @@ vi.mock('@clerk/react', () => ({
 // A size, weight, or tracking utility. A type role carries all three, so a screen that sets one
 // of its own has stepped outside the roles. `text-xl` carries no digit; `text-2xl` and up do.
 const AD_HOC_TYPE = /\btext-(xs|sm|base|lg|\d?xl)\b|\bfont-\w+\b|\btracking-\w+\b/
+
+const [CATALOG, , , SETTINGS] = TABS
 
 let restore: (() => void) | null = null
 
@@ -283,6 +287,79 @@ describe('Shell', () => {
     } finally {
       await page.viewport(390, 844)
     }
+  })
+
+  it('opens a stats value as the catalog tab at its root, and keeps stats in Settings', async () => {
+    const db = openTestDb()
+    await createTune(db, { title: 'Sally Ann', key: 'D' }, { status: 'known' })
+    renderIonic(<Shell initialPath="/catalog" />, { db })
+    await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally')
+    await page.getByRole('button', { name: /^Sally Ann/ }).click()
+    const tune = page.getByRole('heading', { name: 'Sally Ann', level: 1 })
+    await expect.element(tune).toBeVisible()
+    const nav = page.getByRole('navigation', { name: 'Primary' })
+    await nav.getByText(SETTINGS.label).click()
+    await page
+      .getByRole('button', {
+        name: summaryLine({ tunes: 1, lists: 0, recordings: 0, scans: 0, ms: 0 }),
+      })
+      .click()
+    await page.getByRole('button', { name: keyCellLabel('D', 1) }).click()
+    await expect.element(page.getByRole('heading', { name: CATALOG.label, level: 1 })).toBeVisible()
+    await expect.poll(() => tune.elements()).toHaveLength(0)
+    await expect.element(page.getByRole('searchbox', { name: SEARCH_TUNES })).toHaveValue('')
+    await expect
+      .element(page.getByRole('tab', { name: CATALOG.label }))
+      .toHaveAttribute('aria-selected', 'true')
+    await expect.element(page.getByRole('button', { name: 'back' })).not.toBeInTheDocument()
+    await nav.getByText(SETTINGS.label).click()
+    await expect.element(page.getByRole('heading', { name: STATS_TITLE, level: 1 })).toBeVisible()
+  })
+
+  it('opens a stats value at the catalog root from the sidebar on the wide frame', async () => {
+    await page.viewport(1024, 768)
+    try {
+      const db = openTestDb()
+      await createTune(db, { title: 'Sally Ann', key: 'D' }, { status: 'known' })
+      renderIonic(<Shell initialPath="/catalog" />, { db })
+      await page.getByRole('searchbox', { name: SEARCH_TUNES }).fill('Sally')
+      await page.getByRole('button', { name: /^Sally Ann/ }).click()
+      const tune = page.getByRole('heading', { name: 'Sally Ann', level: 1 })
+      await expect.element(tune).toBeVisible()
+      const sidebar = page.getByRole('navigation', { name: 'Sidebar' })
+      await sidebar.getByText(SETTINGS.label).click()
+      await page
+        .getByRole('button', {
+          name: summaryLine({ tunes: 1, lists: 0, recordings: 0, scans: 0, ms: 0 }),
+        })
+        .click()
+      await page.getByRole('button', { name: keyCellLabel('D', 1) }).click()
+      await expect
+        .element(page.getByRole('heading', { name: CATALOG.label, level: 1 }))
+        .toBeVisible()
+      await expect.poll(() => tune.elements()).toHaveLength(0)
+      await expect.element(page.getByRole('searchbox', { name: SEARCH_TUNES })).toHaveValue('')
+      await expect
+        .element(sidebar.getByRole('listitem').first())
+        .toHaveAttribute('aria-current', 'page')
+      await expect.element(page.getByRole('button', { name: 'back' })).not.toBeInTheDocument()
+      await sidebar.getByText(SETTINGS.label).click()
+      await expect.element(page.getByRole('heading', { name: STATS_TITLE, level: 1 })).toBeVisible()
+    } finally {
+      await page.viewport(390, 844)
+    }
+  })
+
+  it('opens a stats value in a catalog tab not yet visited', async () => {
+    const db = openTestDb()
+    await createTune(db, { title: 'Sally Ann', key: 'D' }, { status: 'known' })
+    renderIonic(<Shell initialPath="/settings/stats" />, { db })
+    await page.getByRole('button', { name: keyCellLabel('D', 1) }).click()
+    await expect.element(page.getByRole('heading', { name: CATALOG.label, level: 1 })).toBeVisible()
+    await expect
+      .element(page.getByRole('tab', { name: CATALOG.label }))
+      .toHaveAttribute('aria-selected', 'true')
+    await expect.element(page.getByRole('button', { name: 'back' })).not.toBeInTheDocument()
   })
 
   it('points Back at the parent of a pushed screen', async () => {

@@ -258,6 +258,34 @@ capsules. Only the catalog shows facet rails on screen.
 - Matching ignores case and accents.
 - List screens keep their own Show archived setting.
 
+## Stats
+
+The stats page looks back. It never nudges, and it keeps no streaks or
+points.
+
+- Only what the musician uses. Tunes, lists, and recordings always show, at
+  zero too, on the page and in the Settings row that opens it. Every other
+  block, count, and value, such as the scans count, shows only when a
+  non-archived tune holds it. A day's activity names only the kinds that
+  happened, such as scans viewed.
+- Blocks run from the whole to the particular: counts, recorded total,
+  months, activity, on this day, breakdowns, rarities.
+- A breakdown value that is a catalog filter (key, mode, type, tuning,
+  genre) opens the Catalog tab at its root with that filter set and every
+  other filter and the search cleared, so the catalog shows exactly the
+  tunes counted. A type, tuning, or genre value is a row with a chevron. The
+  key grid's key filters by key alone and each key and mode cell by both. A
+  value that is not a filter, such as time signature, only reads, with no
+  chevron. So does a value the stored filter would read as Any or No key,
+  such as a genre named All.
+- Charts are styled elements, never SVG. Each mark carries its value as
+  text for assistive technology. When a mark is too small to tap, the chart
+  is one tab stop that takes taps, hover, and the arrow keys, and shows the
+  chosen mark's detail under it.
+- Shading steps are the quartiles of the musician's own values, so a
+  casual player and a daily one both see the full range. An empty slot
+  stays in place, so the spacing reads as time.
+
 ## Gestures
 
 Every gesture has a visible equivalent. Swipe actions are also hover buttons

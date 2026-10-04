@@ -1,9 +1,12 @@
-import type { NotationFile } from '../db/notation'
+import type { ScanFile } from '../db/scans'
 import type { RecordingFile } from '../db/recordings'
 import type {
+  LocalPlayEvent,
+  LocalScanView,
+  LocalPracticeSession,
   LocalRecording,
   LocalRecordingLink,
-  LocalNotationPage,
+  LocalScan,
   LocalRecordingLoop,
   LocalTune,
   LocalUserTune,
@@ -147,11 +150,7 @@ export function loopRow(overrides: Partial<LocalRecordingLoop> = {}): LocalRecor
   }
 }
 
-export function notationPageRow(
-  id: string,
-  tuneId: string,
-  extra: Partial<LocalNotationPage> = {},
-): LocalNotationPage {
+export function scanRow(id: string, tuneId: string, extra: Partial<LocalScan> = {}): LocalScan {
   return {
     id,
     created_at: '2026-01-01T00:00:00.000Z',
@@ -168,11 +167,37 @@ export function notationPageRow(
   }
 }
 
-export function notationFile(
-  id: string,
-  blob: Blob,
-  extra: Partial<NotationFile> = {},
-): NotationFile {
+/** A play recorded on this device and not yet pushed, so it has no server_seq. */
+export function playEventRow(id: string, extra: Partial<LocalPlayEvent> = {}): LocalPlayEvent {
+  return {
+    id,
+    created_at: '2026-01-01T12:00:00.000Z',
+    started_at: '2026-01-01T12:00:00.000Z',
+    listened_ms: 30_000,
+    context: 'row',
+    recording_id: 'rec-1',
+    link_id: null,
+    list_id: null,
+    tune_id: null,
+    ...extra,
+  }
+}
+
+/** A scan view recorded on this device and not yet pushed. */
+export function scanViewRow(id: string, extra: Partial<LocalScanView> = {}): LocalScanView {
+  return {
+    id,
+    created_at: '2026-01-01T12:00:00.000Z',
+    started_at: '2026-01-01T12:00:00.000Z',
+    viewed_ms: 5_000,
+    context: 'tune',
+    tune_id: 'tune-1',
+    list_id: null,
+    ...extra,
+  }
+}
+
+export function scanFile(id: string, blob: Blob, extra: Partial<ScanFile> = {}): ScanFile {
   return {
     id,
     blob,
@@ -191,4 +216,23 @@ export async function jpegBlob(width: number, height: number, color = '#222'): P
   context.fillStyle = color
   context.fillRect(0, 0, width, height)
   return canvas.convertToBlob({ type: 'image/jpeg' })
+}
+
+/** A practice session recorded on this device and not yet pushed. */
+export function practiceSessionRow(
+  id: string,
+  extra: Partial<LocalPracticeSession> = {},
+): LocalPracticeSession {
+  return {
+    id,
+    created_at: '2026-01-01T12:00:00.000Z',
+    started_at: '2026-01-01T12:00:00.000Z',
+    duration_ms: 60_000,
+    recording_id: 'rec-1',
+    tune_id: null,
+    loop_ids: [],
+    speed_percent: 100,
+    pitch_cents: 0,
+    ...extra,
+  }
 }
