@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import { useFrame } from '../platform/frame'
 import { getMode } from '../platform/mode'
 import { SyncBadge } from './SyncBadge'
+import { useFileDrop } from './useFileDrop'
 
 export interface ScreenProps {
   title: ReactNode
@@ -41,6 +42,8 @@ export interface ScreenProps {
   footer?: ReactNode
   /** A screen made of inset groups takes the grouped background, so each group reads as a card. */
   grouped?: boolean
+  /** Takes files dropped anywhere on the screen, outlining it while they are dragged over. */
+  onDropFiles?: (files: File[]) => void
   children: ReactNode
 }
 
@@ -65,14 +68,16 @@ export function Screen({
   refresher,
   footer,
   grouped = false,
+  onDropFiles,
   children,
 }: ScreenProps) {
   const condense = level === 'top' && getMode() === 'ios'
   const barTitleClass =
     [selecting ? 'selection-title' : null, titleClass].filter(Boolean).join(' ') || undefined
   const frame = useFrame()
+  const drop = useFileDrop(onDropFiles)
   return (
-    <IonPage>
+    <IonPage {...drop.handlers}>
       <IonHeader translucent>
         <IonToolbar>
           {level === 'top' && frame === 'phone' ? (
@@ -113,6 +118,15 @@ export function Screen({
         </main>
       </IonContent>
       {footer}
+      {/* Its own layer above the toolbar and content, which would paint over an outline on
+          the page itself. */}
+      {drop.over ? (
+        <div
+          data-file-drop
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-100 border-2 border-(--ion-color-primary)"
+        />
+      ) : null}
     </IonPage>
   )
 }

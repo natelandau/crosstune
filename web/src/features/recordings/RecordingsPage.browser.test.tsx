@@ -17,7 +17,8 @@ import { RECORDING_NAME_LABEL, RENAME } from './recordingCopy'
 import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from './recordingRow'
 import { RENAME_RECORDING_TITLE } from './RenameRecordingSheet'
 import { NO_RECORDINGS_HINT, NO_RECORDINGS_TITLE, RecordingsPage } from './RecordingsPage'
-import { NOT_AUDIO_ERROR, UPLOAD_AUDIO } from './UploadButton'
+import { NOT_AUDIO_ERROR, refusedFile } from './addAudioFiles'
+import { UPLOAD_AUDIO } from './UploadButton'
 import { DELETE_RECORDING_TITLE } from './useRecordingActions'
 import { useRecordingsWithFiles } from './useRecordings'
 import { CANCEL } from '../../ui/Confirm'
@@ -54,6 +55,18 @@ const groupNames = () =>
 /** A tune with a key and a user row, so its shared row has something to show. */
 const addTune = (title: string, key = 'A') =>
   createTune(db, { title, key }, { status: 'known' }).then(({ tuneId }) => tuneId)
+
+/** Fires a file drag event on the screen's empty state, as a drag from the desktop would; a leave goes to `relatedTarget`. */
+function drag(type: 'dragenter' | 'dragleave' | 'drop', files: File[], relatedTarget?: Element) {
+  const dataTransfer = new DataTransfer()
+  for (const file of files) dataTransfer.items.add(file)
+  page
+    .getByText(NO_RECORDINGS_TITLE)
+    .element()
+    .dispatchEvent(
+      new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer, relatedTarget }),
+    )
+}
 
 describe('RecordingsPage', () => {
   it('names the empty state and what to do about it', async () => {
@@ -307,6 +320,35 @@ describe('RecordingsPage', () => {
     // The toolbar clips its own contents, so a message there would be a few characters wide.
     await expect.poll(() => line.element().closest('ion-toolbar')).toBeNull()
     await expect.poll(() => line.element().getBoundingClientRect().width).toBeGreaterThan(200)
+  })
+
+  it('adds every audio file dropped on the screen, and names the one it refused', async () => {
+    show()
+    await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
+    drag('drop', [
+      new File(['abc'], 'jam.m4a', { type: 'audio/mp4' }),
+      new File(['x'], 'notes.txt', { type: 'text/plain' }),
+      new File(['abc'], 'reel.wav', { type: 'audio/wav' }),
+    ])
+    await expect.element(page.getByRole('heading', { name: 'jam' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: 'reel' })).toBeVisible()
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(refusedFile('notes.txt', NOT_AUDIO_ERROR))
+  })
+
+  it('outlines the screen while files are dragged over it', async () => {
+    show()
+    await expect.element(page.getByText(NO_RECORDINGS_TITLE)).toBeVisible()
+    const outlined = () => document.querySelector('[data-file-drop]') !== null
+    drag('dragenter', [new File(['abc'], 'jam.m4a', { type: 'audio/mp4' })])
+    await expect.poll(outlined).toBe(true)
+    // Into a child of the screen: still over it.
+    drag('dragleave', [], page.getByText(NO_RECORDINGS_HINT).element())
+    await expect.poll(outlined).toBe(true)
+    // Out of the screen altogether, from wherever the pointer last was.
+    drag('dragleave', [], document.body)
+    await expect.poll(outlined).toBe(false)
   })
 
   it('pulls to refresh on touch and completes the refresher', async () => {
