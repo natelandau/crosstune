@@ -8,7 +8,7 @@ import SwiftUI
 /// the service's own search page for any other. Shown over whatever screen asked. Reads the store,
 /// the sync engine, and the player from the environment.
 public struct FindRecordingsSheet: View {
-    public static let title = "Find recordings"
+    nonisolated public static let title = "Find recordings"
     public static let searchFor = "Search for"
     public static let play = "Play"
     public static let link = "Link"
@@ -19,7 +19,7 @@ public struct FindRecordingsSheet: View {
     public static let back = "Back"
 
     /// A row for one service, and the tune menu's item when only one service is chosen.
-    public static func searchService(_ service: String) -> String { "Search \(service)" }
+    nonisolated public static func searchService(_ service: String) -> String { "Search \(service)" }
     public static func searchOn(_ service: String) -> String { "Search on \(service)" }
     /// A service that is rate limiting the app or cannot be reached; both read the same to a musician.
     public static func unavailableNow(_ service: String) -> String {
@@ -41,7 +41,7 @@ public struct FindRecordingsSheet: View {
         }
     }
 
-    static func label(_ provider: String) -> String {
+    nonisolated static func label(_ provider: String) -> String {
         Vocabulary.providerLabels[provider] ?? provider
     }
 
