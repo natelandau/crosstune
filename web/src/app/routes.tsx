@@ -4,7 +4,7 @@ import { ListPage } from '../features/lists/ListPage'
 import { ListsPage } from '../features/lists/ListsPage'
 import { RecordingsPage } from '../features/recordings/RecordingsPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
-import { StatsPage } from '../features/stats/StatsPage'
+import { StatsRoute } from '../features/stats/StatsRoute'
 import { TuneScreen } from '../features/tune/TuneScreen'
 import { TuneRedirect } from './TuneRedirect'
 
@@ -36,7 +36,7 @@ export const routes = [
     element={<TuneScreen parent={() => '/recordings'} />}
   />,
   <Route key="/settings" path="/settings" element={<SettingsPage />} />,
-  <Route key="/settings/stats" path="/settings/stats" element={<StatsPage />} />,
+  <Route key="/settings/stats" path="/settings/stats" element={<StatsRoute />} />,
   <Route
     key="/settings/stats/tunes/:tuneId"
     path="/settings/stats/tunes/:tuneId"

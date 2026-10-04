@@ -316,6 +316,24 @@ describe('Shell', () => {
     await expect.element(page.getByRole('heading', { name: STATS_TITLE, level: 1 })).toBeVisible()
   })
 
+  it('pushes the stats page from Settings and goes Back to Settings', async () => {
+    const db = openTestDb()
+    renderIonic(<Shell initialPath="/settings" />, { db })
+    const settings = page.getByRole('heading', { name: SETTINGS.label, level: 1 })
+    await expect.element(settings).toBeVisible()
+    await page
+      .getByRole('button', {
+        name: summaryLine({ tunes: 0, lists: 0, recordings: 0, scans: 0, ms: 0 }),
+      })
+      .click()
+    await expect.element(page.getByRole('heading', { name: STATS_TITLE, level: 1 })).toBeVisible()
+    await page.getByRole('button', { name: 'back' }).click()
+    await expect.element(settings).toBeVisible()
+    await expect
+      .element(page.getByRole('heading', { name: STATS_TITLE, level: 1 }))
+      .not.toBeInTheDocument()
+  })
+
   it('opens a stats value at the catalog root from the sidebar on the wide frame', async () => {
     await page.viewport(1024, 768)
     try {

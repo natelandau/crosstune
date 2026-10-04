@@ -1,15 +1,20 @@
 import { IonModal } from '@ionic/react'
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { visibleMain } from '../../ui/useShortcut'
 import { isPlaying, usePlayer } from '../player/usePlayer'
 import { usePracticeLog } from '../practice/usePracticeLog'
-import { RecordingScreen } from './RecordingScreen'
 import {
   RecordingScreenContext,
   type HeldSettings,
   type RecordingScreen as Screen,
 } from './useRecordingScreen'
 import { useLatest } from '../../ui/useLatest'
+
+// Loads on the first open rather than at launch, so the launch chunk stays under the service
+// worker's precache size limit.
+const RecordingScreen = lazy(() =>
+  import('./RecordingScreen').then((module) => ({ default: module.RecordingScreen })),
+)
 
 /**
  * Holds the one recording screen, a full-screen modal over whatever tab is open, so every
@@ -93,7 +98,9 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
         onDidDismiss={dismissed}
       >
         {shown ? (
-          <RecordingScreen key={shown.opening} id={shown.id} modal={modal} onClose={close} />
+          <Suspense fallback={null}>
+            <RecordingScreen key={shown.opening} id={shown.id} modal={modal} onClose={close} />
+          </Suspense>
         ) : null}
       </IonModal>
     </RecordingScreenContext.Provider>
