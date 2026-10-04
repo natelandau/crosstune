@@ -1,3 +1,17 @@
+## v0.12.0 (2026-10-03)
+
+### Feat
+
+- **apple**: play a list as a playlist with repeat and shuffle (#123)
+- **lists**: play each tune from its list row and pin its version (#122)
+- **apple**: keep mac controls over the pane they act on (#121)
+- **apple**: play, pause, and skip from the keyboard (#119)
+
+### Fix
+
+- **apple**: open the next tune after going back to a list (#120)
+- **apple**: stop the mac app crashing when recording starts (#118)
+
 ## v0.11.0 (2026-10-03)
 
 ### Feat
