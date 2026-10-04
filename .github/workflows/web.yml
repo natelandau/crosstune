@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["web/**", "brand/**", "api/openapi.json", ".github/workflows/web.yml", "justfile"]
+    paths: ["web/**", "brand/**", "fixtures/**", "api/openapi.json", ".github/workflows/web.yml", "justfile"]
   workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
@@ -40,7 +40,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(web/|brand/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'
+          pattern: '^(web/|brand/|fixtures/|api/openapi\.json$|\.github/workflows/web\.yml$|justfile$)'
 
   lint:
     needs: changes
@@ -64,7 +64,12 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: pnpm install --frozen-lockfile
       - run: just lint
+      # A DSN bundles Sentry, as the hosted build does, so a chunk too large to precache
+      # fails here and not only on deploy. The DSN is a placeholder and reports nowhere.
       - run: just build
+        env:
+          VITE_SENTRY_DSN: https://public@o0.ingest.sentry.io/0
+          VITE_SENTRY_ENVIRONMENT: production
 
   # The Chromium tests are most of the suite's time, and Linux runners cost a
   # public repository nothing, so the files split across parallel runners.

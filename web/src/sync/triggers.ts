@@ -1,4 +1,5 @@
 import { liveQuery } from 'dexie'
+import { countUnsentChanges } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import type { SyncEngine } from './types'
 
@@ -44,7 +45,8 @@ export function startSyncTriggers(
   doc.addEventListener('visibilitychange', onVisibility)
 
   let timer: ReturnType<typeof setTimeout> | null = null
-  const subscription = liveQuery(() => db.outbox.count()).subscribe({
+  // Events wait for a sync something else starts, so listening alone never wakes the server.
+  const subscription = liveQuery(() => countUnsentChanges(db)).subscribe({
     next(count) {
       if (count === 0) return
       if (timer) clearTimeout(timer)

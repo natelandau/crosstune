@@ -90,7 +90,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.meta(.keepOffline, as: Bool.self) == nil)
     #expect(
         try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == [
-            "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
+            "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14",
         ])
 }
 
@@ -137,7 +137,7 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     #expect(try await store.pendingChangeCount() == 1)
     #expect(
         try await store.read { db in try Schema.migrator.appliedIdentifiers(db) } == [
-            "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
+            "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14",
         ])
     #expect(try await store.read { db in try db.columns(in: "tunes").map(\.name) }.contains("nickname") == false)
     #expect(FileManager.default.fileExists(atPath: store.audioFolder.appending(path: audio).path()))
@@ -243,4 +243,20 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
     }
     #expect(titles.value == ["Red Haired Boy"])
     #expect(titles.error == nil)
+}
+
+@Test func aCloseThatFailsLeavesTheStoreOpen() throws {
+    let root = TemporaryRoot()
+    let store = try root.open("user_a")
+    // A statement still alive on the writer keeps SQLite from closing the connection.
+    var statement: Statement? = try store.database.writeWithoutTransaction { db in
+        try db.makeStatement(sql: "SELECT 1")
+    }
+
+    #expect(throws: DatabaseError.self) { try store.close() }
+    #expect(!store.isClosed)
+
+    statement = nil
+    try store.close()
+    #expect(store.isClosed)
 }

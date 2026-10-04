@@ -123,7 +123,7 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     params: { path: { recording_id: recordingId } },
   })
 
-  const byPage = (pageId: string) => ({ params: { path: { page_id: pageId } } })
+  const byScan = (scanId: string) => ({ params: { path: { scan_id: scanId } } })
 
   return {
     async push(changes) {
@@ -131,6 +131,9 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     },
     async pull(since) {
       return unwrap(client.GET('/v1/sync/pull', { params: { query: { since } } }))
+    },
+    async events(since) {
+      return unwrap(client.GET('/v1/sync/events', { params: { query: { since } } }))
     },
     async resolveLink(url) {
       return unwrap(client.POST('/v1/links/resolve', { body: { url } }))
@@ -170,16 +173,14 @@ export function createApiClient(options: ApiClientOptions): SyncApi {
     async peaksUrl(recordingId) {
       return unwrap(client.GET('/v1/recordings/{recording_id}/peaks', byRecording(recordingId)))
     },
-    async requestNotationUploadSlot(pageId, body) {
-      return unwrap(
-        client.POST('/v1/notation-pages/{page_id}/upload-slot', { ...byPage(pageId), body }),
-      )
+    async requestScanUploadSlot(scanId, body) {
+      return unwrap(client.POST('/v1/scans/{scan_id}/upload-slot', { ...byScan(scanId), body }))
     },
-    async notationUploadFinished(pageId) {
-      return unwrapEmpty(client.POST('/v1/notation-pages/{page_id}/uploaded', byPage(pageId)))
+    async scanUploadFinished(scanId) {
+      return unwrapEmpty(client.POST('/v1/scans/{scan_id}/uploaded', byScan(scanId)))
     },
-    async notationDownloadUrl(pageId) {
-      return unwrap(client.GET('/v1/notation-pages/{page_id}/download', byPage(pageId)))
+    async scanDownloadUrl(scanId) {
+      return unwrap(client.GET('/v1/scans/{scan_id}/download', byScan(scanId)))
     },
     async putObject(url, blob, contentType) {
       // A blob read back from IndexedDB is file-backed on iOS, and an iOS home-screen web

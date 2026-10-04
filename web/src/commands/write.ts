@@ -1,7 +1,7 @@
 import { v7 as uuidv7 } from 'uuid'
 import { dropPending, enqueue } from '../db/outbox'
 import { rowsTable, syncTables, type CrosstuneDb } from '../db/schema'
-import { toChangeData, type LocalRows, type TableName } from '../db/types'
+import { toChangeData, type LocalRows, type SyncTableName } from '../db/types'
 
 export function now(): string {
   return new Date().toISOString()
@@ -55,7 +55,7 @@ export function nextUpdatedAt(stored: string | undefined, requested: string): st
 }
 
 /** Store a row and queue its upsert. Call inside writeTx. */
-export async function putRow<T extends TableName>(
+export async function putRow<T extends SyncTableName>(
   db: CrosstuneDb,
   table: T,
   row: LocalRows[T],
@@ -69,12 +69,12 @@ export async function putRow<T extends TableName>(
     row_id: row.id,
     op: 'upsert',
     updated_at: stamped.updated_at,
-    data: toChangeData(stamped),
+    data: toChangeData(stamped, table),
   })
 }
 
 /** Soft-delete a row. Dependents of a cascading parent pass enqueueDelete: false. */
-export async function tombstone<T extends TableName>(
+export async function tombstone<T extends SyncTableName>(
   db: CrosstuneDb,
   table: T,
   id: string,
@@ -95,7 +95,7 @@ export async function tombstone<T extends TableName>(
 
 /** Soft-delete every row whose `index` equals `value`: the dependents of a cascading parent,
  * so no delete is queued for them. */
-export async function tombstoneWhere<T extends TableName>(
+export async function tombstoneWhere<T extends SyncTableName>(
   db: CrosstuneDb,
   table: T,
   index: string,

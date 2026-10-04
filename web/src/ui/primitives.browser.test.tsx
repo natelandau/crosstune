@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { openTestDb } from '../test/db'
+import { pressClaimed } from '../test/keys'
 import { renderIonic } from '../test/ionic'
 import { Capsule } from './Capsule'
 import { Group } from './Group'
@@ -224,17 +225,9 @@ describe('shortcuts on a mouse', () => {
       opens[0]!.focus()
       expect(document.activeElement).toBe(opens[0])
     })
-    let prevented: boolean | undefined
-    const record = (event: KeyboardEvent) => {
-      prevented = event.defaultPrevented
-    }
-    window.addEventListener('keydown', record)
-    try {
-      await userEvent.keyboard('{Meta>}{ArrowDown}{/Meta}')
-    } finally {
-      window.removeEventListener('keydown', record)
-    }
-    expect(prevented).toBe(false)
+    expect(
+      await pressClaimed('{Meta>}{ArrowDown}{/Meta}', (event) => event.key === 'ArrowDown'),
+    ).toBe(false)
     expect(document.activeElement).toBe(opens[0])
   })
 

@@ -16,15 +16,18 @@ final class RecordingTransport: ClientTransport {
     let body: String
     let failure: (any Error & Sendable)?
     let headers: HTTPFields
+    /// Never answers, until the request is cancelled.
+    let stall: Bool
 
     init(
         status: HTTPResponse.Status = .ok, body: String = "{}", failure: (any Error & Sendable)? = nil,
-        headers: HTTPFields = [:]
+        headers: HTTPFields = [:], stall: Bool = false
     ) {
         self.status = status
         self.body = body
         self.failure = failure
         self.headers = headers
+        self.stall = stall
     }
 
     var requests: [(request: HTTPRequest, body: Data?)] { sent.withLock { $0 } }
@@ -37,6 +40,7 @@ final class RecordingTransport: ClientTransport {
         let captured = data
         sent.withLock { $0.append((request, captured)) }
         if let failure { throw failure }
+        if stall { try await Task.sleep(for: .seconds(3600)) }
         var response = HTTPResponse(status: status, headerFields: headers)
         response.headerFields[.contentType] = status == .ok ? "application/json" : "application/problem+json"
         return (response, HTTPBody(body))
@@ -131,6 +135,60 @@ private func json(_ data: Data?) throws -> JSONObject {
         let list = try TuneList(wire: try #require(page.rows.first?.row))
         #expect(list.name == "Thursday jam")
         #expect(list.updatedAt == Timestamp(iso: "2026-09-19T21:30:00Z"))
+    }
+
+    @Test func readsAnEventsPageAndKeepsATableThisBuildDoesNotKnow() async throws {
+        let transport = RecordingTransport(
+            body: """
+                {"rows": [
+                  {"table": "play_events", "row": {
+                    "id": "p1", "server_seq": 8, "created_at": "2026-09-19T21:30:00.123456Z",
+                    "context": "dock", "started_at": "2026-09-19T21:29:00Z", "listened_ms": 15000,
+                    "recording_id": null, "link_id": "l1", "list_id": null, "tune_id": "t1"
+                  }},
+                  {"table": "tempo_marks", "row": {"id": "x1", "server_seq": 9}}
+                ], "next_since": 9, "has_more": false}
+                """)
+
+        let page = try await api(transport).events(since: 3)
+
+        #expect(transport.requests.first?.request.path == "/v1/sync/events?since=3")
+        #expect(page.nextSince == 9)
+        #expect(!page.hasMore)
+        #expect(page.rows.map(\.table) == ["play_events", "tempo_marks"])
+        let play = try PlayEvent(wire: try #require(page.rows.first?.row))
+        #expect(play.context == "dock")
+        #expect(play.createdAt == Timestamp(iso: "2026-09-19T21:30:00.123Z"))
+        #expect(play.linkID == "l1")
+    }
+
+    @Test func givesUpOnAStalledEventsRequest() async throws {
+        var api = api(RecordingTransport(stall: true))
+        api.eventsTimeout = .milliseconds(50)
+
+        await #expect(throws: URLError(.timedOut)) {
+            try await api.events(since: 0)
+        }
+    }
+
+    @Test func readsAPushedPlaysResult() async throws {
+        let transport = RecordingTransport(
+            body: """
+                {"results": [
+                  {"table": "play_events", "id": "p1", "status": "applied", "reason": null, "row": {
+                    "id": "p1", "server_seq": 4, "created_at": "2026-09-19T21:30:00Z", "context": "row",
+                    "started_at": "2026-09-19T21:29:00Z", "listened_ms": 15000, "recording_id": "r1",
+                    "link_id": null, "list_id": null, "tune_id": null
+                  }}
+                ]}
+                """)
+
+        let results = try await api(transport).push([
+            Change(table: .playEvents, op: .upsert, id: "p1", updatedAt: noon, data: ["context": .string("row")])
+        ])
+
+        #expect(results.map(\.table) == [.playEvents])
+        #expect(try PlayEvent(wire: try #require(results.first?.row)).serverSeq == 4)
     }
 
     @Test func readsTheStorageFigures() async throws {

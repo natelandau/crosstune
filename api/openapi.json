@@ -48,9 +48,12 @@
               "list_items",
               "recording_links",
               "recordings",
-              "notation_pages",
+              "scans",
               "recording_loops",
-              "user_settings"
+              "user_settings",
+              "play_events",
+              "practice_sessions",
+              "scan_views"
             ],
             "title": "Table",
             "type": "string"
@@ -98,6 +101,55 @@
           "playback_start_ms"
         ],
         "title": "DownloadUrl",
+        "type": "object"
+      },
+      "EventsResponse": {
+        "description": "A page of history rows after the given cursor.",
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_since": {
+            "title": "Next Since",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "play_events": "#/components/schemas/PlayEventPullRow",
+                  "practice_sessions": "#/components/schemas/PracticeSessionPullRow",
+                  "scan_views": "#/components/schemas/ScanViewPullRow",
+                  "status_changes": "#/components/schemas/StatusChangePullRow"
+                },
+                "propertyName": "table"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/PlayEventPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/PracticeSessionPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ScanViewPullRow"
+                },
+                {
+                  "$ref": "#/components/schemas/StatusChangePullRow"
+                }
+              ]
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "next_since",
+          "has_more"
+        ],
+        "title": "EventsResponse",
         "type": "object"
       },
       "FrettedTuning": {
@@ -489,197 +541,6 @@
         "title": "Mode",
         "type": "string"
       },
-      "NotationPageChangeResult": {
-        "description": "The outcome of one change to a notation page.",
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "row": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/NotationPageRow"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "status": {
-            "enum": [
-              "applied",
-              "stale",
-              "invalid"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "table": {
-            "const": "notation_pages",
-            "title": "Table",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "status",
-          "table"
-        ],
-        "title": "NotationPageChangeResult",
-        "type": "object"
-      },
-      "NotationPagePullRow": {
-        "description": "A notation page row in a pull page.",
-        "properties": {
-          "row": {
-            "$ref": "#/components/schemas/NotationPageRow"
-          },
-          "table": {
-            "const": "notation_pages",
-            "title": "Table",
-            "type": "string"
-          }
-        },
-        "required": [
-          "table",
-          "row"
-        ],
-        "title": "NotationPagePullRow",
-        "type": "object"
-      },
-      "NotationPageRow": {
-        "description": "A stored notation page, as push and pull return it. The storage key stays on the server.",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "deleted_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Deleted At"
-          },
-          "file_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Bytes"
-          },
-          "height": {
-            "exclusiveMinimum": 0.0,
-            "title": "Height",
-            "type": "integer"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "position": {
-            "default": 0,
-            "title": "Position",
-            "type": "integer"
-          },
-          "server_seq": {
-            "title": "Server Seq",
-            "type": "integer"
-          },
-          "state": {
-            "$ref": "#/components/schemas/NotationPageState"
-          },
-          "tune_id": {
-            "format": "uuid",
-            "title": "Tune Id",
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          },
-          "user_id": {
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
-          },
-          "width": {
-            "exclusiveMinimum": 0.0,
-            "title": "Width",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "updated_at",
-          "deleted_at",
-          "server_seq",
-          "created_at",
-          "tune_id",
-          "width",
-          "height",
-          "user_id",
-          "state",
-          "file_bytes"
-        ],
-        "title": "NotationPageRow",
-        "type": "object"
-      },
-      "NotationPageState": {
-        "description": "Where a notation page's image is in the upload pipeline.",
-        "enum": [
-          "pending_upload",
-          "ready"
-        ],
-        "title": "NotationPageState",
-        "type": "string"
-      },
-      "NotationUploadSlotRequest": {
-        "description": "What the client is about to upload.",
-        "properties": {
-          "bytes": {
-            "exclusiveMinimum": 0.0,
-            "title": "Bytes",
-            "type": "integer"
-          },
-          "content_type": {
-            "const": "image/jpeg",
-            "title": "Content Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "bytes",
-          "content_type"
-        ],
-        "title": "NotationUploadSlotRequest",
-        "type": "object"
-      },
       "PeaksUrl": {
         "description": "A presigned GET for the waveform file, tagged with the revision it was signed for.",
         "properties": {
@@ -705,6 +566,264 @@
         "title": "PeaksUrl",
         "type": "object"
       },
+      "PlayContext": {
+        "description": "Where a play was started from.",
+        "enum": [
+          "row",
+          "list",
+          "dock",
+          "recording_screen"
+        ],
+        "title": "PlayContext",
+        "type": "string"
+      },
+      "PlayEventChangeResult": {
+        "description": "The outcome of pushing one play.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlayEventRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "play_events",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "PlayEventChangeResult",
+        "type": "object"
+      },
+      "PlayEventData": {
+        "additionalProperties": false,
+        "description": "Client-written fields of one play of a recording or a link.",
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/PlayContext"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "link_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Link Id"
+          },
+          "list_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "List Id"
+          },
+          "listened_ms": {
+            "maximum": 86400000,
+            "minimum": 0,
+            "title": "Listened Ms",
+            "type": "integer"
+          },
+          "recording_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Recording Id"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tune_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tune Id"
+          }
+        },
+        "required": [
+          "created_at",
+          "context",
+          "started_at",
+          "listened_ms"
+        ],
+        "title": "PlayEventData",
+        "type": "object"
+      },
+      "PlayEventPullRow": {
+        "description": "A play row in an events page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/PlayEventRow"
+          },
+          "table": {
+            "const": "play_events",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "PlayEventPullRow",
+        "type": "object"
+      },
+      "PlayEventRow": {
+        "description": "A stored play, as push returns it.",
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/PlayContext"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "link_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Id"
+          },
+          "list_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Id"
+          },
+          "listened_ms": {
+            "maximum": 86400000.0,
+            "minimum": 0.0,
+            "title": "Listened Ms",
+            "type": "integer"
+          },
+          "recording_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recording Id"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tune_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tune Id"
+          }
+        },
+        "required": [
+          "id",
+          "server_seq",
+          "created_at",
+          "context",
+          "started_at",
+          "listened_ms"
+        ],
+        "title": "PlayEventRow",
+        "type": "object"
+      },
       "PlayFirst": {
         "description": "Which kind of source a list plays first when a tune has both and none is pinned.",
         "enum": [
@@ -713,6 +832,230 @@
         ],
         "title": "PlayFirst",
         "type": "string"
+      },
+      "PracticeSessionChangeResult": {
+        "description": "The outcome of pushing one practice session.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PracticeSessionRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "practice_sessions",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "PracticeSessionChangeResult",
+        "type": "object"
+      },
+      "PracticeSessionData": {
+        "additionalProperties": false,
+        "description": "Client-written fields of one practice session on a recording.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "maximum": 86400000,
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "loop_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Loop Ids",
+            "type": "array"
+          },
+          "pitch_cents": {
+            "maximum": 1200,
+            "minimum": -1200,
+            "title": "Pitch Cents",
+            "type": "integer"
+          },
+          "recording_id": {
+            "format": "uuid",
+            "title": "Recording Id",
+            "type": "string"
+          },
+          "speed_percent": {
+            "maximum": 150,
+            "minimum": 50,
+            "title": "Speed Percent",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tune_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tune Id"
+          }
+        },
+        "required": [
+          "created_at",
+          "recording_id",
+          "started_at",
+          "duration_ms",
+          "speed_percent",
+          "pitch_cents"
+        ],
+        "title": "PracticeSessionData",
+        "type": "object"
+      },
+      "PracticeSessionPullRow": {
+        "description": "A practice session row in an events page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/PracticeSessionRow"
+          },
+          "table": {
+            "const": "practice_sessions",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "PracticeSessionPullRow",
+        "type": "object"
+      },
+      "PracticeSessionRow": {
+        "description": "A stored practice session, as push returns it.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "maximum": 86400000.0,
+            "minimum": 0.0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "loop_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Loop Ids",
+            "type": "array"
+          },
+          "pitch_cents": {
+            "maximum": 1200.0,
+            "minimum": -1200.0,
+            "title": "Pitch Cents",
+            "type": "integer"
+          },
+          "recording_id": {
+            "format": "uuid",
+            "title": "Recording Id",
+            "type": "string"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "speed_percent": {
+            "maximum": 150.0,
+            "minimum": 50.0,
+            "title": "Speed Percent",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tune_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tune Id"
+          }
+        },
+        "required": [
+          "id",
+          "server_seq",
+          "created_at",
+          "recording_id",
+          "started_at",
+          "duration_ms",
+          "speed_percent",
+          "pitch_cents"
+        ],
+        "title": "PracticeSessionRow",
+        "type": "object"
       },
       "Problem": {
         "description": "An RFC 9457 problem details body, the shape of every error this API returns.",
@@ -792,10 +1135,10 @@
                 "mapping": {
                   "list_items": "#/components/schemas/ListItemPullRow",
                   "lists": "#/components/schemas/ListPullRow",
-                  "notation_pages": "#/components/schemas/NotationPagePullRow",
                   "recording_links": "#/components/schemas/RecordingLinkPullRow",
                   "recording_loops": "#/components/schemas/RecordingLoopPullRow",
                   "recordings": "#/components/schemas/RecordingPullRow",
+                  "scans": "#/components/schemas/ScanPullRow",
                   "tunes": "#/components/schemas/TunePullRow",
                   "user_settings": "#/components/schemas/UserSettingsPullRow",
                   "user_tunes": "#/components/schemas/UserTunePullRow"
@@ -822,7 +1165,7 @@
                   "$ref": "#/components/schemas/RecordingPullRow"
                 },
                 {
-                  "$ref": "#/components/schemas/NotationPagePullRow"
+                  "$ref": "#/components/schemas/ScanPullRow"
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLoopPullRow"
@@ -871,10 +1214,13 @@
                 "mapping": {
                   "list_items": "#/components/schemas/ListItemChangeResult",
                   "lists": "#/components/schemas/ListChangeResult",
-                  "notation_pages": "#/components/schemas/NotationPageChangeResult",
+                  "play_events": "#/components/schemas/PlayEventChangeResult",
+                  "practice_sessions": "#/components/schemas/PracticeSessionChangeResult",
                   "recording_links": "#/components/schemas/RecordingLinkChangeResult",
                   "recording_loops": "#/components/schemas/RecordingLoopChangeResult",
                   "recordings": "#/components/schemas/RecordingChangeResult",
+                  "scan_views": "#/components/schemas/ScanViewChangeResult",
+                  "scans": "#/components/schemas/ScanChangeResult",
                   "tunes": "#/components/schemas/TuneChangeResult",
                   "user_settings": "#/components/schemas/UserSettingsChangeResult",
                   "user_tunes": "#/components/schemas/UserTuneChangeResult"
@@ -901,13 +1247,22 @@
                   "$ref": "#/components/schemas/RecordingChangeResult"
                 },
                 {
-                  "$ref": "#/components/schemas/NotationPageChangeResult"
+                  "$ref": "#/components/schemas/ScanChangeResult"
                 },
                 {
                   "$ref": "#/components/schemas/RecordingLoopChangeResult"
                 },
                 {
                   "$ref": "#/components/schemas/UserSettingsChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/PlayEventChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/PracticeSessionChangeResult"
+                },
+                {
+                  "$ref": "#/components/schemas/ScanViewChangeResult"
                 }
               ]
             },
@@ -1847,6 +2202,391 @@
         "title": "ResolveResponse",
         "type": "object"
       },
+      "ScanChangeResult": {
+        "description": "The outcome of one change to a scan.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "scans",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "ScanChangeResult",
+        "type": "object"
+      },
+      "ScanPullRow": {
+        "description": "A scan row in a pull page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/ScanRow"
+          },
+          "table": {
+            "const": "scans",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "ScanPullRow",
+        "type": "object"
+      },
+      "ScanRow": {
+        "description": "A stored scan, as push and pull return it. The storage key stays on the server.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "file_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Bytes"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ScanState"
+          },
+          "tune_id": {
+            "format": "uuid",
+            "title": "Tune Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "deleted_at",
+          "server_seq",
+          "created_at",
+          "tune_id",
+          "width",
+          "height",
+          "user_id",
+          "state",
+          "file_bytes"
+        ],
+        "title": "ScanRow",
+        "type": "object"
+      },
+      "ScanState": {
+        "description": "Where a scan's image is in the upload pipeline.",
+        "enum": [
+          "pending_upload",
+          "ready"
+        ],
+        "title": "ScanState",
+        "type": "string"
+      },
+      "ScanUploadSlotRequest": {
+        "description": "What the client is about to upload.",
+        "properties": {
+          "bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "content_type": {
+            "const": "image/jpeg",
+            "title": "Content Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bytes",
+          "content_type"
+        ],
+        "title": "ScanUploadSlotRequest",
+        "type": "object"
+      },
+      "ScanViewChangeResult": {
+        "description": "The outcome of pushing one scan view.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanViewRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "applied",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "table": {
+            "const": "scan_views",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "table"
+        ],
+        "title": "ScanViewChangeResult",
+        "type": "object"
+      },
+      "ScanViewContext": {
+        "description": "Where a look at a tune's scans was started from.",
+        "enum": [
+          "tune",
+          "row",
+          "list"
+        ],
+        "title": "ScanViewContext",
+        "type": "string"
+      },
+      "ScanViewData": {
+        "additionalProperties": false,
+        "description": "Client-written fields of one look at a tune's scans.",
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ScanViewContext"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "list_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "List Id"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tune_id": {
+            "format": "uuid",
+            "title": "Tune Id",
+            "type": "string"
+          },
+          "viewed_ms": {
+            "maximum": 86400000,
+            "minimum": 0,
+            "title": "Viewed Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created_at",
+          "tune_id",
+          "context",
+          "started_at",
+          "viewed_ms"
+        ],
+        "title": "ScanViewData",
+        "type": "object"
+      },
+      "ScanViewPullRow": {
+        "description": "A scan view row in an events page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/ScanViewRow"
+          },
+          "table": {
+            "const": "scan_views",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "ScanViewPullRow",
+        "type": "object"
+      },
+      "ScanViewRow": {
+        "description": "A stored scan view, as push returns it.",
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/ScanViewContext"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "list_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "List Id"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "tune_id": {
+            "format": "uuid",
+            "title": "Tune Id",
+            "type": "string"
+          },
+          "viewed_ms": {
+            "maximum": 86400000.0,
+            "minimum": 0.0,
+            "title": "Viewed Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "server_seq",
+          "created_at",
+          "tune_id",
+          "context",
+          "started_at",
+          "viewed_ms"
+        ],
+        "title": "ScanViewRow",
+        "type": "object"
+      },
       "SearchGroup": {
         "description": "One service's answer to a search, and its own search page as the fallback.",
         "properties": {
@@ -1981,6 +2721,72 @@
           "expires_at"
         ],
         "title": "SignedUrl",
+        "type": "object"
+      },
+      "StatusChangePullRow": {
+        "description": "A status change row in an events page.",
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/StatusChangeRow"
+          },
+          "table": {
+            "const": "status_changes",
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "table",
+          "row"
+        ],
+        "title": "StatusChangePullRow",
+        "type": "object"
+      },
+      "StatusChangeRow": {
+        "description": "A stored status change. The server writes these; no client pushes one.",
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TuneStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "server_seq": {
+            "title": "Server Seq",
+            "type": "integer"
+          },
+          "to_status": {
+            "$ref": "#/components/schemas/TuneStatus"
+          },
+          "user_tune_id": {
+            "format": "uuid",
+            "title": "User Tune Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "server_seq",
+          "user_tune_id",
+          "from_status",
+          "to_status",
+          "changed_at"
+        ],
+        "title": "StatusChangeRow",
         "type": "object"
       },
       "StorageResponse": {
@@ -2960,251 +3766,6 @@
         ]
       }
     },
-    "/v1/notation-pages/{page_id}/download": {
-      "get": {
-        "description": "A presigned GET for the image of a ready page.",
-        "operationId": "download_v1_notation_pages__page_id__download_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "page_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Page Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SignedUrl"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Service Unavailable"
-          }
-        },
-        "summary": "Download",
-        "tags": [
-          "notation"
-        ]
-      }
-    },
-    "/v1/notation-pages/{page_id}/upload-slot": {
-      "post": {
-        "description": "A presigned PUT for one page's image, once the file cap and quota allow it.",
-        "operationId": "upload_slot_v1_notation_pages__page_id__upload_slot_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "page_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Page Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NotationUploadSlotRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SignedUrl"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "413": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Content Too Large"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Service Unavailable"
-          }
-        },
-        "summary": "Upload Slot",
-        "tags": [
-          "notation"
-        ]
-      }
-    },
-    "/v1/notation-pages/{page_id}/uploaded": {
-      "post": {
-        "description": "Confirm the image landed and mark the page ready. Repeating the call changes nothing.",
-        "operationId": "upload_finished_v1_notation_pages__page_id__uploaded_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "page_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Page Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "413": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Content Too Large"
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Validation Error"
-          },
-          "503": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Service Unavailable"
-          }
-        },
-        "summary": "Upload Finished",
-        "tags": [
-          "notation"
-        ]
-      }
-    },
     "/v1/recordings/{recording_id}/download": {
       "get": {
         "description": "A presigned GET for the playback file of a ready recording.\n\nCarries the revision and start the signature was issued for, read from the same row\nas the key: a trim landing between this response and the client's GET changes the\nrow, but never what this response already promised.",
@@ -3588,6 +4149,297 @@
         "summary": "Upload Finished",
         "tags": [
           "recordings"
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/download": {
+      "get": {
+        "description": "A presigned GET for the image of a ready scan.",
+        "operationId": "download_v1_scans__scan_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Download",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/upload-slot": {
+      "post": {
+        "description": "A presigned PUT for one scan's image, once the file cap and quota allow it.",
+        "operationId": "upload_slot_v1_scans__scan_id__upload_slot_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanUploadSlotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrl"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Slot",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/v1/scans/{scan_id}/uploaded": {
+      "post": {
+        "description": "Confirm the image landed and mark the scan ready. Repeating the call changes nothing.",
+        "operationId": "upload_finished_v1_scans__scan_id__uploaded_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Upload Finished",
+        "tags": [
+          "scans"
+        ]
+      }
+    },
+    "/v1/sync/events": {
+      "get": {
+        "description": "The caller's plays, practice sessions and status changes after `since`, oldest first.",
+        "operationId": "events_v1_sync_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "title": "Since",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "sync"
         ]
       }
     },

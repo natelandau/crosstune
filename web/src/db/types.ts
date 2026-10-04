@@ -1,12 +1,16 @@
 import type {
   ListItemRow,
   ListRow,
-  NotationPageRow,
+  PlayEventRow,
+  PracticeSessionRow,
   RecordingLinkRow,
   RecordingLoopRow,
   RecordingRow,
-  TuneRow,
+  ScanRow,
+  ScanViewRow,
+  StatusChangeRow,
   TableName,
+  TuneRow,
   UserSettingsRow,
   UserTuneRow,
 } from '../api/types'
@@ -22,6 +26,10 @@ import {
 
 export type { TableName }
 
+/** The tables the main pull syncs and the device stores row by row. The event tables
+ * arrive through their own pull and are written only by inserts. */
+export type SyncTableName = Exclude<TableName, 'play_events' | 'practice_sessions' | 'scan_views'>
+
 export const TABLE_NAMES = [
   'tunes',
   'user_tunes',
@@ -29,10 +37,26 @@ export const TABLE_NAMES = [
   'list_items',
   'recording_links',
   'recordings',
-  'notation_pages',
+  'scans',
   'recording_loops',
   'user_settings',
-] as const satisfies readonly TableName[]
+] as const satisfies readonly SyncTableName[]
+
+export function isSyncTable(name: TableName): name is SyncTableName {
+  return (TABLE_NAMES as readonly string[]).includes(name)
+}
+
+/** The insert-only tables this device records and pushes. A queued one never schedules a sync. */
+export const EVENT_TABLES = [
+  'play_events',
+  'practice_sessions',
+  'scan_views',
+] as const satisfies readonly Exclude<TableName, SyncTableName>[]
+export type EventTable = (typeof EVENT_TABLES)[number]
+
+export function isEventTable(name: TableName): name is EventTable {
+  return (EVENT_TABLES as readonly string[]).includes(name)
+}
 
 export function isInstrument(value: unknown): value is Instrument {
   return typeof value === 'string' && (INSTRUMENTS as readonly string[]).includes(value)
@@ -66,7 +90,17 @@ export type LocalUserSettings = Local<UserSettingsRow>
 export type LocalRecording = Local<Omit<RecordingRow, 'recorded_at' | 'recorded_precision'>> &
   Local<Required<Pick<RecordingRow, 'recorded_at' | 'recorded_precision'>>>
 export type LocalRecordingLoop = Local<RecordingLoopRow>
-export type LocalNotationPage = Local<NotationPageRow>
+export type LocalScan = Local<ScanRow>
+
+// An event recorded here has no server_seq until its push result writes the stored row back.
+type Unpushed<Row> = Omit<Local<Row>, 'server_seq'> & { server_seq?: number }
+
+export type LocalPlayEvent = Unpushed<PlayEventRow>
+export type LocalPracticeSession = Unpushed<PracticeSessionRow>
+export type LocalScanView = Unpushed<ScanViewRow>
+export type LocalStatusChange = Local<StatusChangeRow>
+/** An event this device records and pushes. */
+export type LocalEvent = LocalPlayEvent | LocalPracticeSession | LocalScanView
 
 /** The instruments a settings row holds, or null when there is no usable row. */
 export function storedInstruments(
@@ -137,11 +171,11 @@ export interface LocalRows {
   list_items: LocalListItem
   recording_links: LocalRecordingLink
   recordings: LocalRecording
-  notation_pages: LocalNotationPage
+  scans: LocalScan
   recording_loops: LocalRecordingLoop
   user_settings: LocalUserSettings
 }
-export type LocalRow = LocalRows[TableName]
+export type LocalRow = LocalRows[SyncTableName]
 
 export interface OutboxEntry {
   seq?: number
@@ -157,7 +191,7 @@ export interface MetaEntry {
   value: unknown
 }
 
-// The upload and transcode pipeline computes these for a recording or a notation page; the
+// The upload and transcode pipeline computes these for a recording or a scan; the
 // client only reads them.
 const RECORDING_PIPELINE_KEYS = [
   'state',
@@ -179,13 +213,19 @@ const BOOKKEEPING_KEYS = [
   'deleted_at',
   'server_seq',
   ...OWNERSHIP_KEYS,
-  ...RECORDING_PIPELINE_KEYS,
 ] as const
 
 /** The client-editable fields of a row, the only thing a push upsert may carry. */
-export function toChangeData(row: LocalRow): Record<string, unknown> {
+export function toChangeData(
+  row: LocalRow | LocalEvent,
+  table: TableName,
+): Record<string, unknown> {
   const data: Record<string, unknown> = { ...row }
   for (const key of BOOKKEEPING_KEYS) delete data[key]
+  // Only recording and scan rows carry these; a practice session's duration_ms is its own data.
+  if (table === 'recordings' || table === 'scans') {
+    for (const key of RECORDING_PIPELINE_KEYS) delete data[key]
+  }
   return data
 }
 

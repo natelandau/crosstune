@@ -154,6 +154,40 @@ private func createTune(_ store: CrosstuneStore, title: String, status: String =
         #expect(try await store.pendingChangeCount() == 0)
     }
 
+    @Test func dropsARejectedEventWithoutReportingIt() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let play = PlayEvent(createdAt: noon, context: "row", startedAt: noon, listenedMs: 12_000, recordingID: "r1")
+        let view = ScanView(createdAt: noon, tuneID: "t1", context: "tune", startedAt: noon, viewedMs: 3_000)
+        try await store.write { writer in
+            try writer.record(play)
+            try writer.record(view)
+        }
+        let sent = try await store.pendingChanges(limit: 10)
+
+        let result = try await store.write { writer in
+            try writer.applyPushResults(
+                sent: sent,
+                results: [
+                    PushResult(table: .playEvents, id: play.id, status: .invalid, reason: "invalid fields: body"),
+                    PushResult(table: .scanViews, id: view.id, status: .invalid, reason: "missing parent: tune"),
+                ])
+        }
+
+        #expect(result.invalid == [])
+        #expect(result.settled == 2)
+        #expect(try await store.pendingChangeCount() == 0)
+        let (plays, views, rejected) = try await store.read { db in
+            (
+                try PlayEvent.fetchCount(db), try ScanView.fetchCount(db),
+                try MetaKey.invalidChanges.value(in: db, as: Int.self)
+            )
+        }
+        #expect(plays == 0)
+        #expect(views == 0)
+        #expect(rejected == nil)
+    }
+
     @Test func countsOnlyTheEntriesItSettled() async throws {
         let root = TemporaryRoot()
         let store = try root.open()

@@ -16,8 +16,8 @@ from crosstune.db.session import (
 )
 from crosstune.errors import VALIDATION_RESPONSE
 from crosstune.links.resolve import ResolvedLink, resolve_link, unresolved_link
-from crosstune.schemas.common import PullResponse, PushRequest, PushResponse
-from crosstune.sync.pull import pull_since
+from crosstune.schemas.common import EventsResponse, PullResponse, PushRequest, PushResponse
+from crosstune.sync.pull import events_since, pull_since
 from crosstune.sync.push import apply_push
 
 if TYPE_CHECKING:
@@ -133,3 +133,16 @@ async def pull(
     limit = request.app.state.settings.pull_page_size
     rows, next_since, has_more = await pull_since(session, user.id, since, limit)
     return PullResponse(rows=rows, next_since=next_since, has_more=has_more)
+
+
+@router.get("/events", responses=VALIDATION_RESPONSE)
+async def events(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    since: Annotated[int, Query(ge=0, le=MAX_CURSOR)] = 0,
+) -> EventsResponse:
+    """The caller's plays, practice sessions and status changes after `since`, oldest first."""
+    limit = request.app.state.settings.pull_page_size
+    rows, next_since, has_more = await events_since(session, user.id, since, limit)
+    return EventsResponse(rows=rows, next_since=next_since, has_more=has_more)

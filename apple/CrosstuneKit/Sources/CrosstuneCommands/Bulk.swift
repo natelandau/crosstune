@@ -202,9 +202,9 @@ extension StoreWriter {
         return snapshots
     }
 
-    /// Deletes the tunes behind the given user tunes, each with its links, list entries, notation
-    /// pages, and recordings. Returns how many distinct tunes were deleted. There is no undo: a
-    /// recording this takes with it is gone from every device.
+    /// Deletes the tunes behind the given user tunes, each with its links, list entries, scans,
+    /// and recordings. Returns how many distinct tunes were deleted. There is no undo: a recording
+    /// this takes with it is gone from every device.
     @discardableResult
     public func deleteTunes(_ userTuneIDs: [String], at time: Timestamp = .now) throws -> Int {
         var tuneIDs = Set<String>()

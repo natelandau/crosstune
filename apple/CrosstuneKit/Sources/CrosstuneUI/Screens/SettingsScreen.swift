@@ -22,6 +22,8 @@ public struct SettingsScreen: View {
     @Environment(\.store) private var store
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var model: SettingsModel?
+    /// Reads no history, so opening Settings never starts the events pull.
+    @State private var summary: StatsModel?
     @State private var showsInstruments = false
     /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
     @State private var instrumentsShowing = false
@@ -48,6 +50,7 @@ public struct SettingsScreen: View {
 
     public var body: some View {
         Form {
+            statsSection
             if let model, model.isLoaded {
                 instrumentsSection(model)
                 musicServicesSection(model)
@@ -99,9 +102,31 @@ public struct SettingsScreen: View {
         .sheet(isPresented: $showsMusicServices, onDismiss: { musicServicesShowing = false }) {
             if let model { MusicServicesSheet(model: model) }
         }
+        .navigationDestination(for: StatsRoute.self) { _ in
+            StatsScreen()
+                // A tune opened from the stats screen is not the tab's own pushed tune.
+                .environment(\.stackTune, nil)
+        }
         .navigationTitle(Destination.settings.title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
+            summary = store.map { StatsModel(store: $0, engine: nil, history: false) }
+        }
+    }
+
+    /// The catalog in one line, opening the stats screen. Until the rows are read, an empty row
+    /// holds the place so the sections below never shift.
+    @ViewBuilder private var statsSection: some View {
+        if store != nil {
+            Section {
+                if let line = summary?.summaryLine {
+                    NavigationLink(value: StatsRoute()) {
+                        Text(line).monospacedDigit()
+                    }
+                } else {
+                    Text(verbatim: " ").accessibilityHidden(true)
+                }
+            }
         }
     }
 
@@ -243,7 +268,7 @@ public struct SettingsScreen: View {
 
 /// What the model is made for: a new store or engine, as after signing in as someone else,
 /// needs a new one.
-private struct ModelKey: Equatable {
+struct ModelKey: Equatable {
     let store: ObjectIdentifier?
     let engine: ObjectIdentifier?
 

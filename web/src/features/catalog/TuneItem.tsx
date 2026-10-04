@@ -4,8 +4,9 @@ import { Fragment, useState, type ReactNode } from 'react'
 import { INSTRUMENTS, type Instrument } from '../../api/vocabulary'
 import { STATUS_LABELS } from '../../constants'
 import { KeyPill } from '../../ui/KeyPill'
-import { NOTATION } from '../notation/notationCopy'
-import { NotationViewer } from '../notation/NotationViewer'
+import { SCANS } from '../scans/scanCopy'
+import { ScanViewer } from '../scans/ScanViewer'
+import type { ScanViewOrigin } from '../scans/scanViewLog'
 import { Row, type RowAction } from '../../ui/Row'
 import { selectionCheckboxId } from '../selection/ids'
 import type { RowSelection } from '../selection/useSelection'
@@ -96,6 +97,8 @@ export function TuneLines({
   )
 }
 
+const CATALOG_ROW: ScanViewOrigin = { context: 'row' }
+
 /** The one tune row, wherever tunes are listed. */
 export function TuneItem({
   entry,
@@ -107,7 +110,8 @@ export function TuneItem({
   description,
   start,
   end,
-  hasNotation = false,
+  hasScans = false,
+  scanOrigin = CATALOG_ROW,
 }: {
   entry: CatalogEntry
   instruments: ReadonlySet<Instrument>
@@ -127,8 +131,10 @@ export function TuneItem({
   description?: string
   start?: ReactNode
   end?: ReactNode
-  /** Whether the tune has a live page, from the screen's one read of every tune's notation. */
-  hasNotation?: boolean
+  /** Whether the tune has a live scan, from the screen's one read of every tune's scans. */
+  hasScans?: boolean
+  /** Where a look at the scans from the row's action is logged as opened from. */
+  scanOrigin?: ScanViewOrigin
 }) {
   const { tune, userTune } = entry
   const archived = userTune.archived_at !== null
@@ -137,10 +143,10 @@ export function TuneItem({
   // shown as a search result stays as its screen made it.
   const [viewing, setViewing] = useState(false)
   const rowActions =
-    actions && hasNotation
+    actions && hasScans
       ? [
           {
-            label: NOTATION,
+            label: SCANS,
             icon: FileMusic,
             tone: 'neutral' as const,
             onPress: () => setViewing(true),
@@ -167,7 +173,12 @@ export function TuneItem({
         <TuneLines entry={entry} instruments={instruments} />
       </Row>
       {viewing ? (
-        <NotationViewer tuneId={tune.id} startIndex={0} onClose={() => setViewing(false)} />
+        <ScanViewer
+          tuneId={tune.id}
+          startIndex={0}
+          origin={scanOrigin}
+          onClose={() => setViewing(false)}
+        />
       ) : null}
     </>
   )

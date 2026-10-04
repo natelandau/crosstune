@@ -17,7 +17,7 @@ import {
 import { createExport, downloadBlob, exportCounts } from './runExport'
 
 /**
- * Zips the tunes, lists, and every recording and notation page this device holds into one download. Closing the
+ * Zips the tunes, lists, and every recording and scan this device holds into one download. Closing the
  * sheet by any route abandons an export in progress.
  */
 export function ExportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {

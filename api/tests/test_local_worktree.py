@@ -165,11 +165,11 @@ def test_copy_bucket_copies_every_object(
         make_rustfs_bucket("crosstune-test-src"),
         make_rustfs_bucket("crosstune-test-dst"),
     )
-    for key in ("u/r/playback.m4a", "u/notation/p/page.jpg"):
+    for key in ("u/r/playback.m4a", "u/scans/p/page.jpg"):
         rustfs.put_object(Bucket=source, Key=key, Body=key.encode())
     assert local_storage.copy_bucket(rustfs, source=source, target=target) == 2
-    copied = rustfs.get_object(Bucket=target, Key="u/notation/p/page.jpg")["Body"].read()
-    assert copied == b"u/notation/p/page.jpg"
+    copied = rustfs.get_object(Bucket=target, Key="u/scans/p/page.jpg")["Body"].read()
+    assert copied == b"u/scans/p/page.jpg"
 
 
 def test_delete_bucket_removes_a_bucket_that_holds_objects(rustfs: S3Client) -> None:

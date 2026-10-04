@@ -4,6 +4,7 @@ import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import MusicKit
+import Observation
 import Testing
 
 @testable import CrosstuneUI
@@ -52,8 +53,9 @@ final class FakeAccess: AppleMusicAccess {
 
 /// Stands in for the device's MusicKit player, noting what the model asked of it. With
 /// `holdsLoads` on, each load waits until ``release()``, and notes whether its task was
-/// cancelled by then.
+/// cancelled by then. Observable, as the device's player is.
 @MainActor
+@Observable
 final class FakeMusic: MusicPlayback {
     var isPlaying = false
     var elapsed: TimeInterval = 0

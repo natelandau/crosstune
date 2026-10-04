@@ -437,7 +437,9 @@ describe('RecordingsPage', () => {
     )
     show({ player })
     await playAtTitle('Filed take')
-    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+    await expect
+      .poll(() => player.play)
+      .toHaveBeenCalledWith({ kind: 'recording', id: 'r1' }, { context: 'row' })
     await page.getByRole('searchbox', { name: SEARCH_RECORDINGS }).fill('jam')
     await expect.element(page.getByRole('heading', { name: 'Filed take' })).not.toBeInTheDocument()
     await expect.poll(groupNames).toEqual([UNFILED_HEADER])
@@ -465,7 +467,9 @@ describe('RecordingsPage', () => {
     )
     show({ player })
     await playAtTitle('Bravo')
-    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+    await expect
+      .poll(() => player.play)
+      .toHaveBeenCalledWith({ kind: 'recording', id: 'r1' }, { context: 'row' })
     await pickSort(SORT_LABELS.title)
     await expect.poll(titlesIn(filedList())).toEqual(['Alpha', 'Bravo'])
     await pickSort(SORT_LABELS.tune)

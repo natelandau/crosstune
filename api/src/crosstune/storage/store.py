@@ -16,8 +16,10 @@ if TYPE_CHECKING:
 PLAYBACK_MIME = "audio/mp4"
 BEST_EFFORT_DELETE_SECONDS = 3.0
 PEAKS_MIME = "application/octet-stream"
-NOTATION_SEGMENT = "notation"
-NOTATION_MIME = "image/jpeg"
+SCAN_SEGMENT = "scans"
+# Images stored under this older segment keep their keys; purges and sweeps look in both.
+LEGACY_SCAN_SEGMENT = "notation"
+SCAN_MIME = "image/jpeg"
 
 _EXTENSIONS: dict[str, str] = {
     "audio/mp4": "m4a",
@@ -67,14 +69,24 @@ def upload_key(user_id: object, recording_id: object) -> str:
     return f"{recording_prefix(user_id, recording_id)}upload"
 
 
-def notation_prefix(user_id: object, page_id: object) -> str:
-    """The key prefix under which a notation page's image lives."""
-    return f"{user_id}/{NOTATION_SEGMENT}/{page_id}/"
+def scan_prefix(user_id: object, scan_id: object, segment: str = SCAN_SEGMENT) -> str:
+    """The key prefix under which a scan's image lives."""
+    return f"{user_id}/{segment}/{scan_id}/"
 
 
-def notation_key(user_id: object, page_id: object) -> str:
-    """Where a client PUTs a notation page's image, and where it is served from."""
-    return f"{notation_prefix(user_id, page_id)}page.jpg"
+def scan_prefixes(user_id: object, scan_id: object) -> tuple[str, str]:
+    """Every prefix a scan's image may live under, its current one and its legacy one."""
+    return scan_prefix(user_id, scan_id), scan_prefix(user_id, scan_id, LEGACY_SCAN_SEGMENT)
+
+
+def scan_key(user_id: object, scan_id: object) -> str:
+    """Where a client PUTs a scan's image, and where it is served from."""
+    return f"{scan_prefix(user_id, scan_id)}scan.jpg"
+
+
+def legacy_scan_key(user_id: object, scan_id: object) -> str:
+    """Where an upload slot issued under the legacy segment let a client PUT a scan's image."""
+    return f"{scan_prefix(user_id, scan_id, LEGACY_SCAN_SEGMENT)}page.jpg"
 
 
 def new_rev() -> str:

@@ -24,6 +24,11 @@ export interface SyncEngine {
   transfer(): Promise<void>
   transferStatus(): TransferStatus
   subscribeTransfer(listener: (status: TransferStatus) => void): () => void
+  /**
+   * Pull plays, practice sessions, scan views, and status changes page by page until caught
+   * up. Does nothing offline; rejects when a page fails, keeping the pages already stored.
+   */
+  pullEvents(): Promise<void>
   resolveLink(url: string): Promise<ResolveResponse | null>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchOutcome>
   /** Fetch one recording's audio now, storing it locally. Null when it cannot be fetched. */

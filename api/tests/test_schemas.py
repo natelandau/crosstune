@@ -10,8 +10,11 @@ from crosstune.schemas.rows import (
     DATA_SCHEMAS,
     FrettedTuning,
     InstrumentTuning,
+    PlayEventData,
+    PracticeSessionData,
     RecordingLinkData,
     RecordingLinkRow,
+    ScanViewData,
     TuneData,
     TuneRow,
     Tunings,
@@ -19,6 +22,7 @@ from crosstune.schemas.rows import (
     UserTuneData,
 )
 from crosstune.sync.tables import TABLE_ORDER, TABLES
+from crosstune.vocabulary import SPEED_PERCENT_MAX, SPEED_PERCENT_MIN
 
 NOW = datetime(2026, 9, 11, tzinfo=UTC)
 
@@ -340,3 +344,91 @@ def test_user_settings_rejects_unknown_play_first() -> None:
 def test_user_settings_rejects_a_null_play_first() -> None:
     with pytest.raises(ValidationError):
         UserSettingsData(play_first=None, created_at=NOW)
+
+
+RECORDING_ID = "018f0000-0000-7000-8000-000000000001"
+
+
+def test_play_from_a_list_carries_its_list() -> None:
+    play = PlayEventData(
+        recording_id=RECORDING_ID,
+        context="list",
+        list_id="018f0000-0000-7000-8000-000000000002",
+        started_at=NOW,
+        listened_ms=10_000,
+        created_at=NOW,
+    )
+    assert play.context == "list"
+
+
+def test_play_rejects_a_list_outside_the_list_context() -> None:
+    with pytest.raises(ValidationError, match="list_id"):
+        PlayEventData(
+            recording_id=RECORDING_ID,
+            context="dock",
+            list_id="018f0000-0000-7000-8000-000000000002",
+            started_at=NOW,
+            listened_ms=10_000,
+            created_at=NOW,
+        )
+
+
+def test_play_rejects_negative_listened_time() -> None:
+    with pytest.raises(ValidationError):
+        PlayEventData(
+            recording_id=RECORDING_ID,
+            context="row",
+            started_at=NOW,
+            listened_ms=-1,
+            created_at=NOW,
+        )
+
+
+@pytest.mark.parametrize("speed", [SPEED_PERCENT_MIN - 1, SPEED_PERCENT_MAX + 1])
+def test_practice_session_rejects_a_speed_out_of_range(speed: int) -> None:
+    with pytest.raises(ValidationError):
+        PracticeSessionData(
+            recording_id=RECORDING_ID,
+            started_at=NOW,
+            duration_ms=60_000,
+            speed_percent=speed,
+            pitch_cents=0,
+            created_at=NOW,
+        )
+
+
+def test_practice_session_rejects_an_owner() -> None:
+    with pytest.raises(ValidationError):
+        PracticeSessionData(
+            recording_id=RECORDING_ID,
+            started_at=NOW,
+            duration_ms=60_000,
+            speed_percent=100,
+            pitch_cents=0,
+            user_id="018f0000-0000-7000-8000-000000000003",
+            created_at=NOW,
+        )
+
+
+def test_scan_view_from_a_list_carries_its_list() -> None:
+    view = ScanViewData(
+        tune_id=RECORDING_ID,
+        context="list",
+        list_id="018f0000-0000-7000-8000-000000000002",
+        started_at=NOW,
+        viewed_ms=10_000,
+        created_at=NOW,
+    )
+    assert view.context == "list"
+
+
+def test_scan_view_rejects_a_list_outside_the_list_context() -> None:
+    with pytest.raises(ValidationError, match="list_id"):
+        ScanViewData(
+            tune_id=RECORDING_ID,
+            context="row",
+            list_id="018f0000-0000-7000-8000-000000000002",
+            started_at=NOW,
+            viewed_ms=10_000,
+            created_at=NOW,
+        )

@@ -18,6 +18,42 @@ func createTune(_ store: CrosstuneStore, title: String, at time: Timestamp = noo
     return tune
 }
 
+/// Records a play as the player does: the row and its queued insert in one transaction.
+@discardableResult
+func recordPlay(_ store: CrosstuneStore, id: String = newID(), at time: Timestamp = noon) async throws -> PlayEvent {
+    let play = PlayEvent(
+        id: id, createdAt: time, context: "row", startedAt: time, listenedMs: 12_000, recordingID: "r1")
+    try await store.write { writer in try writer.record(play) }
+    return play
+}
+
+/// Records a scan view as the viewer does: the row and its queued insert in one transaction.
+@discardableResult
+func recordScanView(_ store: CrosstuneStore, id: String = newID(), at time: Timestamp = noon) async throws
+    -> ScanView
+{
+    let view = ScanView(
+        id: id, createdAt: time, tuneID: "t1", context: "list", listID: "list-1", startedAt: time, viewedMs: 4_000)
+    try await store.write { writer in try writer.record(view) }
+    return view
+}
+
+/// A play as the events endpoint sends it.
+func serverPlay(id: String, serverSeq: Int64) -> JSONObject {
+    [
+        "id": .string(id),
+        "server_seq": .integer(serverSeq),
+        "created_at": .string(noon.iso),
+        "context": .string("list"),
+        "started_at": .string(noon.iso),
+        "listened_ms": .integer(30_000),
+        "recording_id": .null,
+        "link_id": .string("link-1"),
+        "list_id": .string("list-1"),
+        "tune_id": .string("tune-1"),
+    ]
+}
+
 func serverTune(id: String, title: String = "Server Tune", serverSeq: Int64) -> JSONObject {
     [
         "id": .string(id),
@@ -50,7 +86,11 @@ final class FakeSyncAPI: SyncAPI {
     var onRequest: @MainActor () -> Void = {}
     private var serverSeq: Int64 = 0
 
+    /// The push and events requests in the order they started and, for events, finished.
+    var log: [String] = []
+
     func push(_ changes: [Change]) async throws -> [PushResult] {
+        log.append("push")
         onRequest()
         if let failure { throw failure }
         pushes.append(changes)
@@ -62,6 +102,23 @@ final class FakeSyncAPI: SyncAPI {
         if let failure { throw failure }
         pulls.append(since)
         return pullQueue.isEmpty ? PullPage(rows: [], nextSince: since, hasMore: false) : pullQueue.removeFirst()
+    }
+
+    /// The `since` of every events request, in order.
+    var eventPulls: [Int64] = []
+    /// Each events request takes the next answer; an empty queue answers with no rows.
+    var eventsQueue: [Result<EventsPage, any Error>] = []
+    /// Called at the start of every events request, before it is answered.
+    var onEvents: @MainActor () async -> Void = {}
+
+    func events(since: Int64) async throws -> EventsPage {
+        log.append("events-start")
+        defer { log.append("events-end") }
+        await onEvents()
+        if let failure { throw failure }
+        eventPulls.append(since)
+        return try eventsQueue.isEmpty
+            ? EventsPage(rows: [], nextSince: since, hasMore: false) : eventsQueue.removeFirst().get()
     }
 
     func storage() async throws -> StorageFigures {
@@ -153,22 +210,22 @@ final class FakeSyncAPI: SyncAPI {
         try await transfer("retry \(recordingID)")
     }
 
-    /// The size each notation slot request declared, by page.
-    var notationSlotBytes: [String: Int64] = [:]
+    /// The size each scan slot request declared, by scan.
+    var scanSlotBytes: [String: Int64] = [:]
 
-    func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL {
-        notationSlotBytes[pageID] = bytes
-        try await transfer("notation-slot \(pageID)")
-        return SignedURL(url: URL(string: "https://bucket.test/put/\(pageID)")!)
+    func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL {
+        scanSlotBytes[scanID] = bytes
+        try await transfer("scan-slot \(scanID)")
+        return SignedURL(url: URL(string: "https://bucket.test/put/\(scanID)")!)
     }
 
-    func notationUploaded(pageID: String) async throws {
-        try await transfer("notation-confirm \(pageID)")
+    func scanUploaded(scanID: String) async throws {
+        try await transfer("scan-confirm \(scanID)")
     }
 
-    func notationDownload(pageID: String) async throws -> SignedURL {
-        try await transfer("notation-url \(pageID)")
-        return SignedURL(url: URL(string: "https://bucket.test/get/\(pageID)")!)
+    func scanDownload(scanID: String) async throws -> SignedURL {
+        try await transfer("scan-url \(scanID)")
+        return SignedURL(url: URL(string: "https://bucket.test/get/\(scanID)")!)
     }
 
     func putObject(_ url: URL, file: URL, contentType: String) async throws {

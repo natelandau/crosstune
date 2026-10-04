@@ -7,12 +7,14 @@ import { AppearanceGroup } from './AppearanceGroup'
 import { InstrumentsGroup } from './InstrumentsGroup'
 import { MusicServicesGroup } from './MusicServicesGroup'
 import { RecordingGroup } from './RecordingGroup'
+import { StatsSummaryRow } from './StatsSummaryRow'
 import { SyncGroup } from './SyncGroup'
 
 export function SettingsPage() {
   return (
     <Screen title="Settings" level="top" grouped>
       <h1 className="sr-only">Settings</h1>
+      <StatsSummaryRow />
       <AccountGroup />
       <InstrumentsGroup />
       <MusicServicesGroup />

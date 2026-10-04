@@ -39,7 +39,7 @@ struct RecordingItem: View {
             tuneLine: onOpenTune.flatMap { open in view.tuneTitle.map { MediaRow.TuneLine(title: $0, action: open) } },
             perform: { tap in
                 switch tap {
-                case .play: player?.play(.recording(view.recording, tuneTitle: view.tuneTitle))
+                case .play: player?.play(.recording(view.recording, tuneTitle: view.tuneTitle), origin: .row)
                 case .close: player?.close()
                 // Refused rather than disabled while offline, so the row keeps its tap and its
                 // name; Offline in the meta line says why.

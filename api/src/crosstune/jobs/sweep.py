@@ -9,20 +9,23 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, literal, or_, select
 
-from crosstune.db.locks import lock_user
-from crosstune.models import NotationPage, Recording, UploadSlot, User
+from crosstune.db.locks import advisory_lock_key, lock_user
+from crosstune.models import Recording, Scan, UploadSlot, User
 from crosstune.models.user import utc_now
-from crosstune.notation.service import bump_page_server_seq
 from crosstune.recordings.service import bump_server_seq
+from crosstune.scans.service import bump_scan_server_seq
 from crosstune.storage.store import (
-    NOTATION_SEGMENT,
+    LEGACY_SCAN_SEGMENT,
+    SCAN_SEGMENT,
     is_revision_key,
-    notation_key,
-    notation_prefix,
+    legacy_scan_key,
     recording_prefix,
+    scan_key,
+    scan_prefix,
+    scan_prefixes,
     upload_key,
 )
-from crosstune.vocabulary import NotationPageState
+from crosstune.vocabulary import ScanState
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -42,11 +45,11 @@ def live_pending_slot() -> ColumnElement[bool]:
     return and_(Recording.deleted_at.is_(None), Recording.state == "pending_upload")
 
 
-def live_pending_page_slot() -> ColumnElement[bool]:
-    """Match the slots of live notation pages still waiting on their upload."""
+def live_pending_scan_slot() -> ColumnElement[bool]:
+    """Match the slots of live scans still waiting on their upload."""
     return and_(
-        NotationPage.deleted_at.is_(None),
-        NotationPage.state == NotationPageState.PENDING_UPLOAD.value,
+        Scan.deleted_at.is_(None),
+        Scan.state == ScanState.PENDING_UPLOAD.value,
     )
 
 
@@ -76,20 +79,22 @@ def _recording_of(key: str) -> tuple[uuid.UUID, uuid.UUID] | None:
 type _Prefixes = dict[tuple[uuid.UUID, uuid.UUID], str]
 
 
-def _owned_prefixes(keys: list[str]) -> tuple[dict[uuid.UUID, str], _Prefixes, _Prefixes]:
-    """Group keys by the user, recording, and notation page ids their segments name.
+def _owned_prefixes(
+    keys: list[str],
+) -> tuple[dict[uuid.UUID, str], _Prefixes, dict[str, tuple[uuid.UUID, uuid.UUID]]]:
+    """Group keys by the user, recording, and scan ids their segments name.
 
     A segment that is not a UUID is not ours, so no prefix is built from it, and a
-    key with a single segment belongs to no user. A page's id is the third segment,
-    after NOTATION_SEGMENT.
+    key with a single segment belongs to no user. A scan's id is the third segment,
+    after SCAN_SEGMENT or LEGACY_SCAN_SEGMENT, so one scan can own two prefixes.
 
     Returns:
         tuple: The user prefixes by user id, the recording prefixes by
-        (user id, recording id), and the page prefixes by (user id, page id).
+        (user id, recording id), and the (user id, scan id) each scan prefix names.
     """
     users: dict[uuid.UUID, str] = {}
     recordings: _Prefixes = {}
-    pages: _Prefixes = {}
+    scans: dict[str, tuple[uuid.UUID, uuid.UUID]] = {}
     for key in keys:
         user_segment, has_user, rest = key.partition("/")
         user_id = _as_uuid(user_segment) if has_user else None
@@ -99,21 +104,23 @@ def _owned_prefixes(keys: list[str]) -> tuple[dict[uuid.UUID, str], _Prefixes, _
         second, has_second, rest = rest.partition("/")
         if not has_second:
             continue
-        if second == NOTATION_SEGMENT:
-            page_segment, has_page, _ = rest.partition("/")
-            page_id = _as_uuid(page_segment) if has_page else None
-            if page_id is not None:
-                pages.setdefault((user_id, page_id), notation_prefix(user_segment, page_segment))
+        if second in (SCAN_SEGMENT, LEGACY_SCAN_SEGMENT):
+            scan_segment, has_scan, _ = rest.partition("/")
+            scan_id = _as_uuid(scan_segment) if has_scan else None
+            if scan_id is not None:
+                scans.setdefault(
+                    scan_prefix(user_segment, scan_segment, second), (user_id, scan_id)
+                )
             continue
         recording_id = _as_uuid(second)
         if recording_id is not None:
             recordings.setdefault((user_id, recording_id), f"{user_segment}/{second}/")
-    return users, recordings, pages
+    return users, recordings, scans
 
 
-async def _lock_users(session: AsyncSession, rows: Iterable[Recording | NotationPage]) -> None:
-    """Take every affected user's lock in one fixed order, so two sweeps cannot wait on each other."""
-    for user_id in sorted({row.user_id for row in rows}):
+async def _lock_users(session: AsyncSession, rows: Iterable[Recording | Scan]) -> None:
+    """Take every affected user's lock in lock-key order, so nothing else locking many users waits on it."""
+    for user_id in sorted({row.user_id for row in rows}, key=advisory_lock_key):
         await lock_user(session, user_id)
 
 
@@ -124,7 +131,7 @@ async def sweep_orphans(
 
     Account deletion removes the row first and wipes the bucket best-effort
     afterwards; this sweep is what makes the wipe certain. A user row exists
-    before any key is issued under its id, a recording or notation page row
+    before any key is issued under its id, a recording or scan row
     before any upload URL under its id, and ids are never reused, so a UUID
     prefix with no row is always garbage. Other prefixes are not ours to touch.
 
@@ -147,15 +154,15 @@ async def sweep_orphans(
         int: How many prefixes and stray revisions were removed.
     """
     objects = await store.list_objects()
-    users, recordings, pages = _owned_prefixes([obj.key for obj in objects])
+    users, recordings, scans = _owned_prefixes([obj.key for obj in objects])
     if not users:
         return 0
     async with sessionmaker() as session:
         live = set(await session.scalars(select(User.id).where(User.id == _any_uuid(users))))
         candidates = {pair: prefix for pair, prefix in recordings.items() if pair[0] in live}
-        page_candidates = {pair: prefix for pair, prefix in pages.items() if pair[0] in live}
+        scan_candidates = {prefix: pair for prefix, pair in scans.items() if pair[0] in live}
         known: set[tuple[uuid.UUID, uuid.UUID]] = set()
-        known_pages: set[tuple[uuid.UUID, uuid.UUID]] = set()
+        known_scans: set[tuple[uuid.UUID, uuid.UUID]] = set()
         named: set[str] = set()
         if candidates:
             rows = await session.execute(
@@ -166,16 +173,16 @@ async def sweep_orphans(
             for user_id, recording_id, playback, peaks in rows.tuples():
                 known.add((user_id, recording_id))
                 named.update(key for key in (playback, peaks) if key is not None)
-        if page_candidates:
-            page_rows = await session.execute(
-                select(NotationPage.user_id, NotationPage.id).where(
-                    NotationPage.id == _any_uuid(page_id for _, page_id in page_candidates)
+        if scan_candidates:
+            scan_rows = await session.execute(
+                select(Scan.user_id, Scan.id).where(
+                    Scan.id == _any_uuid({scan_id for _, scan_id in scan_candidates.values()})
                 )
             )
-            known_pages.update(page_rows.tuples())
+            known_scans.update(scan_rows.tuples())
     orphans = [prefix for user_id, prefix in users.items() if user_id not in live]
     orphans += [prefix for pair, prefix in candidates.items() if pair not in known]
-    orphans += [prefix for pair, prefix in page_candidates.items() if pair not in known_pages]
+    orphans += [prefix for prefix, pair in scan_candidates.items() if pair not in known_scans]
     cutoff = utc_now() - stray_after
     strays = [
         obj.key
@@ -200,10 +207,10 @@ async def release_abandoned_slots(
     never confirmed would otherwise stay in the bucket uncounted.
 
     Returns:
-        int: How many recording and notation page slots were released.
+        int: How many recording and scan slots were released.
     """
     released = await _release_recording_slots(sessionmaker, store)
-    return released + await _release_page_slots(sessionmaker, store)
+    return released + await _release_scan_slots(sessionmaker, store)
 
 
 async def _release_recording_slots(
@@ -244,12 +251,12 @@ async def _release_recording_slots(
         return len(released)
 
 
-async def _release_page_slots(
+async def _release_scan_slots(
     sessionmaker: async_sessionmaker[AsyncSession], store: ObjectStore
 ) -> int:
-    """Delete the image an abandoned page slot may have left, and the slot.
+    """Delete the image an abandoned scan slot may have left, and the slot.
 
-    A page's upload key is also the key it is served from, so unlike a recording's
+    A scan's upload key is also the key it is served from, so unlike a recording's
     upload the object cannot be deleted before the re-check: a slot reissued and
     confirmed in between would lose its image. The re-check, the delete, and the
     slot removal all happen under the users' locks, which every reissue and
@@ -257,9 +264,9 @@ async def _release_page_slots(
     """
     cutoff = utc_now() - ABANDONED_SLOT_GRACE
     stmt = (
-        select(NotationPage)
-        .join(UploadSlot, UploadSlot.notation_page_id == NotationPage.id)
-        .where(UploadSlot.expires_at < cutoff, live_pending_page_slot())
+        select(Scan)
+        .join(UploadSlot, UploadSlot.scan_id == Scan.id)
+        .where(UploadSlot.expires_at < cutoff, live_pending_scan_slot())
         .limit(PURGE_BATCH)
     )
     async with sessionmaker() as session:
@@ -271,19 +278,25 @@ async def _release_page_slots(
             await _lock_users(session, rows)
             abandoned = set(
                 await session.scalars(
-                    select(UploadSlot.notation_page_id).where(
-                        UploadSlot.notation_page_id.in_([page.id for page in rows]),
+                    select(UploadSlot.scan_id).where(
+                        UploadSlot.scan_id.in_([scan.id for scan in rows]),
                         UploadSlot.expires_at < cutoff,
                     )
                 )
             )
             if abandoned:
                 await store.delete(
-                    *(notation_key(page.user_id, page.id) for page in rows if page.id in abandoned)
+                    *(
+                        key
+                        for scan in rows
+                        if scan.id in abandoned
+                        for key in (
+                            scan_key(scan.user_id, scan.id),
+                            legacy_scan_key(scan.user_id, scan.id),
+                        )
+                    )
                 )
-                await session.execute(
-                    delete(UploadSlot).where(UploadSlot.notation_page_id.in_(abandoned))
-                )
+                await session.execute(delete(UploadSlot).where(UploadSlot.scan_id.in_(abandoned)))
         return len(abandoned)
 
 
@@ -361,38 +374,36 @@ async def purge_deleted(sessionmaker: async_sessionmaker[AsyncSession], store: O
         return len(rows)
 
 
-async def purge_deleted_pages(
+async def purge_deleted_scans(
     sessionmaker: async_sessionmaker[AsyncSession], store: ObjectStore
 ) -> int:
-    """Remove the images of soft-deleted notation pages and leave their rows ready to upload again.
+    """Remove the images of soft-deleted scans and leave their rows ready to upload again.
 
-    A page tombstoned while its upload was being confirmed can still turn ready
-    afterwards; its state alone makes the next sweep pick it up. A page's slot is kept
+    A scan tombstoned while its upload was being confirmed can still turn ready
+    afterwards; its state alone makes the next sweep pick it up. A scan's slot is kept
     until it passes ABANDONED_SLOT_GRACE, as in purge_deleted, so an image PUT after
     the first purge is collected by a later one.
 
     The rows are re-read under the users' locks and only then is any image deleted,
-    so a page a client un-deleted and uploaded again meanwhile keeps its image.
+    so a scan a client un-deleted and uploaded again meanwhile keeps its image.
 
     Returns:
-        int: How many pages were swept.
+        int: How many scans were swept.
     """
     cutoff = utc_now() - ABANDONED_SLOT_GRACE
-    abandoned_slot = exists().where(
-        UploadSlot.notation_page_id == NotationPage.id, UploadSlot.expires_at < cutoff
-    )
+    abandoned_slot = exists().where(UploadSlot.scan_id == Scan.id, UploadSlot.expires_at < cutoff)
     purgeable = (
-        NotationPage.deleted_at.is_not(None),
+        Scan.deleted_at.is_not(None),
         or_(
-            NotationPage.file_key.is_not(None),
-            NotationPage.state != NotationPageState.PENDING_UPLOAD.value,
+            Scan.file_key.is_not(None),
+            Scan.state != ScanState.PENDING_UPLOAD.value,
             abandoned_slot,
         ),
     )
     async with sessionmaker() as session:
         async with session.begin():
             candidates = list(
-                await session.scalars(select(NotationPage).where(*purgeable).limit(PURGE_BATCH))
+                await session.scalars(select(Scan).where(*purgeable).limit(PURGE_BATCH))
             )
         if not candidates:
             return 0
@@ -400,8 +411,8 @@ async def purge_deleted_pages(
             await _lock_users(session, candidates)
             rows = list(
                 await session.scalars(
-                    select(NotationPage)
-                    .where(NotationPage.id.in_([page.id for page in candidates]), *purgeable)
+                    select(Scan)
+                    .where(Scan.id.in_([scan.id for scan in candidates]), *purgeable)
                     .execution_options(populate_existing=True)
                 )
             )
@@ -409,17 +420,21 @@ async def purge_deleted_pages(
                 return 0
             # A failed delete rolls the row changes back, so the next sweep retries both.
             await asyncio.gather(
-                *(store.delete_prefix(notation_prefix(page.user_id, page.id)) for page in rows)
+                *(
+                    store.delete_prefix(prefix)
+                    for scan in rows
+                    for prefix in scan_prefixes(scan.user_id, scan.id)
+                )
             )
             await session.execute(
                 delete(UploadSlot).where(
-                    UploadSlot.notation_page_id.in_([page.id for page in rows]),
+                    UploadSlot.scan_id.in_([scan.id for scan in rows]),
                     UploadSlot.expires_at < cutoff,
                 )
             )
-            for page in rows:
-                page.file_key = None
-                page.file_bytes = None
-                page.state = NotationPageState.PENDING_UPLOAD.value
-                bump_page_server_seq(page)
+            for scan in rows:
+                scan.file_key = None
+                scan.file_bytes = None
+                scan.state = ScanState.PENDING_UPLOAD.value
+                bump_scan_server_seq(scan)
         return len(rows)

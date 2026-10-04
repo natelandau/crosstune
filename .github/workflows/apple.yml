@@ -3,10 +3,10 @@ name: Apple
 
 on:
   pull_request:
-    paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+    paths: ["apple/**", "fixtures/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
   push:
     branches: [main]
-    paths: ["apple/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
+    paths: ["apple/**", "fixtures/**", "api/openapi.json", ".github/workflows/apple.yml", "justfile"]
   workflow_call:
     inputs:
       skip_build:

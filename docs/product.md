@@ -96,14 +96,18 @@ for Android and every browser. The parts that matter:
   offers. Every service starts chosen. The choice syncs like every setting.
 - Appearance. Light, dark, or system, and a text size: three sizes on the
   web, the device's size shifted up or down on Apple. Per device.
-- Notation. Pages of written music attached to a tune. Scan them on
-  iPhone and iPad, or add an image from a file on Mac and the web. View,
-  reorder, and delete them on every device. Every page downloads to
-  every device and counts toward the same storage as recordings.
+- Scans. Images attached to a tune: written music, a lyric sheet, or
+  handwritten notes. Scan them on iPhone and iPad, or add an image from a
+  file on Mac and the web. View, reorder, and delete them on every device.
+  Every scan downloads to every device and counts toward the same storage
+  as recordings.
 - Offline. The full catalog is on the device. Reads and writes work offline
   and sync when a connection returns.
 - Export. One zip from Settings: tunes and lists as spreadsheets, plus the
-  recordings and notation pages on the device.
+  recordings and scans on the device.
+- Stats. A page from Settings counts the catalog and its recordings, shows
+  when the musician added and played, and finds rarities and anniversaries.
+  It shows only the attributes the musician uses.
 
 ## Designed for, not built
 
@@ -152,3 +156,4 @@ understands it. Tuning values keep their traditional names.
 | Part structure | The order and repeats of a tune's sections: AABB, AABBCC.                                                                                                                    |
 | Status         | Known, learning, or want to learn. Want to learn is labeled "Unknown".                                                                                                       |
 | Jam            | An informal gathering where musicians play tunes together and learn from each other, large or small. Irish players call it a session.                                        |
+| Scan           | One image attached to a tune: written music, a lyric sheet, or handwritten notes. Never notation, which names only the first.                                                |

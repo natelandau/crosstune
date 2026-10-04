@@ -1,14 +1,20 @@
 import { IonModal } from '@ionic/react'
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { visibleMain } from '../../ui/useShortcut'
 import { isPlaying, usePlayer } from '../player/usePlayer'
-import { RecordingScreen } from './RecordingScreen'
+import { usePracticeLog } from '../practice/usePracticeLog'
 import {
   RecordingScreenContext,
   type HeldSettings,
   type RecordingScreen as Screen,
 } from './useRecordingScreen'
 import { useLatest } from '../../ui/useLatest'
+
+// Loads on the first open rather than at launch, so the launch chunk stays under the service
+// worker's precache size limit.
+const RecordingScreen = lazy(() =>
+  import('./RecordingScreen').then((module) => ({ default: module.RecordingScreen })),
+)
 
 /**
  * Holds the one recording screen, a full-screen modal over whatever tab is open, so every
@@ -57,8 +63,7 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
     target?.focus()
   }
 
-  // A ref map, so the dock reads a hold inside its effects without re-rendering; renders that
-  // show a hold subscribe through `useHeldSettings`.
+  // A ref map, so the dock reads a hold inside its effects without re-rendering.
   const heldSettings = useRef(new Map<string, HeldSettings>())
   const listeners = useRef(new Set<() => void>())
   const held = useCallback((id: string) => heldSettings.current.get(id) ?? null, [])
@@ -73,6 +78,8 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
       listeners.current.delete(listener)
     }
   }, [])
+
+  usePracticeLog(shown?.open ? shown.id : null, { held, subscribe })
 
   const value = useMemo<Screen>(
     () => ({ open, close, held, hold, subscribe }),
@@ -91,7 +98,9 @@ export function RecordingScreenProvider({ children }: { children: ReactNode }) {
         onDidDismiss={dismissed}
       >
         {shown ? (
-          <RecordingScreen key={shown.opening} id={shown.id} modal={modal} onClose={close} />
+          <Suspense fallback={null}>
+            <RecordingScreen key={shown.opening} id={shown.id} modal={modal} onClose={close} />
+          </Suspense>
         ) : null}
       </IonModal>
     </RecordingScreenContext.Provider>

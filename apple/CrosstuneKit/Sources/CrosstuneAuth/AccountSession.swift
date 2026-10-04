@@ -33,8 +33,8 @@ public final class AccountSession {
         case unsyncedChanges
         /// A recording's audio exists only on this device.
         case unuploadedRecordings
-        /// A notation page's image exists only on this device.
-        case unuploadedNotation
+        /// A scan's image exists only on this device.
+        case unuploadedScans
         /// Deleting the account failed before the API confirmed it, so nothing changed.
         case deleteFailed
         /// No answer from the API says whether the delete went through.
@@ -44,8 +44,8 @@ public final class AccountSession {
         public static let unsyncedChangesMessage = "Some changes have not synced yet. Try again once they have."
         public static let unuploadedRecordingsMessage =
             "Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload."
-        public static let unuploadedNotationMessage =
-            "Some notation pages have not uploaded yet. Delete them from their tune, or wait until they upload."
+        public static let unuploadedScansMessage =
+            "Some scans have not uploaded yet. Delete them from their tune, or wait until they upload."
         public static let deleteFailedMessage = "Your account was not deleted. Nothing was changed. Try again."
         public static let deleteUnconfirmedMessage =
             "The delete could not be confirmed, so your account may already be deleted. Check your connection and try again."
@@ -55,7 +55,7 @@ public final class AccountSession {
             case .offline: Self.offlineMessage
             case .unsyncedChanges: Self.unsyncedChangesMessage
             case .unuploadedRecordings: Self.unuploadedRecordingsMessage
-            case .unuploadedNotation: Self.unuploadedNotationMessage
+            case .unuploadedScans: Self.unuploadedScansMessage
             case .deleteFailed: Self.deleteFailedMessage
             case .deleteUnconfirmed: Self.deleteUnconfirmedMessage
             }
@@ -304,8 +304,9 @@ public final class AccountSession {
     /// stays.
     ///
     /// `settle` first finishes the writes the app holds back, so none lands after the store
-    /// closes. It then syncs and refuses while anything is still only on this device, since the
-    /// folder takes it along.
+    /// closes. It then syncs and refuses while any edit is still only on this device, since the
+    /// folder takes it along. Unsent events, such as plays and scan views, go with it: a little
+    /// history is not worth blocking sign-out.
     static func leave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
         settle: () async -> Void = {}, endSession: () async throws -> Void
@@ -313,9 +314,9 @@ public final class AccountSession {
         await settle()
         if let store {
             await sync?.sync()
-            if try await store.pendingChangeCount() > 0 { throw LeaveError.unsyncedChanges }
+            if try await store.pendingEditCount() > 0 { throw LeaveError.unsyncedChanges }
             if try await store.notUploadedRecordingCount() > 0 { throw LeaveError.unuploadedRecordings }
-            if try await store.notUploadedNotationCount() > 0 { throw LeaveError.unuploadedNotation }
+            if try await store.notUploadedScanCount() > 0 { throw LeaveError.unuploadedScans }
         }
         // Stopped, no trigger can start a sync against the folder being deleted.
         await sync?.stop()

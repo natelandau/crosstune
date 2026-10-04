@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { recordEvent } from '../commands/events'
 import { createTune, deleteTune, updateTune } from '../commands/tunes'
-import { getPullCursor } from '../db/meta'
+import { getEventsCursor, getPullCursor } from '../db/meta'
 import { pendingBatch, pendingFor } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { serverTune, serverUserTune } from '../test/fakeApi'
-import { applyPullPage, applyPushResults, compareTimestamps } from './apply'
+import { playEventRow, scanViewRow } from '../test/rows'
+import type { EventRow } from '../api/types'
+import { applyEventsPage, applyPullPage, applyPushResults, compareTimestamps } from './apply'
 
 let db: CrosstuneDb
 
@@ -72,6 +75,30 @@ describe('applyPushResults', () => {
     ])
     expect(invalid).toEqual([])
     expect(settled).toBe(1)
+    expect(await pendingBatch(db)).toHaveLength(0)
+  })
+
+  it('drops a rejected event without reporting it', async () => {
+    await recordEvent(db, 'play_events', playEventRow('play-1'))
+    const sent = await pendingBatch(db)
+    const { invalid, settled } = await applyPushResults(db, sent, [
+      { table: 'play_events', id: 'play-1', status: 'invalid', reason: 'invalid fields: body' },
+    ])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(1)
+    expect(await db.play_events.count()).toBe(0)
+    expect(await pendingBatch(db)).toHaveLength(0)
+  })
+
+  it('drops a rejected scan view without reporting it', async () => {
+    await recordEvent(db, 'scan_views', scanViewRow('view-1'))
+    const sent = await pendingBatch(db)
+    const { invalid, settled } = await applyPushResults(db, sent, [
+      { table: 'scan_views', id: 'view-1', status: 'invalid', reason: 'tune not found' },
+    ])
+    expect(invalid).toEqual([])
+    expect(settled).toBe(1)
+    expect(await db.scan_views.count()).toBe(0)
     expect(await pendingBatch(db)).toHaveLength(0)
   })
 
@@ -178,5 +205,37 @@ describe('applyPullPage', () => {
     expect((await db.tunes.get(tuneId))?.title).toBe('newer local')
     expect(await pendingFor(db, 'tunes', tuneId)).toBeDefined()
     expect(await getPullCursor(db)).toBe(9)
+  })
+})
+
+describe('applyEventsPage', () => {
+  it('skips a table this client has no store for and still advances the cursor', async () => {
+    const change: EventRow = {
+      table: 'status_changes',
+      row: {
+        id: 'change-1',
+        user_tune_id: 'ut-1',
+        from_status: null,
+        to_status: 'learning',
+        changed_at: '2026-01-01T12:00:00.000Z',
+        server_seq: 4,
+      },
+    }
+    // A newer server may send a history table this client does not know yet.
+    const unknown = { table: 'jam_sessions', row: { id: 'jam-1', server_seq: 5 } }
+    await applyEventsPage(db, [change, unknown as unknown as EventRow], 5)
+    expect(await db.status_changes.get('change-1')).toEqual(change.row)
+    expect(await getEventsCursor(db)).toBe(5)
+  })
+
+  it('stores a pulled scan view in its own store', async () => {
+    const view: EventRow = {
+      table: 'scan_views',
+      row: { ...scanViewRow('view-1', { list_id: 'list-1' }), context: 'list', server_seq: 7 },
+    }
+    await applyEventsPage(db, [view], 7)
+    expect(await db.scan_views.get('view-1')).toEqual(view.row)
+    expect(await db.play_events.count()).toBe(0)
+    expect(await getEventsCursor(db)).toBe(7)
   })
 })

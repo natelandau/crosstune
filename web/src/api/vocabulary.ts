@@ -18,8 +18,8 @@ export type Instrument = (typeof INSTRUMENTS)[number]
 export const MODES = ['major', 'minor', 'mixolydian', 'dorian', 'modal', 'other'] as const
 export type Mode = (typeof MODES)[number]
 
-export const NOTATION_PAGE_STATES = ['pending_upload', 'ready'] as const
-export type NotationPageState = (typeof NOTATION_PAGE_STATES)[number]
+export const PLAY_CONTEXTS = ['row', 'list', 'dock', 'recording_screen'] as const
+export type PlayContext = (typeof PLAY_CONTEXTS)[number]
 
 export const PLAY_FIRST = ['recordings', 'apple_music'] as const
 export type PlayFirst = (typeof PLAY_FIRST)[number]
@@ -54,6 +54,12 @@ export const RECORDING_STATES = [
   'failed',
 ] as const
 export type RecordingState = (typeof RECORDING_STATES)[number]
+
+export const SCAN_STATES = ['pending_upload', 'ready'] as const
+export type ScanState = (typeof SCAN_STATES)[number]
+
+export const SCAN_VIEW_CONTEXTS = ['tune', 'row', 'list'] as const
+export type ScanViewContext = (typeof SCAN_VIEW_CONTEXTS)[number]
 
 export const SEARCH_STATUSES = ['results', 'unavailable', 'search_only'] as const
 export type SearchStatus = (typeof SEARCH_STATUSES)[number]

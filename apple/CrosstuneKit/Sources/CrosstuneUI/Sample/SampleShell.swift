@@ -47,7 +47,7 @@
             .task {
                 do {
                     let opened = try await SampleCatalog.makeStore(withAudio: true)
-                    try await SampleNotation.add(to: opened)
+                    try await SampleScans.add(to: opened)
                     engine = SyncEngine(store: opened, api: OfflineSyncAPI(), isOffline: { true })
                     store = opened
                 } catch {
@@ -69,6 +69,7 @@
     private struct OfflineSyncAPI: SyncAPI {
         func push(_ changes: [Change]) async throws -> [PushResult] { throw URLError(.notConnectedToInternet) }
         func pull(since: Int64) async throws -> PullPage { throw URLError(.notConnectedToInternet) }
+        func events(since: Int64) async throws -> EventsPage { throw URLError(.notConnectedToInternet) }
         func storage() async throws -> StorageFigures { throw URLError(.notConnectedToInternet) }
         func resolveLink(url: String) async throws -> ResolvedLink { throw URLError(.notConnectedToInternet) }
         func searchRecordings(q: String, providers: [String], country: String) async throws -> SearchResponse {
@@ -81,11 +82,11 @@
         func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.notConnectedToInternet) }
         func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.notConnectedToInternet) }
         func retryRecording(recordingID: String) async throws { throw URLError(.notConnectedToInternet) }
-        func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL {
+        func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL {
             throw URLError(.notConnectedToInternet)
         }
-        func notationUploaded(pageID: String) async throws { throw URLError(.notConnectedToInternet) }
-        func notationDownload(pageID: String) async throws -> SignedURL { throw URLError(.notConnectedToInternet) }
+        func scanUploaded(scanID: String) async throws { throw URLError(.notConnectedToInternet) }
+        func scanDownload(scanID: String) async throws -> SignedURL { throw URLError(.notConnectedToInternet) }
         func putObject(_ url: URL, file: URL, contentType: String) async throws {
             throw URLError(.notConnectedToInternet)
         }

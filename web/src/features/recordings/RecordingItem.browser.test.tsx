@@ -80,7 +80,9 @@ describe('RecordingItem', () => {
       player,
     })
     await openControl('Play Jam recording').click()
-    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+    await expect
+      .poll(() => player.play)
+      .toHaveBeenCalledWith({ kind: 'recording', id: 'r1' }, { context: 'row' })
   })
 
   it('plays a held recording by tapping anywhere in the row, on touch', async () => {
@@ -93,7 +95,9 @@ describe('RecordingItem', () => {
     // The visible text sits under the open button (pointer-events-none); force mimics the real
     // tap a browser would route to whichever element its hit test finds there.
     await page.getByText('Jam recording').click({ force: true })
-    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+    await expect
+      .poll(() => player.play)
+      .toHaveBeenCalledWith({ kind: 'recording', id: 'r1' }, { context: 'row' })
   })
 
   it('closes the loaded recording from a button named for its player', async () => {
@@ -322,7 +326,9 @@ describe('RecordingItem', () => {
     await expect.poll(() => onRetry).toHaveBeenCalledWith('upload')
     expect(player.play).not.toHaveBeenCalled()
     await playButton.click()
-    await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+    await expect
+      .poll(() => player.play)
+      .toHaveBeenCalledWith({ kind: 'recording', id: 'r1' }, { context: 'row' })
   })
 
   describe('source line', () => {
@@ -432,7 +438,9 @@ describe('RecordingItem', () => {
       await openControl('Play Jam recording').click({
         position: { x: row.width - 24, y: line.top - row.top + line.height / 2 },
       })
-      await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+      await expect
+        .poll(() => player.play)
+        .toHaveBeenCalledWith({ kind: 'recording', id: 'r1' }, { context: 'row' })
       expect(onOpenTune).not.toHaveBeenCalled()
     })
 

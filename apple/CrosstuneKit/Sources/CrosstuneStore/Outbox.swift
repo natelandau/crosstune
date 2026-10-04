@@ -35,6 +35,14 @@ public struct OutboxEntry: Codable, Hashable, Sendable, FetchableRecord, Persist
     }
 }
 
+extension OutboxEntry {
+    /// Every queued change but an event row's: the ones that schedule a sync and that sign-out
+    /// waits for. An event row waits for a sync something else starts.
+    public static var edits: QueryInterfaceRequest<OutboxEntry> {
+        filter(!SyncTable.eventTables.map(\.rawValue).contains(CodingKeys.tableName))
+    }
+}
+
 enum Outbox {
     /// Queues a change, replacing the row's pending entry in place so it keeps its `seq`.
     static func enqueue(

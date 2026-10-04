@@ -30,16 +30,16 @@ from crosstune.jobs.peaks_job import build_recording_peaks
 from crosstune.jobs.reencode import reencode
 from crosstune.jobs.sweep import (
     ABANDONED_SLOT_GRACE,
-    live_pending_page_slot,
+    live_pending_scan_slot,
     live_pending_slot,
     purge_deleted,
-    purge_deleted_pages,
+    purge_deleted_scans,
     release_abandoned_slots,
 )
 from crosstune.jobs.sweep import sweep_orphans as sweep_orphan_prefixes
 from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
-from crosstune.models import Job, NotationPage, Recording, UploadSlot
+from crosstune.models import Job, Recording, Scan, UploadSlot
 from crosstune.models.user import utc_now
 from crosstune.recordings.service import bump_server_seq, enqueue_transcode, ensure_trim_job
 from crosstune.recordings.trim import needs_trim
@@ -312,8 +312,8 @@ class JobRunner:
                 ),
                 await session.scalar(
                     select(func.min(UploadSlot.expires_at))
-                    .join(NotationPage, UploadSlot.notation_page_id == NotationPage.id)
-                    .where(or_(live_pending_page_slot(), NotationPage.deleted_at.is_not(None)))
+                    .join(Scan, UploadSlot.scan_id == Scan.id)
+                    .where(or_(live_pending_scan_slot(), Scan.deleted_at.is_not(None)))
                 ),
             ]
         candidates = [self._next_orphan_sweep]
@@ -325,7 +325,7 @@ class JobRunner:
         return min(candidates)
 
     async def run_once(self) -> int:
-        """Run one job, purge a batch of deleted recordings and pages, and sweep orphans when due.
+        """Run one job, purge a batch of deleted recordings and scans, and sweep orphans when due.
 
         Returns:
             int: How many units of work were done, so the loop knows whether to sleep.
@@ -344,14 +344,14 @@ class JobRunner:
         return done
 
     async def sweep_orphans(self) -> int:
-        """Delete the bucket prefixes of users, recordings, and notation pages that have no row."""
+        """Delete the bucket prefixes of users, recordings, and scans that have no row."""
         return await sweep_orphan_prefixes(
             self._sessionmaker, self._store, stray_after=STRAY_REVISION_AGE
         )
 
     async def _purge(self) -> int:
         purged = await purge_deleted(self._sessionmaker, self._store)
-        return purged + await purge_deleted_pages(self._sessionmaker, self._store)
+        return purged + await purge_deleted_scans(self._sessionmaker, self._store)
 
     async def _claim(self) -> Job | None:
         now = utc_now()

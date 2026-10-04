@@ -6,9 +6,11 @@ import uuid
 from typing import TYPE_CHECKING
 
 import pytest
-from sqlalchemy import event, func, select
+from sqlalchemy import Integer, event, func, literal, select, text
 
 from crosstune.models import ListItem, RecordingLink, Tune, UserTune
+from crosstune.schemas.common import Change
+from crosstune.sync.push import _write
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
 if TYPE_CHECKING:
@@ -542,3 +544,22 @@ async def test_a_song_id_field_is_an_unknown_field(client, auth_headers) -> None
     )
     assert [r["status"] for r in results] == ["applied", "invalid"]
     assert "song_id" in results[1]["reason"]
+
+
+@pytest.mark.parametrize(
+    ("stmt", "refused_by"),
+    [
+        (text("SELECT CAST(2147483648 AS integer)"), "NumericValueOutOfRangeError"),
+        (select(literal(2**31, Integer)), "DataError"),
+    ],
+    ids=["server", "driver"],
+)
+async def test_a_write_refused_as_bad_data_is_invalid(
+    session: AsyncSession, stmt, refused_by: str
+) -> None:
+    write_change = Change.model_validate(change("tunes", uid(), T0, title="Sally Ann"))
+    written, rejection = await _write(session, write_change, stmt)
+    assert written is None
+    assert rejection is not None
+    assert rejection.status == "invalid"
+    assert rejection.reason == f"invalid data: {refused_by}"

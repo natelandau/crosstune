@@ -86,7 +86,15 @@ function RowButton({
 
 const SLOT = 'grid size-11 place-items-center'
 
-function RecordingPlay({ view, title }: { view: RecordingView; title: string }) {
+function RecordingPlay({
+  view,
+  title,
+  listId,
+}: {
+  view: RecordingView
+  title: string
+  listId: string
+}) {
   const player = usePlayer()
   const online = useOnline()
   const { recording, file } = view
@@ -106,7 +114,10 @@ function RecordingPlay({ view, title }: { view: RecordingView; title: string }) 
   }
   if (control === 'play') {
     return (
-      <RowButton name={playName(title)} onClick={() => player.play(item)}>
+      <RowButton
+        name={playName(title)}
+        onClick={() => player.play(item, { context: 'list', listId })}
+      >
         <PlayGlyph />
       </RowButton>
     )
@@ -168,7 +179,15 @@ function LinkPlay({ link, title }: { link: LocalRecordingLink; title: string }) 
 }
 
 /** The play control a list row carries first in its trailing edge. */
-function ListRowPlay({ source, title }: { source: RowSource | null; title: string }) {
+function ListRowPlay({
+  source,
+  title,
+  listId,
+}: {
+  source: RowSource | null
+  title: string
+  listId: string
+}) {
   if (!source) {
     return (
       <Slot>
@@ -177,7 +196,7 @@ function ListRowPlay({ source, title }: { source: RowSource | null; title: strin
     )
   }
   return source.kind === 'recording' ? (
-    <RecordingPlay view={source.view} title={title} />
+    <RecordingPlay view={source.view} title={title} listId={listId} />
   ) : (
     <LinkPlay link={source.link} title={title} />
   )
@@ -192,7 +211,7 @@ export function ListTuneRow({
   playFirst,
   trailing,
   ...rest
-}: Omit<ComponentProps<typeof TuneItem>, 'entry' | 'end' | 'description'> & {
+}: Omit<ComponentProps<typeof TuneItem>, 'entry' | 'end' | 'description' | 'scanOrigin'> & {
   entry: ListItemView
   /** The user's play-first choice, undefined until the settings row has been read. */
   playFirst: PlayFirst | undefined
@@ -205,11 +224,14 @@ export function ListTuneRow({
     <TuneItem
       {...rest}
       entry={entry}
+      scanOrigin={{ context: 'list', listId: entry.item.list_id }}
       description={shown && source === null ? NOT_PLAYABLE : undefined}
       end={
         shown || trailing ? (
           <>
-            {shown ? <ListRowPlay source={source} title={entry.tune.title} /> : null}
+            {shown ? (
+              <ListRowPlay source={source} title={entry.tune.title} listId={entry.item.list_id} />
+            ) : null}
             {trailing}
           </>
         ) : null

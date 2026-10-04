@@ -206,6 +206,21 @@ struct ClerkFailed: Error {}
         #expect(folderExists)
     }
 
+    @Test func leaveIgnoresPendingEvents() async throws {
+        let play = PlayEvent(context: "row", startedAt: .now, listenedMs: 12_000, recordingID: "r1")
+        let view = ScanView(tuneID: "t1", context: "row", startedAt: .now, viewedMs: 3_000)
+        try await store.write { writer in
+            try writer.record(play)
+            try writer.record(view)
+        }
+        #expect(try await store.pendingChangeCount() == 2)
+
+        try await leave()
+
+        #expect(log.steps == ["sync", "stop", "stopped", "end session"])
+        #expect(!folderExists)
+    }
+
     @Test func signOutRefusesWhileARecordingIsNotUploaded() async throws {
         for state in LocalFileState.notUploaded {
             try await putRecordingFile(state)
@@ -220,42 +235,42 @@ struct ClerkFailed: Error {}
         #expect(folderExists)
     }
 
-    func putNotationPage(origin: NotationOrigin) async throws {
+    func putScan(origin: ScanOrigin) async throws {
         try await store.write { writer in
             try Tune(id: "t1", title: "Soldier's Joy").insert(writer.db)
-            try NotationPageRecord(id: "p1", tuneID: "t1", width: 600, height: 800).insert(writer.db)
-            try NotationFile(pageID: "p1", fileName: "p1-a.jpg", origin: origin).insert(writer.db)
+            try ScanRecord(id: "p1", tuneID: "t1", width: 600, height: 800).insert(writer.db)
+            try ScanFile(scanID: "p1", fileName: "p1-a.jpg", origin: origin).insert(writer.db)
         }
     }
 
-    @Test func signOutRefusedWithUnuploadedPage() async throws {
-        try await putNotationPage(origin: .captured)
+    @Test func signOutRefusedWithUnuploadedScan() async throws {
+        try await putScan(origin: .captured)
 
-        await #expect(throws: AccountSession.LeaveError.unuploadedNotation) {
+        await #expect(throws: AccountSession.LeaveError.unuploadedScans) {
             try await leave()
         }
 
         #expect(log.steps == ["sync"])
         #expect(folderExists)
         #expect(
-            AccountSession.LeaveError.unuploadedNotation.errorDescription
-                == AccountSession.LeaveError.unuploadedNotationMessage)
+            AccountSession.LeaveError.unuploadedScans.errorDescription
+                == AccountSession.LeaveError.unuploadedScansMessage)
         #expect(
-            AccountSession.LeaveError.unuploadedNotationMessage
-                == "Some notation pages have not uploaded yet. Delete them from their tune, or wait until they upload.")
+            AccountSession.LeaveError.unuploadedScansMessage
+                == "Some scans have not uploaded yet. Delete them from their tune, or wait until they upload.")
     }
 
-    @Test func signOutNamesUnuploadedRecordingsBeforePages() async throws {
+    @Test func signOutNamesUnuploadedRecordingsBeforeScans() async throws {
         try await putRecordingFile(.captured)
-        try await putNotationPage(origin: .captured)
+        try await putScan(origin: .captured)
 
         await #expect(throws: AccountSession.LeaveError.unuploadedRecordings) {
             try await leave()
         }
     }
 
-    @Test func signOutLeavesWithPagesTheServerHas() async throws {
-        try await putNotationPage(origin: .downloaded)
+    @Test func signOutLeavesWithScansTheServerHas() async throws {
+        try await putScan(origin: .downloaded)
 
         try await leave()
 
@@ -422,6 +437,10 @@ final class CountingSyncAPI: SyncAPI {
         return PullPage(rows: [], nextSince: since, hasMore: false)
     }
 
+    func events(since: Int64) async throws -> EventsPage {
+        EventsPage(rows: [], nextSince: since, hasMore: false)
+    }
+
     func storage() async throws -> StorageFigures {
         StorageFigures(usedBytes: 0, quotaBytes: 0, maxFileBytes: 0)
     }
@@ -441,9 +460,9 @@ final class CountingSyncAPI: SyncAPI {
     func downloadURL(recordingID: String) async throws -> DownloadURL { throw URLError(.badURL) }
     func peaksURL(recordingID: String) async throws -> PeaksURL { throw URLError(.badURL) }
     func retryRecording(recordingID: String) async throws { throw URLError(.badURL) }
-    func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL { throw URLError(.badURL) }
-    func notationUploaded(pageID: String) async throws { throw URLError(.badURL) }
-    func notationDownload(pageID: String) async throws -> SignedURL { throw URLError(.badURL) }
+    func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL { throw URLError(.badURL) }
+    func scanUploaded(scanID: String) async throws { throw URLError(.badURL) }
+    func scanDownload(scanID: String) async throws -> SignedURL { throw URLError(.badURL) }
     func putObject(_ url: URL, file: URL, contentType: String) async throws { throw URLError(.badURL) }
     func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.badURL) }
 

@@ -1,12 +1,13 @@
 import type { CrosstuneDb } from './schema'
 
 export const META_PULL_CURSOR = 'pull_cursor'
+export const META_EVENTS_CURSOR = 'events_cursor'
 export const META_INVALID_CHANGES = 'invalid_changes'
 export const META_STORAGE = 'storage'
 export const META_KEEP_OFFLINE = 'keep_offline'
 /** Which recordings the Recordings tab lists: 'all', 'own', or an import source. */
 export const META_RECORDINGS_ORIGIN = 'recordings_origin'
-export const META_NOTATION_INVERT = 'notation_invert'
+export const META_SCAN_INVERT = 'scan_invert'
 
 export interface StorageFigures {
   used_bytes: number
@@ -31,6 +32,14 @@ export function setPullCursor(db: CrosstuneDb, cursor: number): Promise<void> {
   return setMeta(db, META_PULL_CURSOR, cursor)
 }
 
+export function getEventsCursor(db: CrosstuneDb): Promise<number> {
+  return getMeta(db, META_EVENTS_CURSOR, 0)
+}
+
+export function setEventsCursor(db: CrosstuneDb, cursor: number): Promise<void> {
+  return setMeta(db, META_EVENTS_CURSOR, cursor)
+}
+
 export function getInvalidChangeCount(db: CrosstuneDb): Promise<number> {
   return getMeta(db, META_INVALID_CHANGES, 0)
 }
@@ -52,13 +61,13 @@ export function setKeepOffline(db: CrosstuneDb, on: boolean): Promise<void> {
   return setMeta(db, META_KEEP_OFFLINE, on)
 }
 
-/** Whether this device shows notation pages as light ink on dark paper. */
-export function getNotationInvert(db: CrosstuneDb): Promise<boolean> {
-  return getMeta(db, META_NOTATION_INVERT, false)
+/** Whether this device shows scans as light ink on dark paper. */
+export function getScanInvert(db: CrosstuneDb): Promise<boolean> {
+  return getMeta(db, META_SCAN_INVERT, false)
 }
 
-export function setNotationInvert(db: CrosstuneDb, on: boolean): Promise<void> {
-  return setMeta(db, META_NOTATION_INVERT, on)
+export function setScanInvert(db: CrosstuneDb, on: boolean): Promise<void> {
+  return setMeta(db, META_SCAN_INVERT, on)
 }
 
 /** Count pushes the server refused, so a later screen can tell the user what was lost. */

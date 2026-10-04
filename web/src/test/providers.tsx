@@ -30,6 +30,7 @@ export function fakeEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     onAccountDeleted: () => () => {},
     stop: () => {},
     resume: () => {},
+    pullEvents: async () => {},
     ...overrides,
   }
 }

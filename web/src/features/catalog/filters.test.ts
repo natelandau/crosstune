@@ -3,6 +3,7 @@ import type { Instrument } from '../../api/vocabulary'
 import { tuneRow as tune, userTuneRow as userTune } from '../../test/rows'
 import {
   catalogEntries,
+  type CatalogFilters,
   DEFAULT_FILTERS,
   FACET_LABELS,
   FACETS,
@@ -10,6 +11,11 @@ import {
   filterCatalog,
   hiddenResets,
   hideArchived,
+  isFilterValue,
+  titleMatches,
+  missingChoices,
+  sheetFilterCount,
+  sheetResets,
   NO_KEY,
   normalizeFilters,
   sheetFacets,
@@ -79,6 +85,21 @@ describe('filterCatalog', () => {
     ])
   })
 
+  it('matches part of a title ignoring accents', () => {
+    const accented = catalogEntries([tune('s6', 'Été Waltz')], [userTune('u6', 's6')])
+    expect(filterCatalog(accented, DEFAULT_FILTERS, 'ete w').map((e) => e.tune.id)).toEqual(['s6'])
+  })
+
+  it('matches a facet value the shared fold calls the same', () => {
+    const spelled = catalogEntries(
+      [tune('s7', 'A', { genre: ' Fe\u0302te ' }), tune('s8', 'B', { genre: 'Fete Noire' })],
+      [userTune('u7', 's7'), userTune('u8', 's8')],
+    )
+    expect(
+      filterCatalog(spelled, { ...DEFAULT_FILTERS, genre: 'F\u00eaTE' }).map((e) => e.tune.id),
+    ).toEqual(['s7'])
+  })
+
   it('filters by status and facets', () => {
     expect(
       filterCatalog(entries, { ...DEFAULT_FILTERS, status: 'learning' }).map((e) => e.tune.id),
@@ -129,6 +150,42 @@ describe('facetValues', () => {
     expect(facets.key).toEqual(['D'])
     expect(facets.genre).toEqual(['old-time'])
     expect(filterCatalog(entries, { ...DEFAULT_FILTERS, key: 'D' })).toHaveLength(2)
+  })
+})
+
+describe('blank and sentinel values', () => {
+  const entries = catalogEntries(
+    [
+      tune('b1', 'A', { key: 'None', genre: '\u0300' }),
+      tune('b2', 'B', { key: 'D', genre: '  ' }),
+      tune('b3', 'C', { key: 'G', genre: 'All' }),
+    ],
+    [userTune('ub1', 'b1'), userTune('ub2', 'b2'), userTune('ub3', 'b3')],
+  )
+
+  it('offers no option a stored filter would read as Any or No key, or the fold calls blank', () => {
+    const facets = facetValues(entries)
+    expect(facets.key).toEqual(['D', 'G'])
+    expect(facets.genre).toEqual([])
+  })
+
+  it('reads a value that folds to nothing as missing and matches no filter with it', () => {
+    expect(
+      filterCatalog(entries, { ...DEFAULT_FILTERS, missing: 'genre' }).map((e) => e.tune.id),
+    ).toEqual(['b1', 'b2'])
+    expect(filterCatalog(entries, { ...DEFAULT_FILTERS, genre: '\u0301' })).toEqual([])
+  })
+
+  it('never calls a query the fold calls blank a title match', () => {
+    expect(titleMatches(tune('m1', '\u0301'), '\u0300')).toBe(false)
+  })
+
+  it('tells which values can be a filter', () => {
+    expect(isFilterValue('genre', 'Irish')).toBe(true)
+    expect(isFilterValue('genre', ' ALL ')).toBe(false)
+    expect(isFilterValue('genre', '\u0300')).toBe(false)
+    expect(isFilterValue('genre', 'None')).toBe(true)
+    expect(isFilterValue('key', 'n\u00f3ne')).toBe(false)
   })
 })
 
@@ -308,5 +365,100 @@ describe('tunes with no key', () => {
 
   it('keeps no key as a stored filter', () => {
     expect(normalizeFilters({ key: NO_KEY }).key).toBe(NO_KEY)
+  })
+})
+
+describe('unheard', () => {
+  const build = (heard: ReadonlySet<string>) =>
+    catalogEntries(
+      [tune('h1', 'Heard'), tune('h2', 'Silent')],
+      [userTune('hu1', 'h1'), userTune('hu2', 'h2')],
+      heard,
+    )
+
+  it('unheard keeps tunes with no recording or link', () => {
+    const heard = new Set(['h1'])
+    const entries = build(heard)
+    expect(entries.map((e) => e.heard)).toEqual([true, false])
+    expect(
+      filterCatalog(entries, { ...DEFAULT_FILTERS, unheard: true }).map((e) => e.tune.id),
+    ).toEqual(['h2'])
+    expect(filterCatalog(entries, DEFAULT_FILTERS)).toHaveLength(2)
+  })
+})
+
+describe('missing', () => {
+  const entries = catalogEntries(
+    [
+      tune('m1', 'Full', {
+        key: 'D',
+        modes: ['major'],
+        composer: 'Anon',
+        tunings: { violin: { tuning: 'ADAE' } },
+      }),
+      tune('m2', 'Bare', { key: '  ', composer: '' }),
+    ],
+    [userTune('mu1', 'm1', { learned_from: 'Sam' }), userTune('mu2', 'm2')],
+  )
+  const ids = (missing: CatalogFilters['missing']) =>
+    filterCatalog(entries, { ...DEFAULT_FILTERS, missing }).map((e) => e.tune.id)
+
+  it('missing key matches no-key tunes', () => {
+    expect(ids('key')).toEqual(['m2'])
+    expect(ids('key')).toEqual(
+      filterCatalog(entries, { ...DEFAULT_FILTERS, key: NO_KEY }).map((e) => e.tune.id),
+    )
+  })
+
+  it('reads blank text, empty modes, and a missing tuning as missing', () => {
+    expect(ids('composer')).toEqual(['m2'])
+    expect(ids('mode')).toEqual(['m2'])
+    expect(ids('tuning:violin')).toEqual(['m2'])
+    expect(ids('genre')).toEqual(['m2', 'm1'])
+    expect(ids('all')).toEqual(['m2', 'm1'])
+  })
+
+  it('missing learned from reads the user tune', () => {
+    expect(ids('learned_from')).toEqual(['m2'])
+    expect(ids('learned_on')).toEqual(['m2', 'm1'])
+  })
+
+  it('missing choices list only attributes some tune holds', () => {
+    expect(missingChoices(entries)).toEqual([
+      'key',
+      'mode',
+      'composer',
+      'tuning:violin',
+      'learned_from',
+    ])
+    expect(missingChoices([])).toEqual([])
+  })
+
+  it('counts and resets the new sheet filters', () => {
+    const set = { ...DEFAULT_FILTERS, unheard: true, missing: 'genre' as const }
+    expect(sheetFilterCount(set, [])).toBe(2)
+    expect(sheetResets([])).toMatchObject({ unheard: false, missing: 'all' })
+  })
+
+  it('resets a missing tuning whose facet is hidden', () => {
+    expect(hiddenResets([], 'tuning:violin')).toMatchObject({ missing: 'all' })
+    expect(hiddenResets([], 'composer')).not.toHaveProperty('missing')
+    expect(hiddenResets(['tuning:violin'], 'tuning:violin')).not.toHaveProperty('missing')
+  })
+})
+
+describe('stored filters without the new keys', () => {
+  it('stored filters without the new keys normalize to defaults', () => {
+    const filters = normalizeFilters({ key: 'D' })
+    expect(filters.unheard).toBe(false)
+    expect(filters.missing).toBe('all')
+    expect(normalizeFilters({ unheard: true, missing: 'composer' })).toMatchObject({
+      unheard: true,
+      missing: 'composer',
+    })
+    expect(normalizeFilters({ unheard: 'yes', missing: 'bogus' })).toMatchObject({
+      unheard: false,
+      missing: 'all',
+    })
   })
 })

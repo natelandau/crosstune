@@ -72,7 +72,7 @@ export function usePracticeSettings({
         : {
             speedPercent: speed === rowSpeed ? null : speed,
             pitchCents: pitch === rowPitch ? null : pitch,
-            shown: true,
+            trimming: false,
           }
     ownHold.current = settings
     recordingScreen.hold(recordingId, settings)

@@ -1,4 +1,4 @@
-import { IonButton, IonList, useIonRouter } from '@ionic/react'
+import { IonButton, IonList, useIonRouter, useIonViewWillEnter } from '@ionic/react'
 import { Archive, ArchiveRestore, Ellipsis, Music, Plus, SquarePen } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../../api/vocabulary'
@@ -13,11 +13,12 @@ import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
 import { useAction } from '../../ui/useAction'
 import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
-import { useNotationTuneIds } from '../notation/useNotationPages'
+import { useScanTuneIds } from '../scans/useScans'
 import { SelectionFooter } from '../selection/SelectionFooter'
 import { useSelectionToolbar } from '../selection/SelectionToolbar'
 import { useBulkActions, type SelectionContext } from '../selection/useBulkActions'
 import { useSelection } from '../selection/useSelection'
+import { isTuningKey } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from '../tune/archiveLabels'
 import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
@@ -27,12 +28,13 @@ import {
   facetValues,
   filterCatalog,
   hiddenResets,
+  missingChoices,
   hideArchived,
   sheetFilterCount,
   tuneCountLabel,
   visibleFacets,
   DEFAULT_FILTERS,
-  type CatalogEntry,
+  type HeardEntry,
   type CatalogFilters as Filters,
 } from './filters'
 import { enterAction, searchOutcome, type SearchOutcome } from './searchIntent'
@@ -48,7 +50,7 @@ export const NO_TUNES_HINT = 'Add the first tune you know.'
 export const NO_TUNES_TITLE = 'No tunes yet'
 export const NOTHING_MATCHES = 'Nothing matches'
 
-const NO_ENTRIES: CatalogEntry[] = []
+const NO_ENTRIES: HeardEntry[] = []
 const NO_INSTRUMENTS: ReadonlySet<Instrument> = new Set()
 const CATALOG: SelectionContext = { kind: 'catalog' }
 // Every suggestion under the search leads off the screen, and leaving drops the selection, so
@@ -56,10 +58,10 @@ const CATALOG: SelectionContext = { kind: 'catalog' }
 const NO_OUTCOME: SearchOutcome = { kind: 'none' }
 
 export function CatalogPage() {
-  const loadedEntries = useCatalog()
+  const loadedEntries = useCatalog(true, { heard: true })
   const [storedFilters, updateFilters, filterError] = useCatalogFilters()
   const loadedInstruments = useInstruments()
-  const notationTunes = useNotationTuneIds()
+  const scanTunes = useScanTuneIds()
   // One Screen whether or not the data has loaded: swapping the IonPage element after the
   // router outlet has mounted it would leave the outlet holding a detached page.
   const ready =
@@ -71,6 +73,9 @@ export function CatalogPage() {
   const router = useIonRouter()
   const { error, run } = useAction()
   const [query, setQuery] = useState(() => readSearchQuery('catalog'))
+  // Another screen can clear the search on its way here, such as a stats value opening the
+  // catalog filtered by it, and the outlet keeps this page mounted while it is away.
+  useIonViewWillEnter(() => setQuery(readSearchQuery('catalog')))
   const [sheetOpen, setSheetOpen] = useState(false)
   const [form, setForm] = useState<TuneFormTarget | null>(null)
   const searchRef = useRef<SearchFieldHandle>(null)
@@ -80,7 +85,17 @@ export function CatalogPage() {
   const visibleFacetList = useMemo(() => visibleFacets(facets, instruments), [facets, instruments])
   // A facet the musician cannot see must not narrow the list, and every write forgets it, so
   // turning an instrument back on later does not bring a stale filter back with it.
-  const resets = useMemo(() => hiddenResets(visibleFacetList), [visibleFacetList])
+  const resets = useMemo(
+    () => hiddenResets(visibleFacetList, filters.missing),
+    [visibleFacetList, filters.missing],
+  )
+  const missingOptions = useMemo(
+    () =>
+      missingChoices(entries).filter(
+        (attribute) => !isTuningKey(attribute) || visibleFacetList.includes(attribute),
+      ),
+    [entries, visibleFacetList],
+  )
   const effective = useMemo(() => ({ ...filters, ...resets }), [filters, resets])
   const update = useCallback(
     (patch: Partial<Filters>) => void updateFilters({ ...resets, ...patch }),
@@ -274,7 +289,7 @@ export function CatalogPage() {
                       selection={active ? row : undefined}
                       onOpen={() => openTune(tune.id)}
                       onLongPress={sheetOwnsScreen ? undefined : row.onLongPress}
-                      hasNotation={notationTunes.has(tune.id)}
+                      hasScans={scanTunes.has(tune.id)}
                       actions={
                         active
                           ? undefined
@@ -312,6 +327,7 @@ export function CatalogPage() {
             filters={effective}
             facets={facets}
             visible={visibleFacetList}
+            missing={missingOptions}
             counts={counts}
             onChange={update}
             onClose={() => setSheetOpen(false)}

@@ -1,0 +1,32 @@
+import { deleteScan } from '../../commands/scans'
+import { useDb } from '../../db/DbProvider'
+import type { ScanFile } from '../../db/scans'
+import type { LocalScan } from '../../db/types'
+import { DELETE, useConfirm } from '../../ui/Confirm'
+import { useAction } from '../../ui/useAction'
+import { DELETE_SYNCED_NOTE, DELETE_UNSYNCED_NOTE } from '../recordings/recordingRow'
+import { DELETE_SCAN_TITLE } from './scanCopy'
+
+/** Deletes a scan once the musician confirms, saying first whether it can come back. */
+export function useDeleteScan() {
+  const db = useDb()
+  const confirm = useConfirm()
+  const { error, run, clear } = useAction()
+
+  const remove = async (scan: LocalScan, file: ScanFile | undefined) => {
+    // A captured file is the only copy until it uploads.
+    const unsynced = file?.origin === 'captured'
+    const ok = await confirm({
+      title: DELETE_SCAN_TITLE,
+      message: unsynced ? DELETE_UNSYNCED_NOTE : DELETE_SYNCED_NOTE,
+      action: DELETE,
+    })
+    if (ok) run(() => deleteScan(db, scan.id))
+  }
+
+  return {
+    error,
+    clear,
+    remove: (scan: LocalScan, file: ScanFile | undefined) => void remove(scan, file),
+  }
+}

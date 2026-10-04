@@ -23,6 +23,8 @@ export interface PlaybackState {
   loop: { id: string; label: string } | null
   /** Whether reaching the end of the loop jumps back to its start. */
   repeat: boolean
+  speedPercent: number
+  pitchCents: number
 }
 
 /** A span of the loaded blob to repeat, in seconds like `PlaybackWindow`. */
@@ -106,6 +108,8 @@ export class PlaybackEngine {
     pitchUnavailable: false,
     loop: null,
     repeat: false,
+    speedPercent: 100,
+    pitchCents: 0,
   }
   private loop: PlaybackLoop | null = null
   private repeat = false
@@ -115,6 +119,7 @@ export class PlaybackEngine {
   private cancelEndTimer: (() => void) | null = null
   private readonly listeners = new Set<(state: PlaybackState) => void>()
   private readonly jumpListeners = new Set<() => void>()
+  private readonly endListeners = new Set<() => void>()
   private stopTick: (() => void) | null = null
   private ticksSinceReport = 0
 
@@ -163,6 +168,13 @@ export class PlaybackEngine {
     return () => this.jumpListeners.delete(fn)
   }
 
+  /** Calls `fn` whenever playback stops at the end of the trim range or the media. A loop
+   * wrapping back to its start is not an end. */
+  onEnded = (fn: () => void): (() => void) => {
+    this.endListeners.add(fn)
+    return () => this.endListeners.delete(fn)
+  }
+
   /** A stable reference between changes, for `useSyncExternalStore`. */
   getState = (): PlaybackState => {
     return this.state
@@ -196,7 +208,14 @@ export class PlaybackEngine {
     // Always notify: useLoopFollow hands back a kept loop's range on this, even when the
     // reload leaves every field as it was.
     this.setState(
-      { playing: false, positionMs: 0, lengthMs: this.span.lengthMs, failed: false },
+      {
+        playing: false,
+        positionMs: 0,
+        lengthMs: this.span.lengthMs,
+        failed: false,
+        speedPercent: settings.speedPercent,
+        pitchCents: settings.pitchCents,
+      },
       { force: true },
     )
     this.stopTick = this.clock.every(TICK_MS, this.tick)
@@ -250,6 +269,7 @@ export class PlaybackEngine {
   setSpeed(percent: number): void {
     this.applySpeed(percent)
     this.updateTranspose()
+    this.setState({ speedPercent: percent })
     this.reportPosition()
   }
 
@@ -257,6 +277,7 @@ export class PlaybackEngine {
     this.#pitchCents = cents
     if (cents !== 0) this.ensurePitchStage()
     this.updateTranspose()
+    this.setState({ pitchCents: cents })
   }
 
   setWindow(span: PlaybackWindow): void {
@@ -367,6 +388,7 @@ export class PlaybackEngine {
     }
     this.setState({ playing: false })
     this.reportPosition()
+    this.ended()
   }
 
   private readonly onElementDuration = (): void => {
@@ -398,6 +420,7 @@ export class PlaybackEngine {
       this.element.currentTime = this.span.fromS
       this.setState({ positionMs: 0 })
       this.jumped()
+      this.ended()
     } else {
       this.setState({ positionMs: this.positionMsFor(this.element.currentTime) })
     }
@@ -484,6 +507,10 @@ export class PlaybackEngine {
   private jumped(): void {
     this.reportPosition()
     for (const fn of this.jumpListeners) fn()
+  }
+
+  private ended(): void {
+    for (const fn of this.endListeners) fn()
   }
 
   private cancelTimer(): void {

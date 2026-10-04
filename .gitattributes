@@ -1,2 +1,3 @@
-# The export fixtures pin exact bytes, line endings included.
+# The shared fixtures pin exact bytes, line endings included, for both clients.
 fixtures/export/** -text
+fixtures/stats/** -text

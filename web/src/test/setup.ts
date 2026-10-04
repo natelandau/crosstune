@@ -58,3 +58,8 @@ if (typeof window !== 'undefined' && typeof ResizeObserver === 'undefined') {
 if (typeof HTMLCanvasElement !== 'undefined') {
   HTMLCanvasElement.prototype.getContext = () => null
 }
+
+// jsdom implements no media playback and logs "Not implemented" on every pause().
+if (typeof HTMLMediaElement !== 'undefined') {
+  HTMLMediaElement.prototype.pause = () => {}
+}

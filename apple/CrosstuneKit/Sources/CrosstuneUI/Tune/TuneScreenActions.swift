@@ -2,7 +2,7 @@ import CrosstuneStore
 import SwiftUI
 
 /// What the tune screen starts but another part of the app owns: the list picker, the paste
-/// link and Find recordings sheets, the record sheet, the lyrics reader, and the notation viewer.
+/// link and Find recordings sheets, the record sheet, the lyrics reader, and the scan viewer.
 /// The shell supplies them; a control whose action is missing shows disabled.
 public struct TuneScreenActions {
     /// Opens the list picker for the musician's own row of a tune.
@@ -16,21 +16,22 @@ public struct TuneScreenActions {
     public var record: (@MainActor (_ tuneID: String) -> Void)?
     /// Opens a tune's lyrics to read.
     public var readLyrics: (@MainActor (_ tuneID: String) -> Void)?
-    /// Opens a tune's notation pages full screen, on the page at `startIndex`. Tune rows offer it
-    /// too, at the first page.
-    public var viewNotation: (@MainActor (_ tuneID: String, _ startIndex: Int) -> Void)?
+    /// Opens a tune's scans full screen, on the scan at `startIndex`, logging each look as
+    /// opened from `origin`. Tune rows offer it too, at the first scan.
+    public var viewScans: (@MainActor (_ tuneID: String, _ startIndex: Int, _ origin: ScanViewOrigin) -> Void)?
 
     public init(
         addToList: (@MainActor (String) -> Void)? = nil, addLink: (@MainActor (String) -> Void)? = nil,
         findRecordings: (@MainActor (String, String?) -> Void)? = nil, record: (@MainActor (String) -> Void)? = nil,
-        readLyrics: (@MainActor (String) -> Void)? = nil, viewNotation: (@MainActor (String, Int) -> Void)? = nil
+        readLyrics: (@MainActor (String) -> Void)? = nil,
+        viewScans: (@MainActor (String, Int, ScanViewOrigin) -> Void)? = nil
     ) {
         self.addToList = addToList
         self.addLink = addLink
         self.findRecordings = findRecordings
         self.record = record
         self.readLyrics = readLyrics
-        self.viewNotation = viewNotation
+        self.viewScans = viewScans
     }
 }
 

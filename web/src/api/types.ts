@@ -9,6 +9,8 @@ export type PushResponse = Schemas['PushResponse']
 export type PullResponse = Schemas['PullResponse']
 export type ChangeResult = PushResponse['results'][number]
 export type PullRow = PullResponse['rows'][number]
+export type EventsResponse = Schemas['EventsResponse']
+export type EventRow = EventsResponse['rows'][number]
 export type ResolveResponse = Schemas['ResolveResponse']
 export type SearchResponse = Schemas['SearchResponse']
 export type SearchGroup = Schemas['SearchGroup']
@@ -19,21 +21,27 @@ export type TuneRow = Schemas['TuneRow']
 export type UserTuneRow = Schemas['UserTuneRow']
 export type RecordingLinkRow = Schemas['RecordingLinkRow']
 export type RecordingLoopRow = Schemas['RecordingLoopRow']
-export type NotationPageRow = Schemas['NotationPageRow']
+export type ScanRow = Schemas['ScanRow']
 export type ListRow = Schemas['ListRow']
 export type ListItemRow = Schemas['ListItemRow']
 export type UserSettingsRow = Schemas['UserSettingsRow']
 export type RecordingRow = Schemas['RecordingRow']
+export type PlayEventRow = Schemas['PlayEventRow']
+export type PracticeSessionRow = Schemas['PracticeSessionRow']
+export type ScanViewRow = Schemas['ScanViewRow']
+export type StatusChangeRow = Schemas['StatusChangeRow']
 export type MeResponse = Schemas['MeResponse']
 export type SignedUrl = Schemas['SignedUrl']
 export type DownloadUrl = Schemas['DownloadUrl']
 export type PeaksUrl = Schemas['PeaksUrl']
 export type UploadSlotRequest = Schemas['UploadSlotRequest']
-export type NotationUploadSlotRequest = Schemas['NotationUploadSlotRequest']
+export type ScanUploadSlotRequest = Schemas['ScanUploadSlotRequest']
 
 export interface SyncApi {
   push(changes: Change[]): Promise<PushResponse>
   pull(since: number): Promise<PullResponse>
+  /** A page of plays, practice sessions, scan views, and status changes after the events cursor. */
+  events(since: number): Promise<EventsResponse>
   resolveLink(url: string): Promise<ResolveResponse>
   searchRecordings(q: string, providers: Provider[], country: string): Promise<SearchResponse>
   me(): Promise<MeResponse>
@@ -46,9 +54,9 @@ export interface SyncApi {
   downloadUrl(recordingId: string): Promise<DownloadUrl>
   /** The revision it carries is what the server signed the URL for. */
   peaksUrl(recordingId: string): Promise<PeaksUrl>
-  requestNotationUploadSlot(pageId: string, body: NotationUploadSlotRequest): Promise<SignedUrl>
-  notationUploadFinished(pageId: string): Promise<void>
-  notationDownloadUrl(pageId: string): Promise<SignedUrl>
+  requestScanUploadSlot(scanId: string, body: ScanUploadSlotRequest): Promise<SignedUrl>
+  scanUploadFinished(scanId: string): Promise<void>
+  scanDownloadUrl(scanId: string): Promise<SignedUrl>
   /** PUT bytes to a presigned URL. No bearer token: the signature is the credential. */
   putObject(url: string, blob: Blob, contentType: string): Promise<void>
   /** GET bytes from a presigned URL. No bearer token: the signature is the credential. */

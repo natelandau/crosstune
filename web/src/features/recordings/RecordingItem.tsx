@@ -94,7 +94,7 @@ export function RecordingItem({
     control === 'close'
       ? { onOpen: () => player.close(), openName: CLOSE_PLAYER }
       : control === 'play'
-        ? { onOpen: () => player.play(item), openName: PLAY }
+        ? { onOpen: () => player.play(item, { context: 'row' }), openName: PLAY }
         : control === 'download'
           ? {
               // Refused rather than disabled while offline, so the control keeps its tap and

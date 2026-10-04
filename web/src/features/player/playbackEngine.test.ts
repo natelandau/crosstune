@@ -180,6 +180,35 @@ describe('PlaybackEngine', () => {
     expect(element.preservesPitch).toBe(true)
   })
 
+  it('reports the speed and pitch it plays at', () => {
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    engine.load('blob:test', span, { speedPercent: 80, pitchCents: 200 }, meta)
+    expect(engine.getState()).toMatchObject({ speedPercent: 80, pitchCents: 200 })
+    engine.setSpeed(75)
+    engine.setPitch(-100)
+    expect(engine.getState()).toMatchObject({ speedPercent: 75, pitchCents: -100 })
+  })
+
+  it('a load notifies once, with the new recording whole', () => {
+    const element = fakeElement()
+    const { clock } = fakeClock()
+    const engine = new PlaybackEngine(element as unknown as HTMLAudioElement, clock)
+    engine.load('blob:one', span, settings, meta)
+    const states: PlaybackState[] = []
+    engine.subscribe((state) => states.push(state))
+    engine.load(
+      'blob:two',
+      { fromS: 0, toS: 4, lengthMs: 4000 },
+      { speedPercent: 70, pitchCents: 100 },
+      meta,
+    )
+    expect(states).toEqual([
+      expect.objectContaining({ lengthMs: 4000, speedPercent: 70, pitchCents: 100 }),
+    ])
+  })
+
   it('reports positionMs relative to the trim start', () => {
     const element = fakeElement()
     const { clock, tick } = fakeClock()
@@ -287,6 +316,8 @@ describe('PlaybackEngine', () => {
       pitchUnavailable: false,
       loop: null,
       repeat: false,
+      speedPercent: 100,
+      pitchCents: 0,
     })
     element.currentTime = 999
     tick()
@@ -953,6 +984,32 @@ describe('PlaybackEngine loops', () => {
     fire()
     expect(element.currentTime).toBe(3.96)
     expect(after).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports reaching the end of the range or the media as an end, but never a wrap', () => {
+    const { element, engine, tick } = setup()
+    const ends = vi.fn()
+    const stop = engine.onEnded(ends)
+    engine.setLoop(loop)
+    engine.setRepeat(true)
+    engine.play()
+    element.currentTime = 3
+    tick()
+    element.currentTime = 4.02
+    tick()
+    expect(ends).not.toHaveBeenCalled()
+
+    engine.setRepeat(false)
+    element.currentTime = 10
+    tick()
+    expect(ends).toHaveBeenCalledTimes(1)
+
+    engine.play()
+    element.dispatchEvent(new Event('ended'))
+    expect(ends).toHaveBeenCalledTimes(2)
+    stop()
+    element.dispatchEvent(new Event('ended'))
+    expect(ends).toHaveBeenCalledTimes(2)
   })
 
   it('wraps and plays again when a tick finds the media ended at the loop end', () => {

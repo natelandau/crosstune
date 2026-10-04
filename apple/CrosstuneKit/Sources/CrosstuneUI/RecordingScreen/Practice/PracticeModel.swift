@@ -367,7 +367,13 @@ final class PracticeModel {
         drafts[key] = nil
     }
 
-    // MARK: Leaving
+    // MARK: Arriving and leaving
+
+    /// The screen is showing: the time spent on it until the sheet holding it goes is one visit
+    /// to the recording, however often it shows again in between.
+    func enter() {
+        player.screenOpened(recording.id)
+    }
 
     /// The screen is going: a nudge and a name field that lost focus are written, a scrub lands
     /// where it was dragged, and a handle's drag comes to nothing.

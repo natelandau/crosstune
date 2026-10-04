@@ -23,7 +23,8 @@ struct CatalogStandIn: View {
         let results = CatalogResults(
             entries: entries, instruments: SampleCatalog.instruments, filters: filters, facetValues: values,
             facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments), visible: visible,
-            outcome: outcome, total: total, archivedCount: entries.count(where: \.isArchived))
+            outcome: outcome, total: total, archivedCount: entries.count(where: \.isArchived),
+            missingChoices: CatalogSearch.missingChoices(entries))
         VStack(alignment: .leading, spacing: 8) {
             FilterSearchField(
                 prompt: CatalogScreen.searchPrompt,

@@ -11,10 +11,14 @@ from pydantic import BaseModel, Field
 from crosstune.schemas.rows import (
     ListItemRow,
     ListRow,
-    NotationPageRow,
+    PlayEventRow,
+    PracticeSessionRow,
     RecordingLinkRow,
     RecordingLoopRow,
     RecordingRow,
+    ScanRow,
+    ScanViewRow,
+    StatusChangeRow,
     TuneRow,
     UserSettingsRow,
     UserTuneRow,
@@ -87,11 +91,11 @@ class RecordingChangeResult(_ChangeResult):
     row: RecordingRow | None = None
 
 
-class NotationPageChangeResult(_ChangeResult):
-    """The outcome of one change to a notation page."""
+class ScanChangeResult(_ChangeResult):
+    """The outcome of one change to a scan."""
 
-    table: Literal["notation_pages"]
-    row: NotationPageRow | None = None
+    table: Literal["scans"]
+    row: ScanRow | None = None
 
 
 class RecordingLoopChangeResult(_ChangeResult):
@@ -108,6 +112,27 @@ class UserSettingsChangeResult(_ChangeResult):
     row: UserSettingsRow | None = None
 
 
+class PlayEventChangeResult(_ChangeResult):
+    """The outcome of pushing one play."""
+
+    table: Literal["play_events"]
+    row: PlayEventRow | None = None
+
+
+class PracticeSessionChangeResult(_ChangeResult):
+    """The outcome of pushing one practice session."""
+
+    table: Literal["practice_sessions"]
+    row: PracticeSessionRow | None = None
+
+
+class ScanViewChangeResult(_ChangeResult):
+    """The outcome of pushing one scan view."""
+
+    table: Literal["scan_views"]
+    row: ScanViewRow | None = None
+
+
 ChangeResult = Annotated[
     TuneChangeResult
     | UserTuneChangeResult
@@ -115,9 +140,12 @@ ChangeResult = Annotated[
     | ListItemChangeResult
     | RecordingLinkChangeResult
     | RecordingChangeResult
-    | NotationPageChangeResult
+    | ScanChangeResult
     | RecordingLoopChangeResult
-    | UserSettingsChangeResult,
+    | UserSettingsChangeResult
+    | PlayEventChangeResult
+    | PracticeSessionChangeResult
+    | ScanViewChangeResult,
     Field(discriminator="table"),
 ]
 
@@ -128,9 +156,12 @@ CHANGE_RESULTS: dict[TableName, type[_ChangeResult]] = {
     "list_items": ListItemChangeResult,
     "recording_links": RecordingLinkChangeResult,
     "recordings": RecordingChangeResult,
-    "notation_pages": NotationPageChangeResult,
+    "scans": ScanChangeResult,
     "recording_loops": RecordingLoopChangeResult,
     "user_settings": UserSettingsChangeResult,
+    "play_events": PlayEventChangeResult,
+    "practice_sessions": PracticeSessionChangeResult,
+    "scan_views": ScanViewChangeResult,
 }
 
 
@@ -176,11 +207,11 @@ class RecordingPullRow(BaseModel):
     row: RecordingRow
 
 
-class NotationPagePullRow(BaseModel):
-    """A notation page row in a pull page."""
+class ScanPullRow(BaseModel):
+    """A scan row in a pull page."""
 
-    table: Literal["notation_pages"]
-    row: NotationPageRow
+    table: Literal["scans"]
+    row: ScanRow
 
 
 class RecordingLoopPullRow(BaseModel):
@@ -204,7 +235,7 @@ PullRow = Annotated[
     | ListItemPullRow
     | RecordingLinkPullRow
     | RecordingPullRow
-    | NotationPagePullRow
+    | ScanPullRow
     | RecordingLoopPullRow
     | UserSettingsPullRow,
     Field(discriminator="table"),
@@ -217,7 +248,7 @@ PULL_ROWS: dict[TableName, type[BaseModel]] = {
     "list_items": ListItemPullRow,
     "recording_links": RecordingLinkPullRow,
     "recordings": RecordingPullRow,
-    "notation_pages": NotationPagePullRow,
+    "scans": ScanPullRow,
     "recording_loops": RecordingLoopPullRow,
     "user_settings": UserSettingsPullRow,
 }
@@ -239,5 +270,47 @@ class PullResponse(BaseModel):
     """A page of rows changed since the given cursor."""
 
     rows: list[PullRow]
+    next_since: int
+    has_more: bool
+
+
+class PlayEventPullRow(BaseModel):
+    """A play row in an events page."""
+
+    table: Literal["play_events"]
+    row: PlayEventRow
+
+
+class PracticeSessionPullRow(BaseModel):
+    """A practice session row in an events page."""
+
+    table: Literal["practice_sessions"]
+    row: PracticeSessionRow
+
+
+class ScanViewPullRow(BaseModel):
+    """A scan view row in an events page."""
+
+    table: Literal["scan_views"]
+    row: ScanViewRow
+
+
+class StatusChangePullRow(BaseModel):
+    """A status change row in an events page."""
+
+    table: Literal["status_changes"]
+    row: StatusChangeRow
+
+
+EventRow = Annotated[
+    PlayEventPullRow | PracticeSessionPullRow | ScanViewPullRow | StatusChangePullRow,
+    Field(discriminator="table"),
+]
+
+
+class EventsResponse(BaseModel):
+    """A page of history rows after the given cursor."""
+
+    rows: list[EventRow]
     next_since: int
     has_more: bool

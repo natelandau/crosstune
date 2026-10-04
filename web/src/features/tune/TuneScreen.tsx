@@ -22,7 +22,7 @@ import { ADD_TO_LIST, ListPicker } from '../lists/ListPicker'
 import { useLists, useMembership } from '../lists/useLists'
 import { lyricOpening } from '../lyrics/lyricLines'
 import { LyricsModal } from '../lyrics/LyricsModal'
-import { NotationSection } from '../notation/NotationSection'
+import { ScansSection } from '../scans/ScansSection'
 import { useRecordingsWithFiles, type RecordingView } from '../recordings/useRecordings'
 import { tuningDisplay, tuningInstruments, tuningKey } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
@@ -307,7 +307,7 @@ function TuneBody({
 
       <TuneMedia tuneId={tune.id} recordings={recordings} links={links} />
 
-      <NotationSection tuneId={tune.id} />
+      <ScansSection tuneId={tune.id} />
 
       {/* Words, not a body: whitespace alone would open the reading view on a blank page. */}
       {hasLyrics ? (

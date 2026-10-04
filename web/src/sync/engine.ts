@@ -1,11 +1,11 @@
 import * as Sentry from '@sentry/react'
 import { ApiError, NetworkError, NoTokenError } from '../api/client'
 import type { Change, ResolveResponse } from '../api/types'
-import { countInvalidChanges, getPullCursor } from '../db/meta'
+import { countInvalidChanges, getEventsCursor, getPullCursor } from '../db/meta'
 import { PUSH_BATCH_SIZE, pendingBatch } from '../db/outbox'
 import type { CrosstuneDb } from '../db/schema'
-import { applyPullPage, applyPushResults, type InvalidChange } from './apply'
-import { notationDownloadPass, notationUploadPass } from './notationTransfers'
+import { applyEventsPage, applyPullPage, applyPushResults, type InvalidChange } from './apply'
+import { scanDownloadPass, scanUploadPass } from './scanTransfers'
 import {
   createDownloadRetries,
   downloadOne,
@@ -203,12 +203,30 @@ export function createSyncEngine({
     }
   }
 
+  async function pullEvents(): Promise<void> {
+    let since = await getEventsCursor(db)
+    for (;;) {
+      const page = await api.events(since)
+      await applyEventsPage(db, page.rows, page.next_since)
+      since = page.next_since
+      if (!page.has_more) return
+    }
+  }
+
+  // The sync run and the events pull take turns, so an events page never lands mid-push.
+  let turn: Promise<unknown> = Promise.resolve()
+  function inTurn(run: () => Promise<void>): Promise<void> {
+    const next = turn.then(run)
+    turn = next.catch(() => undefined)
+    return next
+  }
+
   // One fetch per recording at a time, whether the download pass, a Play tap, or another caller asks.
   const fetchOne = oncePerKey((id) => downloadOne(db, api, id))
   const fetchPeaksOnce = oncePerKey((id) => fetchPeaks(db, api, id))
 
   const downloadRetries = createDownloadRetries()
-  const notationRetries = createDownloadRetries()
+  const scanRetries = createDownloadRetries()
 
   function stop() {
     stopped = true
@@ -239,10 +257,10 @@ export function createSyncEngine({
     run: () =>
       watchingForDeletion(async () => {
         // A row's own transient failure is held rather than thrown immediately, so the
-        // later passes still run; the first is rethrown below once they have. Pages go
+        // later passes still run; the first is rethrown below once they have. Scans go
         // first: they are small, and the reading view needs them more than any one recording.
-        const notationUploadError = await notationUploadPass(db, api)
-        const notationDownloadError = await notationDownloadPass(db, api, notationRetries).then(
+        const scanUploadError = await scanUploadPass(db, api)
+        const scanDownloadError = await scanDownloadPass(db, api, scanRetries).then(
           () => null,
           (error: unknown) => {
             if (isAuthFailure(error)) throw error
@@ -251,7 +269,7 @@ export function createSyncEngine({
         )
         const uploadError = await uploadPass(db, api)
         await downloadPass(db, api, fetchOne, downloadRetries, fetchPeaksOnce)
-        const held = notationUploadError ?? notationDownloadError ?? uploadError
+        const held = scanUploadError ?? scanDownloadError ?? uploadError
         if (held) throw held
       }),
     // A failed fetch while the browser reports a connection means the storage host or a
@@ -264,21 +282,27 @@ export function createSyncEngine({
     idle: 'idle',
     busy: 'syncing',
     run: () =>
-      watchingForDeletion(async () => {
-        // Safe to run every pass: a capture is recovered only once no tab holds its
-        // lock, falling back to last-chunk staleness where there is no lock manager.
-        await recoverInterruptedCaptures(db)
-        await push()
-        await pull()
-        try {
-          await refreshStorage(db, api)
-        } catch (error) {
-          // Storage figures are informational; only an auth failure should fail a sync
-          // whose push and pull already landed.
-          if (isAuthFailure(error)) throw error
-        }
-        syncedAt = new Date().toISOString()
-      }),
+      // A stop while waiting for an events pull, such as a deleted account, means the database
+      // may be on its way out.
+      inTurn(() =>
+        stopped
+          ? Promise.resolve()
+          : watchingForDeletion(async () => {
+              // Safe to run every pass: a capture is recovered only once no tab holds its
+              // lock, falling back to last-chunk staleness where there is no lock manager.
+              await recoverInterruptedCaptures(db)
+              await push()
+              await pull()
+              try {
+                await refreshStorage(db, api)
+              } catch (error) {
+                // Storage figures are informational; only an auth failure should fail a sync
+                // whose push and pull already landed.
+                if (isAuthFailure(error)) throw error
+              }
+              syncedAt = new Date().toISOString()
+            }),
+      ),
     classify: (error) => classifyFailure(error, isOnline),
     isStopped: () => stopped,
     // A pushed row can now take its upload, and a pulled one its download.
@@ -293,6 +317,11 @@ export function createSyncEngine({
     transfer: transfers.trigger,
     transferStatus: transfers.status,
     subscribeTransfer: transfers.subscribe,
+    async pullEvents(): Promise<void> {
+      if (stopped || !isOnline()) return
+      // A stop while waiting for the sync run means the database may be on its way out.
+      await inTurn(() => (stopped ? Promise.resolve() : watchingForDeletion(pullEvents)))
+    },
     async resolveLink(url: string): Promise<ResolveResponse | null> {
       if (!isOnline()) return null
       try {

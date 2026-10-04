@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     local_storage_browser_endpoint_url: str = ""
     storage_quota_bytes: int = 1_073_741_824
     recording_max_file_bytes: int = 52_428_800
-    notation_max_file_bytes: int = 5_242_880
+    scan_max_file_bytes: int = 5_242_880
     orphan_sweep_seconds: float = 3600.0
 
     @property

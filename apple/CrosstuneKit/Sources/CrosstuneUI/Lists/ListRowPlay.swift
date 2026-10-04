@@ -226,6 +226,6 @@ struct ListRowPlayButton: View {
         if listPlayback?.isActive == true {
             player?.close()
         }
-        player?.play(item)
+        player?.play(item, origin: .list(id: listID))
     }
 }

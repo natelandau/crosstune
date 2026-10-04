@@ -7,6 +7,8 @@ public protocol SyncAPI: Sendable {
     func push(_ changes: [Change]) async throws -> [PushResult]
     /// One page of rows the server changed after `since`.
     func pull(since: Int64) async throws -> PullPage
+    /// One page of the history rows the server stored after `since`.
+    func events(since: Int64) async throws -> EventsPage
     /// The account's recording storage figures.
     func storage() async throws -> StorageFigures
     /// The provider, canonical URL, title, and artwork for a pasted link.
@@ -24,12 +26,12 @@ public protocol SyncAPI: Sendable {
     /// A signed URL to GET a ready recording's waveform from, tagged with the revision the
     /// server actually signed it for.
     func peaksURL(recordingID: String) async throws -> PeaksURL
-    /// A signed URL to PUT one notation page's JPEG to, once the quota allows its size.
-    func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL
-    /// Confirms a notation page's image landed, so the server marks the page ready.
-    func notationUploaded(pageID: String) async throws
-    /// A signed URL to GET a ready notation page's image from.
-    func notationDownload(pageID: String) async throws -> SignedURL
+    /// A signed URL to PUT one scan's JPEG to, once the quota allows its size.
+    func scanUploadSlot(scanID: String, bytes: Int64) async throws -> SignedURL
+    /// Confirms a scan's image landed, so the server marks the scan ready.
+    func scanUploaded(scanID: String) async throws
+    /// A signed URL to GET a ready scan's image from.
+    func scanDownload(scanID: String) async throws -> SignedURL
     /// Asks the server to transcode a failed recording's upload again.
     func retryRecording(recordingID: String) async throws
     /// PUTs a file to a signed URL. The signature is the credential, so no session token goes
@@ -79,6 +81,31 @@ public struct PullPage: Hashable, Sendable {
     public var hasMore: Bool
 
     public init(rows: [PulledRow], nextSince: Int64, hasMore: Bool) {
+        self.rows = rows
+        self.nextSince = nextSince
+        self.hasMore = hasMore
+    }
+}
+
+/// One history row in an events page, as the API sent it. `table` stays a plain string, since a
+/// newer server may send a table this build has no store for.
+public struct PulledEvent: Hashable, Sendable {
+    public var table: String
+    public var row: JSONObject
+
+    public init(table: String, row: JSONObject) {
+        self.table = table
+        self.row = row
+    }
+}
+
+public struct EventsPage: Hashable, Sendable {
+    public var rows: [PulledEvent]
+    /// The cursor the next page starts after.
+    public var nextSince: Int64
+    public var hasMore: Bool
+
+    public init(rows: [PulledEvent], nextSince: Int64, hasMore: Bool) {
         self.rows = rows
         self.nextSince = nextSince
         self.hasMore = hasMore

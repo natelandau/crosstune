@@ -1,4 +1,5 @@
 import { isRecordingPrecision } from '../../db/types'
+import { containsText } from '../../text/fold'
 import type { RecordingView } from './useRecordings'
 
 export type RecordingSort = 'added' | 'recorded' | 'title' | 'tune'
@@ -37,13 +38,6 @@ export interface Arrangement {
 }
 
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
-function fold(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLocaleLowerCase()
-}
 
 // Parsed, not compared as text: a row written here and one pulled from the server spell
 // the same instant with different fractional-second precision.
@@ -104,7 +98,7 @@ function byTitle(descending: boolean) {
 }
 
 function matches(view: RecordingView, needle: string): boolean {
-  return fold(labelOf(view)).includes(needle) || fold(view.tuneTitle ?? '').includes(needle)
+  return containsText(labelOf(view), needle) || containsText(view.tuneTitle ?? '', needle)
 }
 
 function ownFirstThenNewestAdded(a: RecordingView, b: RecordingView): number {
@@ -134,7 +128,7 @@ export function arrangeRecordings(
   choice: SortChoice,
   query: string,
 ): Arrangement {
-  const needle = fold(query.trim())
+  const needle = query.trim()
   const visible = needle ? views.filter((v) => matches(v, needle)) : [...views]
   const unfiled = visible.filter((v) => !v.tuneId)
   const filed = visible.filter((v) => v.tuneId)

@@ -1,5 +1,5 @@
 import type { CrosstuneDb } from './schema'
-import type { OutboxEntry, TableName } from './types'
+import { isEventTable, type OutboxEntry, type TableName } from './types'
 
 export const PUSH_BATCH_SIZE = 500
 
@@ -31,4 +31,9 @@ export function pendingBatch(db: CrosstuneDb, limit = PUSH_BATCH_SIZE): Promise<
 
 export async function dropPending(db: CrosstuneDb, table: TableName, rowId: string): Promise<void> {
   await db.outbox.where('[table+row_id]').equals([table, rowId]).delete()
+}
+
+/** Queued changes other than events such as plays: the ones worth a sync of their own. */
+export function countUnsentChanges(db: CrosstuneDb): Promise<number> {
+  return db.outbox.filter((entry) => !isEventTable(entry.table)).count()
 }

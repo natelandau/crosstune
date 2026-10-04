@@ -167,8 +167,8 @@ private struct TuneBody: View {
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var deleting: RecordingView?
     @State private var editing: RecordingView?
-    @State private var addingNotation: NotationAddChoice?
-    @State private var deletingPage: NotationPage?
+    @State private var addingScans: ScanAddChoice?
+    @State private var deletingScan: Scan?
     @Environment(\.spacing) private var spacing
 
     var body: some View {
@@ -182,8 +182,8 @@ private struct TuneBody: View {
                     .listRowSeparator(.hidden)
             }
             TuneMediaSection(model: model, detail: detail, editing: $editing, deleting: $deleting)
-            NotationSection(
-                model: model.notation, tuneID: detail.tune.id, adding: $addingNotation, deleting: $deletingPage)
+            ScansSection(
+                model: model.scans, tuneID: detail.tune.id, adding: $addingScans, deleting: $deletingScan)
             if detail.hasLyrics {
                 Section {
                     Button(TuneScreen.openLyrics, systemImage: "text.quote") {
@@ -237,30 +237,30 @@ private struct TuneBody: View {
             Text(RecordingsModel.deleteMessage(view))
         }
         .modifier(
-            NotationImport(
-                choice: $addingNotation,
-                onPick: { picks in Task { await model.notation.add(picks) } },
-                onFailure: { model.notation.report($0) })
+            ScanImport(
+                choice: $addingScans,
+                onPick: { picks in Task { await model.scans.add(picks) } },
+                onFailure: { model.scans.report($0) })
         )
-        .coversShell(deletingPage != nil)
+        .coversShell(deletingScan != nil)
         .confirmationDialog(
-            NotationCopy.deleteTitle,
+            ScanCopy.deleteTitle,
             isPresented: Binding {
-                deletingPage != nil
+                deletingScan != nil
             } set: {
-                if !$0 { deletingPage = nil }
+                if !$0 { deletingScan = nil }
             },
-            titleVisibility: .visible, presenting: deletingPage
-        ) { page in
-            Button(NotationCopy.delete, role: .destructive) {
-                Task { await model.notation.delete(page.id) }
+            titleVisibility: .visible, presenting: deletingScan
+        ) { scan in
+            Button(ScanCopy.delete, role: .destructive) {
+                Task { await model.scans.delete(scan.id) }
             }
-        } message: { page in
-            Text(NotationCopy.deleteMessage(page))
+        } message: { scan in
+            Text(ScanCopy.deleteMessage(scan))
         }
         // Only a new move, never a failed one taking its announcement back.
-        .sensoryFeedback(.impact(weight: .light), trigger: model.notation.announcement) { _, new in new != nil }
-        .onChange(of: model.notation.announcement) { _, announcement in
+        .sensoryFeedback(.impact(weight: .light), trigger: model.scans.announcement) { _, new in new != nil }
+        .onChange(of: model.scans.announcement) { _, announcement in
             if let announcement { AccessibilityNotification.Announcement(announcement.text).post() }
         }
     }
@@ -479,7 +479,7 @@ private struct TuneMediaSection: View {
         return HStack {
             MediaRow(link: row) { tap in
                 switch tap {
-                case .play: if let item = PlayerItem.link(link) { player?.play(item) }
+                case .play: if let item = PlayerItem.link(link) { player?.play(item, origin: .row) }
                 case .close: player?.close()
                 case .open(let url): openURL(url)
                 }

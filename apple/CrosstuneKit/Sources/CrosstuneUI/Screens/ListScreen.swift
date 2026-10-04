@@ -116,7 +116,7 @@ private struct ListTunes: View {
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(NotationTunes.self) private var notationTunes: NotationTunes?
+    @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     /// Whether this device plays Apple Music in full, nil until read.
     @State private var appleMusic: AppleMusicAccessState?
@@ -349,8 +349,8 @@ private struct ListTunes: View {
         let hint = ListRowText.hint(hasAction: playAction != nil, isCurrent: isCurrent, isSelecting: selection.isActive)
         let edit = { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) }
         let remove: () -> Void = { Task { await model.remove(entry) } }
-        let notation = TuneRowActions.notationAction(
-            tuneID: entry.tune.id, tunesWithPages: notationTunes, actions: tuneScreenActions)
+        let scans = TuneRowActions.scansAction(
+            tuneID: entry.tune.id, tunesWithScans: scanTunes, origin: .list(id: list.id), actions: tuneScreenActions)
         return HStack(spacing: spacing(4)) {
             if detailTune != nil || selection.isActive {
                 // The list's selection drives the detail column, or is the selection.
@@ -389,9 +389,9 @@ private struct ListTunes: View {
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
                 .tint(.gray)
-            if let notation { NotationRowAction(action: notation) }
+            if let scans { ScansRowAction(action: scans) }
         } menu: {
-            if let notation { NotationRowAction(action: notation) }
+            if let scans { ScansRowAction(action: scans) }
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
             Divider()

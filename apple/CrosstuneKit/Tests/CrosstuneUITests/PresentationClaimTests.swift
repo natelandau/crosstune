@@ -90,19 +90,19 @@ import Testing
         #expect(missing.isEmpty, "Mark the sheet's root with .shellSheet() or .partHeightSheet(): \(missing)")
     }
 
-    /// The notation pickers and viewer are presentations the checks above must see, so a rename
+    /// The scan pickers and viewer are presentations the checks above must see, so a rename
     /// that hid them from the scan fails here rather than passing quietly.
-    @Test func theNotationPickersAndViewerAreChecked() throws {
+    @Test func theScanPickersAndViewerAreChecked() throws {
         let sources = try Self.readSources()
-        let menu = try #require(sources.first { $0.name == "NotationAddMenu.swift" })
+        let menu = try #require(sources.first { $0.name == "ScanAddMenu.swift" })
         let presentations = menu.lines.map { $0.trimmingCharacters(in: .whitespaces) }
         #expect(presentations.contains { $0.hasPrefix(".fileImporter(") })
         #expect(presentations.contains { $0.hasPrefix(".photosPicker(") })
         #expect(presentations.contains { $0.hasPrefix(".fullScreenCover(") })
-        let viewer = try #require(sources.first { $0.name == "NotationViewer.swift" })
-        #expect(viewer.text.contains("struct NotationViewer: View"))
+        let viewer = try #require(sources.first { $0.name == "ScanViewer.swift" })
+        #expect(viewer.text.contains("struct ScanViewer: View"))
         #expect(viewer.text.contains(".shellSheet()"))
-        // A broken page's Delete confirms first, since a captured page is the only copy.
+        // A broken scan's Delete confirms first, since a captured scan is the only copy.
         #expect(viewer.lines.contains { $0.trimmingCharacters(in: .whitespaces).hasPrefix(".confirmationDialog(") })
         let scanner = try #require(sources.first { $0.name == "DocumentScanner.swift" })
         #expect(scanner.text.contains(".shellSheet()"))

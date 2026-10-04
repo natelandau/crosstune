@@ -134,21 +134,21 @@ private final class Calls: @unchecked Sendable {
     #expect(calls.all == [[0, 1], [1, 1]])
 }
 
-@Test func notationPagesOnTheDeviceAreExportedAndCountedInProgress() async throws {
+@Test func scansOnTheDeviceAreExportedAndCountedInProgress() async throws {
     let root = TemporaryRoot()
     let store = try await seededStore(root)
     let tune = try await store.read { db in try Tune.fetchOne(db)! }
-    let first = NotationPageRecord(tuneID: tune.id, position: 0, width: 1, height: 1)
-    let second = NotationPageRecord(tuneID: tune.id, position: 1, width: 1, height: 1)
-    let away = NotationPageRecord(tuneID: tune.id, position: 2, width: 1, height: 1)
+    let first = ScanRecord(tuneID: tune.id, position: 0, width: 1, height: 1)
+    let second = ScanRecord(tuneID: tune.id, position: 1, width: 1, height: 1)
+    let away = ScanRecord(tuneID: tune.id, position: 2, width: 1, height: 1)
     try await store.write { writer in
-        for page in [first, second, away] { try writer.put(page) }
-        for page in [first, second] {
-            try NotationFile(pageID: page.id, fileName: "\(page.id).jpg", origin: .downloaded).insert(writer.db)
+        for scan in [first, second, away] { try writer.put(scan) }
+        for scan in [first, second] {
+            try ScanFile(scanID: scan.id, fileName: "\(scan.id).jpg", origin: .downloaded).insert(writer.db)
         }
     }
-    for (page, text) in [(first, "one"), (second, "two")] {
-        try Data(text.utf8).write(to: store.notationFolder.appending(path: "\(page.id).jpg"))
+    for (scan, text) in [(first, "one"), (second, "two")] {
+        try Data(text.utf8).write(to: store.scansFolder.appending(path: "\(scan.id).jpg"))
     }
     let work = workFolder()
     defer { try? FileManager.default.removeItem(at: work) }
@@ -158,9 +158,9 @@ private final class Calls: @unchecked Sendable {
         store: store, now: exportTime, timeZone: losAngeles, root: work, progress: calls.append)
 
     let bytes = try Data(contentsOf: zip)
-    #expect(bytes.range(of: Data("notation/Angeline the Baker/1.jpg".utf8)) != nil)
-    #expect(bytes.range(of: Data("notation/Angeline the Baker/2.jpg".utf8)) != nil)
-    #expect(bytes.range(of: Data("notation/Angeline the Baker/3.jpg".utf8)) == nil)
+    #expect(bytes.range(of: Data("scans/Angeline the Baker/1.jpg".utf8)) != nil)
+    #expect(bytes.range(of: Data("scans/Angeline the Baker/2.jpg".utf8)) != nil)
+    #expect(bytes.range(of: Data("scans/Angeline the Baker/3.jpg".utf8)) == nil)
     #expect(calls.all == [[0, 3], [1, 3], [2, 3], [3, 3]])
 }
 

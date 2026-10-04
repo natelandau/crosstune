@@ -1,4 +1,4 @@
-"""One storage quota and one upload slot per owner, shared by recordings and notation pages."""
+"""One storage quota and one upload slot per owner, shared by recordings and scans."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
-from crosstune.models import NotationPage, Recording, UploadSlot
+from crosstune.models import Recording, Scan, UploadSlot
 from crosstune.models.user import utc_now
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ async def used_bytes(
 ) -> int:
     """The bytes that count against a user's quota.
 
-    A live recording or page counts its open upload slot's declared size when it has
+    A live recording or scan counts its open upload slot's declared size when it has
     one, otherwise its stored bytes. The slot stands in for, never adds to, the object
     already at the upload key: the PUT it signs overwrites that object, and once the
     slot expires unused the object is still there and counts again.
@@ -34,7 +34,7 @@ async def used_bytes(
         session: The session to query through.
         user_id: Whose storage to sum.
         now: The moment that decides whether a slot is still open. Defaults to the clock.
-        exclude: A recording or page to leave out, for a caller sizing that file's own upload.
+        exclude: A recording or scan to leave out, for a caller sizing that file's own upload.
 
     Returns:
         int: The bytes that count against the user's quota.
@@ -44,7 +44,7 @@ async def used_bytes(
     total = 0
     for model, stored_column, owner_column in (
         (Recording, Recording.playback_bytes, UploadSlot.recording_id),
-        (NotationPage, NotationPage.file_bytes, UploadSlot.notation_page_id),
+        (Scan, Scan.file_bytes, UploadSlot.scan_id),
     ):
         live = [model.user_id == user_id, model.deleted_at.is_(None)]
         if exclude is not None:
@@ -69,6 +69,6 @@ async def slot_for_recording(session: AsyncSession, recording_id: uuid.UUID) -> 
     return await session.scalar(select(UploadSlot).where(UploadSlot.recording_id == recording_id))
 
 
-async def slot_for_page(session: AsyncSession, page_id: uuid.UUID) -> UploadSlot | None:
-    """The upload slot a notation page holds, or None."""
-    return await session.scalar(select(UploadSlot).where(UploadSlot.notation_page_id == page_id))
+async def slot_for_scan(session: AsyncSession, scan_id: uuid.UUID) -> UploadSlot | None:
+    """The upload slot a scan holds, or None."""
+    return await session.scalar(select(UploadSlot).where(UploadSlot.scan_id == scan_id))

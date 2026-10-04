@@ -22,6 +22,8 @@ public struct CatalogResults: Sendable {
     /// The tunes the archived setting lets through, the whole of "11 of 84 tunes".
     public let total: Int
     public let archivedCount: Int
+    /// The attributes the Missing picker offers.
+    public let missingChoices: [MissingAttribute]
 
     public var countLabel: String { CatalogSearch.countLabel(visible: visible.count, total: total) }
 
@@ -29,6 +31,13 @@ public struct CatalogResults: Sendable {
     /// never reads as Any.
     public func choices(_ facet: CatalogFacet) -> [String] {
         CatalogSearch.choices(facetValues[facet] ?? [], set: filters[facet])
+    }
+
+    /// The Missing picker's options, with a set attribute no tune holds any more kept, so the
+    /// picker never reads as Any.
+    public var missingOptions: [MissingAttribute] {
+        guard let set = filters.missing, !missingChoices.contains(set) else { return missingChoices }
+        return missingChoices + [set]
     }
 
     /// The visible facets the filter sheet sets.
@@ -49,6 +58,7 @@ struct CatalogOverview: Sendable {
     let facetValues: [CatalogFacet: [String]]
     let facets: [CatalogFacet]
     let archivedCount: Int
+    let missingChoices: [MissingAttribute]
 
     init(entries: [CatalogEntry], instruments: Set<String>) {
         self.entries = entries
@@ -56,6 +66,12 @@ struct CatalogOverview: Sendable {
         facetValues = CatalogSearch.facetValues(entries)
         facets = CatalogSearch.visibleFacets(facetValues, instruments: instruments)
         archivedCount = entries.count(where: \.isArchived)
+        let facets = facets
+        // A tuning for an instrument not played is cleared from the filters, so offering it
+        // would snap back to Any.
+        missingChoices = CatalogSearch.missingChoices(entries).filter { attribute in
+            attribute.tuningFacet.map(facets.contains) ?? true
+        }
     }
 }
 
@@ -96,7 +112,7 @@ public final class CatalogModel {
 
     public init(store: CrosstuneStore) {
         self.store = store
-        entries = LiveQuery(store, initial: nil, fetch: Self.fetchEntries)
+        entries = LiveQuery(store, initial: nil) { try Self.fetchEntries($0, withHeard: true) }
         storedFilters = LiveQuery(store, initial: nil) { db in
             CatalogFilters(stored: try MetaKey.catalogFilters.value(in: db, as: JSONValue.self))
         }
@@ -130,9 +146,28 @@ public final class CatalogModel {
 
     /// Every active tune with its user row, sorted by title.
     nonisolated static func fetchEntries(_ db: Database) throws -> [CatalogEntry] {
-        CatalogSearch.entries(
+        try fetchEntries(db, withHeard: false)
+    }
+
+    /// ``fetchEntries(_:)``, and with `withHeard` the tunes holding a live recording or link
+    /// marked heard. Only the catalog filters on it, so other readers skip the two extra reads.
+    nonisolated static func fetchEntries(_ db: Database, withHeard: Bool) throws -> [CatalogEntry] {
+        var heard: Set<String> = []
+        if withHeard {
+            heard.formUnion(
+                try String.fetchAll(
+                    db,
+                    Recording.filter(Recording.CodingKeys.deletedAt == nil && Recording.CodingKeys.tuneID != nil)
+                        .select(Recording.CodingKeys.tuneID)))
+            heard.formUnion(
+                try String.fetchAll(
+                    db,
+                    RecordingLink.filter(RecordingLink.CodingKeys.deletedAt == nil)
+                        .select(RecordingLink.CodingKeys.tuneID)))
+        }
+        return CatalogSearch.entries(
             tunes: try Tune.filter(Tune.CodingKeys.deletedAt == nil).fetchAll(db),
-            userTunes: try UserTune.filter(UserTune.CodingKeys.deletedAt == nil).fetchAll(db))
+            userTunes: try UserTune.filter(UserTune.CodingKeys.deletedAt == nil).fetchAll(db), heard: heard)
     }
 
     /// A stored change from elsewhere, such as another window, replaces what the screen shows.
@@ -158,7 +193,7 @@ public final class CatalogModel {
             outcome: SearchOutcome(
                 entries: entries, visible: visible, query: query, archivedShown: effective.archived),
             total: effective.archived ? entries.count : entries.count - overview.archivedCount,
-            archivedCount: overview.archivedCount)
+            archivedCount: overview.archivedCount, missingChoices: overview.missingChoices)
     }
 
     /// The count to read out after the filters or the stored tunes change, or nil when its
@@ -180,7 +215,23 @@ public final class CatalogModel {
             change(&next)
             return next
         }
-        filters = apply(current)
+        write(apply, showing: apply(current))
+    }
+
+    /// Replaces every filter with `next`, written even before the catalog has been read, so a
+    /// filter set from another screen is never dropped. Once the catalog is read, hidden facets
+    /// are cleared as ``updateFilters(_:)`` clears them.
+    public func replaceFilters(with next: CatalogFilters) {
+        let facets = overview?.facets
+        let apply: @Sendable (CatalogFilters) -> CatalogFilters = { _ in
+            facets.map { next.clearingHidden(visible: $0) } ?? next
+        }
+        write(apply, showing: apply(next))
+    }
+
+    /// Shows `shown` at once, then writes `apply` onto the stored row.
+    private func write(_ apply: @escaping @Sendable (CatalogFilters) -> CatalogFilters, showing shown: CatalogFilters) {
+        filters = shown
         writesInFlight += 1
         Task {
             do {

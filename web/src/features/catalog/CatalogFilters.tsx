@@ -6,8 +6,10 @@ import { Rail } from '../../ui/Rail'
 import { tuningKeyInstrument, withInstrumentLabel } from '../settings/instruments'
 import { UNKNOWN_KEY } from '../tune/KeyChooser'
 import { StatusChooser } from '../tune/StatusChooser'
+import { MISSING_LABEL, UNHEARD_PILL } from './filterLabels'
 import {
   FACET_LABELS,
+  MISSING_LABELS,
   NO_KEY,
   sheetFacets,
   type CatalogFilters as Filters,
@@ -51,6 +53,14 @@ export function CatalogFilters({
     }))
   if (filters.archived)
     pills.push({ key: 'archived', label: 'Archived shown', patch: { archived: false } })
+  if (filters.unheard)
+    pills.push({ key: 'unheard', label: UNHEARD_PILL, patch: { unheard: false } })
+  if (filters.missing !== 'all')
+    pills.push({
+      key: 'missing',
+      label: `${MISSING_LABEL} ${MISSING_LABELS[filters.missing]}`,
+      patch: { missing: 'all' },
+    })
 
   const keyChoices = railChoices(facets.key, filters.key)
   const typeChoices = railChoices(facets.tune_type, filters.tune_type)
