@@ -291,8 +291,9 @@ same triggers. A return to the foreground stands in for a visible tab.
   and an in-process job runner produces the playback file and its waveform
   peaks. Retry reruns a failed transcode. The playback file keeps the
   upload's channel count, mono or stereo, and anything with more than two
-  channels is mixed down to stereo; stereo gets double the mono bit rate for
-  both passthrough and re-encoding.
+  channels is mixed down to stereo. An encode follows the source's bit rate,
+  held between a floor and the passthrough ceiling. The floor doubles for
+  stereo, and the ceiling is the passthrough limit for the channel count.
 - Provenance: a recording has an `origin`, `own` or the import source, and
   an `origin_url`, set only for an import. Both are fixed when the row is
   first saved, and a later push never changes them.

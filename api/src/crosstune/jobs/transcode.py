@@ -60,7 +60,6 @@ async def _write_playback(
     remuxes the upload to a full file first and keeps that instead of the raw upload.
     """
     source_key = upload_key(recording.user_id, recording.id)
-    channels = info.channels
     if needs_encode(info):
         uploaded = await store.head(source_key)
         content_type = uploaded.content_type if uploaded else "application/octet-stream"
@@ -69,16 +68,16 @@ async def _write_playback(
         recording.original_key = kept
         recording.original_bytes = await asyncio.to_thread(lambda: source.stat().st_size)
         if trim.needs_cut:
-            await cut(source, target, trim.start_ms, trim.end_ms, channels=channels)
+            await cut(source, target, trim.start_ms, trim.end_ms, info=info)
         else:
-            await encode(source, target, channels=channels)
+            await encode(source, target, info=info)
     elif trim.needs_cut:
         full = work_dir / "full.m4a"
         await remux(source, full)
         kept = original_key(recording.user_id, recording.id, PLAYBACK_MIME)
         recording.original_bytes = await store.upload(full, kept, PLAYBACK_MIME)
         recording.original_key = kept
-        await cut(full, target, trim.start_ms, trim.end_ms, channels=channels)
+        await cut(full, target, trim.start_ms, trim.end_ms, info=info)
     else:
         await remux(source, target)
         # A prior attempt's backup, if any, still holds the whole source and is

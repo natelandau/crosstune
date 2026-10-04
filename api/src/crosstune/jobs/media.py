@@ -16,6 +16,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 MAX_PLAYBACK_CHANNELS = 2
+# At high rates ffmpeg's native AAC encoder widens its own lowpass to 22 kHz and then
+# spends well under its target, about 240 kbps when asked for stereo at 320. Holding the
+# band at 20 kHz, the edge of hearing, lets it spend what it is given. Below this rate per
+# channel the encoder keeps its own narrower band, which suits fewer bits.
+WIDE_BAND_BITRATE_PER_CHANNEL = 128_000
+LOWPASS_HZ = 20_000
 SUBPROCESS_TIMEOUT_SECONDS = 300.0
 STREAM_CHUNK_BYTES = 64 * 1024
 # Every file these tools open is an upload someone else chose. Reading only local files,
@@ -59,21 +65,29 @@ def passthrough_max_bitrate(channels: int) -> int:
         channels: The channel count of the file.
 
     Returns:
-        int: Bits per second, doubled for stereo and above.
+        int: Bits per second: 192 kbps for mono, 320 kbps for stereo and above.
     """
     return 192_000 if channels <= 1 else 320_000
 
 
-def playback_bitrate(channels: int) -> int:
+def playback_bitrate(channels: int, source_bit_rate: int | None) -> int:
     """Return the AAC bit rate of a re-encoded playback file.
+
+    Follows the source's rate so a re-encode does not shed quality the source had,
+    held between a floor and the passthrough ceiling.
 
     Args:
         channels: The channel count of the source.
+        source_bit_rate: The source's bits per second, or None when unknown.
 
     Returns:
-        int: Bits per second, doubled for stereo and above.
+        int: Bits per second. The floor is 96 kbps, doubled for stereo and above, and the
+            ceiling is `passthrough_max_bitrate`.
     """
-    return 96_000 if channels <= 1 else 192_000
+    floor = 96_000 if channels <= 1 else 192_000
+    if source_bit_rate is None:
+        return floor
+    return max(floor, min(source_bit_rate, passthrough_max_bitrate(channels)))
 
 
 @contextlib.asynccontextmanager
@@ -287,23 +301,21 @@ def needs_encode(info: Probe) -> bool:
 
 # Shared by encode and cut, so a change to the playback profile applies to every path
 # that produces a playback file.
-def _playback_codec_args(channels: int) -> tuple[str, ...]:
+def _playback_codec_args(info: Probe) -> tuple[str, ...]:
     """Build the ffmpeg codec options: mono stays mono, anything wider mixes down to stereo.
 
     Args:
-        channels: The channel count of the source.
+        info: The probe of the source.
 
     Returns:
-        tuple[str, ...]: The channel, codec, and bit rate options.
+        tuple[str, ...]: The channel, codec, bit rate, and bandwidth options.
     """
-    return (
-        "-ac",
-        "1" if channels <= 1 else "2",
-        "-c:a",
-        "aac",
-        "-b:a",
-        str(playback_bitrate(channels)),
+    channels = 1 if info.channels <= 1 else 2
+    bit_rate = playback_bitrate(info.channels, info.bit_rate)
+    bandwidth = (
+        ("-cutoff", str(LOWPASS_HZ)) if bit_rate >= WIDE_BAND_BITRATE_PER_CHANNEL * channels else ()
     )
+    return ("-ac", str(channels), "-c:a", "aac", "-b:a", str(bit_rate), *bandwidth)
 
 
 async def _to_mp4(
@@ -351,26 +363,26 @@ async def remux(source: Path, target: Path) -> None:
     await _to_mp4(source, target, "-c:a", "copy")
 
 
-async def _channels(source: Path, channels: int | None) -> int:
-    return channels if channels is not None else (await probe(source)).channels
+async def _info(source: Path, info: Probe | None) -> Probe:
+    return info if info is not None else await probe(source)
 
 
-async def encode(source: Path, target: Path, *, channels: int | None = None) -> None:
-    """Encode to AAC-LC in MP4 at the playback bit rate for the source's channel count.
+async def encode(source: Path, target: Path, *, info: Probe | None = None) -> None:
+    """Encode to AAC-LC in MP4 at the playback bit rate for the source.
 
     Args:
         source: The file to read.
         target: The MP4 file to write.
-        channels: The source's channel count, when a probe has already read it.
+        info: The probe of `source`, when one has already read it.
 
     Raises:
         MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
     """
-    await _to_mp4(source, target, *_playback_codec_args(await _channels(source, channels)))
+    await _to_mp4(source, target, *_playback_codec_args(await _info(source, info)))
 
 
 async def cut(
-    source: Path, target: Path, start_ms: int, end_ms: int, *, channels: int | None = None
+    source: Path, target: Path, start_ms: int, end_ms: int, *, info: Probe | None = None
 ) -> None:
     """Re-encode the `start_ms` to `end_ms` range of `source` to a playback MP4.
 
@@ -383,7 +395,7 @@ async def cut(
         target: The MP4 file to write.
         start_ms: Where the kept range starts, in milliseconds.
         end_ms: Where the kept range ends, in milliseconds.
-        channels: The source's channel count, when a probe has already read it.
+        info: The probe of `source`, when one has already read it.
 
     Raises:
         MediaError: ffprobe or ffmpeg failed, most often because the file cannot be decoded.
@@ -391,6 +403,6 @@ async def cut(
     await _to_mp4(
         source,
         target,
-        *_playback_codec_args(await _channels(source, channels)),
+        *_playback_codec_args(await _info(source, info)),
         pre_input_args=("-ss", f"{start_ms}ms", "-to", f"{end_ms}ms"),
     )
