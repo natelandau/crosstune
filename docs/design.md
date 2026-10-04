@@ -453,8 +453,9 @@ Recordings and links share one row shape.
 
 ## Sorting
 
-- A sort control is one menu named Sort among the toolbar actions. It marks
-  the current choice, and choosing it again reverses the order.
+- A sort control is one menu named Sort beside the list it orders: in the
+  search row, just before Filters. It marks the current choice, and choosing
+  it again reverses the order.
 - The current choice shows its direction with an arrow, down for newest
   first or Z to A, and says it in words to assistive technology.
 - Dates start newest first and names start at A.

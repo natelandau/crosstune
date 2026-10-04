@@ -750,6 +750,22 @@ describe('RecordingsPage', () => {
       await expect.poll(() => document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull()
     }
 
+    it('puts Sort in the search row, just before Filters', async () => {
+      await db.recordings.put(recordingRow('r1', { label: 'Take' }))
+      show()
+      const sort = page.getByRole('button', { name: SORT })
+      await expect.element(sort).toBeVisible()
+      await expect.element(page.getByRole('searchbox', { name: SEARCH_RECORDINGS })).toBeVisible()
+      const hostOf = (element: Element) => (element.getRootNode() as ShadowRoot).host
+      await expect.poll(() => hostOf(sort.element()).closest('ion-toolbar')).toBe(searchRow())
+      await vi.waitFor(() => {
+        const sortBox = hostOf(sort.element()).getBoundingClientRect()
+        const filtersBox = hostOf(filters().element()).getBoundingClientRect()
+        expect(sortBox.width).toBeGreaterThan(0)
+        expect(sortBox.right).toBeLessThanOrEqual(filtersBox.left + 1)
+      })
+    })
+
     it('puts Filters at the trailing edge of the search row', async () => {
       await db.recordings.put(
         recordingRow('r1', { label: 'Imported take', origin: 'slippery_hill' }),

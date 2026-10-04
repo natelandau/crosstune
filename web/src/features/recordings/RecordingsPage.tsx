@@ -115,12 +115,7 @@ export function RecordingsPage() {
       title="Recordings"
       level="top"
       grouped
-      end={
-        <>
-          <SortMenuButton />
-          <UploadButton tuneId={null} onError={setUploadError} />
-        </>
-      }
+      end={<UploadButton tuneId={null} onError={setUploadError} />}
       search={
         <SearchField
           ref={searchRef}
@@ -131,12 +126,15 @@ export function RecordingsPage() {
         />
       }
       searchEnd={
-        <FiltersButton
-          setCount={filterSet ? 1 : 0}
-          disabled={filtersDisabled}
-          disabledReason={filtersReason}
-          onOpen={() => setFiltersOpen(true)}
-        />
+        <>
+          <SortMenuButton />
+          <FiltersButton
+            setCount={filterSet ? 1 : 0}
+            disabled={filtersDisabled}
+            disabledReason={filtersReason}
+            onOpen={() => setFiltersOpen(true)}
+          />
+        </>
       }
       refresher={<SyncRefresher />}
       onDropFiles={addDropped}
