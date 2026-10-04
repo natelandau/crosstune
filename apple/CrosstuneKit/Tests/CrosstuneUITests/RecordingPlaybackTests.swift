@@ -21,6 +21,23 @@ final class FakeAudio: AudioPlayback {
     private(set) var nowPlaying: NowPlaying?
     private(set) var window: PlaybackWindow?
     private(set) var calls: [String] = []
+    var onTrackEnd: (@MainActor (TrackEnd) -> Void)?
+    var skipsByInterval = true
+    var holdsSession = false
+
+    /// Ends the track on its own, paused, as the device's player does.
+    func end(_ end: TrackEnd) {
+        isPlaying = false
+        onTrackEnd?(end)
+    }
+
+    func yieldSessionToMusic() {
+        calls.append("yieldSessionToMusic")
+    }
+
+    func releaseSession() {
+        calls.append("releaseSession")
+    }
 
     func load(_ url: URL, nowPlaying: NowPlaying, keepLoop: Bool) {
         loaded = url

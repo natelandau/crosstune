@@ -20,6 +20,21 @@ public final class AudioPlayer: AudioPlayback {
     public private(set) var duration: TimeInterval?
     public private(set) var hasFailed = false
     public private(set) var isRepeating = false
+    @ObservationIgnored public var onTrackEnd: (@MainActor (TrackEnd) -> Void)?
+    @ObservationIgnored public var skipsByInterval = true {
+        didSet {
+            // The loaded file's commands were registered under the old value.
+            guard skipsByInterval != oldValue, nowPlaying != nil else { return }
+            controls?.remove()
+            controls = NowPlayingControls(player: self, skipsByInterval: skipsByInterval)
+            publish()
+        }
+    }
+    @ObservationIgnored public var holdsSession = false {
+        didSet { if holdsSession { sessionWasHeld = true } }
+    }
+    /// Whether the session was held since it was last released, so only a held one is deactivated.
+    @ObservationIgnored private var sessionWasHeld = false
 
     @ObservationIgnored let engine = AVAudioEngine()
     @ObservationIgnored private let node = AVAudioPlayerNode()
@@ -105,7 +120,7 @@ public final class AudioPlayer: AudioPlayback {
         timePitch.rate = 1
         timePitch.pitch = 0
         self.nowPlaying = nowPlaying
-        controls = NowPlayingControls(player: self)
+        controls = NowPlayingControls(player: self, skipsByInterval: skipsByInterval)
         do {
             let file = try AVAudioFile(forReading: url)
             let format = file.processingFormat
@@ -248,8 +263,11 @@ public final class AudioPlayer: AudioPlayback {
     public func seek(to seconds: TimeInterval) {
         guard file != nil else { return }
         elapsed = clampedPosition(seconds, duration: duration)
+        let wasPlaying = isPlaying
         rescheduleIfPlaying()
         publish()
+        // Dragging a playing track to its end finishes it, as playing up to the end would.
+        if wasPlaying && !isPlaying { onTrackEnd?(.finished) }
     }
 
     public func unload() {
@@ -349,6 +367,7 @@ public final class AudioPlayer: AudioPlayback {
         guard id == segmentID, isPlaying, engine.isRunning else { return }
         guard let pass, let file else {
             reachedEnd()
+            onTrackEnd?(.finished)
             return
         }
         // Each end in a repeating run is a wrap: keep the queue full and show the jump back.
@@ -467,7 +486,30 @@ public final class AudioPlayer: AudioPlayback {
             }
         }
 
+        /// Mixable, so MusicKit's own session plays beside this one. The default policy, since
+        /// `.mixWithOthers` cannot be combined with long-form.
+        public func yieldSessionToMusic() {
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true)
+            } catch {
+                logger.error("The audio session could not yield to Apple Music: \(error, privacy: .public)")
+            }
+        }
+
+        public func releaseSession() {
+            guard sessionWasHeld else { return }
+            sessionWasHeld = false
+            endSession()
+        }
+
         private func deactivateSession() {
+            guard !holdsSession else { return }
+            endSession()
+        }
+
+        private func endSession() {
             do {
                 try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } catch {
@@ -541,6 +583,8 @@ public final class AudioPlayer: AudioPlayback {
         private func activateSession() {}
         private func deactivateSession() {}
         private func observeSession() {}
+        public func yieldSessionToMusic() {}
+        public func releaseSession() {}
     #endif
 }
 

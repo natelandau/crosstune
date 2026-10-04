@@ -13,6 +13,16 @@ public struct NowPlaying: Equatable, Sendable {
     }
 }
 
+/// How a track stopped playing without being told to.
+public enum TrackEnd: Equatable, Sendable {
+    /// Played to its natural end.
+    case finished
+    /// MusicKit's next moved off the song.
+    case next
+    /// MusicKit's previous moved off the song, `elapsed` seconds into it.
+    case previous(elapsed: TimeInterval)
+}
+
 /// Play, pause, and a place in the audio: what a scrubber and a play button need from any player.
 @MainActor
 public protocol PlaybackTransport: AnyObject {
@@ -22,6 +32,9 @@ public protocol PlaybackTransport: AnyObject {
     var elapsed: TimeInterval { get }
     /// The length of what plays, nil until it is known.
     var duration: TimeInterval? { get }
+    /// Told once each time a track ends, by playing or by a seek to its end while playing, never
+    /// when the app pauses, stops it, or seeks within it.
+    var onTrackEnd: (@MainActor (TrackEnd) -> Void)? { get set }
 
     func play()
     func pause()
@@ -36,6 +49,13 @@ public protocol AudioPlayback: PlaybackTransport {
     var hasFailed: Bool { get }
     /// Whether reaching the loop end from inside the loop goes back to its start.
     var isRepeating: Bool { get }
+    /// Whether the lock screen and Control Center offer skips by an interval. Read when a file
+    /// loads, so a queue turns it off before loading a track and the system offers next and
+    /// previous instead.
+    var skipsByInterval: Bool { get set }
+    /// While true, unloading keeps the audio session active, so a background app can start the
+    /// next track.
+    var holdsSession: Bool { get set }
 
     /// Loads `url` in place of anything loaded, paused at its start, playing the whole file at
     /// normal speed and pitch with no loop until told otherwise. `keepLoop`, for a new file of
@@ -59,6 +79,11 @@ public protocol AudioPlayback: PlaybackTransport {
     func retitle(_ nowPlaying: NowPlaying)
     /// Stops and lets go of the loaded audio and the system's playback controls.
     func unload()
+    /// iOS: makes the session `.playback` with `.mixWithOthers` and active, so MusicKit's session
+    /// plays beside it instead of interrupting it. No-op on macOS.
+    func yieldSessionToMusic()
+    /// Deactivates a held session. No-op unless ``holdsSession`` was on.
+    func releaseSession()
 }
 
 extension AudioPlayback {
