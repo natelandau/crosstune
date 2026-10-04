@@ -421,26 +421,27 @@ import Testing
         let id = try await take(store)
         let commands = Commands(store: store)
         let now = Timestamp(iso: "2026-10-04T12:00:00.000Z")!
-        let edge = Timestamp(milliseconds: now.milliseconds + 24 * 60 * 60_000)
+        let edge = Timestamp(iso: "2026-10-05T00:00:00.000Z")!
 
-        try await commands.updateRecordingDate(id, recordedAt: edge, precision: .time, at: now)
+        try await commands.updateRecordingDate(id, recordedAt: edge, precision: .day, at: now)
         #expect(try await row(store, id).recordedAt == edge)
         await #expect(throws: CommandError.recordedDateFuture) {
             try await commands.updateRecordingDate(
-                id, recordedAt: Timestamp(milliseconds: edge.milliseconds + 1), precision: .time, at: now)
+                id, recordedAt: Timestamp(iso: "2026-10-06T00:00:00.000Z")!, precision: .day, at: now)
         }
     }
 
-    @Test func refusesADateMoreThanADayAhead() async throws {
+    @Test func refusesAPartialDateMoreThanADayAheadButNotATime() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
         let id = try await take(store)
         let commands = Commands(store: store)
         let now = Timestamp.now
-        let ahead = Timestamp(milliseconds: now.milliseconds + 25 * 60 * 60_000)
+        let ahead = Timestamp(milliseconds: now.milliseconds + 48 * 60 * 60_000)
 
         await #expect(throws: CommandError.recordedDateFuture) {
-            try await commands.updateRecordingDate(id, recordedAt: ahead, precision: .time, at: now)
+            try await commands.updateRecordingDate(
+                id, recordedAt: Timestamp(iso: "2999-06-01T00:00:00.000Z")!, precision: .month, at: now)
         }
         await #expect(throws: CommandError.recordedDateFuture) {
             try await commands.updateRecordingDate(
@@ -448,10 +449,9 @@ import Testing
         }
         #expect(try await row(store, id).recordedAt == noon)
 
-        // A device clock running a little ahead of the server's still saves.
-        let soon = Timestamp(milliseconds: now.milliseconds + 60 * 60_000)
-        try await commands.updateRecordingDate(id, recordedAt: soon, precision: .time, at: now)
-        #expect(try await row(store, id).recordedAt == soon)
+        // A captured time saves whatever the device clock says.
+        try await commands.updateRecordingDate(id, recordedAt: ahead, precision: .time, at: now)
+        #expect(try await row(store, id).recordedAt == ahead)
     }
 
     @Test func refusesAMissingRecording() async throws {

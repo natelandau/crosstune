@@ -301,8 +301,8 @@ same triggers. A return to the foreground stands in for a visible tab.
   `day`, or `time`. A partial date is stored as UTC midnight at the start of
   its period and is always shown in UTC, so a year never slips a day in a
   west-of-UTC zone. Only `time` shows in local time. The API refuses a
-  mismatched pair, a partial date off its period's start, and a date more
-  than a day ahead.
+  mismatched pair, a partial date off its period's start, and a partial
+  date more than a day ahead.
 - Import: the client saves a Slippery-Hill link's audio by creating a
   recording with source `import`, which works offline. On push the API
   checks that the address is importable and queues an import job, or fails

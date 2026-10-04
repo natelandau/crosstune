@@ -255,12 +255,17 @@ class RecordingData(_RecordingFields):
         utc = (recorded_at if recorded_at.tzinfo else recorded_at.replace(tzinfo=UTC)).astimezone(
             UTC
         )
-        if utc > datetime.now(UTC) + RECORDED_AT_LEEWAY:
+        precision = info.data.get("recorded_precision")
+        # A time is a capture, so a device clock running fast must still sync. Only a date
+        # typed in by a person (partial precision) can be wrong about the future.
+        if (
+            precision not in (None, RecordingPrecision.TIME)
+            and utc > datetime.now(UTC) + RECORDED_AT_LEEWAY
+        ):
             msg = "recorded_at must not be in the future"
             raise ValueError(msg)
         # Every client formats a partial date in UTC, so one stored off its period's UTC
         # start would show the neighboring day, month, or year.
-        precision = info.data.get("recorded_precision")
         if precision not in (None, RecordingPrecision.TIME) and utc != _period_start(
             utc, precision
         ):

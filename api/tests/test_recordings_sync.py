@@ -456,13 +456,30 @@ async def test_push_refuses_a_recorded_date_without_its_precision(
     assert await verify_session.get(Recording, uuid.UUID(rec)) is None
 
 
-async def test_push_refuses_a_recorded_date_more_than_a_day_ahead(client, auth_headers) -> None:
-    ahead = utc_now() + timedelta(days=1, minutes=5)
+@pytest.mark.parametrize("precision", ["year", "month", "day"])
+async def test_push_refuses_a_partial_recorded_date_more_than_a_day_ahead(
+    client, auth_headers, precision
+) -> None:
+    ahead = (utc_now() + timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
+    ahead = ahead.replace(year=ahead.year + 1, month=1, day=1)
     [result] = await push(
-        client, auth_headers("user_a"), recording(uid(), recorded_at=ahead.isoformat())
+        client,
+        auth_headers("user_a"),
+        recording(uid(), recorded_at=ahead.isoformat(), recorded_precision=precision),
     )
     assert result["status"] == "invalid"
     assert result["reason"] == "invalid fields: recorded_at"
+
+
+async def test_push_accepts_a_captured_time_more_than_a_day_ahead(client, auth_headers) -> None:
+    """A capture from a device whose clock runs fast must still sync."""
+    ahead = utc_now() + timedelta(days=2)
+    [result] = await push(
+        client,
+        auth_headers("user_a"),
+        recording(uid(), recorded_at=ahead.isoformat(), recorded_precision="time"),
+    )
+    assert result["status"] == "applied"
 
 
 async def test_push_accepts_a_recorded_date_within_a_day_of_now(client, auth_headers) -> None:

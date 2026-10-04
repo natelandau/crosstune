@@ -272,33 +272,45 @@ describe('uploads and edits', () => {
     expect((await db.recordings.get(id))?.recorded_at).toBe(AT)
   })
 
-  it('updateRecording refuses a recorded date more than a day ahead', async () => {
+  it('updateRecording refuses a partial recorded date more than a day ahead', async () => {
     const id = await captured()
-    const ahead = (ms: number) => new Date(Date.now() + ms).toISOString()
-    for (const patch of [
-      { recorded_at: ahead(25 * 60 * 60 * 1000), recorded_precision: 'time' },
-      { recorded_at: '2999-01-01T00:00:00.000Z', recorded_precision: 'year' },
-    ] as const) {
-      await expect(updateRecording(db, id, patch)).rejects.toThrow(RECORDED_DATE_FUTURE)
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T12:00:00.000Z') })
+    try {
+      for (const patch of [
+        { recorded_at: '2026-10-06T00:00:00.000Z', recorded_precision: 'day' },
+        { recorded_at: '2999-01-01T00:00:00.000Z', recorded_precision: 'year' },
+      ] as const) {
+        await expect(updateRecording(db, id, patch)).rejects.toThrow(RECORDED_DATE_FUTURE)
+      }
+      expect((await db.recordings.get(id))?.recorded_at).toBe(AT)
+    } finally {
+      vi.useRealTimers()
     }
-    expect((await db.recordings.get(id))?.recorded_at).toBe(AT)
-    // A date inside the allowance still saves.
-    const soon = ahead(60 * 60 * 1000)
-    await updateRecording(db, id, { recorded_at: soon, recorded_precision: 'time' })
-    expect((await db.recordings.get(id))?.recorded_at).toBe(soon)
+  })
+
+  it('updateRecording accepts a captured time more than a day ahead', async () => {
+    const id = await captured()
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T12:00:00.000Z') })
+    try {
+      const fast = '2026-10-06T12:00:00.000Z'
+      await updateRecording(db, id, { recorded_at: fast, recorded_precision: 'time' })
+      expect((await db.recordings.get(id))?.recorded_at).toBe(fast)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('updateRecording accepts a recorded date exactly a day ahead', async () => {
     const id = await captured()
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T12:00:00.000Z') })
     try {
-      const edge = '2026-10-05T12:00:00.000Z'
-      await updateRecording(db, id, { recorded_at: edge, recorded_precision: 'time' })
+      const edge = '2026-10-05T00:00:00.000Z'
+      await updateRecording(db, id, { recorded_at: edge, recorded_precision: 'day' })
       expect((await db.recordings.get(id))?.recorded_at).toBe(edge)
       await expect(
         updateRecording(db, id, {
-          recorded_at: '2026-10-05T12:00:00.001Z',
-          recorded_precision: 'time',
+          recorded_at: '2026-10-06T00:00:00.000Z',
+          recorded_precision: 'day',
         }),
       ).rejects.toThrow(RECORDED_DATE_FUTURE)
     } finally {

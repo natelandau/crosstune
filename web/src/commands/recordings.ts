@@ -280,9 +280,9 @@ export async function updateRecording(
 export const RECORDED_AT_LEEWAY_MS = 24 * 60 * 60 * 1000
 
 /**
- * Refuses a recorded date push would refuse: a date and its precision come together, the
- * date is no more than a day ahead of now, and a partial date is UTC midnight at the start
- * of its year, month, or day.
+ * Refuses a recorded date push would refuse: a date and its precision come together, a
+ * partial date is no more than a day ahead of now, and a partial date is UTC midnight at the
+ * start of its year, month, or day.
  */
 function checkRecordedDate(patch: {
   recorded_at?: string | null
@@ -296,8 +296,9 @@ function checkRecordedDate(patch: {
   if (at === null) return
   const date = new Date(at)
   if (Number.isNaN(date.getTime())) throw new Error(RECORDED_DATE_INVALID)
-  if (date.getTime() > Date.now() + RECORDED_AT_LEEWAY_MS) throw new Error(RECORDED_DATE_FUTURE)
+  // A time is a device's capture, so a fast clock must still sync; only a partial date is typed.
   if (precision === 'time') return
+  if (date.getTime() > Date.now() + RECORDED_AT_LEEWAY_MS) throw new Error(RECORDED_DATE_FUTURE)
   const start = Date.UTC(
     date.getUTCFullYear(),
     precision === 'year' ? 0 : date.getUTCMonth(),

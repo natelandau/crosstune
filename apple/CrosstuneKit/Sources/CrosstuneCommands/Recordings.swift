@@ -35,8 +35,9 @@ private func checkRecordedDate(_ at: Timestamp?, precision: RecordingPrecision?,
         if at != nil || precision != nil { throw CommandError.recordedDateMismatch }
         return
     }
-    if at.milliseconds > now.milliseconds + recordedAtLeewayMs { throw CommandError.recordedDateFuture }
+    // A time is a device's capture, so a fast clock must still sync; only a partial date is typed.
     if precision == .time { return }
+    if at.milliseconds > now.milliseconds + recordedAtLeewayMs { throw CommandError.recordedDateFuture }
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = .gmt
     let parts = calendar.dateComponents([.year, .month, .day], from: at.date)
