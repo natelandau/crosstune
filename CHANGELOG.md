@@ -1,3 +1,19 @@
+## v0.13.0 (2026-10-04)
+
+### Feat
+
+- add a stats page and history, and call notation scans (#132)
+- **recordings**: add new highest quality audio (#130)
+- **recordings**: sort, filter, and date the recordings screen (#128)
+- **dev**: isolate each worktree's database, bucket, and test runs (#129)
+- **notation**: attach images of written music to tunes (#127)
+- **links**: play, search, and save Slippery-Hill recordings (#126)
+- **recordings**: add audio files by dropping them on the list (#125)
+
+### Fix
+
+- **apple**: move list play controls with a pull past the top (#124)
+
 ## v0.12.0 (2026-10-03)
 
 ### Feat
