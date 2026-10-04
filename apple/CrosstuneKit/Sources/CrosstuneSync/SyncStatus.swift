@@ -25,7 +25,7 @@ public enum SyncStatus: String, CaseIterable, Sendable {
     }
 }
 
-/// Where the recording upload and download loop stands.
+/// Where the notation page and recording upload and download loop stands.
 public enum TransferStatus: String, CaseIterable, Sendable {
     case idle
     case transferring

@@ -266,11 +266,11 @@ extension Commands {
     /// Deletes the audio of every ready recording from this device. It downloads again when
     /// played.
     public func clearDownloadedAudio(at time: Timestamp = .now) async throws {
-        try await store.writeDroppingAudio { writer in try writer.clearDownloadedAudio(at: time) }
+        try await store.writeDroppingFiles { writer in try writer.clearDownloadedAudio(at: time) }
     }
 
     /// Deletes a recording, its local file row, and its audio on this device.
     public func deleteRecording(_ recordingID: String, at time: Timestamp = .now) async throws {
-        try await store.writeDroppingAudio { writer in try writer.deleteRecording(recordingID, at: time) }
+        try await store.writeDroppingFiles { writer in try writer.deleteRecording(recordingID, at: time) }
     }
 }

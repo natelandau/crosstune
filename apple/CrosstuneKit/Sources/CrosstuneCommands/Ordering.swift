@@ -2,7 +2,7 @@ import CrosstuneStore
 
 /// A synced row kept in a manual order among its siblings, such as the links on a tune.
 public protocol OrderedRow {
-    var position: Int { get }
+    var position: Int { get set }
     var deletedAt: Timestamp? { get }
 }
 
@@ -10,6 +10,17 @@ extension RecordingLink: OrderedRow {}
 extension TuneList: OrderedRow {}
 extension ListItem: OrderedRow {}
 extension Recording: OrderedRow {}
+
+extension StoreWriter {
+    /// Renumbers `ordered` from 0, writing only the rows whose position changed.
+    public func writeOrder<Row: SyncedRecord & OrderedRow>(_ ordered: [Row], at time: Timestamp = .now) throws {
+        for (position, row) in ordered.enumerated() where row.position != position {
+            var moved = row
+            moved.position = position
+            try put(moved, at: time)
+        }
+    }
+}
 
 /// Rows that have not been tombstoned, in position order.
 public func activeByPosition<Row: OrderedRow>(_ rows: [Row]) -> [Row] {

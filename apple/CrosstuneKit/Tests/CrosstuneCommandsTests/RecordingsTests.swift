@@ -375,7 +375,7 @@ import Testing
         let audio = try await recordingWithAudio(store, tuneID: nil)
 
         await #expect(throws: (any Error).self) {
-            try await store.writeDroppingAudio { writer in
+            try await store.writeDroppingFiles { writer in
                 try writer.deleteRecording("r1")
                 throw CommandError.recordingNotFound
             }

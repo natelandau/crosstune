@@ -57,6 +57,7 @@ public struct AppShell: View {
                     showRecordings: { recordingsShown += 1 })
             )
             .modifier(LyricsScreens())
+            .modifier(NotationScreens())
             .modifier(RecordingTransfers(store: store, player: player))
             .modifier(PlayerLinkWatch(store: store, player: player))
             .modifier(PlayerRecordingWatch(store: store, player: player))

@@ -78,7 +78,7 @@ private struct V4Fixture {
     let fixture = try V4Fixture(root: root)
 
     let store = try root.open()
-    await store.deleteUnnamedAudio()
+    await store.deleteUnnamedFiles()
 
     let (files, recordings, outboxRowIDs, outboxSeqs) = try await store.read { db in
         (
@@ -95,7 +95,7 @@ private struct V4Fixture {
     #expect(outboxSeqs == fixture.outboxSeqs)
     let left = try FileManager.default.contentsOfDirectory(atPath: store.audioFolder.path(percentEncoded: false))
     #expect(Set(left) == Set(fixture.fileNames))
-    #expect(try await store.meta(.pullCursor, as: Int.self) == 5)
+    #expect(try await store.meta(.pullCursor, as: Int.self) == nil, "v10 pulls every row again")
     #expect(try await store.meta(.keepOffline, as: Bool.self) == true)
 }
 

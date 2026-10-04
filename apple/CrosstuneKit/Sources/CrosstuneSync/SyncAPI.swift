@@ -24,6 +24,12 @@ public protocol SyncAPI: Sendable {
     /// A signed URL to GET a ready recording's waveform from, tagged with the revision the
     /// server actually signed it for.
     func peaksURL(recordingID: String) async throws -> PeaksURL
+    /// A signed URL to PUT one notation page's JPEG to, once the quota allows its size.
+    func notationUploadSlot(pageID: String, bytes: Int64) async throws -> SignedURL
+    /// Confirms a notation page's image landed, so the server marks the page ready.
+    func notationUploaded(pageID: String) async throws
+    /// A signed URL to GET a ready notation page's image from.
+    func notationDownload(pageID: String) async throws -> SignedURL
     /// Asks the server to transcode a failed recording's upload again.
     func retryRecording(recordingID: String) async throws
     /// PUTs a file to a signed URL. The signature is the credential, so no session token goes
@@ -184,6 +190,15 @@ public struct DownloadURL: Hashable, Sendable {
         self.url = url
         self.playbackRev = playbackRev
         self.playbackStartMs = playbackStartMs
+    }
+}
+
+/// A signed PUT or GET for one object.
+public struct SignedURL: Hashable, Sendable {
+    public var url: URL
+
+    public init(url: URL) {
+        self.url = url
     }
 }
 

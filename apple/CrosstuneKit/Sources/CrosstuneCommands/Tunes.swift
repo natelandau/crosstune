@@ -236,8 +236,8 @@ extension StoreWriter {
     }
 
     /// Tombstones a tune and everything that hangs off it: its user tune, that user tune's list
-    /// items, its recording links, and its recordings. Only the tune's own delete is queued; the
-    /// rest ride along with it, as the server's own cascade does.
+    /// items, its recording links, its notation pages, and its recordings. Only the tune's own
+    /// delete is queued; the rest ride along with it, as the server's own cascade does.
     public func tombstoneTune(_ tuneID: String, at time: Timestamp = .now) throws {
         try tombstone(Tune.self, id: tuneID, at: time)
         let userTunes = try UserTune.filter(Column("tune_id") == tuneID).fetchAll(db)
@@ -252,6 +252,7 @@ extension StoreWriter {
         for link in links {
             try tombstone(RecordingLink.self, id: link.id, at: time, enqueueDelete: false)
         }
+        try tombstoneTuneNotationPages(tuneID: tuneID, at: time)
         try tombstoneTuneRecordings(tuneID: tuneID, at: time)
     }
 
@@ -311,9 +312,9 @@ extension Commands {
         try await store.write { writer in try writer.setPlaySource(userTuneID, to: pin, at: time) }
     }
 
-    /// Deletes a tune and everything that hangs off it, its recordings' audio on this device
-    /// included.
+    /// Deletes a tune and everything that hangs off it, its recordings' audio and its pages'
+    /// images on this device included.
     public func deleteTune(_ tuneID: String, at time: Timestamp = .now) async throws {
-        try await store.writeDroppingAudio { writer in try writer.tombstoneTune(tuneID, at: time) }
+        try await store.writeDroppingFiles { writer in try writer.tombstoneTune(tuneID, at: time) }
     }
 }

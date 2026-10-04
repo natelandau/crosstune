@@ -202,9 +202,9 @@ extension StoreWriter {
         return snapshots
     }
 
-    /// Deletes the tunes behind the given user tunes, each with its links, list entries, and
-    /// recordings. Returns how many distinct tunes were deleted. There is no undo: a recording
-    /// this takes with it is gone from every device.
+    /// Deletes the tunes behind the given user tunes, each with its links, list entries, notation
+    /// pages, and recordings. Returns how many distinct tunes were deleted. There is no undo: a
+    /// recording this takes with it is gone from every device.
     @discardableResult
     public func deleteTunes(_ userTuneIDs: [String], at time: Timestamp = .now) throws -> Int {
         var tuneIDs = Set<String>()
@@ -326,7 +326,7 @@ extension Commands {
 
     @discardableResult
     public func deleteTunes(_ userTuneIDs: [String], at time: Timestamp = .now) async throws -> Int {
-        try await store.writeDroppingAudio { writer in try writer.deleteTunes(userTuneIDs, at: time) }
+        try await store.writeDroppingFiles { writer in try writer.deleteTunes(userTuneIDs, at: time) }
     }
 
     @discardableResult

@@ -38,6 +38,8 @@ public final class TuneModel {
     }
 
     public let tuneID: String
+    /// The tune's notation pages and the writes the Notation section makes.
+    public let notation: NotationModel
     /// The last write failure, cleared by the next write.
     public private(set) var failure: Failure?
 
@@ -53,6 +55,7 @@ public final class TuneModel {
         detail = LiveQuery(store, initial: nil) { db in
             .some(try TuneDetail.fetch(db, tuneID: tuneID, settingsID: settingsRow))
         }
+        notation = NotationModel(store: store, tuneID: tuneID)
     }
 
     public var phase: Phase {

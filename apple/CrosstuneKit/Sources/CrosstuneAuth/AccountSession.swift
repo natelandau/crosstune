@@ -33,6 +33,8 @@ public final class AccountSession {
         case unsyncedChanges
         /// A recording's audio exists only on this device.
         case unuploadedRecordings
+        /// A notation page's image exists only on this device.
+        case unuploadedNotation
         /// Deleting the account failed before the API confirmed it, so nothing changed.
         case deleteFailed
         /// No answer from the API says whether the delete went through.
@@ -42,6 +44,8 @@ public final class AccountSession {
         public static let unsyncedChangesMessage = "Some changes have not synced yet. Try again once they have."
         public static let unuploadedRecordingsMessage =
             "Some recordings have not uploaded yet. Delete them in Recordings, or wait until they upload."
+        public static let unuploadedNotationMessage =
+            "Some notation pages have not uploaded yet. Delete them from their tune, or wait until they upload."
         public static let deleteFailedMessage = "Your account was not deleted. Nothing was changed. Try again."
         public static let deleteUnconfirmedMessage =
             "The delete could not be confirmed, so your account may already be deleted. Check your connection and try again."
@@ -51,6 +55,7 @@ public final class AccountSession {
             case .offline: Self.offlineMessage
             case .unsyncedChanges: Self.unsyncedChangesMessage
             case .unuploadedRecordings: Self.unuploadedRecordingsMessage
+            case .unuploadedNotation: Self.unuploadedNotationMessage
             case .deleteFailed: Self.deleteFailedMessage
             case .deleteUnconfirmed: Self.deleteUnconfirmedMessage
             }
@@ -310,6 +315,7 @@ public final class AccountSession {
             await sync?.sync()
             if try await store.pendingChangeCount() > 0 { throw LeaveError.unsyncedChanges }
             if try await store.notUploadedRecordingCount() > 0 { throw LeaveError.unuploadedRecordings }
+            if try await store.notUploadedNotationCount() > 0 { throw LeaveError.unuploadedNotation }
         }
         // Stopped, no trigger can start a sync against the folder being deleted.
         await sync?.stop()

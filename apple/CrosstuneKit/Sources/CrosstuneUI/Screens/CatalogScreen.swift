@@ -38,6 +38,8 @@ private struct CatalogContent: View {
     @Environment(\.openSheets) private var openSheets
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
+    @Environment(NotationTunes.self) private var notationTunes: NotationTunes?
+    @Environment(\.tuneScreenActions) private var tuneScreenActions
     @State private var pushed: String?
     @State private var form: TuneFormTarget?
     @State private var showsFilters = false
@@ -206,6 +208,8 @@ private struct CatalogContent: View {
             entry, instruments: instruments, isSelecting: selection.isActive,
             onEdit: { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) },
             onArchive: { Task { await model.setArchived(entry, archived: !entry.isArchived) } },
+            onNotation: TuneRowActions.notationAction(
+                tuneID: entry.tune.id, tunesWithPages: notationTunes, actions: tuneScreenActions),
             onSelect: { selection.enter(with: entry.tune.id) }
         )
         .accessibilityFocused($focusedRow, equals: entry.tune.id)

@@ -6,8 +6,8 @@ import os
 /// Keeps one user's store in step with the API: pushes the outbox, pulls what changed on the
 /// server, and refreshes the storage figures, on a loop that retries with backoff.
 ///
-/// Recording audio moves on a second loop, triggered after every sync run, so a long upload
-/// never holds up push and pull.
+/// Recording audio and notation page images move on a second loop, triggered after every sync
+/// run, so a long upload never holds up push and pull.
 @MainActor @Observable
 public final class SyncEngine {
     /// How many outbox entries one push sends.
@@ -56,13 +56,19 @@ public final class SyncEngine {
         run: transferPass ?? { [weak self] in try await self?.runTransfers() }
     )
     @ObservationIgnored let downloadRetries = DownloadRetries()
+    @ObservationIgnored let notationRetries = DownloadRetries()
+    /// The stop check every transfer request runs first; a released engine counts as stopped.
+    @ObservationIgnored private lazy var transferStopCheck: @MainActor () throws -> Void = { [weak self] in
+        guard let self else { throw RunStopped() }
+        try checkStopped()
+    }
     @ObservationIgnored private lazy var transfers = Transfers(
         store: store, api: api,
-        checkStopped: { [weak self] in
-            guard let self else { throw RunStopped() }
-            try checkStopped()
-        },
+        checkStopped: transferStopCheck,
         downloadRetries: downloadRetries)
+    @ObservationIgnored private lazy var notation = NotationTransfers(
+        store: store, api: api,
+        checkStopped: transferStopCheck)
 
     /// - Parameters:
     ///   - isOffline: Whether the device has no connection. A run while offline ends as
@@ -108,7 +114,8 @@ public final class SyncEngine {
         await syncLoop.trigger()
     }
 
-    /// Runs the recording upload and download passes now, or once more after the run in flight.
+    /// Runs the notation page and recording upload and download passes now, or once more after
+    /// the run in flight.
     public func transfer() async {
         await transferLoop.trigger()
     }
@@ -189,13 +196,23 @@ public final class SyncEngine {
 
     private func runTransfers() async throws {
         if isOffline() { throw DeviceOffline() }
-        // A file's own transient upload failure is held so the download pass still runs, then
-        // thrown once it has.
+        // A file's own transient failure is held so the later passes still run, then the first
+        // is thrown once they have. Pages go first: they are small, and the reading view needs
+        // them more than any one recording.
+        let notationUploadError = try await notation.uploadPass()
+        var notationDownloadError: (any Error)?
+        do {
+            try await notation.downloadPass(retries: notationRetries)
+        } catch  where endsThePass(error) {
+            throw error
+        } catch {
+            notationDownloadError = error
+        }
         let uploadError = try await transfers.uploadPass()
         try await transfers.downloadPass(
             fetch: { [weak self] id in try await self?.fetchOne(id) },
             fetchPeaksFor: { [weak self] id in try await self?.fetchPeaksOnce(id) })
-        if let uploadError { throw uploadError }
+        if let held = notationUploadError ?? notationDownloadError ?? uploadError { throw held }
     }
 
     private func fetchOne(_ recordingID: String) async throws -> URL? {
@@ -229,7 +246,7 @@ public final class SyncEngine {
             try checkStopped()
             let figures = try await api.storage()
             try await store.setMeta(.storage, to: figures)
-        } catch  where error is RunStopped || isAuthFailure(error) {
+        } catch  where endsThePass(error) {
             throw error
         } catch {
             // Storage figures are informational; only an auth failure fails a run whose push and
