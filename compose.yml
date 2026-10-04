@@ -6,6 +6,8 @@ name: crosstune
 services:
   postgres:
     image: postgres:18
+    # Each test worker of every concurrent suite holds its own connections, beside `just dev`.
+    command: ["postgres", "-c", "max_connections=300"]
     ports:
       - "5432:5432"
     environment:

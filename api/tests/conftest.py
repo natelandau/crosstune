@@ -35,10 +35,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from fastapi import FastAPI
-    from pytest_databases.docker.postgres import PostgresService
     from types_boto3_s3 import S3Client
 
-pytest_plugins = ("pytest_databases.docker.postgres",)
+# The Postgres compose.yml starts. Each run makes its own databases on it, so suites in
+# separate worktrees run at once without touching each other.
+POSTGRES_ADMIN_URL = "postgresql://crosstune:crosstune@localhost:5432/postgres"
+TEST_DATABASE_PREFIX = "crosstune_test_"
 
 FIXTURE_ENCODERS: dict[str, list[str]] = {
     "m4a": ["-c:a", "aac", "-b:a", "64k", "-f", "mp4"],
@@ -263,12 +265,6 @@ def _ignore_env_file() -> Iterator[None]:
 
 
 @pytest.fixture(scope="session")
-def postgres_image() -> str:
-    """Pin the version tests run against instead of tracking the plugin's default."""
-    return "postgres:18"
-
-
-@pytest.fixture(scope="session")
 def anyio_backend() -> str:
     return "asyncio"
 
@@ -280,34 +276,95 @@ def worker_id(request: pytest.FixtureRequest) -> str:
     return "master"
 
 
+def _run_pid() -> int:
+    """The pid of the pytest process that owns this run, shared by all of its xdist workers."""
+    return os.getppid() if os.environ.get("PYTEST_XDIST_WORKER") else os.getpid()
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+async def _admin() -> asyncpg.Connection:
+    try:
+        return await asyncpg.connect(POSTGRES_ADMIN_URL)
+    except OSError as exc:
+        pytest.fail(f"no Postgres on localhost:5432 ({exc}); start it with `docker compose up -d`")
+
+
+async def _drop_dead_runs(conn: asyncpg.Connection) -> None:
+    """Drop the databases of runs whose pytest process is gone, since a killed run never drops its own."""
+    rows = await conn.fetch(
+        "select datname from pg_database where starts_with(datname, $1)", TEST_DATABASE_PREFIX
+    )
+    for row in rows:
+        pid = row["datname"].removeprefix(TEST_DATABASE_PREFIX).split("_", 1)[0]
+        if pid.isdigit() and not _pid_alive(int(pid)):
+            await conn.execute(f'drop database if exists "{row["datname"]}" with (force)')
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Sweep dead runs' databases once, in the controller, so no two workers race to drop one."""
+    if hasattr(session.config, "workerinput"):
+        return
+
+    async def sweep() -> None:
+        try:
+            conn = await asyncpg.connect(POSTGRES_ADMIN_URL)
+        except OSError:
+            # A run that never needs Postgres may run without it; the database_url fixture
+            # reports a missing server to any test that does.
+            return
+        try:
+            await _drop_dead_runs(conn)
+        finally:
+            await conn.close()
+
+    asyncio.run(sweep())
+
+
 @pytest.fixture(scope="session")
-def database_url(postgres_service: PostgresService, worker_id: str) -> str:
-    """One migrated database per xdist worker."""
-    db_name = f"crosstune_test_{worker_id}"
+def database_url(worker_id: str) -> Iterator[str]:
+    """One migrated database per xdist worker per run, dropped when the run ends.
+
+    The name carries the run's pid, so concurrent runs never share a database and a later
+    run can tell which leftovers belong to a run that no longer exists.
+    """
+    db_name = f"{TEST_DATABASE_PREFIX}{_run_pid()}_{worker_id}"
 
     async def create() -> None:
-        conn = await asyncpg.connect(
-            host=postgres_service.host,
-            port=postgres_service.port,
-            user=postgres_service.user,
-            password=postgres_service.password,
-            database="postgres",
-        )
+        conn = await _admin()
         try:
-            await conn.execute(f'drop database if exists "{db_name}"')
+            await conn.execute(f'drop database if exists "{db_name}" with (force)')
             await conn.execute(f'create database "{db_name}"')
+        finally:
+            await conn.close()
+
+    async def drop() -> None:
+        conn = await _admin()
+        try:
+            await conn.execute(f'drop database if exists "{db_name}" with (force)')
         finally:
             await conn.close()
 
     asyncio.run(create())
     url = (
-        f"postgresql+asyncpg://{postgres_service.user}:{postgres_service.password}"
-        f"@{postgres_service.host}:{postgres_service.port}/{db_name}"
+        POSTGRES_ADMIN_URL.replace("postgresql://", "postgresql+asyncpg://").removesuffix(
+            "/postgres"
+        )
+        + f"/{db_name}"
     )
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
     command.upgrade(cfg, "head")
-    return url
+    yield url
+    asyncio.run(drop())
 
 
 @pytest.fixture
