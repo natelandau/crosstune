@@ -196,6 +196,20 @@ export class CrosstuneDb extends Dexie {
     this.version(11)
       .stores({ notation_pages: 'id, tune_id, state', notation_files: 'id, origin' })
       .upgrade(repull)
+
+    // A recording's one date splits in two. It always said when the row was added; it says
+    // when the music was played only for a take, the one source captured as it was played.
+    this.version(12)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table('recordings').toCollection().modify(splitRecordingDate)
+        await tx
+          .table('outbox')
+          .filter((entry: OutboxEntry) => entry.table === 'recordings' && entry.data != null)
+          .modify((entry: OutboxEntry) => {
+            if (entry.data) splitRecordingDate(entry.data)
+          })
+      })
   }
 
   // Dexie's auto-open on the first query calls this method too.
@@ -222,6 +236,19 @@ export class CrosstuneDb extends Dexie {
     const settleWaiters = this._state.isBeingOpened ? undefined : this._state.dbReadyResolve
     super.close(options)
     settleWaiters?.()
+  }
+}
+
+function splitRecordingDate(row: Record<string, unknown>) {
+  // A row with added_at already has the new shape, such as one an older tab pulled after the
+  // server moved, and its recorded date may be one the server or the user set.
+  if (!('recorded_at' in row) || row.added_at != null) return
+  row.added_at = row.recorded_at
+  if (row.source === 'microphone' && row.recorded_at != null) {
+    row.recorded_precision = 'time'
+  } else {
+    row.recorded_at = null
+    row.recorded_precision = null
   }
 }
 

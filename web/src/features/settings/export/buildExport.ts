@@ -193,14 +193,12 @@ function planAudio(
     return [...recordings]
       .sort(
         (a, b) =>
-          a.position - b.position ||
-          time(a.recorded_at) - time(b.recorded_at) ||
-          byCodeUnits(a.id, b.id),
+          a.position - b.position || time(a.added_at) - time(b.added_at) || byCodeUnits(a.id, b.id),
       )
       .map((recording) => {
         const stem = recording.label
-          ? `${dateOf(recording.recorded_at)} ${recording.label}`
-          : dateOf(recording.recorded_at)
+          ? `${dateOf(recording.added_at)} ${recording.label}`
+          : dateOf(recording.added_at)
         const ext = audioExtension(audioById.get(recording.id)?.contentType ?? null)
         const path = `recordings/${folder}/${files.take(stem, ext)}`
         audio.push({ recordingId: recording.id, path })

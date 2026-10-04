@@ -15,7 +15,8 @@ import { CLOSE_PLAYER } from '../player/transportCopy'
 import type { Player } from '../player/usePlayer'
 import { DOWNLOAD_FAILED, WAITING_TO_UPLOAD } from '../recording/format'
 import { RecordingItem } from './RecordingItem'
-import { downloadingName } from './recordingNames'
+import { openOn } from './recordingCopy'
+import { downloadingName, openTuneName } from './recordingNames'
 import type { RecordingView } from './useRecordings'
 
 function view(
@@ -38,6 +39,9 @@ function show(
   opts: {
     actions?: readonly RowAction[]
     error?: string | null
+    onOpenTune?: () => void
+    tuneNamedAbove?: boolean
+    headingLevel?: 3 | 4
     engine?: SyncEngine
     player?: Player
     db?: CrosstuneDb
@@ -51,6 +55,9 @@ function show(
         view={recordingView}
         actions={opts.actions}
         error={opts.error}
+        tuneNamedAbove={opts.tuneNamedAbove ?? true}
+        onOpenTune={opts.onOpenTune}
+        headingLevel={opts.headingLevel}
         onRetry={onRetry}
       />
     </IonList>,
@@ -272,25 +279,25 @@ describe('RecordingItem', () => {
 
   it('shows the actions passed in with the names Row gives them', async () => {
     const actions: RowAction[] = [
-      { label: 'Rename', icon: Pencil, tone: 'neutral', onPress: vi.fn() },
+      { label: 'Edit', icon: Pencil, tone: 'neutral', onPress: vi.fn() },
     ]
     show(view(), { actions })
-    await expect.element(page.getByRole('button', { name: 'Rename Jam recording' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: 'Edit Jam recording' })).toBeVisible()
   })
 
   it('still reveals swipe actions on touch once the open control has its own button', async () => {
     forceTouch()
     const onPress = vi.fn()
-    const actions: RowAction[] = [{ label: 'Rename', icon: Pencil, tone: 'neutral', onPress }]
+    const actions: RowAction[] = [{ label: 'Edit', icon: Pencil, tone: 'neutral', onPress }]
     show(view({ recording: { state: 'ready' } }), { actions })
     const sliding = document.querySelector<HTMLIonItemSlidingElement>('ion-item-sliding')!
     await vi.waitFor(async () => {
       await sliding.open('end')
       expect(sliding.classList.contains('item-sliding-active-slide')).toBe(true)
     })
-    const rename = page.getByRole('button', { name: 'Rename Jam recording' })
-    await expect.element(rename).toBeVisible()
-    await rename.click()
+    const edit = page.getByRole('button', { name: 'Edit Jam recording' })
+    await expect.element(edit).toBeVisible()
+    await edit.click()
     await expect.poll(() => onPress).toHaveBeenCalledOnce()
   })
 
@@ -316,5 +323,169 @@ describe('RecordingItem', () => {
     expect(player.play).not.toHaveBeenCalled()
     await playButton.click()
     await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+  })
+
+  describe('source line', () => {
+    const url = 'https://www.slippery-hill.com/recording/1'
+    const imported = (extra: Parameters<typeof view>[0] = {}) =>
+      view({
+        file: recordingFile('r1', { blob: new Blob(['x'], { type: 'audio/mp4' }) }),
+        ...extra,
+        recording: { origin: 'slippery_hill', origin_url: url, ...extra.recording },
+      })
+    const link = () => page.getByRole('link', { name: openOn('Slippery-Hill') })
+
+    it('links an import to the page it came from, in a new tab', async () => {
+      show(imported())
+      await expect.element(link()).toBeVisible()
+      await expect.element(link()).toHaveTextContent('Slippery-Hill')
+      await expect.element(link()).toHaveAttribute('href', url)
+      await expect.element(link()).toHaveAttribute('target', '_blank')
+      await expect.element(link()).toHaveAttribute('rel', 'noopener noreferrer')
+      await expect
+        .poll(() => link().element().getBoundingClientRect().height)
+        .toBeGreaterThanOrEqual(44)
+    })
+
+    it('opens the page without playing the row', async () => {
+      const player = fakePlayer()
+      show(imported(), { player })
+      await expect.element(link()).toBeVisible()
+      // The click itself would leave the test page for the site.
+      link()
+        .element()
+        .addEventListener('click', (event) => event.preventDefault())
+      await link().click()
+      await expect.element(link()).toBeVisible()
+      expect(player.play).not.toHaveBeenCalled()
+    })
+
+    it('sits between the meta line and the tune line', async () => {
+      show({ ...imported({ tuneTitle: "Soldier's Joy" }), tuneId: 't1' }, { onOpenTune: vi.fn() })
+      const tune = page.getByRole('button', { name: openTuneName("Soldier's Joy") })
+      await expect.element(tune).toBeVisible()
+      await expect.element(link()).toBeVisible()
+      const meta = document.querySelector('ion-label p')!
+      await expect
+        .poll(
+          () => meta.compareDocumentPosition(link().element()) & Node.DOCUMENT_POSITION_FOLLOWING,
+        )
+        .toBeTruthy()
+      await expect
+        .poll(
+          () =>
+            link().element().compareDocumentPosition(tune.element()) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        )
+        .toBeTruthy()
+      // Each on a line of its own.
+      await expect
+        .poll(
+          () =>
+            tune.element().getBoundingClientRect().top -
+            link().element().getBoundingClientRect().bottom,
+        )
+        .toBeGreaterThanOrEqual(0)
+    })
+
+    it('leaves the line out of an own recording', async () => {
+      show(imported({ recording: { origin: 'own' } }))
+      await expect.element(openControl('Play Jam recording')).toBeVisible()
+      expect(page.getByRole('link').elements()).toHaveLength(0)
+    })
+
+    it('leaves the line out when the stored address is not a web page', async () => {
+      show(imported({ recording: { origin_url: 'javascript:alert(1)' } }))
+      await expect.element(openControl('Play Jam recording')).toBeVisible()
+      expect(page.getByRole('link').elements()).toHaveLength(0)
+    })
+  })
+
+  describe('tune line', () => {
+    const filed = (extra: Parameters<typeof view>[0] = {}) => ({
+      ...view({ tuneTitle: "Soldier's Joy", ...extra }),
+      tuneId: 't1',
+    })
+    const held = { file: recordingFile('r1', { blob: new Blob(['x'], { type: 'audio/mp4' }) }) }
+
+    it('opens the tune from its own button without playing the row', async () => {
+      const player = fakePlayer()
+      const onOpenTune = vi.fn()
+      show(filed(held), { player, onOpenTune })
+      await page.getByRole('button', { name: openTuneName("Soldier's Joy") }).click()
+      await expect.poll(() => onOpenTune).toHaveBeenCalledOnce()
+      expect(player.play).not.toHaveBeenCalled()
+      await expect
+        .element(openControl('Play Jam recording'))
+        .not.toHaveAccessibleName(expect.stringContaining("Soldier's Joy"))
+    })
+
+    it('plays the row from a press beside the tune name', async () => {
+      const player = fakePlayer()
+      const onOpenTune = vi.fn()
+      show(filed(held), { player, onOpenTune })
+      const tune = page.getByRole('button', { name: openTuneName("Soldier's Joy") })
+      await expect.element(tune).toBeVisible()
+      const row = openControl('Play Jam recording').element().getBoundingClientRect()
+      const line = tune.element().getBoundingClientRect()
+      // On the tune line's own band, past the end of the name.
+      await openControl('Play Jam recording').click({
+        position: { x: row.width - 24, y: line.top - row.top + line.height / 2 },
+      })
+      await expect.poll(() => player.play).toHaveBeenCalledWith({ kind: 'recording', id: 'r1' })
+      expect(onOpenTune).not.toHaveBeenCalled()
+    })
+
+    it('gives the tune button a 44px tap target', async () => {
+      show(filed(held), { onOpenTune: vi.fn() })
+      const button = page.getByRole('button', { name: openTuneName("Soldier's Joy") })
+      await expect.element(button).toBeVisible()
+      await expect
+        .poll(() => button.element().getBoundingClientRect().height)
+        .toBeGreaterThanOrEqual(44)
+    })
+
+    it('leaves the line out without a handler', async () => {
+      show(filed(held))
+      await expect.element(openControl('Play Jam recording')).toBeVisible()
+      expect(
+        page.getByRole('button', { name: openTuneName("Soldier's Joy") }).elements(),
+      ).toHaveLength(0)
+    })
+
+    it('leaves the line out for a filed view with no tune title', async () => {
+      show(filed({ ...held, tuneTitle: null }), { onOpenTune: vi.fn() })
+      await expect.element(openControl('Play Jam recording')).toBeVisible()
+      expect(page.getByRole('button', { name: /^Open / }).elements()).toHaveLength(0)
+    })
+
+    it('titles an unlabeled row with its tune where no heading names the tune', async () => {
+      show(filed({ ...held, recording: { label: null } }), {
+        onOpenTune: vi.fn(),
+        tuneNamedAbove: false,
+      })
+      await expect.element(page.getByRole('heading', { name: "Soldier's Joy" })).toBeVisible()
+    })
+
+    it('puts the error line after the tune line', async () => {
+      show(filed(held), { onOpenTune: vi.fn(), error: 'Refused' })
+      const tune = page.getByRole('button', { name: openTuneName("Soldier's Joy") })
+      await expect.element(tune).toBeVisible()
+      await expect.element(page.getByRole('alert')).toBeVisible()
+      await expect
+        .poll(
+          () =>
+            tune.element().compareDocumentPosition(page.getByRole('alert').element()) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        )
+        .toBeTruthy()
+    })
+
+    it('renders the title as an h4 on request', async () => {
+      show(filed(held), { headingLevel: 4 })
+      await expect
+        .element(page.getByRole('heading', { name: 'Jam recording', level: 4 }))
+        .toBeVisible()
+    })
   })
 })

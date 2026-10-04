@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { Lockup } from '../ui/Mark'
-import { clearSearchQuery } from '../features/catalog/searchSession'
+import { clearSearchQueries } from '../features/catalog/searchSession'
 import { AuthProvider } from './AuthContext'
 import { SIGN_IN_HEADLINE, SIGN_IN_LINE } from './links'
 import { PaperEcho } from './PaperEcho'
@@ -50,8 +50,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       clearAccountDeletedNotice()
     } else {
       forgetUser()
-      // Whoever signs in next in this tab must not inherit the previous user's search.
-      clearSearchQuery()
+      clearSearchQueries()
     }
   }, [isLoaded, isSignedIn, userId, signedOutUser, signedIn])
 

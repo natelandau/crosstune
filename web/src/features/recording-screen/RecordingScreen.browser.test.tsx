@@ -17,12 +17,16 @@ import { recordingFile, recordingRow, tuneRow } from '../../test/rows'
 import { OPEN_RECORDING, PAUSE, PLAY } from '../player/transportCopy'
 import type { PlaybackEngine } from '../player/playbackEngine'
 import { usePlayer } from '../player/usePlayer'
-import { DOWNLOAD_FAILED, formatDuration, NOT_AVAILABLE } from '../recording/format'
+import {
+  DOWNLOAD_FAILED,
+  formatDuration,
+  NOT_AVAILABLE,
+  recordingDateLabel,
+} from '../recording/format'
 import { ADD_TO_TUNE_TITLE } from '../recordings/AddToTuneSheet'
 import { RecordingsPage } from '../recordings/RecordingsPage'
-import { RECORDING_NAME_LABEL, RENAME } from '../recordings/recordingCopy'
-import { recordedAtLabel } from '../recordings/recordingRow'
-import { RENAME_RECORDING_TITLE } from '../recordings/RenameRecordingSheet'
+import { RECORDING_NAME_LABEL, EDIT } from '../recordings/recordingCopy'
+import { EDIT_RECORDING_TITLE } from '../recordings/EditRecordingSheet'
 import { ADD_TO_TUNE, DELETE_RECORDING_TITLE } from '../recordings/useRecordingActions'
 import {
   FIT,
@@ -295,7 +299,7 @@ describe('RecordingScreen', () => {
     const screen = await modal()
     await expect.element(await waveform()).toBeVisible()
     const recording = (await db.recordings.get(id))!
-    const line = `${recordedAtLabel(recording.recorded_at)} · ${formatDuration(recording.duration_ms)}`
+    const line = `${recordingDateLabel(recording)} · ${formatDuration(recording.duration_ms)}`
     const header = screen.element().querySelector('ion-header')!
     await expect.poll(() => header.textContent).toContain(line)
     await expect
@@ -316,17 +320,17 @@ describe('RecordingScreen', () => {
       .toBeVisible()
   })
 
-  it('the ⋯ menu offers Trim, Rename, Add to tune, and Delete', async () => {
+  it('the ⋯ menu offers Trim, Edit, Add to tune, and Delete', async () => {
     await localRecording('Jam recording')
     await openFromDock('Jam recording')
-    await expect.poll(await menuLabels()).toEqual([TRIM, RENAME, ADD_TO_TUNE, DELETE])
+    await expect.poll(await menuLabels()).toEqual([TRIM, EDIT, ADD_TO_TUNE, DELETE])
   })
 
   it('the ⋯ menu offers Remove from tune for a filed recording', async () => {
     await db.tunes.put(tuneRow('t1', 'Tune'))
     const id = await captureRecording(db, { tuneId: 't1', label: 'Jam recording' })
     await openById(id)
-    await expect.poll(await menuLabels()).toEqual([TRIM, RENAME, REMOVE_FROM_TUNE, DELETE])
+    await expect.poll(await menuLabels()).toEqual([TRIM, EDIT, REMOVE_FROM_TUNE, DELETE])
   })
 
   it('Trim returns to the screen', async () => {
@@ -522,12 +526,12 @@ describe('RecordingScreen', () => {
     await expect.element((await modal()).getByRole('button', { name: PAUSE })).toBeVisible()
   })
 
-  it('renames from its menu', async () => {
+  it('edits from its menu', async () => {
     await localRecording('Jam recording')
     await openFromDock('Jam recording')
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
-    await (await menuItem(RENAME)).click()
-    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
+    await (await menuItem(EDIT)).click()
+    await expect.element(page.getByText(EDIT_RECORDING_TITLE)).toBeVisible()
     await expect
       .element(page.getByRole('textbox', { name: RECORDING_NAME_LABEL }))
       .toHaveValue('Jam recording')
@@ -586,7 +590,7 @@ describe('RecordingScreen', () => {
     press(' ', { repeat: true })
     await expect.poll(() => engine.getState().playing).toBe(true)
     await (await modal()).getByRole('button', { name: MORE_ACTIONS }).click()
-    await menuItem(RENAME)
+    await menuItem(EDIT)
     press(' ')
     press('ArrowRight')
     await expect.poll(() => engine.getState().playing).toBe(true)

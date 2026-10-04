@@ -1,11 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RECORDING_LIMITS } from '../api/vocabulary'
 import { pendingFor } from '../db/outbox'
 import { getKeepOffline, setKeepOffline } from '../db/meta'
 import type { CrosstuneDb } from '../db/schema'
 import { openTestDb } from '../test/db'
 import { loopRow } from '../test/rows'
-import { LINK_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
+import {
+  LINK_NOT_FOUND,
+  RECORDED_DATE_FUTURE,
+  RECORDED_DATE_INVALID,
+  RECORDED_DATE_MISMATCH,
+  RECORDED_DATE_OFF_PERIOD,
+  TUNE_NOT_FOUND,
+} from './messages'
 import {
   addRecordingFromLink,
   addUploadedFile,
@@ -72,11 +79,19 @@ describe('capture', () => {
     expect(row).toMatchObject({
       tune_id: null,
       source: 'microphone',
+      added_at: AT,
       recorded_at: AT,
+      recorded_precision: 'time',
       state: 'pending_upload',
     })
     const queued = await pendingFor(db, 'recordings', id)
-    expect(queued?.data).toMatchObject({ source: 'microphone', recorded_at: AT, position: 0 })
+    expect(queued?.data).toMatchObject({
+      source: 'microphone',
+      added_at: AT,
+      recorded_at: AT,
+      recorded_precision: 'time',
+      position: 0,
+    })
     expect(queued?.data).not.toHaveProperty('state')
   })
 
@@ -183,6 +198,19 @@ describe('uploads and edits', () => {
     expect(await db.recordings.get(id)).toMatchObject({ source: 'upload', label: 'Field recorder' })
   })
 
+  it('dates an upload by when it was added and leaves when it was played unknown', async () => {
+    const file = new File(['wav-bytes'], 'jam.wav', { type: 'audio/wav', lastModified: 0 })
+    const id = await addUploadedFile(db, file, { tuneId: null, label: null, durationMs: null })
+    const row = await db.recordings.get(id)
+    expect(row?.added_at).toBe(row?.created_at)
+    expect(row).toMatchObject({ recorded_at: null, recorded_precision: null })
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({
+      added_at: row?.created_at,
+      recorded_at: null,
+      recorded_precision: null,
+    })
+  })
+
   it('stores an uploaded file with no measured length as unknown', async () => {
     const file = new File(['webm-bytes'], 'jam.webm', { type: 'audio/webm' })
     const id = await addUploadedFile(db, file, { tuneId: null, label: null, durationMs: null })
@@ -198,6 +226,94 @@ describe('uploads and edits', () => {
       label: 'Recording 2',
       tune_id: tuneId,
     })
+  })
+
+  it('updateRecording writes a partial recorded date and queues it', async () => {
+    const id = await captured()
+    const date = { recorded_at: '1937-01-01T00:00:00.000Z', recorded_precision: 'year' } as const
+    await updateRecording(db, id, date)
+    expect(await db.recordings.get(id)).toMatchObject({ ...date, added_at: AT })
+    expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({ ...date, added_at: AT })
+  })
+
+  it('updateRecording clears the recorded date and keeps when it was added', async () => {
+    const id = await captured()
+    await updateRecording(db, id, { recorded_at: null, recorded_precision: null })
+    expect(await db.recordings.get(id)).toMatchObject({
+      added_at: AT,
+      recorded_at: null,
+      recorded_precision: null,
+    })
+  })
+
+  it('updateRecording refuses a recorded date without its precision or the reverse', async () => {
+    const id = await captured()
+    const before = await db.recordings.get(id)
+    for (const patch of [
+      { recorded_at: '1937-01-01T00:00:00.000Z' },
+      { recorded_precision: 'year' },
+      { recorded_at: null, recorded_precision: 'year' },
+      { recorded_at: '1937-01-01T00:00:00.000Z', recorded_precision: null },
+    ] as const) {
+      await expect(updateRecording(db, id, patch)).rejects.toThrow(RECORDED_DATE_MISMATCH)
+    }
+    expect(await db.recordings.get(id)).toEqual(before)
+  })
+
+  it('updateRecording refuses a partial date off the start of its period', async () => {
+    const id = await captured()
+    for (const patch of [
+      { recorded_at: '1937-05-01T00:00:00.000Z', recorded_precision: 'year' },
+      { recorded_at: '1998-05-02T00:00:00.000Z', recorded_precision: 'month' },
+      { recorded_at: '1998-10-03T04:00:00.000Z', recorded_precision: 'day' },
+    ] as const) {
+      await expect(updateRecording(db, id, patch)).rejects.toThrow(RECORDED_DATE_OFF_PERIOD)
+    }
+    expect((await db.recordings.get(id))?.recorded_at).toBe(AT)
+  })
+
+  it('updateRecording refuses a recorded date more than a day ahead', async () => {
+    const id = await captured()
+    const ahead = (ms: number) => new Date(Date.now() + ms).toISOString()
+    for (const patch of [
+      { recorded_at: ahead(25 * 60 * 60 * 1000), recorded_precision: 'time' },
+      { recorded_at: '2999-01-01T00:00:00.000Z', recorded_precision: 'year' },
+    ] as const) {
+      await expect(updateRecording(db, id, patch)).rejects.toThrow(RECORDED_DATE_FUTURE)
+    }
+    expect((await db.recordings.get(id))?.recorded_at).toBe(AT)
+    // A date inside the allowance still saves.
+    const soon = ahead(60 * 60 * 1000)
+    await updateRecording(db, id, { recorded_at: soon, recorded_precision: 'time' })
+    expect((await db.recordings.get(id))?.recorded_at).toBe(soon)
+  })
+
+  it('updateRecording accepts a recorded date exactly a day ahead', async () => {
+    const id = await captured()
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-04T12:00:00.000Z') })
+    try {
+      const edge = '2026-10-05T12:00:00.000Z'
+      await updateRecording(db, id, { recorded_at: edge, recorded_precision: 'time' })
+      expect((await db.recordings.get(id))?.recorded_at).toBe(edge)
+      await expect(
+        updateRecording(db, id, {
+          recorded_at: '2026-10-05T12:00:00.001Z',
+          recorded_precision: 'time',
+        }),
+      ).rejects.toThrow(RECORDED_DATE_FUTURE)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('updateRecording refuses a recorded date that is not a date', async () => {
+    const id = await captured()
+    for (const precision of ['time', 'year', 'month', 'day'] as const) {
+      await expect(
+        updateRecording(db, id, { recorded_at: 'garbage', recorded_precision: precision }),
+      ).rejects.toThrow(RECORDED_DATE_INVALID)
+    }
+    expect((await db.recordings.get(id))?.recorded_at).toBe(AT)
   })
 
   it('updateRecording writes speed and pitch and queues one upsert', async () => {
@@ -320,7 +436,9 @@ describe('keep offline and local audio', () => {
       source: 'microphone',
       origin: 'own',
       origin_url: null,
+      added_at: AT,
       recorded_at: AT,
+      recorded_precision: 'time',
       position: 0,
       state: 'ready',
       duration_ms: 1000,
@@ -390,8 +508,12 @@ describe('addRecordingFromLink', () => {
       source: 'import',
       origin: 'slippery_hill',
       origin_url: link.url,
+      recorded_at: null,
+      recorded_precision: null,
       state: 'pending_upload',
     })
+    const row = await db.recordings.get(id)
+    expect(row?.added_at).toBe(row?.created_at)
     expect(await db.recording_files.get(id)).toBeUndefined()
     expect((await pendingFor(db, 'recordings', id))?.data).toMatchObject({
       tune_id: tuneId,
@@ -399,6 +521,9 @@ describe('addRecordingFromLink', () => {
       source: 'import',
       origin: 'slippery_hill',
       origin_url: link.url,
+      added_at: row?.created_at,
+      recorded_at: null,
+      recorded_precision: null,
     })
     expect(await db.outbox.where('table').equals('recordings').count()).toBe(1)
     expect((await db.recording_links.get(linkId))?.deleted_at).toBeNull()

@@ -1,8 +1,16 @@
-import { RECORDING_LIMITS } from '../api/vocabulary'
+import { RECORDING_LIMITS, type RecordingPrecision } from '../api/vocabulary'
 import type { LocalFileState, RecordingFile } from '../db/recordings'
 import type { CrosstuneDb } from '../db/schema'
 import type { LocalRecording } from '../db/types'
-import { LINK_NOT_FOUND, RECORDING_NOT_FOUND, TUNE_NOT_FOUND } from './messages'
+import {
+  LINK_NOT_FOUND,
+  RECORDED_DATE_FUTURE,
+  RECORDED_DATE_INVALID,
+  RECORDED_DATE_MISMATCH,
+  RECORDED_DATE_OFF_PERIOD,
+  RECORDING_NOT_FOUND,
+  TUNE_NOT_FOUND,
+} from './messages'
 import {
   activeByPosition,
   defined,
@@ -51,7 +59,8 @@ async function putRecordingRow(
     tuneId: string | null
     source: 'microphone' | 'upload' | 'import'
     label: string | null
-    recordedAt: string
+    /** When the music was played, known only for a take. */
+    recordedAt: string | null
     origin?: string
     originUrl?: string
   },
@@ -69,7 +78,10 @@ async function putRecordingRow(
     source: fields.source,
     origin: fields.origin ?? 'own',
     origin_url: fields.originUrl ?? null,
+    // A take was added the moment it was played.
+    added_at: fields.recordedAt ?? at,
     recorded_at: fields.recordedAt,
+    recorded_precision: fields.recordedAt === null ? null : 'time',
     position: nextPosition(siblings),
     state: 'pending_upload',
     duration_ms: null,
@@ -194,7 +206,8 @@ export async function addUploadedFile(
       tuneId: fields.tuneId,
       source: 'upload',
       label: fields.label,
-      recordedAt: new Date(file.lastModified || Date.now()).toISOString(),
+      // A file's modified time usually records a download or copy, not the playing.
+      recordedAt: null,
     })
   })
   return id
@@ -222,7 +235,7 @@ export async function addRecordingFromLink(db: CrosstuneDb, linkId: string): Pro
       source: 'import',
       // The server counts code points, so a cut by UTF-16 unit could split an emoji.
       label: link.title ? [...link.title].slice(0, RECORDING_LIMITS.label).join('') : null,
-      recordedAt: now(),
+      recordedAt: null,
       origin: link.provider,
       originUrl: link.url,
     })
@@ -240,8 +253,11 @@ export async function updateRecording(
     trim_end_ms?: number | null
     speed_percent?: number
     pitch_cents?: number
+    recorded_at?: string | null
+    recorded_precision?: RecordingPrecision | null
   },
 ): Promise<void> {
+  checkRecordedDate(patch)
   await recordingTx(db, async () => {
     const row = await db.recordings.get(id)
     if (!row || row.deleted_at) throw new Error(RECORDING_NOT_FOUND)
@@ -258,6 +274,36 @@ export async function updateRecording(
       await db.recording_files.update(id, { local_state: 'captured', error: null })
     }
   })
+}
+
+// Matches the server's allowance for a device clock running ahead.
+export const RECORDED_AT_LEEWAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Refuses a recorded date push would refuse: a date and its precision come together, the
+ * date is no more than a day ahead of now, and a partial date is UTC midnight at the start
+ * of its year, month, or day.
+ */
+function checkRecordedDate(patch: {
+  recorded_at?: string | null
+  recorded_precision?: RecordingPrecision | null
+}) {
+  const { recorded_at: at, recorded_precision: precision } = patch
+  if (at === undefined && precision === undefined) return
+  if (at === undefined || precision === undefined || (at === null) !== (precision === null)) {
+    throw new Error(RECORDED_DATE_MISMATCH)
+  }
+  if (at === null) return
+  const date = new Date(at)
+  if (Number.isNaN(date.getTime())) throw new Error(RECORDED_DATE_INVALID)
+  if (date.getTime() > Date.now() + RECORDED_AT_LEEWAY_MS) throw new Error(RECORDED_DATE_FUTURE)
+  if (precision === 'time') return
+  const start = Date.UTC(
+    date.getUTCFullYear(),
+    precision === 'year' ? 0 : date.getUTCMonth(),
+    precision === 'day' ? date.getUTCDate() : 1,
+  )
+  if (date.getTime() !== start) throw new Error(RECORDED_DATE_OFF_PERIOD)
 }
 
 /** Put a file back in the upload queue with a clean slate: no error, no backoff. */

@@ -40,6 +40,9 @@ export type Provider = (typeof PROVIDERS)[number]
 export const RECORDING_ORIGINS = ['own', 'slippery_hill'] as const
 export type RecordingOrigin = (typeof RECORDING_ORIGINS)[number]
 
+export const RECORDING_PRECISIONS = ['year', 'month', 'day', 'time'] as const
+export type RecordingPrecision = (typeof RECORDING_PRECISIONS)[number]
+
 export const RECORDING_SOURCES = ['microphone', 'upload', 'import'] as const
 export type RecordingSource = (typeof RECORDING_SOURCES)[number]
 

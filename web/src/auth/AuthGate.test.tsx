@@ -58,7 +58,8 @@ describe('AuthGate', () => {
 
   it('shows sign-in and forgets the user and their search when signed out', () => {
     rememberUser('user_1')
-    writeSearchQuery('soldier')
+    writeSearchQuery('catalog', 'soldier')
+    writeSearchQuery('recordings', 'jig')
     auth = { isLoaded: true, isSignedIn: false, userId: null, getToken: async () => null }
     render(
       <AuthGate>
@@ -69,7 +70,8 @@ describe('AuthGate', () => {
     const lockup = screen.getByText('Crosstune')
     expect(lockup.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
     expect(rememberedUser()).toBeNull()
-    expect(readSearchQuery()).toBe('')
+    expect(readSearchQuery('catalog')).toBe('')
+    expect(readSearchQuery('recordings')).toBe('')
   })
 
   it('opens the remembered user offline when Clerk cannot load', () => {

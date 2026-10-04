@@ -1,8 +1,8 @@
 import userEvent from '@testing-library/user-event'
 import { useEffect, useState } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import { RECORDING_NOT_FOUND } from '../../commands/messages'
+import { RECORDED_DATE_FUTURE, RECORDING_NOT_FOUND } from '../../commands/messages'
 import { addUploadedFile, updateRecording } from '../../commands/recordings'
 import { setInstruments, settingsId } from '../../commands/settings'
 import { createTune } from '../../commands/tunes'
@@ -14,12 +14,23 @@ import { recordingRow } from '../../test/rows'
 import { SEARCH_TUNES } from '../catalog/TuneSearch'
 import { NEW_TUNE_TITLE } from '../tune/TuneFormSheet'
 import { ADD_TO_TUNE_ERROR, ADD_TO_TUNE_TITLE, AddToTuneSheet } from './AddToTuneSheet'
-import { RECORDING_NAME_LABEL } from './recordingCopy'
+import { RECORDING_NAME_LABEL, recordedAtNote } from './recordingCopy'
 import {
+  ANY_LABEL,
+  CLEAR_DATE,
+  DATE_RECORDED_LABEL,
+  DAY_LABEL,
+  EDIT_RECORDING_TITLE,
+  EditRecordingSheet,
+  MONTH_LABEL,
+  NAME_LABEL,
   RECORDING_NAME_PLACEHOLDER,
-  RENAME_RECORDING_TITLE,
-  RenameRecordingSheet,
-} from './RenameRecordingSheet'
+  YEAR_LABEL,
+} from './EditRecordingSheet'
+import { openPickerRow } from '../../test/dialogs'
+import { YEAR_FORMAT } from './recordedDateParts'
+import type { LocalRecording } from '../../db/types'
+import { recordedTime } from '../recording/format'
 import { Storage, STORAGE_USED } from './Storage'
 import type { RecordingView } from './useRecordings'
 import { EMPTY_FILE_ERROR, NOT_AUDIO_ERROR, refusedFile } from './addAudioFiles'
@@ -37,9 +48,12 @@ beforeEach(async () => {
   await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
 })
 
-function view(label: string | null = 'Jam recording'): RecordingView {
+function view(
+  label: string | null = 'Jam recording',
+  extra: Partial<LocalRecording> = {},
+): RecordingView {
   return {
-    recording: recordingRow('r1', { label }),
+    recording: recordingRow('r1', { label, ...extra }),
     file: undefined,
     tuneId: null,
     tuneTitle: null,
@@ -53,7 +67,7 @@ function Host({
   onClose,
   onReady,
 }: {
-  sheet: 'rename' | 'add'
+  sheet: 'edit' | 'add'
   target: RecordingView
   onClose: () => void
   /** Hands the screen's own opener out, so a test can ask for another recording. */
@@ -67,8 +81,8 @@ function Host({
     onClose()
     setOpen(null)
   }
-  return sheet === 'rename' ? (
-    <RenameRecordingSheet view={open} onClose={close} />
+  return sheet === 'edit' ? (
+    <EditRecordingSheet view={open} onClose={close} />
   ) : (
     <AddToTuneSheet view={open} onClose={close} />
   )
@@ -89,12 +103,10 @@ async function createFrom(title: string) {
   await page.getByRole('button', { name: 'Add' }).click()
 }
 
-describe('RenameRecordingSheet', () => {
+describe('EditRecordingSheet', () => {
   it('opens on the recording it was given, with its stored name', async () => {
-    renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
-    await expect.element(page.getByText(RENAME_RECORDING_TITLE)).toBeVisible()
-    // The sheet's title names the one field, so the field carries no header of its own,
-    // which leaves the placeholder as the only thing showing where to type.
+    renderIonic(<Host sheet="edit" target={view()} onClose={vi.fn()} />, { db })
+    await expect.element(page.getByText(EDIT_RECORDING_TITLE)).toBeVisible()
     await expect.element(nameField()).toBeVisible()
     await vi.waitFor(() =>
       expect(
@@ -103,15 +115,12 @@ describe('RenameRecordingSheet', () => {
           ?.getAttribute('placeholder'),
       ).toBe(RECORDING_NAME_PLACEHOLDER),
     )
-    await expect
-      .poll(() => document.querySelector('ion-modal:not(.overlay-hidden)')!.querySelectorAll('h2'))
-      .toHaveLength(0)
     await expect.element(nameField()).toHaveValue('Jam recording')
   })
 
   it('saves a trimmed name and closes', async () => {
     const onClose = vi.fn()
-    renderIonic(<Host sheet="rename" target={view()} onClose={onClose} />, { db })
+    renderIonic(<Host sheet="edit" target={view()} onClose={onClose} />, { db })
     await nameField().fill('  Barn dance  ')
     await page.getByRole('button', { name: 'Save' }).click()
     await vi.waitFor(() =>
@@ -123,7 +132,7 @@ describe('RenameRecordingSheet', () => {
   })
 
   it('stores nothing at all for a blank name', async () => {
-    renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
+    renderIonic(<Host sheet="edit" target={view()} onClose={vi.fn()} />, { db })
     await nameField().fill('   ')
     await page.getByRole('button', { name: 'Save' }).click()
     await vi.waitFor(() =>
@@ -134,7 +143,7 @@ describe('RenameRecordingSheet', () => {
 
   it('reports one close for one dismissal', async () => {
     const onClose = vi.fn()
-    renderIonic(<Host sheet="rename" target={view()} onClose={onClose} />, { db })
+    renderIonic(<Host sheet="edit" target={view()} onClose={onClose} />, { db })
     await expect.element(nameField()).toBeVisible()
     await page.getByRole('button', { name: CANCEL }).click()
     await closed()
@@ -144,7 +153,7 @@ describe('RenameRecordingSheet', () => {
   })
 
   it('saves once for two submits in the same tick', async () => {
-    renderIonic(<Host sheet="rename" target={view()} onClose={vi.fn()} />, { db })
+    renderIonic(<Host sheet="edit" target={view()} onClose={vi.fn()} />, { db })
     await nameField().fill('Barn dance')
     const save = page.getByRole('button', { name: 'Save' })
     await expect.element(save).toBeVisible()
@@ -153,6 +162,179 @@ describe('RenameRecordingSheet', () => {
     save.element().dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))
     await closed()
     await vi.waitFor(() => expect(vi.mocked(updateRecording)).toHaveBeenCalledOnce())
+  })
+})
+
+describe('EditRecordingSheet date recorded', () => {
+  // A take on Oct 3 2026 at 16:12 UTC, a day before the pinned clock.
+  const TAKE = '2026-10-03T16:12:00.000Z'
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-04T12:00:00.000Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const year = () => page.getByRole('textbox', { name: YEAR_LABEL })
+  const select = (label: string, value: string) =>
+    page.getByRole('button', { name: `${label}, ${value}`, exact: true })
+  const options = () =>
+    page
+      .getByRole('radio')
+      .elements()
+      .map((option) => option.textContent?.trim())
+
+  async function pick(label: string, current: string, option: string) {
+    await openPickerRow(`${label}, ${current}`, { exact: true })
+    await page.getByRole('radio', { name: option, exact: true }).click()
+    await expect.element(select(label, option)).toBeInTheDocument()
+  }
+
+  async function open(extra: Partial<LocalRecording>) {
+    await db.recordings.put(recordingRow('r1', { label: 'Jam recording', ...extra }))
+    renderIonic(<Host sheet="edit" target={view('Jam recording', extra)} onClose={vi.fn()} />, {
+      db,
+    })
+    await expect.element(nameField()).toBeVisible()
+  }
+
+  const save = () => page.getByRole('button', { name: 'Save' }).click()
+  const stored = () => db.recordings.get('r1')
+
+  it('heads the name and the date recorded', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await expect.element(page.getByRole('heading', { name: NAME_LABEL })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: DATE_RECORDED_LABEL })).toBeVisible()
+  })
+
+  it('keeps a take exact when only the name changes', async () => {
+    await open({ recorded_at: TAKE, recorded_precision: 'time' })
+    await expect.element(page.getByText(recordedAtNote(recordedTime(TAKE)))).toBeVisible()
+    await nameField().fill('Barn dance')
+    await save()
+    await vi.waitFor(() =>
+      expect(vi.mocked(updateRecording)).toHaveBeenCalledWith(db, 'r1', { label: 'Barn dance' }),
+    )
+    await expect.poll(async () => (await stored())?.recorded_at).toBe(TAKE)
+    expect((await stored())?.recorded_precision).toBe('time')
+  })
+
+  it('saves a year alone as the start of that year', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await year().fill('1937')
+    await save()
+    await expect.poll(async () => (await stored())?.recorded_precision).toBe('year')
+    expect((await stored())?.recorded_at).toBe('1937-01-01T00:00:00.000Z')
+  })
+
+  it('saves a year, month, and day as that day', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await year().fill('1998')
+    await pick(MONTH_LABEL, ANY_LABEL, 'October')
+    await pick(DAY_LABEL, ANY_LABEL, '3')
+    await save()
+    await expect.poll(async () => (await stored())?.recorded_precision).toBe('day')
+    expect((await stored())?.recorded_at).toBe('1998-10-03T00:00:00.000Z')
+  })
+
+  it('opens an import’s year filled in', async () => {
+    await open({ recorded_at: '1937-01-01T00:00:00.000Z', recorded_precision: 'year' })
+    await expect.element(year()).toHaveValue('1937')
+    await expect.element(select(MONTH_LABEL, ANY_LABEL)).toBeInTheDocument()
+  })
+
+  it('enables Month once a year is set, and Day once a month is', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await expect.element(select(MONTH_LABEL, ANY_LABEL)).toBeDisabled()
+    await expect.element(select(DAY_LABEL, ANY_LABEL)).toBeDisabled()
+    await year().fill('1998')
+    await expect.element(select(MONTH_LABEL, ANY_LABEL)).toBeEnabled()
+    await expect.element(select(DAY_LABEL, ANY_LABEL)).toBeDisabled()
+    await pick(MONTH_LABEL, ANY_LABEL, 'May')
+    await expect.element(select(DAY_LABEL, ANY_LABEL)).toBeEnabled()
+  })
+
+  it('ends the days at the month’s last, Feb 29 in a leap year', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await year().fill('2024')
+    await pick(MONTH_LABEL, ANY_LABEL, 'February')
+    await openPickerRow(`${DAY_LABEL}, ${ANY_LABEL}`, { exact: true })
+    await expect.poll(() => options().at(-1)).toBe('29')
+    expect(options()).toHaveLength(30)
+    await page.getByRole('radio', { name: '29', exact: true }).click()
+    await save()
+    await expect.poll(async () => (await stored())?.recorded_at).toBe('2024-02-29T00:00:00.000Z')
+  })
+
+  it('ends a common year’s February at the 28th', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await year().fill('2023')
+    await pick(MONTH_LABEL, ANY_LABEL, 'February')
+    await openPickerRow(`${DAY_LABEL}, ${ANY_LABEL}`, { exact: true })
+    await expect.poll(() => options().at(-1)).toBe('28')
+  })
+
+  it('refuses a year after this one under the field', async () => {
+    await open({ recorded_at: null, recorded_precision: null })
+    await year().fill('2027')
+    await save()
+    await expect.element(page.getByRole('alert')).toHaveTextContent(RECORDED_DATE_FUTURE)
+    await expect.element(year()).toHaveAttribute('aria-invalid', 'true')
+    await expect.element(year()).toHaveFocus()
+    expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
+    await year().fill('2026')
+    await expect.poll(() => page.getByRole('alert').elements()).toHaveLength(0)
+  })
+
+  it('refuses a year that is not four digits once a month is set', async () => {
+    await open({ recorded_at: '1998-05-01T00:00:00.000Z', recorded_precision: 'month' })
+    await expect.element(select(MONTH_LABEL, 'May')).toBeInTheDocument()
+    await year().fill('98')
+    await save()
+    await expect.element(page.getByRole('alert')).toHaveTextContent(YEAR_FORMAT)
+    expect(vi.mocked(updateRecording)).not.toHaveBeenCalled()
+  })
+
+  it('saves a blanked year as no date, even with a month left behind it', async () => {
+    await open({ recorded_at: '1998-05-01T00:00:00.000Z', recorded_precision: 'month' })
+    await expect.element(select(MONTH_LABEL, 'May')).toBeInTheDocument()
+    await year().fill('')
+    await save()
+    await expect.poll(async () => (await stored())?.recorded_precision).toBeNull()
+    expect((await stored())?.recorded_at).toBeNull()
+  })
+
+  it('keeps a chosen day showing while the year is being retyped', async () => {
+    await open({ recorded_at: '1998-10-03T00:00:00.000Z', recorded_precision: 'day' })
+    await expect.element(select(DAY_LABEL, '3')).toBeEnabled()
+    await year().fill('19')
+    await expect.element(select(DAY_LABEL, '3')).toBeDisabled()
+    await year().fill('1999')
+    await expect.element(select(DAY_LABEL, '3')).toBeEnabled()
+  })
+
+  it('clears the date to unknown', async () => {
+    await open({ recorded_at: TAKE, recorded_precision: 'time' })
+    await page.getByRole('button', { name: CLEAR_DATE }).click()
+    await expect.element(year()).toHaveValue('')
+    await save()
+    await expect.poll(async () => (await stored())?.recorded_precision).toBeNull()
+    expect((await stored())?.recorded_at).toBeNull()
+  })
+
+  it('drops a take’s time once its date changes', async () => {
+    await open({ recorded_at: TAKE, recorded_precision: 'time' })
+    const local = new Date(TAKE)
+    await year().fill('2025')
+    await expect.element(page.getByText(recordedAtNote(recordedTime(TAKE)))).not.toBeInTheDocument()
+    await save()
+    await expect.poll(async () => (await stored())?.recorded_precision).toBe('day')
+    expect((await stored())?.recorded_at).toBe(
+      new Date(Date.UTC(2025, local.getMonth(), local.getDate())).toISOString(),
+    )
   })
 })
 
