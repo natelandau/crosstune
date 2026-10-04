@@ -163,6 +163,17 @@ enum PlaybackSetting: CaseIterable, Sendable {
     }
 }
 
+/// Drives the player one track at a time, as a list playing through.
+@MainActor
+public protocol PlayerQueue: AnyObject {
+    /// The track ended on its own or MusicKit moved off it.
+    func playerTrackEnded(_ end: TrackEnd)
+    /// The track just queued cannot play here, and nothing is loaded.
+    func playerCouldNotPlay()
+    /// Something other than the queue took over the player, which has let go of the queue.
+    func playerLeftQueue()
+}
+
 /// What is loaded in the player, shared by every screen that can start playback. At most one
 /// item is loaded, and it stays loaded while the musician browses until they close it. Only one
 /// thing plays at a time: loading a recording takes a link's player away, and loading a link
@@ -205,6 +216,18 @@ public final class PlayerModel {
     /// land, until the next change. Shown wherever the player is, so it outlasts the screen
     /// that made the change.
     public private(set) var failure: String?
+    /// The queue driving the player, while one does. Weak, so a queue that goes away lets the
+    /// player carry on as it was.
+    public weak var queue: (any PlayerQueue)?
+    /// Called when something loads outside a queue, so a playlist's leftover message can go.
+    @ObservationIgnored public var onPlayedOutsideQueue: (@MainActor () -> Void)?
+    /// What the loaded queued recording shows on the system's Now Playing surfaces, which the
+    /// item's own title would otherwise replace. Nil outside a queue.
+    @ObservationIgnored private var queuedNowPlaying: NowPlaying?
+    /// Whether MusicKit holds the loaded song as a guard queue, which only a queue watches.
+    @ObservationIgnored private var loadedGuarded = false
+    /// The background reload that frees a guarded song once its queue has left.
+    @ObservationIgnored private var releasing: Task<Void, Never>?
     /// Plays a loaded recording's audio.
     public let audio: any AudioPlayback
     /// Plays Apple Music links in full; nil plays every link in its embed.
@@ -302,7 +325,12 @@ public final class PlayerModel {
     public func play(_ item: PlayerItem) -> Bool {
         guard !isCapturing() else { return false }
         let same = holds(item.kind, id: item.id)
-        if same, let music {
+        // A queued song sits in a guard queue that reports to the queue; resuming it after the
+        // queue is let go would pause on a guard copy, so it loads again unguarded.
+        let queued = queue != nil || audio.holdsSession
+        leaveAttachedQueue()
+        onPlayedOutsideQueue?()
+        if same, !queued, !loadedGuarded, let music {
             music.play()
             return true
         }
@@ -317,6 +345,74 @@ public final class PlayerModel {
             startLink(item)
         }
         return true
+    }
+
+    /// Loads `item` for the queue and starts it, in place of whatever was loaded, even when it is
+    /// the item already loaded: a queue's repeat and restart need the track loaded afresh, and a
+    /// song's guard queue is spent once it reports an end. The player stays shown in full or not
+    /// as it was, since the queue's controls live there. A track that cannot play here, which
+    /// never falls back to an embed, closes the item and reaches
+    /// ``PlayerQueue/playerCouldNotPlay()``. Refused, returning false, while a take is being
+    /// recorded. A song with `autoplay` false loads paused at its start.
+    @discardableResult
+    public func playQueued(_ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool = true) -> Bool {
+        guard !isCapturing() else { return false }
+        let same = holds(item.kind, id: item.id)
+        stopAudio()
+        loops.reset(forgettingRows: !same)
+        self.item = item
+        queuedNowPlaying = nowPlaying
+        audio.holdsSession = true
+        audio.skipsByInterval = false
+        audio.onTrackEnd = { [weak self] end in self?.queue?.playerTrackEnded(end) }
+        appleMusic?.player.onTrackEnd = { [weak self] end in self?.queue?.playerTrackEnded(end) }
+        if item.kind == .recording {
+            loadAudio(item)
+        } else {
+            startQueuedSong(item, autoplay: autoplay)
+        }
+        return true
+    }
+
+    /// Detaches the queue, which has finished or been replaced, and lets go of what it held,
+    /// leaving the loaded item as it is. The queue is not told: it is the one leaving.
+    public func leaveQueue() {
+        detachQueue()
+        releaseGuard()
+    }
+
+    /// A song left loaded when the queue goes has no one watching its guard queue, so play and
+    /// the bar would resume a copy. It loads again in the background, unguarded and paused at
+    /// its start. Nothing the musician sees changes meanwhile, and a failed load leaves the
+    /// guard queue as it was. Any play, close, or new load takes over and cancels it.
+    private func releaseGuard() {
+        guard loadedGuarded, queue == nil, linkAudio == .native, let item, let kind = item.link?.appleMusic,
+            let appleMusic
+        else { return }
+        let id = item.id
+        releasing?.cancel()
+        releasing = Task { [weak self] in
+            guard await appleMusic.player.load(kind, guarded: false) else { return }
+            guard let self, !Task.isCancelled, holds(.link, id: id), linkAudio == .native else { return }
+            loadedGuarded = false
+            releasing = nil
+        }
+    }
+
+    private func detachQueue() {
+        queue = nil
+        queuedNowPlaying = nil
+        audio.onTrackEnd = nil
+        appleMusic?.player.onTrackEnd = nil
+        audio.skipsByInterval = true
+        audio.holdsSession = false
+        audio.releaseSession()
+    }
+
+    private func leaveAttachedQueue() {
+        guard queue != nil || audio.holdsSession else { return }
+        queue?.playerLeftQueue()
+        detachQueue()
     }
 
     /// Shows a recording's screen in `window`, starting the recording first when it
@@ -347,10 +443,16 @@ public final class PlayerModel {
 
     /// Unloads the item, which stops it and takes the player off screen.
     public func close() {
+        unloadItem()
+        leaveAttachedQueue()
+    }
+
+    private func unloadItem(keepsExpansion: Bool = false) {
+        queuedNowPlaying = nil
         stopAudio()
         loops.reset(forgettingRows: true)
         item = nil
-        isExpanded = false
+        if !keepsExpansion { isExpanded = false }
     }
 
     /// Tries the loaded recording's audio again after it could not be found or fetched.
@@ -430,15 +532,26 @@ public final class PlayerModel {
     }
 
     /// Follows the stored row of the loaded link `id`: a new title or player replaces the
-    /// loaded one, and a row that is gone, deleted, or no longer playable closes the player.
-    /// Does nothing when another item is loaded.
+    /// loaded one, and a row that is gone, deleted, or no longer playable closes the player, or
+    /// moves a queue on to its next track. Does nothing when another item is loaded.
     public func linkChanged(id: String, to row: RecordingLink?) {
         guard holds(.link, id: id) else { return }
         guard let row, let next = PlayerItem.link(row) else {
-            close()
+            dropGoneItem()
             return
         }
         guard next.link?.appleMusic == item?.link?.appleMusic else {
+            if let nowPlaying = queuedNowPlaying {
+                // A queued link plays only as a guarded song, and the queue moves on when it cannot.
+                // A paused song stays paused, as with a single link.
+                if case .song? = next.link?.appleMusic {
+                    let autoplay = linkAudio == .deciding || music?.isPlaying == true
+                    playQueued(next, nowPlaying: nowPlaying, autoplay: autoplay)
+                } else {
+                    queuedItemCannotPlay()
+                }
+                return
+            }
             // A new address can mean another track, or one MusicKit cannot play. The player
             // stays as the musician left it: shown or not, and playing or not. A sync never
             // starts MusicKit or its access prompt; only a play tap still being decided does.
@@ -457,16 +570,16 @@ public final class PlayerModel {
 
     /// Follows the stored row of the loaded recording `id`, its audio file on this device, and
     /// the title of its tune: a new name shows in place, and a row that is gone or deleted
-    /// closes the player. The audio already playing carries on, taking a new trim, speed, or
-    /// pitch in place, and a new file of the audio reloads at the same position. Does nothing
-    /// when another item is loaded.
+    /// closes the player, or moves a queue on to its next track. The audio already playing
+    /// carries on, taking a new trim, speed, or pitch in place, and a new file of the audio
+    /// reloads at the same position. Does nothing when another item is loaded.
     public func recordingChanged(
         id: String, to row: Recording?, audioFile: RecordingAudioFile?, tuneTitle: String?,
         locale: Locale = .current, timeZone: TimeZone = .current
     ) {
         guard holds(.recording, id: id) else { return }
         guard let row, row.deletedAt == nil else {
-            close()
+            dropGoneItem()
             return
         }
         let previous = item
@@ -477,7 +590,7 @@ public final class PlayerModel {
         for setting in changed { follow(setting, row: row) }
         guard recordingAudio == .loaded else { return }
         if next.title != previous?.title || next.tuneTitle != previous?.tuneTitle {
-            audio.retitle(NowPlaying(title: next.title, tuneTitle: next.tuneTitle))
+            audio.retitle(nowPlaying(for: next))
         }
         // Each revision of the audio is a new file, so a new URL is the only change that reloads.
         if let audioFile, audioFile.url != loadedFile?.audio.url {
@@ -516,10 +629,18 @@ public final class PlayerModel {
             let file = await source?(id)
             guard let self, !Task.isCancelled, holds(.recording, id: id) else { return }
             guard let file else {
-                recordingAudio = .unavailable
+                guard queuedNowPlaying != nil else {
+                    recordingAudio = .unavailable
+                    return
+                }
+                queuedItemCannotPlay()
                 return
             }
             start(file, self.item ?? item)
+            if queuedNowPlaying != nil, audio.hasFailed {
+                queuedItemCannotPlay()
+                return
+            }
             if let position { audio.seek(to: position) }
             // A take started while the audio was fetched keeps the microphone to itself.
             if playing && !isCapturing() { audio.play() }
@@ -529,7 +650,7 @@ public final class PlayerModel {
     /// Loads `file` paused at its start, playing `item`'s trim, speed, and pitch. `keepLoop`
     /// keeps Repeat on through a new file of the same recording.
     private func start(_ file: RecordingAudioFile, _ item: PlayerItem, keepLoop: Bool = false) {
-        audio.load(file.url, nowPlaying: NowPlaying(title: item.title, tuneTitle: item.tuneTitle), keepLoop: keepLoop)
+        audio.load(file.url, nowPlaying: nowPlaying(for: item), keepLoop: keepLoop)
         loadedFile = (file, audio.duration)
         applied = [:]
         recordingAudio = .loaded
@@ -537,6 +658,11 @@ public final class PlayerModel {
         if let window = window(row) { audio.setWindow(window) }
         for setting in PlaybackSetting.allCases { apply(setting) }
         loops.audioReady(trimStartMs: row.trimStartMs)
+    }
+
+    /// The queue's own title while one drives the player, otherwise `item`'s.
+    private func nowPlaying(for item: PlayerItem) -> NowPlaying {
+        queuedNowPlaying ?? NowPlaying(title: item.title, tuneTitle: item.tuneTitle)
     }
 
     private func window(_ row: Recording) -> PlaybackWindow? {
@@ -639,11 +765,26 @@ public final class PlayerModel {
             isExpanded = item.link != nil
             return
         }
-        linkAudio = .deciding
-        isExpanded = false
-        let id = item.id
         let expands = expandsOnFallBack
-        startDeadline(id, expanding: expands)
+        decide(
+            item, kind: kind, appleMusic: appleMusic, queued: false, autoplay: autoplay, asksAccess: asksAccess
+        ) { [weak self] emptyingQueue in
+            self?.fallBack(emptyingQueue: emptyingQueue, expanding: expands)
+        }
+    }
+
+    /// Finds, loads, and starts the Apple Music song `kind` for the link `item` through MusicKit,
+    /// handing every outcome that cannot play it to `fail`, which takes whether the load left a
+    /// queue to empty. `queued` plays it guarded, yielding the audio session first and never
+    /// prompting for access; `autoplay` false leaves it paused at its start.
+    private func decide(
+        _ item: PlayerItem, kind: AppleMusicKind, appleMusic: AppleMusic, queued: Bool, autoplay: Bool,
+        asksAccess: Bool, fail: @escaping @MainActor (_ emptyingQueue: Bool) -> Void
+    ) {
+        linkAudio = .deciding
+        if !queued { isExpanded = false }
+        let id = item.id
+        startDeadline(id) { fail(true) }
         deciding = Task { [weak self] in
             var access = await appleMusic.access.current()
             guard let self, isDeciding(id) else { return }
@@ -651,18 +792,19 @@ public final class PlayerModel {
                 deadline?.cancel()
                 _ = await appleMusic.access.request()
                 guard isDeciding(id) else { return }
-                startDeadline(id, expanding: expands)
+                startDeadline(id) { fail(true) }
                 // Read again under the deadline: the subscription lookup needs the network.
                 access = await appleMusic.access.current()
                 guard isDeciding(id) else { return }
             }
             guard access == .fullTracks else {
-                fallBack(emptyingQueue: false, expanding: expands)
+                fail(false)
                 return
             }
-            guard await appleMusic.player.load(kind), isDeciding(id) else {
+            if queued { audio.yieldSessionToMusic() }
+            guard await appleMusic.player.load(kind, guarded: queued), isDeciding(id) else {
                 guard isDeciding(id) else { return }
-                fallBack(expanding: expands)
+                fail(true)
                 return
             }
             guard !isCapturing() else {
@@ -670,7 +812,9 @@ public final class PlayerModel {
                 close()
                 return
             }
-            if autoplay {
+            // The queue left while the song loaded, so nothing watches this guard queue to play it.
+            let abandoned = queued && queue == nil
+            if autoplay && !abandoned {
                 guard await appleMusic.player.start(), isDeciding(id) else {
                     guard isDeciding(id) else {
                         // A start that lands after the deadline or a close would play under the
@@ -678,12 +822,15 @@ public final class PlayerModel {
                         if linkAudio != .native && linkAudio != .deciding { appleMusic.player.stop() }
                         return
                     }
-                    fallBack(expanding: expands)
+                    fail(true)
                     return
                 }
             }
             finishDeciding()
             linkAudio = .native
+            loadedGuarded = queued
+            // The queue may have left while the song loaded.
+            releaseGuard()
         }
     }
 
@@ -692,14 +839,53 @@ public final class PlayerModel {
         !Task.isCancelled && holds(.link, id: id) && linkAudio == .deciding
     }
 
-    private func startDeadline(_ id: String, expanding: Bool) {
+    /// Runs `onTimeout` if link `id` is still being decided once the decision timeout passes.
+    private func startDeadline(_ id: String, onTimeout: @escaping @MainActor () -> Void) {
         deadline?.cancel()
         let timeout = decisionTimeout
         deadline = Task { [weak self] in
             try? await Task.sleep(for: timeout)
             guard let self, isDeciding(id) else { return }
-            fallBack(expanding: expanding)
+            onTimeout()
         }
+    }
+
+    /// Plays a queued Apple Music song through MusicKit, guarded so its own next and previous
+    /// report to the queue. Never asks for access and never plays the embed: a song that
+    /// cannot play here goes back to the queue.
+    private func startQueuedSong(_ item: PlayerItem, autoplay: Bool = true) {
+        guard case .song? = item.link?.appleMusic, let kind = item.link?.appleMusic, let appleMusic else {
+            queuedItemCannotPlay()
+            return
+        }
+        decide(item, kind: kind, appleMusic: appleMusic, queued: true, autoplay: autoplay, asksAccess: false) {
+            [weak self] emptyingQueue in
+            guard let self else { return }
+            if queue != nil {
+                queuedItemCannotPlay()
+            } else {
+                // The queue left mid-decision, so this is a single song again.
+                fallBack(emptyingQueue: emptyingQueue, expanding: false)
+            }
+        }
+    }
+
+    /// Lets go of a loaded item whose row is gone: a queue moves on to its next track, and
+    /// otherwise the player closes.
+    private func dropGoneItem() {
+        if queuedNowPlaying != nil {
+            queuedItemCannotPlay()
+        } else {
+            close()
+        }
+    }
+
+    /// Closes the queued item, which cannot play here, and tells the queue. The queue stays
+    /// attached, with its session held, for the track it picks next, which the player shows as
+    /// it was: in full or not.
+    private func queuedItemCannotPlay() {
+        unloadItem(keepsExpansion: queue != nil)
+        queue?.playerCouldNotPlay()
     }
 
     /// Ends the decision with the link's embed, in full unless `expanding` is false.
@@ -728,6 +914,9 @@ public final class PlayerModel {
         finishDeciding()
         if linkAudio == .native || linkAudio == .deciding { appleMusic?.player.stop() }
         linkAudio = nil
+        loadedGuarded = false
+        releasing?.cancel()
+        releasing = nil
         if recordingAudio == .loaded { audio.unload() }
         recordingAudio = nil
         loadedFile = nil

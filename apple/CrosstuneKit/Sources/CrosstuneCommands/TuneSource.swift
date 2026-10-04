@@ -19,6 +19,8 @@ public enum PlaylistSkip: Hashable, Sendable {
     case noCapableLink
     case needsSubscription
     case needsConnection
+    /// The tune's recordings are its only source a list can play, and none has audio here now.
+    case recordingsNotHere
 }
 
 public enum PlaylistChoice: Hashable, Sendable {
@@ -60,12 +62,14 @@ public func rowSource(
 }
 
 /// What a list plays for a tune, or why it skips it. Only recordings and Apple Music songs
-/// play in a list. A pin that cannot play here passes over to the next choice.
+/// play in a list, and only the recordings in `playable`, the IDs with audio this device can
+/// play now. A pin that cannot play here passes over to the next choice.
 public func playlistSource(
-    userTune: UserTune, recordings: [Recording], links: [RecordingLink], playFirst: String,
-    fullTracks: Bool, online: Bool
+    userTune: UserTune, recordings: [Recording], playable: Set<String>, links: [RecordingLink],
+    playFirst: String, fullTracks: Bool, online: Bool
 ) -> PlaylistChoice {
-    let (recordings, links) = liveSources(of: userTune, recordings: recordings, links: links)
+    let (live, links) = liveSources(of: userTune, recordings: recordings, links: links)
+    let recordings = live.filter { playable.contains($0.id) }
     let songs = links.filter(isAppleMusicSong)
     let playableSongs = fullTracks && online ? songs : []
 
@@ -78,7 +82,9 @@ public func playlistSource(
     if let first = recordings.first { return .play(.recording(first)) }
     if let song = playableSongs.first { return .play(.link(song)) }
 
-    if links.isEmpty { return .skip(.nothing) }
-    if songs.isEmpty { return .skip(.noCapableLink) }
+    if songs.isEmpty {
+        if !live.isEmpty { return .skip(.recordingsNotHere) }
+        return .skip(links.isEmpty ? .nothing : .noCapableLink)
+    }
     return .skip(fullTracks ? .needsConnection : .needsSubscription)
 }

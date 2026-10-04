@@ -130,6 +130,14 @@ public enum RecordingText {
         return file.localState != .capturing && file.localState != .downloading
     }
 
+    /// The recordings a list can play now: those with audio on this device, and while online
+    /// those whose server copy is ready. A list never waits on a download it cannot start.
+    public static func playlistCapable(
+        _ recordings: [Recording], files: [String: RecordingFile], online: Bool
+    ) -> [Recording] {
+        recordings.filter { holdsAudio(files[$0.id]) || (online && $0.state == "ready") }
+    }
+
     /// Which control the row shows. Close beats play for a loaded item even after its audio is
     /// gone; play needs audio on this device; download belongs to the server's ready copy.
     public static func control(_ recording: Recording, file: RecordingFile?, loaded: Bool, downloading: Bool)
