@@ -1,6 +1,7 @@
 import { IonButton, IonItem, IonSelect, IonSelectOption, IonToggle } from '@ionic/react'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow } from '../../ui/FieldRow'
+import { FILTERS } from '../../ui/filterCopy'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
 import {
@@ -39,7 +40,7 @@ export function CatalogFilterSheet({
   return (
     <Sheet
       open={open}
-      title="Filters"
+      title={FILTERS}
       onClose={onClose}
       start={
         <IonButton disabled={setCount === 0} onClick={() => onChange(sheetResets(visible))}>

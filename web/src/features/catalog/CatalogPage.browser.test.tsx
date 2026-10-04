@@ -27,6 +27,7 @@ import { readSearchQuery, writeSearchQuery } from './searchSession'
 import { SEARCH_TUNES } from './TuneSearch'
 import * as catalogModule from './useCatalog'
 import { FILTER_SAVE_ERROR } from './useCatalogFilters'
+import { FILTERS, filtersLabel, removeFilterLabel } from '../../ui/filterCopy'
 
 vi.mock('../../commands/bulk', { spy: true })
 vi.mock('../../commands/tunes', { spy: true })
@@ -243,7 +244,7 @@ describe('CatalogPage', () => {
     await search().fill('cluck')
     await expect.poll(() => row("Soldier's Joy").elements().length).toBe(0)
     await expect.element(row('Cluck Old Hen')).toBeVisible()
-    await expect.poll(readSearchQuery).toBe('cluck')
+    await expect.poll(() => readSearchQuery('catalog')).toBe('cluck')
   })
 
   it('persists a status filter in the meta table, not the session query', async () => {
@@ -256,7 +257,7 @@ describe('CatalogPage', () => {
       )
       .toBe('known')
     await expect.poll(() => row('Cluck Old Hen').elements().length).toBe(0)
-    expect(readSearchQuery()).toBe('')
+    expect(readSearchQuery('catalog')).toBe('')
   })
 
   it('writes the status filter once per tap and shows it while the write is in flight', async () => {
@@ -409,10 +410,10 @@ describe('CatalogPage', () => {
     try {
       show()
       await search().fill('Sally Goodin')
-      await expect.poll(readSearchQuery).toBe('Sally Goodin')
+      await expect.poll(() => readSearchQuery('catalog')).toBe('Sally Goodin')
       await userEvent.keyboard('{Enter}')
       await new Promise((resolve) => setTimeout(resolve, 300))
-      expect(readSearchQuery()).toBe('Sally Goodin')
+      expect(readSearchQuery('catalog')).toBe('Sally Goodin')
       expect(sheetOpen()).toBeNull()
     } finally {
       vi.mocked(catalogModule.useCatalog).mockImplementation(actual.useCatalog)
@@ -496,7 +497,7 @@ describe('CatalogPage', () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
     const searchRow = () => search().element().closest('ion-toolbar')!
-    await expect.poll(() => searchRow().contains(buttonHost('Filters'))).toBe(true)
+    await expect.poll(() => searchRow().contains(buttonHost(FILTERS))).toBe(true)
     for (const name of [ADD_TUNE, MORE_ACTIONS]) {
       await expect.poll(() => searchRow().contains(buttonHost(name)), { message: name }).toBe(false)
     }
@@ -506,11 +507,13 @@ describe('CatalogPage', () => {
     await db.tunes.update(joy.tuneId, { genre: 'Old-time' })
     await setMeta(db, META_CATALOG_FILTERS, { genre: 'Old-time', archived: true })
     show()
-    await expect.element(page.getByRole('button', { name: 'Remove filter Old-time' })).toBeVisible()
     await expect
-      .element(page.getByRole('button', { name: 'Remove filter Archived shown' }))
+      .element(page.getByRole('button', { name: removeFilterLabel('Old-time') }))
       .toBeVisible()
-    await page.getByRole('button', { name: 'Filters, 2 set' }).click()
+    await expect
+      .element(page.getByRole('button', { name: removeFilterLabel('Archived shown') }))
+      .toBeVisible()
+    await page.getByRole('button', { name: filtersLabel(2) }).click()
     await expect.element(page.getByText(SHOW_ARCHIVED)).toBeVisible()
   })
 
@@ -542,13 +545,13 @@ describe('CatalogPage', () => {
     await userEvent.keyboard('{Enter}')
     await expect.element(page.getByText(NEW_TUNE_TITLE)).toBeVisible()
     await expect.element(page.getByLabelText('Title')).toHaveValue('Sally Goodin')
-    await expect.poll(readSearchQuery).toBe('')
+    await expect.poll(() => readSearchQuery('catalog')).toBe('')
   })
 
   it('does not act on Enter while an input method is composing', async () => {
     show()
     await search().fill('Sally Goodin')
-    await expect.poll(readSearchQuery).toBe('Sally Goodin')
+    await expect.poll(() => readSearchQuery('catalog')).toBe('Sally Goodin')
     search()
       .element()
       .dispatchEvent(
@@ -556,7 +559,7 @@ describe('CatalogPage', () => {
       )
     await new Promise((resolve) => setTimeout(resolve, 300))
     expect(sheetOpen()).toBeNull()
-    expect(readSearchQuery()).toBe('Sally Goodin')
+    expect(readSearchQuery('catalog')).toBe('Sally Goodin')
   })
 
   it('clears the query and the session from the clear button, keeping the filters', async () => {
@@ -565,7 +568,7 @@ describe('CatalogPage', () => {
     await search().fill('cluck')
     await page.getByRole('button', { name: CLEAR_SEARCH }).click()
     await expect.element(search()).toHaveValue('')
-    await expect.poll(readSearchQuery).toBe('')
+    await expect.poll(() => readSearchQuery('catalog')).toBe('')
     await expect.poll(storedStatus).toBe('learning')
   })
 
@@ -635,7 +638,7 @@ describe('CatalogPage', () => {
   })
 
   it('restores the session query and ignores one left in the meta table', async () => {
-    writeSearchQuery('cluck')
+    writeSearchQuery('catalog', 'cluck')
     await setMeta(db, META_CATALOG_FILTERS, { query: 'soldier' })
     show()
     await expect.element(search()).toHaveValue('cluck')
@@ -752,7 +755,7 @@ describe('CatalogPage selection', () => {
   it('gives every toolbar control a 44px tap target', async () => {
     show()
     await expect.element(page.getByRole('button', { name: MORE_ACTIONS })).toBeVisible()
-    for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
+    for (const name of [FILTERS, ADD_TUNE, MORE_ACTIONS]) {
       await expect
         .poll(() => buttonHost(name).getBoundingClientRect().height)
         .toBeGreaterThanOrEqual(44)
@@ -767,7 +770,7 @@ describe('CatalogPage selection', () => {
     try {
       show()
       await expect.element(more()).toBeVisible()
-      for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
+      for (const name of [FILTERS, ADD_TUNE, MORE_ACTIONS]) {
         await expect
           .poll(() => buttonHost(name).getBoundingClientRect().height, { message: name })
           .toBeGreaterThanOrEqual(44)
@@ -777,7 +780,7 @@ describe('CatalogPage selection', () => {
       }
       await search().fill('zzz')
       await expect.element(more()).not.toBeInTheDocument()
-      for (const name of ['Filters', ADD_TUNE]) {
+      for (const name of [FILTERS, ADD_TUNE]) {
         await expect
           .poll(() => buttonHost(name).getBoundingClientRect().height, { message: name })
           .toBeGreaterThanOrEqual(44)
@@ -796,7 +799,7 @@ describe('CatalogPage selection', () => {
     await startSelecting()
     await expect.element(page.getByRole('button', { name: 'Status' })).toBeVisible()
     await leaveSelection().click()
-    for (const name of ['Filters', ADD_TUNE, MORE_ACTIONS]) {
+    for (const name of [FILTERS, ADD_TUNE, MORE_ACTIONS]) {
       await expect.element(page.getByRole('button', { name })).toBeVisible()
     }
     await expect.poll(() => page.getByRole('button', { name: 'Status' }).elements()).toHaveLength(0)
@@ -907,7 +910,7 @@ describe('CatalogPage selection', () => {
   it('hides Add tune and Filters while selecting', async () => {
     show()
     const add = page.getByRole('button', { name: ADD_TUNE })
-    const filters = page.getByRole('button', { name: 'Filters' })
+    const filters = page.getByRole('button', { name: FILTERS })
     await expect.element(add).toBeVisible()
     await expect.element(filters).toBeVisible()
     await startSelecting()
@@ -965,7 +968,7 @@ describe('CatalogPage selection', () => {
     await userEvent.keyboard('{Escape}')
     await expect.element(search()).toHaveValue('')
     await expect.element(leaveSelection()).toBeVisible()
-    await expect.poll(readSearchQuery).toBe('')
+    await expect.poll(() => readSearchQuery('catalog')).toBe('')
   })
 
   it('sets the status of a selection from the toolbar', async () => {
