@@ -149,10 +149,11 @@ enum TabSlot: Hashable {
         let stage: EmbedStage
 
         @Environment(\.playerWindow) private var window
+        @Environment(ListPlayback.self) private var playback: ListPlayback?
 
         func body(content: Content) -> some View {
             content
-                .tabViewBottomAccessory(isEnabled: player.isLoaded) {
+                .tabViewBottomAccessory(isEnabled: PlayerBar.isShown(player, playback)) {
                     PlayerBar(player: player)
                 }
                 .sheet(isPresented: expanded(.recording)) {

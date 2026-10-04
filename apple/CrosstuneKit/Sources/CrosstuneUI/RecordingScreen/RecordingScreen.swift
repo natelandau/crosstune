@@ -263,6 +263,7 @@ private struct RecordingScreenContent: View {
             {
                 RecordingPlayerStatus(player: player, message: status)
             }
+            PlaylistControlsRow()
             OverviewStrip(model: practice, peaks: shownPeaks)
                 .disabled(blocker != nil)
                 .opacity(blocker != nil ? 0.5 : 1)

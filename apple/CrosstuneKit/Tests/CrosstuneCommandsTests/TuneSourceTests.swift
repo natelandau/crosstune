@@ -35,12 +35,13 @@ private func row(
 }
 
 private func choice(
-    _ pin: UserTune = userTune(), recordings: [Recording] = [], links: [RecordingLink] = [],
-    playFirst: String = UserSettings.playFirstRecordings, fullTracks: Bool = true, online: Bool = true
+    _ pin: UserTune = userTune(), recordings: [Recording] = [], playable: Set<String>? = nil,
+    links: [RecordingLink] = [], playFirst: String = UserSettings.playFirstRecordings, fullTracks: Bool = true,
+    online: Bool = true
 ) -> PlaylistChoice {
     playlistSource(
-        userTune: pin, recordings: recordings, links: links, playFirst: playFirst, fullTracks: fullTracks,
-        online: online)
+        userTune: pin, recordings: recordings, playable: playable ?? Set(recordings.map(\.id)), links: links,
+        playFirst: playFirst, fullTracks: fullTracks, online: online)
 }
 
 @Suite struct RowSourceTests {
@@ -217,5 +218,31 @@ private func choice(
 
     @Test func skipsWithNeedsConnectionWhenOffline() {
         #expect(choice(links: [link("l1", "apple_music")], online: false) == .skip(.needsConnection))
+    }
+
+    @Test func aPinnedRecordingWithNoAudioHerePassesOverToASong() {
+        let song = link("l1", "apple_music")
+        let result = choice(userTune(recording: "r1"), recordings: [rec("r1")], playable: [], links: [song])
+        #expect(result == .play(.link(song)))
+    }
+
+    @Test func skipsRecordingsWithNoAudioHereWhenTheyAreTheOnlySource() {
+        #expect(choice(recordings: [rec("r1")], playable: []) == .skip(.recordingsNotHere))
+    }
+
+    @Test func skipsRecordingsWithNoAudioHereBesideALinkThatCannotPlay() {
+        let result = choice(recordings: [rec("r1")], playable: [], links: [link("l1", "spotify")])
+        #expect(result == .skip(.recordingsNotHere))
+    }
+
+    @Test func aSongBesideRecordingsWithNoAudioHereSkipsForTheSong() {
+        let links = [link("l1", "apple_music")]
+        #expect(
+            choice(recordings: [rec("r1")], playable: [], links: links, fullTracks: false) == .skip(.needsSubscription))
+        #expect(choice(recordings: [rec("r1")], playable: [], links: links, online: false) == .skip(.needsConnection))
+    }
+
+    @Test func aDeletedRecordingWithNoAudioHereCountsAsNothing() {
+        #expect(choice(recordings: [rec("r1", deleted: true)], playable: []) == .skip(.nothing))
     }
 }

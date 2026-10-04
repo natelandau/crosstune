@@ -6,6 +6,7 @@ import SwiftUI
 struct RootView: View {
     let session: AccountSession
     let player: PlayerModel
+    let listPlayback: ListPlayback
     let stage: EmbedStage
     let recorders: RecorderHost
 
@@ -32,6 +33,7 @@ struct RootView: View {
             }
         }
         .environment(session)
+        .environment(listPlayback)
         .onChange(of: session.clerkUserID, initial: true) {
             session.clerkUserChanged()
         }
@@ -41,7 +43,10 @@ struct RootView: View {
         // What played, and what the Edit menu could undo, belong to the catalog they came from.
         .onChange(of: session.store?.userID) { old, _ in
             // Only a store being left has anything to drop; the first one opening has nothing.
-            if old != nil { player.leaveStore() }
+            if old != nil {
+                listPlayback.end()
+                player.leaveStore()
+            }
             undoManager?.removeAllActions()
         }
         .onAppear {

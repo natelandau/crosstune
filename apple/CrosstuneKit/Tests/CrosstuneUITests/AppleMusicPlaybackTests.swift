@@ -68,20 +68,43 @@ final class FakeMusic: MusicPlayback {
     /// Each start waits until ``releaseStart()``, as MusicKit's play waits on buffering.
     var holdsStarts = false
     private var heldStart: CheckedContinuation<Void, Never>?
+    /// Each settle after a previous waits until ``releaseSettle()``, as iOS waits on MusicKit.
+    var holdsSettles = false
+    private var heldSettle: CheckedContinuation<Void, Never>?
+    /// Counts the settles that have returned.
+    private(set) var settled = 0
     private(set) var loaded: [AppleMusicKind] = []
+    /// Whether each load asked for a guarded song, in the order of `loaded`.
+    private(set) var guardedLoads: [Bool] = []
     private(set) var cancelledLoads: [AppleMusicKind] = []
+    /// What each finished load returned, in the order they finished.
+    private(set) var loadResults: [Bool] = []
+    /// Moves on with each play, as the device's player counts starts.
+    private var plays = 0
     private(set) var calls: [String] = []
     private var held: [CheckedContinuation<Void, Never>] = []
+    var onTrackEnd: (@MainActor (TrackEnd) -> Void)?
 
-    func load(_ kind: AppleMusicKind) async -> Bool {
+    /// Ends the track on its own, paused, as the device's player does.
+    func end(_ end: TrackEnd) {
+        isPlaying = false
+        onTrackEnd?(end)
+    }
+
+    func load(_ kind: AppleMusicKind, guarded: Bool) async -> Bool {
         calls.append("load")
         loaded.append(kind)
+        guardedLoads.append(guarded)
+        let playsAtLoad = plays
         if holdsLoads { await withCheckedContinuation { held.append($0) } }
         if Task.isCancelled {
             cancelledLoads.append(kind)
+            loadResults.append(false)
             return false
         }
-        return found
+        let result = found && plays == playsAtLoad
+        loadResults.append(result)
+        return result
     }
 
     func release() {
@@ -101,6 +124,7 @@ final class FakeMusic: MusicPlayback {
     }
 
     func start() async -> Bool {
+        plays += 1
         if holdsStarts { await withCheckedContinuation { heldStart = $0 } }
         calls.append("play")
         isPlaying = starts
@@ -108,6 +132,7 @@ final class FakeMusic: MusicPlayback {
     }
 
     func play() {
+        plays += 1
         isPlaying = true
         calls.append("play")
     }
@@ -129,6 +154,19 @@ final class FakeMusic: MusicPlayback {
     func stop() {
         isPlaying = false
         calls.append("stop")
+    }
+
+    var isHoldingSettle: Bool { heldSettle != nil }
+
+    func releaseSettle() {
+        heldSettle?.resume()
+        heldSettle = nil
+    }
+
+    func settleAfterPrevious() async {
+        calls.append("settle")
+        if holdsSettles { await withCheckedContinuation { heldSettle = $0 } }
+        settled += 1
     }
 }
 

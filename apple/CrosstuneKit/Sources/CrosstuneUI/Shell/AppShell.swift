@@ -16,6 +16,7 @@ public struct AppShell: View {
     private let recorders: RecorderHost
 
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @State private var catalog: CatalogModel?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
@@ -59,6 +60,7 @@ public struct AppShell: View {
             .modifier(RecordingTransfers(store: store, player: player))
             .modifier(PlayerLinkWatch(store: store, player: player))
             .modifier(PlayerRecordingWatch(store: store, player: player))
+            .modifier(ListPlaybackWiring(store: store, player: player, playback: listPlayback))
             .environment(\.store, store)
             .environment(\.commands, Commands(store: store))
             .environment(player)
@@ -72,7 +74,7 @@ public struct AppShell: View {
             .focusedSceneValue(\.syncNowAction, engine.map { engine in MenuAction { Task { await engine.sync() } } })
             .modifier(
                 ShellControls(
-                    player: player, window: playerWindow,
+                    player: player, playback: listPlayback, window: playerWindow,
                     isActive: MenuGates.controls(sheetsOpen: openSheets.isCovered), show: show(_:))
             )
             // Made here rather than by the catalog screen, which a Mac or iPad sidebar tears down,
@@ -123,7 +125,7 @@ public struct AppShell: View {
     private func startRecording(tuneID: String?) {
         guard RecordTake.mayReplace(take), recorders.isFree(for: store) else { return }
         // Playback would be recorded along with the instrument.
-        player.close()
+        PlayerBar.closePlayer(player, listPlayback)
         take = RecordTake(model: RecordSheetModel(recorder: recorders.recorder(for: store), tuneID: tuneID))
     }
 

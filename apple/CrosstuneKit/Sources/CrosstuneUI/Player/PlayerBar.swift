@@ -17,6 +17,7 @@ public struct PlayerBar: View {
     private let isPanel: Bool
 
     @Environment(\.playerWindow) private var window
+    @Environment(ListPlayback.self) private var playback: ListPlayback?
 
     /// - Parameter isPanel: The bar heads the iPad and Mac panel, which shows the player in
     ///   full under it and puts the link out to the provider in the bar. The iPhone's full
@@ -33,6 +34,29 @@ public struct PlayerBar: View {
         return music.trackTitle
     }
 
+    /// Where the playing list stands, shown under the tune's title; nil while no list plays.
+    static func playlistSubtitle(_ playback: ListPlayback?) -> String? {
+        guard let playback, playback.isActive, let name = playback.listName else { return nil }
+        return PlaylistControlText.subtitle(listName: name, position: playback.position, count: playback.count)
+    }
+
+    /// The bar's title: the tune a playing list is on, otherwise the loaded item's name.
+    static func title(_ player: PlayerModel, _ playback: ListPlayback?) -> String {
+        if let playback, playback.isActive, let title = playback.title { return title }
+        return player.title ?? ""
+    }
+
+    /// Whether the bar offers next, which only a list playing as a playlist has.
+    static func showsNext(_ playback: ListPlayback?) -> Bool {
+        playback?.isActive == true
+    }
+
+    /// Whether the player shows at all: while an item is loaded, and while a playlist that
+    /// stopped with nothing loaded still has its message to show.
+    static func isShown(_ player: PlayerModel, _ playback: ListPlayback?) -> Bool {
+        player.isLoaded || playback?.endMessage != nil
+    }
+
     /// Whether the bar leads with a static play glyph: only for a link in its embed, whose
     /// controls are the provider's.
     static func showsGlyph(_ player: PlayerModel) -> Bool {
@@ -47,14 +71,46 @@ public struct PlayerBar: View {
 
     /// Show player and the item's name, an album's track, then a recording's speed and pitch
     /// when either is away from its default, since the button's name replaces the label's.
-    static func showLabel(_ player: PlayerModel) -> String {
+    static func showLabel(_ player: PlayerModel, playback: ListPlayback? = nil) -> String {
         let badge =
             player.item?.kind == .recording
             ? RecordingScreenText.badgeLabel(speedPercent: player.speedPercent, pitchCents: player.pitchCents) : nil
-        return [show, player.title ?? "", subtitle(player), badge].compactMap(\.self).joined(separator: ", ")
+        return [show, title(player, playback), playlistSubtitle(playback) ?? subtitle(player), badge].compactMap(\.self)
+            .joined(separator: ", ")
     }
 
     public var body: some View {
+        if player.isLoaded {
+            loadedBar
+        } else if let message = playback?.endMessage {
+            messageBar(message)
+        }
+    }
+
+    /// What stands where the tune was: why the playlist stopped, and Close player to dismiss it.
+    private func messageBar(_ message: String) -> some View {
+        HStack(spacing: 4) {
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            closeButton
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 4)
+    }
+
+    private var closeButton: some View {
+        PlayerCloseButton(player: player)
+            .labelStyle(.iconOnly)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(.rect)
+    }
+
+    @ViewBuilder private var loadedBar: some View {
         let isRecording = player.item?.kind == .recording
         let glyph = Self.showsGlyph(player)
         HStack(spacing: 4) {
@@ -79,7 +135,7 @@ public struct PlayerBar: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Self.showLabel(player))
+                .accessibilityLabel(Self.showLabel(player, playback: playback))
             }
             if isRecording, player.loops.isRepeating, let name = player.loops.selectedName {
                 RepeatBadge(player: player, name: name)
@@ -95,12 +151,15 @@ public struct PlayerBar: View {
                 .foregroundStyle(.tint)
                 .help(Self.openIn(link.providerName))
             }
-            PlayerCloseButton(player: player)
-                .labelStyle(.iconOnly)
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.rect)
+            if Self.showsNext(playback), let playback {
+                Button(PlaylistControlText.next, systemImage: "forward.fill") { playback.next() }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.rect)
+                    .help(PlaylistControlText.next)
+            }
+            closeButton
         }
         .padding(.leading, player.playsInBar ? 6 : 16)
         .padding(.trailing, 4)
@@ -114,10 +173,10 @@ public struct PlayerBar: View {
                     .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 0) {
-                Text(player.title ?? "")
+                Text(Self.title(player, playback))
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                if let subtitle = Self.subtitle(player) {
+                if let subtitle = Self.playlistSubtitle(playback) ?? Self.subtitle(player) {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -220,8 +279,10 @@ private struct RepeatBadge: View {
 struct PlayerCloseButton: View {
     let player: PlayerModel
 
+    @Environment(ListPlayback.self) private var playback: ListPlayback?
+
     var body: some View {
-        Button(PlayerBar.close, systemImage: "xmark") { player.close() }
+        Button(PlayerBar.close, systemImage: "xmark") { PlayerBar.closePlayer(player, playback) }
             .help(PlayerBar.close)
     }
 }
@@ -310,6 +371,7 @@ struct PlayerPanel: View {
                         .padding(.bottom, 8)
                 #endif
             }
+            PlaylistControlsRow()
         }
     }
 }
@@ -345,6 +407,7 @@ struct LinkPlayerSheet: View {
                         .buttonStyle(.bordered)
                     }
                 }
+                PlaylistControlsRow()
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
@@ -430,6 +493,7 @@ private struct PlayerBarModifier: ViewModifier {
     let leading: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(ListPlayback.self) private var playback: ListPlayback?
     /// Unmeasured until the first layout, which shows the player at its own size rather than
     /// laying it out at no height.
     @State private var windowHeight: CGFloat = .infinity
@@ -442,7 +506,7 @@ private struct PlayerBarModifier: ViewModifier {
                 windowHeight = $0
             }
             .overlay(alignment: .bottom) {
-                if player.isLoaded {
+                if PlayerBar.isShown(player, playback) {
                     PlayerPanel(player: player, stage: stage, windowHeight: windowHeight)
                         .frame(maxWidth: 560)
                         .modifier(GlassPanel())
@@ -459,7 +523,7 @@ private struct PlayerBarModifier: ViewModifier {
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .animation(.default, value: player.isLoaded)
+            .animation(.default, value: PlayerBar.isShown(player, playback))
     }
 }
 

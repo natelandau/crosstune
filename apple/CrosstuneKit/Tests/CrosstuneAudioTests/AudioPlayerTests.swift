@@ -4,6 +4,7 @@ import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import GRDB
+import MediaPlayer
 import Testing
 
 @testable import CrosstuneAudio
@@ -69,6 +70,26 @@ private func eventually(_ condition: () -> Bool) async throws {
         #expect(player.duration == nil)
         #expect(player.elapsed == 0)
         #expect(!player.isPlaying)
+    }
+
+    @Test func offersIntervalSkipsAgainWhenTheyAreTurnedBackOnWhileLoaded() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        let center = MPRemoteCommandCenter.shared()
+        #expect(center.skipForwardCommand.isEnabled)
+        player.unload()
+
+        player.skipsByInterval = false
+        player.load(
+            root.url.appending(path: "tone.aac"), nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
+        #expect(!center.skipForwardCommand.isEnabled)
+        #expect(!center.skipBackwardCommand.isEnabled)
+
+        player.skipsByInterval = true
+        #expect(center.skipForwardCommand.isEnabled)
+        #expect(center.skipBackwardCommand.isEnabled)
+        player.unload()
+        #expect(!center.skipForwardCommand.isEnabled)
     }
 
     /// A player on the offline renderer, with a 4-second tone loaded.
@@ -205,6 +226,63 @@ private func eventually(_ condition: () -> Bool) async throws {
         player.unload()
     }
 
+    @Test func reachingTheEndReportsFinishedOnce() async throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        var ends: [TrackEnd] = []
+        player.onTrackEnd = { ends.append($0) }
+
+        // Pausing and seeking within the track never end it.
+        player.play()
+        try player.render(seconds: 0.5)
+        player.pause()
+        player.seek(to: 1)
+        player.play()
+        #expect(ends.isEmpty)
+
+        player.seek(to: 3.5)
+        try player.render(seconds: 1)
+        try await eventually { ends.count == 1 }
+        #expect(ends == [.finished])
+        #expect(!player.isPlaying)
+
+        player.play()
+        try player.render(seconds: 0.5)
+        player.unload()
+        for _ in 0..<20 { await Task.yield() }
+        #expect(ends == [.finished])
+    }
+
+    @Test func aSeekToTheEndWhilePlayingFinishesTheTrack() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        var ends: [TrackEnd] = []
+        player.onTrackEnd = { ends.append($0) }
+
+        player.play()
+        try player.render(seconds: 0.5)
+        player.seek(to: 60)
+
+        #expect(ends == [.finished])
+        #expect(!player.isPlaying)
+        player.unload()
+    }
+
+    @Test func aSeekToTheEndWhilePausedLeavesTheTrackUnfinished() throws {
+        let root = TemporaryRoot()
+        let player = try offlinePlayer(root)
+        var ends: [TrackEnd] = []
+        player.onTrackEnd = { ends.append($0) }
+
+        player.play()
+        try player.render(seconds: 0.5)
+        player.pause()
+        player.seek(to: 60)
+
+        #expect(ends.isEmpty)
+        player.unload()
+    }
+
     @Test func aNewFileStartsWithNoWindowAndNoShift() async throws {
         let root = TemporaryRoot()
         let player = try offlinePlayer(root)
@@ -231,6 +309,8 @@ private func eventually(_ condition: () -> Bool) async throws {
     @Test func aRepeatingLoopWrapsBackInsideItAndNeverStops() async throws {
         let root = TemporaryRoot()
         let player = try offlinePlayer(root)
+        var ends: [TrackEnd] = []
+        player.onTrackEnd = { ends.append($0) }
         let loop = PlaybackWindow(from: 1, to: 2)
         player.setLoop(loop)
         player.setRepeat(true)
@@ -244,6 +324,7 @@ private func eventually(_ condition: () -> Bool) async throws {
             #expect(player.elapsed >= loop.from && player.elapsed <= loop.to)
         }
         #expect(player.elapsed > 1.6 && player.elapsed < 2)
+        #expect(ends.isEmpty)
         player.unload()
     }
 

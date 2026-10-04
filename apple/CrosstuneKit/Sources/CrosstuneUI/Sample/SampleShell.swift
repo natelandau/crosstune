@@ -13,7 +13,8 @@
         @State private var store: CrosstuneStore?
         @State private var engine: SyncEngine?
         @State private var failure: String?
-        @State private var player = PlayerModel()
+        @State private var player: PlayerModel
+        @State private var listPlayback: ListPlayback
         @State private var stage = EmbedStage()
         @State private var recorders = RecorderHost()
 
@@ -23,6 +24,10 @@
         public init(playing: Bool = false, playingRecording: Bool = false) {
             self.playing = playing
             self.playingRecording = playingRecording
+            // The playlist must sit on the same player the shell shows.
+            let player = PlayerModel()
+            _player = State(initialValue: player)
+            _listPlayback = State(initialValue: ListPlayback.device(player: player))
         }
 
         public var body: some View {
@@ -32,6 +37,7 @@
                 if let store {
                     AppShell(store: store, player: player, stage: stage, recorders: recorders)
                         .environment(engine)
+                        .environment(listPlayback)
                 } else if let failure {
                     ContentUnavailableView(
                         "The sample catalog did not open", systemImage: "exclamationmark.triangle",

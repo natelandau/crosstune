@@ -1,4 +1,6 @@
+import CrosstuneAudio
 import CrosstuneStore
+import CrosstuneTestSupport
 import Foundation
 import Testing
 
@@ -413,5 +415,97 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
 
     @Test func dropsTheArtworkWhenTheCardIsTooShortToShowIt() {
         #expect(MusicPlayerCard.artworkSide(height: 60) == nil)
+    }
+}
+
+private final class QuietTrackCommands: TrackCommands {
+    func enable(next: @escaping @MainActor () -> Void, previous: @escaping @MainActor () -> Void) {}
+    func disable() {}
+}
+
+@MainActor
+@Suite final class PlaylistControlsTests {
+    private let suite = "PlaylistControlsTests.\(UUID().uuidString)"
+    private let defaults: UserDefaults
+
+    init() throws {
+        defaults = try #require(UserDefaults(suiteName: suite))
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suite)
+    }
+
+    private func playback(_ player: PlayerModel = PlayerModel()) -> ListPlayback {
+        ListPlayback(player: player, commands: QuietTrackCommands(), defaults: defaults)
+    }
+
+    @Test func namesTheListAndThePlaceInIt() {
+        #expect(
+            PlaylistControlText.subtitle(listName: "Session set", position: 2, count: 5) == "Session set \u{B7} 2 of 5")
+    }
+
+    @Test func subtitleShowsOnlyWhilePlaying() {
+        let player = PlayerModel()
+        let playback = playback(player)
+        #expect(PlayerBar.playlistSubtitle(playback) == nil)
+        playback.start(listID: "l1", name: "Session set", tuneIDs: ["a", "b"], shuffled: false)
+        #expect(PlayerBar.playlistSubtitle(playback) == "Session set \u{B7} 1 of 2")
+        #expect(PlayerBar.playlistSubtitle(nil) == nil)
+        playback.end()
+    }
+
+    @Test func namesEachRepeatMode() {
+        #expect(PlaylistControlText.repeatLabel(.off) == "Repeat off")
+        #expect(PlaylistControlText.repeatLabel(.list) == "Repeat list")
+        #expect(PlaylistControlText.repeatLabel(.one) == "Repeat tune")
+        #expect(PlaylistControlText.repeatSymbol(.off) == "repeat")
+        #expect(PlaylistControlText.repeatSymbol(.list) == "repeat")
+        #expect(PlaylistControlText.repeatSymbol(.one) == "repeat.1")
+    }
+
+    @Test func offersNextOnlyWhilePlayingAList() {
+        let playback = playback()
+        #expect(!PlayerBar.showsNext(playback))
+        #expect(!PlayerBar.showsNext(nil))
+        playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
+        #expect(PlayerBar.showsNext(playback))
+        playback.end()
+        #expect(!PlayerBar.showsNext(playback))
+    }
+
+    @Test func labelsTheBarWithTheListWhilePlaying() throws {
+        let player = PlayerModel()
+        let playback = playback(player)
+        player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
+        #expect(PlayerBar.showLabel(player, playback: playback) == "Show player, Kitchen Girl")
+        playback.start(listID: "l1", name: "Session set", tuneIDs: ["a", "b"], shuffled: false)
+        #expect(
+            PlayerBar.showLabel(player, playback: playback) == "Show player, Kitchen Girl, Session set \u{B7} 1 of 2")
+        playback.end()
+    }
+
+    @Test func dropsTheMessageWhenSomethingElsePlays() async throws {
+        let player = PlayerModel()
+        let playback = playback(player)
+        playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
+        #expect(try await poll { playback.endMessage != nil })
+        player.play(PlayerItem(kind: .recording, id: "r1", title: "Kitchen Girl"))
+        #expect(playback.endMessage == nil)
+        player.close()
+        #expect(!PlayerBar.isShown(player, playback))
+    }
+
+    @Test func showsTheBarForAMessageWithNothingLoaded() async throws {
+        let player = PlayerModel()
+        let playback = playback(player)
+        #expect(!PlayerBar.isShown(player, playback))
+        // Nothing resolves, so the playlist stops with its message.
+        playback.start(listID: "l1", name: "Session set", tuneIDs: ["a"], shuffled: false)
+        #expect(try await poll { playback.endMessage != nil })
+        #expect(!player.isLoaded)
+        #expect(PlayerBar.isShown(player, playback))
+        PlayerBar.closePlayer(player, playback)
+        #expect(!PlayerBar.isShown(player, playback))
     }
 }

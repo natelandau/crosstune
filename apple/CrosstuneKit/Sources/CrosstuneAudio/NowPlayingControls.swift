@@ -9,16 +9,23 @@ import MediaPlayer
 final class NowPlayingControls {
     private var registrations: [(command: MPRemoteCommand, target: Any)] = []
 
-    init(player: AudioPlayer) {
+    /// - Parameter skipsByInterval: Offers skips by an interval. Off, they are disabled so the
+    ///   system shows next and previous, which it never does while both kinds are enabled.
+    init(player: AudioPlayer, skipsByInterval: Bool) {
         let center = MPRemoteCommandCenter.shared()
         register(center.playCommand, on: player) { player, _ in player.play() }
         register(center.pauseCommand, on: player) { player, _ in player.pause() }
         register(center.togglePlayPauseCommand, on: player) { player, _ in player.toggle() }
-        let interval = [NSNumber(value: AudioPlayer.skipInterval)]
-        center.skipBackwardCommand.preferredIntervals = interval
-        register(center.skipBackwardCommand, on: player) { player, _ in player.skip(by: -AudioPlayer.skipInterval) }
-        center.skipForwardCommand.preferredIntervals = interval
-        register(center.skipForwardCommand, on: player) { player, _ in player.skip(by: AudioPlayer.skipInterval) }
+        if skipsByInterval {
+            let interval = [NSNumber(value: AudioPlayer.skipInterval)]
+            center.skipBackwardCommand.preferredIntervals = interval
+            register(center.skipBackwardCommand, on: player) { player, _ in player.skip(by: -AudioPlayer.skipInterval) }
+            center.skipForwardCommand.preferredIntervals = interval
+            register(center.skipForwardCommand, on: player) { player, _ in player.skip(by: AudioPlayer.skipInterval) }
+        } else {
+            center.skipBackwardCommand.isEnabled = false
+            center.skipForwardCommand.isEnabled = false
+        }
         register(center.changePlaybackPositionCommand, on: player) { player, event in
             guard let event = event as? MPChangePlaybackPositionCommandEvent else { return }
             player.seek(to: event.positionTime)

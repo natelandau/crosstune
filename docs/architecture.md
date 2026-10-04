@@ -241,6 +241,27 @@ same triggers. A return to the foreground stands in for a visible tab.
 - Closing the player, or starting a take, empties the MusicKit queue.
   MusicKit answers the system's remote commands itself, and an empty queue
   gives them nothing to start.
+- A playlist is the Apple app playing a list's tunes one after another. It
+  plays recordings and Apple Music songs, never an embed. The app, not the
+  engine, owns the order, repeat, and shuffle, and each tune's source is
+  chosen when its turn comes.
+- Both engines report one of three ends: the track finished, or the system
+  asked for the next or the previous tune. A recording registers next and
+  previous in place of the 15 second skips while a playlist holds it.
+- MusicKit answers next and previous itself, so a playlist song loads
+  between two copies of itself. A move to a copy is paused before it is
+  heard and reported as next or previous. The app selects the middle entry
+  after `prepareToPlay()`, and reads its ID once it plays, since the queue
+  reads back empty until then.
+- A late play from MusicKit after the app has let go of a song, such as the
+  entry a previous moved to, is paused when it arrives. On iOS the next tune
+  waits for that play to settle, because starting first lets MusicKit
+  interrupt the new audio session, and a backgrounded app cannot take it back.
+- On iOS, while a playlist plays, the app holds its audio session active, so
+  it stays up between a recording and a song. Before a song, the app makes
+  the session mixable with `.mixWithOthers`, so MusicKit's own session plays
+  beside it. A recording sets it back to long-form playback. The session is
+  released when the playlist ends or the player closes.
 
 ## Recordings
 

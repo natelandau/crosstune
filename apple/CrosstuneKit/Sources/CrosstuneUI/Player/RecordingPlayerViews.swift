@@ -32,7 +32,7 @@ public enum PlayerTime {
 /// Words the recording player shows.
 public enum RecordingPlayerText {
     public static let play = MediaText.play
-    public static let pause = "Pause"
+    public static let pause = MediaText.pause
     public static let position = "Position"
     public static let playFailed = "Couldn't play"
 
