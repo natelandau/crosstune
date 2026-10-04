@@ -7,14 +7,17 @@ import { openTestDb } from '../../test/db'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
 import { ALL_KEYS_LABEL, ALL_TYPES_LABEL, CatalogFilters } from './CatalogFilters'
+import { MISSING_LABEL, SHOW_UNHEARD, UNHEARD_PILL } from './filterLabels'
 import {
   DEFAULT_FILTERS,
   FACET_LABELS,
   facetValues,
+  MISSING_LABELS,
   NO_KEY,
   type CatalogFilters as Filters,
   type Facet,
   type FacetValues,
+  type MissingAttribute,
 } from './filters'
 import { FILTERS, removeFilterLabel } from '../../ui/filterCopy'
 
@@ -34,12 +37,14 @@ function Host({
   sheet = false,
   keys,
   visible: visibleProp = visible,
+  missing = ['key', 'composer'],
 }: {
   start?: Filters
   sheet?: boolean
   /** Overrides the key facet, for a rail that holds two spellings of one pitch. */
   keys?: string[]
   visible?: Facet[]
+  missing?: MissingAttribute[]
 }) {
   const [filters, setFilters] = useState(start)
   const [open, setOpen] = useState(sheet)
@@ -59,12 +64,21 @@ function Host({
         filters={filters}
         facets={facets}
         visible={visibleProp}
+        missing={missing}
         counts={counts}
         onChange={onChange}
         onClose={() => setOpen(false)}
       />
     </>
   )
+}
+
+const missingOptions = () => {
+  const label = [...document.querySelectorAll('[data-row-label]')].find(
+    (element) => element.textContent === MISSING_LABEL,
+  )
+  const options = label?.closest('ion-item')?.querySelectorAll('ion-select-option') ?? []
+  return Array.from(options, (option) => option.textContent)
 }
 
 const state = () =>
@@ -312,7 +326,7 @@ describe('CatalogFilterSheet', () => {
     const open = () => document.querySelector('ion-modal:not(.overlay-hidden)')!
     await expect
       .poll(() => Array.from(open().querySelectorAll('[data-row-label]')).map((e) => e.textContent))
-      .toEqual(['Mode', FACET_LABELS['tuning:violin'], 'Genre'])
+      .toEqual(['Mode', FACET_LABELS['tuning:violin'], 'Genre', MISSING_LABEL])
     const count = () => open().querySelector('[aria-live="polite"]') as HTMLElement
     await expect.poll(() => Number.parseFloat(getComputedStyle(count()).paddingLeft)).toBe(32)
   })
@@ -369,5 +383,44 @@ describe('CatalogFilterSheet', () => {
     })
     await page.getByText(SHOW_ARCHIVED).click()
     await expect.poll(() => state().archived).toBe(true)
+  })
+
+  it('the sheet offers Missing only for used attributes', async () => {
+    renderIonic(<Host sheet missing={['key', 'composer']} />, { db: openTestDb() })
+    await expect.poll(missingOptions).toEqual(['Any', MISSING_LABELS.key, MISSING_LABELS.composer])
+  })
+
+  it('keeps a set Missing attribute no tune holds as its own option', async () => {
+    renderIonic(<Host sheet start={{ ...DEFAULT_FILTERS, missing: 'genre' }} missing={['key']} />, {
+      db: openTestDb(),
+    })
+    await expect.poll(missingOptions).toEqual(['Any', MISSING_LABELS.key, MISSING_LABELS.genre])
+  })
+
+  it('Only unheard toggles the filter', async () => {
+    renderIonic(<Host sheet />, { db: openTestDb() })
+    await page.getByRole('switch', { name: SHOW_UNHEARD }).click()
+    await expect.poll(() => state().unheard).toBe(true)
+    await page.getByRole('switch', { name: SHOW_UNHEARD }).click()
+    await expect.poll(() => state().unheard).toBe(false)
+  })
+
+  it('Reset clears Only unheard and Missing', async () => {
+    renderIonic(<Host sheet start={{ ...DEFAULT_FILTERS, unheard: true, missing: 'key' }} />, {
+      db: openTestDb(),
+    })
+    await page.getByRole('button', { name: 'Reset' }).click()
+    await expect.poll(() => state()).toMatchObject({ unheard: false, missing: 'all' })
+  })
+
+  it('shows Unheard and Missing pills that remove their filter', async () => {
+    renderIonic(<Host start={{ ...DEFAULT_FILTERS, unheard: true, missing: 'composer' }} />, {
+      db: openTestDb(),
+    })
+    await page.getByRole('button', { name: `Remove filter ${UNHEARD_PILL}` }).click()
+    await expect.poll(() => state().unheard).toBe(false)
+    const missingPill = `${MISSING_LABEL} ${MISSING_LABELS.composer}`
+    await page.getByRole('button', { name: `Remove filter ${missingPill}` }).click()
+    await expect.poll(() => state().missing).toBe('all')
   })
 })

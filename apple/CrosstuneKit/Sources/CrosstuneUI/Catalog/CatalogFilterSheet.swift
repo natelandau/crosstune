@@ -8,6 +8,8 @@ struct CatalogFilterSheet: View {
     static let done = "Done"
     static let any = "Any"
     static let showArchived = "Show archived"
+    static let onlyUnheard = "Only unheard"
+    nonisolated static let missing = "Missing"
 
     /// "3 archived tunes", under the Show archived switch.
     nonisolated static func archivedFooter(_ count: Int) -> String {
@@ -45,6 +47,28 @@ struct CatalogFilterSheet: View {
                 Text(results.countLabel)
                     .monospacedDigit()
                     .contentTransition(.numericText())
+            }
+            Section {
+                Toggle(
+                    Self.onlyUnheard,
+                    isOn: Binding {
+                        results.filters.unheard
+                    } set: { unheard in
+                        model.updateFilters { $0.unheard = unheard }
+                    })
+                Picker(
+                    Self.missing,
+                    selection: Binding {
+                        results.filters.missing
+                    } set: { missing in
+                        model.updateFilters { $0.missing = missing }
+                    }
+                ) {
+                    Text(Self.any).tag(MissingAttribute?.none)
+                    ForEach(results.missingOptions, id: \.self) { attribute in
+                        Text(attribute.label).tag(MissingAttribute?.some(attribute))
+                    }
+                }
             }
             Section {
                 Toggle(

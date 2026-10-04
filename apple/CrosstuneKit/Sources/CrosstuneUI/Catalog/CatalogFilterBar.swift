@@ -5,6 +5,7 @@ import SwiftUI
 /// set.
 struct CatalogFilterBar: View {
     nonisolated static let archivedShown = "Archived shown"
+    nonisolated static let unheardShown = "Unheard"
     nonisolated static let allKeys = "All keys"
     nonisolated static let allTypes = "All types"
     /// The id of a rail's leading All chip.
@@ -28,6 +29,13 @@ struct CatalogFilterBar: View {
         }
         if filters.archived {
             set.append(SetFilter(id: "archived", label: archivedShown) { $0.archived = false })
+        }
+        if filters.unheard {
+            set.append(SetFilter(id: "unheard", label: unheardShown) { $0.unheard = false })
+        }
+        if let missing = filters.missing {
+            set.append(
+                SetFilter(id: "missing", label: "\(CatalogFilterSheet.missing) \(missing.label)") { $0.missing = nil })
         }
         return set
     }

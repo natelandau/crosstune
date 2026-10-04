@@ -4,8 +4,10 @@ import { FieldRow } from '../../ui/FieldRow'
 import { FILTERS } from '../../ui/filterCopy'
 import { Group } from '../../ui/Group'
 import { Sheet } from '../../ui/Sheet'
+import { MISSING_LABEL, SHOW_UNHEARD } from './filterLabels'
 import {
   FACET_LABELS,
+  MISSING_LABELS,
   sheetFacets,
   sheetFilterCount,
   sheetResets,
@@ -14,6 +16,7 @@ import {
   type CatalogFilters,
   type Facet,
   type FacetValues,
+  type MissingAttribute,
 } from './filters'
 
 export const SHOW_ARCHIVED = 'Show archived'
@@ -23,6 +26,7 @@ export function CatalogFilterSheet({
   filters,
   facets,
   visible,
+  missing,
   counts,
   onChange,
   onClose,
@@ -31,12 +35,19 @@ export function CatalogFilterSheet({
   filters: CatalogFilters
   facets: FacetValues
   visible: readonly Facet[]
+  /** The attributes worth asking about, so the Missing select offers no empty answer. */
+  missing: readonly MissingAttribute[]
   counts: CatalogCounts
   onChange: (patch: Partial<CatalogFilters>) => void
   onClose: () => void
 }) {
   const pointer = usePointer()
   const setCount = sheetFilterCount(filters, visible)
+  // A set attribute no tune holds any more still needs its option, like a stale facet value.
+  const missingOptions =
+    filters.missing === 'all' || missing.includes(filters.missing)
+      ? missing
+      : [...missing, filters.missing]
   return (
     <Sheet
       open={open}
@@ -80,6 +91,33 @@ export function CatalogFilterSheet({
             </FieldRow>
           )
         })}
+      </Group>
+      <Group>
+        <IonItem>
+          <IonToggle
+            checked={filters.unheard}
+            onIonChange={(event) => onChange({ unheard: event.detail.checked })}
+          >
+            {SHOW_UNHEARD}
+          </IonToggle>
+        </IonItem>
+        <FieldRow label={MISSING_LABEL}>
+          <IonSelect
+            aria-label={MISSING_LABEL}
+            interface={pointer === 'mouse' ? 'popover' : 'action-sheet'}
+            value={filters.missing}
+            onIonChange={(event) =>
+              onChange({ missing: String(event.detail.value) as CatalogFilters['missing'] })
+            }
+          >
+            <IonSelectOption value="all">Any</IonSelectOption>
+            {missingOptions.map((attribute) => (
+              <IonSelectOption key={attribute} value={attribute}>
+                {MISSING_LABELS[attribute]}
+              </IonSelectOption>
+            ))}
+          </IonSelect>
+        </FieldRow>
       </Group>
       <Group
         footer={

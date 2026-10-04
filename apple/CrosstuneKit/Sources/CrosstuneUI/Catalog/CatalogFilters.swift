@@ -6,14 +6,102 @@ import Foundation
 public struct CatalogEntry: Hashable, Sendable, Identifiable {
     public let tune: Tune
     public let userTune: UserTune
+    /// Whether the tune has a live recording or link. Only a catalog that filters on it reads it;
+    /// every other entry reads as unheard.
+    public let heard: Bool
 
-    public init(tune: Tune, userTune: UserTune) {
+    public init(tune: Tune, userTune: UserTune, heard: Bool = false) {
         self.tune = tune
         self.userTune = userTune
+        self.heard = heard
     }
 
     public var id: String { userTune.id }
     public var isArchived: Bool { userTune.archivedAt != nil }
+}
+
+/// A field the Missing filter can ask about. The learned fields read the musician's own row;
+/// every other attribute reads the tune. Raw values are the web client's, so both read the same
+/// stored filter.
+public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
+    case key
+    case mode
+    case tuneType
+    case genre
+    case timeSignature
+    case composer
+    case partStructure
+    case tuning(String)
+    case learnedFrom
+    case learnedOn
+
+    /// Every attribute in the order the sheet lists them.
+    nonisolated public static let all: [MissingAttribute] =
+        [.key, .mode, .tuneType, .genre, .timeSignature, .composer, .partStructure]
+        + Vocabulary.instruments.map(MissingAttribute.tuning) + [.learnedFrom, .learnedOn]
+
+    public init?(rawValue: String) {
+        guard let match = Self.all.first(where: { $0.rawValue == rawValue }) else { return nil }
+        self = match
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .key: "key"
+        case .mode: "mode"
+        case .tuneType: "tune_type"
+        case .genre: "genre"
+        case .timeSignature: "time_signature"
+        case .composer: "composer"
+        case .partStructure: "part_structure"
+        case .tuning(let instrument): "tuning:\(instrument)"
+        case .learnedFrom: "learned_from"
+        case .learnedOn: "learned_on"
+        }
+    }
+
+    public var label: String {
+        switch self {
+        case .key: CatalogFacet.key.label
+        case .mode: CatalogFacet.mode.label
+        case .tuneType: CatalogFacet.tuneType.label
+        case .genre: CatalogFacet.genre.label
+        case .timeSignature: TuneFieldLabels.timeSignature
+        case .composer: TuneFieldLabels.composer
+        case .partStructure: TuneFieldLabels.partStructure
+        case .tuning(let instrument): CatalogFacet.tuning(instrument).label
+        case .learnedFrom: TuneFieldLabels.learnedFrom
+        case .learnedOn: TuneFieldLabels.learnedOn
+        }
+    }
+
+    /// The facet whose visibility gates this attribute: a tuning for an instrument the musician
+    /// does not play is hidden, so it cannot narrow the list.
+    var tuningFacet: CatalogFacet? {
+        if case .tuning(let instrument) = self { return .tuning(instrument) }
+        return nil
+    }
+
+    /// Every value the entry holds for this attribute.
+    func values(of entry: CatalogEntry) -> [String?] {
+        switch self {
+        case .key: CatalogFacet.key.values(of: entry.tune)
+        case .mode: CatalogFacet.mode.values(of: entry.tune)
+        case .tuneType: CatalogFacet.tuneType.values(of: entry.tune)
+        case .genre: CatalogFacet.genre.values(of: entry.tune)
+        case .timeSignature: [entry.tune.timeSignature]
+        case .composer: [entry.tune.composer]
+        case .partStructure: [entry.tune.partStructure]
+        case .tuning(let instrument): CatalogFacet.tuning(instrument).values(of: entry.tune)
+        case .learnedFrom: [entry.userTune.learnedFrom]
+        case .learnedOn: [entry.userTune.learnedOn]
+        }
+    }
+
+    /// Whether the entry holds nothing for this attribute.
+    func isMissing(in entry: CatalogEntry) -> Bool {
+        !values(of: entry).contains(where: CatalogSearch.isHeld)
+    }
 }
 
 /// The catalog's filters: status, one value per facet, and whether archived tunes show. Stored
@@ -31,11 +119,20 @@ public struct CatalogFilters: Hashable, Sendable {
     /// Each set facet's value. A facet missing here narrows nothing.
     public var facets: [CatalogFacet: String]
     public var archived: Bool
+    /// Whether only tunes with no recording or link show.
+    public var unheard: Bool
+    /// Nil narrows nothing; otherwise only tunes holding nothing for the attribute show.
+    public var missing: MissingAttribute?
 
-    public init(status: String? = nil, facets: [CatalogFacet: String] = [:], archived: Bool = false) {
+    public init(
+        status: String? = nil, facets: [CatalogFacet: String] = [:], archived: Bool = false,
+        unheard: Bool = false, missing: MissingAttribute? = nil
+    ) {
         self.status = status
         self.facets = facets
         self.archived = archived
+        self.unheard = unheard
+        self.missing = missing
     }
 
     /// The filters a stored value holds, with every missing or malformed field read as its
@@ -56,12 +153,19 @@ public struct CatalogFilters: Hashable, Sendable {
                 facets[facet] = value
             }
         }
-        self.init(status: status, facets: facets, archived: object["archived"] == .bool(true))
+        var missing: MissingAttribute?
+        if case .string(let value) = object["missing"] ?? .null { missing = MissingAttribute(rawValue: value) }
+        self.init(
+            status: status, facets: facets, archived: object["archived"] == .bool(true),
+            unheard: object["unheard"] == .bool(true), missing: missing)
     }
 
     /// The value to store: every field, with `all` for one that narrows nothing.
     public var stored: JSONValue {
-        var object: JSONObject = ["status": .string(status ?? Self.any), "archived": .bool(archived)]
+        var object: JSONObject = [
+            "status": .string(status ?? Self.any), "archived": .bool(archived),
+            "unheard": .bool(unheard), "missing": .string(missing?.rawValue ?? Self.any),
+        ]
         for facet in CatalogFacet.all {
             object[facet.storageKey] = .string(facets[facet] ?? Self.any)
         }
@@ -81,6 +185,7 @@ public struct CatalogFilters: Hashable, Sendable {
         for facet in CatalogFacet.all where !visible.contains(facet) {
             filters[facet] = nil
         }
+        if let facet = filters.missing?.tuningFacet, !visible.contains(facet) { filters.missing = nil }
         return filters
     }
 
@@ -92,6 +197,7 @@ public struct CatalogFilters: Hashable, Sendable {
     /// false, in the sheet.
     public func sheetCount(railsOnScreen: Bool) -> Int {
         facets.keys.count { $0.isInSheet(railsOnScreen: railsOnScreen) } + (archived ? 1 : 0)
+            + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
     }
 
     /// These filters with the sheet's cleared and the screen's kept.
@@ -104,38 +210,43 @@ public struct CatalogFilters: Hashable, Sendable {
     }
 }
 
-/// Matching, sorting, and counting the catalog, ignoring case and accents throughout.
+/// Matching, sorting, and counting the catalog, ignoring case and accents throughout. Matching
+/// uses the shared fold, so every client matches the same tunes; sorting follows the reader's
+/// locale.
 public enum CatalogSearch {
     nonisolated static let folding: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
 
-    /// Whether two strings are the same ignoring case and accents.
-    public static func same(_ first: String, _ second: String) -> Bool {
-        first.compare(second, options: folding, locale: Locale.current) == .orderedSame
+    private static func order(_ first: String, _ second: String) -> ComparisonResult {
+        first.compare(second, options: folding, locale: Locale.current)
     }
 
     /// Sorts ignoring case and accents, in the reader's locale.
     public static func precedes(_ first: String, _ second: String) -> Bool {
-        first.compare(second, options: folding, locale: Locale.current) == .orderedAscending
+        order(first, second) == .orderedAscending
     }
 
     /// Every active tune with its active user row, sorted by title.
-    public static func entries(tunes: [Tune], userTunes: [UserTune]) -> [CatalogEntry] {
+    public static func entries(tunes: [Tune], userTunes: [UserTune], heard: Set<String> = []) -> [CatalogEntry] {
         let tunesByID = Dictionary(
             tunes.filter { $0.deletedAt == nil }.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return
             userTunes
             .filter { $0.deletedAt == nil }
-            .compactMap { userTune in tunesByID[userTune.tuneID].map { CatalogEntry(tune: $0, userTune: userTune) } }
+            .compactMap { userTune in
+                tunesByID[userTune.tuneID].map {
+                    CatalogEntry(tune: $0, userTune: userTune, heard: heard.contains($0.id))
+                }
+            }
             .sorted { first, second in
-                if same(first.tune.title, second.tune.title) { return first.id < second.id }
-                return precedes(first.tune.title, second.tune.title)
+                let titles = order(first.tune.title, second.tune.title)
+                return titles == .orderedSame ? first.id < second.id : titles == .orderedAscending
             }
     }
 
-    /// True when the trimmed query equals the tune's title or an alternate title.
+    /// True when the query names the tune's title or an alternate title, as `sameText` compares
+    /// them.
     public static func titleMatches(_ tune: Tune, query: String) -> Bool {
-        let title = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !title.isEmpty && ([tune.title] + tune.alternateTitles).contains { same($0, title) }
+        isHeld(query) && ([tune.title] + tune.alternateTitles).contains { sameText($0, query) }
     }
 
     public static func hidingArchived(_ entries: [CatalogEntry], shown: Bool) -> [CatalogEntry] {
@@ -147,26 +258,36 @@ public enum CatalogSearch {
     public static func filter(_ entries: [CatalogEntry], by filters: CatalogFilters, query: String = "")
         -> [CatalogEntry]
     {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let needle = trimmedText(query)
         return hidingArchived(entries, shown: filters.archived).filter { entry in
             if let status = filters.status, entry.userTune.status != status { return false }
+            if filters.unheard, entry.heard { return false }
+            if let missing = filters.missing, !missing.isMissing(in: entry) { return false }
             for (facet, value) in filters.facets {
                 let values = facet.values(of: entry.tune)
                 if facet == .key, value == CatalogFilters.noKey {
                     guard !values.contains(where: isHeld) else { return false }
                 } else {
-                    guard values.contains(where: { $0.map { same(value, $0) } ?? false }) else { return false }
+                    guard values.contains(where: { isHeld($0) && sameText(value, $0 ?? "") }) else { return false }
                 }
             }
             guard !needle.isEmpty else { return true }
             let haystack = [entry.tune.title] + entry.tune.alternateTitles + [entry.tune.composer ?? ""]
-            return haystack.contains { $0.range(of: needle, options: folding, locale: Locale.current) != nil }
+            return haystack.contains { containsText($0, needle) }
         }
     }
 
-    /// Whether a facet value holds anything besides whitespace.
+    /// Whether a value holds anything the fold keeps; whitespace or combining marks alone are blank.
     static func isHeld(_ value: String?) -> Bool {
-        !(value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !foldText(value ?? "").isEmpty
+    }
+
+    /// Whether a facet can filter by a value. A value the fold calls the same as ``CatalogFilters/any``,
+    /// or as ``CatalogFilters/noKey`` for the key, is not one: the stored filter would read it as
+    /// Any or No key.
+    public static func isFilterValue(_ value: String, for facet: CatalogFacet) -> Bool {
+        let key = foldText(value)
+        return !key.isEmpty && key != CatalogFilters.any && !(facet == .key && key == CatalogFilters.noKey)
     }
 
     /// Each facet's distinct values across every entry, archived included, sorted. Spellings
@@ -177,9 +298,10 @@ public enum CatalogSearch {
         var values: [CatalogFacet: [String]] = [:]
         for facet in CatalogFacet.all {
             var seen: [String] = []
+            var keys: Set<[UInt16]> = []
             for entry in entries {
                 for case let value? in facet.values(of: entry.tune)
-                where isHeld(value) && !seen.contains(where: { same($0, value) }) {
+                where isFilterValue(value, for: facet) && keys.insert(Array(foldText(value).utf16)).inserted {
                     seen.append(value)
                 }
             }
@@ -189,6 +311,12 @@ public enum CatalogSearch {
             values[.key] = [CatalogFilters.noKey] + keys
         }
         return values
+    }
+
+    /// The attributes some entry holds, in sheet order: asking for a missing one is only useful
+    /// then.
+    public static func missingChoices(_ entries: [CatalogEntry]) -> [MissingAttribute] {
+        MissingAttribute.all.filter { attribute in entries.contains { !attribute.isMissing(in: $0) } }
     }
 
     /// The facets worth offering: those with values, minus tunings for instruments the musician
