@@ -202,7 +202,7 @@ import Testing
 }
 
 private let everyService = [
-    "apple_music", "tidal", "internet_archive", "youtube", "spotify", "bandcamp", "soundcloud",
+    "apple_music", "tidal", "internet_archive", "slippery_hill", "youtube", "spotify", "bandcamp", "soundcloud",
 ]
 
 @Suite struct SearchableProvidersTests {

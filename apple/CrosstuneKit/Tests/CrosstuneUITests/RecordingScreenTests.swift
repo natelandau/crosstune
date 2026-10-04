@@ -284,6 +284,22 @@ private final class Writes {
         #expect(RecordingMenuItem.delete.label == RecordingRowActions.delete)
     }
 
+    @Test func theMoreMenuOpensAnImportedRecordingOnItsSiteBeforeDelete() throws {
+        let page = "https://www.slippery-hill.com/content/bear-creek-sally-goodin"
+        func imported(_ url: String?, origin: String = "slippery_hill") -> Recording {
+            Recording(tuneID: nil, source: "import", origin: origin, originURL: url, recordedAt: noon)
+        }
+        let open = try #require(RecordingMenuItem.openOrigin(for: imported(page)))
+        #expect(open == .openOrigin(site: "Slippery-Hill", page: try #require(URL(string: page))))
+        #expect(open.label == RecordingRowActions.openOn("Slippery-Hill"))
+        #expect(
+            RecordingMenuItem.items(inTune: true, trimBlocker: nil, openOrigin: open) == [
+                .trim(blocker: nil), .rename, .removeFromTune, open, .delete,
+            ])
+        #expect(RecordingMenuItem.openOrigin(for: imported("javascript:alert(1)")) == nil)
+        #expect(RecordingMenuItem.openOrigin(for: imported(nil, origin: "own")) == nil)
+    }
+
     @Test func theSpeedAndPitchSegmentsNameTheirValuesOffDefault() {
         #expect(PracticeMode.allCases == [.loops, .speed, .pitch])
         #expect(PracticeMode.loops.title(speedPercent: 75, pitchCents: 200) == "Loops")

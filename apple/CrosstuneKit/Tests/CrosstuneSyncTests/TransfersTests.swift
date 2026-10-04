@@ -93,6 +93,22 @@ import Testing
         #expect(engine.transferStatus == .idle)
     }
 
+    @Test func skipsAnImportRecordingThatHasNoFile() async throws {
+        try await store.write { writer in
+            try writer.put(
+                Recording(
+                    id: "imp", createdAt: noon, tuneID: nil, source: "import", origin: "slippery_hill",
+                    originURL: "https://slippery-hill.com/recording/42", recordedAt: noon))
+        }
+        let engine = engine()
+
+        await engine.transfer()
+
+        #expect(api.transfers.isEmpty)
+        #expect(try await file("imp") == nil)
+        #expect(engine.transferStatus == .idle)
+    }
+
     @Test func waitsUntilTheRecordingRowHasBeenPushed() async throws {
         try await captured("r1", queued: true)
 

@@ -33,6 +33,39 @@ import Testing
             ),
             ("https://archive.org/details/afc1937001_1535B2/track01.mp3", "internet_archive", "afc1937001_1535B2"),
             ("https://archive.org/search?query=fiddle", "internet_archive", nil),
+            ("https://www.slippery-hill.com/content/bear-creek-sally-goodin?x=1#a", "slippery_hill", nil),
+            ("https://slippery-hill.com/content/june-apple-2/", "slippery_hill", nil),
+            (
+                "https://www.slippery-hill.com/system/files/recordings/bearcreeksallygoodin_bobholt.mp3",
+                "slippery_hill", "recordings/bearcreeksallygoodin_bobholt.mp3"
+            ),
+            (
+                "https://slippery-hill.com/system/files/78s/15402%20What%20A%20Glad%20Day%20%20%28Wright%20Brothers%20Quartet%29.mp3",
+                "slippery_hill",
+                "78s/15402%20What%20A%20Glad%20Day%20%20%28Wright%20Brothers%20Quartet%29.mp3"
+            ),
+            ("https://www.slippery-hill.com/system/files/recordings/a.MP3", "slippery_hill", "recordings/a.MP3"),
+            ("https://www.slippery-hill.com/system/files/../x.mp3", "slippery_hill", nil),
+            // Foundation keeps dot segments as written instead of normalizing them as the web's
+            // URL parser does, so the validator refuses them rather than resolving them.
+            ("https://www.slippery-hill.com/system/files/a/%2E%2e/x.mp3", "slippery_hill", nil),
+            ("https://www.slippery-hill.com/system/files/a/./x.mp3", "slippery_hill", nil),
+            ("https://www.slippery-hill.com/system/files/a:b.mp3", "slippery_hill", nil),
+            ("https://www.slippery-hill.com/system/files/a@b/x.mp3", "slippery_hill", nil),
+            ("https://www.slippery-hill.com/system/files/\u{E9}.mp3", "slippery_hill", "%C3%A9.mp3"),
+            ("https://www.slippery-hill.com/system/files/a/b%2Ec.mp3", "slippery_hill", nil),
+            ("https://www.slippery-hill.com/system/files/x%2E.mp3", "slippery_hill", nil),
+            ("https://www.slippery-hill.com/system/files/a.wav", "slippery_hill", nil),
+            // The longest ref a link row stores, and one character past it.
+            (
+                "https://www.slippery-hill.com/system/files/\(String(repeating: "a", count: 196)).mp3",
+                "slippery_hill", "\(String(repeating: "a", count: 196)).mp3"
+            ),
+            (
+                "https://www.slippery-hill.com/system/files/\(String(repeating: "a", count: 197)).mp3",
+                "slippery_hill", nil
+            ),
+            ("https://www.slippery-hill.com/tune-search?search_api_fulltext=x", "slippery_hill", nil),
             ("https://example.com/tune.mp3", "other", nil),
             ("not a url", "other", nil),
         ] as [(String, String, String?)]

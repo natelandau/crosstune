@@ -1,5 +1,6 @@
 import CrosstuneStore
 import CrosstuneSync
+import CrosstuneVocabulary
 import Foundation
 
 /// How a recording reads in its row: title, metadata, and what its leading control does.
@@ -82,6 +83,8 @@ public enum RecordingText {
 
     /// What to tell the musician about a recording that is not simply playable. Nil when it is.
     public static func fileState(_ recording: Recording, file: RecordingFile?) -> String? {
+        // An import has no file to upload: until the server answers, it is already being fetched.
+        if recording.source == "import", recording.state == "pending_upload", file == nil { return processing }
         switch file?.localState {
         case .capturing: return Self.recording
         case .captured: return waitingToUpload
@@ -108,7 +111,8 @@ public enum RecordingText {
         dateInTitle: Bool = false, locale: Locale = .current, timeZone: TimeZone = .current
     ) -> [String] {
         let length = duration(milliseconds: recording.durationMs ?? file?.localDurationMs)
-        if offline { return [length, SyncStatus.offlineLabel].compactMap { $0 } }
+        let origin = originLabel(recording.origin)
+        if offline { return [origin, length, SyncStatus.offlineLabel].compactMap { $0 } }
         let status =
             fileState(recording, file: file)
             ?? (dateInTitle ? nil : recordedAt(recording.recordedAt, locale: locale, timeZone: timeZone))
@@ -120,7 +124,15 @@ public enum RecordingText {
             storageUsed =
                 "\(bytes(Int64(storage.usedBytes))) of \(bytes(Int64(storage.quotaBytes))) used"
         }
-        return [length, status, tries, storageUsed].compactMap { $0 }
+        return [origin, length, status, tries, storageUsed].compactMap { $0 }
+    }
+
+    /// The origin of a recording made on a device of the account's own.
+    public static let ownOrigin = "own"
+
+    /// The site an imported recording came from, nil for one made here.
+    public static func originLabel(_ origin: String) -> String? {
+        origin == ownOrigin ? nil : Vocabulary.providerLabels[origin] ?? origin
     }
 
     /// Whether this device holds audio it can play. A capture still being written is not

@@ -327,6 +327,59 @@ private struct V4Fixture {
     }
 }
 
+@Test func theV9MigrationAddsOriginAndKeepsRowsAndQueuedChanges() throws {
+    let queue = try DatabaseQueue()
+    try Schema.migrator.migrate(queue, upTo: "v8")
+    let time = "2026-09-25T12:00:00.000Z"
+    try queue.write { db in
+        // Rows pulled after the server added the fields kept them in `extra`.
+        try db.execute(
+            sql: """
+                INSERT INTO recordings
+                    (id, created_at, updated_at, server_seq, source, recorded_at, position, state, extra)
+                VALUES
+                    ('r-1', ?, ?, 0, 'microphone', ?, 0, 'ready', '{}'),
+                    ('r-2', ?, ?, 3, 'import', ?, 1, 'ready',
+                        '{"origin":"slippery_hill","origin_url":"https://www.slippery-hill.com/recordings/1","theme":"dark"}')
+                """,
+            arguments: [time, time, time, time, time, time])
+        try db.execute(
+            sql: """
+                INSERT INTO outbox (table_name, row_id, op, updated_at, data) VALUES
+                    ('recordings', 'r-1', 'upsert', ?, '{"label":"Take 1"}'),
+                    ('recordings', 'r-2', 'upsert', ?, '{"label":"Take 2"}'),
+                    ('recordings', 'r-3', 'delete', ?, NULL),
+                    ('recordings', 'r-4', 'upsert', ?, '{"label":"Take 4"}'),
+                    ('tunes', 't-1', 'upsert', ?, '{"title":"Jam"}')
+                """,
+            arguments: [time, time, time, time, time])
+    }
+
+    try Schema.migrator.migrate(queue, upTo: "v9")
+
+    try queue.read { db in
+        let rows = try Row.fetchAll(db, sql: "SELECT origin, origin_url, extra FROM recordings ORDER BY id")
+        #expect(rows.map { $0["origin"] as String } == ["own", "slippery_hill"])
+        #expect(rows.map { $0["origin_url"] as String? } == [nil, "https://www.slippery-hill.com/recordings/1"])
+        #expect(rows.map { $0["extra"] as String } == ["{}", #"{"theme":"dark"}"#])
+        let imported = try #require(try Recording.fetchOne(db, key: "r-2"))
+        #expect(imported.origin == "slippery_hill")
+        #expect(imported.originURL == "https://www.slippery-hill.com/recordings/1")
+        #expect(imported.extra == ["theme": .string("dark")])
+
+        let data = try String?.fetchAll(db, sql: "SELECT data FROM outbox ORDER BY seq")
+        #expect(
+            data == [
+                #"{"label":"Take 1","origin":"own","origin_url":null}"#,
+                #"{"label":"Take 2","origin":"slippery_hill","origin_url":"https://www.slippery-hill.com/recordings/1"}"#,
+                nil,
+                // No row to read, so the queued change takes the default.
+                #"{"label":"Take 4","origin":"own","origin_url":null}"#,
+                #"{"title":"Jam"}"#,
+            ])
+    }
+}
+
 private let v5LoopsSchema = """
     table recording_loops: CREATE TABLE "recording_loops" ("id" TEXT PRIMARY KEY NOT NULL,
       "created_at" TEXT NOT NULL,

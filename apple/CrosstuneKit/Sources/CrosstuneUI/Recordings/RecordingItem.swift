@@ -50,6 +50,17 @@ public enum RecordingRowActions {
     public static let addToTune = "Add to tune"
     public static let removeFromTune = "Remove from tune"
     public static let delete = "Delete"
+
+    /// Opens an imported recording on the site it came from.
+    public static func openOn(_ site: String) -> String { "Open on \(site)" }
+
+    /// The page an imported recording opens, when it has a web address.
+    static func originPage(_ recording: Recording) -> URL? {
+        guard let text = recording.originURL, let url = URL(string: text),
+            ["http", "https"].contains(url.scheme?.lowercased())
+        else { return nil }
+        return url
+    }
 }
 
 extension View {
@@ -57,9 +68,12 @@ extension View {
     /// take it out of one, and delete it.
     /// `onAddToTune` nil leaves Add to tune out, for a list where every recording is already
     /// under the tune being looked at. `onTogglePin` nil leaves the pin action out; `pinned` says
-    /// whether it unpins.
+    /// whether it unpins. Open on shows in the context menu only; `onOpenOrigin` nil leaves it
+    /// out, for a recording made here or one with no page to open, and `originLabel` names the
+    /// site it opens.
     func recordingRowActions(
-        filed: Bool, pinned: Bool = false, onTogglePin: (() -> Void)? = nil, onRename: @escaping () -> Void,
+        filed: Bool, pinned: Bool = false, onTogglePin: (() -> Void)? = nil, originLabel: String? = nil,
+        onOpenOrigin: (() -> Void)? = nil, onRename: @escaping () -> Void,
         onAddToTune: (() -> Void)?, onRemoveFromTune: @escaping () -> Void, onDelete: @escaping () -> Void
     ) -> some View {
         self
@@ -77,9 +91,16 @@ extension View {
                 Button(RecordingRowActions.rename, systemImage: "pencil", action: onRename)
                 filing(filed: filed, onAddToTune: onAddToTune, onRemoveFromTune: onRemoveFromTune)
                 PinAction(pinned: pinned, onTogglePin: onTogglePin)
+                openOrigin(label: originLabel, action: onOpenOrigin)
                 Divider()
                 Button(RecordingRowActions.delete, systemImage: "trash", role: .destructive, action: onDelete)
             }
+    }
+
+    @ViewBuilder private func openOrigin(label: String?, action: (() -> Void)?) -> some View {
+        if let label, let action {
+            Button(RecordingRowActions.openOn(label), systemImage: "arrow.up.right.square", action: action)
+        }
     }
 
     @ViewBuilder private func filing(

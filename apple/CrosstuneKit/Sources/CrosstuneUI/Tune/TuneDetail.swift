@@ -147,6 +147,12 @@ public struct TuneDetail: Hashable, Sendable {
         DeleteTuneMessage.one(title: tune.title, files: recordings.map(\.file))
     }
 
+    /// A tune's rows with the musician's own before imported ones, each in the order given.
+    nonisolated static func ownFirst(_ recordings: [TuneRecording]) -> [TuneRecording] {
+        let isOwn = { (row: TuneRecording) in row.recording.origin == RecordingText.ownOrigin }
+        return recordings.filter(isOwn) + recordings.filter { !isOwn($0) }
+    }
+
     /// The tune `tuneID` with everything its screen shows, or nil when it is gone.
     nonisolated static func fetch(_ db: Database, tuneID: String, settingsID: String) throws -> TuneDetail? {
         guard let tune = try Tune.fetchOne(db, key: tuneID), tune.deletedAt == nil,
@@ -165,7 +171,7 @@ public struct TuneDetail: Hashable, Sendable {
         let settings = try UserSettings.fetchOne(db, key: settingsID)
         return TuneDetail(
             tune: tune, userTune: userTune, links: links,
-            recordings: recordings.map { TuneRecording(recording: $0, file: fileByID[$0.id]) },
+            recordings: ownFirst(recordings.map { TuneRecording(recording: $0, file: fileByID[$0.id]) }),
             lists: lists.compactMap { list in
                 itemByList[list.id].map { TuneMembership(list: list, itemID: $0) }
             },

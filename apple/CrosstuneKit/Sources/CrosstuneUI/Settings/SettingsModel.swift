@@ -178,7 +178,7 @@ public final class SettingsModel {
         pendingSearchProviders[provider]?.value ?? stored.value?.searchProviders.contains(provider) ?? false
     }
 
-    /// How many of the searchable services are on, as "2 of 7", or "No services selected".
+    /// How many of the searchable services are on, as "2 of 8", or "No services selected".
     public var searchProvidersSummary: String {
         Self.searchProvidersSummary(searchableProviders.filter(searches))
     }

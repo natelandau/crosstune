@@ -97,6 +97,11 @@ public final class TuneModel {
         await run(.media) { try await $0.removeLink(linkID) }
     }
 
+    /// Saves a link's audio as one of the tune's recordings.
+    public func addRecordingFromLink(_ linkID: String) async {
+        await run(.media) { try await $0.addRecordingFromLink(linkID) }
+    }
+
     /// Pins a recording or link as the one lists play first for this tune, or clears the pin when
     /// `pinned` says it already is.
     public func setPlaySource(_ pin: PlaySourcePin, pinned: Bool) async {

@@ -25,6 +25,18 @@ public struct Embed: Hashable, Sendable {
     public static let videoHeight = 200
     /// Apple Music's player, and the native card that plays in its place.
     public static let appleMusicHeight = 175
+    /// The player's accessible name when the recording has no title.
+    static let untitledPlayer = "Recording player"
+
+    /// What the player is built from.
+    public enum Kind: Hashable, Sendable {
+        /// A provider's page in an iframe.
+        case frame
+        /// A plain audio element playing a direct file.
+        case audio
+    }
+
+    public static let slipperyHillOrigin = "https://www.slippery-hill.com"
 
     public let src: String
     public let height: Height
@@ -32,12 +44,34 @@ public struct Embed: Hashable, Sendable {
     public let allow: String
     /// The frame's `sandbox` flags, or nil for an unsandboxed frame.
     public let sandbox: String?
+    public let kind: Kind
+    /// What an audio player is called to assistive technology.
+    public let title: String?
 
-    public init(src: String, height: Height, allow: String, sandbox: String? = nil) {
+    public init(
+        src: String, height: Height, allow: String, sandbox: String? = nil, kind: Kind = .frame, title: String? = nil
+    ) {
+        self.kind = kind
+        self.title = title
         self.src = src
         self.height = height
         self.allow = allow
         self.sandbox = sandbox
+    }
+
+    // The title only labels the page; two embeds of one player are equal so that a new title
+    // never reloads the web view and restarts playback.
+    public static func == (lhs: Embed, rhs: Embed) -> Bool {
+        lhs.src == rhs.src && lhs.height == rhs.height && lhs.allow == rhs.allow && lhs.sandbox == rhs.sandbox
+            && lhs.kind == rhs.kind
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(src)
+        hasher.combine(height)
+        hasher.combine(allow)
+        hasher.combine(sandbox)
+        hasher.combine(kind)
     }
 
     /// The player's height in points.
@@ -62,11 +96,15 @@ public struct Embed: Hashable, Sendable {
 
     /// The in-app player for a link, or nil when the link can only open elsewhere.
     public static func `for`(_ link: RecordingLink, autoplay: Bool = false) -> Embed? {
-        self.for(provider: link.provider, providerRef: link.providerRef, url: link.url, autoplay: autoplay)
+        self.for(
+            provider: link.provider, providerRef: link.providerRef, url: link.url, autoplay: autoplay,
+            title: LinkText.title(link))
     }
 
     /// The in-app player for a link's stored fields, or nil when the link can only open elsewhere.
-    public static func `for`(provider: String, providerRef: String?, url: String, autoplay: Bool = false) -> Embed? {
+    public static func `for`(
+        provider: String, providerRef: String?, url: String, autoplay: Bool = false, title: String? = nil
+    ) -> Embed? {
         let ref = providerRef ?? ""
         switch provider {
         case "youtube":
@@ -112,6 +150,11 @@ public struct Embed: Hashable, Sendable {
         case "internet_archive":
             guard ref.wholeMatch(of: archiveRefPattern) != nil else { return nil }
             return Embed(src: "https://archive.org/embed/\(ref)", height: .points(60), allow: archiveAllow)
+        case "slippery_hill":
+            guard isValidSlipperyHillRef(ref) else { return nil }
+            return Embed(
+                src: "\(slipperyHillOrigin)/system/files/\(ref)", height: .points(60), allow: "autoplay",
+                kind: .audio, title: title)
         default:
             return nil
         }

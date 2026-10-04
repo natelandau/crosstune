@@ -84,6 +84,10 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
             link("internet_archive", "78_soldiers-joy_sleepy-marlin_gbia0506187b"),
             "https://archive.org/embed/78_soldiers-joy_sleepy-marlin_gbia0506187b", .points(60)
         ),
+        (
+            link("slippery_hill", "recordings/a.mp3"),
+            "https://www.slippery-hill.com/system/files/recordings/a.mp3", .points(60)
+        ),
     ])
     func buildsTheProvidersPlayer(link: RecordingLink, src: String, height: Embed.Height) throws {
         let embed = try #require(Embed.for(link))
@@ -101,7 +105,43 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
         "soundcloud": "autoplay; encrypted-media",
         "bandcamp": "autoplay; encrypted-media",
         "internet_archive": "autoplay; encrypted-media; fullscreen",
+        "slippery_hill": "autoplay",
     ]
+
+    @Test func slipperyHillPlaysInAnAudioElement() throws {
+        let embed = try #require(Embed.for(link("slippery_hill", "recordings/a.mp3")))
+        #expect(embed.kind == .audio)
+        #expect(embed.document.contains("<audio"))
+        #expect(embed.document.contains(embed.src))
+        #expect(!embed.document.contains("<iframe"))
+        #expect(Embed.for(link("youtube", "dQw4w9WgXcQ"))?.kind == .frame)
+    }
+
+    @Test func theAudioElementIsNamedForTheRecording() throws {
+        let titled = RecordingLink(
+            id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "slippery_hill",
+            providerRef: "recordings/a.mp3", title: "Bear Creek Sally Goodin - Bob Holt")
+        let page = try #require(Embed.for(titled)).document
+        #expect(page.contains("aria-label=\"Bear Creek Sally Goodin - Bob Holt\""))
+
+        let tricky = try #require(
+            Embed.for(provider: "slippery_hill", providerRef: "a.mp3", url: "", title: "\"A\" <b>"))
+        #expect(tricky.document.contains("aria-label=\"&quot;A&quot; &lt;b&gt;\""))
+
+        let untitled = try #require(Embed.for(provider: "slippery_hill", providerRef: "a.mp3", url: ""))
+        #expect(untitled.document.contains("aria-label=\"\(Embed.untitledPlayer)\""))
+    }
+
+    @Test func aNewTitleDoesNotMakeAnotherPlayer() throws {
+        let one = try #require(Embed.for(provider: "slippery_hill", providerRef: "a.mp3", url: "", title: "One"))
+        let two = try #require(Embed.for(provider: "slippery_hill", providerRef: "a.mp3", url: "", title: "Two"))
+        #expect(one == two)
+    }
+
+    @Test(arguments: [nil, "../x.mp3", "a/%2E%2E/x.mp3", "a/./x.mp3", "a/x.wav"] as [String?])
+    func slipperyHillHasNoPlayerWithoutASafeRef(ref: String?) {
+        #expect(Embed.for(link("slippery_hill", ref)) == nil)
+    }
 
     @Test func normalizesAnAppleMusicAddressAsABrowserDoes() {
         #expect(

@@ -1,6 +1,13 @@
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 import GRDB
+
+/// `text` cut to the longest label a recording takes, counted in Unicode scalars as the server
+/// counts it, so a character built from several scalars never carries a label past the limit.
+public func clippedRecordingLabel(_ text: String) -> String {
+    String(String.UnicodeScalarView(text.unicodeScalars.prefix(Vocabulary.Limits.Recording.label)))
+}
 
 /// The name a new recording gets: when it started, as the local `YYYY-MM-DD HH:MM`. `timeZone`
 /// defaults to the device's own so a caller only overrides it in a test.
@@ -84,15 +91,33 @@ extension StoreWriter {
         return recordingID
     }
 
+    /// Saves a link's audio as a recording of its tune. Only the row is written: the server sees
+    /// `source: "import"` on push and fetches the audio itself, so there is no file to upload.
+    /// A live recording of the tune that already came from the link's page is returned as is.
+    public func addRecordingFromLink(_ linkID: String, at time: Timestamp = .now) throws -> String {
+        guard let link = try RecordingLink.fetchOne(db, key: linkID), link.deletedAt == nil else {
+            throw CommandError.linkNotFound
+        }
+        if let saved = try activeRecordings(tuneID: link.tuneID, db: db).first(where: { $0.originURL == link.url }) {
+            return saved.id
+        }
+        let recordingID = newID(at: time)
+        try putNewRecording(
+            recordingID, tuneID: link.tuneID, source: "import",
+            label: link.title.flatMap { $0.isEmpty ? nil : clippedRecordingLabel($0) },
+            recordedAt: time, origin: link.provider, originURL: link.url, at: time)
+        return recordingID
+    }
+
     private func putNewRecording(
         _ recordingID: String, tuneID: String?, source: String, label: String?, recordedAt: Timestamp,
-        at time: Timestamp
+        origin: String = "own", originURL: String? = nil, at time: Timestamp
     ) throws {
         let siblings = try tuneID.map(activeRecordingsForTune) ?? []
         try put(
             Recording(
-                id: recordingID, createdAt: time, tuneID: tuneID, source: source, recordedAt: recordedAt,
-                label: label, position: nextPosition(siblings)),
+                id: recordingID, createdAt: time, tuneID: tuneID, source: source, origin: origin,
+                originURL: originURL, recordedAt: recordedAt, label: label, position: nextPosition(siblings)),
             at: time)
     }
 
@@ -211,6 +236,11 @@ extension Commands {
         try await store.read { db in
             try RecordingFile.filter(RecordingFile.CodingKeys.localState == LocalFileState.capturing).fetchAll(db)
         }
+    }
+
+    @discardableResult
+    public func addRecordingFromLink(_ linkID: String, at time: Timestamp = .now) async throws -> String {
+        try await store.write { writer in try writer.addRecordingFromLink(linkID, at: time) }
     }
 
     public func activeRecordingsForTune(_ tuneID: String) async throws -> [Recording] {

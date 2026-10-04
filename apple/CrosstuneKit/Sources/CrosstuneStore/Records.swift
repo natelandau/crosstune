@@ -422,6 +422,10 @@ public struct Recording: SyncedRecord, Hashable {
     public var serverSeq: Int64
     public var tuneID: String?
     public var source: String
+    /// Where the recording came from: `own`, or the import source's name.
+    public var origin: String
+    /// The page an imported recording came from.
+    public var originURL: String?
     public var recordedAt: Timestamp
     public var label: String?
     public var position: Int
@@ -450,7 +454,8 @@ public struct Recording: SyncedRecord, Hashable {
         case deletedAt = "deleted_at"
         case serverSeq = "server_seq"
         case tuneID = "tune_id"
-        case source
+        case source, origin
+        case originURL = "origin_url"
         case recordedAt = "recorded_at"
         case label, position, state
         case durationMs = "duration_ms"
@@ -471,15 +476,16 @@ public struct Recording: SyncedRecord, Hashable {
 
     public static var wireDefaults: JSONObject {
         [
-            "position": .integer(0), "trim_start_ms": .integer(0), "trim_end_ms": .null,
-            "speed_percent": .integer(100), "pitch_cents": .integer(0),
+            "origin": .string("own"), "position": .integer(0), "trim_start_ms": .integer(0),
+            "trim_end_ms": .null, "speed_percent": .integer(100), "pitch_cents": .integer(0),
         ]
     }
 
     public init(
         id: String = newID(), createdAt: Timestamp = .now, updatedAt: Timestamp? = nil,
         deletedAt: Timestamp? = nil, serverSeq: Int64 = 0, tuneID: String?, source: String,
-        recordedAt: Timestamp, label: String? = nil, position: Int = 0, state: String = "pending_upload",
+        origin: String = "own", originURL: String? = nil, recordedAt: Timestamp, label: String? = nil,
+        position: Int = 0, state: String = "pending_upload",
         durationMs: Int64? = nil, playbackMime: String? = nil, playbackBytes: Int64? = nil,
         error: String? = nil, sourceDurationMs: Int64? = nil, playbackStartMs: Int64? = nil,
         playbackEndMs: Int64? = nil, playbackRev: String? = nil, peaksRev: String? = nil,
@@ -493,6 +499,8 @@ public struct Recording: SyncedRecord, Hashable {
         self.serverSeq = serverSeq
         self.tuneID = tuneID
         self.source = source
+        self.origin = origin
+        self.originURL = originURL
         self.recordedAt = recordedAt
         self.label = label
         self.position = position
@@ -547,7 +555,7 @@ public struct UserSettings: SyncedRecord, Hashable {
     /// Every searchable service, in the order results group: services that play inline, then
     /// search-only ones. What a user who never chose searches.
     public static let defaultSearchProviders = [
-        "apple_music", "tidal", "internet_archive", "youtube", "spotify", "bandcamp", "soundcloud",
+        "apple_music", "tidal", "internet_archive", "slippery_hill", "youtube", "spotify", "bandcamp", "soundcloud",
     ]
 
     public static let playFirstRecordings = "recordings"

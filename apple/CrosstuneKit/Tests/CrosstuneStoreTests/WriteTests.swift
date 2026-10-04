@@ -144,8 +144,8 @@ import Testing
     #expect(
         Set(data.keys)
             == [
-                "created_at", "tune_id", "source", "recorded_at", "label", "position", "trim_start_ms",
-                "trim_end_ms", "speed_percent", "pitch_cents", "mood",
+                "created_at", "tune_id", "source", "origin", "origin_url", "recorded_at", "label", "position",
+                "trim_start_ms", "trim_end_ms", "speed_percent", "pitch_cents", "mood",
             ])
     #expect(data["created_at"] == .string("2026-09-25T12:00:00.000Z"))
     #expect(data["tune_id"] == .null)

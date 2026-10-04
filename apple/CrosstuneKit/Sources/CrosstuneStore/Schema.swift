@@ -106,6 +106,34 @@ enum Schema {
                     """,
                 arguments: [SyncTable.userSettings.rawValue])
         }
+        migrator.registerMigration("v9") { db in
+            // The server holds the same default, so no repull is needed.
+            let table = SyncTable.recordings.rawValue
+            try db.alter(table: table) { t in
+                t.add(column: "origin", .text).notNull().defaults(sql: "'own'")
+                t.add(column: "origin_url", .text)
+            }
+            // A row pulled from a server that already had the fields kept them in `extra`.
+            for column in ["origin", "origin_url"] {
+                try db.execute(
+                    sql: """
+                        UPDATE recordings
+                        SET \(column) = json_extract(extra, '$.\(column)')
+                        WHERE json_type(extra, '$.\(column)') = 'text'
+                        """)
+                try db.execute(sql: "UPDATE recordings SET extra = json_remove(extra, '$.\(column)')")
+            }
+            // The API refuses an origin without its page, so the pair is always queued together.
+            try db.execute(
+                sql: """
+                    UPDATE outbox
+                    SET data = json_set(data,
+                        '$.origin', coalesce((SELECT origin FROM recordings WHERE id = outbox.row_id), 'own'),
+                        '$.origin_url', (SELECT origin_url FROM recordings WHERE id = outbox.row_id))
+                    WHERE table_name = ? AND data IS NOT NULL AND json_type(data, '$.origin_url') IS NULL
+                    """,
+                arguments: [table])
+        }
         return migrator
     }()
 
