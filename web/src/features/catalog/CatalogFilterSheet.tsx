@@ -7,6 +7,7 @@ import { Sheet } from '../../ui/Sheet'
 import { MISSING_LABEL, SHOW_UNHEARD } from './filterLabels'
 import {
   FACET_LABELS,
+  facetChoices,
   MISSING_LABELS,
   sheetFacets,
   sheetFilterCount,
@@ -69,16 +70,13 @@ export function CatalogFilterSheet({
       </p>
       <Group>
         {sheetFacets(visible).map((facet) => {
-          // A value the current catalog no longer has (an archived tune's genre, say) still
-          // needs its own option, or the select would show it as if it were Any.
-          const stale = filters[facet] !== 'all' && !facets[facet].includes(filters[facet])
-          const choices = stale ? [...facets[facet], filters[facet]] : facets[facet]
+          const { choices, selected } = facetChoices(facets[facet], filters[facet])
           return (
             <FieldRow key={facet} label={FACET_LABELS[facet]}>
               <IonSelect
                 aria-label={FACET_LABELS[facet]}
                 interface={pointer === 'mouse' ? 'popover' : 'action-sheet'}
-                value={filters[facet]}
+                value={selected}
                 onIonChange={(event) => onChange({ [facet]: String(event.detail.value) })}
               >
                 <IonSelectOption value="all">Any</IonSelectOption>

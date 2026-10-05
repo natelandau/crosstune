@@ -85,15 +85,15 @@ public enum MissingAttribute: Hashable, Sendable, RawRepresentable {
     /// Every value the entry holds for this attribute.
     func values(of entry: CatalogEntry) -> [String?] {
         switch self {
-        case .key: CatalogFacet.key.values(of: entry.tune)
-        case .mode: CatalogFacet.mode.values(of: entry.tune)
-        case .tuneType: CatalogFacet.tuneType.values(of: entry.tune)
-        case .genre: CatalogFacet.genre.values(of: entry.tune)
+        case .key: CatalogFacet.key.values(of: entry)
+        case .mode: CatalogFacet.mode.values(of: entry)
+        case .tuneType: CatalogFacet.tuneType.values(of: entry)
+        case .genre: CatalogFacet.genre.values(of: entry)
         case .timeSignature: [entry.tune.timeSignature]
-        case .composer: [entry.tune.composer]
+        case .composer: CatalogFacet.composer.values(of: entry)
         case .partStructure: [entry.tune.partStructure]
-        case .tuning(let instrument): CatalogFacet.tuning(instrument).values(of: entry.tune)
-        case .learnedFrom: [entry.userTune.learnedFrom]
+        case .tuning(let instrument): CatalogFacet.tuning(instrument).values(of: entry)
+        case .learnedFrom: CatalogFacet.learnedFrom.values(of: entry)
         case .learnedOn: [entry.userTune.learnedOn]
         }
     }
@@ -257,7 +257,7 @@ public enum CatalogSearch {
     }
 
     /// The entries the filters and the query let through, in catalog order. The query matches
-    /// anywhere in a title, an alternate title, or the composer.
+    /// anywhere in a title, an alternate title, the composer, or who it was learned from.
     public static func filter(_ entries: [CatalogEntry], by filters: CatalogFilters, query: String = "")
         -> [CatalogEntry]
     {
@@ -267,7 +267,7 @@ public enum CatalogSearch {
             if filters.unheard, entry.heard { return false }
             if let missing = filters.missing, !missing.isMissing(in: entry) { return false }
             for (facet, value) in filters.facets {
-                let values = facet.values(of: entry.tune)
+                let values = facet.values(of: entry)
                 if facet == .key, value == CatalogFilters.noKey {
                     guard !values.contains(where: isHeld) else { return false }
                 } else {
@@ -275,7 +275,9 @@ public enum CatalogSearch {
                 }
             }
             guard !needle.isEmpty else { return true }
-            let haystack = [entry.tune.title] + entry.tune.alternateTitles + [entry.tune.composer ?? ""]
+            let haystack =
+                [entry.tune.title] + entry.tune.alternateTitles
+                + [entry.tune.composer ?? "", entry.userTune.learnedFrom ?? ""]
             return haystack.contains { containsText($0, needle) }
         }
     }
@@ -294,21 +296,17 @@ public enum CatalogSearch {
     }
 
     /// Each facet's distinct values across every entry, archived included, sorted. Spellings
-    /// that differ only by case or accents fold into one option, as matching folds them. The key
-    /// leads with ``CatalogFilters/noKey`` while some tunes have a key and some do not; with no
-    /// keys at all it would narrow nothing.
+    /// that differ only by case or accents fold into one option, as matching folds them, shown the
+    /// way the stats breakdowns show it, so a tapped stats row names an option the sheet offers.
+    /// The key leads with ``CatalogFilters/noKey`` while some tunes have a key and some do not;
+    /// with no keys at all it would narrow nothing.
     public static func facetValues(_ entries: [CatalogEntry]) -> [CatalogFacet: [String]] {
         var values: [CatalogFacet: [String]] = [:]
         for facet in CatalogFacet.all {
-            var seen: [String] = []
-            var keys: Set<[UInt16]> = []
-            for entry in entries {
-                for case let value? in facet.values(of: entry.tune)
-                where isFilterValue(value, for: facet) && keys.insert(Array(foldText(value).utf16)).inserted {
-                    seen.append(value)
-                }
+            let held = entries.flatMap { facet.values(of: $0) }.filter { value in
+                value.map { isFilterValue($0, for: facet) } ?? false
             }
-            values[facet] = seen.sorted(by: precedes)
+            values[facet] = groupByFold(held) { $0 }.map(\.shown).sorted(by: precedes)
         }
         if let keys = values[.key], !keys.isEmpty, entries.contains(where: { !isHeld($0.tune.key) }) {
             values[.key] = [CatalogFilters.noKey] + keys
@@ -331,11 +329,18 @@ public enum CatalogSearch {
         }
     }
 
-    /// A facet's choices: the values the catalog holds, plus a set value it no longer holds, so a
-    /// stale filter never reads as Any. No key keeps its place at the front.
+    /// A facet's choices: the values the catalog holds, plus a set value none of them folds to,
+    /// so a stale filter never reads as Any. No key keeps its place at the front.
     public static func choices(_ values: [String], set: String?) -> [String] {
-        guard let set, !values.contains(set) else { return values }
+        guard let set, !values.contains(where: { sameText($0, set) }) else { return values }
         return set == CatalogFilters.noKey ? [set] + values : values + [set]
+    }
+
+    /// The choice a set value selects: the value the fold calls the same, else the set value
+    /// itself, which ``choices(_:set:)`` keeps as its own choice.
+    public static func selected(_ values: [String], set: String?) -> String? {
+        guard let set else { return nil }
+        return values.first { sameText($0, set) } ?? set
     }
 
     /// "84 tunes", or "11 of 84 tunes" while narrowed: the one wording for a catalog count.

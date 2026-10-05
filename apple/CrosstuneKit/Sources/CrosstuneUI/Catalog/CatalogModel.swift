@@ -33,6 +33,12 @@ public struct CatalogResults: Sendable {
         CatalogSearch.choices(facetValues[facet] ?? [], set: filters[facet])
     }
 
+    /// The choice the facet's set value selects, so a set value spelled another way than the
+    /// catalog's option still shows that option as chosen.
+    public func selected(_ facet: CatalogFacet) -> String? {
+        CatalogSearch.selected(facetValues[facet] ?? [], set: filters[facet])
+    }
+
     /// The Missing picker's options, with a set attribute no tune holds any more kept, so the
     /// picker never reads as Any.
     public var missingOptions: [MissingAttribute] {

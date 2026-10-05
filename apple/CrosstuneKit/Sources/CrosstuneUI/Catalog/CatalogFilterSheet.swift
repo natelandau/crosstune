@@ -36,7 +36,7 @@ struct CatalogFilterSheet: View {
         Form {
             Section {
                 ForEach(results.sheetFacets(railsOnScreen: railsOnScreen), id: \.self) { facet in
-                    Picker(facet.label, selection: selection(facet, results.filters)) {
+                    Picker(facet.label, selection: selection(facet, results)) {
                         Text(Self.any).tag(String?.none)
                         ForEach(results.choices(facet), id: \.self) { value in
                             Text(facet.valueLabel(value)).tag(String?.some(value))
@@ -102,9 +102,9 @@ struct CatalogFilterSheet: View {
         }
     }
 
-    private func selection(_ facet: CatalogFacet, _ filters: CatalogFilters) -> Binding<String?> {
+    private func selection(_ facet: CatalogFacet, _ results: CatalogResults) -> Binding<String?> {
         Binding {
-            filters[facet]
+            results.selected(facet)
         } set: { value in
             model.updateFilters { $0[facet] = value }
         }

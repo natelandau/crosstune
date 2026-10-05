@@ -9,6 +9,7 @@ import { StatusChooser } from '../tune/StatusChooser'
 import { MISSING_LABEL, UNHEARD_PILL } from './filterLabels'
 import {
   FACET_LABELS,
+  facetChoices,
   MISSING_LABELS,
   NO_KEY,
   sheetFacets,
@@ -20,17 +21,13 @@ import {
 export const ALL_KEYS_LABEL = 'All keys'
 export const ALL_TYPES_LABEL = 'All types'
 
-// A tuning pill names its instrument, since two instruments can share a tuning's name.
+// A tuning pill names its instrument, since two instruments can share a tuning's name, and a
+// composer or learned from pill names its field, since one person can be both.
 function pillLabel(facet: Facet, value: string): string {
   const instrument = tuningKeyInstrument(facet)
-  return instrument ? withInstrumentLabel(instrument, value) : value
-}
-
-// A set value the catalog no longer holds keeps its chip, so the rail never reads as All. No key
-// keeps its place at the front.
-function railChoices(values: readonly string[], set: string): readonly string[] {
-  if (set === 'all' || values.includes(set)) return values
-  return set === NO_KEY ? [set, ...values] : [...values, set]
+  if (instrument) return withInstrumentLabel(instrument, value)
+  if (facet === 'composer' || facet === 'learned_from') return `${FACET_LABELS[facet]}: ${value}`
+  return value
 }
 
 export function CatalogFilters({
@@ -62,8 +59,8 @@ export function CatalogFilters({
       patch: { missing: 'all' },
     })
 
-  const keyChoices = railChoices(facets.key, filters.key)
-  const typeChoices = railChoices(facets.tune_type, filters.tune_type)
+  const keys = facetChoices(facets.key, filters.key)
+  const types = facetChoices(facets.tune_type, filters.tune_type)
 
   return (
     <div className="space-y-2 pt-1 pb-2">
@@ -75,28 +72,28 @@ export function CatalogFilters({
 
       {visible.includes('key') ? (
         <Rail label="Key">
-          <Capsule pressed={filters.key === 'all'} onPress={() => onChange({ key: 'all' })}>
+          <Capsule pressed={keys.selected === 'all'} onPress={() => onChange({ key: 'all' })}>
             {ALL_KEYS_LABEL}
           </Capsule>
-          {keyChoices.map((key) =>
+          {keys.choices.map((key) =>
             key === NO_KEY ? (
               // The same question mark the key chooser sets, named in words since it reads as
               // nothing aloud.
               <Capsule
                 key={key}
-                pressed={filters.key === key}
+                pressed={keys.selected === key}
                 label={UNKNOWN_KEY}
-                onPress={() => onChange({ key: filters.key === key ? 'all' : key })}
+                onPress={() => onChange({ key: keys.selected === key ? 'all' : key })}
               >
                 ?
               </Capsule>
             ) : (
               <PressTarget
                 key={key}
-                pressed={filters.key === key}
-                onPress={() => onChange({ key: filters.key === key ? 'all' : key })}
+                pressed={keys.selected === key}
+                onPress={() => onChange({ key: keys.selected === key ? 'all' : key })}
               >
-                <KeyPill value={key} chosen={filters.key === key} />
+                <KeyPill value={key} chosen={keys.selected === key} />
               </PressTarget>
             ),
           )}
@@ -106,16 +103,16 @@ export function CatalogFilters({
       {visible.includes('tune_type') ? (
         <Rail label={FACET_LABELS.tune_type}>
           <Capsule
-            pressed={filters.tune_type === 'all'}
+            pressed={types.selected === 'all'}
             onPress={() => onChange({ tune_type: 'all' })}
           >
             {ALL_TYPES_LABEL}
           </Capsule>
-          {typeChoices.map((type) => (
+          {types.choices.map((type) => (
             <Capsule
               key={type}
-              pressed={filters.tune_type === type}
-              onPress={() => onChange({ tune_type: filters.tune_type === type ? 'all' : type })}
+              pressed={types.selected === type}
+              onPress={() => onChange({ tune_type: types.selected === type ? 'all' : type })}
             >
               {type}
             </Capsule>

@@ -3,7 +3,7 @@ import CrosstuneStore
 import CrosstuneVocabulary
 
 /// Something the catalog filters on besides status and the archived setting: a tune's key,
-/// type, mode, one instrument's tuning, or genre.
+/// type, mode, one instrument's tuning, genre, composer, or who the musician learned it from.
 public enum CatalogFacet: Hashable, Sendable {
     case key
     case tuneType
@@ -11,10 +11,14 @@ public enum CatalogFacet: Hashable, Sendable {
     /// One instrument's tuning, so each instrument's tunings filter on their own.
     case tuning(String)
     case genre
+    case composer
+    /// Read from the musician's own row, not the tune.
+    case learnedFrom
 
     /// Every facet in the order the filter sheet lists them.
     nonisolated public static let all: [CatalogFacet] =
-        [.key, .tuneType, .mode] + Vocabulary.instruments.map(CatalogFacet.tuning) + [.genre]
+        [.key, .tuneType, .mode] + Vocabulary.instruments.map(CatalogFacet.tuning)
+        + [.genre, .composer, .learnedFrom]
 
     /// The facets with their own rail on the catalog screen. Every other visible facet is in the
     /// filter sheet.
@@ -37,6 +41,8 @@ public enum CatalogFacet: Hashable, Sendable {
         case .mode: "mode"
         case .tuning(let instrument): "tuning:\(instrument)"
         case .genre: "genre"
+        case .composer: "composer"
+        case .learnedFrom: "learned_from"
         }
     }
 
@@ -47,6 +53,8 @@ public enum CatalogFacet: Hashable, Sendable {
         case .mode: "Mode"
         case .tuning(let instrument): "\(Vocabulary.instrumentLabel(instrument)) tuning"
         case .genre: "Genre"
+        case .composer: TuneFieldLabels.composer
+        case .learnedFrom: TuneFieldLabels.learnedFrom
         }
     }
 
@@ -58,13 +66,16 @@ public enum CatalogFacet: Hashable, Sendable {
 
     /// Every value a tune holds for this facet: one mode per part, one instrument's tuning from
     /// the map, or a column's one value.
-    public func values(of tune: Tune) -> [String?] {
-        switch self {
+    public func values(of entry: CatalogEntry) -> [String?] {
+        let tune = entry.tune
+        return switch self {
         case .key: [tune.key]
         case .tuneType: [tune.tuneType]
         case .mode: tune.modes
         case .tuning(let instrument): [tuningEntry(tune.tunings, instrument: instrument).tuning]
         case .genre: [tune.genre]
+        case .composer: [tune.composer]
+        case .learnedFrom: [entry.userTune.learnedFrom]
         }
     }
 
@@ -75,9 +86,13 @@ public enum CatalogFacet: Hashable, Sendable {
     }
 
     /// How a set filter on this facet reads on its capsule. A tuning names its instrument, since
-    /// two instruments can share a tuning's name.
+    /// two instruments can share a tuning's name, and a composer or learned from names its field,
+    /// since one person can be both.
     public func capsuleLabel(_ value: String) -> String {
-        guard let instrument else { return valueLabel(value) }
-        return "\(Vocabulary.instrumentLabel(instrument)): \(value)"
+        switch self {
+        case .tuning(let instrument): "\(Vocabulary.instrumentLabel(instrument)): \(value)"
+        case .composer, .learnedFrom: "\(label): \(value)"
+        default: valueLabel(value)
+        }
     }
 }
