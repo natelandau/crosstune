@@ -27,6 +27,9 @@ public struct ListScreen: View {
         "Reorder \(title)"
     }
 
+    /// The context menu's submenu that holds the move menu's places.
+    public static let moveSubmenu = "Move"
+
     /// The move menu's title.
     public static func move(_ title: String) -> String {
         "Move \(title)"
@@ -130,6 +133,8 @@ private struct ListTunes: View {
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
     @State private var selection = TuneSelection()
+    /// Whether the Mac column title, and the actions on its line, are on screen.
+    @State private var titleInView = true
     /// How far the rows are pulled down past their top.
     @State private var overscroll: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -140,7 +145,11 @@ private struct ListTunes: View {
     var body: some View {
         let rows = model.rows
         content(rows)
-            .listStyle(.plain)
+            #if os(macOS)
+                .macColumnList()
+            #else
+                .listStyle(.plain)
+            #endif
             #if os(iOS)
                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
                     max(0, -(geometry.contentOffset.y + geometry.contentInsets.top))
@@ -161,33 +170,29 @@ private struct ListTunes: View {
                         .padding(.vertical, spacing.stackGap)
                 }
             }
-            // Inside the Mac's pane bar, so the bar stays at the top of the pane.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if !rows.isEmpty, !selection.isActive, hasReadAppleMusic {
-                    ListPlayControls(
-                        report: playReport(rows), canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
-                        onPlay: { startPlaylist(playReport(rows), shuffled: false) },
-                        onShuffle: { startPlaylist(playReport(rows), shuffled: true) },
-                        onWhatPlays: { showsWhatPlays = true }
-                    )
-                    // Pinned while the rows scroll, but a pull past the top carries the controls
-                    // down with the title and rows.
-                    .offset(y: overscroll)
-                }
-            }
             #if os(iOS)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if let play = playOffer(rows) {
+                        ListPlayControls(offer: play)
+                        // Pinned while the rows scroll, but a pull past the top carries the controls
+                        // down with the title and rows.
+                        .offset(y: overscroll)
+                    }
+                }
                 .toolbar {
                     if !selection.isActive { toolbar(rows) }
                 }
+                .navigationTitle(selection.isActive ? TuneSelection.title(selection.ids.count) : list.name)
             #else
+                // The list's own actions ride on its title's line, and take the pane bar only
+                // once the title has scrolled away, so the bar adds no empty band at rest.
                 .paneBar {
-                    if !selection.isActive {
-                        addTunesButton.labelStyle(.iconOnly)
-                        if let showArchived = model.showArchived { moreMenu(rows, showArchived: showArchived) }
-                    }
+                    if !selection.isActive && !titleInView { listActions(rows) }
                 }
+                .columnTitled(
+                    selection.isActive ? TuneSelection.title(selection.ids.count) : list.name,
+                    alwaysShown: selection.isActive, onTitleShows: { titleInView = $0 })
             #endif
-            .navigationTitle(selection.isActive ? TuneSelection.title(selection.ids.count) : list.name)
             .selectionMode(
                 $selection, rows: rows.map(\.catalogEntry), instruments: model.instruments,
                 list: SelectionList(
@@ -255,9 +260,20 @@ private struct ListTunes: View {
             $selection, visible: rows.map(\.tune.id), detailTune: detailTune)
         if model.showArchived != nil {
             List(selection: chosen) {
+                #if os(macOS)
+                    MacListTitle(name: list.name, play: playOffer(rows)) {
+                        if !selection.isActive { listActions(rows) }
+                    }
+                    // With no pane bar above it at rest, the title keeps its own room under the
+                    // toolbar.
+                    .listRowInsets(MacStyle.columnRowInsets(top: 4, bottom: 8))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .selectionDisabled()
+                #endif
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, entry in
                     row(entry, position: index + 1, reorderable: rows.count > 1 && !selection.isActive)
-                        .scaledRowInsets()
+                        .tuneRowInsets()
                 }
                 .onMove(perform: reorder)
             }
@@ -272,6 +288,18 @@ private struct ListTunes: View {
         if let showArchived = model.showArchived {
             ToolbarItem(placement: .primaryAction) { moreMenu(rows, showArchived: showArchived) }
         }
+    }
+
+    /// What Play, Shuffle, and the line under them act on, or nil while they stand down: with no
+    /// tunes, while selecting, and until the access read.
+    private func playOffer(_ rows: [ListEntry]) -> ListPlayOffer? {
+        guard !rows.isEmpty, !selection.isActive, hasReadAppleMusic else { return nil }
+        let report = playReport(rows)
+        return ListPlayOffer(
+            report: report, canStart: listPlayback != nil && !(recorders?.isCapturing ?? false),
+            onPlay: { startPlaylist(report, shuffled: false) },
+            onShuffle: { startPlaylist(report, shuffled: true) },
+            onWhatPlays: { showsWhatPlays = true })
     }
 
     /// Controls wait for the access read, so the count never flashes a subscription skip.
@@ -307,6 +335,16 @@ private struct ListTunes: View {
             pushed = id
         }
     }
+
+    #if os(macOS)
+        /// Add tunes and the More menu, as glyphs with their names as tooltips.
+        @ViewBuilder private func listActions(_ rows: [ListEntry]) -> some View {
+            addTunesButton.labelStyle(.iconOnly).help(ListScreen.addTunes)
+            if let showArchived = model.showArchived {
+                moreMenu(rows, showArchived: showArchived).help(TuneScreen.moreActions)
+            }
+        }
+    #endif
 
     private var addTunesButton: some View {
         Button(ListScreen.addTunes, systemImage: "plus") { picking = true }
@@ -357,6 +395,7 @@ private struct ListTunes: View {
                 tuneRow
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityHint(hint)
+                    .modifier(MoveActions(entry: entry, reorderable: reorderable, buttons: moveButtons))
             } else {
                 Button {
                     pushed = entry.tune.id
@@ -369,22 +408,36 @@ private struct ListTunes: View {
                 // Not the automatic style, so the row's move button beside it keeps its own tap.
                 .buttonStyle(.plain)
                 .accessibilityHint(hint)
+                .modifier(MoveActions(entry: entry, reorderable: reorderable, buttons: moveButtons))
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
-            if !selection.isActive {
-                ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
-            }
-            if reorderable {
-                moveMenu(entry, isChosen: detailTune?.wrappedValue == entry.tune.id)
-                // Dragging works anywhere on the row; the grip only shows that it can, so at the
-                // accessibility text sizes it gives its width to the title.
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Image(systemName: "line.3.horizontal")
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
+            #if os(macOS)
+                // Only play holds a place at the trailing edge, so titles keep their width in a
+                // narrow column. Dragging the row reorders; Move is in its context menu and its
+                // accessibility actions.
+                if !selection.isActive {
+                    ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
+                        .revealedOnHover(pinned: isCurrent || playAction == .downloading)
                 }
-            }
+            #else
+                if !selection.isActive {
+                    ListRowPlayButton(entry: entry, action: playAction, listID: list.id)
+                }
+                if reorderable {
+                    moveMenu(entry, isChosen: detailTune?.wrappedValue == entry.tune.id)
+                    // Dragging works anywhere on the row; the grip only shows that it can, so at the
+                    // accessibility text sizes it gives its width to the title.
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Image(systemName: "line.3.horizontal")
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
+                }
+            #endif
         }
+        #if os(macOS)
+            .revealsActionsOnHover()
+        #endif
         .selectableRowActions(isSelecting: selection.isActive) {
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
@@ -393,36 +446,66 @@ private struct ListTunes: View {
         } menu: {
             if let scans { ScansRowAction(action: scans) }
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)
+            #if os(macOS)
+                if reorderable { moveItems(entry) }
+            #endif
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
             Divider()
             Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter(with: entry.tune.id) }
         } preview: {
             TunePreview(entry: entry.catalogEntry, instruments: model.instruments)
         }
-        .listRowBackground(isCurrent && !selection.isActive ? Color.accentColor.opacity(0.12) : nil)
+        .listRowBackground(isCurrent && !selection.isActive ? currentRowTint : nil)
         .accessibilityFocused($focusedRow, equals: entry.tune.id)
         .tag(entry.tune.id)
         .moveDisabled(!reorderable)
     }
 
-    /// `isChosen` rows sit on the accent fill, which would swallow a tinted glyph.
-    private func moveMenu(_ entry: ListEntry, isChosen: Bool) -> some View {
-        Menu {
-            Section(ListScreen.move(entry.tune.title)) {
-                ForEach(model.places(for: entry), id: \.self) { place in
-                    Button(place.label, systemImage: place.systemImage) { model.move(entry, to: place) }
-                }
-            }
-        } label: {
-            Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
-                .labelStyle(.iconOnly)
-                .foregroundStyle(isChosen ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
-                .frame(minWidth: minimumTapTarget)
-                .tapTarget()
-        }
-        .menuIndicator(.hidden)
-        .buttonStyle(.borderless)
+    /// The light wash on the tune a playing list is on.
+    private var currentRowTint: some View {
+        #if os(macOS)
+            // Inset and rounded as the selection is, so the two read as one family.
+            RoundedRectangle(cornerRadius: 6)
+                .fill(MacStyle.accent.opacity(0.12))
+                .padding(.horizontal, MacStyle.selectionInset)
+        #else
+            Color.accentColor.opacity(0.12)
+        #endif
     }
+
+    #if os(iOS)
+        /// `isChosen` rows sit on the accent fill, which would swallow a tinted glyph.
+        private func moveMenu(_ entry: ListEntry, isChosen: Bool) -> some View {
+            Menu {
+                Section(ListScreen.move(entry.tune.title)) {
+                    moveButtons(entry)
+                }
+            } label: {
+                Label(ListScreen.reorder(entry.tune.title), systemImage: "arrow.up.arrow.down")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(isChosen ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
+                    .frame(minWidth: minimumTapTarget)
+                    .tapTarget()
+            }
+            .menuIndicator(.hidden)
+            .buttonStyle(.borderless)
+        }
+    #endif
+
+    @ViewBuilder private func moveButtons(_ entry: ListEntry) -> some View {
+        ForEach(model.places(for: entry), id: \.self) { place in
+            Button(place.label, systemImage: place.systemImage) { model.move(entry, to: place) }
+        }
+    }
+
+    #if os(macOS)
+        /// The row's move menu again, in its context menu.
+        private func moveItems(_ entry: ListEntry) -> some View {
+            Menu(ListScreen.moveSubmenu, systemImage: "arrow.up.arrow.down") {
+                moveButtons(entry)
+            }
+        }
+    #endif
 
     private func move(_ indices: IndexSet, _ offset: Int) {
         guard indices.count == 1, let from = indices.first else { return }
@@ -486,5 +569,23 @@ extension View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: false, content: swipe)
                 .contextMenu(menuItems: menu, preview: preview)
         }
+    }
+}
+
+/// A list row's moves as accessibility actions on the Mac, which has no move button on the row,
+/// so they are reachable without the context menu.
+private struct MoveActions<Buttons: View>: ViewModifier {
+    let entry: ListEntry
+    let reorderable: Bool
+    let buttons: (ListEntry) -> Buttons
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+            content.accessibilityActions {
+                if reorderable { buttons(entry) }
+            }
+        #else
+            content
+        #endif
     }
 }

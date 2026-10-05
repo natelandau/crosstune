@@ -6,7 +6,7 @@ struct CatalogFilterSheet: View {
     static let title = "Filters"
     static let reset = "Reset"
     static let done = "Done"
-    static let any = "Any"
+    nonisolated static let any = "Any"
     static let showArchived = "Show archived"
     static let onlyUnheard = "Only unheard"
     nonisolated static let missing = "Missing"
@@ -21,7 +21,14 @@ struct CatalogFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var railsOnScreen: Bool { CatalogFilterBar.railsOnScreen(dynamicTypeSize) }
+    private var railsOnScreen: Bool {
+        #if os(macOS)
+            // The Mac's filter row keeps the key and type at every text size.
+            true
+        #else
+            CatalogFilterBar.railsOnScreen(dynamicTypeSize)
+        #endif
+    }
 
     var body: some View {
         NavigationStack {

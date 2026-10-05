@@ -22,12 +22,20 @@ struct ListHeader<Sort: SortKind>: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: 44)
+        #if os(macOS)
+            .frame(minHeight: MacStyle.headerRowHeight)
+        #else
+            .frame(minHeight: 44)
+        #endif
     }
 
     private var countText: some View {
         Text(count)
-            .font(.footnote)
+            #if os(macOS)
+                .font(MacStyle.secondary)
+            #else
+                .font(.footnote)
+            #endif
             .monospacedDigit()
             .foregroundStyle(.secondary)
             .lineLimit(1)

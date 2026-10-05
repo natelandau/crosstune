@@ -138,6 +138,26 @@ struct ListRowPlayButton: View {
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
+    #if os(macOS)
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    #endif
+
+    /// The square each state takes, so the row keeps its width whichever shows.
+    private var slot: CGFloat {
+        #if os(macOS)
+            MacStyle.smallControlHeight
+        #else
+            44
+        #endif
+    }
+
+    private var glyphFont: Font {
+        #if os(macOS)
+            MacStyle.body
+        #else
+            .title3
+        #endif
+    }
 
     private var isNowPlaying: Bool {
         ListRowPlay.isNowPlaying(
@@ -154,14 +174,17 @@ struct ListRowPlayButton: View {
                 guard settled, let transport = player?.transport else { return }
                 if transport.isPlaying { transport.pause() } else { transport.play() }
             } label: {
-                Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
-                    .font(.title3)
-                    .frame(minWidth: 44, minHeight: 44)
+                nowPlayingGlyph(isPlaying: isPlaying)
+                    .font(glyphFont)
+                    .frame(minWidth: slot, minHeight: slot)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
             .disabled(!settled)
             .accessibilityLabel(ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: isPlaying))
+            #if os(macOS)
+                .help(ListRowText.nowPlayingLabel(tuneTitle: entry.tune.title, isPlaying: isPlaying))
+            #endif
         } else {
             rowButton
         }
@@ -171,16 +194,20 @@ struct ListRowPlayButton: View {
         switch action {
         case nil:
             Image(systemName: "circle.slash")
+                .font(glyphFont)
                 .foregroundStyle(.secondary)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: slot, minHeight: slot)
                 .accessibilityHidden(true)
         case .inert?:
             Color.clear
-                .frame(width: 44, height: 44)
+                .frame(width: slot, height: slot)
                 .accessibilityHidden(true)
         case .downloading?:
             ProgressView()
-                .frame(minWidth: 44, minHeight: 44)
+                #if os(macOS)
+                    .controlSize(.small)
+                #endif
+                .frame(minWidth: slot, minHeight: slot)
                 .accessibilityLabel(
                     ListRowText.label(for: .downloading, tuneTitle: entry.tune.title, loaded: false) ?? "")
         case let action?:
@@ -190,14 +217,28 @@ struct ListRowPlayButton: View {
                 tapped(action, loaded: loaded, listPlaying: listPlaying)
             } label: {
                 Image(systemName: ListRowPlay.symbol(for: action, loaded: loaded) ?? "play.fill")
-                    .font(.title3)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .font(glyphFont)
+                    .frame(minWidth: slot, minHeight: slot)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
             .disabled(ListRowPlay.isBlocked(action, capturing: recorders?.isCapturing ?? false))
             .accessibilityLabel(ListRowText.label(for: action, tuneTitle: entry.tune.title, loaded: loaded) ?? "")
+            #if os(macOS)
+                .help(ListRowText.label(for: action, tuneTitle: entry.tune.title, loaded: loaded) ?? "")
+            #endif
         }
+    }
+
+    @ViewBuilder private func nowPlayingGlyph(isPlaying: Bool) -> some View {
+        let glyph = Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
+        #if os(macOS)
+            glyph
+                .foregroundStyle(MacStyle.accent)
+                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isPlaying && !reduceMotion)
+        #else
+            glyph
+        #endif
     }
 
     private func tapped(_ action: ListRowPlay.Action, loaded: Bool, listPlaying: Bool) {

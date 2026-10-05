@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The filters on the catalog screen, under the search field: the status rail, a rail each for
-/// key and type while the catalog holds them, then a removable capsule for each filter the sheet
-/// set.
+/// The filters on the iPhone and iPad catalog screen, under the search field: the status rail, a
+/// rail each for key and type while the catalog holds them, then a removable capsule for each
+/// filter the sheet set. The Mac shows ``MacFilterRow`` instead.
 struct CatalogFilterBar: View {
     nonisolated static let archivedShown = "Archived shown"
     nonisolated static let unheardShown = "Unheard"
@@ -151,7 +151,7 @@ struct CatalogFilterBar: View {
 }
 
 /// A capsule's look without its button, for a chip whose press a rail handles.
-private struct ChoiceCapsuleLabel: View {
+struct ChoiceCapsuleLabel: View {
     let text: String
     let chosen: Bool
 
@@ -159,13 +159,24 @@ private struct ChoiceCapsuleLabel: View {
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        Text(text)
-            .font(.subheadline)
-            .lineLimit(1)
-            .foregroundStyle(chosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-            .padding(.horizontal, spacing(14))
-            .padding(.vertical, spacing.chipVertical)
-            .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
-            .tapTarget()
+        #if os(macOS)
+            Text(text)
+                .font(MacStyle.body)
+                .lineLimit(1)
+                .foregroundStyle(chosen ? AnyShapeStyle(MacStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary))
+                .padding(.horizontal, spacing(14))
+                .padding(.vertical, spacing.chipVertical)
+                .background(chosen ? AnyShapeStyle(MacStyle.accent) : neutralFill(colorScheme), in: .capsule)
+                .contentShape(.capsule)
+        #else
+            Text(text)
+                .font(.subheadline)
+                .lineLimit(1)
+                .foregroundStyle(chosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                .padding(.horizontal, spacing(14))
+                .padding(.vertical, spacing.chipVertical)
+                .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
+                .tapTarget()
+        #endif
     }
 }

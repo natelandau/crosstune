@@ -25,7 +25,9 @@ public struct RecordingsScreen: View {
                 Color.clear
             }
         }
-        .navigationTitle(Destination.recordings.title)
+        #if os(iOS)
+            .navigationTitle(Destination.recordings.title)
+        #endif
     }
 }
 
@@ -47,6 +49,24 @@ struct StorageSummary: View {
                 .accessibilityValue(text)
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// A group's title over its recordings: the platform's section header, or a plain heading on
+/// the Mac.
+struct RecordingsGroupHeading: View {
+    let title: String
+
+    var body: some View {
+        #if os(macOS)
+            Text(title)
+                .font(MacStyle.sectionHeading)
+                .foregroundStyle(.primary)
+                .padding(.top, 8)
+                .accessibilityAddTraits(.isHeader)
+        #else
+            Text(title)
+        #endif
     }
 }
 
@@ -92,6 +112,12 @@ private struct RecordingsContent: View {
         let arrangement = model.arrangement(sort)
         let sheetsOpen = openSheets?.isCovered == true
         List {
+            #if os(macOS)
+                ColumnTitle(Destination.recordings.title)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+            #endif
             if model.filterCount > 0 {
                 RecordingsFilterBar(choice: model.choice) {
                     Task { await model.resetSource() }
@@ -100,15 +126,24 @@ private struct RecordingsContent: View {
                 .listRowSeparator(.hidden)
             }
             if let storage = model.storage {
-                Section {
+                #if os(macOS)
                     StorageSummary(storage: storage)
-                }
+                        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                #else
+                    Section {
+                        StorageSummary(storage: storage)
+                    }
+                #endif
             }
             if model.showsUnfinished {
-                Section(RecordingsScreen.unfinishedHeader) {
+                Section {
                     ForEach(model.unfinished, id: \.id) { capture in
                         unfinishedRow(capture)
                     }
+                } header: {
+                    heading(RecordingsScreen.unfinishedHeader)
                 }
             }
             if let arrangement {
@@ -117,6 +152,7 @@ private struct RecordingsContent: View {
                     } header: {
                         ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
                             .textCase(nil)
+                            .macHeaderInset()
                     }
                 }
                 if !arrangement.unfiled.isEmpty {
@@ -147,6 +183,12 @@ private struct RecordingsContent: View {
             // A set source's capsule above stays pressable.
             .allowsHitTesting(false)
         }
+        #if os(macOS)
+            // Inside the pane bar, so the outline frames the rows and never crosses the search.
+            .overlay {
+                if dropTargeted { DropOverlay() }
+            }
+        #endif
         .safeAreaInset(edge: .top, spacing: 0) {
             if let failure = model.failure {
                 Text(failure)
@@ -157,22 +199,22 @@ private struct RecordingsContent: View {
                     .padding(.vertical, spacing.stackGap)
             }
         }
-        .safeAreaBar(edge: .top) {
-            HStack(spacing: spacing.stackGap) {
-                FilterSearchField(
-                    prompt: RecordingsListText.search, query: $model.query, isFocused: $searchFocused,
-                    filterCount: model.filterCount, filtersGate: model.filtersGate,
-                    onSubmit: { searchFocused = false }
-                ) { showsFilters = true }
-                #if os(macOS)
-                    // The screen's own actions share its search's bar, as the catalog's do.
-                    uploadButton.labelStyle(.iconOnly).paneControls()
-                #endif
+        #if os(macOS)
+            // Plain headings over the groups rather than inset cards.
+            .listStyle(.plain)
+            // The screen's own actions share its search's bar, as the catalog's do.
+            .paneBar {
+                searchField
+            } _: {
+                uploadButton.labelStyle(.iconOnly)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, spacing.stackGap)
-        }
-        #if os(iOS)
+            .columnTitled(Destination.recordings.title)
+        #else
+            .safeAreaBar(edge: .top) {
+                searchField
+                .padding(.horizontal, 16)
+                .padding(.bottom, spacing.stackGap)
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) { uploadButton }
             }
@@ -194,11 +236,6 @@ private struct RecordingsContent: View {
                 return true
             } isTargeted: {
                 dropTargeted = $0
-            }
-            .overlay {
-                if dropTargeted {
-                    Rectangle().strokeBorder(.tint, lineWidth: 2).allowsHitTesting(false)
-                }
             }
         #endif
         .modifier(RefreshesBySync(engine: engine))
@@ -307,11 +344,24 @@ private struct RecordingsContent: View {
             VStack(alignment: .leading, spacing: 0) {
                 ListHeader(count: model.countLabel(arrangement), choice: $sort)
                     .textCase(nil)
-                Text(title)
+                RecordingsGroupHeading(title: title)
             }
+            .macHeaderInset()
         } else {
-            Text(title)
+            heading(title)
         }
+    }
+
+    private func heading(_ title: String) -> some View {
+        RecordingsGroupHeading(title: title)
+            .macHeaderInset()
+    }
+
+    private var searchField: some View {
+        FilterSearchField(
+            prompt: RecordingsListText.search, query: $model.query, isFocused: $searchFocused,
+            filterCount: model.filterCount, filtersGate: model.filtersGate,
+            onSubmit: { searchFocused = false }, onFilters: { showsFilters = true })
     }
 
     private var uploadButton: some View {
@@ -330,7 +380,7 @@ private struct RecordingsContent: View {
         ) { kind in
             retry(view.id, kind)
         }
-        .scaledRowInsets()
+        .mediaRowInsets()
         .recordingRowActions(
             filed: view.tuneID != nil,
             originLabel: RecordingText.originLabel(view.recording.origin),
@@ -355,14 +405,23 @@ private struct RecordingsContent: View {
                     .accessibilityHidden(true)
                 Spacer(minLength: 0)
             }
-            .font(.footnote.bold())
-            .foregroundStyle(.secondary)
-            .frame(minHeight: 44)
+            #if os(macOS)
+                .font(MacStyle.secondary.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(minHeight: MacStyle.smallControlHeight)
+            #else
+                .font(.footnote.bold())
+                .foregroundStyle(.secondary)
+                .frame(minHeight: 44)
+            #endif
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .matchedTransitionSource(id: tune.tuneID, in: zoom)
         .accessibilityAddTraits(.isHeader)
+        #if os(macOS)
+            .mediaRowInsets()
+        #endif
     }
 
     /// Opens a tune: pushed on iPhone, in the detail column on iPad and Mac. Only a push from a
@@ -385,7 +444,7 @@ private struct RecordingsContent: View {
             glyph: .attention, title: row.title, secondLine: .text(UnfinishedCaptureRowContent.note),
             verb: row.verb, action: { discarding = capture }
         )
-        .scaledRowInsets()
+        .mediaRowInsets()
         .swipeActions(edge: .trailing, allowsFullSwipe: false) { discard }
         .contextMenu { discard }
     }
@@ -427,5 +486,28 @@ private struct RecordingsContent: View {
     /// gone.
     private struct FilingFailed: LocalizedError {
         var errorDescription: String? { AddToTuneModel.failed }
+    }
+}
+
+extension View {
+    /// A section header's leading edge at the column title's and the rows', which a plain Mac
+    /// list's header margin otherwise sits outside.
+    fileprivate func macHeaderInset() -> some View {
+        #if os(macOS)
+            padding(.horizontal, 8)
+        #else
+            self
+        #endif
+    }
+
+    /// A media row's place in a list: on the Mac at the column's tune row edges, with no
+    /// separator, as the tune rows sit.
+    fileprivate func mediaRowInsets() -> some View {
+        #if os(macOS)
+            listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                .listRowSeparator(.hidden)
+        #else
+            scaledRowInsets()
+        #endif
     }
 }

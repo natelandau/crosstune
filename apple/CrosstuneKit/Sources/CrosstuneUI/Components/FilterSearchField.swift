@@ -18,8 +18,8 @@ struct FilterSearchField: View {
         @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
         private let hitTarget: CGFloat = 44
     #else
-        // The height of a large control, which the buttons beside it are.
-        @ScaledMetric(relativeTo: .body) private var height: CGFloat = 32
+        // The pane bar's height, which the buttons beside it are.
+        @ScaledMetric(relativeTo: .body) private var height: CGFloat = MacStyle.paneControlHeight
         private let hitTarget: CGFloat = 24
     #endif
 
@@ -49,16 +49,27 @@ struct FilterSearchField: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Self.clearSearch)
+                #if os(macOS)
+                    .help(Self.clearSearch)
+                #endif
             }
             if let filterCount {
                 FiltersButton(setCount: filterCount, gate: filtersGate, action: onFilters)
                     .buttonStyle(.borderless)
             }
         }
-        .padding(.leading, 14)
-        .padding(.trailing, filterCount == nil ? 14 : 4)
-        .frame(minHeight: height)
-        .modifier(GlassCapsule())
+        #if os(macOS)
+            .font(MacStyle.body)
+            .padding(.leading, 10)
+            .padding(.trailing, filterCount == nil ? 10 : 4)
+            .frame(height: height)
+            .macGlass(in: .capsule)
+        #else
+            .padding(.leading, 14)
+            .padding(.trailing, filterCount == nil ? 14 : 4)
+            .frame(minHeight: height)
+            .modifier(GlassCapsule())
+        #endif
     }
 }
 
@@ -124,21 +135,40 @@ struct RemoveFilterCapsule: View {
     let action: () -> Void
 
     @Environment(\.spacing) private var spacing
+    #if os(macOS)
+        @Environment(\.colorScheme) private var colorScheme
+    #endif
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: spacing(6)) {
-                Text(label)
-                    .lineLimit(1)
-                Image(systemName: "xmark")
-                    .font(.caption.weight(.semibold))
-            }
-            .font(.subheadline)
-            .foregroundStyle(.white)
-            .padding(.horizontal, spacing(12))
-            .padding(.vertical, spacing.chipVertical)
-            .background(.tint, in: .capsule)
-            .tapTarget()
+            #if os(macOS)
+                // A token in the filter row, worn as a set filter control is.
+                HStack(spacing: 4) {
+                    Text(label)
+                        .lineLimit(1)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                }
+                .font(MacStyle.body)
+                .foregroundStyle(MacStyle.setLabel(colorScheme))
+                .padding(.horizontal, 10)
+                .frame(height: MacStyle.smallControlHeight)
+                .background(MacStyle.setFill(colorScheme), in: .capsule)
+                .contentShape(.capsule)
+            #else
+                HStack(spacing: spacing(6)) {
+                    Text(label)
+                        .lineLimit(1)
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.semibold))
+                }
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, spacing(12))
+                .padding(.vertical, spacing.chipVertical)
+                .background(.tint, in: .capsule)
+                .tapTarget()
+            #endif
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Self.name(label))
