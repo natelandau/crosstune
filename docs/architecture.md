@@ -118,8 +118,9 @@ Pull:
   tables, oldest first, 500 per page. A fresh install pulls from zero.
 - History rows come from `GET /v1/sync/events`, which pages like the main
   pull on a cursor of its own: plays, practice sessions, scan views, and
-  status changes above it, oldest first. The client runs it only when the
-  stats page opens. Event rows never schedule a sync, and sign-out's
+  status changes above it, oldest first. The client runs it only when a
+  screen needs history: the stats page, or the catalog sorted by Last
+  played. Event rows never schedule a sync, and sign-out's
   unsent-changes check ignores them.
 - A local database shape change migrates the device's database in place.
   It keeps every row, every unsent edit, and every recording the server

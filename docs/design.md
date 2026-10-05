@@ -569,6 +569,9 @@ equivalent below.
   own row under them.
 - A segmented control is allowed for a short closed choice. Status still
   stays a rail of capsules, because each carries its own dot color.
+- Sort sits with the screen's own actions, since Filters is inside the
+  search field: in the toolbar on iPhone and iPad, in the pane bar on the
+  Mac.
 - On the Mac, View > Sort By carries the sort of the screen that shows, when
   it has one.
 - A long press opens the native context menu. Its Select item, and a
