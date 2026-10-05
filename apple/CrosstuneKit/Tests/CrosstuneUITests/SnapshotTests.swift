@@ -1,4 +1,8 @@
+import CrosstuneAudio
+import CrosstuneCommands
 import CrosstuneStore
+import CrosstuneTestSupport
+import CrosstuneVocabulary
 import SwiftUI
 import Testing
 
@@ -69,7 +73,9 @@ import Testing
     @Test func listRows() {
         snapshot("list-rows") {
             rows(Array(SampleCatalog.entries.prefix(5).enumerated()), id: \.element.tune.id) { index, entry in
-                TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: ["violin"], position: index + 1)
+                TuneRow(
+                    tune: entry.tune, userTune: entry.userTune, instruments: ["violin"], position: index + 1,
+                    stacked: true)
             }
         }
     }
@@ -84,6 +90,275 @@ import Testing
             }
         }
     }
+
+    #if os(macOS)
+        /// A wide list column at rest with the pointer over its third row, then playing its second
+        /// row, then selecting two rows with the bulk actions in the pane bar.
+        @Test func macListColumn() {
+            let ids = SampleCatalog.entries.map(\.tune.id)
+            snapshot("mac-list-column", width: 1320) {
+                HStack(alignment: .top, spacing: 24) {
+                    MacListColumnStandIn(width: 500, hovered: 2)
+                    MacListColumnStandIn(playing: 1)
+                    MacListColumnStandIn(selected: [ids[1], ids[2]])
+                }
+            }
+        }
+
+        /// The narrowest list column, whose Play and Shuffle drop under a title they would crowd.
+        @Test func macListColumnNarrow() {
+            snapshot("mac-list-column-narrow", width: 300) {
+                MacListColumnStandIn(width: 268, playing: 0)
+            }
+        }
+
+        /// The recordings column: storage, then plain headings over the unfiled and filed groups.
+        @Test func macRecordingsColumn() {
+            snapshot("mac-recordings-column", width: 400) {
+                MacRecordingsColumnStandIn()
+            }
+        }
+
+        /// A file dragged over the recordings column.
+        @Test func macRecordingsDropping() {
+            snapshot("mac-recordings-dropping", width: 400) {
+                MacRecordingsColumnStandIn(dropping: true)
+            }
+        }
+
+        /// The tune page holding everything a tune can, archived, then a tune holding only its
+        /// title and type.
+        @Test func macTunePage() async throws {
+            let root = TemporaryRoot()
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            try await SampleScans.add(to: store)
+            let entry = SampleCatalog.entries[0]
+            let model = TuneModel(store: store, tuneID: entry.tune.id)
+            #expect(try await poll { model.shown != nil && model.scans.scans.count == 3 })
+
+            var archived = entry.userTune
+            archived.archivedAt = SampleCatalog.now
+            archived.playLinkID = SampleCatalog.links[0].id
+            let full = TuneDetail(
+                tune: entry.tune, userTune: archived, links: SampleCatalog.links,
+                recordings: [0, 1, 2, 5].map {
+                    let sample = SampleCatalog.recordings[$0]
+                    return TuneRecording(recording: sample.recording, file: sample.file)
+                },
+                lists: SampleCatalog.lists.enumerated().map { TuneMembership(list: $1, itemID: "item_\($0)") },
+                instruments: SampleCatalog.instruments)
+            page("mac-tune-page", model: model, detail: full)
+
+            let empty = SampleCatalog.entries[10]
+            let sparseModel = TuneModel(store: store, tuneID: empty.tune.id)
+            #expect(try await poll { sparseModel.shown != nil })
+            let sparse = TuneDetail(
+                tune: Tune(
+                    id: empty.tune.id, createdAt: SampleCatalog.now, title: "Ways of the World", tuneType: "Reel"),
+                userTune: empty.userTune)
+            page("mac-tune-page-sparse", model: sparseModel, detail: sparse)
+        }
+
+        @Test func macTunePlaceholder() {
+            snapshot("mac-tune-placeholder", width: 560) {
+                TuneDetailPlaceholder().frame(height: 360)
+            }
+        }
+
+        /// The record sheet's panel waiting on the microphone, then twelve seconds into a take.
+        @Test func macRecordSheet() async throws {
+            let root = TemporaryRoot()
+            let input = ToneInput()
+            let recorder = Recorder(store: try root.open(), input: input, channels: { .mono })
+            await recordPanel("mac-record-sheet-idle", RecordSheetModel(recorder: recorder, tuneID: nil))
+
+            let live = RecordSheetModel(recorder: recorder, tuneID: nil)
+            await live.begin()
+            try input.play(seconds: 12)
+            await recordPanel("mac-record-sheet-recording", live)
+            await live.discard()
+        }
+
+        /// The whole sheet, toolbar included, as the Mac presents it. Its own task never runs the
+        /// recorder here, since the claim refuses it.
+        private func recordPanel(_ name: String, _ model: RecordSheetModel) async {
+            await sheetSnapshot(name) {
+                RecordSheet(model: model, claim: { false }).tint(MacStyle.accent)
+            }
+        }
+
+        /// The recording screen at its ideal sheet size with each mode chosen: Loops with a loop
+        /// selected, then Speed and Pitch set off their defaults.
+        @Test(arguments: PracticeMode.allCases)
+        func macRecordingScreen(mode: PracticeMode) async throws {
+            let entry = SampleCatalog.playable
+            let file = try #require(entry.file)
+            let seconds = Double(entry.recording.durationMs ?? 184_000) / 1000
+            let audio = FakeAudio()
+            audio.duration = seconds
+            audio.elapsed = 21
+            let player = PlayerModel(audio: audio)
+            player.audioSource = { _ in RecordingAudioFile(url: URL(filePath: "/tmp/r1.m4a"), file: file) }
+            player.play(.recording(entry.recording, tuneTitle: entry.tuneTitle))
+            #expect(try await poll { player.recordingAudio == .loaded })
+            audio.isPlaying = false
+            let id = entry.recording.id
+            player.loopsChanged(
+                id: id,
+                to: [
+                    RecordingLoop(
+                        id: "loop_a", createdAt: SampleCatalog.now, updatedAt: SampleCatalog.now, recordingID: id,
+                        label: "A part", startMs: 14_000, endMs: 29_500, color: 0),
+                    RecordingLoop(
+                        id: "loop_b", createdAt: SampleCatalog.now, updatedAt: SampleCatalog.now, recordingID: id,
+                        label: nil, startMs: 31_000, endMs: 47_000, color: 1),
+                ])
+            if mode != .loops {
+                player.setSpeed(75)
+                player.setPitch(-200)
+            }
+
+            let noWrites = LoopWriter(
+                add: { _, _ in throw CancellationError() }, update: { _, _, _ in }, remove: { _ in })
+            let practice = PracticeModel(
+                player: player, recording: entry.recording, file: file, writer: noWrites, mode: mode)
+            practice.partStructure = "AABB"
+            if mode == .loops { practice.select("loop_a") }
+            let width: CGFloat = 560
+            practice.setWidth(Double(width - 2 * MacStyle.sheetMargin))
+            // A tune's swell and fall, so the bars read as music rather than noise.
+            let values = (0..<Int(seconds) * 50).map { index -> UInt8 in
+                let t = Double(index) / 50
+                let swell = 0.55 + 0.35 * sin(t / 9) * sin(t / 2.3)
+                let beat = 0.6 + 0.4 * abs(sin(t * .pi * 2.1))
+                return UInt8(max(8, min(255, 255 * swell * beat)))
+            }
+            let rows = ScreenRows(
+                recording: entry.recording, file: file, tuneID: entry.recording.tuneID, tuneTitle: entry.tuneTitle,
+                partStructure: "AABB")
+            await sheetSnapshot("mac-recording-screen-\(mode.rawValue)") {
+                // The stack and Close as `RecordingScreen` wraps the content.
+                NavigationStack {
+                    RecordingScreenContent(
+                        player: player, rows: rows, path: .constant([]), practice: practice,
+                        peaks: Peaks(values: values)
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(RecordingScreenText.close) {}
+                        }
+                    }
+                }
+                .frame(width: width, height: 720)
+                .tint(MacStyle.accent)
+            }
+        }
+
+        /// Each Settings tab over the sample catalog, at the Settings window's width. Its own
+        /// window draws the toolbar of tabs, so only a tab's form shows here.
+        @Test(arguments: MacSettingsTabs.Pane.allCases)
+        func macSettingsTabs(pane: MacSettingsTabs.Pane) async throws {
+            let root = TemporaryRoot()
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            await windowSnapshot("mac-settings-\(pane.rawValue)", size: MacSettingsTabs.size) {
+                MacSettingsTabs.content(pane, version: "0.7.0")
+                    .environment(\.store, store)
+                    .tint(MacStyle.accent)
+            }
+        }
+
+        /// The stats screen over the sample catalog, as the Account tab's sheet holds it, then half a
+        /// year of activity stepping through every quartile, which the sample has no history for.
+        @Test func macStats() async throws {
+            let root = TemporaryRoot()
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            await windowSnapshot("mac-stats", size: CGSize(width: MacSettingsTabs.size.width, height: 1400)) {
+                NavigationStack { StatsScreen() }
+                    .environment(\.store, store)
+                    .tint(MacStyle.accent)
+            }
+            await sheetSnapshot("mac-stats-sheet") {
+                StatsSheet()
+                    .environment(\.store, store)
+                    .tint(MacStyle.accent)
+            }
+
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "UTC")!
+            let start = calendar.date(from: DateComponents(year: 2026, month: 4, day: 5))!
+            let days = (0..<182).map { offset in
+                let date = calendar.date(byAdding: .day, value: offset, to: start)!
+                let parts = calendar.dateComponents([.year, .month, .day], from: date)
+                let level = (offset * 7 + offset / 5) % 9 < 4 ? 0 : (offset * 3 + offset / 7) % 4 + 1
+                return Stats.Day(
+                    date: String(format: "%04d-%02d-%02d", parts.year!, parts.month!, parts.day!),
+                    musicMs: level * 600_000, plays: level, practiceSessions: 0, scanViews: 0, tunesAdded: 0,
+                    recordings: 0, statusChanges: 0, level: level)
+            }
+            let heatmap = Stats.Heatmap(visible: true, start: days[0].date, days: days)
+            await windowSnapshot("mac-stats-heatmap", size: CGSize(width: MacSettingsTabs.size.width, height: 260)) {
+                Form {
+                    Section(StatsCopy.activityHeader) {
+                        HeatmapView(heatmap: heatmap, today: days[days.count - 1].date)
+                            .padding(.vertical, 8)
+                    }
+                }
+                .formStyle(.grouped)
+                .tint(MacStyle.accent)
+            }
+        }
+
+        /// The tune form editing a sample tune, as the Mac presents it.
+        @Test func macTuneForm() async throws {
+            let root = TemporaryRoot()
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            let entry = SampleCatalog.entries[0]
+            await sheetSnapshot("mac-tune-form") {
+                TuneFormSheet(target: .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id)) { _ in }
+                    .environment(\.store, store)
+                    .tint(MacStyle.accent)
+            }
+            // The details below the sheet's fold: an open choice, then a closed one that is a menu.
+            await windowSnapshot("mac-tune-form-pickers", size: CGSize(width: 480, height: 200)) {
+                Form {
+                    SuggestionPicker(
+                        TuneFieldLabels.genre, value: .constant("Old-time"), options: Vocabulary.genres,
+                        allowsOther: true)
+                    SuggestionPicker(
+                        TuneFieldLabels.timeSignature, value: .constant("4/4"), options: Vocabulary.timeSignatures,
+                        allowsOther: false, reportsRepicks: true)
+                }
+                .formStyle(.grouped)
+                .tint(MacStyle.accent)
+            }
+        }
+
+        @Test func macWelcome() async {
+            await windowSnapshot("mac-welcome", size: CGSize(width: 900, height: 600)) {
+                WelcomeView(notice: nil).tint(MacStyle.accent)
+            }
+        }
+
+        /// The page's column at the detail pane's usual width, margins included.
+        private func page(_ name: String, model: TuneModel, detail: TuneDetail) {
+            snapshot(name, width: 780) {
+                MacTunePageColumn(
+                    model: model, detail: detail, editing: .constant(nil), deleting: .constant(nil),
+                    addingScans: .constant(nil), deletingScan: .constant(nil)
+                )
+                .frame(maxWidth: MacStyle.pageMaxWidth, alignment: .leading)
+                .padding(MacStyle.pageMargin)
+                .frame(maxWidth: .infinity)
+                .tint(MacStyle.accent)
+                .environment(\.sidebarSelection, .constant(.catalog))
+                .environment(
+                    \.tuneScreenActions,
+                    TuneScreenActions(
+                        addToList: { _ in }, addLink: { _ in }, findRecordings: { _, _ in }, record: { _ in },
+                        readLyrics: { _ in }, viewScans: { _, _, _ in }))
+            }
+        }
+    #endif
 
     private enum Row: Hashable {
         case recording(RecordingRowContent)
@@ -116,7 +391,7 @@ import Testing
 
     private func tuneRows(instruments: Set<String>) -> some View {
         rows(SampleCatalog.entries, id: \.tune.id) { entry in
-            TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: instruments)
+            TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: instruments, stacked: true)
         }
     }
 
@@ -146,3 +421,163 @@ private struct RowStack<Item, ID: Hashable, Row: View>: View {
         }
     }
 }
+
+#if os(macOS)
+    /// The Mac list column from stand-ins, since an image renderer draws no list: the pane bar,
+    /// the list's title with Play and Shuffle, and its rows with their hover actions. `hovered`
+    /// is the row under the pointer, `playing` the one the list is on, and `selected` non-nil
+    /// is a selection.
+    struct MacListColumnStandIn: View {
+        var width: CGFloat = 360
+        var hovered: Int?
+        var playing: Int?
+        var selected: Set<String>?
+
+        private var entries: [SampleCatalog.Entry] { [0, 1, 2, 5, 6].map { SampleCatalog.entries[$0] } }
+
+        var body: some View {
+            let ids = entries.map(\.tune.id)
+            VStack(alignment: .leading, spacing: 0) {
+                // The pane bar holds only a selection's actions; at rest the list's own ride on
+                // its title's line.
+                if let selected {
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
+                        Group {
+                            Button(BulkActionText.status, systemImage: "tag") {}.labelStyle(.iconOnly)
+                            Button(BulkActionText.addToList, systemImage: "text.badge.plus") {}
+                                .labelStyle(.iconOnly)
+                            Button(BulkActionText.more, systemImage: "ellipsis") {}.labelStyle(.iconOnly)
+                            Button(TuneSelection.done) {}.fontWeight(.semibold)
+                        }
+                        .disabled(selected.isEmpty)
+                        .paneControls()
+                        .fixedSize()
+                    }
+                    .padding(.bottom, 8)
+                }
+                MacListTitle(
+                    name: SampleCatalog.lists[0].name,
+                    play: selected == nil
+                        ? ListPlayOffer(
+                            report: PlaylistReport(playable: Array(ids.prefix(4)), skipped: [:], total: ids.count),
+                            canStart: true, onPlay: {}, onShuffle: {}, onWhatPlays: {})
+                        : nil
+                ) {
+                    if selected == nil {
+                        Button(ListScreen.addTunes, systemImage: "plus") {}.labelStyle(.iconOnly)
+                        Button(TuneScreen.moreActions, systemImage: "ellipsis") {}.labelStyle(.iconOnly)
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+                ForEach(Array(entries.enumerated()), id: \.element.tune.id) { index, entry in
+                    row(entry, index: index)
+                }
+                // A long list's three digit positions keep the titles in the same column.
+                row(entries[3], index: 111)
+            }
+            .frame(width: width, alignment: .topLeading)
+        }
+
+        private func row(_ entry: SampleCatalog.Entry, index: Int) -> some View {
+            let isCurrent = index == playing
+            let isSelected = selected?.contains(entry.tune.id) == true && index < 100
+            return HStack(spacing: 4) {
+                MacTuneRow(
+                    text: TuneRowText(tune: entry.tune, userTune: entry.userTune, instruments: ["violin"]),
+                    position: index + 1)
+                if selected == nil {
+                    Group {
+                        if isCurrent {
+                            Image(systemName: "speaker.wave.2.fill").foregroundStyle(MacStyle.accent)
+                        } else {
+                            Image(systemName: "play.fill")
+                        }
+                    }
+                    .font(MacStyle.body)
+                    .frame(width: 24, height: 24)
+                    .revealedOnHover(pinned: isCurrent)
+                }
+            }
+            .environment(\.rowHovered, index == hovered)
+            .padding(.horizontal, 8)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 6).fill(MacStyle.accent.opacity(0.18))
+                } else if isCurrent || index == hovered {
+                    RoundedRectangle(cornerRadius: 6).fill(MacStyle.accent.opacity(isCurrent ? 0.12 : 0.05))
+                }
+            }
+        }
+    }
+
+    /// The Mac recordings column from stand-ins: the pane bar, the column title, storage, the
+    /// count and sort, and the sample recordings under their plain group headings.
+    struct MacRecordingsColumnStandIn: View {
+        var dropping = false
+
+        @FocusState private var searchFocused: Bool
+
+        var body: some View {
+            let rows = SampleCatalog.recordingRows
+            let pairs = zip(SampleCatalog.recordings, rows)
+            let unfiled = pairs.filter { $0.0.tuneTitle == nil }.map(\.1)
+            let filed = pairs.filter { $0.0.tuneTitle != nil }
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    FilterSearchField(
+                        prompt: RecordingsListText.search, query: .constant(""), isFocused: $searchFocused,
+                        filterCount: 0, onSubmit: {}, onFilters: {})
+                    Button(RecordingImport.upload, systemImage: "square.and.arrow.down") {}
+                        .labelStyle(.iconOnly)
+                        .paneControls()
+                        .fixedSize()
+                }
+                .padding(.bottom, 8)
+                .padding(.horizontal, Self.margin)
+                content(rows: rows, unfiled: unfiled, filed: filed)
+                    .padding(.horizontal, Self.margin)
+                    .overlay {
+                        if dropping { DropOverlay() }
+                    }
+            }
+            .frame(width: 360 + 2 * Self.margin, alignment: .topLeading)
+            .tint(MacStyle.accent)
+            // The column's own edges, past the page's margin, as the outline insets from them.
+            .padding(.horizontal, -Self.margin)
+        }
+
+        /// A plain list's leading margin plus a row's inset, where the column's text starts.
+        private static let margin: CGFloat = 16
+
+        private func content(
+            rows: [RecordingRowContent], unfiled: [RecordingRowContent],
+            filed: [(SampleCatalog.RecordingEntry, RecordingRowContent)]
+        ) -> some View {
+            VStack(alignment: .leading, spacing: 0) {
+                ColumnTitle(Destination.recordings.title)
+                    .padding(.top, 4)
+                    .padding(.bottom, 4)
+                StorageSummary(storage: SampleCatalog.storage)
+                    .padding(.vertical, 4)
+                ListHeader(
+                    count: RecordingsListText.countLabel(visible: rows.count, total: rows.count),
+                    choice: .constant(RecordingSortChoice.default))
+                RecordingsGroupHeading(title: RecordingsListText.unfiled)
+                ForEach(unfiled, id: \.self) { row in
+                    MediaRow(recording: row, perform: { _ in }, onRetry: { _ in }).padding(.vertical, 4)
+                }
+                RecordingsGroupHeading(title: RecordingsListText.filed)
+                ForEach(filed, id: \.1) { entry, row in
+                    MediaRow(
+                        recording: row,
+                        tuneLine: entry.tuneTitle.map { MediaRow.TuneLine(title: $0) {} },
+                        perform: { _ in }, onRetry: { _ in }
+                    )
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+#endif

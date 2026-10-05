@@ -553,7 +553,9 @@ The Apple app follows Apple's Human Interface Guidelines for presentation:
 native SwiftUI controls, SF Symbols, system materials and fonts, Dynamic
 Type. Every rule above holds, words and behavior alike. Where a rule above
 describes Ionic's web chrome, the Apple app replaces it with the native
-equivalent below.
+equivalent below. The Mac's presentation rules are in
+[Mac design rules](design-macos.md), and they hold on the Mac where the two
+pages differ.
 
 - iPhone: a tab bar (Catalog, Lists, Recordings, Settings) with the record
   dome centered over its middle, replacing the web's tab bar. The dome is
@@ -567,18 +569,11 @@ equivalent below.
   catalog and Recordings. There the field is the app's own, pinned under
   the navigation bar with the filter control at its trailing edge, because
   the system field takes no accessory.
-- On the Mac, a control sits over the pane it acts on. A Mac toolbar puts
-  a content column's trailing items over the detail column, so the
-  content column's own actions, selection's included, sit in a bar
-  across the top of the column instead; the catalog's share its search
-  field's row.
 - On iPhone, a top-level screen's large title shares a row with its
   toolbar buttons and stays in place on scroll, instead of sitting in its
   own row under them.
 - A segmented control is allowed for a short closed choice. Status still
   stays a rail of capsules, because each carries its own dot color.
-- On the Mac, View > Sort By carries the sort of the screen that shows, when
-  it has one.
 - A long press opens the native context menu. Its Select item, and a
   Select toolbar button, enter selection, replacing the web's long-press
   gesture.
@@ -591,9 +586,6 @@ equivalent below.
   text. System alerts and confirmation dialogs follow the system's size.
   The catalog's filter bar stays at the default size, because larger chips
   push their labels off the screen.
-  The Mac has no text size row, because Mac text does not scale with
-  Dynamic Type. The light, dark, and system appearance setting carries
-  over unchanged.
 - Native motion (SwiftUI transitions, symbol effects, haptics) is allowed
   beyond the record control and the waveform, but nothing animates under
   Reduce Motion.
@@ -601,6 +593,8 @@ equivalent below.
   MusicKit, starts in the bar like a recording and does not open in full. A
   link in its provider's embed opens in full, because the embed holds its
   only controls.
+- In the recording sheet, a Stop that cannot run dims as a whole disc,
+  never only its label.
 - The record dome and the menu commands that open a sheet stand down while
   a sheet, dialog, or file picker is up. The record control and the Record
   command also stand down while a screen is selecting.

@@ -448,6 +448,39 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 }
 
+#if os(macOS)
+    @Suite struct PlayerDockTests {
+        @Test func dockEmbedStaysWithinShare() {
+            #expect(PlayerDock.chrome == MacStyle.dockHeight + PlayerDock.inset)
+            let height = PlayerDock.embedHeight(columnHeight: 500, wanted: 400)
+            #expect(height == 500 * PlayerPanel.maxShare - PlayerDock.chrome)
+            #expect(height + PlayerDock.chrome <= 500 * PlayerPanel.maxShare)
+            #expect(PlayerDock.embedHeight(columnHeight: 1000, wanted: 152) == 152)
+        }
+
+        @Test func leavesOnlyTheBarInAColumnTooShortForAPlayer() {
+            #expect(PlayerDock.embedHeight(columnHeight: 100, wanted: 200) == 0)
+        }
+
+        @Test func keepsTheFullSizeBeforeTheColumnIsMeasured() {
+            #expect(PlayerDock.embedHeight(columnHeight: .infinity, wanted: 200) == 200)
+        }
+    }
+#endif
+
+@Suite struct ScrubberStepTests {
+    @Test func movesByTheKeyStep() {
+        #expect(PlaybackScrubber.keyStep == 5)
+        #expect(PlaybackScrubber.stepped(60, by: PlaybackScrubber.keyStep, length: 184) == 65)
+        #expect(PlaybackScrubber.stepped(60, by: -PlaybackScrubber.keyStep, length: 184) == 55)
+    }
+
+    @Test func staysWithinTheRecording() {
+        #expect(PlaybackScrubber.stepped(2, by: -5, length: 184) == 0)
+        #expect(PlaybackScrubber.stepped(182, by: 5, length: 184) == 184)
+    }
+}
+
 @Suite struct MusicPlayerCardTests {
     @Test func fillsTheCardsHeightWithSquareArtwork() {
         #expect(MusicPlayerCard.artworkSide(height: 175) == 175 - 2 * MusicPlayerCard.inset)

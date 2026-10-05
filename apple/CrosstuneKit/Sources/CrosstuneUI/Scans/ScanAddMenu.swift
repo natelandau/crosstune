@@ -74,6 +74,9 @@ struct ScanAddMenu: View {
             }
         }
         .disabled(!isEnabled)
+        #if os(macOS)
+            .help(ScanCopy.addScans)
+        #endif
     }
 }
 

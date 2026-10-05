@@ -110,15 +110,77 @@ struct PlaybackScrubber: View {
     let audio: any PlaybackTransport
     /// A new value redraws the position, for a transport that does not announce it.
     var tick: Date?
+    /// The times either side of the track on one line, as the Mac dock lays it out, rather than
+    /// under it.
+    var inline = false
 
     @State private var isEditing = false
     @State private var dragged: TimeInterval?
+
+    /// How far an arrow key or a VoiceOver swipe moves the Mac track.
+    nonisolated static let keyStep: TimeInterval = 5
+
+    /// `position` moved `step` seconds, kept within the recording's `length`.
+    nonisolated static func stepped(_ position: TimeInterval, by step: TimeInterval, length: TimeInterval)
+        -> TimeInterval
+    {
+        min(max(0, position + step), length)
+    }
 
     var body: some View {
         let _ = tick
         let duration = audio.duration
         let position = dragged ?? audio.elapsed
-        VStack(spacing: 2) {
+        if inline {
+            HStack(spacing: 8) {
+                Text(PlayerTime.clock(position))
+                    .modifier(TimeStyle())
+                track(position: position, duration: duration)
+                Text(duration.map { PlayerTime.remaining(position, of: $0) } ?? "")
+                    .modifier(TimeStyle())
+            }
+        } else {
+            VStack(spacing: 2) {
+                track(position: position, duration: duration)
+                HStack {
+                    Text(PlayerTime.clock(position))
+                    Spacer()
+                    Text(duration.map { PlayerTime.remaining(position, of: $0) } ?? "")
+                }
+                .modifier(TimeStyle())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func track(position: TimeInterval, duration: TimeInterval?) -> some View {
+        #if os(macOS)
+            let length = max(duration ?? 0, 0.1)
+            ScrubberTrack(fraction: position / length) { fraction in
+                dragged = fraction * length
+            } onEnd: { fraction in
+                audio.seek(to: fraction * length)
+                dragged = nil
+            }
+            // Full Keyboard Access reaches the track and its arrows move it, as they move a slider.
+            .focusable(interactions: .activate)
+            .onKeyPress(.leftArrow) {
+                audio.seek(to: Self.stepped(position, by: -Self.keyStep, length: length))
+                return .handled
+            }
+            .onKeyPress(.rightArrow) {
+                audio.seek(to: Self.stepped(position, by: Self.keyStep, length: length))
+                return .handled
+            }
+            .disabled(duration == nil)
+            .accessibilityElement()
+            .accessibilityLabel(RecordingPlayerText.position)
+            .accessibilityValue(PlayerTime.spoken(position, of: duration))
+            .accessibilityAdjustableAction { direction in
+                let step = direction == .increment ? Self.keyStep : -Self.keyStep
+                audio.seek(to: Self.stepped(position, by: step, length: length))
+            }
+        #else
             Slider(
                 value: Binding {
                     position
@@ -137,16 +199,22 @@ struct PlaybackScrubber: View {
             .disabled(duration == nil)
             .accessibilityLabel(RecordingPlayerText.position)
             .accessibilityValue(PlayerTime.spoken(position, of: duration))
-            HStack {
-                Text(PlayerTime.clock(position))
-                Spacer()
-                Text(duration.map { PlayerTime.remaining(position, of: $0) } ?? "")
-            }
-            .font(.caption)
+        #endif
+    }
+}
+
+/// The scrubber's times: small, secondary, and in tabular figures so they hold still as they count.
+private struct TimeStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            #if os(macOS)
+                .font(MacStyle.secondary)
+            #else
+                .font(.caption)
+            #endif
             .monospacedDigit()
             .foregroundStyle(.secondary)
             .accessibilityHidden(true)
-        }
     }
 }
 

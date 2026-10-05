@@ -33,7 +33,7 @@ struct LoopSwitcher: View {
             Label(name, systemImage: systemImage)
                 .labelStyle(.iconOnly)
                 .font(.body)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
                 .contentShape(.rect)
         }
         .buttonStyle(.borderless)

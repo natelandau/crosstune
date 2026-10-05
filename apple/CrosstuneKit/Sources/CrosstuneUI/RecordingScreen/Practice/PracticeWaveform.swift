@@ -203,8 +203,7 @@ struct PracticeWaveform: View {
                 Path(CGRect(x: start, y: 0, width: end - start, height: Double(size.height))),
                 with: .color(loop.id == selectedID ? tint : tint.opacity(0.5)))
         }
-        context.fill(
-            Path(CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height))), with: .style(.primary))
+        context.fillPlayhead(CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)))
     }
 
     private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: LaneView) {
@@ -250,7 +249,7 @@ struct PracticeWaveform: View {
     private func handle(_ edge: LoopModel.Edge, at x: Double, color: Int, view: LaneView) -> some View {
         let inView = x >= 0 && x <= view.width
         let name = edge == .start ? PracticeText.loopStart : PracticeText.loopEnd
-        return HandleMark(edge: edge, color: LoopColor.color(color, scheme: colorScheme))
+        return HandleMark(edge: edge, color: Self.handleColor(LoopColor.color(color, scheme: colorScheme)))
             .frame(width: PracticeModel.handleReach * 2)
             .frame(maxHeight: .infinity)
             .contentShape(.rect)
@@ -293,6 +292,16 @@ struct PracticeWaveform: View {
             .accessibilityAction(named: PracticeText.earlierBySecond) { step(edge, by: -PracticeModel.largeNudgeMs) }
     }
 
+    /// The Mac draws every loop's handles in coral, its one color for what marks a position, and
+    /// leaves the loop's own color to its band and tab.
+    private static func handleColor(_ loopColor: Color) -> Color {
+        #if os(macOS)
+            MacStyle.coral
+        #else
+            loopColor
+        #endif
+    }
+
     /// One VoiceOver step: a change of its own, written at once.
     private func step(_ edge: LoopModel.Edge, by deltaMs: Int64) {
         model.nudge(edge, by: deltaMs)
@@ -329,7 +338,7 @@ struct WaveformOverlay: View {
                 } label: {
                     Text(PracticeText.fit)
                         .font(.subheadline)
-                        .frame(minWidth: 44, minHeight: 44)
+                        .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
                         .contentShape(.rect)
                 }
                 .disabled(model.scale == nil)
@@ -367,7 +376,7 @@ struct WaveformOverlay: View {
             Label(name, systemImage: systemImage)
                 .labelStyle(.iconOnly)
                 .font(.body)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
                 .contentShape(.rect)
         }
         .help(name)
@@ -375,11 +384,19 @@ struct WaveformOverlay: View {
 }
 
 extension View {
-    /// The page's background, mostly opaque, so text and buttons read over bars and loop tints.
+    /// The page's background, mostly opaque on iOS and fully on the Mac, so text and buttons read
+    /// over bars and loop tints.
     /// Its shape takes every press, so none falls through to the waveform.
     fileprivate func backing() -> some View {
-        background(.background.opacity(0.8), in: .rect(cornerRadius: 8))
-            .contentShape(.rect(cornerRadius: 8))
+        #if os(macOS)
+            // Opaque with a hairline, so a loop's tint and handle lines stop at its edge.
+            background(.background, in: .rect(cornerRadius: 8))
+                .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(.separator) }
+                .contentShape(.rect(cornerRadius: 8))
+        #else
+            background(.background.opacity(0.8), in: .rect(cornerRadius: 8))
+                .contentShape(.rect(cornerRadius: 8))
+        #endif
     }
 }
 
@@ -397,6 +414,9 @@ private struct HandleMark: View {
             Rectangle()
                 .fill(color)
                 .frame(width: 2)
+                #if os(macOS)
+                    .background { Rectangle().fill(Color.markOutline).frame(width: 4) }
+                #endif
             tab
                 .offset(x: edge == .start ? -Self.tabWidth / 2 : Self.tabWidth / 2)
         }
@@ -411,6 +431,10 @@ private struct HandleMark: View {
         return
             shape
             .fill(color)
+            #if os(macOS)
+                // A centered stroke shows its outer half, a point outside the tab.
+                .background { shape.stroke(Color.markOutline, lineWidth: 2) }
+            #endif
             .frame(width: Self.tabWidth, height: Self.tabHeight)
             .overlay {
                 HStack(spacing: 2) {
@@ -419,6 +443,35 @@ private struct HandleMark: View {
                     }
                 }
             }
+    }
+}
+
+extension GraphicsContext.Shading {
+    /// The recording screen's playhead line: coral on the Mac, beside the loop handles.
+    static var playhead: Self {
+        #if os(macOS)
+            .color(MacStyle.coral)
+        #else
+            .style(.primary)
+        #endif
+    }
+}
+
+#if os(macOS)
+    extension Color {
+        /// A point of the window's color around a coral handle or playhead, so it reads where it
+        /// crosses a loop's orange band.
+        static var markOutline: Color { Color(nsColor: .windowBackgroundColor) }
+    }
+#endif
+
+extension GraphicsContext {
+    /// Draws the playhead line in `rect`, outlined on the Mac as its loop handles are.
+    func fillPlayhead(_ rect: CGRect) {
+        #if os(macOS)
+            fill(Path(rect.insetBy(dx: -1, dy: 0)), with: .color(.markOutline))
+        #endif
+        fill(Path(rect), with: .playhead)
     }
 }
 

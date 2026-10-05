@@ -62,16 +62,16 @@ public struct WelcomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             Lockup()
             Text(WelcomeCopy.headline(for: device))
-                .font(device == .mac ? .title.bold() : .title2.bold())
+                .font(headlineFont(device))
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, spacing(14))
             Text(WelcomeCopy.line)
-                .font(.subheadline)
+                .font(lineFont)
                 .foregroundStyle(.secondary)
                 .padding(.top, spacing.stackGap)
             if let notice {
                 Text(notice)
-                    .font(.subheadline)
+                    .font(lineFont)
                     .padding(.top, spacing(20))
                     // Nothing here takes first-responder focus, so VoiceOver would not reach the
                     // notice on its own the way a sighted reader does.
@@ -81,6 +81,22 @@ public struct WelcomeView: View {
             buttons
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func headlineFont(_ device: WelcomeDevice) -> Font {
+        #if os(macOS)
+            MacStyle.pageTitle
+        #else
+            device == .mac ? .title.bold() : .title2.bold()
+        #endif
+    }
+
+    private var lineFont: Font {
+        #if os(macOS)
+            MacStyle.body
+        #else
+            .subheadline
+        #endif
     }
 
     private var buttons: some View {

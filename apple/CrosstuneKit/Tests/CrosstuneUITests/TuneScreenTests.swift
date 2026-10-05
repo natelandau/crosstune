@@ -185,6 +185,25 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.phase == .gone }
     }
 
+    @Test func reportsAReadThatFailed() async throws {
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        try await store.write { writer in
+            try writer.db.execute(sql: "ALTER TABLE tunes RENAME TO tunes_unreadable")
+        }
+        let model = TuneModel(store: store, tuneID: soldiersJoy.tune.id)
+        try await eventually { model.readFailed }
+        #expect(model.phase == .loading)
+    }
+
+    #if os(macOS)
+        @Test func theNextTuneArrivesOnceReadOrFailed() {
+            #expect(!TuneScreen.arrivalSettled(phase: .loading, readFailed: false))
+            #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: true))
+            #expect(TuneScreen.arrivalSettled(phase: .gone, readFailed: false))
+        }
+    #endif
+
     @Test func writesTheArchive() async throws {
         let root = TemporaryRoot()
         let model = TuneModel(store: try await SampleCatalog.makeStore(root: root.url), tuneID: soldiersJoy.tune.id)

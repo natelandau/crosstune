@@ -53,31 +53,33 @@ private struct CatalogContent: View {
     var body: some View {
         let results = model.results
         list(results)
-            .listStyle(.plain)
-            .safeAreaBar(edge: .top) {
-                HStack(spacing: spacing.stackGap) {
-                    FilterSearchField(
-                        prompt: CatalogScreen.searchPrompt,
-                        query: $model.query, isFocused: $searchFocused,
-                        filterCount: selection.isActive ? nil : results.map(filterCount),
-                        onSubmit: submitSearch
-                    ) { showsFilters = true }
-                    #if os(macOS)
-                        // The catalog's own actions share its search's bar, as a pane bar's.
-                        if !selection.isActive {
-                            Group {
-                                addButton.labelStyle(.iconOnly)
-                                if results?.visible.isEmpty == false {
-                                    selectButton.labelStyle(.iconOnly).help(TuneRowActions.select)
-                                }
-                            }
-                            .paneControls()
+            #if os(macOS)
+                .macColumnList()
+            #else
+                .listStyle(.plain)
+            #endif
+            #if os(macOS)
+                // The search and the catalog's own actions share one pane bar. A selection's
+                // actions take the actions' place while it lasts; the search stays.
+                .paneBar {
+                    searchField(filterCount: nil)
+                } _: {
+                    if !selection.isActive {
+                        addButton.labelStyle(.iconOnly).help(CatalogScreen.addTune)
+                        if results?.visible.isEmpty == false {
+                            selectButton.labelStyle(.iconOnly).help(TuneRowActions.select)
                         }
-                    #endif
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, spacing.stackGap)
-            }
+                .columnTitled(title, alwaysShown: selection.isActive)
+            #else
+                .safeAreaBar(edge: .top) {
+                    searchField(filterCount: selection.isActive ? nil : results.map(filterCount))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, spacing.stackGap)
+                }
+                .navigationTitle(title)
+            #endif
             #if os(iOS)
                 .toolbar {
                     if !selection.isActive {
@@ -88,9 +90,6 @@ private struct CatalogContent: View {
                     }
                 }
             #endif
-            .navigationTitle(
-                selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
-            )
             .selectionMode(
                 $selection, rows: results?.visible ?? [], instruments: results?.instruments ?? [],
                 focusedRow: $focusedRow
@@ -133,6 +132,19 @@ private struct CatalogContent: View {
             .onChange(of: model.catalogRevision) { announceCount() }
     }
 
+    private var title: String {
+        selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
+    }
+
+    private func searchField(filterCount: Int?) -> some View {
+        FilterSearchField(
+            prompt: CatalogScreen.searchPrompt,
+            query: $model.query, isFocused: $searchFocused,
+            filterCount: filterCount,
+            onSubmit: submitSearch
+        ) { showsFilters = true }
+    }
+
     private var addButton: some View {
         Button(CatalogScreen.addTune, systemImage: "plus") { form = model.newTune() }
     }
@@ -156,18 +168,35 @@ private struct CatalogContent: View {
             selection: TuneSelection.listBinding(
                 $selection, visible: results?.visible.map(\.tune.id) ?? [], detailTune: detailTune)
         ) {
-            if let results {
-                // The first row of the list rather than a bar pinned under the navigation bar,
-                // which would take the rails' own scroll views for the screen's content.
-                CatalogFilterBar(
-                    results: results, errors: [model.filterError, model.actionError].compactMap { $0 },
-                    onChange: model.updateFilters
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .selectionDisabled()
-            }
+            #if os(macOS)
+                ColumnTitle(Destination.catalog.title)
+                    .listRowInsets(MacStyle.columnRowInsets(top: MacStyle.columnTitleTop))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .selectionDisabled()
+                if let results {
+                    MacFilterRow(results: results, model: model, isSelecting: selection.isActive) {
+                        showsFilters = true
+                    }
+                    .listRowInsets(MacStyle.columnRowInsets(top: 6, bottom: 6))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .selectionDisabled()
+                }
+            #else
+                if let results {
+                    // The first row of the list rather than a bar pinned under the navigation bar,
+                    // which would take the rails' own scroll views for the screen's content.
+                    CatalogFilterBar(
+                        results: results, errors: [model.filterError, model.actionError].compactMap { $0 },
+                        onChange: model.updateFilters
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .selectionDisabled()
+                }
+            #endif
             if let results, results.visible.isEmpty {
                 emptyState(results)
                     .frame(maxWidth: .infinity)
@@ -178,7 +207,11 @@ private struct CatalogContent: View {
             }
             if let results, !results.visible.isEmpty {
                 ListHeader(count: results.countLabel, choice: selection.isActive ? nil : $sort)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    #if os(macOS)
+                        .listRowInsets(MacStyle.columnRowInsets())
+                    #else
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    #endif
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .selectionDisabled()
@@ -216,7 +249,7 @@ private struct CatalogContent: View {
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
         }
-        .scaledRowInsets()
+        .tuneRowInsets()
         .catalogRowActions(
             entry, instruments: instruments, isSelecting: selection.isActive,
             onEdit: { form = .edit(tuneID: entry.tune.id, userTuneID: entry.userTune.id) },

@@ -51,9 +51,8 @@ private struct SelectionMode: ViewModifier {
                     if selection.isActive, let bulk { toolbar(bulk) }
                 }
             #else
-                .paneBar {
-                    if selection.isActive, let bulk { paneControls(bulk) }
-                }
+                // The screen's own pane bar shows these in place of its controls.
+                .environment(\.paneSelectionControls, selection.isActive ? bulk.map { AnyView(paneControls($0)) } : nil)
             #endif
             #if os(iOS)
                 .environment(\.editMode, .constant(selection.isActive ? .active : .inactive))
@@ -173,16 +172,20 @@ private struct SelectionMode: ViewModifier {
             let count = selected.count
             statusMenu(bulk) { Label(BulkActionText.status, systemImage: "tag").labelStyle(.iconOnly) }
                 .disabled(count == 0)
+                .help(BulkActionText.status)
             Button(BulkActionText.edit, systemImage: TuneRowActions.editSystemImage) { edit() }
                 .labelStyle(.iconOnly)
                 .disabled(count == 0)
+                .help(BulkActionText.edit)
             Button(BulkActionText.addToList, systemImage: "text.badge.plus") { addToList(bulk) }
                 .labelStyle(.iconOnly)
                 .disabled(count == 0 || listSheets == nil)
+                .help(BulkActionText.addToList)
             // Live at any count, since Select all lives in it and the mode opens at zero.
             moreMenu(bulk, selectsAll: true) {
                 Label(BulkActionText.more, systemImage: "ellipsis").labelStyle(.iconOnly)
             }
+            .help(BulkActionText.more)
             doneButton
         }
     #endif

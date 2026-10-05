@@ -18,46 +18,53 @@ public enum ListPlayText {
     }
 }
 
-/// Play and Shuffle for a list, with the line that says how many of its tunes will play and
-/// opens the sheet that says why the rest will not.
-struct ListPlayControls: View {
+/// What a list can play now, and what its Play, Shuffle, and what-plays line do.
+struct ListPlayOffer {
     let report: PlaylistReport
     /// False when no playlist player is available, or while a take is being recorded.
     let canStart: Bool
     let onPlay: () -> Void
     let onShuffle: () -> Void
     let onWhatPlays: () -> Void
-
-    @Environment(\.spacing) private var spacing
-
-    var body: some View {
-        let disabled = report.playable.isEmpty || !canStart
-        VStack(alignment: .leading, spacing: spacing.stackGap) {
-            HStack(spacing: spacing(3)) {
-                Button(action: onPlay) {
-                    Label(ListPlayText.play, systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                Button(action: onShuffle) {
-                    Label(ListPlayText.shuffle, systemImage: "shuffle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            }
-            .disabled(disabled)
-            Button(action: onWhatPlays) {
-                Text(ListPlayText.line(for: report))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: 44, alignment: .leading)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint(ListPlayText.whatPlaysHint)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, spacing.stackGap)
-    }
 }
+
+#if os(iOS)
+    /// Play and Shuffle for a list, with the line that says how many of its tunes will play and
+    /// opens the sheet that says why the rest will not.
+    struct ListPlayControls: View {
+        let offer: ListPlayOffer
+
+        @Environment(\.spacing) private var spacing
+
+        var body: some View {
+            let disabled = offer.report.playable.isEmpty || !offer.canStart
+            VStack(alignment: .leading, spacing: spacing.stackGap) {
+                HStack(spacing: spacing(3)) {
+                    Button(action: offer.onPlay) {
+                        Label(ListPlayText.play, systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button(action: offer.onShuffle) {
+                        Label(ListPlayText.shuffle, systemImage: "shuffle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .disabled(disabled)
+                Button(action: offer.onWhatPlays) {
+                    Text(ListPlayText.line(for: offer.report))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(ListPlayText.whatPlaysHint)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, spacing.stackGap)
+        }
+    }
+#endif

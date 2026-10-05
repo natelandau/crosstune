@@ -28,10 +28,19 @@ public struct StatusDot: View {
     @ViewBuilder private var dot: some View {
         switch StatusStyle.dot(status) {
         case .filled(let color):
-            Circle().fill(onFill ? .white : color)
+            Circle().fill(onFill ? Self.onFillStyle : AnyShapeStyle(color))
         case .ring:
-            Circle().strokeBorder(onFill ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary), lineWidth: 2)
+            Circle().strokeBorder(onFill ? Self.onFillStyle : AnyShapeStyle(.secondary), lineWidth: 2)
         }
+    }
+
+    /// The Mac's chosen capsule sets a label color for its fill, which is not always white.
+    private static var onFillStyle: AnyShapeStyle {
+        #if os(macOS)
+            AnyShapeStyle(.foreground)
+        #else
+            AnyShapeStyle(.white)
+        #endif
     }
 }
 

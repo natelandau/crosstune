@@ -125,3 +125,30 @@ import Testing
         #expect(tapOutset(visibleHeight: 50) == 0)
     }
 }
+
+#if os(macOS)
+    @Suite struct MacTunePageTests {
+        private func detail(_ tune: Tune) -> TuneDetail {
+            TuneDetail(tune: tune, userTune: SampleCatalog.entries[0].userTune)
+        }
+
+        @Test func facetLineJoinsWhatTheTuneHolds() {
+            var tune = SampleCatalog.entries[0].tune
+            tune.key = "A"
+            tune.modes = ["modal"]
+            tune.tuneType = "Breakdown"
+            tune.genre = nil
+            // The key shows as its pill before the line, so the line starts at the mode.
+            #expect(MacTunePage.facetLine(detail(tune)) == "modal · Breakdown · 2/4 · AABB")
+
+            let sparse = Tune(id: "sparse", createdAt: SampleCatalog.now, title: "Sparse", tuneType: "Reel")
+            #expect(MacTunePage.facetLine(detail(sparse)) == "Reel")
+        }
+
+        @Test func facetLineKeepsGenreAndCrookedBesideTheirNeighbors() {
+            var tune = SampleCatalog.entries[0].tune
+            tune.isCrooked = true
+            #expect(MacTunePage.facetLine(detail(tune)) == "major · Reel · Old-time · 2/4 · Crooked · AABB")
+        }
+    }
+#endif

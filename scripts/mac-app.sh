@@ -21,7 +21,8 @@ ttl="${LEASE_TTL:-900}"
 
 me="$(git rev-parse --show-toplevel)"
 apple="$me/apple"
-derived="$apple/.build/DerivedData"
+# Apart from `just apple::build`, whose unsigned Debug products fail the signed build here
+derived="$apple/.build/RunDerivedData"
 
 now() { date +%s; }
 

@@ -4,7 +4,8 @@ import GRDB
 import SwiftUI
 
 /// The iPad and Mac frame: a sidebar of destinations and lists, a content column with the
-/// chosen one, the tune in the detail column, and the player in a bar at the bottom.
+/// chosen one, and the tune in the detail column. The player floats in a panel at the foot of
+/// the iPad's window and docks across the foot of the Mac's detail column.
 struct SplitShell: View {
     let store: CrosstuneStore
     let player: PlayerModel
@@ -17,15 +18,19 @@ struct SplitShell: View {
     @Environment(\.listSheets) private var listSheets
     @Environment(\.selecting) private var selecting
     @Environment(\.playerWindow) private var window
+    @Environment(CatalogModel.self) private var catalog: CatalogModel?
     /// Nil until the first read, so a list chosen before the lists load is not taken for a deleted one.
     @State private var lists: LiveQuery<[ListSummary]?>?
-    @State private var deleting: ListSummary?
-    @State private var playerFrame = CGRect.zero
-    /// The sidebar's trailing edge across the shell, which the player panel keeps to the right of.
-    @State private var sidebarEdge: CGFloat = 0
+    #if !os(macOS)
+        @State private var deleting: ListSummary?
+    #endif
+    #if !os(macOS)
+        @State private var playerFrame = CGRect.zero
+    #endif
     @State private var columns = NavigationSplitViewVisibility.automatic
-
-    private nonisolated static let shellSpace = "SplitShell"
+    #if os(macOS)
+        @State private var counts: LiveQuery<SidebarCounts?>?
+    #endif
 
     /// The lists the sidebar shows, in the musician's order.
     nonisolated static func sidebarLists(_ db: Database) throws -> [ListSummary] {
@@ -36,21 +41,15 @@ struct SplitShell: View {
         NavigationSplitView(columnVisibility: $columns) {
             sidebar
                 #if os(macOS)
-                    .safeAreaBar(edge: .bottom) {
-                        SidebarRecordButton(action: onRecord)
-                        .disabled(!recordShows)
-                        .padding(12)
-                    }
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.frame(in: .named(Self.shellSpace)).maxX
-                    } action: {
-                        sidebarEdge = $0
-                    }
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 240)
+                #else
+                    .clearsPlayer(playerFrame)
                 #endif
-                .clearsPlayer(playerFrame)
         } content: {
             contentColumn
-                .clearsPlayer(playerFrame)
+                #if !os(macOS)
+                    .clearsPlayer(playerFrame)
+                #endif
                 .navigationSplitViewColumnWidth(min: 300, ideal: 340)
                 .environment(\.detailTune, $place.detailTune)
                 .environment(\.sidebarSelection, $place.sidebar)
@@ -62,12 +61,17 @@ struct SplitShell: View {
                     TuneDetailPlaceholder()
                 }
             }
-            .clearsPlayer(playerFrame)
+            #if os(macOS)
+                .playerDock(player, stage: stage)
+            #else
+                .clearsPlayer(playerFrame)
+            #endif
             .environment(\.detailTune, $place.detailTune)
             .environment(\.sidebarSelection, $place.sidebar)
         }
-        .coordinateSpace(.named(Self.shellSpace))
-        .playerBar(player, stage: stage, frame: $playerFrame, leading: sidebarHoldsRecord ? sidebarEdge : 0)
+        #if !os(macOS)
+            .playerBar(player, stage: stage, frame: $playerFrame)
+        #endif
         .sheet(
             isPresented: Binding {
                 player.showsExpanded(in: window) && player.item?.kind == .recording
@@ -85,6 +89,9 @@ struct SplitShell: View {
         }
         .task(id: store.userID) {
             lists = LiveQuery(store, initial: nil) { try Self.sidebarLists($0) }
+            #if os(macOS)
+                counts = LiveQuery(store, initial: nil) { try SidebarCounts.fetch($0) }
+            #endif
         }
         .onChange(of: recordingsShown) {
             place.sidebar = .recordings
@@ -93,13 +100,16 @@ struct SplitShell: View {
             guard let loaded = lists?.value ?? nil else { return }
             place.sidebar = place.sidebar.kept(among: loaded.map(\.list))
         }
+        #if os(macOS)
+            .onChange(of: place.sidebar, initial: true) { syncSidebar(place: place, catalog: catalog) }
+            .onChange(of: catalog?.status) { syncSidebar(place: place, catalog: catalog) }
+        #endif
     }
 
     /// A selecting screen's toolbar holds only what acts on the selection.
     private var recordShows: Bool { selecting?.isCovered != true }
 
-    /// True while the Mac sidebar is open, so its own record button stands in for the
-    /// toolbar's, and the player panel stays clear of it, leaving the button at the sidebar's foot.
+    /// True while the Mac sidebar is open, so its own record button stands in for the toolbar's.
     private var sidebarHoldsRecord: Bool {
         #if os(macOS)
             columns != .doubleColumn && columns != .detailOnly
@@ -108,78 +118,72 @@ struct SplitShell: View {
         #endif
     }
 
-    private var sidebar: some View {
-        // A row is always chosen: clearing the selection, as a Mac allows, chooses the catalog
-        // the content column falls back to anyway.
-        List(
-            selection: Binding<SidebarItem?> {
-                place.sidebar
-            } set: {
+    /// A row is always chosen: clearing the selection, as a Mac allows, chooses the catalog the
+    /// content column falls back to anyway.
+    private var sidebarSelection: Binding<SidebarItem?> {
+        Binding {
+            place.sidebar
+        } set: {
+            #if os(macOS)
+                pickSidebarRow($0 ?? .catalog, place: place, catalog: catalog)
+            #else
                 place.sidebar = $0 ?? .catalog
-            }
-        ) {
-            row(.catalog).tag(SidebarItem.catalog)
-            row(.recordings).tag(SidebarItem.recordings)
-            listsSection
-            #if os(iOS)
+            #endif
+        }
+    }
+
+    @ViewBuilder private var sidebar: some View {
+        #if os(macOS)
+            MacSidebar(
+                selection: sidebarSelection, lists: loadedLists, counts: counts?.value ?? nil,
+                canRecord: recordShows, onRecord: onRecord, newList: newList
+            )
+        #else
+            List(selection: sidebarSelection) {
+                row(.catalog).tag(SidebarItem.catalog)
+                row(.recordings).tag(SidebarItem.recordings)
+                listsSection
                 Section {
                     row(.settings).tag(SidebarItem.settings)
                 }
-            #endif
-        }
-        #if os(macOS)
-            // Right-clicking the sidebar's empty space starts a list; a list row keeps its own menu.
-            .contextMenu(forSelectionType: SidebarItem.self) { items in
-                if items.isEmpty { newListButton }
             }
+            .confirmsListDelete($deleting)
         #endif
-        .navigationSplitViewColumnWidth(min: 200, ideal: 240)
-        .confirmsListDelete($deleting)
     }
 
     /// The lists, nil until the first read.
     private var loadedLists: [ListSummary]? { lists?.value ?? nil }
 
-    private var listsSection: some View {
-        Section {
-            ForEach(loadedLists ?? []) { list in
-                listRow(list)
-            }
-            #if os(iOS)
-                newListButton
-            #endif
-        } header: {
-            #if os(macOS)
-                SidebarSectionHeader(Destination.lists.title, add: SidebarItem.newList, onAdd: newList)
-                    .disabled(listSheets == nil)
-                    .contextMenu { newListButton }
-            #else
-                Text(Destination.lists.title)
-            #endif
-        }
-    }
-
-    private func listRow(_ list: ListSummary) -> some View {
-        Label(list.name, systemImage: Destination.lists.systemImage)
-            .badge(list.count)
-            .tag(SidebarItem.list(id: list.id))
-            .listRowActions(
-                onEdit: { listSheets?.name(.rename(listID: list.id, name: list.name)) },
-                onDelete: { deleting = list })
-    }
-
-    private var newListButton: some View {
-        Button(SidebarItem.newList, systemImage: "plus", action: newList)
-            .disabled(listSheets == nil)
-    }
-
     private func newList() {
         listSheets?.name(.new)
     }
 
-    private func row(_ destination: Destination) -> some View {
-        Label(destination.title, systemImage: destination.systemImage)
-    }
+    #if !os(macOS)
+        private var listsSection: some View {
+            Section {
+                ForEach(loadedLists ?? []) { list in
+                    listRow(list)
+                }
+                Button(SidebarItem.newList, systemImage: "plus", action: newList)
+                    .disabled(listSheets == nil)
+            } header: {
+                Text(Destination.lists.title)
+            }
+        }
+
+        private func listRow(_ list: ListSummary) -> some View {
+            Label(list.name, systemImage: Destination.lists.systemImage)
+                .badge(list.count)
+                .tag(SidebarItem.list(id: list.id))
+                .listRowActions(
+                    onEdit: { listSheets?.name(.rename(listID: list.id, name: list.name)) },
+                    onDelete: { deleting = list })
+        }
+
+        private func row(_ destination: Destination) -> some View {
+            Label(destination.title, systemImage: destination.systemImage)
+        }
+    #endif
 
     /// A link in a column with no stack of its own replaces the detail column, so Settings,
     /// which pushes its stats screen, gets a stack that keeps the push in its column.
@@ -213,3 +217,27 @@ struct SplitShell: View {
         }
     }
 }
+
+#if os(macOS)
+    /// The musician picked `item` in the Mac sidebar. Picking the Catalog row or a status row is
+    /// the only thing that writes the status filter, so a programmatic jump to the catalog
+    /// never clears a status the musician set.
+    @MainActor
+    func pickSidebarRow(_ item: SidebarItem, place: ShellPlace, catalog: CatalogModel?) {
+        if case .some(let status) = item.statusFilter, let catalog, catalog.status != status {
+            catalog.updateFilters { $0.status = status }
+        }
+        place.sidebar = item
+        syncSidebar(place: place, catalog: catalog)
+    }
+
+    /// Keeps a catalog row in step with the status filter in force, so a set status always shows
+    /// as the selected row: after a jump to the catalog, a status set from a stats link or another
+    /// window, or a failed write that put the stored filters back.
+    @MainActor
+    func syncSidebar(place: ShellPlace, catalog: CatalogModel?) {
+        guard place.sidebar.statusFilter != nil else { return }
+        let row = SidebarItem.catalogRow(status: catalog?.status)
+        if place.sidebar != row { place.sidebar = row }
+    }
+#endif

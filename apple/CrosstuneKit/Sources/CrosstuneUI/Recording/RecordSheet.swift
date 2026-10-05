@@ -35,7 +35,8 @@ public struct RecordSheet: View {
                 }
         }
         #if os(macOS)
-            .frame(minWidth: 420, idealWidth: 460, minHeight: 440, idealHeight: 480)
+            .frame(width: MacStyle.recordPanelWidth)
+            .frame(minHeight: 440, idealHeight: 480)
         #endif
         .interactiveDismissDisabled(model.isLive || model.phase == .saving)
         .confirmationDialog(
@@ -61,7 +62,7 @@ public struct RecordSheet: View {
     }
 }
 
-private struct RecordSheetBody: View {
+struct RecordSheetBody: View {
     let model: RecordSheetModel
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -155,7 +156,11 @@ private struct RecordSheetBody: View {
 
 /// Stop, in the recording red with a large white label, the one thing to press while recording.
 private struct StopButton: View {
-    static let diameter: CGFloat = 96
+    #if os(macOS)
+        static let diameter = MacStyle.stopDiameter
+    #else
+        static let diameter: CGFloat = 96
+    #endif
 
     let disabled: Bool
     let action: () -> Void
@@ -178,12 +183,21 @@ private struct StopButton: View {
         }
         .buttonStyle(.plain)
         .disabled(disabled)
-        .opacity(disabled ? 0.5 : 1)
         .keyboardShortcut(.defaultAction)
-        if drawsGlass {
-            button.glassEffect(.regular.tint(.recordingRed).interactive(), in: .circle)
-        } else {
-            button.background(Circle().fill(Color.recordingRed))
+        // The whole disc dims, so a Stop that cannot run never reads as ready.
+        Group {
+            if drawsGlass {
+                button.glassEffect(.regular.tint(.recordingRed).interactive(), in: .circle)
+            } else {
+                button.background(Circle().fill(Color.recordingRed))
+            }
         }
+        .opacity(disabled ? Self.dimmed : 1)
     }
+
+    #if os(macOS)
+        private static let dimmed = 0.4
+    #else
+        private static let dimmed = 0.5
+    #endif
 }

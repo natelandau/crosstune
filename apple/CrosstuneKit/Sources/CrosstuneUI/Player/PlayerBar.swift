@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The loaded item and a close button: the iPhone tab bar's bottom accessory, where a tap on the
-/// item shows its player in full, and the header of the iPad and Mac player panel. A recording
-/// leads with its play and pause control.
+/// item shows its player in full, and the header of the iPad player panel. A recording leads
+/// with its play and pause control. The Mac docks its own bar, ``PlayerDockBar``.
 public struct PlayerBar: View {
     public static let close = "Close player"
     /// The iPhone bar's name for the tap that shows the player in full.
@@ -19,7 +19,7 @@ public struct PlayerBar: View {
     @Environment(\.playerWindow) private var window
     @Environment(ListPlayback.self) private var playback: ListPlayback?
 
-    /// - Parameter isPanel: The bar heads the iPad and Mac panel, which shows the player in
+    /// - Parameter isPanel: The bar heads the iPad panel, which shows the player in
     ///   full under it and puts the link out to the provider in the bar. The iPhone's full
     ///   player carries that link instead.
     public init(player: PlayerModel, isPanel: Bool = false) {
@@ -229,7 +229,7 @@ struct SettingsBadgeLabel: View {
 
 /// While a loop repeats: "Repeating B part", which opens the recording's screen, and a Repeat
 /// control that deselects the loop.
-private struct RepeatBadge: View {
+struct RepeatBadge: View {
     let player: PlayerModel
     let name: String
 
@@ -287,9 +287,9 @@ struct PlayerCloseButton: View {
     }
 }
 
-/// The iPad and Mac player: the bar, with a loaded link's player or a recording's scrubber
-/// under it.
-struct PlayerPanel: View {
+/// The iPad player: the bar, with a loaded link's player or a recording's scrubber under it.
+/// Its sizes also bound the Mac's dock, which draws the player its own way.
+struct PlayerPanel {
     /// The most of the window's height the panel takes, so a short window keeps its content.
     nonisolated static let maxShare: CGFloat = 0.4
     /// The web's width for a video player, so it is not stretched across the window.
@@ -297,13 +297,11 @@ struct PlayerPanel: View {
     /// The bar above the embed and the padding below it.
     nonisolated static let chrome: CGFloat = 44 + 12
 
-    let player: PlayerModel
-    let stage: EmbedStage
-    /// The height of the window the panel floats in.
-    let windowHeight: CGFloat
-
-    #if os(macOS)
-        @Environment(\.appearsActive) private var appearsActive
+    #if os(iOS)
+        let player: PlayerModel
+        let stage: EmbedStage
+        /// The height of the window the panel floats in.
+        let windowHeight: CGFloat
     #endif
 
     /// How big `embed` is drawn in a window `windowHeight` tall: its own height when there is
@@ -327,37 +325,30 @@ struct PlayerPanel: View {
     private nonisolated static func fitted(_ natural: CGFloat, windowHeight: CGFloat) -> CGFloat {
         min(natural, max(0, windowHeight * maxShare - chrome))
     }
+}
 
-    /// Every open window shows the panel, and the one web view plays in the window in use.
-    private var prominence: EmbedStage.Prominence {
-        #if os(macOS)
-            appearsActive ? .focused : .shown
-        #else
-            .shown
-        #endif
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            PlayerBar(player: player, isPanel: true)
-            if let embed = player.embed {
-                let size = Self.embedSize(embed, windowHeight: windowHeight)
-                EmbedView(stage: stage, embed: embed, prominence: prominence)
-                    .frame(width: size.width, height: size.height)
-                    .frame(maxWidth: size.width == nil ? .infinity : nil)
-                    .clipShape(.rect(cornerRadius: 12))
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
-            } else if let music = player.music {
-                let height = Self.cardHeight(windowHeight: windowHeight)
-                if height > 0 {
-                    // The bar above carries play and pause.
-                    MusicPlayerCard(player: player, music: music, fixedHeight: height)
+#if os(iOS)
+    extension PlayerPanel: View {
+        var body: some View {
+            VStack(spacing: 0) {
+                PlayerBar(player: player, isPanel: true)
+                if let embed = player.embed {
+                    let size = Self.embedSize(embed, windowHeight: windowHeight)
+                    EmbedView(stage: stage, embed: embed, prominence: .shown)
+                        .frame(width: size.width, height: size.height)
+                        .frame(maxWidth: size.width == nil ? .infinity : nil)
+                        .clipShape(.rect(cornerRadius: 12))
                         .padding(.horizontal, 12)
                         .padding(.bottom, 12)
-                }
-            } else if player.item?.kind == .recording {
-                #if os(iOS)
+                } else if let music = player.music {
+                    let height = Self.cardHeight(windowHeight: windowHeight)
+                    if height > 0 {
+                        // The bar above carries play and pause.
+                        MusicPlayerCard(player: player, music: music, fixedHeight: height)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 12)
+                    }
+                } else if player.item?.kind == .recording {
                     HStack(spacing: 8) {
                         RecordingPlayerBody(player: player)
                         AudioRoutePicker()
@@ -365,16 +356,12 @@ struct PlayerPanel: View {
                     .padding(.leading, 16)
                     .padding(.trailing, 4)
                     .padding(.bottom, 8)
-                #else
-                    RecordingPlayerBody(player: player)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
-                #endif
+                }
+                PlaylistControlsRow()
             }
-            PlaylistControlsRow()
         }
     }
-}
+#endif
 
 /// The iPhone's full player for a loaded link: its provider's player, the link out to the
 /// provider, and Close player. Pulling it down leaves the bar, still playing.
@@ -445,101 +432,98 @@ struct EmbedParking: ViewModifier {
     }
 }
 
-extension View {
-    /// The player panel floating at the bottom of the window while something is loaded.
-    /// `frame` reports the room it takes in global space, empty when nothing is loaded, for the
-    /// columns under it to clear with ``clearsPlayer(_:)``, since a split view's columns do not
-    /// take a safe area inset from outside.
-    /// The panel centers in the width past `leading`, so a column there stays uncovered.
-    func playerBar(
-        _ player: PlayerModel, stage: EmbedStage, frame: Binding<CGRect>, leading: CGFloat = 0
-    ) -> some View {
-        modifier(PlayerBarModifier(player: player, stage: stage, frame: frame, leading: leading))
-    }
+#if os(iOS)
+    extension View {
+        /// The player panel floating at the bottom of the window while something is loaded.
+        /// `frame` reports the room it takes in global space, empty when nothing is loaded, for the
+        /// columns under it to clear with ``clearsPlayer(_:)``, since a split view's columns do not
+        /// take a safe area inset from outside.
+        func playerBar(_ player: PlayerModel, stage: EmbedStage, frame: Binding<CGRect>) -> some View {
+            modifier(PlayerBarModifier(player: player, stage: stage, frame: frame))
+        }
 
-    /// Lifts this column's bottom edge clear of the player panel at `panel`, a frame from
-    /// ``playerBar(_:stage:frame:leading:)``, while the panel overlaps the column. The panel is narrower
-    /// than a wide window, so a column beside it keeps its full height.
-    func clearsPlayer(_ panel: CGRect) -> some View {
-        modifier(ClearsPlayer(panel: panel))
-    }
-}
-
-private struct ClearsPlayer: ViewModifier {
-    let panel: CGRect
-
-    @State private var frame = CGRect.zero
-
-    func body(content: Content) -> some View {
-        content
-            .safeAreaPadding(.bottom, clearance)
-            .onGeometryChange(for: CGRect.self) {
-                $0.frame(in: .global)
-            } action: {
-                frame = $0
-            }
-    }
-
-    private var clearance: CGFloat {
-        guard !panel.isEmpty, panel.minX < frame.maxX, frame.minX < panel.maxX else { return 0 }
-        return max(0, frame.maxY - panel.minY)
-    }
-}
-
-private struct PlayerBarModifier: ViewModifier {
-    let player: PlayerModel
-    let stage: EmbedStage
-    @Binding var frame: CGRect
-    let leading: CGFloat
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(ListPlayback.self) private var playback: ListPlayback?
-    /// Unmeasured until the first layout, which shows the player at its own size rather than
-    /// laying it out at no height.
-    @State private var windowHeight: CGFloat = .infinity
-
-    func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.height + $0.safeAreaInsets.top + $0.safeAreaInsets.bottom
-            } action: {
-                windowHeight = $0
-            }
-            .overlay(alignment: .bottom) {
-                if PlayerBar.isShown(player, playback) {
-                    PlayerPanel(player: player, stage: stage, windowHeight: windowHeight)
-                        .frame(maxWidth: 560)
-                        .modifier(GlassPanel())
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
-                        .onGeometryChange(for: CGRect.self) {
-                            $0.frame(in: .global)
-                        } action: {
-                            frame = $0
-                        }
-                        .onDisappear { frame = .zero }
-                        .frame(maxWidth: .infinity)
-                        .padding(.leading, leading)
-                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.default, value: PlayerBar.isShown(player, playback))
-    }
-}
-
-/// The player panel's glass, a rounded rectangle around the bar and the player under it. A thick
-/// material where glass cannot be drawn.
-private struct GlassPanel: ViewModifier {
-    @Environment(\.drawsGlass) private var drawsGlass
-
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 24)
-        if drawsGlass {
-            content.glassEffect(.regular, in: shape)
-        } else {
-            content
-                .background(.thickMaterial, in: shape)
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        /// Lifts this column's bottom edge clear of the player panel at `panel`, a frame from
+        /// ``playerBar(_:stage:frame:)``, while the panel overlaps the column. The panel is narrower
+        /// than a wide window, so a column beside it keeps its full height.
+        func clearsPlayer(_ panel: CGRect) -> some View {
+            modifier(ClearsPlayer(panel: panel))
         }
     }
-}
+
+    private struct ClearsPlayer: ViewModifier {
+        let panel: CGRect
+
+        @State private var frame = CGRect.zero
+
+        func body(content: Content) -> some View {
+            content
+                .safeAreaPadding(.bottom, clearance)
+                .onGeometryChange(for: CGRect.self) {
+                    $0.frame(in: .global)
+                } action: {
+                    frame = $0
+                }
+        }
+
+        private var clearance: CGFloat {
+            guard !panel.isEmpty, panel.minX < frame.maxX, frame.minX < panel.maxX else { return 0 }
+            return max(0, frame.maxY - panel.minY)
+        }
+    }
+
+    private struct PlayerBarModifier: ViewModifier {
+        let player: PlayerModel
+        let stage: EmbedStage
+        @Binding var frame: CGRect
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Environment(ListPlayback.self) private var playback: ListPlayback?
+        /// Unmeasured until the first layout, which shows the player at its own size rather than
+        /// laying it out at no height.
+        @State private var windowHeight: CGFloat = .infinity
+
+        func body(content: Content) -> some View {
+            content
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.height + $0.safeAreaInsets.top + $0.safeAreaInsets.bottom
+                } action: {
+                    windowHeight = $0
+                }
+                .overlay(alignment: .bottom) {
+                    if PlayerBar.isShown(player, playback) {
+                        PlayerPanel(player: player, stage: stage, windowHeight: windowHeight)
+                            .frame(maxWidth: 560)
+                            .modifier(GlassPanel())
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+                            .onGeometryChange(for: CGRect.self) {
+                                $0.frame(in: .global)
+                            } action: {
+                                frame = $0
+                            }
+                            .onDisappear { frame = .zero }
+                            .frame(maxWidth: .infinity)
+                            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.default, value: PlayerBar.isShown(player, playback))
+        }
+    }
+
+    /// The player panel's glass, a rounded rectangle around the bar and the player under it. A thick
+    /// material where glass cannot be drawn.
+    private struct GlassPanel: ViewModifier {
+        @Environment(\.drawsGlass) private var drawsGlass
+
+        func body(content: Content) -> some View {
+            let shape = RoundedRectangle(cornerRadius: 24)
+            if drawsGlass {
+                content.glassEffect(.regular, in: shape)
+            } else {
+                content
+                    .background(.thickMaterial, in: shape)
+                    .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+            }
+        }
+    }
+#endif

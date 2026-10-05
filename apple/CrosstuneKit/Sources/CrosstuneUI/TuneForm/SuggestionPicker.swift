@@ -115,13 +115,18 @@ struct SuggestionPicker: View {
                     choiceButton(TuneFieldLabels.other, tag: Self.otherTag, current: current)
                 }
             } label: {
-                HStack(spacing: 4) {
+                // The Mac draws a menu as a pop-up button with its own arrows.
+                #if os(macOS)
                     Text(value.isEmpty ? emptyLabel : value)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .imageScale(.small)
-                        .accessibilityHidden(true)
-                }
-                .foregroundStyle(.secondary)
+                #else
+                    HStack(spacing: 4) {
+                        Text(value.isEmpty ? emptyLabel : value)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                            .accessibilityHidden(true)
+                    }
+                    .foregroundStyle(.secondary)
+                #endif
             }
         } label: {
             Text(rowLabel)

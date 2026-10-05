@@ -92,6 +92,9 @@ struct LearnedOnRow: View {
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
+                    #if os(macOS)
+                        .help(TuneFieldLabels.clearDate)
+                    #endif
             }
         } else {
             LabeledContent(TuneFieldLabels.learnedOn) {

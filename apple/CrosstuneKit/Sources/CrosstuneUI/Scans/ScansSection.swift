@@ -3,8 +3,9 @@ import SwiftUI
 
 /// A tune's scans on its screen: a row of scan thumbnails that open the viewer, and in
 /// edit mode a row per scan to reorder and delete. The header's add control offers the ways this
-/// device adds scans; the screen presents what it chooses.
-struct ScansSection: View {
+/// device adds scans; the screen presents what it chooses. The Mac's tune page draws its own
+/// section from the same thumbnails.
+struct ScansSection {
     static let thumbnailHeight: CGFloat = 120
     static let rowThumbnailHeight: CGFloat = 44
 
@@ -14,80 +15,112 @@ struct ScansSection: View {
         actions.viewScans?(tuneID, index, .tune)
     }
 
+    #if os(iOS)
+        let model: ScansModel
+        let tuneID: String
+        @Binding var adding: ScanAddChoice?
+        @Binding var deleting: Scan?
+
+        @State private var editing = false
+    #endif
+}
+
+#if os(iOS)
+    extension ScansSection: View {
+        var body: some View {
+            let layout = model.layout
+            Section {
+                if layout.showsEmptyState {
+                    ContentUnavailableView {
+                        Label(ScanCopy.emptyTitle, systemImage: TuneRowActions.scansSystemImage)
+                    } description: {
+                        Text(ScanCopy.emptyHint)
+                    }
+                } else if editing {
+                    ScanEditRows(model: model, deleting: $deleting)
+                } else {
+                    ScanStrip(model: model, tuneID: tuneID)
+                }
+            } header: {
+                SectionTitle(ScanCopy.scans) {
+                    ScanHeaderControls(model: model, editing: $editing, adding: $adding)
+                }
+            } footer: {
+                if let failure = model.failure {
+                    FailureText(failure)
+                } else if let note = layout.limitNote {
+                    Text(note)
+                }
+            }
+            .headerProminence(.increased)
+        }
+    }
+#endif
+
+/// The Scans header's controls: Edit or Done once there is a scan to act on, then add.
+struct ScanHeaderControls: View {
+    let model: ScansModel
+    @Binding var editing: Bool
+    @Binding var adding: ScanAddChoice?
+
+    @Environment(\.spacing) private var spacing
+
+    var body: some View {
+        let layout = model.layout
+        HStack(spacing: spacing(4)) {
+            if layout.showsEdit {
+                Button(editing ? ScanCopy.done : ScanCopy.edit) { editing.toggle() }
+                    .font(.body)
+                    .accessibilityLabel(editing ? ScanCopy.doneEditingScans : ScanCopy.editScans)
+            }
+            ScanAddMenu(isEnabled: layout.canAdd && !model.isAdding, choice: $adding)
+        }
+        .onChange(of: layout.showsEdit) { _, shows in
+            if !shows { editing = false }
+        }
+    }
+}
+
+/// The scans as a row of thumbnails, each opening the viewer. `wraps` lays them in lines that
+/// wrap rather than one row that scrolls sideways, for a page a mouse scrolls only up and down.
+struct ScanStrip: View {
     let model: ScansModel
     let tuneID: String
-    @Binding var adding: ScanAddChoice?
-    @Binding var deleting: Scan?
+    var wraps = false
 
     @Environment(\.tuneScreenActions) private var actions
     @Environment(\.spacing) private var spacing
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var editing = false
 
     var body: some View {
-        let scans = model.scans
-        let layout = model.layout
-        Section {
-            if layout.showsEmptyState {
-                ContentUnavailableView {
-                    Label(ScanCopy.emptyTitle, systemImage: TuneRowActions.scansSystemImage)
-                } description: {
-                    Text(ScanCopy.emptyHint)
-                }
-            } else if editing {
-                ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
-                    editRow(scan, index: index, count: scans.count)
-                        .scaledRowInsets()
-                }
-                .onMove { indices, offset in
-                    guard indices.count == 1, let from = indices.first else { return }
-                    model.move(from: from, to: MovePlace.dropTarget(from: from, offset: offset))
-                }
+        Group {
+            if wraps {
+                FlowLayout(spacing: spacing(12), lineSpacing: spacing(12)) { tiles }
             } else {
                 ScrollView(.horizontal) {
-                    HStack(alignment: .top, spacing: spacing(12)) {
-                        ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
-                            tile(scan, index: index)
-                        }
-                    }
-                    .padding(.vertical, spacing(4))
+                    HStack(alignment: .top, spacing: spacing(12)) { tiles }
+                        .padding(.vertical, spacing(4))
                 }
                 .scrollIndicators(.hidden)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel(ScanCopy.scans)
-            }
-        } header: {
-            SectionTitle(ScanCopy.scans) {
-                HStack(spacing: spacing(4)) {
-                    if layout.showsEdit {
-                        Button(editing ? ScanCopy.done : ScanCopy.edit) { editing.toggle() }
-                            .font(.body)
-                            .accessibilityLabel(editing ? ScanCopy.doneEditingScans : ScanCopy.editScans)
-                    }
-                    ScanAddMenu(isEnabled: layout.canAdd && !model.isAdding, choice: $adding)
-                }
-            }
-            .onChange(of: layout.showsEdit) { _, shows in
-                if !shows { editing = false }
-            }
-        } footer: {
-            if let failure = model.failure {
-                FailureText(failure)
-            } else if let note = layout.limitNote {
-                Text(note)
             }
         }
-        .headerProminence(.increased)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(ScanCopy.scans)
+    }
+
+    private var tiles: some View {
+        ForEach(Array(model.scans.enumerated()), id: \.element.id) { index, scan in
+            tile(scan, index: index)
+        }
     }
 
     private func tile(_ scan: Scan, index: Int) -> some View {
         let status = ScanCopy.status(for: scan)
-        let width = Self.thumbnailHeight * scan.aspectRatio
+        let width = ScansSection.thumbnailHeight * scan.aspectRatio
         return VStack(alignment: .leading, spacing: spacing(4)) {
             Button {
-                Self.open(tuneID: tuneID, index: index, actions: actions)
+                ScansSection.open(tuneID: tuneID, index: index, actions: actions)
             } label: {
-                ScanThumbnail(scan: scan, index: index, height: Self.thumbnailHeight)
+                ScanThumbnail(scan: scan, index: index, height: ScansSection.thumbnailHeight)
                     .clipShape(.rect(cornerRadius: 6))
                     .contentShape(.rect)
             }
@@ -106,12 +139,33 @@ struct ScansSection: View {
         // A note under a narrow scan widens its column rather than standing one word to a line.
         .frame(width: status == nil ? width : max(width, 128), alignment: .leading)
     }
+}
+
+/// A row per scan to reorder and delete, in edit mode.
+struct ScanEditRows: View {
+    let model: ScansModel
+    @Binding var deleting: Scan?
+
+    @Environment(\.spacing) private var spacing
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let scans = model.scans
+        ForEach(Array(scans.enumerated()), id: \.element.id) { index, scan in
+            editRow(scan, index: index, count: scans.count)
+                .scaledRowInsets()
+        }
+        .onMove { indices, offset in
+            guard indices.count == 1, let from = indices.first else { return }
+            model.move(from: from, to: MovePlace.dropTarget(from: from, offset: offset))
+        }
+    }
 
     private func editRow(_ scan: Scan, index: Int, count: Int) -> some View {
         let status = ScanCopy.status(for: scan)
         let reorderable = count > 1
         return HStack(spacing: spacing(12)) {
-            ScanThumbnail(scan: scan, index: index, height: Self.rowThumbnailHeight)
+            ScanThumbnail(scan: scan, index: index, height: ScansSection.rowThumbnailHeight)
                 .clipShape(.rect(cornerRadius: 4))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
@@ -133,6 +187,9 @@ struct ScansSection: View {
                     .tapTarget()
             }
             .buttonStyle(.borderless)
+            #if os(macOS)
+                .help(ScanCopy.deleteScan(index))
+            #endif
             if reorderable {
                 moveMenu(scan, index: index)
                 // Dragging works anywhere on the row; the grip only shows that it can.
@@ -163,5 +220,8 @@ struct ScansSection: View {
         }
         .menuIndicator(.hidden)
         .buttonStyle(.borderless)
+        #if os(macOS)
+            .help(ScanCopy.reorderScan(index))
+        #endif
     }
 }

@@ -429,3 +429,16 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
         #expect(AppleMusicRowAction.none.hint == nil)
     }
 }
+
+#if os(macOS)
+    @Suite struct MacSettingsTabsTests {
+        @Test func everySectionShowsInExactlyOneTab() {
+            var seen: SettingsScreen.Sections = []
+            for pane in MacSettingsTabs.Pane.allCases {
+                #expect(seen.isDisjoint(with: pane.sections), "\(pane) repeats a section")
+                seen.formUnion(pane.sections)
+            }
+            #expect(seen == .all)
+        }
+    }
+#endif

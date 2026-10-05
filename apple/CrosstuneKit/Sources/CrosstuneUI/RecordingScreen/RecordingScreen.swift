@@ -13,7 +13,7 @@ enum RecordingRoute: Hashable {
 }
 
 /// The loaded recording's stored rows, as the recording screen reads them.
-private struct ScreenRows: Equatable, Sendable {
+struct ScreenRows: Equatable, Sendable {
     let recording: Recording
     let file: RecordingFile?
     /// The recording's tune while it still exists.
@@ -71,11 +71,20 @@ public struct RecordingScreen: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(RecordingScreenText.close, systemImage: "chevron.down") { player.isExpanded = false }
-                        .help(RecordingScreenText.close)
-                        // Escape belongs to the screen's chain, which closes the name field and
-                        // deselects before it closes the screen.
-                        .keyboardShortcut(nil)
+                    Button {
+                        player.isExpanded = false
+                    } label: {
+                        #if os(macOS)
+                            // A chevron reads as dismissing downward, which a Mac sheet does not do.
+                            Text(RecordingScreenText.close)
+                        #else
+                            Label(RecordingScreenText.close, systemImage: "chevron.down")
+                        #endif
+                    }
+                    .help(RecordingScreenText.close)
+                    // Escape belongs to the screen's chain, which closes the name field and
+                    // deselects before it closes the screen.
+                    .keyboardShortcut(nil)
                 }
             }
         }
@@ -103,7 +112,7 @@ public struct RecordingScreen: View {
     }
 }
 
-private struct RecordingScreenContent: View {
+struct RecordingScreenContent: View {
     let player: PlayerModel
     let rows: ScreenRows
     @Binding var path: [RecordingRoute]
@@ -155,6 +164,20 @@ private struct RecordingScreenContent: View {
         var id: String { title }
     }
 
+    /// - Parameters:
+    ///   - practice: The screen's model when it is made ahead of showing, as for a snapshot.
+    ///   - peaks: Peaks to show before any load, as for a snapshot.
+    init(
+        player: PlayerModel, rows: ScreenRows, path: Binding<[RecordingRoute]>, practice: PracticeModel? = nil,
+        peaks: Peaks? = nil
+    ) {
+        self.player = player
+        self.rows = rows
+        _path = path
+        _practice = State(initialValue: practice)
+        _peaks = State(initialValue: peaks.map { LoadedPeaks(peaks: $0, rev: nil) })
+    }
+
     var body: some View {
         Group {
             if let practice {
@@ -164,9 +187,13 @@ private struct RecordingScreenContent: View {
             }
         }
         .navigationTitle(player.title ?? "")
-        .navigationSubtitle(subtitle)
         #if os(iOS)
+            .navigationSubtitle(subtitle)
             .navigationBarTitleDisplayMode(.inline)
+        #else
+            // The sheet's window keeps the title as its accessible name; the heading in the
+            // content shows it, so the toolbar does not show it twice.
+            .toolbar(removing: .title)
         #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) { menu }
@@ -254,6 +281,9 @@ private struct RecordingScreenContent: View {
     private func screen(_ practice: PracticeModel) -> some View {
         let blocker = screenBlocker
         return VStack(spacing: spacing.stackGap) {
+            #if os(macOS)
+                header
+            #endif
             if let message = player.failure ?? failure ?? practice.failure {
                 PlayerFailureText(message)
             }
@@ -284,6 +314,10 @@ private struct RecordingScreenContent: View {
                     modeWidth(ModePicker(model: practice))
                         .disabled(blocker != nil)
                         .opacity(blocker != nil ? 0.5 : 1)
+                        #if os(macOS)
+                            // Clear of the waveform's zoom controls, which sit on its bottom edge.
+                            .padding(.top, MacStyle.headingGap)
+                        #endif
                     PracticeControls(model: practice, blocker: blocker)
                     modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
                         .disabled(blocker != nil)
@@ -301,7 +335,12 @@ private struct RecordingScreenContent: View {
             .frame(maxHeight: controlsHeight.map { CGFloat($0) })
             .layoutPriority(1)
         }
-        .padding(16)
+        #if os(macOS)
+            .padding([.horizontal, .bottom], MacStyle.sheetMargin)
+            .padding(.top, MacStyle.headingGap)
+        #else
+            .padding(16)
+        #endif
         // The keyboard covers the controls rather than squeezing the waveform, so opening a name
         // field leaves the waveform as it is.
         .ignoresSafeArea(.keyboard)
@@ -316,6 +355,24 @@ private struct RecordingScreenContent: View {
         )
         .onChange(of: focus) { _, _ in practice.commitNudge() }
     }
+
+    #if os(macOS)
+        /// The recording's title as the page's heading, with its date and length under it.
+        private var header: some View {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(player.title ?? "")
+                    .font(MacStyle.pageTitle)
+                    .lineLimit(2)
+                    .accessibilityAddTraits(.isHeader)
+                Text(subtitle)
+                    .font(MacStyle.body)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, MacStyle.headingGap)
+        }
+    #endif
 
     /// Wide holds the mode's selector and controls to a fixed width.
     @ViewBuilder
@@ -434,8 +491,10 @@ private struct RecordingScreenContent: View {
     /// Shows the peaks on this device at once, then fetches the server's current waveform when
     /// these are missing or older; the file row it writes reruns this with them.
     private func loadPeaks() async {
+        // With no store there is nothing to load, so peaks given at init stay.
+        guard let store else { return }
         let file = rows.file
-        if let data = store?.localPeaks(file), let parsed = try? Peaks(file: data) {
+        if let data = store.localPeaks(file), let parsed = try? Peaks(file: data) {
             peaks = LoadedPeaks(peaks: parsed, rev: file?.peaksRev)
         } else {
             peaks = nil

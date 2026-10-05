@@ -100,3 +100,13 @@ public enum KeyColor {
         return clamped <= 0.003_130_8 ? 12.92 * clamped : 1.055 * pow(clamped, 1 / 2.4) - 0.055
     }
 }
+
+extension KeyColor.RGB {
+    /// `#rrggbb`; anything unreadable is black.
+    init(hex: String) {
+        let value = UInt32(hex.dropFirst(), radix: 16) ?? 0
+        self.init(
+            red: Double((value >> 16) & 0xFF) / 255, green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255)
+    }
+}

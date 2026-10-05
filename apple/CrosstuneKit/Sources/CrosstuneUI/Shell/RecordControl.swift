@@ -7,6 +7,8 @@ public enum RecordControl {
     public static let label = "Start a new recording"
     /// The short name, for menus and toolbars. It says the press starts recording at once.
     public static let title = "Start recording"
+    /// The shortest name, for the Mac sidebar's capsule, whose help tag gives the full one.
+    public static let shortLabel = "Record"
     public static let systemImage = "record.circle"
 }
 
@@ -104,11 +106,13 @@ public struct RecordToolbarButton: View {
 
 #if os(macOS)
     /// The record button pinned to the foot of the Mac sidebar, as in Voice Memos: always in
-    /// view, whatever the content column shows.
+    /// view, whatever the content column shows. A compact capsule, so it never truncates in a
+    /// narrow sidebar.
     struct SidebarRecordButton: View {
         let action: @MainActor () -> Void
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Environment(\.isEnabled) private var isEnabled
         @State private var presses = 0
 
         var body: some View {
@@ -116,18 +120,23 @@ public struct RecordToolbarButton: View {
                 presses += 1
                 action()
             } label: {
-                Label {
-                    Text(RecordControl.title)
-                } icon: {
+                HStack(spacing: 6) {
                     Image(systemName: "circle.fill")
+                        .font(MacStyle.secondary)
                         .foregroundStyle(Color.recordingRed)
                         .symbolEffect(.bounce, value: reduceMotion ? 0 : presses)
+                    Text(RecordControl.shortLabel)
+                        .font(MacStyle.body.weight(.medium))
                 }
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
+                .frame(height: MacStyle.paneControlHeight)
+                .contentShape(.capsule)
+                .opacity(isEnabled ? 1 : 0.5)
             }
-            .buttonStyle(.glass)
-            .controlSize(.extraLarge)
-            .help(RecordControl.label)
+            .buttonStyle(.plain)
+            .macGlass(in: Capsule())
+            .accessibilityLabel(RecordControl.label)
+            .help("\(RecordControl.label) (⌘R)")
         }
     }
 #endif

@@ -65,7 +65,7 @@ public struct MediaRow: View {
     private let retry: Retry?
     private let isDimmed: Bool
 
-    @ScaledMetric(relativeTo: .headline) private var slot: CGFloat = 44
+    @ScaledMetric(relativeTo: .headline) private var scaledSlot: CGFloat = 44
     @Environment(\.spacing) private var spacing
     @Environment(\.openURL) private var openURL
 
@@ -101,18 +101,18 @@ public struct MediaRow: View {
             glyphView
                 // Past this the slot takes the width the title needs to wrap into.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                .frame(width: min(slot, 64), height: min(slot, 64))
+                .frame(width: slot, height: slot)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: spacing.rowLineGap) {
                 Text(title)
-                    .font(.headline)
+                    .font(Self.titleFont)
                     .rowLineLimit()
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                 if case .text(let meta) = secondLine {
                     Text(meta)
-                        .font(.subheadline)
+                        .font(Self.lineFont)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
                         .rowLineLimit()
@@ -124,14 +124,14 @@ public struct MediaRow: View {
                 }
                 if let notice {
                     Text(notice)
-                        .font(.footnote)
+                        .font(Self.smallFont)
                         .foregroundStyle(.secondary)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
                 if let error {
                     Text(error)
-                        .font(.footnote)
+                        .font(Self.smallFont)
                         .foregroundStyle(.red)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -221,7 +221,7 @@ public struct MediaRow: View {
                     .imageScale(.small)
                     .accessibilityHidden(true)
             }
-            .font(.subheadline)
+            .font(Self.lineFont)
             .lineTarget(stacked: stacksLineControls, reach: 12)
         }
         .buttonStyle(.plain)
@@ -241,7 +241,7 @@ public struct MediaRow: View {
                     .imageScale(.small)
                     .accessibilityHidden(true)
             }
-            .font(.footnote)
+            .font(Self.smallFont)
             .foregroundStyle(.secondary)
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
@@ -260,7 +260,7 @@ public struct MediaRow: View {
                     .imageScale(.small)
                     .accessibilityHidden(true)
             }
-            .font(.footnote)
+            .font(Self.smallFont)
             .foregroundStyle(.secondary)
             .lineTarget(stacked: stacksLineControls, reach: 14)
         }
@@ -271,8 +271,8 @@ public struct MediaRow: View {
     private func retryButton(_ retry: Retry) -> some View {
         Button(action: retry.action) {
             Text(MediaText.retry)
-                .font(.subheadline.weight(.semibold))
-                .frame(minWidth: 44, minHeight: 44)
+                .font(Self.lineFont.weight(.semibold))
+                .frame(minWidth: slot, minHeight: slot)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -293,20 +293,59 @@ public struct MediaRow: View {
         return Self.accessibilityName(verb: verb, title: title, details: details)
     }
 
+    /// The glyph's square, smaller on the Mac where a pointer needs no 44 point target.
+    private var slot: CGFloat {
+        #if os(macOS)
+            MacStyle.mediaGlyphSlot
+        #else
+            min(scaledSlot, 64)
+        #endif
+    }
+
+    #if os(macOS)
+        private static let titleFont = MacStyle.body
+        private static let lineFont = MacStyle.secondary
+        private static let smallFont = MacStyle.secondary
+        private static let glyphFont = Font.system(size: 13)
+    #else
+        private static let titleFont = Font.headline
+        private static let lineFont = Font.subheadline
+        private static let smallFont = Font.footnote
+        private static let glyphFont = Font.title3
+    #endif
+
+    /// A glyph for what a tap would start: quiet on the Mac, where it sits beside 13 point text,
+    /// so the one loaded item's stop stands out.
+    private static var idleGlyphStyle: HierarchicalShapeStyle {
+        #if os(macOS)
+            .secondary
+        #else
+            .primary
+        #endif
+    }
+
+    private static var loadedGlyphStyle: AnyShapeStyle {
+        #if os(macOS)
+            AnyShapeStyle(.tint)
+        #else
+            AnyShapeStyle(.primary)
+        #endif
+    }
+
     @ViewBuilder private var glyphView: some View {
         switch glyph {
         case .play:
-            Image(systemName: "play.fill").font(.title3)
+            Image(systemName: "play.fill").font(Self.glyphFont).foregroundStyle(Self.idleGlyphStyle)
         case .stop:
-            Image(systemName: "stop.fill").font(.title3)
+            Image(systemName: "stop.fill").font(Self.glyphFont).foregroundStyle(Self.loadedGlyphStyle)
         case .download:
-            Image(systemName: "icloud.and.arrow.down").font(.title3)
+            Image(systemName: "icloud.and.arrow.down").font(Self.glyphFont).foregroundStyle(Self.idleGlyphStyle)
         case .downloading:
             ProgressView().controlSize(.small)
         case .attention:
-            Image(systemName: "exclamationmark.circle").font(.title3).foregroundStyle(.secondary)
+            Image(systemName: "exclamationmark.circle").font(Self.glyphFont).foregroundStyle(.secondary)
         case .waiting:
-            Image(systemName: "clock").font(.title3).foregroundStyle(.secondary)
+            Image(systemName: "clock").font(Self.glyphFont).foregroundStyle(.secondary)
         case .none:
             Color.clear
         }
@@ -319,7 +358,12 @@ extension View {
     fileprivate func lineTarget(stacked: Bool, reach: CGFloat) -> some View {
         Group {
             if stacked {
-                self.frame(minHeight: 44).contentShape(.rect)
+                #if os(macOS)
+                    // A pointer needs no 44 point target, so stacked lines keep their own height.
+                    self.contentShape(.rect)
+                #else
+                    self.frame(minHeight: 44).contentShape(.rect)
+                #endif
             } else {
                 self.padding(.vertical, reach).contentShape(.rect).padding(.vertical, -reach)
             }

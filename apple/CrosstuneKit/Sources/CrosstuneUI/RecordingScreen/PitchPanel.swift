@@ -103,7 +103,7 @@ struct PitchPanel: View {
                 Spacer()
                 Button(RecordingScreenText.reset) { choose(PitchSplit(cents: 0)) }
                     .disabled(value == 0)
-                    .frame(minHeight: 44)
+                    .frame(minHeight: PracticeLayout.target)
             }
         }
         .onChange(of: value) { split.follow(value) }

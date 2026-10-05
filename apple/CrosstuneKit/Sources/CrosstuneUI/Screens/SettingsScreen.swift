@@ -11,7 +11,33 @@ import SwiftUI
 public struct SettingsScreen: View {
     nonisolated public static let about = "About"
 
+    /// The groups of rows a settings form shows, so the Mac Settings window can spread them over
+    /// its tabs. They show in the order of ``all``, except that a form opening stats in a sheet
+    /// puts the stats row after the account.
+    struct Sections: OptionSet {
+        let rawValue: Int
+
+        static let stats = Sections(rawValue: 1 << 0)
+        static let instruments = Sections(rawValue: 1 << 1)
+        static let musicServices = Sections(rawValue: 1 << 2)
+        static let appleMusic = Sections(rawValue: 1 << 3)
+        static let appearance = Sections(rawValue: 1 << 4)
+        static let recording = Sections(rawValue: 1 << 5)
+        static let sync = Sections(rawValue: 1 << 6)
+        static let storage = Sections(rawValue: 1 << 7)
+        static let account = Sections(rawValue: 1 << 8)
+        static let about = Sections(rawValue: 1 << 9)
+
+        static let all: Sections = [
+            .stats, .instruments, .musicServices, .appleMusic, .appearance, .recording, .sync, .storage, .account,
+            .about,
+        ]
+    }
+
     private let version: String?
+    private let sections: Sections
+    private let title: String
+    private let opensStatsInSheet: Bool
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
     @AppStorage(TextSize.storageKey) private var textSizeOffset = 0
     @Environment(\.systemDynamicTypeSize) private var systemTextSize
@@ -30,10 +56,23 @@ public struct SettingsScreen: View {
     @State private var showsMusicServices = false
     /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
     @State private var musicServicesShowing = false
+    @State private var showsStats = false
 
     /// - Parameter version: The app's marketing version, which the About row names.
     public init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
+        self.init(version: version, sections: .all, title: Destination.settings.title, opensStatsInSheet: false)
+    }
+
+    /// - Parameters:
+    ///   - sections: The groups of rows shown.
+    ///   - title: The navigation title.
+    ///   - opensStatsInSheet: Shows the stats screen in a sheet rather than pushing it, for a
+    ///     form with no stack to push onto.
+    init(version: String?, sections: Sections, title: String, opensStatsInSheet: Bool) {
         self.version = version
+        self.sections = sections
+        self.title = title
+        self.opensStatsInSheet = opensStatsInSheet
     }
 
     /// The stored text size offset held to what the system size leaves, so a shift the system
@@ -50,46 +89,33 @@ public struct SettingsScreen: View {
 
     public var body: some View {
         Form {
-            statsSection
-            if let model, model.isLoaded {
-                instrumentsSection(model)
-                musicServicesSection(model)
+            if sections.contains(.stats) && !opensStatsInSheet {
+                statsSection
             }
-            if let access = player?.appleMusic?.access {
+            if let model, model.isLoaded {
+                if sections.contains(.instruments) { instrumentsSection(model) }
+                if sections.contains(.musicServices) { musicServicesSection(model) }
+            }
+            if sections.contains(.appleMusic), let access = player?.appleMusic?.access {
                 AppleMusicSection(access: access)
             }
-            Section {
-                Picker(Appearance.title, selection: $appearance) {
-                    ForEach(Appearance.allCases) { Text($0.label).tag($0) }
-                }
-                // Text on the Mac does not scale with Dynamic Type, so the shift would do nothing.
-                #if !os(macOS)
-                    Stepper(
-                        value: Binding {
-                            Self.stepperValue(offset: textSizeOffset, system: systemTextSize)
-                        } set: {
-                            textSizeOffset = $0
-                        },
-                        in: TextSize.offsetRange(system: systemTextSize)
-                    ) {
-                        LabeledContent(
-                            TextSize.title,
-                            value: TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
-                    }
-                    .accessibilityValue(TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
-                #endif
-            } footer: {
-                Text(SettingsModel.appearanceFooter)
+            if sections.contains(.appearance) {
+                appearanceSection
             }
             if let model, model.isLoaded {
-                recordingSections(model)
-                syncSection(model)
-                storageSection(model)
+                if sections.contains(.recording) { recordingSections(model) }
+                if sections.contains(.sync) { syncSection(model) }
+                if sections.contains(.storage) { storageSection(model) }
             }
-            if let session {
+            if sections.contains(.account), let session {
                 AccountSections(session: session)
             }
-            if let version {
+            // In the Settings window's Account tab the catalog summary follows the account it
+            // counts.
+            if sections.contains(.stats) && opensStatsInSheet {
+                statsSection
+            }
+            if sections.contains(.about), let version {
                 Section(Self.about) {
                     Text(Self.aboutLine(version: version))
                 }
@@ -102,15 +128,42 @@ public struct SettingsScreen: View {
         .sheet(isPresented: $showsMusicServices, onDismiss: { musicServicesShowing = false }) {
             if let model { MusicServicesSheet(model: model) }
         }
-        .navigationDestination(for: StatsRoute.self) { _ in
-            StatsScreen()
-                // A tune opened from the stats screen is not the tab's own pushed tune.
-                .environment(\.stackTune, nil)
-        }
-        .navigationTitle(Destination.settings.title)
+        #if os(macOS)
+            .sheet(isPresented: $showsStats) {
+                StatsSheet()
+            }
+        #endif
+        .modifier(StatsDestination(isPushed: !opensStatsInSheet))
+        .navigationTitle(title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
-            summary = store.map { StatsModel(store: $0, engine: nil, history: false) }
+            summary = sections.contains(.stats) ? store.map { StatsModel(store: $0, engine: nil, history: false) } : nil
+        }
+    }
+
+    private var appearanceSection: some View {
+        Section {
+            Picker(Appearance.title, selection: $appearance) {
+                ForEach(Appearance.allCases) { Text($0.label).tag($0) }
+            }
+            // Text on the Mac does not scale with Dynamic Type, so the shift would do nothing.
+            #if !os(macOS)
+                Stepper(
+                    value: Binding {
+                        Self.stepperValue(offset: textSizeOffset, system: systemTextSize)
+                    } set: {
+                        textSizeOffset = $0
+                    },
+                    in: TextSize.offsetRange(system: systemTextSize)
+                ) {
+                    LabeledContent(
+                        TextSize.title,
+                        value: TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
+                }
+                .accessibilityValue(TextSize.valueLabel(system: systemTextSize, offset: textSizeOffset))
+            #endif
+        } footer: {
+            Text(SettingsModel.appearanceFooter)
         }
     }
 
@@ -120,8 +173,13 @@ public struct SettingsScreen: View {
         if store != nil {
             Section {
                 if let line = summary?.summaryLine {
-                    NavigationLink(value: StatsRoute()) {
-                        Text(line).monospacedDigit()
+                    if opensStatsInSheet {
+                        SettingsFieldRow(title: line, value: "") { showsStats = true }
+                            .monospacedDigit()
+                    } else {
+                        NavigationLink(value: StatsRoute()) {
+                            Text(line).monospacedDigit()
+                        }
                     }
                 } else {
                     Text(verbatim: " ").accessibilityHidden(true)
@@ -262,6 +320,23 @@ public struct SettingsScreen: View {
                 }
                 .padding(.vertical, spacing(4))
             }
+        }
+    }
+}
+
+/// The stats screen as a push from the summary row, where the form sits in a stack.
+private struct StatsDestination: ViewModifier {
+    let isPushed: Bool
+
+    func body(content: Content) -> some View {
+        if isPushed {
+            content.navigationDestination(for: StatsRoute.self) { _ in
+                StatsScreen()
+                    // A tune opened from the stats screen is not the tab's own pushed tune.
+                    .environment(\.stackTune, nil)
+            }
+        } else {
+            content
         }
     }
 }

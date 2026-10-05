@@ -136,9 +136,17 @@ struct SortMenu<Sort: SortKind>: View {
                 Image(systemName: SortText.directionSymbol(choice))
                     .imageScale(.small)
             }
-            .font(.footnote)
+            #if os(macOS)
+                .font(MacStyle.secondary)
+            #else
+                .font(.footnote)
+            #endif
         }
         .menuStyle(.button)
+        #if os(macOS)
+            // A Mac menu button draws its title at its control size's font, not the label's.
+            .controlSize(.small)
+        #endif
         // Borderless, so a list row holding it takes no tap of its own and the menu keeps its tint.
         .buttonStyle(.borderless)
         .fixedSize()

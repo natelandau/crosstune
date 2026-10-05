@@ -93,3 +93,30 @@
         func getObject(_ url: URL, to destination: URL) async throws { throw URLError(.notConnectedToInternet) }
     }
 #endif
+
+#if DEBUG && os(macOS)
+    import CrosstuneStore
+    import SwiftUI
+
+    /// The Mac Settings window over the sample catalog, for looking at every tab and the stats
+    /// screen beside ``SampleShell`` without signing in. Debug builds only.
+    public struct SampleSettings: View {
+        @State private var store: CrosstuneStore?
+
+        public init() {}
+
+        public var body: some View {
+            VStack(spacing: 0) {
+                if let store {
+                    MacSettingsTabs().environment(\.store, store)
+                } else {
+                    // Sized as the tabs are, since the window must not resize once it shows.
+                    Color.clear.frame(width: MacSettingsTabs.size.width, height: MacSettingsTabs.size.height)
+                }
+            }
+            .task {
+                store = try? await SampleCatalog.makeStore()
+            }
+        }
+    }
+#endif

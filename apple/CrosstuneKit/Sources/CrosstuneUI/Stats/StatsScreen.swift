@@ -146,6 +146,12 @@ private struct StatsContent: View {
             }
         }
         .formStyle(.grouped)
+        #if os(macOS)
+            // The grouped form adds its own inset, which the page margin already counts.
+            .contentMargins(.horizontal, MacStyle.pageMargin - MacStyle.groupedFormInset, for: .scrollContent)
+            .frame(maxWidth: MacStyle.pageMaxWidth)
+            .frame(maxWidth: .infinity)
+        #endif
     }
 
     @ViewBuilder private func section(_ block: StatsBlock) -> some View {
@@ -165,7 +171,19 @@ private struct StatsContent: View {
                         .monospacedDigit()
                 }
             } header: {
-                Text(block.header)
+                #if os(macOS)
+                    // The page title tops the first block, since a section with no rows draws
+                    // no header of its own.
+                    VStack(alignment: .leading, spacing: MacStyle.sectionGap / 2) {
+                        Text(StatsCopy.title)
+                            .font(MacStyle.pageTitle)
+                            .foregroundStyle(.primary)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(block.header)
+                    }
+                #else
+                    Text(block.header)
+                #endif
             } footer: {
                 if stats.counts.archived > 0 { Text(StatsCopy.archivedLine(stats.counts.archived)) }
             }
@@ -298,15 +316,28 @@ struct KeyGridView: View {
     var body: some View {
         Group {
             if scrolls {
-                // Five or six modes outgrow a phone's row, so the grid scrolls sideways rather than clip.
-                ScrollView(.horizontal) { grid }
-                    .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                #if os(macOS)
+                    // The grid spreads across the row whenever it fits, rather than hugging
+                    // the leading edge.
+                    ViewThatFits(in: .horizontal) {
+                        grid.frame(maxWidth: .infinity)
+                        scrolling
+                    }
+                #else
+                    scrolling
+                #endif
             } else {
                 grid
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(StatsCopy.keyGridCaption)
+    }
+
+    /// Five or six modes outgrow a phone's row, so the grid scrolls sideways rather than clip.
+    private var scrolling: some View {
+        ScrollView(.horizontal) { grid }
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
     }
 
     private var grid: some View {
@@ -324,7 +355,9 @@ struct KeyGridView: View {
             .foregroundStyle(.secondary)
             ForEach(rows, id: \.key) { row in
                 GridRow {
-                    cell(StatsCopy.keyCellLabel(row.key, row.count), facets: StatsLink.key(row.key)) {
+                    cell(
+                        StatsCopy.keyCellLabel(row.key, row.count), facets: StatsLink.key(row.key), alignment: .leading
+                    ) {
                         HStack(spacing: 8) {
                             KeyPill(row.key, size: .compact)
                             Text(groupedThousands(row.count))
@@ -349,9 +382,14 @@ struct KeyGridView: View {
     }
 
     @ViewBuilder private func cell(
-        _ label: String, facets: [CatalogFacet: String]?, @ViewBuilder content: () -> some View
+        _ label: String, facets: [CatalogFacet: String]?, alignment: Alignment = .center,
+        @ViewBuilder content: () -> some View
     ) -> some View {
-        let content = content().frame(minWidth: 44, minHeight: 44)
+        #if os(macOS)
+            let content = content().frame(minWidth: 44, maxWidth: .infinity, minHeight: 44, alignment: alignment)
+        #else
+            let content = content().frame(minWidth: 44, minHeight: 44)
+        #endif
         if let open, let facets {
             Button {
                 open(facets)
