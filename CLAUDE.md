@@ -35,6 +35,13 @@ every label. The glossary in `docs/product.md` has the reasons.
   failed check. Every worktree shares one installed copy, so the keychain
   trusts it once; `run` waits while another worktree holds it, and
   `just apple::status` shows who. Never launch a build from DerivedData.
+- To see or drive a running app, use Peekaboo for the Mac app and
+  Maestro for the iOS simulators. Run `peekaboo learn` and
+  `maestro --help` for their commands. Peekaboo: target the app with
+  `--app Crosstune`, pass `--input-strategy actionOnly`, never pass
+  `--foreground`, and never use `peekaboo agent`. Maestro: always pass
+  `--udid` (from `xcrun simctl list devices booted`), since several
+  simulators run at once.
 - `just dev` runs Postgres, migrations, the API, the web client, and the
   site together. Every checkout and worktree shares one Postgres container,
   but each worktree gets its own database and bucket, copied from main's by

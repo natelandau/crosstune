@@ -11,3 +11,5 @@
     analyser = "analyser"
     # A mountain dulcimer tuning name (D-A-A), not a typo for "data".
     DAA = "DAA"
+    # Apple's simulator and device ID (`simctl`, Maestro's --udid), not a typo for "uuid".
+    udid = "udid"
