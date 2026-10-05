@@ -1,3 +1,12 @@
+## v0.14.0 (2026-10-05)
+
+### Feat
+
+- **apple**: give the Mac app its own native design (#136)
+- **catalog**: sort lists from a header above them (#135)
+- **catalog**: filter and suggest tunes by composer and learned from (#134)
+- **catalog**: sort tunes by title, date added, modified, or played (#133)
+
 ## v0.13.0 (2026-10-04)
 
 ### Feat
