@@ -1,0 +1,4 @@
+---
+self-hosted-runner:
+  # The larger macOS runner that carries Xcode 27.
+  labels: [xcode-27]

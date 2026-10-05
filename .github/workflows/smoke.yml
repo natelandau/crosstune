@@ -23,8 +23,11 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - run: scripts/smoke.sh "$API_ORIGIN" "$WEB_ORIGIN" "$SITE_ORIGIN"
         env:
           API_ORIGIN: ${{ inputs.api_origin || vars.API_ORIGIN_PRODUCTION }}

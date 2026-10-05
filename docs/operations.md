@@ -133,8 +133,10 @@ The end-to-end suite:
   `web/e2e/` checked, and only this suite catches it.
 - Runs the recording specs in `web/e2e/`, the only place they run.
 
-In CI, a failed browser test reruns up to twice before it fails the run.
-The job summary lists every test that passed only on a rerun.
+In CI, a failed Playwright test reruns once before it fails the run. A test
+that passed only on a rerun leaves the job green and uploads the
+`playwright-report` artifact. The `Web` workflow's browser tests rerun up to
+twice, and its job summary lists every test that needed a rerun.
 
 An API test that reads or writes RustFS skips locally when RustFS is down
 and fails instead in CI, where the `API` workflow always starts it.
@@ -183,9 +185,11 @@ and fails instead in CI, where the `API` workflow always starts it.
   `pr-<n>/` prefix, and the `crosstune / pr-<n>` GitHub environment that
   Railway's deploys create. The 90-day lifecycle rule on the preview bucket is
   the backstop for a failed prefix deletion. If cleanup fails, run the
-  workflow from the Actions tab with the PR number and branch name.
+  workflow from the Actions tab with the PR number.
 - CI runs on every pull request and push to `main`. `API` lints, type
-  checks, tests on Postgres 18, and checks the OpenAPI contract. `Web`
+  checks, tests on Postgres 18, and checks the OpenAPI contract. Its lint
+  job also runs actionlint and zizmor on the workflows and shellcheck on
+  the scripts, so it starts for any change under `.github/`. `Web`
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
   Worker config with a dry run.

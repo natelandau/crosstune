@@ -6,7 +6,7 @@ set -euo pipefail
 
 image=crosstune-api-media
 container=crosstune-media
-docker build --quiet --tag "$image" "$GITHUB_WORKSPACE/api" > /dev/null
+docker build --quiet --target media --tag "$image" "$GITHUB_WORKSPACE/api" > /dev/null
 # The tools only ever read and write absolute paths under the temp directory or the
 # checkout, so those are mounted at the same paths. The runner's own user runs them, so
 # what they write stays the runner's to read and delete.

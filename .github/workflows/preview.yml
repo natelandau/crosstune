@@ -13,21 +13,19 @@ on:
       pr_number:
         description: Pull request number whose preview environment to tear down
         required: true
-        type: string
-      branch:
-        description: The pull request's head branch name, used to compute the preview alias
-        required: true
-        type: string
+        type: number
 
 permissions:
   contents: read
 
+# A new push supersedes a running refresh. A teardown, a reopen, and a manual run queue
+# instead, so a teardown is never cut off partway and leaves paid resources behind.
 concurrency:
   group: preview-${{ inputs.pr_number || github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
-# Secrets are set on the steps that use them, never here, so third-party actions and
-# packages in other steps never see them in their environment.
+# Secrets are set on the steps that use them, never here, so a step sees only its own.
+# The pinned neonctl and wrangler packages do run with the Neon and Cloudflare tokens.
 env:
   # Fail when uv.lock disagrees with pyproject.toml instead of relocking.
   UV_LOCKED: "1"
@@ -47,6 +45,7 @@ jobs:
     name: Preview changes
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -56,10 +55,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           sparse-checkout: .github/actions
+          persist-credentials: false
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(api/|\.github/workflows/preview\.yml$)'
+          pattern: '^(api/|scripts/preview-railway\.sh$|\.github/workflows/preview\.yml$)'
 
   up:
     name: Create or refresh the preview environment
@@ -71,10 +71,12 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: compute the preview alias
         id: slug
@@ -99,8 +101,7 @@ jobs:
 
       # A reset keeps the branch's endpoint, so the connection string stored in
       # Railway at creation stays valid and every push migrates a clean copy.
-      # neonctl directly rather than neondatabase/reset-branch-action, which wraps this
-      # one command behind a setup-node pinned to a deprecated Node runtime.
+      # neonctl runs directly because the reset action needs an unsupported Node runtime.
       - name: reset the Neon branch to its parent
         if: github.event.action == 'synchronize'
         env:
@@ -111,7 +112,6 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.13"
 
       # The reset leaves development's schema, and Railway's pre-deploy migration runs only
       # when it deploys, which waits for CI. A push that fails CI would otherwise leave the
@@ -136,12 +136,6 @@ jobs:
           STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
         run: uv run --no-dev python -m crosstune.ops.preview_storage seed "$PR_NAME"
 
-      # Railway's built-in PR environments copy the base environment's variables
-      # and would reuse the development database; the CLI accepts the branch's
-      # connection string at creation. The existence check, rather than the
-      # event type, decides whether to create: a cancelled or failed first run
-      # must be healed by the next push.
-      # Every run also points an existing environment at the preview bucket.
       - name: create the Railway environment
         env:
           NEON_DB_URL: ${{ steps.neon.outputs.db_url }}
@@ -149,81 +143,13 @@ jobs:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           STORAGE_ACCESS_KEY_ID_PREVIEW: ${{ secrets.STORAGE_ACCESS_KEY_ID_PREVIEW }}
           STORAGE_SECRET_ACCESS_KEY_PREVIEW: ${{ secrets.STORAGE_SECRET_ACCESS_KEY_PREVIEW }}
-        run: |
-          echo "::add-mask::$NEON_DB_URL"
-          : "${NEON_DB_URL:?the Neon create step produced no db_url}"
-          railway() {
-            docker run --rm \
-              -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
-              "$RAILWAY_CLI_IMAGE" railway "$@"
-          }
-          # The copy of development brings development's database, bucket, and token, so
-          # these always replace them. The API refuses to start on the copied storage values
-          # if one is missed. One list feeds both paths, so an existing environment whose
-          # first patch failed heals on the next push.
-          api_vars=(
-            "CROSSTUNE_DATABASE_URL=$NEON_DB_URL"
-            "CROSSTUNE_ENVIRONMENT=$PR_NAME"
-            "CROSSTUNE_STORAGE_BUCKET=crosstune-recordings-preview"
-            "CROSSTUNE_STORAGE_ACCESS_KEY_ID=$STORAGE_ACCESS_KEY_ID_PREVIEW"
-            "CROSSTUNE_STORAGE_SECRET_ACCESS_KEY=$STORAGE_SECRET_ACCESS_KEY_PREVIEW"
-            "CROSSTUNE_STORAGE_PREFIX=$PR_NAME/"
-          )
-          exists="$(railway environment list --json \
-            | jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' || true)"
-          if [ "$exists" = "true" ]; then
-            echo "Railway environment $PR_NAME already exists"
-            # Set only what differs, because every set redeploys the service.
-            current="$(railway variable list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json)"
-            changes=()
-            for pair in "${api_vars[@]}"; do
-              name="${pair%%=*}"
-              if [ "$(jq -r --arg k "$name" '.[$k] // ""' <<<"$current")" != "${pair#*=}" ]; then
-                changes+=("$pair")
-              fi
-            done
-            if [ "${#changes[@]}" -gt 0 ]; then
-              railway variable set "${changes[@]}" --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME"
-            fi
-          else
-            var_flags=()
-            for pair in "${api_vars[@]}"; do
-              var_flags+=(--service-config "$RAILWAY_API_SERVICE_ID" "variables.${pair%%=*}.value" "${pair#*=}")
-            done
-            railway environment new "$PR_NAME" --copy "$RAILWAY_ENVIRONMENT_ID" \
-              "${var_flags[@]}" \
-              --service-config "$RAILWAY_API_SERVICE_ID" source.branch "$HEAD_REF" \
-              --service-config "$RAILWAY_API_SERVICE_ID" deploy.sleepApplication true
-          fi
+        run: scripts/preview-railway.sh up
 
       - name: read the API hostname
         id: railway
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-        run: |
-          railway() {
-            docker run --rm \
-              -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
-              "$RAILWAY_CLI_IMAGE" railway "$@"
-          }
-          first_domain='[.. | objects | select(has("domain")) | .domain] | first // empty'
-          # The raw CLI output is kept so a failed read shows what the CLI said.
-          listed="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
-          hostname="$(jq -r "$first_domain" <<<"$listed" 2>/dev/null || true)"
-          created=""
-          if [ -z "$hostname" ]; then
-            created="$(railway domain --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
-            # The create call's output is not relied on; the list is the source of truth.
-            listed="$(railway domain list --service "$RAILWAY_API_SERVICE_ID" --environment "$PR_NAME" --json 2>&1 || true)"
-            hostname="$(jq -r "$first_domain" <<<"$listed" 2>/dev/null || true)"
-          fi
-          if [ -z "$hostname" ]; then
-            echo "::error::no Railway domain for $PR_NAME"
-            echo "domain list output: $listed"
-            echo "domain create output: $created"
-            exit 1
-          fi
-          echo "hostname=$hostname" >> "$GITHUB_OUTPUT"
+        run: scripts/preview-railway.sh hostname
 
       - name: point the preview at its API
         env:
@@ -242,61 +168,45 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       # The merge ref does not exist for a conflicted or deleted-branch PR, and
       # the base commit may predate the scripts this job runs, so pin the
-      # checkout to the PR's head commit. A manual run checks out main.
+      # checkout to the PR's head commit. A manual run checks out the ref it was
+      # started from.
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
+      # A close event carries the branch in GITHUB_HEAD_REF; a manual run looks it up, which
+      # still works once the branch is deleted.
       - name: compute the preview alias
         id: slug
         env:
-          BRANCH: ${{ inputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
-          slug="$(node web/scripts/branch-slug.mjs "$BRANCH")"
+          branch=""
+          if [[ -n "$PR_NUMBER" ]]; then
+            branch="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .head.ref)"
+          fi
+          slug="$(node web/scripts/branch-slug.mjs "$branch")"
           echo "slug=$slug" >> "$GITHUB_OUTPUT"
 
       # Each delete tolerates a missing resource so a PR whose `up` never
-      # finished still tears down cleanly. Only a confirmed listing may say the
-      # environment is absent: an API error that read as "absent" would leak the
-      # environment behind a green job, so the listing retries and then fails.
+      # finished still tears down cleanly.
       - name: delete the Railway environment
         env:
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-        run: |
-          railway() {
-            docker run --rm \
-              -e RAILWAY_API_TOKEN -e RAILWAY_PROJECT_ID -e RAILWAY_ENVIRONMENT_ID \
-              "$RAILWAY_CLI_IMAGE" railway "$@"
-          }
-          environments=""
-          for attempt in 1 2 3; do
-            if environments="$(railway environment list --json)"; then
-              break
-            fi
-            environments=""
-            sleep $((attempt * 10))
-          done
-          if [ -z "$environments" ]; then
-            echo "::error::could not list Railway environments, so $PR_NAME may still exist; rerun this workflow"
-            exit 1
-          fi
-          if jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' \
-            <<<"$environments" >/dev/null; then
-            railway environment delete "$PR_NAME" --yes || {
-              echo "::error::could not delete Railway environment $PR_NAME; rerun this workflow"
-              exit 1
-            }
-          else
-            echo "no Railway environment named $PR_NAME"
-          fi
+        run: scripts/preview-railway.sh down
 
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.13"
 
       # After the environment is gone, so no runner writes behind the delete. A failure
       # fails the job once the other cleanups have run, because a leak here is silent

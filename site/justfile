@@ -25,7 +25,7 @@ tsc:
 # Spell check the site and the brand sources it is built from
 [group('lint')]
 typos:
-    uv run --project ../api typos --config ../.typos.toml . ../brand
+    uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
 
 # Run all linters
 [group('lint')]

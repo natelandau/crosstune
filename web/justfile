@@ -29,7 +29,7 @@ tsc:
 # Spell check the client and the brand sources it is built from
 [group('lint')]
 typos:
-    uv run --project ../api typos --config ../.typos.toml . ../brand
+    uv run --project ../api --only-group typos typos --config ../.typos.toml . ../brand
 
 # Fail when the committed client types no longer match the committed OpenAPI schema
 [group('lint')]

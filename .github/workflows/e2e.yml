@@ -11,6 +11,8 @@ on:
       - "web/**"
       - "api/**"
       - "scripts/ci-media-tools.sh"
+      - "compose.yml"
+      - "justfile"
       - ".github/workflows/e2e.yml"
       - "!api/tests/**"
       - "!web/**/*.test.ts"
@@ -42,6 +44,7 @@ jobs:
       (github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18
@@ -66,10 +69,11 @@ jobs:
       CROSSTUNE_LOCAL_STORAGE_BROWSER_ENDPOINT_URL: /storage
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.13"
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: web/package.json
@@ -122,7 +126,7 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
       # The repository is public, and a trace holds the test users' emails and dev-instance
-      # session tokens, so these expire quickly.
+      # session tokens, so these expire after a day.
       - uses: actions/upload-artifact@v7
         if: ${{ failure() || steps.attempts.outputs.failed == 'true' }}
         with:
@@ -130,7 +134,7 @@ jobs:
           path: |
             web/playwright-report
             web/test-results
-          retention-days: 3
+          retention-days: 1
           if-no-files-found: ignore
       # Server-side failures such as a transcode error show only in the API's own log.
       - uses: actions/upload-artifact@v7

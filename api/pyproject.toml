@@ -36,12 +36,13 @@
         "pytest-xdist>=3.8.0",
         "pytest>=9.1.1",
         "ruff>=0.16.7",
-        "shellcheck-py>=0.11.0.1",
         "ty>=0.0.80",
         "types-boto3[s3]>=1.43.94",
-        "typos>=1.50.1",
+        { include-group = "typos" },
         "yamllint>=1.38.0",
 ]
+    # Its own group so the other modules' spell checks install it alone.
+    typos = ["typos>=1.50.1"]
 
 [tool.coverage.report]
     exclude_lines = ['def __repr__', 'if TYPE_CHECKING', 'pragma: no cover']

@@ -24,7 +24,7 @@ format:
 # Spell check the Apple client
 [group('lint')]
 typos:
-    uv run --project ../api typos --config ../.typos.toml .
+    uv run --project ../api --only-group typos typos --config ../.typos.toml .
 
 # Fail when the committed Swift client or vocabulary no longer match the OpenAPI schema
 [group('lint')]

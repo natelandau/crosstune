@@ -1,0 +1,13 @@
+---
+rules:
+  # Actions and the tools they install stay on version tags or their latest release,
+  # which Dependabot and the actions move; hash and version pins are not required.
+  unpinned-uses:
+    config:
+      policies:
+        "*": ref-pin
+  unpinned-tools:
+    disable: true
+  # actionlint cannot parse the `$/` form yet, so local actions keep `./`.
+  self-repository:
+    disable: true
