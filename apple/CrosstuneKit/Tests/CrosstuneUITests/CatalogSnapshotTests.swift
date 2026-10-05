@@ -5,7 +5,7 @@ import Testing
 @testable import CrosstuneUI
 
 /// The catalog laid out from stand-ins, since an image renderer draws no list: the real search
-/// field, filter bar, tune rows, hidden match note, add row, and count, stacked as the list shows
+/// field, filter bar, list header, tune rows, hidden match note, and add row, stacked as the list shows
 /// them.
 struct CatalogStandIn: View {
     var filters = CatalogFilters(
@@ -32,6 +32,7 @@ struct CatalogStandIn: View {
                 filterCount: filters.sheetCount, onSubmit: {}, onFilters: {})
             CatalogFilterBar(results: results, errors: [], onChange: { _ in })
                 .padding(.horizontal, -16)
+            ListHeader(count: results.countLabel, choice: .constant(CatalogSortChoice.default))
             ForEach(visible) { entry in
                 TuneRow(tune: entry.tune, userTune: entry.userTune, instruments: SampleCatalog.instruments)
                 Divider()
@@ -42,10 +43,6 @@ struct CatalogStandIn: View {
             if let offer = outcome.offerLabel {
                 SearchOfferRow(label: offer) {}
             }
-            Text(results.countLabel)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
         }
     }
 }

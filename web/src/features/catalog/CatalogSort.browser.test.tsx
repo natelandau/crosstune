@@ -6,13 +6,14 @@ import { openTestDb } from '../../test/db'
 import { renderScreen } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import { playEventRow, practiceSessionRow, tuneRow, userTuneRow } from '../../test/rows'
-import { FILTERS } from '../../ui/filterCopy'
 import { MORE_ACTIONS } from '../../ui/Menu'
-import { NEWEST_FIRST, OLDEST_FIRST, SORT } from '../../ui/sortCopy'
+import { A_TO_Z, NEWEST_FIRST, OLDEST_FIRST, SORT_BY } from '../../ui/sortCopy'
 import { CANCEL_SELECTION } from '../selection/SelectionToolbar'
 import { CatalogPage } from './CatalogPage'
 import { CATALOG_SORT_LABELS } from './catalogSort'
-import { SEARCH_TUNES } from './TuneSearch'
+
+// The button is named for the current sort, "Sort by Title, A to Z".
+const SORT_BUTTON = new RegExp(`^${SORT_BY} `)
 
 let db: CrosstuneDb
 
@@ -36,7 +37,7 @@ beforeEach(async () => {
 
 const show = (engine: SyncEngine = fakeEngine()) =>
   renderScreen(<CatalogPage />, { db, path: '/catalog', engine })
-const sortButton = () => page.getByRole('button', { name: SORT })
+const sortButton = () => page.getByRole('button', { name: SORT_BUTTON })
 const titles = () =>
   Array.from(document.querySelectorAll('ion-list h2'), (heading) => heading.textContent)
 const hostOf = (element: Element) => (element.getRootNode() as ShadowRoot).host
@@ -53,22 +54,31 @@ describe('catalog sort', () => {
     await expect.poll(titles).toEqual(['Cluck Old Hen', 'Sally Ann', "Soldier's Joy"])
   })
 
-  it('puts Sort in the search row, just before Filters, with a 44px target', async () => {
+  it('puts Sort at the trailing edge of the list header, out of the toolbar', async () => {
     show()
     await expect.element(sortButton()).toBeVisible()
-    await expect.element(page.getByRole('searchbox', { name: SEARCH_TUNES })).toBeVisible()
-    const searchRow = () =>
-      page.getByRole('searchbox', { name: SEARCH_TUNES }).element().closest('ion-toolbar')
-    await expect.poll(() => hostOf(sortButton().element()).closest('ion-toolbar')).toBe(searchRow())
+    const header = () => hostOf(sortButton().element()).closest('[data-list-header]')
+    await expect.poll(header).not.toBeNull()
+    expect(hostOf(sortButton().element()).closest('ion-toolbar')).toBeNull()
+    await expect.element(page.getByText('3 tunes')).toBeVisible()
     await vi.waitFor(() => {
       const sortBox = hostOf(sortButton().element()).getBoundingClientRect()
-      const filtersBox = hostOf(
-        page.getByRole('button', { name: FILTERS }).element(),
-      ).getBoundingClientRect()
+      const headerBox = header()!.getBoundingClientRect()
+      const firstRow = document.querySelector('ion-list ion-item')!.getBoundingClientRect()
       expect(sortBox.width).toBeGreaterThanOrEqual(44)
       expect(sortBox.height).toBeGreaterThanOrEqual(44)
-      expect(sortBox.right).toBeLessThanOrEqual(filtersBox.left + 1)
+      expect(headerBox.bottom).toBeLessThanOrEqual(firstRow.top + 1)
     })
+  })
+
+  it('names the current sort and its direction on the button', async () => {
+    show()
+    const named = (name: string) => page.getByRole('button', { name })
+    await expect.element(named(`${SORT_BY} ${CATALOG_SORT_LABELS.title}, ${A_TO_Z}`)).toBeVisible()
+    await pickSort(CATALOG_SORT_LABELS.added)
+    await expect
+      .element(named(`${SORT_BY} ${CATALOG_SORT_LABELS.added}, ${NEWEST_FIRST}`))
+      .toBeVisible()
   })
 
   it('orders by date added, newest first, and reverses on a second pick', async () => {

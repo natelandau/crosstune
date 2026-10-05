@@ -30,6 +30,12 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
         #expect(items.map(\.direction) == [SortText.aToZ, nil, nil, nil])
     }
 
+    @Test func namesTheListHeaderButtonForItsSortAndDirection() {
+        #expect(SortText.buttonLabel(CatalogSortChoice.default) == "Sort by Title, A to Z")
+        #expect(SortText.buttonLabel(choice(.added, true)) == "Sort by Date added, Newest first")
+        #expect(SortText.buttonLabel(choice(.played, false)) == "Sort by Last played, Oldest first")
+    }
+
     @Test func keepsItsChoiceApartFromTheRecordingsScreen() {
         #expect(CatalogSortChoice.storageKey != RecordingSortChoice.storageKey)
     }

@@ -39,10 +39,13 @@ import { DELETE_RECORDING_TITLE } from './useRecordingActions'
 import { useRecordingsWithFiles } from './useRecordings'
 import { CANCEL } from '../../ui/Confirm'
 import { FILTERS, filtersLabel, removeFilterLabel } from '../../ui/filterCopy'
-import { A_TO_Z, NEWEST_FIRST, OLDEST_FIRST, SORT, Z_TO_A } from '../../ui/sortCopy'
+import { A_TO_Z, NEWEST_FIRST, OLDEST_FIRST, SORT_BY, Z_TO_A } from '../../ui/sortCopy'
 
 vi.mock('../../commands/recordings', { spy: true })
 vi.mock('./useRecordings', { spy: true })
+
+// The button is named for the current sort, "Sort by Title, A to Z".
+const SORT_BUTTON = new RegExp(`^${SORT_BY} `)
 
 let db: CrosstuneDb
 
@@ -102,7 +105,7 @@ async function playAtTitle(title: string) {
 }
 
 async function pickSort(label: string) {
-  await page.getByRole('button', { name: SORT }).click()
+  await page.getByRole('button', { name: SORT_BUTTON }).click()
   await page.getByRole('menuitemradio', { name: label }).click()
   // The menu runs the choice once it has dismissed.
   await expect.poll(() => document.querySelector('ion-popover:not(.overlay-hidden)')).toBeNull()
@@ -225,7 +228,7 @@ describe('RecordingsPage', () => {
   it('marks the current sort in its menu', async () => {
     await db.recordings.put(recordingRow('r1', { label: 'Jam recording' }))
     show()
-    await page.getByRole('button', { name: SORT }).click()
+    await page.getByRole('button', { name: SORT_BUTTON }).click()
     await expect
       .element(page.getByRole('menuitemradio', { name: SORT_LABELS.added }))
       .toHaveAttribute('aria-checked', 'true')
@@ -247,7 +250,7 @@ describe('RecordingsPage', () => {
         arrow?.classList.contains('lucide-arrow-up') ? 'up' : arrow ? 'down' : null,
       ]
     }
-    const openSort = () => page.getByRole('button', { name: SORT }).click()
+    const openSort = () => page.getByRole('button', { name: SORT_BUTTON }).click()
     await openSort()
     await expect.poll(checked).toEqual([SORT_LABELS.added, NEWEST_FIRST, 'down'])
     // Only the checked item shows a direction.
@@ -758,20 +761,35 @@ describe('RecordingsPage', () => {
       await expect.poll(() => document.querySelector('ion-modal:not(.overlay-hidden)')).toBeNull()
     }
 
-    it('puts Sort in the search row, just before Filters', async () => {
-      await db.recordings.put(recordingRow('r1', { label: 'Take' }))
+    it('puts Sort in the list header above both lists, beside the count', async () => {
+      await db.recordings.bulkPut([
+        recordingRow('r1', { label: 'Take' }),
+        recordingRow('r2', { label: 'Other take' }),
+      ])
       show()
-      const sort = page.getByRole('button', { name: SORT })
+      const sort = page.getByRole('button', { name: SORT_BUTTON })
       await expect.element(sort).toBeVisible()
-      await expect.element(page.getByRole('searchbox', { name: SEARCH_RECORDINGS })).toBeVisible()
       const hostOf = (element: Element) => (element.getRootNode() as ShadowRoot).host
-      await expect.poll(() => hostOf(sort.element()).closest('ion-toolbar')).toBe(searchRow())
+      const header = () => hostOf(sort.element()).closest('[data-list-header]')
+      await expect.poll(header).not.toBeNull()
+      expect(hostOf(sort.element()).closest('ion-toolbar')).toBeNull()
+      await expect.element(page.getByText('2 recordings', { exact: true })).toBeVisible()
       await vi.waitFor(() => {
-        const sortBox = hostOf(sort.element()).getBoundingClientRect()
-        const filtersBox = hostOf(filters().element()).getBoundingClientRect()
-        expect(sortBox.width).toBeGreaterThan(0)
-        expect(sortBox.right).toBeLessThanOrEqual(filtersBox.left + 1)
+        const headerBox = header()!.getBoundingClientRect()
+        const unfiledBox = unfiledList().element().getBoundingClientRect()
+        expect(headerBox.bottom).toBeLessThanOrEqual(unfiledBox.top + 1)
       })
+    })
+
+    it('counts what search leaves out of the whole', async () => {
+      await db.recordings.bulkPut([
+        recordingRow('r1', { label: 'Take' }),
+        recordingRow('r2', { label: 'Other' }),
+      ])
+      show()
+      await expect.element(page.getByText('2 recordings', { exact: true })).toBeVisible()
+      await page.getByRole('searchbox', { name: SEARCH_RECORDINGS }).fill('take')
+      await expect.element(page.getByText('1 of 2 recordings', { exact: true })).toBeVisible()
     })
 
     it('puts Filters at the trailing edge of the search row', async () => {

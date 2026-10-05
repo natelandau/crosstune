@@ -50,6 +50,12 @@ public enum SortText {
         return choice.descending ? zToA : aToZ
     }
 
+    /// The list header button's spoken name, "Sort by Title, A to Z": the visible sort leads it,
+    /// and the arrow's meaning is spoken rather than drawn.
+    public static func buttonLabel<Sort>(_ choice: SortChoice<Sort>) -> String {
+        "Sort by \(choice.sort.label), \(direction(choice))"
+    }
+
     /// Down for newest first and Z to A, up for oldest first and A to Z.
     public static func directionSymbol<Sort>(_ choice: SortChoice<Sort>) -> String {
         choice.descending ? "arrow.down" : "arrow.up"
@@ -117,14 +123,26 @@ public struct SortChoices<Sort: SortKind>: View {
     }
 }
 
-/// A screen's toolbar Sort menu.
+/// A list header's sort control: the current sort and its direction, opening the menu of sorts.
 struct SortMenu<Sort: SortKind>: View {
     @Binding var choice: SortChoice<Sort>
 
     var body: some View {
-        Menu(SortText.sort, systemImage: "arrow.up.arrow.down") {
+        Menu {
             SortChoices(choice: $choice)
+        } label: {
+            HStack(spacing: 4) {
+                Text(choice.sort.label)
+                Image(systemName: SortText.directionSymbol(choice))
+                    .imageScale(.small)
+            }
+            .font(.footnote)
         }
+        .menuStyle(.button)
+        // Borderless, so a list row holding it takes no tap of its own and the menu keeps its tint.
+        .buttonStyle(.borderless)
+        .fixedSize()
+        .accessibilityLabel(SortText.buttonLabel(choice))
         .help(SortText.sort)
     }
 }

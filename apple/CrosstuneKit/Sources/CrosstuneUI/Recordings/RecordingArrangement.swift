@@ -55,6 +55,12 @@ public enum RecordingsListText {
     public static let filtersDisabledReason = "All recordings are yours"
 
     public static func openTune(_ title: String) -> String { "Open \(title)" }
+
+    /// The list header's count: "24 recordings", or "3 of 24 recordings" when narrowed.
+    public static func countLabel(visible: Int, total: Int) -> String {
+        if visible != total { return "\(visible) of \(total) recordings" }
+        return total == 1 ? "1 recording" : "\(total) recordings"
+    }
 }
 
 /// The recordings screen's two sections: those with no tune, and those filed under one.
@@ -68,6 +74,14 @@ public struct RecordingArrangement: Equatable, Sendable {
         switch filed {
         case .flat(let views): return views.isEmpty
         case .byTune(let tunes): return tunes.isEmpty
+        }
+    }
+
+    /// How many recordings both sections show.
+    public var count: Int {
+        switch filed {
+        case .flat(let views): unfiled.count + views.count
+        case .byTune(let tunes): unfiled.count + tunes.reduce(0) { $0 + $1.views.count }
         }
     }
 
