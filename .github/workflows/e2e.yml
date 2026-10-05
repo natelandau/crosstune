@@ -84,24 +84,16 @@ jobs:
       # The API transcodes recordings with ffprobe and ffmpeg from PATH.
       - name: use the API image's ffmpeg
         run: scripts/ci-media-tools.sh
-      - name: start RustFS and create the buckets
-        run: |
-          docker compose up -d --wait rustfs
-          just api::storage-setup
+      - name: start RustFS
+        run: docker compose up -d --wait rustfs
+      # run-e2e creates and migrates the database and the buckets before it serves.
       - name: start the api on the database the suite owns
         working-directory: api
         env:
           CROSSTUNE_CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
         run: |
           nohup just run-e2e > "$RUNNER_TEMP/api.log" 2>&1 &
-          # The recipe creates and migrates the database before it serves, so this waits for
-          # more than a process start.
-          for _ in $(seq 1 90); do
-            curl -fsS http://localhost:8001/healthz > /dev/null && exit 0
-            sleep 1
-          done
-          cat "$RUNNER_TEMP/api.log"
-          exit 1
+          just wait-e2e "$!" "$RUNNER_TEMP/api.log"
       # The Clerk secret stays off the install steps, which run third-party code.
       - run: just e2e
         working-directory: web

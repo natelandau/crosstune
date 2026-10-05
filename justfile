@@ -61,14 +61,8 @@ e2e *args:
     just api::e2e-db-reset
     just api::storage-reset crosstune-e2e
     echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
-    just api::run-e2e > "$log" 2>&1 &
-    # The recipe creates and migrates the database before it serves, so this waits for
-    # more than a process start.
-    for _ in $(seq 1 90); do
-        curl -fsS "$health" > /dev/null 2>&1 && break
-        sleep 1
-    done
-    curl -fsS "$health" > /dev/null 2>&1 || { cat "$log"; echo "the e2e API did not start" >&2; exit 1; }
+    just api::_serve-e2e > "$log" 2>&1 &
+    just api::wait-e2e "$!" "$log"
     just web::e2e {{ args }}
 
 # Remove build artifacts and caches everywhere
