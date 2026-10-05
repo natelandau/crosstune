@@ -30,6 +30,11 @@ every label. The glossary in `docs/product.md` has the reasons.
   `just test` resolves to that module. `just --list` shows everything.
   The `apple` module needs Xcode. Xcode 27 has no Simulator.app; its
   simulators run in DeviceHub (`open -a DeviceHub`).
+- Run the Mac app only with `just apple::run [app args]`, started as a
+  background command, and always end with `just apple::done`, even after a
+  failed check. Every worktree shares one installed copy, so the keychain
+  trusts it once; `run` waits while another worktree holds it, and
+  `just apple::status` shows who. Never launch a build from DerivedData.
 - `just dev` runs Postgres, migrations, the API, the web client, and the
   site together. Every checkout and worktree shares one Postgres container,
   but each worktree gets its own database and bucket, copied from main's by

@@ -71,8 +71,11 @@ server's Tailscale Serve URL can record and play back too.
 
 The Apple app's Debug build calls the API on port 8000 and signs in
 against the Clerk development instance. Start the API with `just dev` or
-`just api::run`, open `apple/Crosstune.xcodeproj`, and run the `Crosstune`
-scheme on a Simulator or on My Mac. Recordings need `just dev`: the local
+`just api::run`, then run the Mac app with `just apple::run [app args]`
+and quit it with `just apple::done`. Every worktree runs one installed
+copy, so the keychain asks for its password once rather than once per
+worktree; `run` waits while another worktree holds it. For a Simulator,
+open `apple/Crosstune.xcodeproj` and run the `Crosstune` scheme. Recordings need `just dev`: the local
 API signs recording URLs as `/storage/...`, and the app sends them through
 the web dev server's proxy on port 5173, as a browser does. The local API listens on the Mac only,
 so a device needs another API. Create `apple/Config/Local.xcconfig`, which

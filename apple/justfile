@@ -73,6 +73,22 @@ build:
             COMPILATION_CACHE_ENABLE_CACHING=YES; \
     done
 
+# Build the signed Debug Mac app and run it from ~/Applications; args go to the app
+[group('run')]
+[positional-arguments]
+run *args:
+    ../scripts/mac-app.sh run "$@"
+
+# Quit the Mac app `just run` started and let the next worktree run it
+[group('run')]
+done:
+    ../scripts/mac-app.sh done
+
+# Show which worktree holds the Mac app and how many are waiting
+[group('run')]
+status:
+    ../scripts/mac-app.sh status
+
 # The release recipes read ASC_KEY_PATH, ASC_KEY_ID, and ASC_ISSUER_ID from the environment
 # or apple/.env: an App Store Connect API key with the Admin role, which cloud signing needs.
 
