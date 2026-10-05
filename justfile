@@ -123,19 +123,25 @@ worktree-env:
         echo "copied ${env#"$main"/}"
     done
 
-# Start Postgres, apply migrations, then run the API, web client, and site together
+# Start Postgres and RustFS, apply migrations, then run the API, web client, and site together
 dev:
     scripts/dev-ports.sh 8000 5173 4321
+    #!/usr/bin/env bash
+    set -euo pipefail
     docker compose up -d --wait
     just api::storage-setup
     # A worktree's api/.env names main's database again after `just worktree-env` copies it.
-    if [ "$(git rev-parse --absolute-git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ]; then just api::worktree-db; fi
-    just api::migrate
-    @echo 'Open http://localhost:4321 (site) or http://localhost:5173 (app)'
+    # worktree-db points it back at the worktree's own copy and migrates that.
+    if [ "$(git rev-parse --absolute-git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ]; then
+        just api::worktree-db
+    else
+        just api::migrate
+    fi
+    echo 'Open http://localhost:4321 (site) or http://localhost:5173 (app)'
     # Ctrl-C ends the session with 130, which is the normal way out, not a failure
     uv run --project api honcho start -f Procfile.dev || [ $? -eq 130 ]
 
-# Stop Postgres; the API, web client, and site stop with Ctrl-C in `just dev`
+# Stop Postgres and RustFS; the API, web client, and site stop with Ctrl-C in `just dev`
 dev-down:
     docker compose down
 
