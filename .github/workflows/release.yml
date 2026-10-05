@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   # The called workflows' change detection asks for it, and a called job can hold
   # no permission its caller lacks.
   pull-requests: read
@@ -27,22 +27,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  api:
-    name: API
-    uses: ./.github/workflows/api.yml
-  web:
-    name: Web
-    uses: ./.github/workflows/web.yml
-  # The archive job compiles the app, so the check skips its own build.
-  apple:
-    name: Apple
-    uses: ./.github/workflows/apple.yml
-    with:
-      skip_build: true
-  promote:
-    name: Move the production branch to the tag
-    needs: [api, web, apple, archive]
+  # Every other job waits on this one, so a run from a branch, or from a tag off `main`,
+  # stops before the macOS jobs start and before any job reads the signing secrets.
+  guard:
+    name: Require a version tag on main
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: require a version tag
         run: |
@@ -53,16 +43,44 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       # The repository squash-merges, so a tag made on a pull request branch
       # points at a commit that never reaches `main`. Refuse it.
       - name: require the tagged commit to be on main
         run: git merge-base --is-ancestor HEAD origin/main
+  api:
+    name: API
+    needs: guard
+    uses: ./.github/workflows/api.yml
+  web:
+    name: Web
+    needs: guard
+    uses: ./.github/workflows/web.yml
+  # The archive job compiles the app, so the check skips its own build.
+  apple:
+    name: Apple
+    needs: guard
+    uses: ./.github/workflows/apple.yml
+    with:
+      skip_build: true
+  promote:
+    name: Move the production branch to the tag
+    needs: [api, web, apple, archive]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7  # zizmor: ignore[artipacked] the push below needs the token
+        with:
+          fetch-depth: 0
       - run: git push --force origin "HEAD:refs/heads/production"
 
   # Runs beside the checks, so a release build that fails to compile holds
   # promote. The environment admits `v*` tags only.
   archive:
     name: Archive the Apple apps
+    needs: guard
     runs-on: xcode-27
     environment: app-store
     timeout-minutes: 40
@@ -73,6 +91,8 @@ jobs:
         working-directory: apple
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: extractions/setup-just@v4
       # The archive needs a development identity. Without one, Xcode creates a new
       # development certificate on the account every run, and its key dies with the
@@ -93,7 +113,11 @@ jobs:
           rm -f "$RUNNER_TEMP/development.p12"
           # Lets codesign use the key without a password prompt.
           security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain" >/dev/null
-          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          existing=()
+          while read -r path; do
+            existing+=("${path//\"/}")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "$keychain" "${existing[@]}"
       - name: write the App Store Connect key
         env:
           ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
@@ -117,7 +141,9 @@ jobs:
           name: apple-archives
           path: ${{ runner.temp }}/archives.tar
           if-no-files-found: error
-          retention-days: 7
+          # The repository is public. A retried upload re-runs the archive job, which makes a
+          # new artifact, so nothing reads this one after the run.
+          retention-days: 1
       - name: fail if Xcode created a development certificate
         if: always()
         run: |
@@ -146,6 +172,8 @@ jobs:
         working-directory: apple
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: extractions/setup-just@v4
       - uses: actions/download-artifact@v8
         with:
