@@ -2,6 +2,8 @@ import type { SortChoice } from './sortChoice'
 
 /** The name of every screen's sort menu. */
 export const SORT = 'Sort'
+/** Leads the sort button's spoken name, before the current sort. */
+export const SORT_BY = 'Sort by'
 
 export const NEWEST_FIRST = 'Newest first'
 export const OLDEST_FIRST = 'Oldest first'

@@ -9,6 +9,7 @@ import { EmptyState } from '../../ui/EmptyState'
 import { FiltersButton } from '../../ui/FiltersButton'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
+import { ListHeader } from '../../ui/ListHeader'
 import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
 import { SortMenuButton } from '../../ui/SortMenu'
@@ -237,16 +238,7 @@ export function CatalogPage() {
         />
       }
       searchEnd={
-        active ? undefined : (
-          <>
-            <SortMenuButton
-              options={CATALOG_SORT_OPTIONS}
-              choice={sort}
-              onChange={setCatalogSort}
-            />
-            <FiltersButton setCount={setCount} onOpen={() => setSheetOpen(true)} />
-          </>
-        )
+        active ? undefined : <FiltersButton setCount={setCount} onOpen={() => setSheetOpen(true)} />
       }
       refresher={<SyncRefresher />}
       footer={
@@ -267,6 +259,20 @@ export function CatalogPage() {
           {filterError ? <InlineError className="px-5 pb-2">{filterError}</InlineError> : null}
           {error ? <InlineError className="px-5 pb-2">{error}</InlineError> : null}
           {bulk.error ? <InlineError className="px-5 pb-2">{bulk.error}</InlineError> : null}
+          {counts.all > 0 ? (
+            <ListHeader
+              count={countLabel}
+              sort={
+                active || visible.length === 0 ? undefined : (
+                  <SortMenuButton
+                    options={CATALOG_SORT_OPTIONS}
+                    choice={sort}
+                    onChange={setCatalogSort}
+                  />
+                )
+              }
+            />
+          ) : null}
           {visible.length === 0 ? (
             <EmptyState
               icon={Music}
@@ -331,9 +337,6 @@ export function CatalogPage() {
               <HiddenMatchNote outcome={outcome} onOpen={openTune} />
             </>
           )}
-          {counts.all > 0 ? (
-            <p className="type-footnote py-4 text-center tabular-nums">{countLabel}</p>
-          ) : null}
           <p className="sr-only" aria-live="polite">
             {announced.text}
           </p>

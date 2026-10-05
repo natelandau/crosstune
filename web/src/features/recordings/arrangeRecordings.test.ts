@@ -4,8 +4,10 @@ import {
   type FiledArrangement,
   type RecordingSort,
   DEFAULT_SORT,
+  arrangedCount,
   arrangeRecordings,
   nextSort,
+  recordingCountLabel,
 } from './arrangeRecordings'
 import type { RecordingPrecision } from '../../api/vocabulary'
 import type { RecordingView } from './useRecordings'
@@ -313,5 +315,26 @@ describe('nextSort', () => {
     expect(nextSort(choice('title', true), 'tune')).toEqual(choice('tune', false))
     expect(nextSort(choice('title', false), 'recorded')).toEqual(choice('recorded', true))
     expect(nextSort(choice('recorded', false), 'added')).toEqual(choice('added', true))
+  })
+})
+
+describe('the list header count', () => {
+  const views = [
+    view('u1', { minutes: 1 }),
+    view('f1', { tuneId: 't', tuneTitle: 'T', minutes: 2 }),
+    view('f2', { tuneId: 's', tuneTitle: 'S', minutes: 3 }),
+  ]
+
+  it('counts both lists whether the filed one is flat or grouped by tune', () => {
+    expect(arrangedCount(arrangeRecordings(views, DEFAULT_SORT, ''))).toBe(3)
+    expect(arrangedCount(arrangeRecordings(views, choice('tune', false), ''))).toBe(3)
+    expect(arrangedCount(arrangeRecordings(views, DEFAULT_SORT, 'zzz'))).toBe(0)
+  })
+
+  it('names the whole, or the part of it shown', () => {
+    expect(recordingCountLabel(24, 24)).toBe('24 recordings')
+    expect(recordingCountLabel(1, 1)).toBe('1 recording')
+    expect(recordingCountLabel(3, 24)).toBe('3 of 24 recordings')
+    expect(recordingCountLabel(0, 24)).toBe('0 of 24 recordings')
   })
 })

@@ -7,6 +7,7 @@ import { EmptyState } from '../../ui/EmptyState'
 import { FiltersButton } from '../../ui/FiltersButton'
 import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
+import { ListHeader } from '../../ui/ListHeader'
 import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
 import { SortMenuButton } from '../../ui/SortMenu'
@@ -16,7 +17,7 @@ import { NOTHING_MATCHES } from '../catalog/CatalogPage'
 import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
 import { addAudioFiles } from './addAudioFiles'
 import { AddToTuneSheet } from './AddToTuneSheet'
-import { arrangeRecordings } from './arrangeRecordings'
+import { arrangedCount, arrangeRecordings, recordingCountLabel } from './arrangeRecordings'
 import { RecordingItem } from './RecordingItem'
 import { RecordingsFilters } from './RecordingsFilters'
 import { RecordingsFilterSheet } from './RecordingsFilterSheet'
@@ -92,6 +93,7 @@ export function RecordingsPage() {
   const arrangement = useMemo(() => arrangeRecordings(shown, sort, query), [shown, sort, query])
   const { unfiled, filed } = arrangement
   const filedEmpty = filed.kind === 'flat' ? filed.views.length === 0 : filed.groups.length === 0
+  const listed = arrangedCount(arrangement)
 
   const item = (view: RecordingView, extra: { headingLevel?: 4; onOpenTune?: () => void }) => (
     <RecordingItem
@@ -127,19 +129,12 @@ export function RecordingsPage() {
         />
       }
       searchEnd={
-        <>
-          <SortMenuButton
-            options={RECORDING_SORT_OPTIONS}
-            choice={sort}
-            onChange={setRecordingsSort}
-          />
-          <FiltersButton
-            setCount={filterSet ? 1 : 0}
-            disabled={filtersDisabled}
-            disabledReason={filtersReason}
-            onOpen={() => setFiltersOpen(true)}
-          />
-        </>
+        <FiltersButton
+          setCount={filterSet ? 1 : 0}
+          disabled={filtersDisabled}
+          disabledReason={filtersReason}
+          onOpen={() => setFiltersOpen(true)}
+        />
       }
       refresher={<SyncRefresher />}
       onDropFiles={addDropped}
@@ -149,9 +144,24 @@ export function RecordingsPage() {
       <Storage />
       {ready ? (
         <>
+          {loadedViews.length > 0 ? (
+            <ListHeader
+              inset
+              count={recordingCountLabel(listed, loadedViews.length)}
+              sort={
+                listed === 0 ? undefined : (
+                  <SortMenuButton
+                    options={RECORDING_SORT_OPTIONS}
+                    choice={sort}
+                    onChange={setRecordingsSort}
+                  />
+                )
+              }
+            />
+          ) : null}
           {loadedViews.length === 0 ? (
             <EmptyState icon={AudioLines} title={NO_RECORDINGS_TITLE} hint={NO_RECORDINGS_HINT} />
-          ) : unfiled.length === 0 && filedEmpty ? (
+          ) : listed === 0 ? (
             <EmptyState icon={AudioLines} title={NOTHING_MATCHES} />
           ) : null}
           {/* One container across both lists, so the arrow keys walk the whole screen rather
