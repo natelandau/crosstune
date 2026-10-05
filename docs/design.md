@@ -256,7 +256,7 @@ capsules. Only the catalog shows facet rails on screen.
 - A rail of chips stays on one line at every width and text size. It scrolls,
   fades at its end while there is more, and scrolls the chosen chip into
   view.
-- Under the list a count reads "84 tunes", or "11 of 84 tunes" while
+- The list header's count reads "84 tunes", or "11 of 84 tunes" while
   narrowed, and is absent when the catalog is empty.
 - Matching ignores case and accents.
 - List screens keep their own Show archived setting.
@@ -485,11 +485,15 @@ Recordings and links share one row shape.
 
 ## Sorting
 
-- A sort control is one menu named Sort beside the list it orders: in the
-  search row, just before Filters. It marks the current choice, and choosing
-  it again reverses the order.
-- The current choice shows its direction with an arrow, down for newest
-  first or Z to A, and says it in words to assistive technology.
+- A sorted list opens with a header line that scrolls with it: the count
+  on the leading edge, the sort on the trailing edge. A screen with several
+  lists under one sort carries it once, above the first.
+- The sort shows the current choice and its direction as text and an
+  arrow, "Title" with up for A to Z or oldest first, so the order is never
+  a guess. Its spoken name says both in words: "Sort by Title, A to Z".
+- It opens one menu named Sort that marks the current choice. Choosing that
+  choice again reverses the order.
+- The sort hides while selecting and while nothing is listed.
 - Dates start newest first and names start at A.
 - A sort choice is per device. Sign-out leaves it alone.
 - An item with no name sorts after the named ones.
@@ -573,9 +577,6 @@ equivalent below.
   own row under them.
 - A segmented control is allowed for a short closed choice. Status still
   stays a rail of capsules, because each carries its own dot color.
-- Sort sits with the screen's own actions, since Filters is inside the
-  search field: in the toolbar on iPhone and iPad, in the pane bar on the
-  Mac.
 - On the Mac, View > Sort By carries the sort of the screen that shows, when
   it has one.
 - A long press opens the native context menu. Its Select item, and a
