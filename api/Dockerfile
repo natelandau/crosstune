@@ -7,11 +7,14 @@ COPY src/ ./src/
 COPY alembic.ini ./
 RUN uv sync --locked --no-dev --no-cache
 
-FROM python:3.13-slim-trixie
+# CI borrows this stage's ffmpeg without building the app.
+FROM python:3.13-slim-trixie AS media
 RUN apt-get update && apt-get install -y --no-install-recommends tini ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 1000 --create-home appuser
 WORKDIR /app
+
+FROM media
 COPY --from=builder /app/.venv .venv
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/alembic.ini ./
