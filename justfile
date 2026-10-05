@@ -17,8 +17,15 @@ e2e_api_port := "8001"
 default:
     @just --list
 
-# Run every linter in every module, then spell check the whole repository
-lint: api::lint web::lint site::lint apple::lint typos
+# The prek hooks that only call a module's lint recipe, which `just lint` and CI run directly
+module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format"
+
+# Run every linter in every module, then the hooks no module covers
+lint: api::lint web::lint site::lint apple::lint lint-repo
+
+# Run the prek hooks no module lint covers, such as the spell check, yamllint, and actionlint
+lint-repo:
+    PREK_SKIP=pytest,{{ module_hooks }} uv run --project api prek run --all-files --config .pre-commit-config.yaml
 
 # Spell check the whole repository, or only the given paths
 typos *paths:

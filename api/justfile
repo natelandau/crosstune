@@ -43,17 +43,9 @@ ty:
 typos:
     uv run typos --config ../.typos.toml
 
-# Run every prek hook against all files (CI runs prek as its own step)
-[group('lint')]
-precommit:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "${CI:-}" in 1|true|yes) echo "skipping prek hooks: CI runs them as their own step"; exit 0 ;; esac
-    cd .. && PREK_SKIP=pytest uv run --project api prek run --all-files --config .pre-commit-config.yaml
-
 # Run all linters
 [group('lint')]
-lint: ruff format ty typos contract-check precommit
+lint: ruff format ty typos contract-check
 
 # Run the test suite on its own databases in the compose Postgres; args narrow the run and drop coverage
 [group('test')]
