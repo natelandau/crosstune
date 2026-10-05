@@ -19,16 +19,31 @@ const KEYS = ['D', 'd', ' D', 'G', 'g', 'A', 'Bb', 'bb']
 const MODES = ['major', 'Major', 'MAJOR ', 'dorian', 'Dorian', 'mixolydian', 'Mixólydian']
 const TUNINGS = ['GDAE', 'gdae', ' GDAE', 'AEAE', 'aeae', 'Calico (AEAC#)']
 
+const COMPOSERS = [
+  'Ed Haley',
+  'ed haley',
+  ' Ed Haley ',
+  'Traditional',
+  'traditional',
+  'Tommy Jarrell',
+]
+const LEARNED_FROM = ['Kevin', 'kevin ', 'Bruce', 'Bruce Molsky', ' bruce ']
+
 const tunes = Array.from({ length: 40 }, (_, i) =>
   tuneRow(`t${i}`, `Tune ${i}`, {
     genre: GENRES[i % GENRES.length],
+    composer: COMPOSERS[(i * 5) % COMPOSERS.length],
     tune_type: TYPES[(i * 3) % TYPES.length],
     key: KEYS[(i * 5) % KEYS.length],
     modes: [MODES[i % MODES.length]!, MODES[(i * 2 + 1) % MODES.length]!],
     tunings: { violin: { tuning: TUNINGS[(i * 7) % TUNINGS.length] } },
   }),
 )
-const userTunes = tunes.map((tune) => userTuneRow(`u-${tune.id}`, tune.id))
+const userTunes = tunes.map((tune, i) =>
+  userTuneRow(`u-${tune.id}`, tune.id, {
+    learned_from: LEARNED_FROM[(i * 3) % LEARNED_FROM.length],
+  }),
+)
 const entries = catalogEntries(tunes, userTunes)
 const stats = breakdowns(
   tunes.map((tune, i) => ({ tune, userTune: userTunes[i]! })),
@@ -42,6 +57,8 @@ function shown(patch: Partial<CatalogFilters>): number {
 const facetValues: [Facet, { value: string; count: number }][] = [
   ...stats.tune_type.map((value) => ['tune_type', value] as [Facet, typeof value]),
   ...stats.genre.map((value) => ['genre', value] as [Facet, typeof value]),
+  ...stats.composer.map((value) => ['composer', value] as [Facet, typeof value]),
+  ...stats.learned_from.map((value) => ['learned_from', value] as [Facet, typeof value]),
   ...stats.tunings.flatMap(({ instrument, values }) =>
     values.map((value) => [tuningKey(instrument as 'violin'), value] as [Facet, typeof value]),
   ),

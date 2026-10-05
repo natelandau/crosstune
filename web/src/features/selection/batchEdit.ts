@@ -23,6 +23,7 @@ export const EDIT_FIELDS = [
   'tune_type',
   'time_signature',
   'part_structure',
+  'composer',
   'is_crooked',
   'learned_from',
   'learned_on',
@@ -44,13 +45,14 @@ export const EDIT_FIELD_LABELS: Record<EditField, string> = {
   tune_type: DETAIL_LABELS.tune_type,
   time_signature: DETAIL_LABELS.time_signature,
   part_structure: DETAIL_LABELS.part_structure,
+  composer: DETAIL_LABELS.composer,
   is_crooked: DETAIL_LABELS.is_crooked,
   learned_from: DETAIL_LABELS.learned_from,
   learned_on: DETAIL_LABELS.learned_on,
 }
 
-/** A choice field has a vocabulary and is picked from a list; text and date fields are typed. */
-export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolean'> = {
+/** A choice field is picked from a list, a date field is typed. */
+export const FIELD_KINDS: Record<EditField, 'choice' | 'date' | 'boolean'> = {
   status: 'choice',
   key: 'choice',
   mode: 'choice',
@@ -59,8 +61,9 @@ export const FIELD_KINDS: Record<EditField, 'choice' | 'text' | 'date' | 'boolea
   tune_type: 'choice',
   time_signature: 'choice',
   part_structure: 'choice',
+  composer: 'choice',
   is_crooked: 'boolean',
-  learned_from: 'text',
+  learned_from: 'choice',
   learned_on: 'date',
 }
 
@@ -182,6 +185,7 @@ export function toPatch(touched: Touched): BulkPatch {
       case 'genre':
       case 'tune_type':
       case 'part_structure':
+      case 'composer':
         tune[field] = text
         break
     }

@@ -14,6 +14,8 @@ import { recordingFile, recordingRow } from '../../test/rows'
 import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import type { CatalogEntry } from '../catalog/filters'
+import { DETAIL_LABELS } from '../tune/detailFields'
+import { otherLabel } from '../tune/suggestCopy'
 import { ADD_TO_LIST, NEW_LIST_ITEM, NEW_LIST_NAME_LABEL } from '../lists/ListPicker'
 import { useBulkActions, type SelectionContext } from './useBulkActions'
 import { CANCEL } from '../../ui/Confirm'
@@ -195,6 +197,27 @@ describe('useBulkActions', () => {
       expect(await tuningOf(one.tune.id)).toBeNull()
       expect(await tuningOf(two.tune.id)).toBeNull()
     })
+  })
+
+  it('writes a composer typed under Other to only the selected tunes', async () => {
+    const one = await seed({ title: 'Say Old Man' })
+    const two = await seed({ title: 'Lost Indian' })
+    const unselected = await seed({ title: 'Ducks on the Millpond' })
+    show([one, two])
+    await tap('Edit')
+    await openPickerRow(`${DETAIL_LABELS.composer}, Not set`, { exact: true })
+    await page.getByRole('radio', { name: 'Other\u2026', exact: true }).click()
+    await page.getByLabelText(otherLabel(DETAIL_LABELS.composer)).fill('Ed Haley')
+    await save()
+
+    await expect
+      .poll(async () => [
+        (await db.tunes.get(one.tune.id))!.composer,
+        (await db.tunes.get(two.tune.id))!.composer,
+        (await db.tunes.get(unselected.tune.id))!.composer,
+      ])
+      .toEqual(['Ed Haley', 'Ed Haley', null])
+    await sheetsClosed()
   })
 
   it('archives from More and undoes', async () => {

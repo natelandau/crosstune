@@ -10,15 +10,15 @@ import { DETAIL_LABELS } from '../../tune/detailFields'
 import { isMode } from '../../tune/keyMode'
 import { KEY_GRID_CAPTION, keyCellLabel, keyModeCellLabel, MODE_COLUMNS } from '../copy'
 import type { Breakdowns, KeyRow, Value } from '../types'
-import { compareText } from '../breakdowns'
+import { compareText } from '../../../text/spelling'
 import { CountItem } from './CountItem'
 
 type Filter = (patch: Partial<CatalogFilters>) => void
 
 /**
  * One group per attribute the catalog uses, in a fixed order. A value that is a catalog filter
- * opens the catalog filtered by it; time signature and learned from only count. A filter that
- * could not be saved reports under the group whose write failed.
+ * opens the catalog filtered by it; time signature only counts. A filter that could not be
+ * saved reports under the group whose write failed.
  */
 export function BreakdownsBlock({
   breakdowns,
@@ -78,7 +78,20 @@ export function BreakdownsBlock({
         error={errorFor(FACET_LABELS.genre)}
       />
       <Values header={DETAIL_LABELS.time_signature} values={breakdowns.time_signature} />
-      <Values header={DETAIL_LABELS.learned_from} values={breakdowns.learned_from} />
+      <Values
+        header={FACET_LABELS.composer}
+        values={breakdowns.composer}
+        facet="composer"
+        onOpen={(value) => filterFrom(FACET_LABELS.composer)({ composer: value })}
+        error={errorFor(FACET_LABELS.composer)}
+      />
+      <Values
+        header={FACET_LABELS.learned_from}
+        values={breakdowns.learned_from}
+        facet="learned_from"
+        onOpen={(value) => filterFrom(FACET_LABELS.learned_from)({ learned_from: value })}
+        error={errorFor(FACET_LABELS.learned_from)}
+      />
     </>
   )
 }

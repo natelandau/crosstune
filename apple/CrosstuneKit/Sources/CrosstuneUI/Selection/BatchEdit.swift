@@ -4,7 +4,7 @@ import CrosstuneVocabulary
 import Foundation
 
 /// A field the bulk edit sheet sets across many tunes. A field whose value belongs to one tune
-/// alone, such as a title, a composer, or notes, is never here.
+/// alone, such as a title or notes, is never here.
 public enum EditField: Hashable, Sendable {
     case status
     case key
@@ -14,14 +14,14 @@ public enum EditField: Hashable, Sendable {
     case tuneType
     case timeSignature
     case partStructure
+    case composer
     case isCrooked
     case learnedFrom
     case learnedOn
 
-    /// How a field is set: picked from a list, typed, picked as a day, or yes or no.
+    /// How a field is set: picked from a list, picked as a day, or yes or no.
     public enum Kind: Sendable {
         case choice
-        case text
         case date
         case yesNo
     }
@@ -29,7 +29,7 @@ public enum EditField: Hashable, Sendable {
     /// Every field, in the order the sheet reads.
     public static let all: [EditField] =
         [.status, .key, .mode] + Vocabulary.instruments.map(EditField.tuning)
-        + [.genre, .tuneType, .timeSignature, .partStructure, .isCrooked, .learnedFrom, .learnedOn]
+        + [.genre, .tuneType, .timeSignature, .partStructure, .composer, .isCrooked, .learnedFrom, .learnedOn]
 
     /// The field's name, as the tune form calls it.
     public var label: String {
@@ -42,6 +42,7 @@ public enum EditField: Hashable, Sendable {
         case .tuneType: TuneFieldLabels.tuneType
         case .timeSignature: TuneFieldLabels.timeSignature
         case .partStructure: TuneFieldLabels.partStructure
+        case .composer: TuneFieldLabels.composer
         case .isCrooked: TuneFieldLabels.isCrooked
         case .learnedFrom: TuneFieldLabels.learnedFrom
         case .learnedOn: TuneFieldLabels.learnedOn
@@ -51,7 +52,6 @@ public enum EditField: Hashable, Sendable {
     public var kind: Kind {
         switch self {
         case .isCrooked: .yesNo
-        case .learnedFrom: .text
         case .learnedOn: .date
         default: .choice
         }
@@ -110,6 +110,7 @@ public enum BatchEdit {
             guard let signature = tune.timeSignature, Vocabulary.timeSignatures.contains(signature) else { return nil }
             return .text(signature)
         case .partStructure: return tune.partStructure.map(EditValue.text)
+        case .composer: return tune.composer.map(EditValue.text)
         case .isCrooked: return .flag(tune.isCrooked)
         case .learnedFrom: return userTune.learnedFrom.map(EditValue.text)
         case .learnedOn: return userTune.learnedOn.map(EditValue.text)
@@ -191,6 +192,7 @@ public enum BatchEdit {
             case .genre: patch.tune.genre = .value(text)
             case .tuneType: patch.tune.tuneType = .value(text)
             case .partStructure: patch.tune.partStructure = .value(text)
+            case .composer: patch.tune.composer = .value(text)
             case .tuning(let instrument): patch.tunings[instrument] = .value(text)
             }
         }

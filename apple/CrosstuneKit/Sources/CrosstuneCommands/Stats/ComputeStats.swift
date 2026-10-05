@@ -1,4 +1,5 @@
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 
 // A port of web/src/features/stats. Both clients must return the same `Stats` for every case in

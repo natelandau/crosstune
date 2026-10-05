@@ -15,8 +15,12 @@ private func tune(
         composer: composer, genre: genre, tuneType: type, key: key, modes: modes, tunings: tunings)
 }
 
-private func userTune(_ id: String, _ tuneID: String, status: String = "known", archived: Bool = false) -> UserTune {
-    UserTune(id: id, createdAt: noon, tuneID: tuneID, status: status, archivedAt: archived ? noon : nil)
+private func userTune(
+    _ id: String, _ tuneID: String, status: String = "known", archived: Bool = false, learnedFrom: String? = nil
+) -> UserTune {
+    UserTune(
+        id: id, createdAt: noon, tuneID: tuneID, status: status, learnedFrom: learnedFrom,
+        archivedAt: archived ? noon : nil)
 }
 
 private func tunings(_ pairs: [String: String]) -> JSONObject {
@@ -135,7 +139,7 @@ private let blankAndSentinel = CatalogSearch.entries(
             userTunes: [userTune("ua", "a"), userTune("ub", "b")])
         let values = CatalogSearch.facetValues(entries)
         #expect(values[.key] == ["D"])
-        #expect(values[.genre] == ["old-time"])
+        #expect(values[.genre] == ["Old-Time"])
         #expect(CatalogSearch.filter(entries, by: CatalogFilters(facets: [.key: "D"])).count == 2)
     }
 
@@ -195,6 +199,25 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogSearch.choices(["A", "D"], set: "Bb") == ["A", "D", "Bb"])
         #expect(CatalogSearch.choices(["A", "D"], set: "D") == ["A", "D"])
         #expect(CatalogSearch.choices(["A", "D"], set: nil) == ["A", "D"])
+        #expect(CatalogSearch.selected(["A", "D"], set: "Bb") == "Bb")
+        #expect(CatalogSearch.selected(["A", "D"], set: nil) == nil)
+    }
+
+    @Test func offersOneOptionForASetValueTheFoldCallsTheSameAsAFacetValue() {
+        // The stats row for these shows "Bruce Molsky", the spelling most of them hold, and a tap
+        // on it stores that spelling, though the tune that sorts first holds another.
+        let entries = CatalogSearch.entries(
+            tunes: [tune("m1", "A Tune"), tune("m2", "B Tune"), tune("m3", "C Tune")],
+            userTunes: [
+                userTune("mu1", "m1", learnedFrom: "bruce molsky"), userTune("mu2", "m2", learnedFrom: "Bruce Molsky"),
+                userTune("mu3", "m3", learnedFrom: "Bruce Molsky"),
+            ])
+        let values = CatalogSearch.facetValues(entries)[.learnedFrom] ?? []
+        #expect(values == ["Bruce Molsky"])
+        #expect(CatalogSearch.choices(values, set: "Bruce Molsky") == ["Bruce Molsky"])
+        #expect(CatalogSearch.selected(values, set: "Bruce Molsky") == "Bruce Molsky")
+        #expect(CatalogSearch.choices(values, set: " bruce MOLSKY") == ["Bruce Molsky"])
+        #expect(CatalogSearch.selected(values, set: " bruce MOLSKY") == "Bruce Molsky")
     }
 
     @Test func showsEachSetFilterAsARemovableCapsule() {
@@ -208,6 +231,14 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(removed == CatalogFilters(status: "known", facets: [.key: "D", .genre: "Irish"], archived: true))
         set[2].remove(&removed)
         #expect(!removed.archived)
+    }
+
+    @Test func namesTheFieldOnAComposerOrLearnedFromCapsuleSoOnePersonStaysApart() {
+        let filters = CatalogFilters(facets: [.composer: "Ed Haley", .learnedFrom: "Ed Haley"])
+        #expect(
+            CatalogFilterBar.setFilters(filters).map(\.label) == [
+                "\(TuneFieldLabels.composer): Ed Haley", "\(TuneFieldLabels.learnedFrom): Ed Haley",
+            ])
     }
 
     @Test func findsTunesWithNoKey() {
@@ -241,6 +272,78 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogFacet.tuning("tenor_banjo").label == "Tenor banjo tuning")
         #expect(CatalogFilterSheet.archivedFooter(1) == "1 archived tune")
         #expect(CatalogFilterSheet.archivedFooter(3) == "3 archived tunes")
+    }
+}
+
+@Suite struct ComposerAndLearnedFromTests {
+    private let entries = CatalogSearch.entries(
+        tunes: [
+            tune("c1", "Sally Ann", composer: "Ed Haley"), tune("c2", "Lucy Farr", composer: "ed haley"),
+            tune("c3", "Plain Title"), tune("c4", "Blank", composer: "  "),
+        ],
+        userTunes: [
+            userTune("cu1", "c1", learnedFrom: "Bruce Molsky"), userTune("cu2", "c2", learnedFrom: " bruce molsky "),
+            userTune("cu3", "c3", archived: true, learnedFrom: "   "), userTune("cu4", "c4"),
+        ])
+
+    private func shown(_ filters: CatalogFilters, query: String = "") -> [String] {
+        ids(CatalogSearch.filter(entries, by: filters, query: query))
+    }
+
+    @Test func filtersByTheUsersLearnedFromIgnoringCaseAndPadding() {
+        #expect(shown(CatalogFilters(facets: [.learnedFrom: "bruce molsky"])) == ["c2", "c1"])
+    }
+
+    @Test func filtersByTheTunesComposer() {
+        #expect(shown(CatalogFilters(facets: [.composer: "ED HALEY"])) == ["c2", "c1"])
+    }
+
+    @Test func offersOneValuePerSpellingAndNoneForBlanksArchivedIncluded() {
+        let values = CatalogSearch.facetValues(entries)
+        #expect(values[.learnedFrom]?.count == 1)
+        #expect(values[.composer]?.count == 1)
+        let archived = CatalogSearch.entries(
+            tunes: [tune("a1", "A")], userTunes: [userTune("au1", "a1", archived: true, learnedFrom: "Kevin")])
+        #expect(CatalogSearch.facetValues(archived)[.learnedFrom] == ["Kevin"])
+    }
+
+    @Test func neverOffersAllAsALearnedFrom() {
+        #expect(!CatalogSearch.isFilterValue("All", for: .learnedFrom))
+        let all = CatalogSearch.entries(tunes: [tune("x", "X")], userTunes: [userTune("xu", "x", learnedFrom: "All")])
+        #expect(CatalogSearch.facetValues(all)[.learnedFrom] == [])
+    }
+
+    @Test func offersBothFacetsAfterGenreAndKeepsThemOffTheScreen() {
+        #expect(CatalogFacet.all.suffix(3) == [.genre, .composer, .learnedFrom])
+        let values = CatalogSearch.facetValues(entries)
+        #expect(CatalogSearch.visibleFacets(values, instruments: []) == [.composer, .learnedFrom])
+        #expect(!CatalogFacet.onScreen.contains(.composer) && !CatalogFacet.onScreen.contains(.learnedFrom))
+        #expect(CatalogFacet.composer.label == TuneFieldLabels.composer)
+        #expect(CatalogFacet.learnedFrom.label == TuneFieldLabels.learnedFrom)
+    }
+
+    @Test func storesBothUnderTheWebsKeysAndReadsAbsentOnesAsAny() {
+        let filters = CatalogFilters(facets: [.composer: "Ed Haley", .learnedFrom: "Bruce Molsky"])
+        guard case .object(let object) = filters.stored else {
+            Issue.record("not an object")
+            return
+        }
+        #expect(object["composer"] == .string("Ed Haley") && object["learned_from"] == .string("Bruce Molsky"))
+        #expect(CatalogFilters(stored: filters.stored) == filters)
+        let old = CatalogFilters(stored: .object(["status": .string("known"), "genre": .string("Irish")]))
+        #expect(old[.composer] == nil && old[.learnedFrom] == nil)
+    }
+
+    @Test func searchesTheLearnedFrom() {
+        let kevin = CatalogSearch.entries(
+            tunes: [tune("k", "Plain Title")], userTunes: [userTune("ku", "k", learnedFrom: "Kevin Wimmer")])
+        #expect(ids(CatalogSearch.filter(kevin, by: .default, query: "kev")) == ["k"])
+    }
+
+    @Test func missingLearnedFromReadsTheUsersRow() {
+        let held = CatalogSearch.entries(tunes: [tune("m", "M")], userTunes: [userTune("mu", "m", learnedFrom: "Sam")])
+        #expect(!MissingAttribute.learnedFrom.isMissing(in: held[0]))
+        #expect(MissingAttribute.learnedFrom.isMissing(in: catalog[0]))
     }
 }
 
@@ -391,6 +494,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(filters.stored)) as? [String: Any]
         let expected: [String: Any] = [
             "status": "learning", "key": "all", "tune_type": "Reel", "mode": "all", "genre": "all",
+            "composer": "all", "learned_from": "all",
             "tuning:violin": "ADAE", "tuning:five_string_banjo": "all", "tuning:tenor_banjo": "all",
             "tuning:guitar": "all", "tuning:mandolin": "all", "tuning:bouzouki": "all",
             "tuning:mountain_dulcimer": "all", "archived": false, "unheard": false, "missing": "all",

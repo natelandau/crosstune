@@ -4,11 +4,13 @@ import { page } from 'vitest/browser'
 import { withInstrumentLabel } from '../settings/instruments'
 import { UNKNOWN_KEY } from '../tune/KeyChooser'
 import { openTestDb } from '../../test/db'
+import { openPickerRow } from '../../test/dialogs'
 import { renderIonic } from '../../test/ionic'
 import { CatalogFilterSheet, SHOW_ARCHIVED } from './CatalogFilterSheet'
 import { ALL_KEYS_LABEL, ALL_TYPES_LABEL, CatalogFilters } from './CatalogFilters'
 import { MISSING_LABEL, SHOW_UNHEARD, UNHEARD_PILL } from './filterLabels'
 import {
+  catalogEntries,
   DEFAULT_FILTERS,
   FACET_LABELS,
   facetValues,
@@ -18,7 +20,9 @@ import {
   type Facet,
   type FacetValues,
   type MissingAttribute,
+  visibleFacets,
 } from './filters'
+import { tuneRow, userTuneRow } from '../../test/rows'
 import { FILTERS, removeFilterLabel } from '../../ui/filterCopy'
 
 const facets: FacetValues = {
@@ -38,6 +42,7 @@ function Host({
   keys,
   visible: visibleProp = visible,
   missing = ['key', 'composer'],
+  facetValues: sheetValues = facets,
 }: {
   start?: Filters
   sheet?: boolean
@@ -45,6 +50,7 @@ function Host({
   keys?: string[]
   visible?: Facet[]
   missing?: MissingAttribute[]
+  facetValues?: FacetValues
 }) {
   const [filters, setFilters] = useState(start)
   const [open, setOpen] = useState(sheet)
@@ -62,7 +68,7 @@ function Host({
       <CatalogFilterSheet
         open={open}
         filters={filters}
-        facets={facets}
+        facets={sheetValues}
         visible={visibleProp}
         missing={missing}
         counts={counts}
@@ -263,6 +269,29 @@ describe('CatalogFilters', () => {
     expect(state()['tuning:violin']).toBe(standard)
   })
 
+  it('names the field on a set composer or learned from pill so one person stays apart', async () => {
+    renderIonic(
+      <Host
+        start={{ ...DEFAULT_FILTERS, composer: 'Ed Haley', learned_from: 'Ed Haley' }}
+        visible={[...visible, 'composer', 'learned_from']}
+      />,
+      { db: openTestDb() },
+    )
+    const learned = page.getByRole('button', {
+      name: removeFilterLabel(`${FACET_LABELS.learned_from}: Ed Haley`),
+    })
+    await expect
+      .element(
+        page.getByRole('button', {
+          name: removeFilterLabel(`${FACET_LABELS.composer}: Ed Haley`),
+        }),
+      )
+      .toBeVisible()
+    await learned.click()
+    await expect.poll(() => state().learned_from).toBe('all')
+    expect(state().composer).toBe('Ed Haley')
+  })
+
   it('offers tunes with no key as a question mark after All keys', async () => {
     renderIonic(<Host keys={[NO_KEY, 'A', 'D']} />, { db: openTestDb() })
     const unknown = page.getByRole('button', { name: UNKNOWN_KEY, exact: true })
@@ -350,6 +379,60 @@ describe('CatalogFilterSheet', () => {
     await expect
       .poll(() => document.querySelector('ion-modal p.type-footnote span'))
       .toHaveClass('tabular-nums')
+  })
+
+  it('offers a Learned from select and sets the filter from it', async () => {
+    const learned: FacetValues = { ...facets, learned_from: ['Kevin'] }
+    renderIonic(<Host sheet visible={[...visible, 'learned_from']} facetValues={learned} />, {
+      db: openTestDb(),
+    })
+    await openPickerRow(FACET_LABELS.learned_from, { exact: false })
+    await page.getByRole('radio', { name: 'Kevin', exact: true }).click()
+    await expect.poll(() => state().learned_from).toBe('Kevin')
+  })
+
+  it('has no Learned from select when no tune holds one', async () => {
+    const entries = catalogEntries(
+      [tuneRow('t1', 'Sally Ann', { genre: 'Old-time' })],
+      [userTuneRow('u1', 't1')],
+    )
+    const values = facetValues(entries)
+    renderIonic(
+      <Host sheet visible={visibleFacets(values, new Set(['violin']))} facetValues={values} />,
+      { db: openTestDb() },
+    )
+    await expect
+      .element(
+        page
+          .getByRole('listitem')
+          .filter({ has: page.getByLabelText(FACET_LABELS.genre, { exact: false }) }),
+      )
+      .toBeVisible()
+    await expect
+      .element(page.getByLabelText(FACET_LABELS.learned_from, { exact: false }))
+      .not.toBeInTheDocument()
+  })
+
+  it('selects the one option a set value spelled another way stands for', async () => {
+    const learned: FacetValues = { ...facets, learned_from: ['Bruce Molsky'] }
+    renderIonic(
+      <Host
+        sheet
+        start={{ ...DEFAULT_FILTERS, learned_from: 'bruce molsky' }}
+        visible={[...visible, 'learned_from']}
+        facetValues={learned}
+      />,
+      { db: openTestDb() },
+    )
+    const row = page
+      .getByRole('listitem')
+      .filter({ has: page.getByLabelText(`${FACET_LABELS.learned_from}, Bruce Molsky`) })
+    await expect.element(row).toBeVisible()
+    await expect
+      .poll(() =>
+        Array.from(row.element().querySelectorAll('ion-select-option'), (o) => o.textContent),
+      )
+      .toEqual(['Any', 'Bruce Molsky'])
   })
 
   it('shows a stale sheet-facet value that is no longer in the facet list', async () => {

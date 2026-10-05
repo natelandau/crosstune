@@ -22,8 +22,10 @@ import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Sheet } from '../../ui/Sheet'
 import type { CatalogEntry } from '../catalog/filters'
+import { useCatalog } from '../catalog/useCatalog'
 import { byTuningKey, tuningLabel } from '../settings/instruments'
 import { SuggestSelect } from '../tune/SuggestSelect'
+import { catalogComposers, catalogLearnedFrom } from '../tune/tuneTypes'
 import {
   EDIT_FIELD_LABELS,
   FIELD_KINDS,
@@ -40,7 +42,9 @@ import {
 import { countTunes } from './copy'
 import { CANCEL } from '../../ui/Confirm'
 
-const PICKS: Partial<Record<EditField, { options: readonly string[]; other: boolean }>> = {
+type Pick = { options: readonly string[]; other: boolean }
+
+const PICKS: Partial<Record<EditField, Pick>> = {
   key: { options: QUICK_KEYS, other: true },
   mode: { options: MODES, other: false },
   ...byTuningKey((instrument) => ({ options: TUNINGS[instrument], other: true })),
@@ -101,6 +105,7 @@ function EditRow({
   summary,
   touched,
   showLabel,
+  picks,
   onChange,
 }: {
   field: EditField
@@ -108,6 +113,8 @@ function EditRow({
   touched: TouchedValue | undefined
   /** False when a group header above already names the field. */
   showLabel: boolean
+  /** The pick lists, with the ones that depend on the catalog filled in. */
+  picks: Partial<Record<EditField, Pick>>
   /** Undefined leaves the row untouched, so nothing is written for this field. */
   onChange: (value: TouchedValue | undefined) => void
 }) {
@@ -159,21 +166,7 @@ function EditRow({
     )
   }
 
-  if (kind === 'text') {
-    return (
-      <FieldRow label={label} detail={detail}>
-        <IonInput
-          aria-label={label}
-          placeholder={placeholder}
-          maxlength={LIMITS[field]}
-          value={text}
-          onIonInput={(event) => onChange(String(event.detail.value ?? ''))}
-        />
-      </FieldRow>
-    )
-  }
-
-  const pick = PICKS[field]!
+  const pick = picks[field]!
   return (
     <SuggestSelect
       label={label}
@@ -249,6 +242,16 @@ export function BulkEditSheet({
     if (open) presentedFor.current = session
   }, [open, session])
 
+  const catalog = useCatalog(open)
+  const picks = useMemo<Partial<Record<EditField, Pick>>>(() => {
+    const known = catalog ?? []
+    return {
+      ...PICKS,
+      composer: { options: catalogComposers(known), other: true },
+      learned_from: { options: catalogLearnedFrom(known), other: true },
+    }
+  }, [catalog])
+
   const summaries = useMemo(() => summarize(entries), [entries])
   const fields = useMemo(() => visibleEditFields(entries, instruments), [entries, instruments])
 
@@ -285,6 +288,7 @@ export function BulkEditSheet({
       summary={summaries[field]}
       touched={touched[field]}
       showLabel={showLabel}
+      picks={picks}
       onChange={(value) => touch(field, value)}
     />
   )

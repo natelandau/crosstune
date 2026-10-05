@@ -210,13 +210,9 @@ private struct TuneFormContent: View {
             NavigationLink(TuneFieldLabels.lyrics) {
                 LyricsEditor(lyrics: $model.values.lyrics)
             }
-            LabeledContent(TuneFieldLabels.learnedFrom) {
-                TextField(
-                    TuneFieldLabels.learnedFrom, text: $model.values.learnedFrom, prompt: Text(TuneFieldLabels.notSet)
-                )
-                .multilineTextAlignment(.trailing)
-                .characterLimit(Vocabulary.Limits.Tune.learnedFrom, text: $model.values.learnedFrom)
-            }
+            SuggestionPicker(
+                TuneFieldLabels.learnedFrom, value: $model.values.learnedFrom, options: model.learnedFromOptions,
+                allowsOther: true, maxLength: Vocabulary.Limits.Tune.learnedFrom)
             LearnedOnRow(day: $model.values.learnedOn)
         } header: {
             Text(TuneFieldLabels.details)

@@ -47,7 +47,8 @@ public struct StatsView: Equatable, Sendable {
             tunes: tunes.map {
                 StatsInput.Tune(
                     id: $0.id, title: $0.title, key: $0.key, modes: $0.modes, tuneType: $0.tuneType, genre: $0.genre,
-                    timeSignature: $0.timeSignature, tunings: .object($0.tunings), deletedAt: $0.deletedAt?.iso)
+                    timeSignature: $0.timeSignature, composer: $0.composer, tunings: .object($0.tunings),
+                    deletedAt: $0.deletedAt?.iso)
             },
             userTunes: userTunes.map {
                 StatsInput.UserTune(

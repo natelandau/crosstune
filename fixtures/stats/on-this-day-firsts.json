@@ -463,7 +463,7 @@
       {"kind": "first_recording", "id": "r1", "years": 1},
       {"kind": "tune_added", "id": "t2", "years": 2}
     ],
-    "breakdowns": {"key": [], "tune_type": [], "genre": [], "time_signature": [], "learned_from": [], "tunings": []},
+    "breakdowns": {"key": [], "tune_type": [], "genre": [], "time_signature": [], "composer": [], "learned_from": [], "tunings": []},
     "rarities": []
   }
 }

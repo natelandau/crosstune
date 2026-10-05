@@ -62,11 +62,12 @@ public struct StatsInput: Codable, Sendable {
         public var tuneType: String?
         public var genre: String?
         public var timeSignature: String?
+        public var composer: String?
         public var tunings: JSONValue?
         public var deletedAt: String?
 
         enum CodingKeys: String, CodingKey {
-            case id, title, key, modes, genre, tunings
+            case id, title, key, modes, genre, composer, tunings
             case tuneType = "tune_type"
             case timeSignature = "time_signature"
             case deletedAt = "deleted_at"
@@ -74,7 +75,7 @@ public struct StatsInput: Codable, Sendable {
 
         public init(
             id: String, title: String, key: String?, modes: [String], tuneType: String?, genre: String?,
-            timeSignature: String?, tunings: JSONValue?, deletedAt: String?
+            timeSignature: String?, composer: String?, tunings: JSONValue?, deletedAt: String?
         ) {
             self.id = id
             self.title = title
@@ -83,6 +84,7 @@ public struct StatsInput: Codable, Sendable {
             self.tuneType = tuneType
             self.genre = genre
             self.timeSignature = timeSignature
+            self.composer = composer
             self.tunings = tunings
             self.deletedAt = deletedAt
         }
@@ -514,24 +516,26 @@ public struct Stats: Codable, Equatable, Sendable {
         public var tuneType: [Value]
         public var genre: [Value]
         public var timeSignature: [Value]
+        public var composer: [Value]
         public var learnedFrom: [Value]
         public var tunings: [TuningRow]
 
         enum CodingKeys: String, CodingKey {
-            case key, genre, tunings
+            case key, genre, composer, tunings
             case tuneType = "tune_type"
             case timeSignature = "time_signature"
             case learnedFrom = "learned_from"
         }
 
         public init(
-            key: [KeyRow], tuneType: [Value], genre: [Value], timeSignature: [Value], learnedFrom: [Value],
-            tunings: [TuningRow]
+            key: [KeyRow], tuneType: [Value], genre: [Value], timeSignature: [Value], composer: [Value],
+            learnedFrom: [Value], tunings: [TuningRow]
         ) {
             self.key = key
             self.tuneType = tuneType
             self.genre = genre
             self.timeSignature = timeSignature
+            self.composer = composer
             self.learnedFrom = learnedFrom
             self.tunings = tunings
         }

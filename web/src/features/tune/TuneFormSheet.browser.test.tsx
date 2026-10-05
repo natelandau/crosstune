@@ -26,6 +26,7 @@ import {
   type TuneFormTarget,
 } from './TuneFormSheet'
 import { OTHER_OPTION } from './SuggestSelect'
+import { otherLabel } from './suggestCopy'
 import { TRADITIONAL } from './tuneTypes'
 import { CANCEL } from '../../ui/Confirm'
 
@@ -554,7 +555,7 @@ describe('TuneFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
     await openPickerRow('Genre, Not set')
     await page.getByRole('radio', { name: OTHER_OPTION }).click()
-    await page.getByLabelText('Other genre').fill('Sacred Harp')
+    await page.getByLabelText(otherLabel(DETAIL_LABELS.genre)).fill('Sacred Harp')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect((await db.tunes.toArray())[0]?.genre).toBe('Sacred Harp'))
   })
@@ -566,7 +567,7 @@ describe('TuneFormSheet', () => {
     await page.getByRole('radio', { name: 'Irish' }).click()
     await openPickerRow('Genre, Irish')
     await page.getByRole('radio', { name: OTHER_OPTION }).click()
-    await expect.element(page.getByLabelText('Other genre')).toHaveValue('')
+    await expect.element(page.getByLabelText(otherLabel(DETAIL_LABELS.genre))).toHaveValue('')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
     await vi.waitFor(async () => expect(await db.tunes.count()).toBe(1))
     expect((await db.tunes.toArray())[0]?.genre).toBeNull()
@@ -577,8 +578,8 @@ describe('TuneFormSheet', () => {
     renderIonic(<Host initial={{ kind: 'new', title: 'Odd' }} />, { db })
     await openPickerRow('Genre, Not set')
     await page.getByRole('radio', { name: OTHER_OPTION }).click()
-    await page.getByLabelText('Other genre').fill('Blues')
-    await expect.element(page.getByLabelText('Other genre')).toHaveValue('Blues')
+    await page.getByLabelText(otherLabel(DETAIL_LABELS.genre)).fill('Blues')
+    await expect.element(page.getByLabelText(otherLabel(DETAIL_LABELS.genre))).toHaveValue('Blues')
   })
 
   it('edits an existing tune and saves only on Save', async () => {
@@ -848,5 +849,30 @@ describe('TuneFormSheet', () => {
     await sheetDismissed()
     const created = (await db.tunes.toArray()).find((t) => t.title === 'The Kesh')
     expect(created?.composer).toBe(TRADITIONAL)
+  })
+
+  it('saves a suggested learned from', async () => {
+    const db = openTestDb()
+    await createTune(db, { title: 'Lucy Farr' }, { status: 'known', learned_from: 'Bruce' })
+    renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
+    await openPickerRow(`${DETAIL_LABELS.learned_from}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: 'Bruce' }).click()
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await sheetDismissed()
+    const created = (await db.tunes.toArray()).find((t) => t.title === 'The Kesh')
+    const row = (await db.user_tunes.toArray()).find((u) => u.tune_id === created?.id)
+    expect(row?.learned_from).toBe('Bruce')
+  })
+
+  it('saves a learned from typed through Other, trimmed', async () => {
+    const db = openTestDb()
+    renderIonic(<Host initial={{ kind: 'new', title: 'The Kesh' }} />, { db })
+    await openPickerRow(`${DETAIL_LABELS.learned_from}, ${NOT_SET}`)
+    await page.getByRole('radio', { name: OTHER_OPTION }).click()
+    await page.getByLabelText(otherLabel(DETAIL_LABELS.learned_from)).fill('  Kevin  ')
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await sheetDismissed()
+    const [row] = await db.user_tunes.toArray()
+    expect(row?.learned_from).toBe('Kevin')
   })
 })

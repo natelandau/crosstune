@@ -1,6 +1,7 @@
 import { STATUSES, type Instrument, type TuneStatus } from '../../api/vocabulary'
 import type { LocalTune, LocalUserTune } from '../../db/types'
 import { containsText, foldText, sameText } from '../../text/fold'
+import { groupByFold } from '../../text/spelling'
 import { countTunes } from '../selection/copy'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import {
@@ -14,7 +15,15 @@ import {
 } from '../settings/instruments'
 
 /** One tuning facet per instrument, so each instrument's tunings filter on their own. */
-export const FACETS = ['key', 'tune_type', 'mode', ...TUNING_KEYS, 'genre'] as const
+export const FACETS = [
+  'key',
+  'tune_type',
+  'mode',
+  ...TUNING_KEYS,
+  'genre',
+  'composer',
+  'learned_from',
+] as const
 export type Facet = (typeof FACETS)[number]
 
 export const FACET_LABELS: Record<Facet, string> = {
@@ -23,16 +32,19 @@ export const FACET_LABELS: Record<Facet, string> = {
   mode: 'Mode',
   ...byTuningKey(tuningLabel),
   genre: 'Genre',
+  composer: DETAIL_LABELS.composer,
+  learned_from: DETAIL_LABELS.learned_from,
 }
 
 /**
- * Every value a tune holds for a facet: one mode per part, one instrument's tuning from the
- * map, or a column's one value.
+ * Every value an entry holds for a facet: one mode per part, one instrument's tuning from the
+ * map, the user's own learned from, or a tune column's one value.
  */
 export function facetValuesOf(
-  tune: LocalTune,
+  { tune, userTune }: CatalogEntry,
   facet: Facet,
 ): readonly (string | null | undefined)[] {
+  if (facet === 'learned_from') return [userTune.learned_from]
   if (facet === 'mode') return tune.modes
   if (!isTuningKey(facet)) return [tune[facet]]
   const instrument = tuningKeyInstrument(facet)
@@ -84,6 +96,8 @@ export const DEFAULT_FILTERS: CatalogFilters = {
   mode: 'all',
   ...byTuningKey(() => 'all'),
   genre: 'all',
+  composer: 'all',
+  learned_from: 'all',
   archived: false,
   unheard: false,
   missing: 'all',
@@ -131,6 +145,8 @@ export function normalizeFilters(value: unknown): CatalogFilters {
     mode: text('mode'),
     ...byTuningKey((instrument) => text(tuningKey(instrument))),
     genre: text('genre'),
+    composer: text('composer'),
+    learned_from: text('learned_from'),
     archived: stored.archived === true,
     unheard: stored.unheard === true,
     missing: isMissingAttribute(stored.missing) ? stored.missing : 'all',
@@ -182,13 +198,13 @@ export function isFilterValue(facet: Facet, value: string): boolean {
 }
 
 function attributeValues(
-  { tune, userTune }: CatalogEntry,
+  entry: CatalogEntry,
   attribute: MissingAttribute,
 ): readonly (string | null | undefined)[] {
-  if (attribute === 'learned_from' || attribute === 'learned_on') return [userTune[attribute]]
-  if (attribute === 'time_signature' || attribute === 'composer' || attribute === 'part_structure')
-    return [tune[attribute]]
-  return facetValuesOf(tune, attribute)
+  if (attribute === 'learned_on') return [entry.userTune.learned_on]
+  if (attribute === 'time_signature' || attribute === 'part_structure')
+    return [entry.tune[attribute]]
+  return facetValuesOf(entry, attribute)
 }
 
 function facetMatches(filter: string, value: string | null | undefined): boolean {
@@ -208,7 +224,7 @@ export function filterCatalog(
     if (filters.missing !== 'all' && !isMissing(attributeValues(entry, filters.missing)))
       return false
     for (const facet of FACETS) {
-      const values = facetValuesOf(tune, facet)
+      const values = facetValuesOf(entry, facet)
       if (facet === 'key' && filters.key === NO_KEY) {
         if (!isMissing(values)) return false
       } else if (
@@ -218,20 +234,25 @@ export function filterCatalog(
         return false
     }
     if (!needle) return true
-    const haystack = [tune.title, ...tune.alternate_titles, tune.composer ?? '']
+    const haystack = [
+      tune.title,
+      ...tune.alternate_titles,
+      tune.composer ?? '',
+      userTune.learned_from ?? '',
+    ]
     return haystack.some((t) => containsText(t, needle))
   })
 }
 
-// Dedupe the way facetMatches compares, so one option stands for every spelling it matches.
+// Group the way facetMatches compares, so one option stands for every spelling it matches, shown
+// the way the stats breakdowns show it, so a tapped stats row names an option the sheet offers.
 function distinct(facet: Facet, values: (string | null | undefined)[]): string[] {
-  const first = new Map<string, string>()
-  for (const value of values) {
-    if (value == null || !isFilterValue(facet, value)) continue
-    const key = foldText(value)
-    if (!first.has(key)) first.set(key, value)
-  }
-  return [...first.values()].sort(collator.compare)
+  return groupByFold(
+    values.filter((value) => value != null && isFilterValue(facet, value)),
+    (value) => value,
+  )
+    .map(({ shown }) => shown)
+    .sort(collator.compare)
 }
 
 export type FacetValues = Record<Facet, string[]>
@@ -246,13 +267,28 @@ export function facetValues(entries: CatalogEntry[]): FacetValues {
       facet,
       distinct(
         facet,
-        entries.flatMap((e) => facetValuesOf(e.tune, facet)),
+        entries.flatMap((e) => facetValuesOf(e, facet)),
       ),
     ]),
   ) as FacetValues
   if (values.key.length > 0 && entries.some((e) => !isHeld(e.tune.key)))
     values.key = [NO_KEY, ...values.key]
   return values
+}
+
+/**
+ * A facet's options and the one its set value selects. A set value the fold calls the same as an
+ * option selects that option; one that matches none keeps an option of its own, so a stale filter
+ * never reads as Any. No key keeps its place at the front.
+ */
+export function facetChoices(
+  values: readonly string[],
+  set: string,
+): { choices: readonly string[]; selected: string } {
+  if (set === 'all') return { choices: values, selected: set }
+  const match = values.find((value) => sameText(value, set))
+  if (match !== undefined) return { choices: values, selected: match }
+  return { choices: set === NO_KEY ? [set, ...values] : [...values, set], selected: set }
 }
 
 /** Facets worth offering: those with values, minus tunings for instruments the user does not play. */

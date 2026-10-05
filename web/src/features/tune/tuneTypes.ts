@@ -103,6 +103,11 @@ export function catalogComposers(entries: readonly CatalogEntry[]): string[] {
   return [TRADITIONAL, ...without(named, [TRADITIONAL]).sort(collator.compare)]
 }
 
+/** Learned from suggestions: every name the catalog holds, alphabetically. */
+export function catalogLearnedFrom(entries: readonly CatalogEntry[]): string[] {
+  return [...tally(live(entries).map((e) => e.userTune.learned_from)).keys()].sort(collator.compare)
+}
+
 /** The one time signature a type is written in, or null when it has none or several. */
 export function timeSignatureFor(type: string): TimeSignature | null {
   return lookup(TYPE_TIME_SIGNATURES, type.trim()) ?? null

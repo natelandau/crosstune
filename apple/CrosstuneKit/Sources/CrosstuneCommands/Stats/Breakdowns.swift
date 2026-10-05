@@ -12,36 +12,9 @@ struct StatsEntry {
 
 // MARK: - Text
 
-// The web compares strings by UTF-16 code unit. Swift's String equality, hashing, case mapping, and
-// whitespace set all differ from JavaScript's, so text that groups, sorts, or trims goes through
-// these helpers to group and order exactly as the web does.
-
-/// UTF-16 code unit order, as JavaScript's `<` compares strings, never a locale collator.
-func precedes(_ a: String, _ b: String) -> Bool {
-    a.utf16.lexicographicallyPrecedes(b.utf16)
-}
-
 /// -1, 0, or 1, for chaining tie-breaks the way the web module's comparators do.
 func compareText(_ a: String, _ b: String) -> Int {
     precedes(a, b) ? -1 : precedes(b, a) ? 1 : 0
-}
-
-/// A string keyed by its UTF-16 code units, as a JavaScript `Map` keys it, so canonically
-/// equivalent spellings such as NFC and NFD stay apart.
-struct TextKey: Hashable {
-    let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
-    static func == (a: TextKey, b: TextKey) -> Bool {
-        a.text.utf16.elementsEqual(b.text.utf16)
-    }
-
-    func hash(into hasher: inout Hasher) {
-        for unit in text.utf16 { hasher.combine(unit) }
-    }
 }
 
 /// A value JavaScript reads as truthy: present and not empty.
@@ -58,30 +31,6 @@ func present(_ value: String?) -> String? {
 /// Count descending, then value in code point order.
 private func byCountThenValue(_ a: Stats.Value, _ b: Stats.Value) -> Bool {
     a.count != b.count ? a.count > b.count : precedes(a.value, b.value)
-}
-
-/// The trimmed spelling, or nil for a value the fold calls blank.
-private func heldSpelling(_ value: String?) -> String? {
-    guard let spelling = present(value.map(trimmedText)), !foldText(spelling).isEmpty else { return nil }
-    return spelling
-}
-
-/// Items grouped the way the catalog filter matches their trimmed spelling, so tapping a group's
-/// shown spelling opens exactly its members. A blank spelling joins no group. `shown` is the
-/// spelling most members hold, ties to the first in code point order.
-private func groupByFold<T>(_ items: [T], spelling: (T) -> String?) -> [(shown: String, members: [T])] {
-    var groups: [TextKey: (spellings: [TextKey: Int], members: [T])] = [:]
-    for item in items {
-        guard let trimmed = heldSpelling(spelling(item)) else { continue }
-        let key = TextKey(foldText(trimmed))
-        groups[key, default: ([:], [])].spellings[TextKey(trimmed), default: 0] += 1
-        groups[key]!.members.append(item)
-    }
-    return groups.values.map { group in
-        let shown = group.spellings.map { Stats.Value(value: $0.key.text, count: $0.value) }
-            .sorted(by: byCountThenValue)[0]
-        return (shown.value, group.members)
-    }
 }
 
 private func tally(_ values: [String?]) -> [Stats.Value] {
@@ -130,6 +79,7 @@ func breakdowns(_ entries: [StatsEntry], instruments: [String]) -> Stats.Breakdo
         tuneType: tally(tunes.map(\.tuneType)),
         genre: tally(tunes.map(\.genre)),
         timeSignature: tally(tunes.map(\.timeSignature)),
+        composer: tally(tunes.map(\.composer)),
         learnedFrom: tally(entries.map(\.userTune.learnedFrom)),
         tunings: instruments.map { instrument in
             Stats.TuningRow(instrument: instrument, values: tally(tunes.map { tuning(of: $0, instrument: instrument) }))

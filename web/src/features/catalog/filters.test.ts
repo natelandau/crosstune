@@ -7,6 +7,7 @@ import {
   DEFAULT_FILTERS,
   FACET_LABELS,
   FACETS,
+  facetChoices,
   facetValues,
   filterCatalog,
   hiddenResets,
@@ -148,8 +149,43 @@ describe('facetValues', () => {
     )
     const facets = facetValues(entries)
     expect(facets.key).toEqual(['D'])
-    expect(facets.genre).toEqual(['old-time'])
+    expect(facets.genre).toEqual(['Old-Time'])
     expect(filterCatalog(entries, { ...DEFAULT_FILTERS, key: 'D' })).toHaveLength(2)
+  })
+})
+
+describe('facetChoices', () => {
+  // The stats row for these shows "Bruce Molsky", the spelling most of them hold, and a tap on
+  // it stores that spelling, though the tune that sorts first holds another.
+  const entries = catalogEntries(
+    [tune('m1', 'A Tune'), tune('m2', 'B Tune'), tune('m3', 'C Tune')],
+    [
+      userTune('mu1', 'm1', { learned_from: 'bruce molsky' }),
+      userTune('mu2', 'm2', { learned_from: 'Bruce Molsky' }),
+      userTune('mu3', 'm3', { learned_from: 'Bruce Molsky' }),
+    ],
+  )
+
+  it('offers one option for a set value the fold calls the same as a facet value', () => {
+    const values = facetValues(entries).learned_from
+    expect(values).toEqual(['Bruce Molsky'])
+    expect(facetChoices(values, 'Bruce Molsky')).toEqual({
+      choices: ['Bruce Molsky'],
+      selected: 'Bruce Molsky',
+    })
+    expect(facetChoices(values, ' bruce MOLSKY')).toEqual({
+      choices: ['Bruce Molsky'],
+      selected: 'Bruce Molsky',
+    })
+  })
+
+  it('keeps a set value no facet value matches as its own option', () => {
+    expect(facetChoices(['A', 'D'], 'Bb')).toEqual({ choices: ['A', 'D', 'Bb'], selected: 'Bb' })
+    expect(facetChoices(['A', 'D'], 'all')).toEqual({ choices: ['A', 'D'], selected: 'all' })
+    expect(facetChoices(['A', 'D'], NO_KEY)).toEqual({
+      choices: [NO_KEY, 'A', 'D'],
+      selected: NO_KEY,
+    })
   })
 })
 
@@ -272,6 +308,8 @@ describe('visibleFacets', () => {
       'tuning:mandolin': 'all',
       'tuning:bouzouki': 'all',
       'tuning:mountain_dulcimer': 'all',
+      composer: 'all',
+      learned_from: 'all',
     })
     expect(hiddenResets([...FACETS])).toEqual({})
   })
@@ -460,5 +498,85 @@ describe('stored filters without the new keys', () => {
       unheard: false,
       missing: 'all',
     })
+  })
+})
+
+describe('composer and learned from facets', () => {
+  const entries = catalogEntries(
+    [
+      tune('c1', 'Sally Ann', { composer: 'Ed Haley' }),
+      tune('c2', 'Lucy Farr'),
+      tune('c3', 'Jenny Lind'),
+    ],
+    [
+      userTune('cu1', 'c1', { learned_from: 'Bruce Molsky' }),
+      userTune('cu2', 'c2', { learned_from: ' bruce molsky ' }),
+      userTune('cu3', 'c3', { learned_from: '   ', archived_at: 't' }),
+    ],
+  )
+  const ids = (found: { tune: { id: string } }[]) => found.map((e) => e.tune.id)
+
+  it('filters by the user’s learned from, ignoring case and padding', () => {
+    expect(
+      ids(filterCatalog(entries, { ...DEFAULT_FILTERS, learned_from: 'bruce molsky' })),
+    ).toEqual(['c2', 'c1'])
+  })
+
+  it('filters by the tune’s composer', () => {
+    expect(ids(filterCatalog(entries, { ...DEFAULT_FILTERS, composer: 'ed haley' }))).toEqual([
+      'c1',
+    ])
+  })
+
+  it('offers one learned from per spelling, none for blanks, archived entries included', () => {
+    const archived = catalogEntries(
+      [tune('a1', 'A')],
+      [userTune('au1', 'a1', { learned_from: 'Kevin', archived_at: 't' })],
+    )
+    expect(facetValues(entries).learned_from).toHaveLength(1)
+    expect(facetValues(archived).learned_from).toEqual(['Kevin'])
+    expect(facetValues(entries).composer).toEqual(['Ed Haley'])
+  })
+
+  it('never offers All as a learned from', () => {
+    expect(isFilterValue('learned_from', 'All')).toBe(false)
+    const all = catalogEntries([tune('x', 'X')], [userTune('xu', 'x', { learned_from: 'All' })])
+    expect(facetValues(all).learned_from).toEqual([])
+  })
+
+  it('lists both after genre only when some entry holds one', () => {
+    const instruments = new Set<Instrument>(['violin'])
+    expect(visibleFacets(facetValues(entries), instruments)).toEqual(['composer', 'learned_from'])
+    const bare = catalogEntries([tune('b', 'B', { genre: 'Old-time' })], [userTune('bu', 'b')])
+    expect(visibleFacets(facetValues(bare), instruments)).toEqual(['genre'])
+  })
+
+  it('reads a stored filter from before these facets as Any', () => {
+    const filters = normalizeFilters({ key: 'D' })
+    expect(filters.composer).toBe('all')
+    expect(filters.learned_from).toBe('all')
+  })
+
+  it('keeps both off the bar', () => {
+    expect(sheetFacets(['key', 'composer', 'learned_from'])).toEqual(['composer', 'learned_from'])
+  })
+
+  it('searches the learned from', () => {
+    const kevin = catalogEntries(
+      [tune('k', 'Plain Title')],
+      [userTune('ku', 'k', { learned_from: 'Kevin Wimmer' })],
+    )
+    expect(ids(filterCatalog(kevin, DEFAULT_FILTERS, 'kev'))).toEqual(['k'])
+  })
+
+  it('still treats learned from and composer as Missing attributes', () => {
+    expect(missingChoices(entries)).toContain('learned_from')
+    expect(missingChoices(entries)).toContain('composer')
+    expect(
+      ids(filterCatalog(entries, { ...DEFAULT_FILTERS, archived: true, missing: 'learned_from' })),
+    ).toEqual(['c3'])
+    expect(
+      ids(filterCatalog(entries, { ...DEFAULT_FILTERS, archived: true, missing: 'composer' })),
+    ).toEqual(['c3', 'c2'])
   })
 })

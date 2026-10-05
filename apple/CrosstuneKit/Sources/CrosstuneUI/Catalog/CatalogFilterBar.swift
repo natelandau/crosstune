@@ -123,7 +123,7 @@ struct CatalogFilterBar: View {
     private func facetRail(
         _ facet: CatalogFacet, all: String, @ViewBuilder chip: @escaping (String, Bool) -> some View
     ) -> some View {
-        let set = filters[facet]
+        let set = results.selected(facet)
         return Rail(chosen: set ?? Self.allID, inset: Self.inset) {
             ChoiceCapsule(chosen: set == nil) {
                 onChange { $0[facet] = nil }

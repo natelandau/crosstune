@@ -1,4 +1,5 @@
 import CrosstuneStore
+import CrosstuneVocabulary
 import Foundation
 
 /// A calendar day with no zone. Arithmetic runs on days since 1970-01-01, so a day is always one

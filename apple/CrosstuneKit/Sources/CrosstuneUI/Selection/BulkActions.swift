@@ -165,6 +165,27 @@ public final class BulkActions {
         }
     }
 
+    /// What the edit sheet suggests for the open vocabularies, read from the whole catalog: live
+    /// user tunes joined to live tunes, as the tune form reads it. Empty lists when the store
+    /// cannot be read, so the sheet still works with its fixed choices.
+    public func suggestions() async -> (composers: [String], learnedFrom: [String]) {
+        do {
+            let (tunes, userTunes) = try await store.read { db in
+                (
+                    try Tune.filter(Tune.CodingKeys.deletedAt == nil).fetchAll(db),
+                    try UserTune.filter(UserTune.CodingKeys.deletedAt == nil).fetchAll(db)
+                )
+            }
+            let catalog = CatalogSearch.entries(tunes: tunes, userTunes: userTunes)
+            return (
+                TuneSuggestions.composers(catalog.map(\.tune)), TuneSuggestions.learnedFrom(catalog.map(\.userTune))
+            )
+        } catch {
+            Self.logger.warning("Could not read the edit sheet's suggestions: \(error)")
+            return ([], [])
+        }
+    }
+
     /// Clears a failed save's reason as the edit sheet opens.
     public func clearEditFailure() {
         editFailure = nil
