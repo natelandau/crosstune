@@ -27,21 +27,9 @@ import Testing
         for scheme in [ColorScheme.light, .dark] {
             for status in [SyncStatus.offline, .unauthorized, .error] {
                 let swatch = SyncBadge.swatch(status, scheme: scheme)
-                #expect(contrast(swatch.ink, swatch.background) >= 4.5, "\(status) \(scheme)")
+                #expect(contrastRatio(swatch.ink, swatch.background) >= 4.5, "\(status) \(scheme)")
             }
         }
-    }
-
-    /// WCAG 2 contrast ratio between two sRGB colors.
-    private func contrast(_ first: KeyColor.RGB, _ second: KeyColor.RGB) -> Double {
-        func luminance(_ color: KeyColor.RGB) -> Double {
-            func linear(_ channel: Double) -> Double {
-                channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
-            }
-            return 0.2126 * linear(color.red) + 0.7152 * linear(color.green) + 0.0722 * linear(color.blue)
-        }
-        let (a, b) = (luminance(first), luminance(second))
-        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
     }
 
     @Test func labelsAreTheWebs() {
@@ -154,7 +142,151 @@ import Testing
         #expect(SidebarItem.settings.destination == .settings)
         #expect(SidebarItem.list(id: "a").destination == nil)
     }
+
+    @Test func statusRowMapping() {
+        #expect(SidebarItem.catalogRow(status: nil) == .catalog)
+        #expect(SidebarItem.catalogRow(status: "learning") == .status("learning"))
+        #expect(SidebarItem.status("known").destination == .catalog)
+        #expect(SidebarItem.catalog.statusFilter == .some(nil))
+        #expect(SidebarItem.status("known").statusFilter == .some("known"))
+        #expect(SidebarItem.recordings.statusFilter == nil)
+        #expect(SidebarItem.list(id: "a").statusFilter == nil)
+        #expect(SidebarItem.status("known").kept(among: []) == .status("known"))
+    }
 }
+
+#if os(macOS)
+    @MainActor
+    @Suite struct SidebarSyncTests {
+        private let root = TemporaryRoot()
+
+        private func eventually(_ condition: @MainActor () -> Bool) async throws {
+            #expect(try await poll { condition() })
+        }
+
+        private func storedFilters(_ store: CrosstuneStore) async throws -> CatalogFilters {
+            CatalogFilters(stored: try await store.meta(.catalogFilters, as: JSONValue.self))
+        }
+
+        /// A catalog on the sample store, loaded, with `filters` stored first.
+        private func loadedCatalog(_ filters: CatalogFilters? = nil) async throws -> (CrosstuneStore, CatalogModel) {
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            if let filters { try await store.setMeta(.catalogFilters, to: filters.stored) }
+            let catalog = CatalogModel(store: store)
+            try await eventually { catalog.results != nil && catalog.status == filters?.status }
+            return (store, catalog)
+        }
+
+        @Test func pickingAStatusRowSetsTheStatusAndKeepsTheOtherFilters() async throws {
+            let (store, catalog) = try await loadedCatalog(CatalogFilters(facets: [.key: "D"]))
+            catalog.query = "reel"
+            let place = ShellPlace()
+
+            pickSidebarRow(.status("known"), place: place, catalog: catalog)
+            #expect(place.sidebar == .status("known"))
+            #expect(catalog.status == "known")
+            try await eventually { !catalog.isSavingFilters }
+            #expect(try await storedFilters(store) == CatalogFilters(status: "known", facets: [.key: "D"]))
+            #expect(catalog.query == "reel")
+
+            pickSidebarRow(.catalog, place: place, catalog: catalog)
+            #expect(place.sidebar == .catalog)
+            try await eventually { !catalog.isSavingFilters }
+            #expect(try await storedFilters(store) == CatalogFilters(facets: [.key: "D"]))
+        }
+
+        @Test func pickingAnotherRowLeavesTheStatusAlone() async throws {
+            let (store, catalog) = try await loadedCatalog(CatalogFilters(status: "learning"))
+            let place = ShellPlace()
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .status("learning"))
+
+            pickSidebarRow(.recordings, place: place, catalog: catalog)
+            #expect(place.sidebar == .recordings)
+            #expect(catalog.status == "learning")
+            #expect(!catalog.isSavingFilters)
+            #expect(try await storedFilters(store).status == "learning")
+        }
+
+        @Test func returningToCatalogKeepsStoredStatus() async throws {
+            let (store, catalog) = try await loadedCatalog(CatalogFilters(status: "learning"))
+            let place = ShellPlace()
+            place.sidebar = .recordings
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .recordings)
+
+            place.showRoot(.catalog, inTabs: false)
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .status("learning"))
+            #expect(!catalog.isSavingFilters)
+            #expect(try await storedFilters(store).status == "learning")
+        }
+
+        @Test func statsLinkClearsStatusRow() async throws {
+            let (_, catalog) = try await loadedCatalog()
+            let place = ShellPlace()
+            pickSidebarRow(.status("known"), place: place, catalog: catalog)
+            #expect(place.sidebar == .status("known"))
+
+            catalog.replaceFilters(with: CatalogFilters(facets: [.key: "D"]))
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .catalog)
+        }
+
+        @Test func aStatusSetElsewhereSelectsItsRow() async throws {
+            let (store, catalog) = try await loadedCatalog()
+            let place = ShellPlace()
+            try await store.setMeta(.catalogFilters, to: CatalogFilters(status: "want_to_learn").stored)
+            try await eventually { catalog.status == "want_to_learn" }
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .status("want_to_learn"))
+        }
+
+        @Test func failedWriteFollowsFiltersInForce() async throws {
+            let (store, catalog) = try await loadedCatalog(CatalogFilters(status: "learning"))
+            try await store.write { writer in
+                for event in ["INSERT", "UPDATE"] {
+                    try writer.db.execute(
+                        sql: """
+                            CREATE TRIGGER refuse_filters_\(event.lowercased()) BEFORE \(event) ON meta
+                            WHEN NEW.key = 'catalog_filters' BEGIN SELECT RAISE(ABORT, 'refused'); END
+                            """)
+                }
+            }
+            let place = ShellPlace()
+
+            pickSidebarRow(.status("known"), place: place, catalog: catalog)
+            try await eventually { catalog.filterError != nil }
+            #expect(catalog.status == "learning")
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .status("learning"))
+        }
+
+        @Test func aCatalogWhoseFiltersAreUnreadLeavesTheCatalogRowAndWritesNothing() async throws {
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            try await store.setMeta(.catalogFilters, to: CatalogFilters(status: "learning").stored)
+            let catalog = CatalogModel(store: store)
+            #expect(catalog.status == nil)
+            let place = ShellPlace()
+
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .catalog)
+            #expect(!catalog.isSavingFilters)
+
+            try await eventually { catalog.status == "learning" }
+            #expect(try await storedFilters(store) == CatalogFilters(status: "learning"))
+            syncSidebar(place: place, catalog: catalog)
+            #expect(place.sidebar == .status("learning"))
+        }
+
+        @Test func aCatalogStillLoadingLeavesTheCatalogRow() {
+            let place = ShellPlace()
+            place.sidebar = .status("known")
+            syncSidebar(place: place, catalog: nil)
+            #expect(place.sidebar == .catalog)
+        }
+    }
+#endif
 
 @MainActor
 @Suite struct ShellCoverTests {

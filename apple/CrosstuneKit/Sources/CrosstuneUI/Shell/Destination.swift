@@ -37,6 +37,9 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
 /// destination, so each list is a row.
 public enum SidebarItem: Hashable, Sendable {
     case catalog
+    /// Only on the Mac: the catalog with this status filter set, as the Catalog row is the
+    /// catalog with none.
+    case status(String)
     case recordings
     case list(id: String)
     /// Only on iPad: the Mac keeps settings in its Settings window.
@@ -44,10 +47,25 @@ public enum SidebarItem: Hashable, Sendable {
 
     public static let newList = "New list…"
 
+    /// The catalog row that shows the catalog filtered by `status`, or every status for nil.
+    public static func catalogRow(status: String?) -> SidebarItem {
+        status.map(SidebarItem.status) ?? .catalog
+    }
+
+    /// The status filter this row sets: nil for a row that does not show the catalog, `.some(nil)`
+    /// for the Catalog row, which shows every status.
+    public var statusFilter: String?? {
+        switch self {
+        case .catalog: .some(nil)
+        case .status(let status): .some(status)
+        case .recordings, .list, .settings: nil
+        }
+    }
+
     /// The destination this row opens, or nil for a list, which opens that list's own screen.
     public var destination: Destination? {
         switch self {
-        case .catalog: .catalog
+        case .catalog, .status: .catalog
         case .recordings: .recordings
         case .settings: .settings
         case .list: nil

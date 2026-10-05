@@ -203,6 +203,10 @@ public final class CatalogModel {
     /// Whether a filter change is still being written.
     public var isSavingFilters: Bool { writesInFlight > 0 }
 
+    /// The status filter in force, nil for every status or before the filters are read. Cheaper
+    /// to watch than ``results``, which filters and sorts the catalog on each read.
+    public var status: String? { filters?.status }
+
     /// Nil until the catalog, the filters, and the instruments have all been read.
     public var results: CatalogResults? {
         guard let overview, let filters else { return nil }
