@@ -32,8 +32,19 @@ environment_exists() {
     printf '%s\n' "::error::could not list Railway environments, so the state of $PR_NAME is unknown; rerun this workflow"
     exit 1
   fi
+  local status=0
   jq -e --arg n "$PR_NAME" '[.. | objects | select(.name? == $n)] | length > 0' \
-    <<<"$environments" >/dev/null
+    <<<"$environments" >/dev/null || status=$?
+  # jq -e exits 1 only for a false result; any other failure means the listing was unreadable.
+  case "$status" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *)
+      printf '%s\n' "::error::could not read the Railway environment list, so the state of $PR_NAME is unknown; rerun this workflow"
+      printf '%s\n' "$environments"
+      exit 1
+      ;;
+  esac
 }
 
 # Railway's built-in PR environments copy the base environment's variables and would
