@@ -54,10 +54,12 @@ private struct FailingEventsAPI: SyncAPI {
 
 private func addTune(
     _ writer: StoreWriter, _ id: String, _ title: String, key: String? = nil, modes: [String] = [],
-    genre: String? = nil, created: Timestamp = noon
+    genre: String? = nil, composer: String? = nil, learnedFrom: String? = nil, created: Timestamp = noon
 ) throws {
-    try writer.put(Tune(id: id, createdAt: created, title: title, genre: genre, key: key, modes: modes))
-    try writer.put(UserTune(id: "u-\(id)", createdAt: created, tuneID: id, status: "known"))
+    try writer.put(
+        Tune(id: id, createdAt: created, title: title, composer: composer, genre: genre, key: key, modes: modes))
+    try writer.put(
+        UserTune(id: "u-\(id)", createdAt: created, tuneID: id, status: "known", learnedFrom: learnedFrom))
 }
 
 @MainActor
@@ -146,6 +148,21 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
             ])
         #expect(!headers.contains(CatalogFacet.tuneType.label))
         #expect(!headers.contains(CatalogFacet.genre.label))
+    }
+
+    @Test func composerAndLearnedFromRowsCarryTheirFacets() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write {
+            try addTune($0, "t1", "Sally Ann", composer: "Ed Haley", learnedFrom: "Kevin")
+        }
+        let model = try await loaded(store)
+        let blocks = StatsBlock.blocks(try #require(model.view).stats)
+        let facets = blocks.compactMap { block -> (String, CatalogFacet?)? in
+            if case .values(let header, _, let facet) = block { (header, facet) } else { nil }
+        }
+        #expect(facets.map(\.0) == [CatalogFacet.composer.label, CatalogFacet.learnedFrom.label])
+        #expect(facets.map(\.1) == [.composer, .learnedFrom])
     }
 
     @Test func statsRenderOfflineFromLocalRows() async throws {

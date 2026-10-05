@@ -1,5 +1,6 @@
 import { MODES } from '../../api/vocabulary'
 import { foldText, sameText } from '../../text/fold'
+import { compareText, groupByFold, heldSpelling } from '../../text/spelling'
 import { tuningsMap } from '../settings/instruments'
 import type {
   Breakdowns,
@@ -19,59 +20,12 @@ export interface Entry {
 const MAX_RARITIES = 3
 const MIN_DISTINCT_FOR_RARITY = 3
 
-/** Code point order, never a locale collator, so the Swift module orders the same. */
-export function compareText(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0
-}
-
-function present(value: string | null | undefined): value is string {
-  return value !== null && value !== undefined && value !== ''
-}
-
 function byCount(a: { count: number }, b: { count: number }): number {
   return b.count - a.count
 }
 
 function byCountThenValue(a: Value, b: Value): number {
   return byCount(a, b) || compareText(a.value, b.value)
-}
-
-/** The trimmed spelling, or null for a value the fold calls blank. */
-function heldSpelling(value: string | null | undefined): string | null {
-  const spelling = value?.trim()
-  return present(spelling) && foldText(spelling) !== '' ? spelling : null
-}
-
-interface Group<T> {
-  /** The spelling most members hold, ties to the first in code point order. */
-  shown: string
-  members: T[]
-}
-
-/**
- * Items grouped the way the catalog filter matches their trimmed spelling, so tapping a group's
- * shown spelling opens exactly its members. A blank spelling joins no group.
- */
-function groupByFold<T>(
-  items: readonly T[],
-  spellingOf: (item: T) => string | null | undefined,
-): Group<T>[] {
-  const groups = new Map<string, { spellings: Map<string, number>; members: T[] }>()
-  for (const item of items) {
-    const spelling = heldSpelling(spellingOf(item))
-    if (spelling === null) continue
-    const key = foldText(spelling)
-    const group = groups.get(key) ?? { spellings: new Map<string, number>(), members: [] }
-    groups.set(key, group)
-    group.spellings.set(spelling, (group.spellings.get(spelling) ?? 0) + 1)
-    group.members.push(item)
-  }
-  return [...groups.values()].map(({ spellings, members }) => {
-    const [shown] = [...spellings]
-      .map(([value, count]) => ({ value, count }))
-      .sort(byCountThenValue)
-    return { shown: shown!.value, members }
-  })
 }
 
 function tally(values: readonly (string | null | undefined)[]): Value[] {
@@ -134,6 +88,7 @@ export function breakdowns(entries: readonly Entry[], instruments: readonly stri
     tune_type: tally(tunes.map((tune) => tune.tune_type)),
     genre: tally(tunes.map((tune) => tune.genre)),
     time_signature: tally(tunes.map((tune) => tune.time_signature)),
+    composer: tally(tunes.map((tune) => tune.composer)),
     learned_from: tally(entries.map((entry) => entry.userTune.learned_from)),
     tunings: instruments
       .map((instrument) => ({

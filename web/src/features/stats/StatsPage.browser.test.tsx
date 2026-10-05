@@ -7,7 +7,13 @@ import { renderScreen } from '../../test/ionic'
 import { fakeEngine } from '../../test/providers'
 import { recordingRow, scanRow, scanViewRow, tuneRow, userTuneRow } from '../../test/rows'
 import type { SyncEngine } from '../../sync/types'
-import { DEFAULT_FILTERS, FACET_LABELS, META_CATALOG_FILTERS } from '../catalog/filters'
+import {
+  catalogEntries,
+  DEFAULT_FILTERS,
+  FACET_LABELS,
+  filterCatalog,
+  META_CATALOG_FILTERS,
+} from '../catalog/filters'
 import { readSearchQuery, writeSearchQuery } from '../catalog/searchSession'
 import { DETAIL_LABELS } from '../tune/detailFields'
 import {
@@ -131,16 +137,46 @@ describe('StatsPage', () => {
     ).toHaveLength(0)
   })
 
-  it('time signature and learned from only count', async () => {
-    await db.tunes.put(tuneRow('t1', 'Sally Ann', { time_signature: '7/8' }))
-    await db.user_tunes.put(userTuneRow('u1', 't1', { learned_from: 'Kevin' }))
+  it('time signature only counts', async () => {
+    await addTune('t1', 'Sally Ann', { time_signature: '7/8' })
+    show()
+    await expect.element(page.getByText('7/8', { exact: true })).toBeVisible()
+    expect(page.getByRole('button', { name: /7\/8/ }).elements()).toHaveLength(0)
+  })
+
+  it('a learned from value opens the catalog filtered by that name', async () => {
+    const tunes = [tuneRow('t1', 'Sally Ann'), tuneRow('t2', 'Angeline the Baker')]
+    const userTunes = [
+      userTuneRow('u1', 't1', { learned_from: 'Kevin' }),
+      userTuneRow('u2', 't2', { learned_from: 'Bruce' }),
+    ]
+    await db.tunes.bulkPut(tunes)
+    await db.user_tunes.bulkPut(userTunes)
     show()
     await expect
-      .element(page.getByRole('heading', { name: DETAIL_LABELS.learned_from, level: 2 }))
+      .element(page.getByRole('heading', { name: FACET_LABELS.learned_from, level: 2 }))
       .toBeVisible()
-    await expect.element(page.getByText('7/8', { exact: true })).toBeVisible()
-    await expect.element(page.getByText('Kevin', { exact: true })).toBeVisible()
-    expect(page.getByRole('button', { name: /7\/8|Kevin/ }).elements()).toHaveLength(0)
+    await page.getByRole('button', { name: /^Kevin/ }).click()
+    await expect.element(page.getByRole('heading', { name: 'Catalog probe' })).toBeVisible()
+    await expect
+      .poll(() => getMeta(db, META_CATALOG_FILTERS, null))
+      .toEqual({ ...DEFAULT_FILTERS, learned_from: 'Kevin' })
+    expect(
+      filterCatalog(catalogEntries(tunes, userTunes), {
+        ...DEFAULT_FILTERS,
+        learned_from: 'Kevin',
+      }).map((entry) => entry.tune.id),
+    ).toEqual(['t1'])
+  })
+
+  it('a composer value opens the catalog filtered by that composer', async () => {
+    await addTune('t1', 'Sally Ann', { composer: 'Ed Haley' })
+    show()
+    await page.getByRole('button', { name: /^Ed Haley/ }).click()
+    await expect.element(page.getByRole('heading', { name: 'Catalog probe' })).toBeVisible()
+    await expect
+      .poll(() => getMeta(db, META_CATALOG_FILTERS, null))
+      .toEqual({ ...DEFAULT_FILTERS, composer: 'Ed Haley' })
   })
 
   it('rarities show at most three', async () => {

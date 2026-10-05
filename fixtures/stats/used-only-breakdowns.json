@@ -8,11 +8,11 @@
       "five_string_banjo"
     ],
     "tunes": [
-      {"id": "t1", "title": "Angeline the Baker", "modes": ["major"], "tunings": {"violin": {"tuning": "GDAE"}, "mandolin": {"tuning": "GDAE"}, "guitar": {"tuning": "DADGAD"}}, "key": "D", "tune_type": "reel", "genre": "old-time", "time_signature": "4/4"},
-      {"id": "t2", "title": "Bonaparte's Retreat", "modes": ["mixolydian", "major"], "tunings": {"violin": {"tuning": "DDAD"}}, "key": "D", "tune_type": "reel", "genre": "old-time"},
-      {"id": "t3", "title": "Cuckoo's Nest", "modes": [], "tunings": {"violin": {"tuning": "GDAE"}}, "key": "D", "tune_type": "hornpipe", "time_signature": "4/4"},
-      {"id": "t4", "title": "Drowsy Maggie", "modes": ["dorian"], "tunings": {"mandolin": {"capo": 2}}, "genre": "irish"},
-      {"id": "t5", "title": "Eighth of January", "modes": ["major"], "tunings": {"violin": {"tuning": "ADAE"}, "five_string_banjo": {"tuning": "gDGBD"}}, "key": "G", "tune_type": "march", "genre": "bluegrass", "time_signature": "2/4"}
+      {"id": "t1", "title": "Angeline the Baker", "modes": ["major"], "tunings": {"violin": {"tuning": "GDAE"}, "mandolin": {"tuning": "GDAE"}, "guitar": {"tuning": "DADGAD"}}, "key": "D", "tune_type": "reel", "genre": "old-time", "time_signature": "4/4", "composer": "Traditional"},
+      {"id": "t2", "title": "Bonaparte's Retreat", "modes": ["mixolydian", "major"], "tunings": {"violin": {"tuning": "DDAD"}}, "key": "D", "tune_type": "reel", "genre": "old-time", "composer": " traditional "},
+      {"id": "t3", "title": "Cuckoo's Nest", "modes": [], "tunings": {"violin": {"tuning": "GDAE"}}, "key": "D", "tune_type": "hornpipe", "time_signature": "4/4", "composer": "Ed Haley"},
+      {"id": "t4", "title": "Drowsy Maggie", "modes": ["dorian"], "tunings": {"mandolin": {"capo": 2}}, "genre": "irish", "composer": "   "},
+      {"id": "t5", "title": "Eighth of January", "modes": ["major"], "tunings": {"violin": {"tuning": "ADAE"}, "five_string_banjo": {"tuning": "gDGBD"}}, "key": "G", "tune_type": "march", "genre": "bluegrass", "time_signature": "2/4", "composer": "John Hartford"}
     ],
     "user_tunes": [
       {"id": "u1", "tune_id": "t1", "status": "known", "created_at": "2026-09-20T16:00:00Z", "learned_from": "Bruce Molsky"},
@@ -448,6 +448,10 @@
       ],
       "time_signature": [
         {"value": "4/4", "count": 2}
+      ],
+      "composer": [
+        {"value": "Traditional", "count": 2},
+        {"value": "Ed Haley", "count": 1}
       ],
       "learned_from": [
         {"value": "Bruce Molsky", "count": 3}

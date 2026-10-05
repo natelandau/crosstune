@@ -10,6 +10,7 @@ export interface StatsTune {
   tune_type?: string | null
   genre?: string | null
   time_signature?: string | null
+  composer?: string | null
   tunings?: unknown
   deleted_at?: string | null
 }
@@ -176,6 +177,7 @@ export interface Breakdowns {
   tune_type: Value[]
   genre: Value[]
   time_signature: Value[]
+  composer: Value[]
   learned_from: Value[]
   tunings: { instrument: string; values: Value[] }[]
 }

@@ -79,7 +79,8 @@ enum StatsBlock: Identifiable {
             + [
                 .values(header: CatalogFacet.genre.label, values: breakdowns.genre, facet: .genre),
                 .values(header: TuneFieldLabels.timeSignature, values: breakdowns.timeSignature, facet: nil),
-                .values(header: TuneFieldLabels.learnedFrom, values: breakdowns.learnedFrom, facet: nil),
+                .values(header: CatalogFacet.composer.label, values: breakdowns.composer, facet: .composer),
+                .values(header: CatalogFacet.learnedFrom.label, values: breakdowns.learnedFrom, facet: .learnedFrom),
             ]
         var blocks: [StatsBlock] = [.counts, .recorded]
         if !stats.months.allTime.isEmpty { blocks.append(.months) }

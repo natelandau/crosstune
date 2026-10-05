@@ -167,9 +167,10 @@ Everywhere the app lists tunes it uses one row.
 - A tuning field, filter, or badge appears only for an instrument the
   musician plays, except a field that already holds a value, which always
   shows so data never becomes unreachable.
-- Tuning, genre, type, composer, and part structure are open vocabularies
-  picked from suggestions, each with an `Other…` choice that reveals a text
-  field. Mode and time signature are closed lists the API validates.
+- Tuning, genre, type, composer, learned from, and part structure are open
+  vocabularies picked from suggestions, each with an `Other…` choice that
+  reveals a text field. Mode and time signature are closed lists the API
+  validates.
 - Key is closed: a grid of pills, never typed. Both spellings of a black key
   are offered and share one hue. A stored key the grid lacks joins it as its
   own pill.
@@ -246,7 +247,9 @@ capsules. Only the catalog shows facet rails on screen.
 - Every choice in the sheet applies at once. Reset clears the sheet's filters
   only. Done closes it.
 - A set filter shows on the screen as a removable capsule. A tuning capsule
-  names its instrument, since two instruments can share a tuning's name.
+  names its instrument, and a composer or learned-from capsule names its
+  field, because values can collide: two instruments can share a tuning's
+  name, and one person can be both composer and teacher.
 - A Filters control that cannot run stays in place, disabled, with its
   reason to assistive technology. It is silent while the list loads and when
   there is nothing at all to filter.
@@ -271,13 +274,14 @@ points.
 - Blocks run from the whole to the particular: counts, recorded total,
   months, activity, on this day, breakdowns, rarities.
 - A breakdown value that is a catalog filter (key, mode, type, tuning,
-  genre) opens the Catalog tab at its root with that filter set and every
-  other filter and the search cleared, so the catalog shows exactly the
-  tunes counted. A type, tuning, or genre value is a row with a chevron. The
-  key grid's key filters by key alone and each key and mode cell by both. A
-  value that is not a filter, such as time signature, only reads, with no
-  chevron. So does a value the stored filter would read as Any or No key,
-  such as a genre named All.
+  genre, composer, learned from) opens the Catalog tab at its root with that
+  filter set and every other filter and the search cleared, so the catalog
+  shows exactly the tunes counted. A type, tuning, genre, composer, or
+  learned from value is a row with a chevron. The key grid's key filters by
+  key alone and each key and mode cell by both. A value that is not a
+  filter, such as time signature, only reads, with no chevron. So does a
+  value the stored filter would read as Any or No key, such as a genre named
+  All.
 - Charts are styled elements, never SVG. Each mark carries its value as
   text for assistive technology. When a mark is too small to tap, the chart
   is one tab stop that takes taps, hover, and the arrow keys, and shows the

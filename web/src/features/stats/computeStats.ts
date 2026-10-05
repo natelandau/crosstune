@@ -1,4 +1,5 @@
-import { appendTo, breakdowns, compareText, rarities, type Entry } from './breakdowns'
+import { compareText } from '../../text/spelling'
+import { appendTo, breakdowns, rarities, type Entry } from './breakdowns'
 import {
   addDays,
   addMonths,
