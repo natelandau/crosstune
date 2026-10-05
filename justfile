@@ -22,7 +22,7 @@ lint: api::lint web::lint site::lint apple::lint typos
 
 # Spell check the whole repository, or only the given paths
 typos *paths:
-    uv run --project api typos --config .typos.toml {{ paths }}
+    uv run --project api --only-group typos typos --config .typos.toml {{ paths }}
 
 # Check formatting in every module
 format: api::format web::format site::format apple::format

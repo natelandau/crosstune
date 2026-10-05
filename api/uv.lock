@@ -292,6 +292,9 @@ dev = [
     { name = "typos" },
     { name = "yamllint" },
 ]
+typos = [
+    { name = "typos" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -328,6 +331,7 @@ dev = [
     { name = "typos", specifier = ">=1.50.1" },
     { name = "yamllint", specifier = ">=1.38.0" },
 ]
+typos = [{ name = "typos", specifier = ">=1.50.1" }]
 
 [[package]]
 name = "cryptography"
