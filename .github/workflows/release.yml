@@ -146,11 +146,7 @@ jobs:
           retention-days: 1
       - name: fail if Xcode created a development certificate
         if: always()
-        run: |
-          if security find-identity -v -p codesigning | grep -q "Created via API"; then
-            echo "::error::Xcode created a development certificate; revoke it in the developer portal"
-            exit 1
-          fi
+        run: just check-certificates
       - name: delete the key and the keychain
         if: always()
         run: |
@@ -195,11 +191,7 @@ jobs:
       # an export that wanted one anyway.
       - name: fail if Xcode created a development certificate
         if: always()
-        run: |
-          if security find-identity -v -p codesigning | grep -q "Created via API"; then
-            echo "::error::Xcode created a development certificate; revoke it in the developer portal"
-            exit 1
-          fi
+        run: just check-certificates
       - name: delete the key
         if: always()
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"

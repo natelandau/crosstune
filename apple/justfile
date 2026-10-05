@@ -129,6 +129,17 @@ upload:
 [group('release')]
 testflight build_number: (archive build_number) upload
 
+# Fail when Xcode made a development certificate, which a signing run must never leave behind
+[group('release')]
+check-certificates:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if security find-identity -v -p codesigning | grep -q "Created via API"; then
+        msg="Xcode created a development certificate; revoke it in the developer portal"
+        if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::error::$msg"; else echo "$msg" >&2; fi
+        exit 1
+    fi
+
 # Regenerate the Swift client and vocabulary from the committed OpenAPI contract
 [group('contract')]
 contract:
