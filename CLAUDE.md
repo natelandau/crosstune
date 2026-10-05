@@ -42,6 +42,10 @@ every label. The glossary in `docs/product.md` has the reasons.
   `--foreground`, and never use `peekaboo agent`. Maestro: always pass
   `--udid` (from `xcrun simctl list devices booted`), since several
   simulators run at once.
+- `run` opens the app in the background. Capture it with
+  `screencapture -o -l<windowID>`, which works behind other windows. Never
+  bring the app forward or send synthetic mouse or keyboard events: the
+  developer is working on the same Mac.
 - `just dev` runs Postgres, migrations, the API, the web client, and the
   site together. Every checkout and worktree shares one Postgres container,
   but each worktree gets its own database and bucket, copied from main's by
