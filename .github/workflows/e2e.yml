@@ -14,6 +14,7 @@ on:
       - "compose.yml"
       - "justfile"
       - ".github/workflows/e2e.yml"
+      - ".github/actions/setup-node/**"
       - "!api/tests/**"
       - "!web/**/*.test.ts"
       - "!web/**/*.test.tsx"
@@ -74,15 +75,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup-node
         with:
-          package_json_file: web/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: web/.node-version
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-      - uses: extractions/setup-just@v4
+          module: web
+          chromium: "true"
       - run: uv sync --all-groups
         working-directory: api
       # The API transcodes recordings with ffprobe and ffmpeg from PATH.
@@ -106,10 +102,6 @@ jobs:
           done
           cat "$RUNNER_TEMP/api.log"
           exit 1
-      - run: pnpm install --frozen-lockfile
-        working-directory: web
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: web
       # The Clerk secret stays off the install steps, which run third-party code.
       - run: just e2e
         working-directory: web
