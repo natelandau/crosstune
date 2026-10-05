@@ -12,8 +12,8 @@ The tools they have do not fit that:
 
 - Tune lists live on paper, sorted by key, with a separate list of tunes to
   learn.
-- Recordings of jams, sessions, and solo playing land in a general voice
-  memo app, mixed with everything else and hard to find.
+- Recordings of tunes from jams, sessions, and solo playing land in a
+  general voice memo app, mixed with everything else and hard to find.
 - A musician's own recording of a tune and the streaming versions live in
   different apps.
 - Slowing a recording down, shifting its pitch, and looping the hard part
@@ -39,8 +39,9 @@ none of them outranks the others.
 
 - Keep track of tunes. Each tune is known, learning, or want to learn. The
   catalog answers what a musician can play and what to learn next.
-- Record. Capture a large jam, a small session, or one musician playing
-  alone. File the recording under a tune, or leave it unfiled for later.
+- Record. Capture one tune at a time, as it is played at a jam, in a small
+  session, or by one musician alone. File the recording under a tune, or
+  leave it unfiled for later.
 - Learn and practice by ear. Play a recording slower or faster, shift its
   pitch, and loop the hard part. Find and link other versions on streaming
   services.

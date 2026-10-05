@@ -22,8 +22,8 @@ private func filedUnder(_ views: [RecordingView], tune: String = "t", title: Str
 }
 
 private func ids(_ views: [RecordingView]) -> [String] { views.map(\.id) }
-private func choice(_ sort: RecordingSort, _ descending: Bool) -> SortChoice {
-    SortChoice(sort: sort, descending: descending)
+private func choice(_ sort: RecordingSort, _ descending: Bool) -> RecordingSortChoice {
+    RecordingSortChoice(sort: sort, descending: descending)
 }
 
 private func flat(_ filed: FiledRecordings) -> [RecordingView] {
@@ -260,8 +260,9 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
 
 @Suite struct SortChoiceTests {
     @Test func defaultsToDateAddedNewestFirst() {
-        #expect(SortChoice.default == choice(.added, true))
-        #expect(SortChoice.storageKey == "recordingsSort.v2")  // gitleaks:allow -- a defaults key, not a secret
+        #expect(RecordingSortChoice.default == choice(.added, true))
+        let storedUnder = "recordingsSort.v2"  // gitleaks:allow -- a defaults key, not a secret
+        #expect(RecordingSortChoice.storageKey == storedUnder)
     }
 
     @Test func reversesTheCurrentSortWhenPickedAgain() {
@@ -280,55 +281,57 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         for sort in RecordingSort.allCases {
             for descending in [true, false] {
                 let original = choice(sort, descending)
-                #expect(SortChoice(rawValue: original.rawValue) == original)
+                #expect(RecordingSortChoice(rawValue: original.rawValue) == original)
             }
         }
-        #expect(SortChoice.default.rawValue == "added.desc")
-        #expect(SortChoice(rawValue: "bogus") == nil)
-        #expect(SortChoice(rawValue: "title.sideways") == nil)
+        #expect(RecordingSortChoice.default.rawValue == "added.desc")
+        #expect(RecordingSortChoice(rawValue: "bogus") == nil)
+        #expect(RecordingSortChoice(rawValue: "title.sideways") == nil)
     }
 
     @Test func namesEachDirection() {
-        #expect(RecordingsListText.direction(choice(.added, true)) == RecordingsListText.newestFirst)
-        #expect(RecordingsListText.direction(choice(.added, false)) == RecordingsListText.oldestFirst)
-        #expect(RecordingsListText.direction(choice(.recorded, true)) == RecordingsListText.newestFirst)
-        #expect(RecordingsListText.direction(choice(.recorded, false)) == RecordingsListText.oldestFirst)
-        #expect(RecordingsListText.direction(choice(.title, false)) == RecordingsListText.aToZ)
-        #expect(RecordingsListText.direction(choice(.tune, true)) == RecordingsListText.zToA)
-        #expect(RecordingsListText.newestFirst == "Newest first")
-        #expect(RecordingsListText.oldestFirst == "Oldest first")
-        #expect(RecordingsListText.aToZ == "A to Z")
-        #expect(RecordingsListText.zToA == "Z to A")
+        #expect(SortText.direction(choice(.added, true)) == SortText.newestFirst)
+        #expect(SortText.direction(choice(.added, false)) == SortText.oldestFirst)
+        #expect(SortText.direction(choice(.recorded, true)) == SortText.newestFirst)
+        #expect(SortText.direction(choice(.recorded, false)) == SortText.oldestFirst)
+        #expect(SortText.direction(choice(.title, false)) == SortText.aToZ)
+        #expect(SortText.direction(choice(.tune, true)) == SortText.zToA)
+        #expect(SortText.newestFirst == "Newest first")
+        #expect(SortText.oldestFirst == "Oldest first")
+        #expect(SortText.aToZ == "A to Z")
+        #expect(SortText.zToA == "Z to A")
     }
 
     @Test func labelsEachSort() {
         #expect(
-            RecordingSort.allCases.map(RecordingsListText.label) == ["Date added", "Date recorded", "Title", "Tune"])
+            RecordingSort.allCases.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
         #expect(RecordingsListText.openTune("Banks") == "Open Banks")
     }
 }
 
 @Suite struct RecordingSortChoicesTests {
     @Test func showsTheDirectionOnTheCheckedItemOnly() {
-        let items = RecordingSortChoices.items(for: .default)
+        let items = SortChoices<RecordingSort>.items(for: .default)
         #expect(items.map(\.label) == ["Date added", "Date recorded", "Title", "Tune"])
         #expect(items.map(\.isChecked) == [true, false, false, false])
-        #expect(items.map(\.direction) == [RecordingsListText.newestFirst, nil, nil, nil])
+        #expect(items.map(\.direction) == [SortText.newestFirst, nil, nil, nil])
         #expect(items.map(\.directionSymbol) == ["arrow.down", nil, nil, nil])
 
-        let title = RecordingSortChoices.items(for: choice(.title, false))
-        #expect(title.map(\.direction) == [nil, nil, RecordingsListText.aToZ, nil])
+        let title = SortChoices<RecordingSort>.items(for: choice(.title, false))
+        #expect(title.map(\.direction) == [nil, nil, SortText.aToZ, nil])
         #expect(title.map(\.directionSymbol) == [nil, nil, "arrow.up", nil])
-        let oldest = RecordingSortChoices.items(for: choice(.recorded, false))
-        #expect(oldest.map(\.direction) == [nil, RecordingsListText.oldestFirst, nil, nil])
+        let oldest = SortChoices<RecordingSort>.items(for: choice(.recorded, false))
+        #expect(oldest.map(\.direction) == [nil, SortText.oldestFirst, nil, nil])
         #expect(oldest.map(\.directionSymbol) == [nil, "arrow.up", nil, nil])
     }
 
     @Test func reChoosingTheCheckedItemReversesItsSort() {
         // A menu toggle turns the checked item off when it is chosen again.
-        #expect(RecordingSortChoices.toggled(.added, isOn: false, from: .default) == choice(.added, false))
-        #expect(RecordingSortChoices.toggled(.title, isOn: false, from: choice(.title, false)) == choice(.title, true))
-        #expect(RecordingSortChoices.toggled(.tune, isOn: true, from: .default) == choice(.tune, false))
-        #expect(RecordingSortChoices.toggled(.recorded, isOn: true, from: .default) == choice(.recorded, true))
+        #expect(SortChoices<RecordingSort>.toggled(.added, isOn: false, from: .default) == choice(.added, false))
+        #expect(
+            SortChoices<RecordingSort>.toggled(.title, isOn: false, from: choice(.title, false)) == choice(.title, true)
+        )
+        #expect(SortChoices<RecordingSort>.toggled(.tune, isOn: true, from: .default) == choice(.tune, false))
+        #expect(SortChoices<RecordingSort>.toggled(.recorded, isOn: true, from: .default) == choice(.recorded, true))
     }
 }

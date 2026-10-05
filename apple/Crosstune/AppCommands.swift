@@ -24,6 +24,7 @@ struct AppCommands: Commands {
     @FocusedValue(\.showCatalogAction) private var showCatalog
     @FocusedValue(\.showRecordingsAction) private var showRecordings
     @FocusedValue(\.recordingsSort) private var recordingsSort
+    @FocusedValue(\.catalogSort) private var catalogSort
 
     var body: some Commands {
         // Command-N is New tune, so New Window keeps its place with Option.
@@ -52,9 +53,13 @@ struct AppCommands: Commands {
         }
         CommandGroup(after: .sidebar) {
             Menu(MenuCommand.sortBy) {
-                RecordingSortChoices(choice: recordingsSort ?? .constant(.default))
+                if let catalogSort {
+                    SortChoices(choice: catalogSort)
+                } else {
+                    SortChoices(choice: recordingsSort ?? .constant(.default))
+                }
             }
-            .disabled(recordingsSort == nil)
+            .disabled(recordingsSort == nil && catalogSort == nil)
         }
         // Space and Command-Left and Command-Right are heard by the shell, which leaves them to a
         // focused field, so their items carry no shortcut.

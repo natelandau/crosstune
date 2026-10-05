@@ -89,6 +89,11 @@ public final class CatalogModel {
 
     /// The search text.
     public var query = ""
+    /// The order the tunes show in. Last played starts following the stored play history, which
+    /// the screen asks the events pull to fill.
+    public var sort: CatalogSortChoice {
+        didSet { if sort.sort == .played { followLastPlayed() } }
+    }
     /// The last filter write failure, cleared by the next write that lands.
     public private(set) var filterError: String?
     /// The last row action failure, cleared by the next action.
@@ -98,6 +103,8 @@ public final class CatalogModel {
     private let entries: LiveQuery<[CatalogEntry]?>
     private let storedFilters: LiveQuery<CatalogFilters?>
     private let instruments: LiveQuery<Set<String>?>
+    /// Each tune's latest play, read only once a sort needs it.
+    private var lastPlayed: LiveQuery<[String: Timestamp]?>?
     /// The filters as the screen shows them: a change is applied here at once and written after.
     private var filters: CatalogFilters?
     private var writesInFlight = 0
@@ -110,8 +117,9 @@ public final class CatalogModel {
     @ObservationIgnored private var spokenCount: String?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "catalog")
 
-    public init(store: CrosstuneStore) {
+    public init(store: CrosstuneStore, sort: CatalogSortChoice = .default) {
         self.store = store
+        self.sort = sort
         entries = LiveQuery(store, initial: nil) { try Self.fetchEntries($0, withHeard: true) }
         storedFilters = LiveQuery(store, initial: nil) { db in
             CatalogFilters(stored: try MetaKey.catalogFilters.value(in: db, as: JSONValue.self))
@@ -138,10 +146,18 @@ public final class CatalogModel {
                 }
             },
         ]
+        if sort.sort == .played { followLastPlayed() }
     }
 
     isolated deinit {
         for task in following { task.cancel() }
+    }
+
+    private func followLastPlayed() {
+        guard lastPlayed == nil else { return }
+        lastPlayed = LiveQuery(store, initial: nil) { db in
+            CatalogSearch.lastPlayed(plays: try PlayEvent.fetchAll(db), sessions: try PracticeSession.fetchAll(db))
+        }
     }
 
     /// Every active tune with its user row, sorted by title.
@@ -186,7 +202,9 @@ public final class CatalogModel {
         guard let overview, let filters else { return nil }
         let entries = overview.entries
         let effective = filters.clearingHidden(visible: overview.facets)
-        let visible = CatalogSearch.filter(entries, by: effective, query: query)
+        let visible = CatalogSearch.sorted(
+            CatalogSearch.filter(entries, by: effective, query: query), by: sort,
+            lastPlayed: sort.sort == .played ? lastPlayed?.value ?? [:] : [:])
         return CatalogResults(
             entries: entries, instruments: overview.instruments, filters: effective,
             facetValues: overview.facetValues, facets: overview.facets, visible: visible,

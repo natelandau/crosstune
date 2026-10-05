@@ -24,7 +24,7 @@ public enum MenuCommand {
     /// The menu of player commands, named as in Music.
     public static let controls = "Controls"
     public static let goToRecording = "Go to recording"
-    /// The View menu's choice of how the recordings are sorted.
+    /// The View menu's choice of how the screen on show is sorted.
     public static let sortBy = "Sort By"
     public static let skipBack = RecordingPlayerText.skipBack(AudioPlayer.skipInterval)
     public static let skipForward = RecordingPlayerText.skipForward(AudioPlayer.skipInterval)
@@ -64,5 +64,7 @@ extension FocusedValues {
     /// Shows the recordings. Published by the shell.
     @Entry public var showRecordingsAction: MenuAction?
     /// How the recordings are sorted. Published by the recordings screen while it shows.
-    @Entry public var recordingsSort: Binding<SortChoice>?
+    @Entry public var recordingsSort: Binding<RecordingSortChoice>?
+    /// How the catalog is sorted. Published by the catalog screen while it shows.
+    @Entry public var catalogSort: Binding<CatalogSortChoice>?
 }

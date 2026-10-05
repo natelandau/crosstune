@@ -40,6 +40,7 @@ private struct CatalogContent: View {
     @Environment(\.spacing) private var spacing
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
+    @AppStorage(CatalogSortChoice.storageKey) private var sort = CatalogSortChoice.default
     @State private var pushed: String?
     @State private var form: TuneFormTarget?
     @State private var showsFilters = false
@@ -65,8 +66,11 @@ private struct CatalogContent: View {
                         // The catalog's own actions share its search's bar, as a pane bar's.
                         if !selection.isActive {
                             Group {
+                                SortMenu(choice: $sort).labelStyle(.iconOnly)
                                 addButton.labelStyle(.iconOnly)
-                                if results?.visible.isEmpty == false { selectButton }
+                                if results?.visible.isEmpty == false {
+                                    selectButton.labelStyle(.iconOnly).help(TuneRowActions.select)
+                                }
                             }
                             .paneControls()
                         }
@@ -78,6 +82,7 @@ private struct CatalogContent: View {
             #if os(iOS)
                 .toolbar {
                     if !selection.isActive {
+                        ToolbarItem(placement: .primaryAction) { SortMenu(choice: $sort) }
                         ToolbarItem(placement: .primaryAction) { addButton }
                         if results?.visible.isEmpty == false {
                             ToolbarItem(placement: .secondaryAction) { selectButton }
@@ -104,9 +109,21 @@ private struct CatalogContent: View {
             }
             .onAppear { isShown = true }
             .onDisappear { isShown = false }
+            // Another window's choice reaches this one through the shared defaults.
+            .onChange(of: sort, initial: true) { model.sort = sort }
+            // History reaches the device only on request, and only Last played needs it.
+            .task(id: sort.sort == .played) {
+                if sort.sort == .played { await engine?.pullEvents() }
+            }
             // The menu's New tune opens the tune it makes, as Add tune does.
             .newTuneContext(onSaved: open)
             // A tab the musician is not looking at stays alive, so it must not answer the menu.
+            .focusedSceneValue(
+                \.catalogSort,
+                MenuGates.sort(
+                    isShown: isShown, sheetsOpen: openSheets?.isCovered == true, selecting: selection.isActive)
+                    ? $sort : nil
+            )
             .focusedSceneValue(
                 \.findAction,
                 MenuGates.find(isShown: isShown, sheetsOpen: openSheets?.isCovered == true)
@@ -123,7 +140,7 @@ private struct CatalogContent: View {
     }
 
     private var selectButton: some View {
-        Button(TuneRowActions.select) { selection.enter() }
+        Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
     }
 
     private func announceCount() {

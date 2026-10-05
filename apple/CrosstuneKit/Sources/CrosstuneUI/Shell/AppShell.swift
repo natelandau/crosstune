@@ -84,7 +84,10 @@ public struct AppShell: View {
             // Made here rather than by their screens, which a Mac or iPad sidebar tears down, so
             // each search lasts the app session and leaves with the signed-in shell.
             .task(id: ObjectIdentifier(store)) {
-                catalog = CatalogModel(store: store)
+                catalog = CatalogModel(
+                    store: store,
+                    sort: UserDefaults.standard.string(forKey: CatalogSortChoice.storageKey)
+                        .flatMap(CatalogSortChoice.init(rawValue:)) ?? .default)
                 recordings = RecordingsModel(store: store)
             }
             .onAppear {

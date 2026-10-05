@@ -11,6 +11,7 @@ import { InlineError } from '../../ui/InlineError'
 import { MORE_ACTIONS, useMenu } from '../../ui/Menu'
 import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
+import { SortMenuButton } from '../../ui/SortMenu'
 import { useAction } from '../../ui/useAction'
 import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
 import { useScanTuneIds } from '../scans/useScans'
@@ -22,6 +23,7 @@ import { isTuningKey } from '../settings/instruments'
 import { useInstruments } from '../settings/useInstruments'
 import { ARCHIVE, UNARCHIVE } from '../tune/archiveLabels'
 import { TuneFormSheet, type TuneFormTarget } from '../tune/TuneFormSheet'
+import { CATALOG_SORT_OPTIONS, sortCatalog } from './catalogSort'
 import { CatalogFilters } from './CatalogFilters'
 import { CatalogFilterSheet } from './CatalogFilterSheet'
 import {
@@ -44,6 +46,8 @@ import { TuneItem } from './TuneItem'
 import { SEARCH_TUNES } from './TuneSearch'
 import { useCatalog } from './useCatalog'
 import { useCatalogFilters } from './useCatalogFilters'
+import { setCatalogSort, useCatalogSort } from './useCatalogSort'
+import { useLastPlayed } from './useLastPlayed'
 
 export const ADD_TUNE = 'Add tune'
 export const NO_TUNES_HINT = 'Add the first tune you know.'
@@ -101,9 +105,11 @@ export function CatalogPage() {
     (patch: Partial<Filters>) => void updateFilters({ ...resets, ...patch }),
     [resets, updateFilters],
   )
+  const sort = useCatalogSort()
+  const lastPlayed = useLastPlayed(sort.sort === 'played')
   const visible = useMemo(
-    () => filterCatalog(entries, effective, query),
-    [entries, effective, query],
+    () => sortCatalog(filterCatalog(entries, effective, query), sort, lastPlayed),
+    [entries, effective, query, sort, lastPlayed],
   )
   // Catalog-wide counts change with the stored tunes, not with each search keystroke.
   const stored = useMemo(
@@ -231,7 +237,16 @@ export function CatalogPage() {
         />
       }
       searchEnd={
-        active ? undefined : <FiltersButton setCount={setCount} onOpen={() => setSheetOpen(true)} />
+        active ? undefined : (
+          <>
+            <SortMenuButton
+              options={CATALOG_SORT_OPTIONS}
+              choice={sort}
+              onChange={setCatalogSort}
+            />
+            <FiltersButton setCount={setCount} onOpen={() => setSheetOpen(true)} />
+          </>
+        )
       }
       refresher={<SyncRefresher />}
       footer={
