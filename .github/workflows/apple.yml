@@ -54,6 +54,13 @@ jobs:
         id: swift
         run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
       - run: just lint
+      # The package's dependencies change only with the lockfile, and their checkouts keep
+      # their file dates, so the build reuses them.
+      - uses: actions/cache@v6
+        with:
+          path: apple/CrosstuneKit/.build
+          key: apple-kit-${{ steps.swift.outputs.version }}-${{ hashFiles('apple/CrosstuneKit/Package.resolved') }}
+          restore-keys: apple-kit-${{ steps.swift.outputs.version }}-
       - run: just test
         timeout-minutes: 15
       # Xcode never prunes its compilation cache, so `main` builds from an empty one and
