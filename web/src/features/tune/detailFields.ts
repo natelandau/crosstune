@@ -5,13 +5,13 @@ import { TRADITIONAL } from './tuneTypes'
 export type DetailField =
   | {
       kind: 'text'
-      key: 'alternate_titles' | 'learned_from'
+      key: 'alternate_titles'
       label: string
       maxLength?: number
     }
   | {
       kind: 'pick'
-      key: 'composer' | 'genre' | 'time_signature' | 'tune_type' | 'part_structure'
+      key: 'composer' | 'learned_from' | 'genre' | 'time_signature' | 'tune_type' | 'part_structure'
       label: string
       options: readonly string[]
       other: boolean
@@ -107,10 +107,13 @@ export const DETAIL_FIELDS: readonly DetailField[] = [
     help: CROOKED_HELP,
   },
   { kind: 'lyrics', key: 'lyrics', label: DETAIL_LABELS.lyrics },
+  // The form swaps in the catalog's names.
   {
-    kind: 'text',
+    kind: 'pick',
     key: 'learned_from',
     label: DETAIL_LABELS.learned_from,
+    options: [],
+    other: true,
     maxLength: TUNE_LIMITS.learned_from,
   },
   { kind: 'date', key: 'learned_on', label: DETAIL_LABELS.learned_on },

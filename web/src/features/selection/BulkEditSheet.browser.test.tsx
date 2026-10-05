@@ -11,6 +11,7 @@ import { renderIonic } from '../../test/ionic'
 import type { CatalogEntry } from '../catalog/filters'
 import { tuningLabel } from '../settings/instruments'
 import { DETAIL_LABELS } from '../tune/detailFields'
+import { otherLabel } from '../tune/suggestCopy'
 import { BulkEditSheet } from './BulkEditSheet'
 import { CANCEL } from '../../ui/Confirm'
 
@@ -90,7 +91,7 @@ describe('BulkEditSheet', () => {
       const row = rows.find((item) => item.getAttribute('data-detail') === label)
       return row?.querySelector('[data-row-label]')?.textContent
     }
-    // Learned from is a text row and Learned on a date row; both read like the select rows.
+    // Learned from is a pick row and Learned on a date row; both read like the select rows.
     for (const label of [DETAIL_LABELS.learned_from, DETAIL_LABELS.learned_on]) {
       await expect.poll(() => rowLabel(label), { message: label }).toBe(label)
     }
@@ -227,7 +228,7 @@ describe('BulkEditSheet', () => {
     renderIonic(<Host entries={entries} onApply={onApply} />, { db })
     await openRow('Genre, Mixed')
     await page.getByRole('radio', { name: 'Other\u2026', exact: true }).click()
-    await expect.element(page.getByLabelText('Other genre')).toHaveValue('')
+    await expect.element(page.getByLabelText(otherLabel(DETAIL_LABELS.genre))).toHaveValue('')
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
     await openRow('Key, A')
     await page.getByRole('radio', { name: 'D', exact: true }).click()
@@ -245,9 +246,11 @@ describe('BulkEditSheet', () => {
     renderIonic(<Host entries={entries} onApply={onApply} />, { db })
     await openRow('Genre, Old-time')
     await page.getByRole('radio', { name: 'Other\u2026', exact: true }).click()
-    await expect.element(page.getByLabelText('Other genre')).toHaveValue('Old-time')
+    await expect
+      .element(page.getByLabelText(otherLabel(DETAIL_LABELS.genre)))
+      .toHaveValue('Old-time')
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
-    await page.getByLabelText('Other genre').fill('Contra')
+    await page.getByLabelText(otherLabel(DETAIL_LABELS.genre)).fill('Contra')
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
     expect(onApply).toHaveBeenCalledWith({ tune: { genre: 'Contra' }, userTune: {} })
@@ -334,21 +337,28 @@ describe('BulkEditSheet', () => {
     expect(sheet().isOpen).toBe(true)
   })
 
-  it('keeps a trailing space from snapping a text field back to untouched', async () => {
+  it('keeps a trailing space from snapping an Other field back to untouched', async () => {
     const entries = [
       await seed({ title: 'Say Old Man' }, { learned_from: 'Bruce Molsky' }),
       await seed({ title: 'Lost Indian' }, { learned_from: 'Bruce Molsky' }),
     ]
     const onApply = vi.fn()
     renderIonic(<Host entries={entries} onApply={onApply} />, { db })
-    await expect
-      .element(page.getByLabelText(DETAIL_LABELS.learned_from))
-      .toHaveValue('Bruce Molsky')
-    await page.getByLabelText(DETAIL_LABELS.learned_from).fill('Bruce Molsky ')
+    await openRow(`${DETAIL_LABELS.learned_from}, Bruce Molsky`)
+    await page.getByRole('radio', { name: 'Other\u2026', exact: true }).click()
+    await page.getByLabelText(otherLabel(DETAIL_LABELS.learned_from)).fill('Bruce Molsky ')
     await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
     await save()
     await vi.waitFor(() => expect(onApply).toHaveBeenCalledOnce())
     expect(onApply).toHaveBeenCalledWith({ tune: {}, userTune: { learned_from: 'Bruce Molsky' } })
+  })
+
+  it('suggests learned-from names from the whole catalog', async () => {
+    const entries = [await seed({ title: 'Say Old Man' }), await seed({ title: 'Lost Indian' })]
+    await seed({ title: 'Red Haired Boy' }, { learned_from: 'Kevin' })
+    renderIonic(<Host entries={entries} />, { db })
+    await openRow(`${DETAIL_LABELS.learned_from}, Not set`)
+    await expect.element(page.getByRole('radio', { name: 'Kevin', exact: true })).toBeVisible()
   })
 
   it('ignores a half-typed date', async () => {

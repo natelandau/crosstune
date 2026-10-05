@@ -29,7 +29,7 @@ import {
 } from './tuneFormValues'
 import { StatusChooser } from './StatusChooser'
 import { SuggestSelect } from './SuggestSelect'
-import { catalogComposers, mostUsedGenre, orderedTypes } from './tuneTypes'
+import { catalogComposers, catalogLearnedFrom, mostUsedGenre, orderedTypes } from './tuneTypes'
 import { CANCEL } from '../../ui/Confirm'
 import { useSheetSession } from '../../ui/useSheetSession'
 
@@ -158,6 +158,7 @@ export function TuneFormSheet({
   const pickOptions = (key: string, options: readonly string[]): readonly string[] => {
     if (key === 'tune_type') return orderedTypes(values.genre, catalog)
     if (key === 'composer') return catalogComposers(catalog)
+    if (key === 'learned_from') return catalogLearnedFrom(catalog)
     return options
   }
 

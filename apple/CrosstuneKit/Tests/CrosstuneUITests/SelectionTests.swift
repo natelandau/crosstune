@@ -47,6 +47,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(summary[.key] == .shared(.text("A")))
         #expect(summary[.tuning("violin")] == .mixed)
         #expect(summary[.genre] == .empty)
+        #expect(summary[.composer] == .empty)
         #expect(summary[.status] == .mixed)
         #expect(summary[.isCrooked] == .shared(.flag(false)))
     }
@@ -83,7 +84,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
     @Test func neverOffersAFieldUniqueToOneTune() {
         let labels = EditField.all.map(\.label)
         for unique in [
-            TuneFieldLabels.title, TuneFieldLabels.alternateTitles, TuneFieldLabels.composer, TuneFieldLabels.notes,
+            TuneFieldLabels.title, TuneFieldLabels.alternateTitles, TuneFieldLabels.notes,
             TuneFieldLabels.lyrics,
         ] {
             #expect(!labels.contains(unique))
@@ -124,6 +125,7 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let patch = BatchEdit.patch([
             .tuning("violin"): .text(" Cross A (AEAE) "),
             .genre: .text(""),
+            .composer: .text(" Ed Reavy "),
             .mode: .clear,
             .isCrooked: .flag(true),
             .status: .text("known"),
@@ -132,7 +134,8 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         #expect(
             patch
                 == BulkPatch(
-                    tune: BulkTunePatch(genre: .value(nil), modes: .value([]), isCrooked: .value(true)),
+                    tune: BulkTunePatch(
+                        genre: .value(nil), modes: .value([]), composer: .value("Ed Reavy"), isCrooked: .value(true)),
                     userTune: BulkUserTunePatch(status: .value("known"), learnedFrom: .value("Bruce Molsky")),
                     tunings: ["violin": .value("Cross A (AEAE)")]))
     }
@@ -401,6 +404,33 @@ private func with(_ entry: CatalogEntry, modes: [String]? = nil, timeSignature: 
         let bulk = BulkActions(store: store)
         #expect(!(await bulk.setArchived(false, [sample("Tam Lin")])))
         #expect(bulk.offer == nil)
+    }
+
+    @Test func suggestsTheCatalogsComposersAndLearnedFromNames() async throws {
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        let butterfly = sample("The Butterfly")
+        let farewell = sample("Elzic's Farewell")
+        let tamLin = sample("Tam Lin")
+        try await store.write { writer in
+            var tune = butterfly.tune
+            tune.composer = "Ed Reavy"
+            try writer.put(tune, at: Timestamp.now)
+            var kept = farewell.userTune
+            kept.learnedFrom = "Kevin"
+            try writer.put(kept, at: Timestamp.now)
+            var removed = tamLin.userTune
+            removed.learnedFrom = "Zed"
+            removed.deletedAt = Timestamp.now
+            try writer.put(removed, at: Timestamp.now)
+            // A live user tune whose tune is deleted is not in the catalog, so suggests nothing.
+            let deleted = Tune(deletedAt: Timestamp.now, title: "Deleted", composer: "Lost Composer")
+            try writer.put(deleted, at: Timestamp.now)
+            try writer.put(
+                UserTune(tuneID: deleted.id, status: "known", learnedFrom: "Orphan"), at: Timestamp.now)
+        }
+        let suggestions = await BulkActions(store: store).suggestions()
+        #expect(suggestions.composers == [TuneSuggestions.traditional, "Ed Reavy", "Jay Ungar"])
+        #expect(suggestions.learnedFrom == ["Kevin", "Tommy Jarrell"])
     }
 
     @Test func keepsTheSelectionWhenAWriteFails() async throws {

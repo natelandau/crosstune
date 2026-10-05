@@ -29,6 +29,12 @@ public enum TuneSuggestions {
         return [traditional] + without(named, [traditional]).sorted(by: ordered)
     }
 
+    /// Learned-from suggestions: every name the musician's tunes hold, archived ones included,
+    /// alphabetically.
+    public static func learnedFrom(_ userTunes: [UserTune]) -> [String] {
+        tally(userTunes.map(\.learnedFrom), canonical: []).map(\.value).sorted(by: ordered)
+    }
+
     /// The one time signature a type is written in, or nil when it has none or several.
     public static func timeSignature(for type: String) -> String? {
         lookup(Vocabulary.typeTimeSignatures, trimmed(type))

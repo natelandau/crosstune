@@ -12,6 +12,8 @@ struct BulkEditSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var form: BulkEditForm
+    @State private var composers: [String] = []
+    @State private var learnedFrom: [String] = []
 
     init(entries: [CatalogEntry], instruments: Set<String>, bulk: BulkActions, onSaved: @escaping () -> Void) {
         self.entries = entries
@@ -35,7 +37,7 @@ struct BulkEditSheet: View {
                     row(.status)
                 }
                 Section {
-                    KeyChooser(key: text(.key), isMixed: form.isMixed(.key))
+                    KeyChooser(key: keyBinding, isMixed: form.isMixed(.key))
                         .chipRowInsets()
                         .listRowBackground(Color.clear)
                 } header: {
@@ -78,6 +80,11 @@ struct BulkEditSheet: View {
         // A touched row leaves only through Cancel, and nothing leaves while the save runs.
         .interactiveDismissDisabled(form.isEdited || bulk.isPending)
         .onAppear { bulk.clearEditFailure() }
+        .task {
+            let suggestions = await bulk.suggestions()
+            composers = suggestions.composers
+            learnedFrom = suggestions.learnedFrom
+        }
         .shellSheet()
     }
 
@@ -115,27 +122,28 @@ struct BulkEditSheet: View {
             BulkChoiceRow(
                 field: field, form: $form, options: Vocabulary.partStructures, emptyChoice: BulkEditForm.clear,
                 allowsOther: true, maxLength: Vocabulary.Limits.Tune.partStructure)
+        case .composer:
+            BulkChoiceRow(
+                field: field, form: $form, options: composers, emptyChoice: BulkEditForm.clear,
+                allowsOther: true, maxLength: Vocabulary.Limits.Tune.composer)
         case .isCrooked:
             BulkChoiceRow(
                 field: field, form: $form, options: [BulkEditForm.yes, BulkEditForm.no],
                 emptyChoice: BulkEditForm.keep)
         case .learnedFrom:
-            LabeledContent(field.label) {
-                TextField(field.label, text: text(field), prompt: Text(form.placeholder(field)))
-                    .multilineTextAlignment(.trailing)
-                    .characterLimit(Vocabulary.Limits.Tune.learnedFrom, text: text(field))
-            }
+            BulkChoiceRow(
+                field: field, form: $form, options: learnedFrom, emptyChoice: BulkEditForm.clear,
+                allowsOther: true, maxLength: Vocabulary.Limits.Tune.learnedFrom)
         case .learnedOn:
             BulkDateRow(field: field, form: $form)
         }
     }
 
-    /// A typed or picked text field, touched by every change.
-    private func text(_ field: EditField) -> Binding<String> {
+    private var keyBinding: Binding<String> {
         Binding {
-            form.text(field)
+            form.text(.key)
         } set: { typed in
-            form.touch(field, typed.isEmpty ? .clear : .text(typed))
+            form.touch(.key, typed.isEmpty ? .clear : .text(typed))
         }
     }
 

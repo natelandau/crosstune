@@ -4,6 +4,7 @@ import type { CatalogEntry } from '../catalog/filters'
 import {
   TRADITIONAL,
   catalogComposers,
+  catalogLearnedFrom,
   mostUsedGenre,
   orderedTypes,
   timeSignatureFor,
@@ -13,6 +14,16 @@ function entry(fields: Partial<CatalogEntry['tune']>): CatalogEntry {
   return {
     tune: { tune_type: null, genre: null, composer: null, deleted_at: null, ...fields },
     userTune: { archived_at: null, deleted_at: null },
+  } as unknown as CatalogEntry
+}
+
+function learnedEntry(
+  learned_from: string | null,
+  archived_at: string | null = null,
+): CatalogEntry {
+  return {
+    tune: { deleted_at: null },
+    userTune: { learned_from, archived_at, deleted_at: null },
   } as unknown as CatalogEntry
 }
 
@@ -102,6 +113,29 @@ describe('catalogComposers', () => {
       entry({ composer: 'Ed Reavy' }),
     ]
     expect(catalogComposers(entries)).toEqual([TRADITIONAL, 'Ed Reavy'])
+  })
+})
+
+describe('catalogLearnedFrom', () => {
+  it('offers every name once, alphabetically, spelled the common way', () => {
+    const entries = [
+      learnedEntry('Kevin'),
+      learnedEntry(' kevin'),
+      learnedEntry('Bruce'),
+      learnedEntry('   '),
+      learnedEntry(null),
+      learnedEntry('Alice', '2024-01-01T00:00:00Z'),
+    ]
+    expect(catalogLearnedFrom(entries)).toEqual(['Alice', 'Bruce', 'Kevin'])
+  })
+
+  it('spells a name the way most tunes do', () => {
+    const entries = [learnedEntry('KEVIN'), learnedEntry('Kevin'), learnedEntry('Kevin')]
+    expect(catalogLearnedFrom(entries)).toEqual(['Kevin'])
+  })
+
+  it('never offers Traditional', () => {
+    expect(catalogLearnedFrom([learnedEntry('Bruce')])).not.toContain(TRADITIONAL)
   })
 })
 

@@ -30,6 +30,7 @@ public final class TuneFormModel {
     /// What the form reads from the store as it opens.
     struct Opening: Sendable {
         var tunes: [Tune]
+        var userTunes: [UserTune]
         var instruments: Set<String>
         var editing: (tune: Tune, userTune: UserTune)?
     }
@@ -50,7 +51,8 @@ public final class TuneFormModel {
     private let store: CrosstuneStore
     private var opened = TuneFormValues()
     private var storedTunings: JSONObject = [:]
-    private var catalog: [Tune] = []
+    /// The catalog the suggestions read: live user tunes joined to live tunes, as the web reads it.
+    private var catalog: [CatalogEntry] = []
     /// Whether the player has chosen a time signature, which a type then never replaces.
     private var timeSignatureTouched = false
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "tune-form")
@@ -81,9 +83,11 @@ public final class TuneFormModel {
     }
 
     /// Type suggestions for the genre the form holds.
-    public var typeOptions: [String] { TuneSuggestions.types(genre: values.genre, tunes: catalog) }
+    public var typeOptions: [String] { TuneSuggestions.types(genre: values.genre, tunes: catalog.map(\.tune)) }
 
-    public var composerOptions: [String] { TuneSuggestions.composers(catalog) }
+    public var composerOptions: [String] { TuneSuggestions.composers(catalog.map(\.tune)) }
+
+    public var learnedFromOptions: [String] { TuneSuggestions.learnedFrom(catalog.map(\.userTune)) }
 
     /// Reads what the form opens on. Runs once.
     public func load() async {
@@ -101,6 +105,7 @@ public final class TuneFormModel {
 
     nonisolated static func read(_ db: Database, target: TuneFormTarget, settingsID: String) throws -> Opening {
         let tunes = try Tune.filter(Tune.CodingKeys.deletedAt == nil).fetchAll(db)
+        let userTunes = try UserTune.filter(UserTune.CodingKeys.deletedAt == nil).fetchAll(db)
         let settings = try UserSettings.fetchOne(db, key: settingsID)
         let instruments = settings.flatMap { $0.deletedAt == nil ? Set($0.instruments) : nil } ?? []
         var editing: (Tune, UserTune)?
@@ -110,15 +115,15 @@ public final class TuneFormModel {
         {
             editing = (tune, userTune)
         }
-        return Opening(tunes: tunes, instruments: instruments, editing: editing)
+        return Opening(tunes: tunes, userTunes: userTunes, instruments: instruments, editing: editing)
     }
 
     func open(_ opening: Opening) {
-        catalog = opening.tunes
+        catalog = CatalogSearch.entries(tunes: opening.tunes, userTunes: opening.userTunes)
         switch target {
         case .new(let title, _):
             var start = TuneFormValues()
-            start.genre = TuneSuggestions.mostUsedGenre(opening.tunes) ?? ""
+            start.genre = TuneSuggestions.mostUsedGenre(catalog.map(\.tune)) ?? ""
             opened = start
             // A search has no limit of its own, so a carried title is capped here.
             start.title = String((title ?? "").prefix(Vocabulary.Limits.Tune.title))

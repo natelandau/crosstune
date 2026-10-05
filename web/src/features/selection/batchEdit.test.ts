@@ -31,6 +31,12 @@ describe('summarize', () => {
     expect(summary.is_crooked).toEqual({ kind: 'shared', value: false })
   })
 
+  it('reports a shared composer and a mixed one', () => {
+    const haley = (base: typeof a) => ({ ...base, tune: { ...base.tune, composer: 'Ed Haley' } })
+    expect(summarize([haley(a), haley(b)]).composer).toEqual({ kind: 'shared', value: 'Ed Haley' })
+    expect(summarize([haley(a), b]).composer).toEqual({ kind: 'mixed' })
+  })
+
   it('treats a mode this client does not know as no value', () => {
     const lydian1 = { ...a, tune: { ...a.tune, modes: ['lydian'] } }
     const lydian2 = { ...b, tune: { ...b.tune, modes: ['lydian'] } }
@@ -109,6 +115,14 @@ describe('toPatch', () => {
       userTune: { status: 'known', learned_from: 'Bruce Molsky' },
       tunings: { violin: 'Cross A (AEAE)' },
     })
+  })
+
+  it('trims a composer and clears it when blank', () => {
+    expect(toPatch({ composer: ' Ed Haley ' })).toEqual({
+      tune: { composer: 'Ed Haley' },
+      userTune: {},
+    })
+    expect(toPatch({ composer: null })).toEqual({ tune: { composer: null }, userTune: {} })
   })
 
   it('clears a tuning left blank', () => {

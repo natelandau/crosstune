@@ -2,6 +2,7 @@ import { IonInput, IonItem, IonSelect, IonSelectOption } from '@ionic/react'
 import { useState } from 'react'
 import { usePointer } from '../../platform/pointer'
 import { FieldRow, NOT_SET } from '../../ui/FieldRow'
+import { otherLabel } from './suggestCopy'
 
 export const OTHER_OPTION = 'Other…'
 
@@ -112,8 +113,8 @@ export function SuggestSelect({
       {typing ? (
         <IonItem>
           <IonInput
-            aria-label={`Other ${label.toLowerCase()}`}
-            label={`Other ${label.toLowerCase()}`}
+            aria-label={otherLabel(label)}
+            label={otherLabel(label)}
             labelPlacement="stacked"
             autofocus
             maxlength={maxLength}

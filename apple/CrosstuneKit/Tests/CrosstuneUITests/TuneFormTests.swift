@@ -313,6 +313,21 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(TuneSuggestions.composers(tunes) == [TuneSuggestions.traditional, "Charlie Lennon", "Ed Reavy"])
     }
 
+    @Test func offersEveryLearnedFromNameOnceAlphabeticallyArchivedIncluded() {
+        func held(_ name: String?, archived: Bool = false) -> UserTune {
+            UserTune(tuneID: "t", status: "known", learnedFrom: name, archivedAt: archived ? noon : nil)
+        }
+        let userTunes = [
+            held("Kevin"), held(" kevin"), held("Bruce"), held("   "), held(nil), held("Alice", archived: true),
+        ]
+        #expect(TuneSuggestions.learnedFrom(userTunes) == ["Alice", "Bruce", "Kevin"])
+    }
+
+    @Test func spellsALearnedFromNameTheWayMostTunesDo() {
+        let userTunes = ["KEVIN", "Kevin", "Kevin"].map { UserTune(tuneID: "t", status: "known", learnedFrom: $0) }
+        #expect(TuneSuggestions.learnedFrom(userTunes) == ["Kevin"])
+    }
+
     @Test func spellsAComposerTheWayMostTunesDo() {
         let tunes = [tune("a", composer: "ED REAVY"), tune("b", composer: "Ed Reavy"), tune("c", composer: "Ed Reavy")]
         #expect(TuneSuggestions.composers(tunes) == [TuneSuggestions.traditional, "Ed Reavy"])
@@ -400,6 +415,53 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(model.tuningInstruments == ["violin"])
         // A carried title is work a swipe would lose.
         #expect(model.isEdited)
+    }
+
+    @Test func offersTheLearnedFromNamesOfEveryLiveUserTune() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        let other = tune("Other")
+        let gone = tune("Gone")
+        try await seed(store, tunes: [other, gone])
+        try await store.write { writer in
+            var kept = userTune(other.id)
+            kept.learnedFrom = "Kevin"
+            try writer.put(kept, at: noon)
+            var removed = userTune(gone.id)
+            removed.learnedFrom = "Zed"
+            removed.deletedAt = noon
+            try writer.put(removed, at: noon)
+        }
+        let model = TuneFormModel(store: store, target: .new(title: nil))
+        await model.load()
+
+        #expect(model.learnedFromOptions == ["Kevin"])
+    }
+
+    @Test func suggestsNamesOnlyFromTunesInTheCatalog() async throws {
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await seed(store)
+        // A live user tune on a deleted tune, and a live tune whose user tune is deleted, are
+        // neither of them in the catalog, so neither suggests a name.
+        let deleted = tune("Deleted", composer: "Lost Composer", deleted: true)
+        let unowned = tune("Unowned", composer: "Unowned Composer")
+        try await store.write { writer in
+            try writer.put(deleted, at: noon)
+            var orphan = userTune(deleted.id)
+            orphan.learnedFrom = "Orphan"
+            try writer.put(orphan, at: noon)
+            try writer.put(unowned, at: noon)
+            var dropped = userTune(unowned.id)
+            dropped.learnedFrom = "Dropped"
+            dropped.deletedAt = noon
+            try writer.put(dropped, at: noon)
+        }
+        let model = TuneFormModel(store: store, target: .new(title: nil))
+        await model.load()
+
+        #expect(model.learnedFromOptions == [])
+        #expect(model.composerOptions == [TuneSuggestions.traditional])
     }
 
     @Test func holdsAnUntouchedNewTuneAsUneditedAndRefusesToSaveItWithoutATitle() async throws {
