@@ -66,7 +66,6 @@ private struct CatalogContent: View {
                         // The catalog's own actions share its search's bar, as a pane bar's.
                         if !selection.isActive {
                             Group {
-                                SortMenu(choice: $sort).labelStyle(.iconOnly)
                                 addButton.labelStyle(.iconOnly)
                                 if results?.visible.isEmpty == false {
                                     selectButton.labelStyle(.iconOnly).help(TuneRowActions.select)
@@ -82,7 +81,6 @@ private struct CatalogContent: View {
             #if os(iOS)
                 .toolbar {
                     if !selection.isActive {
-                        ToolbarItem(placement: .primaryAction) { SortMenu(choice: $sort) }
                         ToolbarItem(placement: .primaryAction) { addButton }
                         if results?.visible.isEmpty == false {
                             ToolbarItem(placement: .secondaryAction) { selectButton }
@@ -179,6 +177,11 @@ private struct CatalogContent: View {
                     .selectionDisabled()
             }
             if let results, !results.visible.isEmpty {
+                ListHeader(count: results.countLabel, choice: selection.isActive ? nil : $sort)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .selectionDisabled()
                 ForEach(results.visible) { entry in
                     row(entry, instruments: results.instruments)
                 }
@@ -191,14 +194,6 @@ private struct CatalogContent: View {
                     SearchOfferRow(label: offer) { createFromSearch(title) }
                         .selectionDisabled()
                 }
-                Text(results.countLabel)
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
             }
         }
     }

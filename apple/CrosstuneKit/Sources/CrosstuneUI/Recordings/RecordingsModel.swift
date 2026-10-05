@@ -87,6 +87,12 @@ public final class RecordingsModel {
         snapshot.value.map { RecordingArrangement.arrange(shown($0.views), choice: sort, query: query) }
     }
 
+    /// The list header's count of what `arrangement` shows, out of every live recording whatever
+    /// the source or query.
+    public func countLabel(_ arrangement: RecordingArrangement) -> String {
+        RecordingsListText.countLabel(visible: arrangement.count, total: snapshot.value?.views.count ?? 0)
+    }
+
     /// Whether the store holds no live recordings at all, whatever the source or query. False
     /// until the store is read.
     public var hasNoRecordings: Bool {

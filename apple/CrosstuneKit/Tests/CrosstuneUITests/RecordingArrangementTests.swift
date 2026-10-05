@@ -335,3 +335,23 @@ private func groups(_ filed: FiledRecordings) -> [TuneRecordings] {
         #expect(SortChoices<RecordingSort>.toggled(.recorded, isOn: true, from: .default) == choice(.recorded, true))
     }
 }
+
+@Suite struct RecordingArrangementCountTests {
+    let views = [
+        view("u1", minutes: 1), view("f1", tune: "t", title: "T", minutes: 2),
+        view("f2", tune: "s", title: "S", minutes: 3),
+    ]
+
+    @Test func countsBothListsWhetherFiledIsFlatOrGroupedByTune() {
+        #expect(RecordingArrangement.arrange(views, choice: .default, query: "").count == 3)
+        #expect(RecordingArrangement.arrange(views, choice: choice(.tune, false), query: "").count == 3)
+        #expect(RecordingArrangement.arrange(views, choice: .default, query: "zzz").count == 0)
+    }
+
+    @Test func namesTheWholeOrThePartOfItShown() {
+        #expect(RecordingsListText.countLabel(visible: 24, total: 24) == "24 recordings")
+        #expect(RecordingsListText.countLabel(visible: 1, total: 1) == "1 recording")
+        #expect(RecordingsListText.countLabel(visible: 3, total: 24) == "3 of 24 recordings")
+        #expect(RecordingsListText.countLabel(visible: 0, total: 24) == "0 of 24 recordings")
+    }
+}

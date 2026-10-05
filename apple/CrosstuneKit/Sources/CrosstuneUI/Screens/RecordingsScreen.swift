@@ -112,14 +112,24 @@ private struct RecordingsContent: View {
                 }
             }
             if let arrangement {
+                if arrangement.isEmpty && !model.hasNoRecordings {
+                    Section {
+                    } header: {
+                        ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
+                            .textCase(nil)
+                    }
+                }
                 if !arrangement.unfiled.isEmpty {
-                    Section(RecordingsListText.unfiled) {
+                    Section {
                         ForEach(arrangement.unfiled) { view in
                             row(view)
                         }
+                    } header: {
+                        sectionHeader(RecordingsListText.unfiled, listHeader: arrangement)
                     }
                 }
-                filedSection(arrangement.filed)
+                filedSection(
+                    arrangement.filed, listHeader: arrangement.unfiled.isEmpty ? arrangement : nil)
             }
         }
         .overlay {
@@ -156,11 +166,7 @@ private struct RecordingsContent: View {
                 ) { showsFilters = true }
                 #if os(macOS)
                     // The screen's own actions share its search's bar, as the catalog's do.
-                    Group {
-                        sortMenu.labelStyle(.iconOnly)
-                        uploadButton.labelStyle(.iconOnly)
-                    }
-                    .paneControls()
+                    uploadButton.labelStyle(.iconOnly).paneControls()
                 #endif
             }
             .padding(.horizontal, 16)
@@ -168,7 +174,6 @@ private struct RecordingsContent: View {
         }
         #if os(iOS)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) { sortMenu }
                 ToolbarItem(placement: .primaryAction) { uploadButton }
             }
         #endif
@@ -260,31 +265,52 @@ private struct RecordingsContent: View {
         }
     }
 
-    private var sortMenu: some View { SortMenu(choice: $sort) }
-
     /// The filed recordings in one section: flat, each row naming its tune, or under a line per
     /// tune.
-    @ViewBuilder private func filedSection(_ filed: FiledRecordings) -> some View {
+    @ViewBuilder private func filedSection(
+        _ filed: FiledRecordings, listHeader arrangement: RecordingArrangement?
+    ) -> some View {
         switch filed {
         case .flat(let views):
             if !views.isEmpty {
-                Section(RecordingsListText.filed) {
+                Section {
                     ForEach(views) { view in
                         row(view, opensTune: true)
                     }
+                } header: {
+                    sectionHeader(RecordingsListText.filed, listHeader: arrangement)
                 }
             }
         case .byTune(let tunes):
             if !tunes.isEmpty {
-                Section(RecordingsListText.filed) {
+                Section {
                     ForEach(tunes) { tune in
                         tuneLabel(tune)
                         ForEach(tune.views) { view in
                             row(view)
                         }
                     }
+                } header: {
+                    sectionHeader(RecordingsListText.filed, listHeader: arrangement)
                 }
             }
+        }
+    }
+
+    /// A section's title, under the list header when the section leads the recordings. A row of
+    /// its own between two sections would stand apart from both, so the count and sort ride on
+    /// the first section's header, directly above the rows they describe.
+    @ViewBuilder private func sectionHeader(_ title: String, listHeader arrangement: RecordingArrangement?)
+        -> some View
+    {
+        if let arrangement {
+            VStack(alignment: .leading, spacing: 0) {
+                ListHeader(count: model.countLabel(arrangement), choice: $sort)
+                    .textCase(nil)
+                Text(title)
+            }
+        } else {
+            Text(title)
         }
     }
 

@@ -153,6 +153,8 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(filedViews(arrangement).first?.tuneTitle == "Kitchen Girl")
         #expect(!model.hasNoRecordings)
         #expect(model.unfinished.map(\.id) == ["stuck"])
+        // The header counts every live recording, whatever the source or search narrows it to.
+        #expect(model.countLabel(arrangement) == "3 recordings")
         #expect(model.storage?.usedBytes == 5)
     }
 
