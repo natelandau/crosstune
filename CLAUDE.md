@@ -12,6 +12,8 @@ and `docs/hosting.md`.
 - The API, the client's data layers, sync, sign-in, links, or recordings:
   `docs/architecture.md`.
 - A screen, row, form, gesture, or label: `docs/design.md`.
+- A Mac screen, row, control, or window: `docs/design.md`, then
+  `docs/design-macos.md`.
 - Deployment, CI, or a host setting: `docs/hosting.md` and
   `docs/operations.md`.
 
