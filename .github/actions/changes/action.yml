@@ -32,7 +32,12 @@ runs:
         if [[ "$EVENT" == pull_request ]]; then
           # A skipped required check passes, so a failed lookup runs the checks.
           # A rename lists its old path too, so moving a file out of an area counts.
-          if files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
+          # The files endpoint stops at 3000 files, so a larger list may omit a matching path.
+          if ! count=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .changed_files); then
+            echo "::warning::could not read the pull request; running every check"
+          elif (( count >= 3000 )); then
+            echo "::warning::the pull request changes $count files, more than can be listed; running every check"
+          elif files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
             --jq '.[] | .filename, (.previous_filename // empty)'); then
             grep -qE "$PATTERN" <<< "$files" || relevant=false
           else
