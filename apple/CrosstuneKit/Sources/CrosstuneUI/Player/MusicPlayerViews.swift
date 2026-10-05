@@ -35,6 +35,8 @@ struct MusicPlayerCard: View {
     var fixedHeight: CGFloat?
     /// Leads the controls with play and pause, where no bar above carries them.
     var showsPlay = false
+    /// Heads the controls with the track and its artist, where no bar beside it names them.
+    var showsTitle = true
 
     var body: some View {
         HStack(spacing: 14) {
@@ -42,17 +44,21 @@ struct MusicPlayerCard: View {
                 MusicArtwork(music: music, side: side)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(music.trackTitle ?? player.title ?? "")
-                    .font(.headline)
-                    .lineLimit(1)
-                if let artist = music.artistName {
-                    Text(artist)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                if showsTitle {
+                    Text(music.trackTitle ?? player.title ?? "")
+                        .font(.headline)
                         .lineLimit(1)
+                    if let artist = music.artistName {
+                        Text(artist)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 4)
                 MusicPlayerBody(music: music, showsPlay: showsPlay)
+                // With no title above, the controls center beside the artwork.
+                if !showsTitle { Spacer(minLength: 4) }
             }
         }
         .padding(Self.inset)

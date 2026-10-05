@@ -67,6 +67,9 @@ public final class TuneModel {
         }
     }
 
+    /// True once the tune's read has failed, which leaves the phase loading for good.
+    public var readFailed: Bool { detail.error != nil }
+
     /// The tune as last read, or nil while loading, deleting, or gone.
     public var shown: TuneDetail? {
         if case .shown(let detail) = phase { return detail }
