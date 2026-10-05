@@ -57,9 +57,15 @@ struct PracticeControls: View {
             player.audio.toggle()
         } label: {
             Image(systemName: face.systemImage)
-                .font(.largeTitle)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(minWidth: 64, minHeight: 64)
+                #if os(macOS)
+                    .font(.system(size: 24))
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(minWidth: 40, minHeight: 40)
+                #else
+                    .font(.largeTitle)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(minWidth: 64, minHeight: 64)
+                #endif
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -73,8 +79,12 @@ struct PracticeControls: View {
         } label: {
             Label(name(abs(seconds)), systemImage: systemImage)
                 .labelStyle(.iconOnly)
-                .font(.title2)
-                .frame(minWidth: 44, minHeight: 44)
+                #if os(macOS)
+                    .font(.system(size: 17))
+                #else
+                    .font(.title2)
+                #endif
+                .frame(minWidth: PracticeLayout.target, minHeight: PracticeLayout.target)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

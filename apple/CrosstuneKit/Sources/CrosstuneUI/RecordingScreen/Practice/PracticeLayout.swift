@@ -10,6 +10,13 @@ enum PracticeLayout {
     static func waveformFloor(isCompactHeight: Bool) -> Double {
         isCompactHeight ? 64 : 140
     }
+
+    /// The least side of a control's press target: a fingertip on iOS, a pointer on the Mac.
+    #if os(macOS)
+        static let target: CGFloat = 28
+    #else
+        static let target: CGFloat = 44
+    #endif
 }
 
 extension View {

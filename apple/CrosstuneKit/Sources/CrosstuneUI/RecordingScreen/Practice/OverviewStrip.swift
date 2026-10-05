@@ -57,9 +57,8 @@ struct OverviewStrip: View {
                 with: .color(LoopColor.color(loop.color, scheme: colorScheme).opacity(loop.id == selected ? 1 : 0.6)))
         }
         let playhead = x(Double(model.centerMs))
-        context.fill(
-            Path(CGRect(x: min(max(0, playhead - 1), size.width - 2), y: 0, width: 2, height: Self.waveHeight)),
-            with: .style(.primary))
+        context.fillPlayhead(
+            CGRect(x: min(max(0, playhead - 1), size.width - 2), y: 0, width: 2, height: Self.waveHeight))
         if let view = model.laneView {
             let box = CGRect(
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)

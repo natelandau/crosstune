@@ -42,14 +42,21 @@ struct LoopsPanel: View {
     private func textButton(
         _ title: String, systemImage: String, role: ButtonRole? = nil, action: @escaping () -> Void
     ) -> some View {
-        Button(role: role, action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 44)
-                .background(neutralFill(colorScheme), in: .capsule)
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
+        #if os(macOS)
+            Button(role: role, action: action) {
+                Label(title, systemImage: systemImage)
+            }
+            .buttonStyle(.bordered)
+        #else
+            Button(role: role, action: action) {
+                Label(title, systemImage: systemImage)
+                    .font(.subheadline)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .background(neutralFill(colorScheme), in: .capsule)
+                    .contentShape(.capsule)
+            }
+            .buttonStyle(.plain)
+        #endif
     }
 }

@@ -39,17 +39,36 @@ struct SpeedPanel: View {
                     .disabled(value >= Self.range.upperBound)
             }
             HStack(spacing: 8) {
-                ForEach(Self.presets, id: \.self) { preset in
-                    ChoiceCapsule(chosen: value == preset) {
-                        onChange(preset)
-                    } label: {
-                        Text(RecordingScreenText.speedBadge(preset)).monospacedDigit()
+                #if os(macOS)
+                    // Segmented, so the chosen preset still shows while the window is inactive.
+                    Picker(
+                        RecordingScreenText.speedPresets,
+                        selection: Binding<Int?> {
+                            Self.presets.contains(value) ? value : nil
+                        } set: {
+                            if let preset = $0 { onChange(preset) }
+                        }
+                    ) {
+                        ForEach(Self.presets, id: \.self) { preset in
+                            Text(RecordingScreenText.speedBadge(preset)).monospacedDigit().tag(Int?.some(preset))
+                        }
                     }
-                }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                #else
+                    ForEach(Self.presets, id: \.self) { preset in
+                        ChoiceCapsule(chosen: value == preset) {
+                            onChange(preset)
+                        } label: {
+                            Text(RecordingScreenText.speedBadge(preset)).monospacedDigit()
+                        }
+                    }
+                #endif
                 Spacer(minLength: 0)
                 Button(RecordingScreenText.reset) { onChange(100) }
                     .disabled(value == 100)
-                    .frame(minHeight: 44)
+                    .frame(minHeight: PracticeLayout.target)
             }
         }
     }
@@ -72,7 +91,8 @@ struct SpeedPanel: View {
     }
 }
 
-/// A round minus or plus beside a panel's slider or count, a 44 point target.
+/// A minus or plus beside a panel's slider or count: round with a 44 point target on iOS, a
+/// bordered button on the Mac.
 struct PanelStepButton: View {
     let name: String
     let systemImage: String
@@ -81,6 +101,20 @@ struct PanelStepButton: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        #if os(macOS)
+            Button(action: action) {
+                Label(name, systemImage: systemImage)
+                    .labelStyle(.iconOnly)
+                    .frame(minWidth: 16, minHeight: 16)
+            }
+            .buttonStyle(.bordered)
+            .help(name)
+        #else
+            touchButton
+        #endif
+    }
+
+    private var touchButton: some View {
         Button(action: action) {
             Label(name, systemImage: systemImage)
                 .labelStyle(.iconOnly)

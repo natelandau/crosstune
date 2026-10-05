@@ -7,6 +7,8 @@ public enum RecordingScreenText {
     public static let close = "Close"
     public static let trim = "Trim"
     public static let speed = "Speed"
+    /// The Mac's segmented speed presets, for VoiceOver.
+    public static let speedPresets = "Speed presets"
     public static let pitch = "Pitch"
     public static let reset = "Reset"
     public static let slower = "Slower"

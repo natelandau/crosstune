@@ -114,7 +114,7 @@ import Testing
 
 /// A microphone that writes a tone on demand, standing in for the device in tests.
 @MainActor
-private final class ToneInput: AudioInput {
+final class ToneInput: AudioInput {
     var permission = true
     private var writer: CaptureWriter?
     private var onLevels: (@MainActor @Sendable ([Float]) -> Void)?
