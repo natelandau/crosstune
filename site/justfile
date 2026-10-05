@@ -44,7 +44,7 @@ test *args:
     pnpm vitest run {{ args }}
 
 # Run the dev server
-[group('dev')]
+[group('run')]
 dev:
     pnpm astro dev
 

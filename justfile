@@ -84,17 +84,18 @@ smoke api_origin web_origin site_origin="":
 # Install every module's dependencies and create missing .env files from their examples
 setup: api::setup web::setup site::setup apple::setup
 
-# Install dependencies, git hooks, and start local services; run it in the main checkout,
-# since the hooks every worktree shares call the prek of the checkout that installed them
+# The hooks every worktree shares call the prek of the checkout that installed them.
+
+# Install dependencies, git hooks, and local services; run it in the main checkout only
 dev-setup: setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
-# Create .worktrees/<branch> on a new branch from the main checkout's HEAD, copy in its .env
-# files, install its dependencies, and give it its own copy of main's database and bucket
+# Create .worktrees/<branch> with main's .env files, its dependencies, and its own database and bucket
 worktree branch:
     #!/usr/bin/env bash
     set -euo pipefail
+    # The branch starts from the main checkout's HEAD, wherever this runs from.
     main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
     path="$main/.worktrees/{{ branch }}"
     git -C "$main" worktree add "$path" -b '{{ branch }}'
@@ -125,9 +126,9 @@ worktree-env:
 
 # Start Postgres and RustFS, apply migrations, then run the API, web client, and site together
 dev:
-    scripts/dev-ports.sh 8000 5173 4321
     #!/usr/bin/env bash
     set -euo pipefail
+    scripts/dev-ports.sh 8000 5173 4321
     docker compose up -d --wait
     just api::storage-setup
     # A worktree's api/.env names main's database again after `just worktree-env` copies it.

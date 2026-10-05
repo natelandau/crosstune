@@ -143,7 +143,6 @@ contract:
     #!/usr/bin/env bash
     set -euo pipefail
     out=openapi.json
-    mkdir -p "$(dirname "$out")"
     # Written aside and moved into place, so a failed export leaves the committed
     # contract intact instead of truncating it.
     staged="$out.tmp"
