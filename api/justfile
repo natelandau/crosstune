@@ -127,55 +127,11 @@ prune-worktree-dbs:
 # _e2e-db also takes "drop", which leaves no database behind. It has no recipe of its own,
 # because `just e2e` drops what it created and nothing else has a database to drop.
 
-
 [private]
 _e2e-db mode:
     #!/usr/bin/env bash
     set -euo pipefail
-    uv run python - '{{ e2e_database_url }}' '{{ mode }}' <<'PY'
-    import asyncio
-    import sys
-    from urllib.parse import urlsplit, urlunsplit
-
-    import asyncpg
-
-    url, mode = sys.argv[1], sys.argv[2]
-    parts = urlsplit(url)
-    name = parts.path.lstrip("/")
-    # The one guard between a reset and a developer's own data.
-    if not name.endswith("_e2e"):
-        sys.exit(f"refusing to act on {name}: these recipes own a _e2e database and nothing else")
-    admin_url = urlunsplit(("postgresql", parts.netloc, "/postgres", "", ""))
-    # A quoted identifier ends at its first quote, so every quote in the name is doubled.
-    identifier = name.replace('"', '""')
-
-
-    async def prepare() -> None:
-        try:
-            conn = await asyncpg.connect(admin_url)
-        except OSError as exc:
-            server = parts.netloc.rsplit("@", 1)[-1]
-            sys.exit(f"no Postgres at {server}: {exc}. Start it with `docker compose up -d`")
-        try:
-            if mode in {"recreate", "drop"}:
-                # Postgres refuses to drop a database that still has sessions on it, and a
-                # drop follows a run whose API may still hold its pool open.
-                existed = await conn.fetchval("select 1 from pg_database where datname = $1", name)
-                await conn.execute(f'drop database if exists "{identifier}" with (force)')
-                print(f"dropped {name}" if existed else f"{name} was not there")
-            if mode == "drop":
-                return
-            if await conn.fetchval("select 1 from pg_database where datname = $1", name):
-                print(f"{name} is already there")
-            else:
-                await conn.execute(f'create database "{identifier}"')
-                print(f"created {name}")
-        finally:
-            await conn.close()
-
-
-    asyncio.run(prepare())
-    PY
+    uv run python -m crosstune.ops.local_e2e_db '{{ mode }}' '{{ e2e_database_url }}'
     if [ '{{ mode }}' != "drop" ]; then
         {{ e2e_env }} uv run alembic upgrade head
         echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
