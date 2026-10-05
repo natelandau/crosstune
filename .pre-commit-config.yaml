@@ -97,7 +97,7 @@ repos:
     hooks:
       - id: ty
         name: ty
-        entry: bash -c 'cd api && uv run ty check'
+        entry: just api::ty
         pass_filenames: false
         language: system
         files: ^api/.*\.py$
@@ -120,21 +120,21 @@ repos:
 
       - id: web-eslint
         name: eslint
-        entry: bash -c 'cd web && pnpm eslint --max-warnings 0 .'
+        entry: just web::eslint
         language: system
         pass_filenames: false
         files: ^web/.*\.(ts|tsx|js|cjs|mjs)$
 
       - id: web-prettier
         name: prettier
-        entry: bash -c 'cd web && pnpm prettier --check .'
+        entry: just web::format
         language: system
         pass_filenames: false
         files: ^web/
 
       - id: web-tsc
         name: tsc
-        entry: bash -c 'cd web && pnpm tsc --noEmit'
+        entry: just web::tsc
         language: system
         pass_filenames: false
         files: ^web/.*\.(ts|tsx)$
@@ -149,21 +149,21 @@ repos:
 
       - id: site-eslint
         name: eslint
-        entry: bash -c 'cd site && pnpm eslint --max-warnings 0 .'
+        entry: just site::eslint
         language: system
         pass_filenames: false
         files: ^site/.*\.(ts|js|cjs|mjs|astro)$
 
       - id: site-prettier
         name: prettier
-        entry: bash -c 'cd site && pnpm prettier --check .'
+        entry: just site::format
         language: system
         pass_filenames: false
         files: ^site/
 
       - id: site-tsc
         name: tsc
-        entry: bash -c 'cd site && pnpm astro check'
+        entry: just site::tsc
         language: system
         pass_filenames: false
         files: ^site/.*\.(ts|astro)$
