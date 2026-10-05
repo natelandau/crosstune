@@ -9,6 +9,10 @@ import Testing
 @testable import CrosstuneSync
 @testable import CrosstuneUI
 
+#if os(macOS)
+    import AppKit
+#endif
+
 @MainActor
 private func eventually(_ condition: @MainActor () async throws -> Bool) async throws {
     if try await poll({ try await condition() }) { return }
@@ -323,6 +327,25 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
         #expect(HeatColor.hex(1, dark: false) == "#707c93")
         #expect(HeatColor.hex(4, dark: true) == "#e4e8ef")
     }
+
+    #if os(macOS)
+        /// The Mac draws the same tested ramp as iOS, not a tint at reduced opacity, whose
+        /// lightest step would vanish into the row.
+        @Test func theMacFillsDaysFromTheRamp() {
+            for level in 1...4 {
+                for (scheme, dark) in [(ColorScheme.light, false), (.dark, true)] {
+                    let color = NSColor(HeatColor.color(level, scheme: scheme)).usingColorSpace(.sRGB)
+                    let rgb = color.map { color in
+                        [color.redComponent, color.greenComponent, color.blueComponent]
+                            .map { UInt32(($0 * 255).rounded()) }
+                            .reduce(0) { $0 << 8 | $1 }
+                    }
+                    #expect(rgb.map { String(format: "#%06x", $0) } == HeatColor.hex(level, dark: dark))
+                    #expect(color?.alphaComponent == 1)
+                }
+            }
+        }
+    #endif
 
     @Test func summaryNeverPullsHistory() async throws {
         let root = TemporaryRoot()

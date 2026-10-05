@@ -39,7 +39,7 @@ public struct AccountView: View {
 /// Not Clerk's `UserProfileView`, which always offers its own sign-out and so would skip the
 /// guard that keeps unsent changes from being deleted with the catalog.
 public struct AccountSections: View {
-    public static let title = "Account"
+    nonisolated public static let title = "Account"
     public static let signOut = "Sign out"
     public static let offlineFooter = "Signing out and deleting your account need a connection."
     public static let signedInOffline = "Signed in (offline)"

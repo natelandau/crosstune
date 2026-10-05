@@ -33,6 +33,9 @@ struct CrosstuneApp: App {
         WindowGroup(id: AppCommands.mainWindow) {
             content
                 .followsDisplaySettings()
+                #if os(macOS)
+                    .tint(MacStyle.accent)
+                #endif
         }
         .commands {
             SidebarCommands()
@@ -45,20 +48,30 @@ struct CrosstuneApp: App {
 
         #if os(macOS)
             Settings {
-                NavigationStack {
-                    SettingsScreen()
-                }
-                // The window is not resizable and sizes to its content's ideal, and a scrolling
-                // form has almost none, so the ideal is what keeps several sections in view.
-                .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 640)
-                .environment(\.store, session.store)
-                .environment(session.syncEngine)
-                .environment(session)
-                .environment(player)
-                .followsDisplaySettings()
+                settings
+                    .environment(\.store, session.store)
+                    .environment(session.syncEngine)
+                    .environment(session)
+                    .environment(player)
+                    .followsDisplaySettings()
+                    .tint(MacStyle.accent)
             }
         #endif
     }
+
+    #if os(macOS)
+        @ViewBuilder private var settings: some View {
+            #if DEBUG
+                if CommandLine.arguments.contains("-SampleShell") {
+                    SampleSettings()
+                } else {
+                    MacSettingsTabs()
+                }
+            #else
+                MacSettingsTabs()
+            #endif
+        }
+    #endif
 
     @ViewBuilder private var content: some View {
         #if DEBUG
