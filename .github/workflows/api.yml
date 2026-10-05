@@ -6,7 +6,12 @@ on:
   push:
     branches: [main]
     paths:
-      ["api/**", "scripts/**", ".github/workflows/api.yml", ".pre-commit-config.yaml"]
+      - "api/**"
+      - "scripts/**"
+      - ".github/**"
+      - ".pre-commit-config.yaml"
+      - ".typos.toml"
+      - "compose.yml"
   workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
@@ -26,9 +31,11 @@ env:
 jobs:
   # The checks are required, so they run on every pull request and skip when it touches
   # nothing they cover; a skipped job passes a required check, a missing one blocks it.
+  # The lint job's hooks also lint every workflow, so any change under .github counts.
   changes:
     name: API changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -38,53 +45,59 @@ jobs:
       - uses: actions/checkout@v7
         with:
           sparse-checkout: .github/actions
+          persist-credentials: false
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(api/|scripts/|\.github/workflows/api\.yml$|\.pre-commit-config\.yaml$)'
+          pattern: '^(api/|scripts/|\.github/|\.pre-commit-config\.yaml$|\.typos\.toml$|compose\.yml$)'
 
   lint:
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     name: API lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: api
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.13"
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just lint
-      - run: uv run shellcheck ../scripts/smoke.sh ../scripts/ci-media-tools.sh
       - name: prek
         working-directory: .
         run: |
           uv run --project api prek run --all-files --config .pre-commit-config.yaml
         env:
-          PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc
+          # Hooks another job already runs: ty in `just lint`, and the web, site, and Swift
+          # hooks in their own workflows, whose toolchains this runner lacks. A new hook of
+          # that kind belongs here.
+          PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format
 
   test:
     needs: changes
     if: needs.changes.outputs.relevant == 'true'
     name: API test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: api
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.13"
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
-      - run: docker info
       # The RustFS compatibility tests fail rather than skip when CI is set.
       - name: start RustFS
         working-directory: .
@@ -99,15 +112,17 @@ jobs:
     if: needs.changes.outputs.relevant == 'true'
     name: API contract
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: api
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          python-version: "3.13"
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just contract

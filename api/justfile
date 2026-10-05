@@ -43,12 +43,12 @@ ty:
 typos:
     uv run typos --config ../.typos.toml
 
-# Run every prek hook against all files (prek runs its own job in CI)
+# Run every prek hook against all files (CI runs prek as its own step)
 [group('lint')]
 precommit:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "${CI:-}" in 1|true|yes) echo "skipping prek hooks: CI runs them as their own job"; exit 0 ;; esac
+    case "${CI:-}" in 1|true|yes) echo "skipping prek hooks: CI runs them as their own step"; exit 0 ;; esac
     cd .. && PREK_SKIP=pytest uv run --project api prek run --all-files --config .pre-commit-config.yaml
 
 # Run all linters

@@ -36,7 +36,6 @@
         "pytest-xdist>=3.8.0",
         "pytest>=9.1.1",
         "ruff>=0.16.7",
-        "shellcheck-py>=0.11.0.1",
         "ty>=0.0.80",
         "types-boto3[s3]>=1.43.94",
         { include-group = "typos" },
