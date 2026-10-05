@@ -237,10 +237,13 @@ public enum CatalogSearch {
                     CatalogEntry(tune: $0, userTune: userTune, heard: heard.contains($0.id))
                 }
             }
-            .sorted { first, second in
-                let titles = order(first.tune.title, second.tune.title)
-                return titles == .orderedSame ? first.id < second.id : titles == .orderedAscending
-            }
+            .sorted(by: titleFirst)
+    }
+
+    /// Title A to Z, then id, so two same-named tunes keep one order.
+    static func titleFirst(_ first: CatalogEntry, _ second: CatalogEntry) -> Bool {
+        let titles = order(first.tune.title, second.tune.title)
+        return titles == .orderedSame ? first.id < second.id : titles == .orderedAscending
     }
 
     /// True when the query names the tune's title or an alternate title, as `sameText` compares

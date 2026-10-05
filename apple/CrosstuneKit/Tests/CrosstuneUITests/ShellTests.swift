@@ -226,10 +226,15 @@ import Testing
         #expect(!MenuGates.sort(isShown: true, sheetsOpen: true))
     }
 
+    @Test func sortByStandsDownWhileTheScreenSelects() {
+        #expect(!MenuGates.sort(isShown: true, sheetsOpen: false, selecting: true))
+        #expect(MenuGates.sort(isShown: true, sheetsOpen: false, selecting: false))
+    }
+
     @Test func sortByOffersEveryRecordingSort() {
         #expect(MenuCommand.sortBy == "Sort By")
         #expect(
-            RecordingSortChoices.items(for: .default).map(\.label) == [
+            SortChoices<RecordingSort>.items(for: .default).map(\.label) == [
                 "Date added", "Date recorded", "Title", "Tune",
             ])
     }

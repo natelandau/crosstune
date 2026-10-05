@@ -29,67 +29,6 @@ public struct RecordingsScreen: View {
     }
 }
 
-/// One choice per sort, the current one checked; choosing it again reverses it. The recordings
-/// screen's Sort menu and the menu bar's View > Sort By.
-public struct RecordingSortChoices: View {
-    @Binding var choice: SortChoice
-
-    public init(choice: Binding<SortChoice>) {
-        _choice = choice
-    }
-
-    /// One menu item: the sort it picks, and for the current one its direction.
-    struct Item: Equatable {
-        let sort: RecordingSort
-        let label: String
-        let isChecked: Bool
-        let direction: String?
-        let directionSymbol: String?
-    }
-
-    nonisolated static func items(for choice: SortChoice) -> [Item] {
-        RecordingSort.allCases.map { sort in
-            let checked = choice.sort == sort
-            return Item(
-                sort: sort, label: RecordingsListText.label(sort), isChecked: checked,
-                direction: checked ? RecordingsListText.direction(choice) : nil,
-                directionSymbol: checked ? RecordingsListText.directionSymbol(choice) : nil)
-        }
-    }
-
-    /// What a toggle of `sort` leaves chosen. Choosing the checked item turns its toggle off,
-    /// which still reverses the sort rather than leaving nothing chosen.
-    nonisolated static func toggled(_ sort: RecordingSort, isOn _: Bool, from choice: SortChoice) -> SortChoice {
-        choice.picking(sort)
-    }
-
-    public var body: some View {
-        ForEach(Self.items(for: choice), id: \.sort) { item in
-            // A toggle, so the check reads as the choice's state rather than as an icon.
-            Toggle(
-                isOn: Binding {
-                    item.isChecked
-                } set: { isOn in
-                    choice = Self.toggled(item.sort, isOn: isOn, from: choice)
-                }
-            ) {
-                if let direction = item.direction, let symbol = item.directionSymbol {
-                    // A menu shows the second text as the item's subtitle, which VoiceOver reads
-                    // after its title.
-                    Label {
-                        Text(item.label)
-                        Text(direction)
-                    } icon: {
-                        Image(systemName: symbol)
-                    }
-                } else {
-                    Text(item.label)
-                }
-            }
-        }
-    }
-}
-
 /// How much of the account's audio quota is spent.
 struct StorageSummary: View {
     let storage: StorageFigures
@@ -121,7 +60,7 @@ private struct RecordingsContent: View {
     @Environment(\.spacing) private var spacing
     @Environment(\.openURL) private var openURL
     @Environment(\.openSheets) private var openSheets
-    @AppStorage(SortChoice.storageKey) private var sort = SortChoice.default
+    @AppStorage(RecordingSortChoice.storageKey) private var sort = RecordingSortChoice.default
     @FocusState private var searchFocused: Bool
     @State private var isShown = false
     @State private var pushed: String?
@@ -321,12 +260,7 @@ private struct RecordingsContent: View {
         }
     }
 
-    private var sortMenu: some View {
-        Menu(RecordingsListText.sort, systemImage: "arrow.up.arrow.down") {
-            RecordingSortChoices(choice: $sort)
-        }
-        .help(RecordingsListText.sort)
-    }
+    private var sortMenu: some View { SortMenu(choice: $sort) }
 
     /// The filed recordings in one section: flat, each row naming its tune, or under a line per
     /// tune.

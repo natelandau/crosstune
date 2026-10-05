@@ -1,7 +1,5 @@
-import { isDateSort, type RecordingSort, type SortChoice } from './arrangeRecordings'
-
-/** The name of the Recordings screen's sort menu. */
-export const SORT = 'Sort'
+import type { SortOptions } from '../../ui/SortMenu'
+import { isDateSort, RECORDING_SORTS, type RecordingSort } from './arrangeRecordings'
 
 export const SORT_LABELS: Record<RecordingSort, string> = {
   added: 'Date added',
@@ -10,13 +8,8 @@ export const SORT_LABELS: Record<RecordingSort, string> = {
   tune: 'Tune',
 }
 
-export const NEWEST_FIRST = 'Newest first'
-export const OLDEST_FIRST = 'Oldest first'
-export const A_TO_Z = 'A to Z'
-export const Z_TO_A = 'Z to A'
-
-/** The words for the current sort's direction, read with its checked menu item. */
-export function sortDirection({ sort, descending }: SortChoice): string {
-  if (isDateSort(sort)) return descending ? NEWEST_FIRST : OLDEST_FIRST
-  return descending ? Z_TO_A : A_TO_Z
+export const RECORDING_SORT_OPTIONS: SortOptions<RecordingSort> = {
+  sorts: RECORDING_SORTS,
+  labels: SORT_LABELS,
+  isDate: isDateSort,
 }

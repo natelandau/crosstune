@@ -83,7 +83,7 @@ public final class RecordingsModel {
 
     /// The recordings from the chosen source in the chosen order, narrowed by ``query``. Nil until
     /// the store is read, so an unread store never shows as having no recordings.
-    public func arrangement(_ sort: SortChoice) -> RecordingArrangement? {
+    public func arrangement(_ sort: RecordingSortChoice) -> RecordingArrangement? {
         snapshot.value.map { RecordingArrangement.arrange(shown($0.views), choice: sort, query: query) }
     }
 

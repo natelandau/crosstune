@@ -2,48 +2,29 @@ import CrosstuneStore
 import CrosstuneVocabulary
 import Foundation
 
-public enum RecordingSort: String, CaseIterable, Sendable {
+public enum RecordingSort: String, SortKind {
     case added
     case recorded
     case title
     case tune
-}
 
-extension RecordingSort {
-    /// True for a sort whose first direction is newest first rather than A first.
     public var isDate: Bool { self == .added || self == .recorded }
+
+    public var label: String {
+        switch self {
+        case .added: "Date added"
+        case .recorded: "Date recorded"
+        case .title: "Title"
+        case .tune: "Tune"
+        }
+    }
 }
 
-/// A sort and its direction, stored per device as `"<sort>.<asc|desc>"`. `descending` is newest
-/// first for a date sort and Z first otherwise. A date sort starts descending; Title and Tune
-/// start ascending.
-public struct SortChoice: Equatable, Sendable, RawRepresentable {
-    public static let storageKey = "recordingsSort.v2"  // gitleaks:allow -- a defaults key, not a secret
-    public static let `default` = SortChoice(sort: .added, descending: true)
+public typealias RecordingSortChoice = SortChoice<RecordingSort>
 
-    public var sort: RecordingSort
-    public var descending: Bool
-
-    public init(sort: RecordingSort, descending: Bool) {
-        self.sort = sort
-        self.descending = descending
-    }
-
-    public init?(rawValue: String) {
-        let parts = rawValue.split(separator: ".", omittingEmptySubsequences: false)
-        guard parts.count == 2, let sort = RecordingSort(rawValue: String(parts[0])),
-            parts[1] == "asc" || parts[1] == "desc"
-        else { return nil }
-        self.init(sort: sort, descending: parts[1] == "desc")
-    }
-
-    public var rawValue: String { "\(sort.rawValue).\(descending ? "desc" : "asc")" }
-
-    /// Picking the current sort reverses it; picking another starts it at its first direction.
-    public func picking(_ picked: RecordingSort) -> SortChoice {
-        if picked == sort { return SortChoice(sort: picked, descending: !descending) }
-        return SortChoice(sort: picked, descending: picked.isDate)
-    }
+extension SortChoice where Sort == RecordingSort {
+    public static var storageKey: String { "recordingsSort.v2" }  // gitleaks:allow -- a defaults key, not a secret
+    public static var `default`: SortChoice { SortChoice(sort: .added, descending: true) }
 }
 
 /// One tune's recordings: own before imported, each newest added first.
@@ -62,7 +43,6 @@ public enum FiledRecordings: Equatable, Sendable {
 
 public enum RecordingsListText {
     public static let search = "Search recordings"
-    public static let sort = "Sort"
     public static let filed = "Filed"
     public static let unfiled = "Unfiled"
     public static let nothingMatches = CatalogScreen.nothingMatches
@@ -74,32 +54,7 @@ public enum RecordingsListText {
     /// Why Filters is disabled while every recording is the musician's own.
     public static let filtersDisabledReason = "All recordings are yours"
 
-    public static func label(_ sort: RecordingSort) -> String {
-        switch sort {
-        case .added: "Date added"
-        case .recorded: "Date recorded"
-        case .title: "Title"
-        case .tune: "Tune"
-        }
-    }
-
     public static func openTune(_ title: String) -> String { "Open \(title)" }
-
-    public static let newestFirst = "Newest first"
-    public static let oldestFirst = "Oldest first"
-    public static let aToZ = "A to Z"
-    public static let zToA = "Z to A"
-
-    /// The words for a sort's direction, shown with its checked menu item.
-    public static func direction(_ choice: SortChoice) -> String {
-        if choice.sort.isDate { return choice.descending ? newestFirst : oldestFirst }
-        return choice.descending ? zToA : aToZ
-    }
-
-    /// Down for newest first and Z to A, up for oldest first and A to Z.
-    public static func directionSymbol(_ choice: SortChoice) -> String {
-        choice.descending ? "arrow.down" : "arrow.up"
-    }
 }
 
 /// The recordings screen's two sections: those with no tune, and those filed under one.
@@ -118,7 +73,9 @@ public struct RecordingArrangement: Equatable, Sendable {
 
     nonisolated private static let folding: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
 
-    public static func arrange(_ views: [RecordingView], choice: SortChoice, query: String) -> RecordingArrangement {
+    public static func arrange(_ views: [RecordingView], choice: RecordingSortChoice, query: String)
+        -> RecordingArrangement
+    {
         let needle = trimmedText(query)
         let visible = needle.isEmpty ? views : views.filter { matches($0, needle) }
         let unfiled = visible.filter { $0.tuneID == nil }

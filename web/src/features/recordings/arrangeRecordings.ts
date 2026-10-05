@@ -1,5 +1,6 @@
 import { isRecordingPrecision } from '../../db/types'
 import { containsText } from '../../text/fold'
+import { nextSort as nextChoice, type SortChoice as Choice } from '../../ui/sortChoice'
 import type { RecordingView } from './useRecordings'
 
 export type RecordingSort = 'added' | 'recorded' | 'title' | 'tune'
@@ -12,14 +13,7 @@ export function isDateSort(sort: RecordingSort): boolean {
   return sort === 'added' || sort === 'recorded'
 }
 
-/**
- * `descending` is newest first for a date sort and Z first otherwise. A date sort starts
- * descending; Title and Tune start ascending.
- */
-export interface SortChoice {
-  sort: RecordingSort
-  descending: boolean
-}
+export type SortChoice = Choice<RecordingSort>
 
 export const DEFAULT_SORT: SortChoice = { sort: 'added', descending: true }
 
@@ -159,6 +153,5 @@ export function arrangeRecordings(
 
 /** Picking the current sort reverses it; picking another starts it at its first direction. */
 export function nextSort(current: SortChoice, picked: RecordingSort): SortChoice {
-  if (current.sort === picked) return { sort: picked, descending: !current.descending }
-  return { sort: picked, descending: isDateSort(picked) }
+  return nextChoice(current, picked, isDateSort)
 }

@@ -192,9 +192,10 @@ enum MenuGates {
         isShown && !sheetsOpen
     }
 
-    /// Sort By sorts the recordings while their screen shows, unless a sheet or dialog is up.
-    static func sort(isShown: Bool, sheetsOpen: Bool) -> Bool {
-        isShown && !sheetsOpen
+    /// Sort By sorts the screen on show, unless a sheet or dialog is up or the screen is
+    /// selecting.
+    static func sort(isShown: Bool, sheetsOpen: Bool, selecting: Bool = false) -> Bool {
+        isShown && !sheetsOpen && !selecting
     }
 
     /// Record opens its sheet, unless a sheet or dialog is up, a screen is selecting, a take is

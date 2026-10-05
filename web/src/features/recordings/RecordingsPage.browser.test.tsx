@@ -29,7 +29,7 @@ import {
   SEARCH_RECORDINGS,
   UNFILED_HEADER,
 } from './RecordingsPage'
-import { A_TO_Z, NEWEST_FIRST, OLDEST_FIRST, SORT, SORT_LABELS, Z_TO_A } from './sortCopy'
+import { SORT_LABELS } from './sortCopy'
 import { NOT_AUDIO_ERROR, refusedFile } from './addAudioFiles'
 import { MY_RECORDINGS, SOURCE_SECTION } from './RecordingsFilterSheet'
 import { META_RECORDINGS_ORIGIN, setStorage } from '../../db/meta'
@@ -39,6 +39,7 @@ import { DELETE_RECORDING_TITLE } from './useRecordingActions'
 import { useRecordingsWithFiles } from './useRecordings'
 import { CANCEL } from '../../ui/Confirm'
 import { FILTERS, filtersLabel, removeFilterLabel } from '../../ui/filterCopy'
+import { A_TO_Z, NEWEST_FIRST, OLDEST_FIRST, SORT, Z_TO_A } from '../../ui/sortCopy'
 
 vi.mock('../../commands/recordings', { spy: true })
 vi.mock('./useRecordings', { spy: true })

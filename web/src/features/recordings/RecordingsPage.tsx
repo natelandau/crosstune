@@ -9,6 +9,7 @@ import { Group } from '../../ui/Group'
 import { InlineError } from '../../ui/InlineError'
 import { Screen } from '../../ui/Screen'
 import { SearchField, type SearchFieldHandle } from '../../ui/SearchField'
+import { SortMenuButton } from '../../ui/SortMenu'
 import { messageFor } from '../../ui/useAction'
 import { useRowArrowKeys, useSearchShortcut } from '../../ui/useShortcut'
 import { NOTHING_MATCHES } from '../catalog/CatalogPage'
@@ -20,9 +21,9 @@ import { RecordingItem } from './RecordingItem'
 import { RecordingsFilters } from './RecordingsFilters'
 import { RecordingsFilterSheet } from './RecordingsFilterSheet'
 import { retryKind } from './recordingRow'
-import { useRecordingsSort } from './recordingsSort'
+import { setRecordingsSort, useRecordingsSort } from './recordingsSort'
 import { EditRecordingSheet } from './EditRecordingSheet'
-import { SortMenuButton } from './SortMenuButton'
+import { RECORDING_SORT_OPTIONS } from './sortCopy'
 import { Storage } from './Storage'
 import { TuneLabelLine } from './TuneLabelLine'
 import { UploadButton } from './UploadButton'
@@ -127,7 +128,11 @@ export function RecordingsPage() {
       }
       searchEnd={
         <>
-          <SortMenuButton />
+          <SortMenuButton
+            options={RECORDING_SORT_OPTIONS}
+            choice={sort}
+            onChange={setRecordingsSort}
+          />
           <FiltersButton
             setCount={filterSet ? 1 : 0}
             disabled={filtersDisabled}
