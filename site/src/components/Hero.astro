@@ -1,17 +1,18 @@
 ---
+import { HERO_SCENES, SCENES_LABEL } from '../scripts/heroScenes'
+import { PAUSE } from '../scripts/playback'
+import PhoneStack from './capture/PhoneStack.astro'
 import { APP_URL, JOIN_WAITLIST, SIGN_IN, WAITLIST_ID } from './actions'
-import PaperList from './PaperList.astro'
-import PhoneCatalog from './PhoneCatalog.astro'
+import { HERO_LEDE, HERO_MICRO, HERO_TITLE } from './hero'
+
+// The phone's widest width; it also sizes the posters.
+const PHONE_WIDTH = 320
 ---
 
-<section class="hero column" aria-labelledby="hero-title">
-  <div class="words">
-    <h1 id="hero-title">The tune list in your case, rebuilt for your phone.</h1>
-    <p class="lede">
-      Crosstune is a tune list and practice app for musicians who learn by ear. Keep every tune you
-      know or want to learn next to the recordings you learn from, then slow them down, shift the
-      pitch, and loop the hard parts. Made for old-time, bluegrass, Irish, and folk players.
-    </p>
+<section class="hero" aria-labelledby="hero-title" data-hero>
+  <div class="intro column">
+    <h1 id="hero-title">{HERO_TITLE}</h1>
+    <p class="lede">{HERO_LEDE}</p>
     <div class="actions">
       <a class="button" href={`#${WAITLIST_ID}`}>
         {JOIN_WAITLIST}
@@ -20,85 +21,204 @@ import PhoneCatalog from './PhoneCatalog.astro'
         {SIGN_IN}
       </a>
     </div>
+    <p class="micro">{HERO_MICRO}</p>
   </div>
-  <div class="stage">
-    <div class="paper-slot">
-      <PaperList />
+
+  <div class="runway" style={`--n: ${HERO_SCENES.length}`} data-runway>
+    <div class="pinned stage">
+      <PhoneStack
+        names={HERO_SCENES.map((scene) => scene.name)}
+        alts={HERO_SCENES.map((scene) => scene.alt)}
+        width={PHONE_WIDTH}
+        posters={HERO_SCENES.map((_, i) => (i === 0 ? 'high' : 'low'))}
+      />
+      <div class="controls">
+        <div class="seg" role="group" aria-label={SCENES_LABEL} data-scene-picker hidden>
+          {HERO_SCENES.map((scene, i) => (
+            <button type="button" aria-pressed={i === 0 ? 'true' : 'false'}>
+              {scene.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" class="clip-toggle" data-scene-toggle hidden>
+          {PAUSE}
+        </button>
+      </div>
     </div>
-    <div class="phone-slot">
-      <PhoneCatalog />
-    </div>
+    {HERO_SCENES.map((_, i) => (
+      <div class="snap" style={`--i: ${i}`} />
+    ))}
   </div>
 </section>
 
 <style>
   .hero {
+    padding-block: 16px var(--section-pad);
+  }
+
+  .intro {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 32px;
-    align-items: center;
-    padding-block: 32px 72px;
+    justify-items: center;
+    text-align: center;
   }
 
   h1 {
+    max-width: 24ch;
     margin: 0;
-    font-size: clamp(2.25rem, 1.4rem + 3vw, 3.4rem);
-    font-weight: 600;
-    line-height: 1.04;
-    letter-spacing: -0.03em;
+    font-size: var(--hero-size);
+    font-weight: var(--hero-weight);
+    line-height: 0.98;
+    letter-spacing: var(--tracking);
     text-wrap: balance;
   }
 
   .lede {
-    max-width: 36ch;
-    margin: 20px 0 0;
+    max-width: 54ch;
+    margin: 24px 0 0;
     color: var(--slate);
-    font-size: 1.125rem;
+    font-size: 1.1875rem;
+    text-wrap: pretty;
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
-    gap: 16px 24px;
-    margin-top: 32px;
+    gap: 16px 28px;
+    margin-top: 28px;
   }
 
-  .text-link {
-    font-weight: 500;
+  .micro {
+    margin: 16px 0 0;
+    color: var(--slate);
+    font-size: 0.875rem;
+    text-wrap: balance;
   }
 
-  /*
-   * The stage is drawn in em so one font-size scales paper and phone together. At narrow
-   * widths it shrinks with the viewport: 29em fills the column inside 16px gutters.
-   */
+  /* Top-aligned, so at rest the phone sits just under the hero text, and pinned it keeps the
+     same short gap from the screen's top. */
   .stage {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 24px;
+    padding-inline: 16px;
+    padding-top: var(--stage-top);
+    --stage-top: 40px;
+    /* The pinned screen's height the phone leaves for the gap and the controls, even when the
+       controls wrap to two rows. */
+    --controls-room: 140px;
+  }
+
+  /* Capped by the viewport's height too, so the phone and its controls fit one pinned screen. */
+  .stage :global(.stack) {
+    width: min(320px, 100%, (100svh - var(--controls-room) - var(--stage-top)) * 0.46);
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    max-width: 100%;
+  }
+
+  .seg {
+    display: inline-flex;
+    gap: 4px;
+    max-width: 100%;
+    padding: 5px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+
+  .seg[hidden] {
+    display: none;
+  }
+
+  .seg button {
     position: relative;
-    width: 29em;
-    height: 30em;
-    font-size: min(16px, calc((100vw - 32px) / 29));
+    min-height: 44px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--slate);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
-  .paper-slot {
+  .seg button:hover {
+    color: var(--jet);
+  }
+
+  .seg button[aria-pressed='true'] {
+    background: var(--jet);
+    color: var(--mist);
+  }
+
+  .seg button[aria-pressed='true']::after {
+    content: '';
     position: absolute;
-    top: 3em;
-    left: 0.6em;
+    bottom: 6px;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--coral);
+    transform: translateX(-50%);
   }
 
-  .phone-slot {
-    position: absolute;
-    top: 0;
-    right: 0;
-  }
-
-  @media (max-width: 860px) {
+  /* A centered paragraph this narrow has a ragged left edge on every line, so the text sits
+     left. */
+  @media (max-width: 600px) {
     .hero {
-      grid-template-columns: minmax(0, 1fr);
-      padding-block: 16px 56px;
+      padding-top: 8px;
+    }
+
+    .intro {
+      justify-items: start;
+      text-align: left;
+    }
+
+    .lede {
+      margin-top: 20px;
+      font-size: var(--body-size);
+    }
+
+    .actions {
+      justify-content: flex-start;
     }
 
     .stage {
-      margin-top: 8px;
+      --stage-top: 20px;
+    }
+
+    .stage :global(.stack) {
+      width: min(260px, 64vw, (100svh - var(--controls-room) - var(--stage-top)) * 0.46);
+    }
+
+    .seg button {
+      padding: 0 12px;
+      font-size: 0.875rem;
+    }
+  }
+
+  /* Tighter so the tabs and the pause button share one row on a 360px phone. */
+  @media (max-width: 400px) {
+    .controls {
+      gap: 8px;
+    }
+
+    .seg button,
+    .controls .clip-toggle {
+      padding: 0 10px;
     }
   }
 </style>

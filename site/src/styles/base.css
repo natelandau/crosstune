@@ -11,12 +11,21 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Runways place one snap point per clip and set `data-snap` only while the scroll position is
+   between their first and last stop; proximity only catches a stop that is already close. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-snap] {
+    scroll-snap-type: y proximity;
+  }
+}
+
 body {
   margin: 0;
-  background: #fff;
+  background: var(--mist);
   color: var(--jet);
   font-family: 'Geist Variable', system-ui, sans-serif;
-  line-height: 1.55;
+  font-size: var(--body-size);
+  line-height: var(--body-leading);
   text-align: left;
 }
 
@@ -43,10 +52,63 @@ a {
   padding-block: 24px;
 }
 
-.nav > a:not(.lockup) {
+/* Text links keep their type size but get a 44px tall hit area. */
+.nav a:not(.lockup, .button) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--slate);
   font-weight: 500;
   text-decoration: none;
+}
+
+.nav a:not(.lockup, .button):hover {
+  color: var(--jet);
+}
+
+.nav .sections {
+  display: flex;
+  gap: 28px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-actions .button {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+@media (max-width: 760px) {
+  .nav .sections {
+    display: none;
+  }
+}
+
+.nav-actions a {
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .nav-actions {
+    gap: 14px;
+  }
+
+  .nav-actions .button {
+    padding: 0 12px;
+    font-size: 0.9375rem;
+  }
+
+  .nav .lockup {
+    gap: 8px;
+    font-size: 1.125rem;
+  }
 }
 
 .lockup {
@@ -67,9 +129,24 @@ a {
 .footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 24px;
-  padding-block: 48px;
+  gap: 0 24px;
+  padding-block: 38px;
   color: var(--slate-2);
+}
+
+.footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--jet);
+  font-weight: 500;
+  text-underline-offset: 4px;
 }
 
 :focus-visible {
@@ -90,6 +167,82 @@ a {
   border: 0;
 }
 
+/* A capture's image or clip, inside whichever frame holds it. */
+.capture {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Without a script a clip never gets a source, and its empty player would cover its poster.
+   Transparent, not hidden: the video's aria-label is the clip's only description. */
+.poster + video.capture:not([src]) {
+  opacity: 0;
+}
+
+/* A runway is the scroll distance a pinned block holds for: the block's own height plus one step
+   per extra clip (`--n` clips), with a snap point at each clip's stop (`--i`). The script reports
+   the block's height as `--pinned-h`, so the runway ends where the block's content does and the
+   next section follows at its usual spacing. Without a script nothing changes the clip, so the
+   block sits in the flow instead. */
+.snap {
+  display: none;
+}
+
+@media (scripting: enabled) {
+  .runway {
+    --step: 70vh;
+    position: relative;
+    height: calc(var(--pinned-h, 100svh) + (var(--n) - 1) * var(--step));
+  }
+
+  .pinned {
+    position: sticky;
+    top: 0;
+  }
+
+  .snap {
+    display: block;
+    position: absolute;
+    top: calc(var(--i) * var(--step));
+    left: 0;
+    width: 1px;
+    height: 1px;
+    scroll-snap-align: start;
+  }
+}
+
+/* Pauses and plays capture clips; hidden until a script can act on it. */
+.clip-toggle {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--rule);
+  color: var(--slate);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.clip-toggle:hover {
+  color: var(--jet);
+}
+
+.clip-toggle[hidden] {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .clip-toggle {
+    padding: 0 12px;
+    font-size: 0.875rem;
+  }
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -98,74 +251,15 @@ a {
   padding: 0 22px;
   border: 0;
   border-radius: 12px;
-  background: var(--slate);
-  color: #fff;
+  background: var(--coral);
+  color: var(--jet);
   font: inherit;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
 
+/* Lightened rather than darkened, since a darker coral drops jet text below 4.5:1. */
 .button:hover {
-  background: var(--jet);
-}
-
-/* The line under a demo that says what the visitor's last touch did. */
-.demo-caption {
-  min-height: 1.55em;
-  margin: 16px 0 0;
-  color: var(--slate);
-  font-size: 1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-/* A demo control hidden until the script that runs it has loaded. */
-[data-controls][hidden] {
-  display: none !important;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px var(--rule);
-  color: var(--jet);
-  font: inherit;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.chip[aria-pressed='true'] {
-  background: var(--jet);
-  box-shadow: none;
-  color: #fff;
-}
-
-.nav .chapters {
-  display: flex;
-  gap: 28px;
-  margin: 0 auto;
-  padding: 0;
-  list-style: none;
-}
-
-.nav .chapters a {
-  color: var(--slate);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.nav .chapters a:hover {
-  color: var(--jet);
-}
-
-@media (max-width: 760px) {
-  .nav .chapters {
-    display: none;
-  }
+  background: color-mix(in srgb, var(--coral), #fff 16%);
 }
