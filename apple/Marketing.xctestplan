@@ -1,0 +1,41 @@
+{
+  "configurations" : [
+    {
+      "id" : "D3D68051-8098-4D5D-9781-B8BB51981D40",
+      "name" : "Dark",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "commandLineArgumentEntries" : [
+      {
+        "argument" : "-crosstune.appearance dark"
+      }
+    ],
+    "environmentVariableEntries" : [
+      {
+        "key" : "CAPTURE_FIXTURE",
+        "value" : "$(SRCROOT)\/..\/site\/capture\/catalog.json"
+      }
+    ],
+    "preferredScreenCaptureFormat" : "screenRecording",
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Crosstune.xcodeproj",
+      "identifier" : "CA0000000000000000000050",
+      "name" : "Crosstune"
+    },
+    "uiTestingScreenshotsLifetime" : "keepAlways"
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Crosstune.xcodeproj",
+        "identifier" : "CA0000000000000000000053",
+        "name" : "CrosstuneMarketingUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
