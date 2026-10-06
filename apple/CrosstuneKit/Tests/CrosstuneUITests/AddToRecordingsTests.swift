@@ -16,6 +16,7 @@ private func saved(url: String?, deleted: Bool = false) -> Recording {
         originURL: url, addedAt: Timestamp.now)
 }
 
+@MainActor
 @Suite struct AddToRecordingsTests {
     @Test func offersAnImportableLinkWithARef() {
         #expect(canAddToRecordings(link: link(), recordings: []))

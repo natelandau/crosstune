@@ -5,6 +5,7 @@ import CrosstuneTestSupport
 import Foundation
 import MusicKit
 import Observation
+import Synchronization
 import Testing
 
 @testable import CrosstuneUI
@@ -283,12 +284,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func aDecisionThatLandsDuringATakeEmptiesTheQueueAndCloses() async throws {
         let (player, _, music) = model(.fullTracks)
-        var capturing = false
-        player.isCapturing = { capturing }
+        let capturing = Mutex(false)
+        player.isCapturing = { capturing.withLock { $0 } }
         music.holdsLoads = true
         player.play(try #require(PlayerItem.link(appleLink())))
         try await eventually { music.isHoldingLoad }
-        capturing = true
+        capturing.withLock { $0 = true }
         music.release()
         try await eventually { !player.isLoaded }
         #expect(!music.calls.contains("play"))

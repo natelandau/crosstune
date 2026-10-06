@@ -3,6 +3,7 @@ import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
+import Synchronization
 import Testing
 
 @testable import CrosstuneUI
@@ -261,12 +262,12 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
 
     @Test func aTakeStartingWhileASongLoadsLeavesTheQueue() async throws {
         let rig = rig()
-        var capturing = false
-        rig.player.isCapturing = { capturing }
+        let capturing = Mutex(false)
+        rig.player.isCapturing = { capturing.withLock { $0 } }
         rig.music.holdsLoads = true
         rig.player.playQueued(try songItem(), nowPlaying: queuedNowPlaying)
         try await eventually { rig.music.isHoldingLoad }
-        capturing = true
+        capturing.withLock { $0 = true }
         rig.music.release()
         try await eventually { rig.queue.calls == ["leftQueue"] }
         #expect(!rig.music.calls.contains("play"))

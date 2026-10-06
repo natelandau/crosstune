@@ -3,6 +3,7 @@ import Testing
 
 @testable import CrosstuneUI
 
+@MainActor
 @Suite struct DeleteAccountSheetTests {
     @Test func confirmationMatchesIgnoringCaseAndSpaces() {
         #expect(DeleteAccountSheet.confirmationMatches(" delete "))
