@@ -8,11 +8,16 @@
     struct PlayerDock: View {
         /// How tall an embed or card that wants `wanted` points is drawn in a detail column
         /// `columnHeight` tall: its own height when there is room, otherwise as tall as keeps
-        /// the whole dock within ``PlayerPanel/maxShare`` of the column, so a short window keeps
+        /// the whole dock within ``maxShare`` of the column, so a short window keeps
         /// its page.
         nonisolated static func embedHeight(columnHeight: CGFloat, wanted: CGFloat) -> CGFloat {
-            min(wanted, max(0, columnHeight * PlayerPanel.maxShare - chrome))
+            min(wanted, max(0, columnHeight * maxShare - chrome))
         }
+
+        /// The most of the column's height the dock takes.
+        nonisolated static let maxShare: CGFloat = 0.4
+        /// The web's width for a video player, so it is not stretched across the column.
+        nonisolated static let videoWidth: CGFloat = 356
 
         /// The gap around an embed or card above the bar.
         nonisolated static let inset: CGFloat = 12
@@ -51,7 +56,7 @@
                 if height > 0 {
                     // A video keeps its shape as it shrinks; anything else spans the column.
                     let width: CGFloat? =
-                        embed.height == .video ? PlayerPanel.videoWidth * height / CGFloat(embed.points) : nil
+                        embed.height == .video ? Self.videoWidth * height / CGFloat(embed.points) : nil
                     EmbedView(stage: stage, embed: embed, prominence: appearsActive ? .focused : .shown)
                         .frame(width: width, height: height)
                         .clipShape(.rect(cornerRadius: 10))

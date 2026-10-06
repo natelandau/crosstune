@@ -35,6 +35,8 @@ public struct ListsScreen: View {
             ListScreen(listID: route.id)
                 // A destination takes the stack's environment, not this screen's.
                 .environment(\.stackTune, stackTune)
+                // The iPad's Lists column stays beside its detail, as the root's does.
+                .toolbar(removing: .sidebarToggle)
         }
         .overlay {
             if lists?.isEmpty == true {

@@ -33,6 +33,17 @@ import Testing
         }
     }
 
+    @Test func padFoot() {
+        let playing = PlayerModel()
+        playing.play(PlayerItem(kind: .link, id: "link", title: "Soldier's Joy - Tommy Jarrell"))
+        snapshot("pad-foot", width: 560) {
+            VStack(spacing: 16) {
+                PadFoot(player: PlayerModel(), onRecord: {})
+                PadFoot(player: playing, onRecord: {})
+            }
+        }
+    }
+
     @Test func mac() {
         let player = PlayerModel()
         player.play(PlayerItem(kind: .link, id: "link", title: "Soldier's Joy - Tommy Jarrell"))

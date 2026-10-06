@@ -238,8 +238,7 @@ private struct ListTunes: View {
         // The rows wait for the archived setting, so an archived tune never flashes in or out.
         // Reordering stops while selecting.
         let reorder: ((IndexSet, Int) -> Void)? = selection.isActive ? nil : { move($0, $1) }
-        let chosen: Binding<Set<String>>? = TuneSelection.listBinding(
-            $selection, visible: rows.map(\.tune.id), detailTune: detailTune)
+        let chosen = TuneSelection.listBinding($selection, visible: rows.map(\.tune.id), detailTune: detailTune)
         if model.showArchived != nil {
             List(selection: chosen) {
                 #if os(macOS)
@@ -267,6 +266,7 @@ private struct ListTunes: View {
                 }
                 .onMove(perform: reorder)
             }
+            .keepsScrollAnchor(rows: rows.map(\.id))
         } else {
             Color.clear
         }
@@ -422,6 +422,9 @@ private struct ListTunes: View {
         #if os(macOS)
             .revealsActionsOnHover()
         #endif
+        // Before the row's tag, background, and move rule: the visibility watch wraps the row, and
+        // a wrapper around them hides them from the list.
+        .scrollAnchorRow(entry.id)
         .selectableRowActions(isSelecting: selection.isActive) {
             Button(ListScreen.remove, systemImage: "text.badge.xmark", role: .destructive) { remove() }
             Button(TuneRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: edit)

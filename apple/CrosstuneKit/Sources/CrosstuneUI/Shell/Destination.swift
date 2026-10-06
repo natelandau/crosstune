@@ -1,6 +1,6 @@
 import CrosstuneStore
 
-/// A top-level place in the app: a tab on iPhone, a sidebar row on iPad and Mac.
+/// A top-level place in the app: a tab on iPhone and iPad, a sidebar row on the Mac.
 public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable {
     case catalog
     case lists
@@ -33,17 +33,14 @@ public enum Destination: String, CaseIterable, Hashable, Identifiable, Sendable 
     }
 }
 
-/// A row of the iPad and Mac sidebar. Lists are a section of their own rather than a
+/// A row of the Mac sidebar. Lists are a section of their own rather than a
 /// destination, so each list is a row.
 public enum SidebarItem: Hashable, Sendable {
     case catalog
-    /// Only on the Mac: the catalog with this status filter set, as the Catalog row is the
-    /// catalog with none.
+    /// The catalog with this status filter set, as the Catalog row is the catalog with none.
     case status(String)
     case recordings
     case list(id: String)
-    /// Only on iPad: the Mac keeps settings in its Settings window.
-    case settings
 
     public static let newList = "New list…"
 
@@ -58,7 +55,7 @@ public enum SidebarItem: Hashable, Sendable {
         switch self {
         case .catalog: .some(nil)
         case .status(let status): .some(status)
-        case .recordings, .list, .settings: nil
+        case .recordings, .list: nil
         }
     }
 
@@ -67,7 +64,6 @@ public enum SidebarItem: Hashable, Sendable {
         switch self {
         case .catalog, .status: .catalog
         case .recordings: .recordings
-        case .settings: .settings
         case .list: nil
         }
     }

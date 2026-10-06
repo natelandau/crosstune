@@ -41,7 +41,7 @@ struct SettingsRoot: View {
             if store != nil { statsCard }
             Section {
                 ForEach(SettingsCategory.allCases, id: \.self) { category in
-                    NavigationLink(value: category) {
+                    SettingsPageLink(SettingsPage.category(category)) {
                         LabeledContent {
                             Text(value(category)).foregroundStyle(.secondary)
                         } label: {
@@ -58,10 +58,9 @@ struct SettingsRoot: View {
             }
         }
         .formStyle(.grouped)
-        .navigationDestination(for: SettingsCategory.self) { category in
-            SettingsCategoryPage(category: category, model: model, version: version)
+        .navigationDestination(for: SettingsPage.self) { page in
+            SettingsPageScreen(page: page, model: model)
         }
-        .modifier(StatsDestination(isPushed: true))
         .navigationTitle(Destination.settings.title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
@@ -80,13 +79,7 @@ struct SettingsRoot: View {
 
     private func accountCard(_ session: AccountSession) -> some View {
         Section {
-            NavigationLink {
-                SettingsScreen(
-                    version: nil, sections: [.account], title: AccountSections.title, opensStatsInSheet: false,
-                    registersStats: false
-                )
-                .toolbarTitleDisplayMode(.inline)
-            } label: {
+            SettingsPageLink(SettingsPage.account) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(AccountSections.identity(session))
                     TimelineView(.everyMinute) { context in
@@ -110,7 +103,7 @@ struct SettingsRoot: View {
     private var statsCard: some View {
         Section {
             if let line = summary?.summaryLine, let counts = summary?.stats?.counts {
-                NavigationLink(value: StatsRoute()) {
+                SettingsPageLink(SettingsPage.stats) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(line).monospacedDigit()
                         let byStatus = StatusBar.byStatus(counts)
@@ -127,12 +120,103 @@ struct SettingsRoot: View {
     }
 }
 
+/// A page the Settings root opens: pushed on the iPhone, in the detail column on the iPad.
+enum SettingsPage: Hashable {
+    case account
+    case stats
+    case category(SettingsCategory)
+}
+
+/// Opens a Settings page somewhere other than the root's own stack, as the iPad's detail column.
+struct SettingsPageOpener {
+    /// The page open now, which its row marks as selected.
+    let current: SettingsPage?
+    private let open: @MainActor (SettingsPage) -> Void
+
+    init(current: SettingsPage?, open: @escaping @MainActor (SettingsPage) -> Void) {
+        self.current = current
+        self.open = open
+    }
+
+    @MainActor func callAsFunction(_ page: SettingsPage) {
+        open(page)
+    }
+}
+
+extension EnvironmentValues {
+    /// Where the Settings root's rows open their pages. Nil pushes them onto the root's stack.
+    @Entry var settingsPageOpener: SettingsPageOpener?
+}
+
+/// A Settings root row that opens `page`: a push, or a press handed to the opener.
+private struct SettingsPageLink<RowLabel: View>: View {
+    let page: SettingsPage
+    @ViewBuilder let label: RowLabel
+
+    @Environment(\.settingsPageOpener) private var opener
+    @Environment(\.colorScheme) private var colorScheme
+
+    init(_ page: SettingsPage, @ViewBuilder label: () -> RowLabel) {
+        self.page = page
+        self.label = label()
+    }
+
+    var body: some View {
+        if let opener {
+            Button {
+                opener(page)
+            } label: {
+                HStack {
+                    label
+                    Image(systemName: "chevron.forward")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(opener.current == page ? .isSelected : [])
+            #if os(iOS)
+                .listRowBackground(opener.current == page ? Color(uiColor: .systemGray5) : nil)
+                // A row's background keeps the appearance it first drew in, so the row is rebuilt
+                // when the appearance changes.
+                .id(colorScheme)
+            #endif
+        } else {
+            NavigationLink(value: page) { label }
+        }
+    }
+}
+
+/// The page for a `SettingsPage`.
+struct SettingsPageScreen: View {
+    let page: SettingsPage
+    let model: SettingsModel?
+
+    var body: some View {
+        switch page {
+        case .account:
+            SettingsScreen(
+                version: nil, sections: [.account], title: AccountSections.title, opensStatsInSheet: false,
+                registersStats: false
+            )
+            .toolbarTitleDisplayMode(.inline)
+        case .stats:
+            StatsScreen()
+                // A tune opened from the stats screen is not the tab's own pushed tune.
+                .environment(\.stackTune, nil)
+        case .category(let category):
+            SettingsCategoryPage(category: category, model: model)
+        }
+    }
+}
+
 /// One category's page. A page with rows of its own draws them from the category's
 /// `pageRows`; every other page is the settings form showing the category's `sections`.
 private struct SettingsCategoryPage: View {
     let category: SettingsCategory
     let model: SettingsModel?
-    let version: String?
 
     @Environment(PlayerModel.self) private var player: PlayerModel?
 

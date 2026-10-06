@@ -68,12 +68,15 @@ extension View {
     /// bar's leading edge on iPhone, for a screen whose two verbs fill the trailing edge and
     /// whose centered title would give way to a large one under a third trailing item. A
     /// leading badge stands aside while the screen is selecting, whose Select All takes that edge.
-    func syncBadgeToolbar(leading: Bool = false) -> some View {
+    /// `isShown` false leaves the badge out, as where another place shows it.
+    func syncBadgeToolbar(leading: Bool = false, isShown: Bool = true) -> some View {
         toolbar {
-            ToolbarItem(placement: Self.badgePlacement(leading: leading)) {
-                SyncBadgeItem(hidesWhileSelecting: leading)
+            if isShown {
+                ToolbarItem(placement: Self.badgePlacement(leading: leading)) {
+                    SyncBadgeItem(hidesWhileSelecting: leading)
+                }
+                .sharedBackgroundVisibility(.hidden)
             }
-            .sharedBackgroundVisibility(.hidden)
         }
     }
 
@@ -86,7 +89,9 @@ extension View {
     }
 }
 
-private struct SyncBadgeItem: View {
+/// The sync badge for the session and engine in the environment, or nothing while sync needs
+/// no attention.
+struct SyncBadgeItem: View {
     let hidesWhileSelecting: Bool
 
     @Environment(AccountSession.self) private var session: AccountSession?

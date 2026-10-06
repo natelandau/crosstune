@@ -113,16 +113,18 @@ import Testing
 @Suite struct SidebarTests {
     private let root = TemporaryRoot()
 
-    @Test func listsLiveListsInTheirOrder() async throws {
-        let store = try await SampleCatalog.makeStore(root: root.url)
-        let commands = Commands(store: store)
-        let late = try await commands.createList("Late set")
-        try await commands.deleteList(SampleCatalog.lists[0].id)
+    #if os(macOS)
+        @Test func listsLiveListsInTheirOrder() async throws {
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            let commands = Commands(store: store)
+            let late = try await commands.createList("Late set")
+            try await commands.deleteList(SampleCatalog.lists[0].id)
 
-        let names = try await store.read { try SplitShell.sidebarLists($0).map(\.name) }
-        #expect(names == ["Waltzes", "Late set"])
-        #expect(try await store.read { try SplitShell.sidebarLists($0).last?.id } == late)
-    }
+            let names = try await store.read { try SplitShell.sidebarLists($0).map(\.name) }
+            #expect(names == ["Waltzes", "Late set"])
+            #expect(try await store.read { try SplitShell.sidebarLists($0).last?.id } == late)
+        }
+    #endif
 
     @Test func aDeletedListsSelectionFallsBackToTheCatalog() {
         let lists = SampleCatalog.lists
@@ -134,7 +136,6 @@ import Testing
     @Test func eachRowButAListOpensItsDestination() {
         #expect(SidebarItem.catalog.destination == .catalog)
         #expect(SidebarItem.recordings.destination == .recordings)
-        #expect(SidebarItem.settings.destination == .settings)
         #expect(SidebarItem.list(id: "a").destination == nil)
     }
 
@@ -210,7 +211,7 @@ import Testing
             syncSidebar(place: place, catalog: catalog)
             #expect(place.sidebar == .recordings)
 
-            place.showRoot(.catalog, inTabs: false)
+            place.showSidebarRoot(.catalog)
             syncSidebar(place: place, catalog: catalog)
             #expect(place.sidebar == .status("learning"))
             #expect(!catalog.isSavingFilters)
@@ -403,55 +404,6 @@ import Testing
 
 @MainActor
 @Suite struct ShellPlaceTests {
-    @Test func narrowingKeepsTheSidebarRowAndTheDetailTune() {
-        let place = ShellPlace()
-        place.sidebar = .recordings
-        place.detailTune = "tune-1"
-        place.enterTabs()
-        #expect(place.tab == .recordings)
-        #expect(place.tabTunes == [.recordings: "tune-1"])
-        #expect(place.tabList == nil)
-    }
-
-    @Test func narrowingOnAListPushesTheListAndItsTune() {
-        let place = ShellPlace()
-        place.sidebar = .list(id: "list-1")
-        place.detailTune = "tune-1"
-        place.enterTabs()
-        #expect(place.tab == .lists)
-        #expect(place.tabList == "list-1")
-        #expect(place.tabTunes == [.lists: "tune-1"])
-    }
-
-    @Test func wideningKeepsTheTabAndItsPushedTune() {
-        let place = ShellPlace()
-        place.tab = .catalog
-        place.tabTunes = [.catalog: "tune-1", .recordings: "tune-2"]
-        place.enterSplit()
-        #expect(place.sidebar == .catalog)
-        #expect(place.detailTune == "tune-1")
-
-        place.tab = .settings
-        place.enterSplit()
-        #expect(place.sidebar == .settings)
-        #expect(place.detailTune == nil)
-    }
-
-    @Test func wideningOnTheListsTabOpensTheListOrFallsBackToTheCatalog() {
-        let place = ShellPlace()
-        place.tab = .lists
-        place.tabList = "list-1"
-        place.tabTunes[.lists] = "tune-1"
-        place.enterSplit()
-        #expect(place.sidebar == .list(id: "list-1"))
-        #expect(place.detailTune == "tune-1")
-
-        place.tabList = nil
-        place.enterSplit()
-        #expect(place.sidebar == .catalog)
-        #expect(place.detailTune == nil)
-    }
-
     @Test func aTunePushedOverOneListLeavesWithIt() {
         let place = ShellPlace()
         place.tabList = "list-1"
@@ -460,13 +412,67 @@ import Testing
         #expect(place.tabTunes == [.catalog: "tune-2"])
     }
 
-    @Test func aRoundTripComesBackToTheSamePlace() {
+    @Test func aPlaceScrolledToInOneListLeavesWithIt() {
         let place = ShellPlace()
-        place.sidebar = .list(id: "list-1")
-        place.detailTune = "tune-1"
-        place.enterTabs()
-        place.enterSplit()
-        #expect(place.sidebar == .list(id: "list-1"))
-        #expect(place.detailTune == "tune-1")
+        place.tabList = "list-1"
+        place.scrollAnchors = [.lists: "item-3", .catalog: "ut-2"]
+        place.tabList = "list-1"
+        #expect(place.scrollAnchors[.lists] == "item-3")
+        place.tabList = "list-2"
+        #expect(place.scrollAnchors == [.catalog: "ut-2"])
     }
+
+    @Test func theListsStackIsTheOpenList() {
+        let place = ShellPlace()
+        #expect(place.listPath.isEmpty)
+        place.listPath = [ListRoute(id: "list-1")]
+        #expect(place.tabList == "list-1")
+        place.listPath = []
+        #expect(place.tabList == nil)
+    }
+
+    @Test func aTabRootClosesWhatTheTabHasOpen() {
+        let place = ShellPlace()
+        place.tab = .catalog
+        place.tabList = "l1"
+        place.tabTunes[.lists] = "t1"
+        place.showTabRoot(.lists)
+        #expect(place.tab == .lists)
+        #expect(place.tabList == nil)
+        #expect(place.tabTunes[.lists] == nil)
+        place.settingsPage = .stats
+        place.showTabRoot(.settings)
+        #expect(place.settingsPage == nil)
+    }
+
+    @Test func theMacSidebarFallsBackToTheCatalogWithNoRowOfItsOwn() {
+        let place = ShellPlace()
+        for destination in [Destination.settings, .lists] {
+            place.sidebar = .recordings
+            place.showSidebarRoot(destination)
+            #expect(place.sidebar == .catalog)
+        }
+        place.showSidebarRoot(.recordings)
+        #expect(place.sidebar == .recordings)
+    }
+}
+
+@MainActor
+@Suite struct PadShellTests {
+    @Test func bothFormsShowTheSameListTuneAndScrollPlace() {
+        // Both iOS shells read the same tab fields, so nothing converts on a size or form change.
+        let place = ShellPlace()
+        place.tab = .lists
+        place.tabList = "l1"
+        place.tabTunes[.lists] = "t1"
+        place.scrollAnchors[.lists] = "item-3"
+        #expect(PadTab.selected(place: place, status: nil, inSidebar: true) == .list(id: "l1"))
+        #expect(PadTab.selected(place: place, status: nil, inSidebar: false) == .destination(.lists))
+        // Choosing the top-level tab, as the top bar does, keeps the open list's tune and place.
+        PadTab.choose(.destination(.lists), place: place, catalog: nil, inSidebar: false)
+        #expect(place.tabTunes[.lists] == "t1")
+        #expect(place.scrollAnchors[.lists] == "item-3")
+    }
+
+    @Test func settingsDetailNamesNoSetting() { #expect(SettingsDetailPlaceholder.title == "No setting selected") }
 }

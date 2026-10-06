@@ -243,28 +243,6 @@ struct RecordingPlayerStatus: View {
     }
 }
 
-/// The body under the recording player's bar: the scrubber, or what stands in for it.
-struct RecordingPlayerBody: View {
-    let player: PlayerModel
-
-    @Environment(AccountSession.self) private var session: AccountSession?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let failure = player.failure {
-                PlayerFailureText(failure)
-            }
-            if let message = RecordingPlayerText.status(
-                player.recordingAudio, hasFailed: player.audio.hasFailed, offline: session?.isOffline == true)
-            {
-                RecordingPlayerStatus(player: player, message: message)
-            } else {
-                PlaybackScrubber(audio: player.audio)
-            }
-        }
-    }
-}
-
 /// Why the last change to the loaded recording did not land, in red.
 struct PlayerFailureText: View {
     let failure: String
@@ -288,7 +266,7 @@ struct PlayerFailureText: View {
     struct AudioRoutePicker: View {
         var body: some View {
             RoutePickerRepresentable()
-                .frame(width: 44, height: 44)
+                .frame(width: PhoneStyle.minTarget, height: PhoneStyle.minTarget)
         }
     }
 
