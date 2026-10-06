@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from crosstune.errors import AppError, FileTooLargeError
-from crosstune.models.user import utc_now
+from crosstune.db.base import utc_now
+from crosstune.errors import FileTooLargeError, ServiceUnavailableError
 
 if TYPE_CHECKING:
     from fastapi import Request
@@ -28,11 +28,11 @@ class SignedUrl(BaseModel):
     expires_at: datetime
 
 
-class StorageUnavailableError(AppError):
+class StorageUnavailableError(ServiceUnavailableError):
     """No object store is configured, so uploads and downloads cannot be served."""
 
     def __init__(self) -> None:
-        super().__init__(503, "Service Unavailable", "File storage is not configured")
+        super().__init__("File storage is not configured")
 
 
 def file_too_large(limit: int) -> FileTooLargeError:
