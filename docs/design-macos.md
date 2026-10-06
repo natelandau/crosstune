@@ -156,7 +156,8 @@ A page is a view that reads as a document, such as the tune page or stats.
 - The player is a glass bar, 48pt tall, docked edge to edge across the foot
   of the detail column, with a hairline on top. The page scrolls to its end
   above it, under a soft scroll edge.
-- The dock shows over the empty detail column too.
+- The dock shows over the empty detail column too. It stands down while
+  the practice view shows, since that view is the player in full.
 - An embed or music card grows up out of the bar. The whole dock, bar
   included, stays within `PlayerPanel.maxShare` of the detail column. With
   no room left, the embed plays on out of sight.
@@ -169,8 +170,15 @@ A page is a view that reads as a document, such as the tune page or stats.
 - A Mac sheet is its own window, so nothing morphs from the window into a
   sheet. A control that opens a sheet answers with a symbol effect, such as
   the Record capsule's bounce.
-- The recording screen is a sheet with the recording's title as a heading
-  in its content, in the page title role.
+- The practice view takes the detail column, not a sheet, so the sidebar
+  and the list stay in reach while the musician practices. A click on a
+  recording in Recordings opens it there, paused. The dock's expand opens
+  the loaded recording there.
+- Opening any tune closes the practice view. Close shows the tune it
+  covered. A recording opened and closed without a play leaves nothing
+  loaded.
+- The recording's title is the practice view's heading, in the page title
+  role. Close and the recording's menu sit in its `paneBar`.
 
 ## Forms and Settings
 

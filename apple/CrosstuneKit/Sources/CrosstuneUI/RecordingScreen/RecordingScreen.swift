@@ -92,50 +92,56 @@ public struct RecordingScreen: View {
     private let player: PlayerModel
 
     @Environment(\.store) private var store
+    #if os(macOS)
+        @Environment(\.playerWindow) private var window
+    #endif
     @State private var rows: LiveQuery<ScreenRows?>?
     @State private var path: [RecordingRoute] = []
     /// The top of the practice controls, below which a swipe down never closes the screen.
     @State private var controlsTop: CGFloat?
+    /// This screen's identity for the visit it logs, so another window's screen ends only its own.
+    @State private var screen = UUID()
 
     public init(player: PlayerModel) {
         self.player = player
     }
 
+    #if os(macOS)
+        /// The narrowest the Mac practice view lays out its waveform and controls.
+        static let minimumWidth: CGFloat = 480
+    #endif
+
     public var body: some View {
         NavigationStack(path: $path) {
             Group {
                 if let loaded = rows?.value ?? nil {
-                    RecordingScreenContent(player: player, rows: loaded, path: $path, controlsTop: $controlsTop)
-                        .id(loaded.recording.id)
+                    RecordingScreenContent(
+                        player: player, rows: loaded, path: $path, controlsTop: $controlsTop, screen: screen
+                    )
+                    .id(loaded.recording.id)
                 } else {
                     // Loading is silence.
                     Color.clear
                 }
             }
             .modifier(PracticeGroundFill())
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        player.isExpanded = false
-                    } label: {
-                        #if os(macOS)
-                            // A chevron reads as dismissing downward, which a Mac sheet does not do.
-                            Text(RecordingScreenText.close)
-                        #else
+            #if os(iOS)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            player.isExpanded = false
+                        } label: {
                             Label(RecordingScreenText.close, systemImage: "chevron.down")
-                        #endif
+                        }
+                        .help(RecordingScreenText.close)
+                        // Escape belongs to the screen's chain, which closes the name field and
+                        // deselects before it closes the screen.
+                        .keyboardShortcut(nil)
                     }
-                    .help(RecordingScreenText.close)
-                    // Escape belongs to the screen's chain, which closes the name field and
-                    // deselects before it closes the screen.
-                    .keyboardShortcut(nil)
                 }
-            }
+            #endif
         }
         .closesPracticeBySwipe(areaBottom: controlsTop, isEnabled: path.isEmpty) { player.isExpanded = false }
-        #if os(macOS)
-            .frame(minWidth: 480, idealWidth: 560, minHeight: 600, idealHeight: 720)
-        #endif
         .task(id: loadedID) {
             // A trim screen belongs to the recording it opened on.
             path = []
@@ -148,8 +154,17 @@ public struct RecordingScreen: View {
         }
         // Here rather than on the recording's own view, which also goes while the trim screen
         // is pushed over it.
-        .onDisappear { player.screenClosed() }
-        .shellSheet()
+        .onDisappear {
+            player.screenClosed(by: screen)
+            #if os(macOS)
+                // Still asked for in this window means the window itself went, leaving nothing
+                // that could ever close the practice view.
+                if let window, player.isExpanded, player.expandedWindow == window { player.isExpanded = false }
+            #endif
+        }
+        #if os(iOS)
+            .shellSheet()
+        #endif
     }
 
     private var loadedID: String? {
@@ -160,6 +175,8 @@ public struct RecordingScreen: View {
 struct RecordingScreenContent: View {
     let player: PlayerModel
     let rows: ScreenRows
+    /// The screen this content shows in, which owns the visit it opens.
+    let screen: UUID?
     @Binding var path: [RecordingRoute]
     /// Where the controls under the waveform start, in the screen's swipe space.
     @Binding var controlsTop: CGFloat?
@@ -217,9 +234,11 @@ struct RecordingScreenContent: View {
     ///   - peaks: Peaks to show before any load, as for a snapshot.
     init(
         player: PlayerModel, rows: ScreenRows, path: Binding<[RecordingRoute]>,
-        controlsTop: Binding<CGFloat?> = .constant(nil), practice: PracticeModel? = nil, peaks: Peaks? = nil
+        controlsTop: Binding<CGFloat?> = .constant(nil), screen: UUID? = nil, practice: PracticeModel? = nil,
+        peaks: Peaks? = nil
     ) {
         self.player = player
+        self.screen = screen
         self.rows = rows
         _path = path
         _controlsTop = controlsTop
@@ -241,14 +260,18 @@ struct RecordingScreenContent: View {
                 RecordingScreenText.subtitle(rows.recording, tuneTitle: rows.tuneTitle, lengthMs: rows.trimmedLengthMs)
             )
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) { menu }
+            }
         #else
-            // The sheet's window keeps the title as its accessible name; the heading in the
-            // content shows it, so the toolbar does not show it twice.
+            // The heading in the content shows the title, so the toolbar does not show it twice.
             .toolbar(removing: .title)
+            .paneBar {
+                Button(RecordingScreenText.close) { player.isExpanded = false }
+                .help(RecordingScreenText.close)
+                menu
+            }
         #endif
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) { menu }
-        }
         .navigationDestination(for: RecordingRoute.self) { route in
             switch route {
             case .trim:
@@ -536,7 +559,7 @@ struct RecordingScreenContent: View {
             model.partStructure = rows.partStructure
             practice = model
         }
-        practice?.enter()
+        practice?.enter(screen: screen)
     }
 
     private func openTrim() {
