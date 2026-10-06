@@ -23,7 +23,7 @@ public struct ListSummary: Hashable, Sendable, Identifiable {
 
     /// "5 tunes · Edited today", the row's second line.
     public func details(now: Date = .now) -> String {
-        "\(CatalogSearch.tunes(count)) · \(EditedText.label(lastEditedAt, now: now))"
+        ListRow.detail(count: count, edited: lastEditedAt, now: now)
     }
 
     /// Every live list in the musician's order.

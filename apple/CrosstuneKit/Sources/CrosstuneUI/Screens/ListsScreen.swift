@@ -44,7 +44,7 @@ public struct ListsScreen: View {
                     Text(Self.noListsHint)
                 } actions: {
                     Button(Self.addList) { listSheets?.name(.new) }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.slateProminent)
                         .disabled(listSheets == nil)
                 }
             }

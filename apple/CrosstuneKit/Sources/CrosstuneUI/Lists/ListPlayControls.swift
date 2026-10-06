@@ -28,43 +28,55 @@ struct ListPlayOffer {
     let onWhatPlays: () -> Void
 }
 
-#if os(iOS)
-    /// Play and Shuffle for a list, with the line that says how many of its tunes will play and
-    /// opens the sheet that says why the rest will not.
-    struct ListPlayControls: View {
-        let offer: ListPlayOffer
+/// Play and Shuffle for a list, with the line that says how many of its tunes will play and
+/// opens the sheet that says why the rest will not. It is the list's first row, so it sets
+/// no margins of its own.
+struct ListPlayControls: View {
+    let offer: ListPlayOffer
 
-        @Environment(\.spacing) private var spacing
+    @Environment(\.spacing) private var spacing
+    @Environment(\.drawsGlass) private var drawsGlass
 
-        var body: some View {
-            let disabled = offer.report.playable.isEmpty || !offer.canStart
-            VStack(alignment: .leading, spacing: spacing.stackGap) {
-                HStack(spacing: spacing(3)) {
-                    Button(action: offer.onPlay) {
-                        Label(ListPlayText.play, systemImage: "play.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Button(action: offer.onShuffle) {
-                        Label(ListPlayText.shuffle, systemImage: "shuffle")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
+    var body: some View {
+        let disabled = offer.report.playable.isEmpty || !offer.canStart
+        VStack(alignment: .leading, spacing: spacing.stackGap) {
+            HStack(spacing: spacing(3)) {
+                Button(action: offer.onPlay) {
+                    Label(ListPlayText.play, systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
                 }
-                .disabled(disabled)
-                Button(action: offer.onWhatPlays) {
-                    Text(ListPlayText.line(for: offer.report))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(minHeight: 44, alignment: .leading)
-                        .contentShape(.rect)
+                .playControlStyle(prominent: true, glass: drawsGlass)
+                Button(action: offer.onShuffle) {
+                    Label(ListPlayText.shuffle, systemImage: "shuffle")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint(ListPlayText.whatPlaysHint)
+                .playControlStyle(prominent: false, glass: drawsGlass)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, spacing.stackGap)
+            .controlSize(.large)
+            .disabled(disabled)
+            Button(action: offer.onWhatPlays) {
+                Text(ListPlayText.line(for: offer.report))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 44, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(ListPlayText.whatPlaysHint)
         }
     }
-#endif
+}
+
+extension View {
+    /// Play is a prominent slate capsule and Shuffle a glass one. Where glass cannot draw,
+    /// the bordered styles stand in.
+    @ViewBuilder fileprivate func playControlStyle(prominent: Bool, glass: Bool) -> some View {
+        switch (prominent, glass) {
+        case (true, true): buttonStyle(.slateGlassProminent)
+        case (false, true): buttonStyle(.glass)
+        case (true, false): buttonStyle(.slateProminent)
+        case (false, false): buttonStyle(.bordered)
+        }
+    }
+}
