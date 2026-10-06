@@ -66,7 +66,7 @@
 
     /// A server that is never reachable, so the sample's sync engine shows its states without
     /// sending anything.
-    private struct OfflineSyncAPI: SyncAPI {
+    struct OfflineSyncAPI: SyncAPI {
         func push(_ changes: [Change]) async throws -> [PushResult] { throw URLError(.notConnectedToInternet) }
         func pull(since: Int64) async throws -> PullPage { throw URLError(.notConnectedToInternet) }
         func events(since: Int64) async throws -> EventsPage { throw URLError(.notConnectedToInternet) }

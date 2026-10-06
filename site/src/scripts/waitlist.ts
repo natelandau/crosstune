@@ -85,8 +85,9 @@ export function mountWaitlist(
     try {
       const waitlist = await ensureClient()
       await waitlist.join({ emailAddress: input.value.trim() })
-      // The status element itself becomes the confirmation so it keeps its scoped styles. It is all a
-      // visitor with blocked storage sees, and what Back shows when the page comes from bfcache.
+      // The status element itself becomes the confirmation so it keeps its scoped styles. It is
+      // all a visitor with blocked storage sees, and what Back shows when the page comes from
+      // bfcache.
       status.textContent = JOINED
       status.tabIndex = -1
       form.replaceWith(status)

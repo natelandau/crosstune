@@ -22,12 +22,28 @@
 		CA0000000000000000000007 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		CA0000000000000000000008 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		CA0000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CA0000000000000000000010 /* CrosstuneMarketingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CrosstuneMarketingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		CA0000000000000000000061 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CA0000000000000000000060 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CA0000000000000000000050;
+			remoteInfo = Crosstune;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		CA0000000000000000000020 /* Crosstune */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Crosstune;
+			sourceTree = "<group>";
+		};
+		CA0000000000000000000021 /* CrosstuneMarketingUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CrosstuneMarketingUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -43,6 +59,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CA0000000000000000000055 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -50,6 +73,7 @@
 			isa = PBXGroup;
 			children = (
 				CA0000000000000000000020 /* Crosstune */,
+				CA0000000000000000000021 /* CrosstuneMarketingUITests */,
 				CA0000000000000000000005 /* CrosstuneKit */,
 				CA0000000000000000000041 /* Config */,
 				CA0000000000000000000042 /* Products */,
@@ -74,6 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				CA0000000000000000000001 /* Crosstune.app */,
+				CA0000000000000000000010 /* CrosstuneMarketingUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -106,6 +131,27 @@
 			productReference = CA0000000000000000000001 /* Crosstune.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CA0000000000000000000053 /* CrosstuneMarketingUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA0000000000000000000072 /* Build configuration list for PBXNativeTarget "CrosstuneMarketingUITests" */;
+			buildPhases = (
+				CA0000000000000000000054 /* Sources */,
+				CA0000000000000000000055 /* Frameworks */,
+				CA0000000000000000000056 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CA0000000000000000000062 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CA0000000000000000000021 /* CrosstuneMarketingUITests */,
+			);
+			name = CrosstuneMarketingUITests;
+			productName = CrosstuneMarketingUITests;
+			productReference = CA0000000000000000000010 /* CrosstuneMarketingUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -115,6 +161,11 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					CA0000000000000000000053 = {
+						TestTargetID = CA0000000000000000000050;
+					};
+				};
 			};
 			buildConfigurationList = CA0000000000000000000070 /* Build configuration list for PBXProject "Crosstune" */;
 			developmentRegion = en;
@@ -134,12 +185,20 @@
 			projectRoot = "";
 			targets = (
 				CA0000000000000000000050 /* Crosstune */,
+				CA0000000000000000000053 /* CrosstuneMarketingUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		CA0000000000000000000052 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA0000000000000000000056 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -156,7 +215,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CA0000000000000000000054 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CA0000000000000000000062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CA0000000000000000000050 /* Crosstune */;
+			targetProxy = CA0000000000000000000061 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		CA0000000000000000000080 /* Debug */ = {
@@ -203,6 +277,38 @@
 			};
 			name = Release;
 		};
+		CA0000000000000000000084 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.CrosstuneMarketingUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Crosstune;
+			};
+			name = Debug;
+		};
+		CA0000000000000000000085 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				PRODUCT_BUNDLE_IDENTIFIER = app.crosstune.CrosstuneMarketingUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Crosstune;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -220,6 +326,15 @@
 			buildConfigurations = (
 				CA0000000000000000000082 /* Debug */,
 				CA0000000000000000000083 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CA0000000000000000000072 /* Build configuration list for PBXNativeTarget "CrosstuneMarketingUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA0000000000000000000084 /* Debug */,
+				CA0000000000000000000085 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

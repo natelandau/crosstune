@@ -1,39 +1,24 @@
 ---
 import Closing from '../components/Closing.astro'
+import Faq from '../components/Faq.astro'
+import FeatureScroller from '../components/FeatureScroller.astro'
 import Hero from '../components/Hero.astro'
 import MakerNote from '../components/MakerNote.astro'
-import Why from '../components/Why.astro'
-import Anywhere from '../components/chapters/Anywhere.astro'
-import Catalog from '../components/chapters/Catalog.astro'
-import Chapter from '../components/chapters/Chapter.astro'
-import Player from '../components/chapters/Player.astro'
-import Record from '../components/chapters/Record.astro'
-import { CHAPTERS } from '../components/chapters/chapters'
+import Pricing from '../components/Pricing.astro'
+import Problem from '../components/Problem.astro'
 import { HOME_DESCRIPTION, HOME_TITLE, STRUCTURED_DATA } from '../components/seo'
 import Base from '../layouts/Base.astro'
-
-const [tunes, record, practice, anywhere] = CHAPTERS
 ---
 
-<Base title={HOME_TITLE} description={HOME_DESCRIPTION} path="/" chapters>
+<Base title={HOME_TITLE} description={HOME_DESCRIPTION} path="/">
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(STRUCTURED_DATA)} />
   <main>
     <Hero />
-    <Why>
-      <Chapter chapter={tunes}>
-        <Catalog />
-      </Chapter>
-      <Chapter chapter={record} tone="mist">
-        <Record />
-      </Chapter>
-      <Chapter chapter={practice} tone="jet">
-        <Player />
-      </Chapter>
-      <Chapter chapter={anywhere}>
-        <Anywhere />
-      </Chapter>
-    </Why>
+    <Problem />
+    <FeatureScroller />
+    <Pricing />
     <MakerNote />
+    <Faq />
     <Closing />
   </main>
 </Base>
