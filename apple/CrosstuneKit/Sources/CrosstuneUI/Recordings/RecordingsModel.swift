@@ -81,6 +81,11 @@ public final class RecordingsModel {
         snapshot = LiveQuery(store, initial: nil, fetch: Self.fetch)
     }
 
+    /// The live recording `id`, filtered out or not.
+    func view(_ id: String) -> RecordingView? {
+        snapshot.value?.views.first { $0.id == id }
+    }
+
     /// The recordings from the chosen source in the chosen order, narrowed by ``query``. Nil until
     /// the store is read, so an unread store never shows as having no recordings.
     public func arrangement(_ sort: RecordingSortChoice) -> RecordingArrangement? {

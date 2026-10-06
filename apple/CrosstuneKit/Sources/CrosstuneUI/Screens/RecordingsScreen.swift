@@ -80,6 +80,7 @@ private struct RecordingsContent: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.detailTune) private var detailTune
+    @Environment(\.playerWindow) private var window
     @Environment(\.spacing) private var spacing
     @Environment(\.openURL) private var openURL
     @Environment(\.openSheets) private var openSheets
@@ -119,12 +120,13 @@ private struct RecordingsContent: View {
     var body: some View {
         let arrangement = model.arrangement(sort)
         let sheetsOpen = openSheets?.isCovered == true
-        List {
+        List(selection: openRecording) {
             #if os(macOS)
                 ColumnTitle(Destination.recordings.title)
                     .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
+                    .selectionDisabled()
             #endif
             #if os(macOS)
                 if model.filterCount > 0 {
@@ -133,12 +135,14 @@ private struct RecordingsContent: View {
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+                    .selectionDisabled()
                 }
                 if let storage = model.storage {
                     StorageSummary(storage: storage)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
+                        .selectionDisabled()
                 }
             #else
                 RecordingsFilterRow(
@@ -339,7 +343,9 @@ private struct RecordingsContent: View {
     private var unfinishedSection: some View {
         Section {
             ForEach(model.unfinished, id: \.id) { capture in
+                // A capture shares its recording's id, so it must never stand in for that row.
                 unfinishedRow(capture)
+                    .selectionDisabled()
             }
         } header: {
             heading(RecordingsScreen.unfinishedHeader)
@@ -435,18 +441,46 @@ private struct RecordingsContent: View {
         }
     #endif
 
+    /// The recording whose practice view the Mac detail column shows, as the list's selection,
+    /// so its row reads as the open one and the arrow keys open its neighbors. Nil elsewhere.
+    private var openRecording: Binding<String?>? {
+        #if os(macOS)
+            guard let player else { return nil }
+            return Binding<String?> {
+                guard player.showsExpanded(in: window), let item = player.item, item.kind == .recording else {
+                    return nil
+                }
+                return item.id
+            } set: { id in
+                guard let id, let view = model.view(id) else { return }
+                player.open(.recording(view.recording, tuneTitle: view.tuneTitle), in: window, playing: false)
+            }
+        #else
+            nil
+        #endif
+    }
+
     /// A recording's row. A filed one names its tune in a tune line when `opensTune`, and
     /// otherwise sits under a line naming it; either way its title never falls back to the tune.
     private func row(_ view: RecordingView, opensTune: Bool = false) -> some View {
         let open = view.tuneID.map { tuneID in { openTune(tuneID) } }
+        #if os(macOS)
+            let opensScreen = true
+        #else
+            let opensScreen = false
+        #endif
         return RecordingItem(
             view: view, tuneNamedAbove: view.tuneID != nil, storage: model.storage, sort: sort.sort,
-            onOpenTune: opensTune ? open : nil
+            onOpenTune: opensTune ? open : nil, opensScreen: opensScreen
         ) { kind in
             retry(view.id, kind)
         }
         .newTakeHighlight(view.id)
         .mediaRowInsets()
+        .tag(view.id)
+        // A row with no audio here downloads or retries on a click, so selecting it, or arrowing
+        // past it, must not open its practice view and fetch it.
+        .selectionDisabled(!RecordingText.holdsAudio(view.file) && player?.holds(.recording, id: view.id) != true)
         .recordingRowActions(
             filed: view.tuneID != nil,
             originLabel: RecordingText.originLabel(view.recording.origin),
@@ -485,6 +519,7 @@ private struct RecordingsContent: View {
         .buttonStyle(.plain)
         .matchedTransitionSource(id: tune.tuneID, in: zoom)
         .accessibilityAddTraits(.isHeader)
+        .selectionDisabled()
         #if os(macOS)
             .mediaRowInsets()
         #endif
