@@ -46,7 +46,7 @@ public struct UndoBanner: View {
             Button(action: onUndo) {
                 Text(Self.undo)
                     .font(.subheadline.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)

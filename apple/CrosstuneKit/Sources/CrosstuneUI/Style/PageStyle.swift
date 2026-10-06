@@ -44,7 +44,7 @@ enum PageStyle {
         static let headingGap: CGFloat = 8
         static let smallControlHeight: CGFloat = 32
         static let filterControlHeight = PhoneStyle.filterControlHeight
-        static let minTarget = PhoneStyle.minTarget
+        static let minTarget = minimumTapTarget
         static let pullDownChevron = Font.caption2.weight(.semibold)
         /// The popover opens below its control, where a phone has the most room.
         static let popoverArrowEdge = Edge.top
@@ -61,7 +61,7 @@ enum PageStyle {
         /// that takes the taps.
         static let headingControlsUseGlass = false
         /// A heading control's frame is its whole hit area, since a menu takes taps only there.
-        static let headingControlHeight = PhoneStyle.minTarget
+        static let headingControlHeight = minimumTapTarget
         static let practiceClosesBySwipe = true
         /// The key grid keeps its natural width and scrolls sideways once it outgrows the row.
         static let keyGridSpreads = false

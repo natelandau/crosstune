@@ -9,7 +9,7 @@ struct SearchOfferRow: View {
         Button(action: action) {
             Label(label, systemImage: "plus")
                 .foregroundStyle(.tint)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

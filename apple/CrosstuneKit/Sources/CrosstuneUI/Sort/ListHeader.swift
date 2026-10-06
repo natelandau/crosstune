@@ -25,7 +25,7 @@ struct ListHeader<Sort: SortKind>: View {
         #if os(macOS)
             .frame(minHeight: MacStyle.headerRowHeight)
         #else
-            .frame(minHeight: 44)
+            .frame(minHeight: minimumTapTarget)
         #endif
     }
 

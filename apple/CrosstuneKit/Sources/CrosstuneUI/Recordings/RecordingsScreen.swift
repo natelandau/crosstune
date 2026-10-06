@@ -504,7 +504,7 @@ private struct RecordingsContent: View {
             #else
                 .font(.footnote.bold())
                 .foregroundStyle(.secondary)
-                .frame(minHeight: 44)
+                .frame(minHeight: minimumTapTarget)
             #endif
             .contentShape(.rect)
         }

@@ -362,7 +362,7 @@ extension View {
                     // A pointer needs no 44 point target, so stacked lines keep their own height.
                     self.contentShape(.rect)
                 #else
-                    self.frame(minHeight: 44).contentShape(.rect)
+                    self.frame(minHeight: minimumTapTarget).contentShape(.rect)
                 #endif
             } else {
                 self.padding(.vertical, reach).contentShape(.rect).padding(.vertical, -reach)

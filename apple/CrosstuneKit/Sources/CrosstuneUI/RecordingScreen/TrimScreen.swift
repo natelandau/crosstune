@@ -330,7 +330,7 @@ private struct TrimStrip: View {
     }
 
     /// A touch target around a thin line.
-    private static let handleWidth: CGFloat = 44
+    private static let handleWidth = minimumTapTarget
     private static let barWidth: CGFloat = 2
     private static let barGap: CGFloat = 1
 

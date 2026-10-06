@@ -17,7 +17,7 @@ import Testing
     }
 
     @Test func footMeetsTheTouchTarget() {
-        #expect(PadStyle.footHeight >= PhoneStyle.minTarget)
+        #expect(PadStyle.footHeight >= minimumTapTarget)
     }
 
     // Lyrics draw in the dark scheme's primary, white, on either ground.

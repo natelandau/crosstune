@@ -15,7 +15,7 @@ enum PracticeLayout {
     #if os(macOS)
         static let target: CGFloat = 28
     #else
-        static let target: CGFloat = 44
+        static let target = minimumTapTarget
     #endif
 }
 

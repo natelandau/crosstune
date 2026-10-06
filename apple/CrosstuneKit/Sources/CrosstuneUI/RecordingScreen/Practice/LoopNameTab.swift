@@ -22,7 +22,7 @@ struct LoopNameTab: View {
                 model.beginRename(loop.id)
             } label: {
                 face(name)
-                    .frame(minHeight: 44, alignment: .top)
+                    .frame(minHeight: minimumTapTarget, alignment: .top)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
