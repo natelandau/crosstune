@@ -38,6 +38,9 @@ jobs:
     # default to an older Xcode.
     runs-on: xcode-27
     timeout-minutes: 30
+    outputs:
+      xcode-cache-saved: ${{ steps.xcode-save.outcome == 'success' }}
+      xcode-cache-key: ${{ steps.xcode-key.outputs.key }}
     defaults:
       run:
         working-directory: apple
@@ -53,6 +56,14 @@ jobs:
       - name: read the Swift compiler version
         id: swift
         run: printf 'version=%s\n' "$(swift --version 2>&1 | shasum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      # Keyed on the tracked sources rather than a hash of the tree, which the build writes into.
+      - name: name the Xcode cache
+        id: xcode-key
+        run: |
+          sources="$(git ls-files -s . | shasum | cut -c1-12)"
+          printf 'key=apple-xcode-%s-%s\n' "$SWIFT" "$sources" >> "$GITHUB_OUTPUT"
+        env:
+          SWIFT: ${{ steps.swift.outputs.version }}
       - run: just lint
       # The package's dependencies change only with the lockfile, and their checkouts keep
       # their file dates, so the build reuses them.
@@ -64,20 +75,29 @@ jobs:
       - run: just test
         timeout-minutes: 15
       # Xcode never prunes its compilation cache, so `main` builds from an empty one and
-      # saves just what that build used, and pull requests restore the newest.
+      # saves just what that build used, and pull requests restore the newest. `main` saves
+      # only when the Apple sources changed, and the prune job below then deletes the rest.
       - uses: actions/cache/restore@v6
         if: ${{ !inputs.skip_build && github.event_name == 'pull_request' }}
         with:
           path: apple/.build/DerivedData/CompilationCache.noindex
-          key: apple-xcode-${{ steps.swift.outputs.version }}-${{ github.run_id }}
+          key: ${{ steps.xcode-key.outputs.key }}
           restore-keys: apple-xcode-${{ steps.swift.outputs.version }}-
-      - run: just build
-        if: ${{ !inputs.skip_build }}
-      - uses: actions/cache/save@v6
+      - uses: actions/cache/restore@v6
+        id: xcode-saved
         if: ${{ !inputs.skip_build && github.ref == 'refs/heads/main' }}
         with:
           path: apple/.build/DerivedData/CompilationCache.noindex
-          key: apple-xcode-${{ steps.swift.outputs.version }}-${{ github.run_id }}
+          key: ${{ steps.xcode-key.outputs.key }}
+          lookup-only: true
+      - run: just build
+        if: ${{ !inputs.skip_build }}
+      - uses: actions/cache/save@v6
+        id: xcode-save
+        if: ${{ !inputs.skip_build && github.ref == 'refs/heads/main' && steps.xcode-saved.outputs.cache-hit != 'true' }}
+        with:
+          path: apple/.build/DerivedData/CompilationCache.noindex
+          key: ${{ steps.xcode-key.outputs.key }}
       # The contract tools compile the OpenAPI generator, which changes only with the lockfile.
       - uses: actions/cache@v6
         with:
@@ -94,3 +114,29 @@ jobs:
           git diff --exit-code -- \
             apple/CrosstuneKit/Sources/CrosstuneAPI/Generated \
             apple/CrosstuneKit/Sources/CrosstuneVocabulary/Vocabulary.swift
+
+  # Each Xcode cache is close to a gigabyte against the repository's 10 GB, and pull requests
+  # read only the newest, so a new one replaces the rest. This job runs no repository code,
+  # which keeps the token that can delete caches away from the build.
+  prune-xcode-cache:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.xcode-cache-saved == 'true'
+    name: Prune the Xcode cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: delete every Xcode cache but the one just saved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          KEEP: ${{ needs.check.outputs.xcode-cache-key }}
+        run: |
+          gh cache list --key apple-xcode- --limit 100 --json key --jq '.[].key' |
+            while read -r key; do
+              # A run that pruned at the same time may have deleted it already.
+              if [ "$key" != "$KEEP" ]; then
+                gh cache delete "$key" || echo "::warning::could not delete cache $key"
+              fi
+            done
