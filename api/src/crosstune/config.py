@@ -5,10 +5,11 @@ from functools import lru_cache
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from cryptography.exceptions import UnsupportedAlgorithm
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pydantic import Field, SecretStr, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from crosstune.links.search.tokens import load_apple_music_key
 
 _LIBPQ_SCHEMES = {"postgres", "postgresql"}
 PRODUCTION_BUCKET = "crosstune-recordings"
@@ -52,6 +53,30 @@ def _missing_member(members: dict[str, str]) -> str | None:
         if not value:
             return f"{name} is unset"
     return None
+
+
+def load_apple_music_key(pem: str) -> ec.EllipticCurvePrivateKey:
+    """Parse the Apple Music signing key, which Apple issues as an EC P-256 key.
+
+    Args:
+        pem: The PEM text of the key.
+
+    Returns:
+        ec.EllipticCurvePrivateKey: The parsed key.
+
+    Raises:
+        ValueError: If the text is not a PEM private key on the P-256 curve. The message
+            never carries the key text.
+    """
+    try:
+        key = load_pem_private_key(pem.encode(), password=None)
+    except (ValueError, TypeError, UnsupportedAlgorithm):
+        msg = "is not a PEM private key"
+        raise ValueError(msg) from None
+    if not isinstance(key, ec.EllipticCurvePrivateKey) or not isinstance(key.curve, ec.SECP256R1):
+        msg = "is not an EC P-256 key"
+        raise ValueError(msg)  # noqa: TRY004 -- settings validation reports every unusable key alike
+    return key
 
 
 class Settings(BaseSettings):
@@ -99,7 +124,9 @@ class Settings(BaseSettings):
     storage_quota_bytes: int = 1_073_741_824
     recording_max_file_bytes: int = 52_428_800
     scan_max_file_bytes: int = 5_242_880
-    orphan_sweep_seconds: float = 3600.0
+    # Each sweep wakes the database and lists the whole bucket, so an idle app pays
+    # for it; orphans are garbage, so a late sweep costs nothing.
+    orphan_sweep_seconds: float = 43_200.0
 
     @property
     def database_name(self) -> str:

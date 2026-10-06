@@ -15,8 +15,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import slot_for_recording
+from crosstune.jobs import attempt as attempt_module
 from crosstune.jobs import media
 from crosstune.jobs import peaks_job as peaks_job_module
 from crosstune.jobs import recut as recut_module
@@ -25,14 +27,20 @@ from crosstune.jobs import runner as runner_module
 from crosstune.jobs import sweep as sweep_module
 from crosstune.jobs import transcode as transcode_module
 from crosstune.jobs import trim as trim_module
+from crosstune.jobs.attempt import MAX_ATTEMPTS
+from crosstune.jobs.handlers import HANDLERS
+from crosstune.jobs.handlers import peaks as peaks_handler
+from crosstune.jobs.handlers import reencode as reencode_handler
+from crosstune.jobs.handlers import transcode as transcode_handler
+from crosstune.jobs.handlers import trim as trim_handler
 from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import decode_peaks
 from crosstune.jobs.peaks_job import build_recording_peaks
-from crosstune.jobs.runner import ABANDONED_SLOT_GRACE, MAX_ATTEMPTS, JobRunner
+from crosstune.jobs.runner import JobRunner
+from crosstune.jobs.sweep import ABANDONED_SLOT_GRACE
 from crosstune.jobs.transcode import transcode
 from crosstune.jobs.trim import trim
 from crosstune.models import Job, Recording, RecordingLoop, UploadSlot, User
-from crosstune.models.user import new_uuid7, utc_now
 from crosstune.recordings.service import attach_playback, enqueue_job, ensure_trim_job
 from crosstune.storage.prefixed import PrefixedStore
 from crosstune.storage.store import (
@@ -652,16 +660,47 @@ async def test_run_once_drops_a_peaks_job_with_no_playback_file(runner, verify_s
     assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
 
 
-async def test_run_job_drops_a_job_of_unknown_kind(runner, verify_session) -> None:
+def test_every_job_kind_has_a_handler() -> None:
+    assert set(HANDLERS) == set(JobKind)
+
+
+async def test_a_transcode_whose_attempts_never_finished_fails_its_recording(
+    runner, verify_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     job_runner, _ = runner
+    monkeypatch.setattr(transcode_handler, "transcode", AsyncMock())
     user = await make_user(verify_session)
-    rec = await add_recording(verify_session, user, "ready")
-    job = Job(recording_id=rec.id, user_id=user.id, kind=JobKind.TRANSCODE.value)
-    verify_session.add(job)
+    rec = await add_recording(verify_session, user, "processing")
+    verify_session.add(Job(recording_id=rec.id, user_id=user.id, attempts=MAX_ATTEMPTS))
     await verify_session.commit()
-    fake = Job(id=job.id, recording_id=rec.id, user_id=user.id, kind="bogus", locked_until=None)
-    await job_runner._run_job(fake)
-    assert await verify_session.scalar(select(Job).where(Job.id == job.id)) is None
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("failed", "Processing failed")
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
+    transcode_handler.transcode.assert_not_awaited()
+
+
+async def test_a_peaks_job_whose_attempts_never_finished_is_dropped(
+    runner, verify_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_runner, _ = runner
+    monkeypatch.setattr(peaks_handler, "build_recording_peaks", AsyncMock())
+    user = await make_user(verify_session)
+    rec = await add_recording(verify_session, user, "ready", playback_key="u/r/playback")
+    verify_session.add(
+        Job(
+            recording_id=rec.id,
+            user_id=user.id,
+            kind=JobKind.PEAKS.value,
+            attempts=MAX_ATTEMPTS,
+        )
+    )
+    await verify_session.commit()
+    assert await job_runner.run_once() == 1
+    await verify_session.refresh(rec)
+    assert (rec.state, rec.error) == ("ready", None)
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec.id)) is None
+    peaks_handler.build_recording_peaks.assert_not_awaited()
 
 
 async def test_run_once_skips_a_locked_job(runner, verify_session, media_fixtures) -> None:
@@ -1053,8 +1092,8 @@ async def test_sweep_removes_old_revisions_a_live_row_does_not_name(runner, veri
 
 
 def test_a_claim_outlasts_the_longest_attempt() -> None:
-    assert runner_module.LOCK_SECONDS > runner_module.ATTEMPT_TIMEOUT_SECONDS
-    assert runner_module.STRAY_REVISION_AGE.total_seconds() > runner_module.LOCK_SECONDS
+    assert attempt_module.LOCK_SECONDS > attempt_module.ATTEMPT_TIMEOUT_SECONDS
+    assert runner_module.STRAY_REVISION_AGE.total_seconds() > attempt_module.LOCK_SECONDS
 
 
 async def test_a_job_cancelled_at_shutdown_goes_back_uncounted_and_cleans_up(
@@ -1072,7 +1111,7 @@ async def test_a_job_cancelled_at_shutdown_goes_back_uncounted_and_cleans_up(
         started.set()
         await asyncio.sleep(60)
 
-    monkeypatch.setattr(runner_module, "transcode", upload_then_hang)
+    monkeypatch.setattr(transcode_handler, "transcode", upload_then_hang)
     job_runner.start()
     await asyncio.wait_for(started.wait(), timeout=5)
     await asyncio.wait_for(job_runner.stop(), timeout=10)
@@ -1089,12 +1128,12 @@ async def test_an_attempt_past_its_time_limit_fails_and_backs_off(
     runner, verify_session, media_fixtures, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     job_runner, store = runner
-    monkeypatch.setattr(runner_module, "ATTEMPT_TIMEOUT_SECONDS", 0.1)
+    monkeypatch.setattr(attempt_module, "ATTEMPT_TIMEOUT_SECONDS", 0.1)
 
     async def hang(*_args: object) -> None:
         await asyncio.sleep(60)
 
-    monkeypatch.setattr(runner_module, "transcode", hang)
+    monkeypatch.setattr(transcode_handler, "transcode", hang)
     rec = await seed(verify_session, store, media_fixtures["m4a"], "audio/mp4")
     await asyncio.wait_for(job_runner.run_once(), timeout=10)
     await verify_session.refresh(rec)
@@ -1275,7 +1314,7 @@ async def test_next_due_is_the_orphan_sweep_when_nothing_is_pending(runner) -> N
     job_runner, _ = runner
     await job_runner.run_once()
     due = await job_runner.next_due()
-    assert abs(due - (utc_now() + timedelta(hours=1))) < timedelta(seconds=1)
+    assert abs(due - (utc_now() + timedelta(hours=12))) < timedelta(seconds=1)
 
 
 async def test_next_due_is_a_backed_off_job(runner, verify_session) -> None:
@@ -1577,7 +1616,7 @@ async def test_trim_failure_keeps_ready(
         assert job is not None
         job.locked_until = None
         await verify_session.commit()
-        with caplog.at_level(logging.WARNING, logger=runner_module.__name__):
+        with caplog.at_level(logging.WARNING, logger=attempt_module.__name__):
             assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert rec.state == "ready"
@@ -1969,7 +2008,7 @@ async def test_trim_commit_failure_counts_an_attempt_and_leaves_no_orphans(
         msg = "boom after the cut"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(runner_module, "ensure_trim_job", fail_to_queue)
+    monkeypatch.setattr(trim_handler, "ensure_trim_job", fail_to_queue)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert (rec.playback_key, rec.peaks_key) == (old_playback, old_peaks)
@@ -1992,7 +2031,7 @@ async def test_transcode_commit_failure_counts_an_attempt_and_leaves_no_orphans(
         msg = "boom after the transcode"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(runner_module, "ensure_trim_job", fail_to_queue)
+    monkeypatch.setattr(transcode_handler, "ensure_trim_job", fail_to_queue)
     assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)
     assert rec.state == "uploaded"
@@ -2270,7 +2309,7 @@ async def test_reencode_logs_no_replacement_when_its_commit_fails(
     await degrade_playback(store, verify_session, rec, tmp_path)
     old = (rec.playback_key, rec.playback_rev, rec.server_seq)
     await queue_reencode(verify_session, rec)
-    real_reencode = runner_module.reencode
+    real_reencode = reencode_handler.reencode
 
     async def reencode_then_fail_commit(session, *args, **kwargs) -> reencode_module.Replacement:
         replacement = await real_reencode(session, *args, **kwargs)
@@ -2285,7 +2324,7 @@ async def test_reencode_logs_no_replacement_when_its_commit_fails(
         session.commit = fail_once
         return replacement
 
-    monkeypatch.setattr(runner_module, "reencode", reencode_then_fail_commit)
+    monkeypatch.setattr(reencode_handler, "reencode", reencode_then_fail_commit)
     with caplog.at_level(logging.INFO, logger=reencode_module.__name__):
         assert await job_runner.run_once() == 1
     await verify_session.refresh(rec)

@@ -11,13 +11,14 @@ import httpx2
 import pytest
 from sqlalchemy import func, select
 
+from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.db.locks import advisory_lock_key
 from crosstune.jobs import importer as importer_module
-from crosstune.jobs.runner import MAX_ATTEMPTS, JobRunner
+from crosstune.jobs.attempt import MAX_ATTEMPTS
+from crosstune.jobs.runner import JobRunner
 from crosstune.links.slippery_hill import UPLOAD_FIELD
 from crosstune.models import Job, Recording, User
-from crosstune.models.user import new_uuid7, utc_now
 from crosstune.storage.store import upload_key
 from crosstune.vocabulary import JobKind
 from tests.fakes import FakeObjectStore
