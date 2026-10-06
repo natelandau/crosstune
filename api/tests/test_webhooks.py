@@ -135,6 +135,24 @@ async def test_signed_non_json_body_is_acknowledged(
     assert await verify_session.scalar(select(User).where(User.clerk_user_id == "user_kept"))
 
 
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"type": "user.deleted", "data": ["user_kept"]},
+        {"type": "user.deleted", "data": "user_kept"},
+        {"type": "user.deleted", "data": {"id": 42}},
+    ],
+)
+async def test_signed_user_deleted_of_an_unexpected_shape_is_acknowledged(
+    client, auth_headers, verify_session: AsyncSession, event: dict
+) -> None:
+    await client.get("/v1/me", headers=auth_headers("user_kept"))
+    body = json.dumps(event).encode()
+    response = await client.post("/v1/webhooks/clerk", content=body, headers=sign(body))
+    assert response.status_code == 204
+    assert await verify_session.scalar(select(User).where(User.clerk_user_id == "user_kept"))
+
+
 async def test_user_deleted_purges_their_objects(client, auth_headers, object_store) -> None:
     me = (await client.get("/v1/me", headers=auth_headers("user_gone"))).json()
     object_store.put_bytes(f"{me['id']}/r1/playback.m4a", b"a", "audio/mp4")

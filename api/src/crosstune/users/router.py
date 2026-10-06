@@ -140,9 +140,10 @@ async def clerk_webhook(
     # we understand; acknowledge it so Clerk stops retrying.
     if not isinstance(event, dict):
         return Response(status_code=204)
-    if event.get("type") == "user.deleted":
-        clerk_user_id = (event.get("data") or {}).get("id")
-        if clerk_user_id:
+    data = event.get("data")
+    if event.get("type") == "user.deleted" and isinstance(data, dict):
+        clerk_user_id = data.get("id")
+        if isinstance(clerk_user_id, str) and clerk_user_id:
             user_id = await purge_account(session, clerk_user_id)
             store = request.app.state.object_store
             if user_id is not None and store is not None:
