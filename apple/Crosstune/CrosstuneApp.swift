@@ -75,8 +75,13 @@ struct CrosstuneApp: App {
 
     @ViewBuilder private var content: some View {
         #if DEBUG
-            // Shows the shell over sample data without signing in, for screenshots.
-            if CommandLine.arguments.contains("-SampleShell") {
+            // Shows the shell over the marketing site's fixture, named by the argument after the flag.
+            if let flag = CommandLine.arguments.firstIndex(of: "-MarketingShell"),
+                CommandLine.arguments.indices.contains(flag + 1)
+            {
+                MarketingShell(fixture: URL(filePath: CommandLine.arguments[flag + 1]))
+            } else if CommandLine.arguments.contains("-SampleShell") {
+                // Shows the shell over sample data without signing in, for screenshots.
                 SampleShell(
                     playing: CommandLine.arguments.contains("-SamplePlaying"),
                     playingRecording: CommandLine.arguments.contains("-SamplePlayingRecording"))

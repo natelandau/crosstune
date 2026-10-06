@@ -1,0 +1,981 @@
+{
+  "user_settings": [
+    {
+      "id": "962efbde-9011-596c-bc6e-2ca1f55d1056",
+      "created_at": "2025-04-12T19:00:00.000Z",
+      "instruments": ["violin", "five_string_banjo"],
+      "audio_quality": "standard",
+      "play_first": "recordings",
+      "search_providers": [
+        "apple_music",
+        "internet_archive",
+        "slippery_hill",
+        "youtube",
+        "spotify",
+        "bandcamp"
+      ]
+    }
+  ],
+  "tunes": [
+    {
+      "id": "d03dd7f8-c89e-5103-9cfc-1d2405c07b86",
+      "created_at": "2025-11-02T19:20:00.000Z",
+      "title": "Backstep Cindy",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Double C (gCGCD)",
+          "capo": 2
+        }
+      }
+    },
+    {
+      "id": "07965a5d-b56a-5cdf-947d-2021bff15951",
+      "created_at": "2026-08-08T15:05:00.000Z",
+      "title": "Half Past Four",
+      "alternate_titles": [],
+      "composer": "Lauchlin Shaw",
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "A",
+      "modes": ["major"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Cross A (AEAE)"
+        }
+      }
+    },
+    {
+      "id": "72a24a31-5318-5581-a826-1885a911a22e",
+      "created_at": "2026-03-14T21:40:00.000Z",
+      "title": "Bibb County Hoedown",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Breakdown",
+      "key": "A",
+      "modes": ["major"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Cross A (AEAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Open A (aEAC#E)"
+        }
+      }
+    },
+    {
+      "id": "54aea722-e85d-5437-85a8-09a8792f8b15",
+      "created_at": "2026-08-06T23:55:00.000Z",
+      "title": "Sail Away Ladies",
+      "alternate_titles": ["Sail Away Lady"],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": "Ever I get my new house done,\nSail away, ladies, sail away,\nGive the old one to my son,\nSail away, ladies, sail away.\n\nDon't she rock 'em, die-dee-oh,\nDon't she rock 'em, die-dee-oh.",
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Double C (gCGCD)",
+          "capo": 2
+        }
+      }
+    },
+    {
+      "id": "b799a120-dc98-5960-9f31-b1f05165e760",
+      "created_at": "2025-06-21T17:00:00.000Z",
+      "title": "Soldier's Joy",
+      "alternate_titles": ["Love Somebody"],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Double C (gCGCD)",
+          "capo": 2
+        }
+      }
+    },
+    {
+      "id": "52ef5844-90e1-5430-a782-2e199399db2b",
+      "created_at": "2026-08-07T02:10:00.000Z",
+      "title": "Duck River",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["mixolydian"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": true,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        }
+      }
+    },
+    {
+      "id": "eb0ab237-ccda-523d-bf14-e43c10564255",
+      "created_at": "2026-08-05T20:30:00.000Z",
+      "title": "Lost Indian",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "A",
+      "modes": ["dorian"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": true,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Cross A (AEAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Double C (gCGCD)",
+          "capo": 2
+        }
+      }
+    },
+    {
+      "id": "275aca2f-af73-55ac-bbbe-94e153170176",
+      "created_at": "2025-09-10T18:45:00.000Z",
+      "title": "Forked Deer",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Old-time",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "2/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Double C (gCGCD)",
+          "capo": 2
+        }
+      }
+    },
+    {
+      "id": "048d3fef-4d24-51c5-a2e4-1885d98c2cbe",
+      "created_at": "2025-04-12T20:00:00.000Z",
+      "title": "The Silver Spear",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Irish",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "4/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {}
+    },
+    {
+      "id": "2b32188f-a2d4-5d5e-925a-934e4d03db75",
+      "created_at": "2026-01-18T21:15:00.000Z",
+      "title": "The Kesh",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Irish",
+      "tune_type": "Jig",
+      "key": "G",
+      "modes": ["major"],
+      "time_signature": "6/8",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {}
+    },
+    {
+      "id": "09498b2a-765f-5200-9b7d-bdd1ebd67752",
+      "created_at": "2026-05-30T19:00:00.000Z",
+      "title": "The Butterfly",
+      "alternate_titles": [],
+      "composer": "Tommy Potts",
+      "genre": "Irish",
+      "tune_type": "Slip jig",
+      "key": "E",
+      "modes": ["minor"],
+      "time_signature": "9/8",
+      "part_structure": "AABBCC",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {}
+    },
+    {
+      "id": "56db3736-523a-5325-bc83-e0d970444fac",
+      "created_at": "2025-07-04T16:30:00.000Z",
+      "title": "Blackberry Blossom",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Bluegrass",
+      "tune_type": "Breakdown",
+      "key": "G",
+      "modes": ["major"],
+      "time_signature": "2/2",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Open G (gDGBD)"
+        }
+      }
+    },
+    {
+      "id": "86e0b8b2-d689-5344-ac48-a3a47cdc2d02",
+      "created_at": "2026-02-22T22:00:00.000Z",
+      "title": "Salt Creek",
+      "alternate_titles": ["Salt River"],
+      "composer": null,
+      "genre": "Bluegrass",
+      "tune_type": "Breakdown",
+      "key": "A",
+      "modes": ["mixolydian"],
+      "time_signature": "2/2",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        },
+        "five_string_banjo": {
+          "tuning": "Open G (gDGBD)",
+          "capo": 2
+        }
+      }
+    },
+    {
+      "id": "885e6afa-168f-550d-afad-bad5df0a3463",
+      "created_at": "2025-10-05T15:00:00.000Z",
+      "title": "Whiskey Before Breakfast",
+      "alternate_titles": [],
+      "composer": null,
+      "genre": "Bluegrass",
+      "tune_type": "Reel",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "2/2",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        }
+      }
+    },
+    {
+      "id": "5fa64d1b-2573-5240-909c-63e9b4a05afe",
+      "created_at": "2026-04-02T01:00:00.000Z",
+      "title": "Ashokan Farewell",
+      "alternate_titles": [],
+      "composer": "Jay Ungar",
+      "genre": "Contemporary",
+      "tune_type": "Waltz",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "3/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        }
+      }
+    },
+    {
+      "id": "3dc75952-b66f-5551-83c5-73323fa7ec16",
+      "created_at": "2025-12-14T03:20:00.000Z",
+      "title": "Midnight on the Water",
+      "alternate_titles": [],
+      "composer": "Luke Thomasson",
+      "genre": "Old-time",
+      "tune_type": "Waltz",
+      "key": "D",
+      "modes": ["major"],
+      "time_signature": "3/4",
+      "part_structure": "AB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Dead Man (DDAD)"
+        }
+      }
+    },
+    {
+      "id": "0246b3b5-54e4-5d41-bc1a-d17355575e3c",
+      "created_at": "2026-06-11T18:00:00.000Z",
+      "title": "Westphalia Waltz",
+      "alternate_titles": [],
+      "composer": "Cotton Collins",
+      "genre": "Old-time",
+      "tune_type": "Waltz",
+      "key": "G",
+      "modes": ["major"],
+      "time_signature": "3/4",
+      "part_structure": "AABB",
+      "is_crooked": false,
+      "lyrics": null,
+      "tunings": {
+        "violin": {
+          "tuning": "Standard (GDAE)"
+        }
+      }
+    }
+  ],
+  "user_tunes": [
+    {
+      "id": "65751c91-a097-50e6-b75e-37a90569b210",
+      "created_at": "2025-11-02T19:20:00.000Z",
+      "tune_id": "d03dd7f8-c89e-5103-9cfc-1d2405c07b86",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": "Lead with the shuffle; the B part sits high on the A string.",
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "d7b6c7b2-a7cf-5442-9c73-8ce0f536fa3d",
+      "created_at": "2026-08-08T15:05:00.000Z",
+      "tune_id": "07965a5d-b56a-5cdf-947d-2021bff15951",
+      "status": "learning",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "fc3af4e6-1f35-52e6-8137-959722370224",
+      "created_at": "2026-03-14T21:40:00.000Z",
+      "tune_id": "72a24a31-5318-5581-a826-1885a911a22e",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": "Practice the B part slow, then bring it back to tempo.",
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "e6837cb8-9816-5457-b9cb-155662373c32",
+      "created_at": "2026-08-06T23:55:00.000Z",
+      "tune_id": "54aea722-e85d-5437-85a8-09a8792f8b15",
+      "status": "learning",
+      "learned_from": "Joe at Clifftop",
+      "learned_on": "2026-08-06",
+      "notes": "Joe plays the B part an octave down the second time through.",
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "61b54575-c2e3-5adf-a19a-c60bded8ff3d",
+      "created_at": "2025-06-21T17:00:00.000Z",
+      "tune_id": "b799a120-dc98-5960-9f31-b1f05165e760",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "0aa06503-c450-56a6-9a7e-0176e83d55ed",
+      "created_at": "2026-08-07T02:10:00.000Z",
+      "tune_id": "52ef5844-90e1-5430-a782-2e199399db2b",
+      "status": "want_to_learn",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": "Crooked: the A part drops a beat before the turnaround.",
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "33e2512d-8a9e-5da7-8042-c5dd7d901e62",
+      "created_at": "2026-08-05T20:30:00.000Z",
+      "tune_id": "eb0ab237-ccda-523d-bf14-e43c10564255",
+      "status": "learning",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": "Modal and crooked; count the extra beat in the B part.",
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "0dd47160-85a2-5635-aba5-13c492e33ff0",
+      "created_at": "2025-09-10T18:45:00.000Z",
+      "tune_id": "275aca2f-af73-55ac-bbbe-94e153170176",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "ba9d1c51-e303-5aa4-91f0-1b2c37c324df",
+      "created_at": "2025-04-12T20:00:00.000Z",
+      "tune_id": "048d3fef-4d24-51c5-a2e4-1885d98c2cbe",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "5329e12e-ca88-5b00-a464-16bd96897770",
+      "created_at": "2026-01-18T21:15:00.000Z",
+      "tune_id": "2b32188f-a2d4-5d5e-925a-934e4d03db75",
+      "status": "learning",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "2ff5ac95-376f-54fc-9a36-93cf3f22c7eb",
+      "created_at": "2026-05-30T19:00:00.000Z",
+      "tune_id": "09498b2a-765f-5200-9b7d-bdd1ebd67752",
+      "status": "want_to_learn",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "d67f1b40-aef9-51cc-b338-1863ced85c72",
+      "created_at": "2025-07-04T16:30:00.000Z",
+      "tune_id": "56db3736-523a-5325-bc83-e0d970444fac",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "22c2101a-5bc3-55ec-8982-758cd18a8055",
+      "created_at": "2026-02-22T22:00:00.000Z",
+      "tune_id": "86e0b8b2-d689-5344-ac48-a3a47cdc2d02",
+      "status": "learning",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "db24cf35-56cd-5829-8a70-be4b2ab989cd",
+      "created_at": "2025-10-05T15:00:00.000Z",
+      "tune_id": "885e6afa-168f-550d-afad-bad5df0a3463",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "d1060ad2-5b0d-5708-85e0-48e0a681b043",
+      "created_at": "2026-04-02T01:00:00.000Z",
+      "tune_id": "5fa64d1b-2573-5240-909c-63e9b4a05afe",
+      "status": "learning",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "36df0b46-a3ea-5f42-a61d-470032147b1f",
+      "created_at": "2025-12-14T03:20:00.000Z",
+      "tune_id": "3dc75952-b66f-5551-83c5-73323fa7ec16",
+      "status": "known",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    },
+    {
+      "id": "e8794d8d-3ab5-5fcc-8ba5-e999aa443bc2",
+      "created_at": "2026-06-11T18:00:00.000Z",
+      "tune_id": "0246b3b5-54e4-5d41-bc1a-d17355575e3c",
+      "status": "want_to_learn",
+      "learned_from": null,
+      "learned_on": null,
+      "notes": null,
+      "archived_at": null,
+      "play_recording_id": null,
+      "play_link_id": null
+    }
+  ],
+  "lists": [
+    {
+      "id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "name": "Saturday session",
+      "position": 0
+    },
+    {
+      "id": "6cb78640-8bb7-545b-a3f3-6aa25650ae29",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "name": "Clifftop 2026",
+      "position": 1
+    },
+    {
+      "id": "ee2f8735-b5f1-50ee-a2a6-d4554980dc94",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "name": "Waltzes",
+      "position": 2
+    }
+  ],
+  "list_items": [
+    {
+      "id": "b7accb1a-e472-59c7-baf9-048645293486",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "user_tune_id": "65751c91-a097-50e6-b75e-37a90569b210",
+      "position": 0
+    },
+    {
+      "id": "896b1f8b-67e8-5c17-90f6-06cfd83530e4",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "user_tune_id": "61b54575-c2e3-5adf-a19a-c60bded8ff3d",
+      "position": 1
+    },
+    {
+      "id": "83ff4878-1474-52f2-8f94-bcb1e1e8bf15",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "user_tune_id": "d7b6c7b2-a7cf-5442-9c73-8ce0f536fa3d",
+      "position": 2
+    },
+    {
+      "id": "8f2d48ad-83ec-556e-bb45-fdb1516fb763",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "user_tune_id": "0dd47160-85a2-5635-aba5-13c492e33ff0",
+      "position": 3
+    },
+    {
+      "id": "ae94b8d3-09fd-5737-a7fd-c3d832129daa",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "user_tune_id": "fc3af4e6-1f35-52e6-8137-959722370224",
+      "position": 4
+    },
+    {
+      "id": "8e6c2b7e-db2b-5021-876d-b29cee4477b5",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "55de41f1-2790-5bf4-854e-4bf65f126f46",
+      "user_tune_id": "e6837cb8-9816-5457-b9cb-155662373c32",
+      "position": 5
+    },
+    {
+      "id": "030eadb4-fad9-5fbd-83e1-17563667be29",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "6cb78640-8bb7-545b-a3f3-6aa25650ae29",
+      "user_tune_id": "e6837cb8-9816-5457-b9cb-155662373c32",
+      "position": 0
+    },
+    {
+      "id": "ec2d3c66-ab50-522f-8eba-a2092c960104",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "6cb78640-8bb7-545b-a3f3-6aa25650ae29",
+      "user_tune_id": "33e2512d-8a9e-5da7-8042-c5dd7d901e62",
+      "position": 1
+    },
+    {
+      "id": "7d6fe532-7b59-5b1a-b6b6-52f69ddf338e",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "6cb78640-8bb7-545b-a3f3-6aa25650ae29",
+      "user_tune_id": "0aa06503-c450-56a6-9a7e-0176e83d55ed",
+      "position": 2
+    },
+    {
+      "id": "449bf99a-d431-596a-84a2-835704455066",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "6cb78640-8bb7-545b-a3f3-6aa25650ae29",
+      "user_tune_id": "d7b6c7b2-a7cf-5442-9c73-8ce0f536fa3d",
+      "position": 3
+    },
+    {
+      "id": "7933e435-7985-5365-8618-3aa3897feab8",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "ee2f8735-b5f1-50ee-a2a6-d4554980dc94",
+      "user_tune_id": "d1060ad2-5b0d-5708-85e0-48e0a681b043",
+      "position": 0
+    },
+    {
+      "id": "09fe0919-bac3-5904-ac41-7042f7be525e",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "ee2f8735-b5f1-50ee-a2a6-d4554980dc94",
+      "user_tune_id": "36df0b46-a3ea-5f42-a61d-470032147b1f",
+      "position": 1
+    },
+    {
+      "id": "3e787c56-8e72-5432-b93f-bea07dffe86c",
+      "created_at": "2026-08-01T12:00:00.000Z",
+      "list_id": "ee2f8735-b5f1-50ee-a2a6-d4554980dc94",
+      "user_tune_id": "e8794d8d-3ab5-5fcc-8ba5-e999aa443bc2",
+      "position": 2
+    }
+  ],
+  "recording_links": [
+    {
+      "id": "ec0b9646-3513-5451-bea7-e39659776d97",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "d03dd7f8-c89e-5103-9cfc-1d2405c07b86",
+      "url": "https://open.spotify.com/track/3vQ8mVpGmD2ytC7l1PxQ4k",
+      "provider": "spotify",
+      "provider_ref": "track:3vQ8mVpGmD2ytC7l1PxQ4k",
+      "title": "Backstep Cindy - The Red Hots",
+      "artwork_url": null,
+      "position": 0
+    },
+    {
+      "id": "52e25186-e125-52cc-9184-fc0121976283",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "d03dd7f8-c89e-5103-9cfc-1d2405c07b86",
+      "url": "https://www.youtube.com/watch?v=Qh7ZxV3kL2s",
+      "provider": "youtube",
+      "provider_ref": "Qh7ZxV3kL2s",
+      "title": "Backstep Cindy at the Clifftop porch",
+      "artwork_url": null,
+      "position": 1
+    },
+    {
+      "id": "98853694-fa3d-5d69-8593-f935fb33873f",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "d03dd7f8-c89e-5103-9cfc-1d2405c07b86",
+      "url": "https://music.apple.com/us/album/backstep-cindy/1440812345?i=1440812351",
+      "provider": "apple_music",
+      "provider_ref": "1440812351",
+      "title": "Backstep Cindy - Old Time Revue",
+      "artwork_url": null,
+      "position": 2
+    },
+    {
+      "id": "71c1a900-dbfa-5bb7-a963-a1cb58e2d939",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "275aca2f-af73-55ac-bbbe-94e153170176",
+      "url": "https://open.spotify.com/track/6Hq1wRr8TzXc4mJ0bY2nLd",
+      "provider": "spotify",
+      "provider_ref": "track:6Hq1wRr8TzXc4mJ0bY2nLd",
+      "title": "Forked Deer - Hollow Rock String Band",
+      "artwork_url": null,
+      "position": 0
+    },
+    {
+      "id": "c20da443-8d6f-530f-a65f-c22c6ed11c1d",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "275aca2f-af73-55ac-bbbe-94e153170176",
+      "url": "https://www.youtube.com/watch?v=Fk3dP9rTx1Q",
+      "provider": "youtube",
+      "provider_ref": "Fk3dP9rTx1Q",
+      "title": "Forked Deer, Tuesday jam",
+      "artwork_url": null,
+      "position": 1
+    },
+    {
+      "id": "17f5fb50-888e-5cd0-b06e-e38458e403f3",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "275aca2f-af73-55ac-bbbe-94e153170176",
+      "url": "https://music.apple.com/us/album/forked-deer/1563224401?i=1563224409",
+      "provider": "apple_music",
+      "provider_ref": "1563224409",
+      "title": "Forked Deer - Up the Holler",
+      "artwork_url": null,
+      "position": 2
+    },
+    {
+      "id": "a4b1c581-0cf0-5fe6-b0ed-b93743b64c9a",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "275aca2f-af73-55ac-bbbe-94e153170176",
+      "url": "https://www.slippery-hill.com/system/files/Tunes/Forked_Deer.mp3",
+      "provider": "slippery_hill",
+      "provider_ref": "Tunes/Forked_Deer.mp3",
+      "title": "Forked Deer (field recording)",
+      "artwork_url": null,
+      "position": 3
+    },
+    {
+      "id": "0b67e72a-8670-50b3-9f64-03a0a47b0991",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "54aea722-e85d-5437-85a8-09a8792f8b15",
+      "url": "https://www.slippery-hill.com/system/files/Tunes/Sail_Away_Ladies.mp3",
+      "provider": "slippery_hill",
+      "provider_ref": "Tunes/Sail_Away_Ladies.mp3",
+      "title": "Sail Away Ladies (field recording)",
+      "artwork_url": null,
+      "position": 0
+    },
+    {
+      "id": "518656d0-e9d4-5aae-90c3-f87ec6f6daae",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "eb0ab237-ccda-523d-bf14-e43c10564255",
+      "url": "https://www.slippery-hill.com/system/files/Tunes/Lost_Indian.mp3",
+      "provider": "slippery_hill",
+      "provider_ref": "Tunes/Lost_Indian.mp3",
+      "title": "Lost Indian (field recording)",
+      "artwork_url": null,
+      "position": 0
+    },
+    {
+      "id": "6e38ee3b-01f3-580b-b8e5-8c6d16acb875",
+      "created_at": "2026-08-10T14:00:00.000Z",
+      "tune_id": "72a24a31-5318-5581-a826-1885a911a22e",
+      "url": "https://www.youtube.com/watch?v=Bb7cHdN4w2E",
+      "provider": "youtube",
+      "provider_ref": "Bb7cHdN4w2E",
+      "title": "Bibb County Hoedown - Skillet Lickers style",
+      "artwork_url": null,
+      "position": 0
+    }
+  ],
+  "recordings": [
+    {
+      "id": "58f82020-7aa6-5580-bcf9-e6254aa0bb70",
+      "created_at": "2026-09-13T18:00:00.000Z",
+      "tune_id": "72a24a31-5318-5581-a826-1885a911a22e",
+      "source": "upload",
+      "origin": "own",
+      "origin_url": null,
+      "added_at": "2026-09-13T18:00:00.000Z",
+      "recorded_at": "2026-09-12T00:00:00.000Z",
+      "recorded_precision": "day",
+      "label": "With the band",
+      "position": 0,
+      "trim_start_ms": 0,
+      "trim_end_ms": null,
+      "speed_percent": 100,
+      "pitch_cents": 0,
+      "state": "ready",
+      "duration_ms": 30000,
+      "playback_mime": "audio/mp4",
+      "playback_bytes": 366960,
+      "error": null,
+      "source_duration_ms": 30000,
+      "playback_start_ms": 0,
+      "playback_end_ms": 30000,
+      "playback_rev": null,
+      "peaks_rev": null
+    },
+    {
+      "id": "2877f355-fc2d-524e-9e3a-bce7dfebf010",
+      "created_at": "2026-08-06T23:42:00.000Z",
+      "tune_id": "54aea722-e85d-5437-85a8-09a8792f8b15",
+      "source": "microphone",
+      "origin": "own",
+      "origin_url": null,
+      "added_at": "2026-08-06T23:42:00.000Z",
+      "recorded_at": "2026-08-06T23:42:00.000Z",
+      "recorded_precision": "time",
+      "label": "Joe at Clifftop",
+      "position": 0,
+      "trim_start_ms": 0,
+      "trim_end_ms": null,
+      "speed_percent": 100,
+      "pitch_cents": 0,
+      "state": "ready",
+      "duration_ms": 45000,
+      "playback_mime": "audio/mp4",
+      "playback_bytes": 462006,
+      "error": null,
+      "source_duration_ms": 45000,
+      "playback_start_ms": 0,
+      "playback_end_ms": 45000,
+      "playback_rev": null,
+      "peaks_rev": null
+    },
+    {
+      "id": "578e027f-0604-5fb5-a6f5-6ac46a28c9c7",
+      "created_at": "2026-09-20T19:15:00.000Z",
+      "tune_id": "d03dd7f8-c89e-5103-9cfc-1d2405c07b86",
+      "source": "microphone",
+      "origin": "own",
+      "origin_url": null,
+      "added_at": "2026-09-20T19:15:00.000Z",
+      "recorded_at": "2026-09-20T19:15:00.000Z",
+      "recorded_precision": "time",
+      "label": "Saturday session",
+      "position": 0,
+      "trim_start_ms": 0,
+      "trim_end_ms": null,
+      "speed_percent": 100,
+      "pitch_cents": 0,
+      "state": "ready",
+      "duration_ms": 45000,
+      "playback_mime": "audio/mp4",
+      "playback_bytes": 462006,
+      "error": null,
+      "source_duration_ms": 45000,
+      "playback_start_ms": 0,
+      "playback_end_ms": 45000,
+      "playback_rev": null,
+      "peaks_rev": null
+    },
+    {
+      "id": "acda9332-57ed-5bce-a8fe-00429318cf2b",
+      "created_at": "2026-09-24T22:30:00.000Z",
+      "tune_id": null,
+      "source": "microphone",
+      "origin": "own",
+      "origin_url": null,
+      "added_at": "2026-09-24T22:30:00.000Z",
+      "recorded_at": "2026-09-24T22:30:00.000Z",
+      "recorded_precision": "time",
+      "label": null,
+      "position": 0,
+      "trim_start_ms": 0,
+      "trim_end_ms": null,
+      "speed_percent": 100,
+      "pitch_cents": 0,
+      "state": "ready",
+      "duration_ms": 45000,
+      "playback_mime": "audio/mp4",
+      "playback_bytes": 462006,
+      "error": null,
+      "source_duration_ms": 45000,
+      "playback_start_ms": 0,
+      "playback_end_ms": 45000,
+      "playback_rev": null,
+      "peaks_rev": null
+    }
+  ],
+  "recording_loops": [
+    {
+      "id": "367a16a7-c62f-51c2-8dce-3fe66ededaec",
+      "created_at": "2026-09-13T18:05:00.000Z",
+      "recording_id": "58f82020-7aa6-5580-bcf9-e6254aa0bb70",
+      "label": "A part",
+      "start_ms": 1000,
+      "end_ms": 8500,
+      "color": 0
+    },
+    {
+      "id": "d8079959-1b77-5bd4-8b7b-8fb51914d64b",
+      "created_at": "2026-09-13T18:06:00.000Z",
+      "recording_id": "58f82020-7aa6-5580-bcf9-e6254aa0bb70",
+      "label": "Turnaround",
+      "start_ms": 24500,
+      "end_ms": 28500,
+      "color": 1
+    }
+  ],
+  "scans": [
+    {
+      "id": "7c3a443b-e759-5ab1-ade8-0093602dafc7",
+      "created_at": "2026-08-07T15:00:00.000Z",
+      "tune_id": "54aea722-e85d-5437-85a8-09a8792f8b15",
+      "position": 0,
+      "width": 1700,
+      "height": 2200,
+      "state": "ready",
+      "file_bytes": 282078
+    },
+    {
+      "id": "0a1b690d-c43f-5dae-8204-e29325e5c1f8",
+      "created_at": "2026-08-07T15:00:00.000Z",
+      "tune_id": "54aea722-e85d-5437-85a8-09a8792f8b15",
+      "position": 1,
+      "width": 1700,
+      "height": 2200,
+      "state": "ready",
+      "file_bytes": 267606
+    },
+    {
+      "id": "9f85c98b-8d1c-5878-8215-6967450e0eef",
+      "created_at": "2026-08-07T15:00:00.000Z",
+      "tune_id": "72a24a31-5318-5581-a826-1885a911a22e",
+      "position": 0,
+      "width": 1700,
+      "height": 2200,
+      "state": "ready",
+      "file_bytes": 265162
+    }
+  ],
+  "files": {
+    "58f82020-7aa6-5580-bcf9-e6254aa0bb70": "assets/bibb-county-hoedown.m4a",
+    "2877f355-fc2d-524e-9e3a-bce7dfebf010": "assets/jam-take.m4a",
+    "578e027f-0604-5fb5-a6f5-6ac46a28c9c7": "assets/jam-take.m4a",
+    "acda9332-57ed-5bce-a8fe-00429318cf2b": "assets/jam-take.m4a",
+    "7c3a443b-e759-5ab1-ade8-0093602dafc7": "assets/sail-away-ladies-1.jpg",
+    "0a1b690d-c43f-5dae-8204-e29325e5c1f8": "assets/sail-away-ladies-2.jpg",
+    "9f85c98b-8d1c-5878-8215-6967450e0eef": "assets/bibb-county-hoedown.jpg"
+  }
+}

@@ -1,0 +1,64 @@
+---
+import Phone from './Phone.astro'
+import type { Poster } from './captures'
+
+// One whole phone per clip; a script moves them by setting `is-before` / `is-active` on each
+// `.stack-item`.
+type Props = {
+  names: string[]
+  alts: string[]
+  width: number
+  /**
+   * Each clip's poster loading, passed to its `Phone`; the clip's `poster` attribute when
+   * absent.
+   */
+  posters?: Poster[]
+}
+
+const { names, alts, width, posters } = Astro.props
+if (alts.length !== names.length) throw new Error('PhoneStack needs one alt per capture')
+---
+
+<div class="stack" style={`--phone-w: ${width}px`} data-stack>
+  {names.map((name, i) => (
+    <div
+      class:list={['stack-item', { 'is-active': i === 0 }]}
+      aria-hidden={i === 0 ? undefined : 'true'}
+      data-stack-item
+    >
+      <Phone name={name} alt={alts[i]} width={width} poster={posters?.[i]} />
+    </div>
+  ))}
+</div>
+
+<style>
+  .stack {
+    position: relative;
+    width: min(var(--phone-w), 100%);
+    aspect-ratio: 720 / 1566;
+  }
+  .stack-item {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transform: translateY(18%) scale(0.92);
+    filter: blur(2px);
+    transition:
+      opacity 300ms ease,
+      transform 520ms cubic-bezier(0.2, 0.7, 0.2, 1),
+      filter 300ms ease;
+  }
+  .stack-item.is-before {
+    transform: translateY(-18%) scale(0.92);
+  }
+  .stack-item.is-active {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stack-item {
+      transition: none;
+    }
+  }
+</style>

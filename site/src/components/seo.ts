@@ -1,10 +1,10 @@
 // The home page's search title, description, and schema.org description of the site.
-// Search copy may say fiddle: it is the word players type, even where the page says violin.
+// Search copy says fiddle, the word players type.
 import { APP_URL, SUPPORT_EMAIL } from './actions'
 
-export const HOME_TITLE = 'Crosstune: tune lists and practice for learning music by ear'
+export const HOME_TITLE = 'Crosstune: your tune list, recordings, and practice tools'
 export const HOME_DESCRIPTION =
-  'Tune lists, recordings, and practice tools for fiddle, banjo, and every musician who learns by ear: old-time, bluegrass, Irish, and folk.'
+  'Tunes with the recordings you learn from. Slow them down, loop, record your own. Free tune list for fiddle and banjo: old-time, bluegrass, Irish, folk, by ear.'
 
 const SITE = 'https://crosstune.app/'
 

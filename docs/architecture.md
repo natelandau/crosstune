@@ -21,8 +21,7 @@ are in `hosting.md`. Deploys and releases are in `operations.md`.
 The apex `<domain>` is the static marketing and waitlist site, served by
 its own Worker. It never calls the API. It reaches third parties only when
 a visitor acts: the waitlist form loads Clerk's Frontend API once the email
-field is focused, and the home page's demo loads a YouTube, Spotify, or
-Bandcamp player only when the visitor picks that link.
+field is focused. It embeds no third-party players.
 
 Cloudflare also hosts the DNS zone for the product domain.
 

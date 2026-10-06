@@ -62,6 +62,9 @@ database and bucket of every worktree that no longer exists.
 | `just site::dev`    | The site alone, on Astro's dev server.                                                                                                                                                                                                                                                                                |
 | `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                                                                                                 |
 
+To re-record the app screens the site shows, run `just site::capture
+[names…]`; see [Refresh the site's captures](#refresh-the-sites-captures).
+
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
 and worktree shares one Postgres container, and each worktree has its own
@@ -341,6 +344,105 @@ The manual phone test covers what the script cannot:
 4. Turn on airplane mode and edit the tune.
 5. Turn off airplane mode.
 6. Confirm the edit synced. Settings shows the last sync time.
+
+## Refresh the site's captures
+
+The home page shows real app captures from `site/src/assets/captures/`.
+When an app screen that the site shows changes, capture it again.
+
+| Name                                          | Comes from                                       |
+| --------------------------------------------- | ------------------------------------------------ |
+| `hero-jam`, `hero-home`, `hero-record`        | The iPhone simulator, as clips                   |
+| `lists`                                       | The iPhone simulator, as a clip                  |
+| `record`, `services`, `folk`, `family-iphone` | The iPhone simulator, as stills                  |
+| `family-ipad`                                 | The iPad simulator                               |
+| `family-mac`                                  | The Mac app's window                             |
+| `family-web`, `family-android`                | The local web app, in a desktop and Android view |
+
+The feature bullets' zoomed clips also come from the iPhone simulator:
+`tunes-status`, `tunes-filter`, `tunes-search`, `tune-links`,
+`tune-scans`, `tune-lyrics`, `tune-learned`, `practice-speed`,
+`practice-pitch`, and `practice-loops`.
+
+What a capture needs:
+
+- Xcode. The recipe makes two simulators on the newest installed iOS
+  runtime, `Crosstune Capture iPhone 17 Pro` and
+  `Crosstune Capture iPad`. They are never signed in to an Apple Account,
+  so no system alert covers a capture.
+- For `family-mac`, an unlocked Mac session and Peekaboo, with Screen
+  Recording and Accessibility allowed. A locked screen draws no window.
+  The capture runs the app through `just apple::run`, so it waits while
+  another worktree holds the Mac app.
+- For `family-web` and `family-android`:
+  - `just dev` running.
+  - `CLERK_SECRET_KEY` and `VITE_CLERK_PUBLISHABLE_KEY` in `web/.env`.
+  - The marketing account seeded with `just api::seed-marketing`, which
+    needs a development instance `CROSSTUNE_CLERK_SECRET_KEY`
+    (`sk_test_…`) in `api/.env`. Seed again after a
+    change to `site/capture/catalog.json`. Running it twice is safe.
+
+Run, from the repository root:
+
+```bash
+just site::capture [names…]
+```
+
+- Names pick the captures. Every other entry in
+  `site/src/assets/captures/captures.json` and its files stay as they
+  are.
+- With no names, it runs every capture. It skips `family-mac` when the
+  screen is locked, and `family-web` and `family-android` when `just dev`
+  is not running, says so, and publishes the rest. A skipped capture keeps
+  its earlier entry and file; a PNG left from an earlier run is not
+  republished.
+- A named host capture whose needs are not met stops the run before the
+  simulator pass.
+- If a capture fails, the run stops and names it, and the earlier files
+  stay.
+
+To add a capture:
+
+1. Add the rows it shows to `site/capture/catalog.json`, the fixture the
+   simulators, the Mac app, and the seed all read.
+2. Add `test_<name>` to a class in `apple/CrosstuneMarketingUITests/`.
+   For a clip, drive the scene through `CaptureTimeline`. For a still,
+   call `captureStill()`.
+3. Run `just site::capture <name>`. The name comes from the test method
+   and the run writes its manifest entry, so nothing else registers it.
+
+A feature bullet needs two more steps:
+
+1. Add a `CROP` entry for it in `site/capture/run.ts`: a `zoom` from 1.2
+   to 1.6 and the `x` and `y` of the crop's top-left point, as fractions of
+   the frame. A cropped clip keeps the whole scene, with no jump cuts.
+2. Add the bullet, with the capture name and its alt text, to
+   `site/src/components/features.ts`.
+
+To retire a capture:
+
+1. Delete its `test_<name>` in `apple/CrosstuneMarketingUITests/`.
+   A full `just site::capture` publishes every test it finds, so a test
+   left in place brings the capture back.
+2. Remove it from the page, and its `CROP` entry if it has one.
+3. Run, from `site/`:
+
+   ```bash
+   node capture/run.ts --drop <names>
+   ```
+
+   It deletes the named entries and their files. A name the manifest does
+   not hold, or one the same run also publishes, stops the run.
+
+Check the result:
+
+- Watch each new clip on `just site::dev`.
+- Check by eye that each tap dot lands on its tap. An XCTest recording can
+  fall behind wall time, which puts every later dot late, and the
+  pipeline cannot detect it. Capture again, or nudge the clip's dots with
+  `DOT_OFFSET` in `site/capture/run.ts`.
+- `TAIL_SECONDS` and `KEEP_SPANS` in the same file set how long a clip
+  runs after its last tap and which stretches it keeps without a cut.
 
 ## Rotate an R2 token
 

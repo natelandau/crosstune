@@ -1,0 +1,32 @@
+---
+import { PROBLEM_BODY, PROBLEM_TITLE } from './problem'
+---
+
+<section class="problem column" aria-labelledby="problem-title">
+  <h2 id="problem-title">{PROBLEM_TITLE}</h2>
+  <p>{PROBLEM_BODY}</p>
+</section>
+
+<style>
+  .problem {
+    padding-block: var(--section-pad);
+  }
+
+  h2 {
+    max-width: 18ch;
+    margin: 0;
+    font-size: var(--section-size);
+    font-weight: var(--section-weight);
+    line-height: 1.02;
+    letter-spacing: var(--tracking);
+    text-wrap: balance;
+  }
+
+  p {
+    max-width: 40ch;
+    margin: 20px 0 0;
+    color: var(--slate);
+    font-size: 1.1875rem;
+    text-wrap: pretty;
+  }
+</style>

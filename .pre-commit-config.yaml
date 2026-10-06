@@ -12,6 +12,12 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+        exclude: ^site/src/assets/captures/
+      # Site captures get the 800 KB budget their clips are encoded to.
+      - id: check-added-large-files
+        name: check for large site captures
+        files: ^site/src/assets/captures/
+        args: [--maxkb=800]
       - id: check-ast
       - id: check-case-conflict
       - id: check-merge-conflict

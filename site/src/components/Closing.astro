@@ -1,11 +1,12 @@
 ---
 import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
+import { CLOSING_LEDE, CLOSING_TITLE } from './closing'
 ---
 
 <section id={WAITLIST_ID} class="closing" aria-labelledby="waitlist-title">
   <div class="column">
-    <h2 id="waitlist-title">Crosstune opens to players a few at a time.</h2>
-    <p class="lede">Join the waitlist and you'll get an email when your account is ready.</p>
+    <h2 id="waitlist-title">{CLOSING_TITLE}</h2>
+    <p class="lede">{CLOSING_LEDE}</p>
     <form data-waitlist>
       <label class="visually-hidden" for="waitlist-email">
         Email address
@@ -40,7 +41,7 @@ import { JOIN_WAITLIST, SUPPORT_EMAIL, WAITLIST_ID } from './actions'
 
 <style>
   .closing {
-    padding-block: 88px;
+    padding-block: var(--section-pad);
     background: var(--mist);
   }
 

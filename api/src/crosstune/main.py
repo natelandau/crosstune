@@ -51,10 +51,10 @@ def _build_clerk_users(app: FastAPI, settings: Settings) -> None:
         )
 
 
-def _build_object_store(app: FastAPI, settings: Settings) -> None:
-    """Set app.state.object_store when storage is configured and nothing built it yet."""
-    if app.state.object_store is not None or not settings.storage_configured:
-        return
+def make_object_store(settings: Settings) -> ObjectStore | None:
+    """The bucket the settings name, or None when storage is not configured."""
+    if not settings.storage_configured:
+        return None
     store: ObjectStore = R2Store(
         endpoint_url=settings.storage_endpoint,
         bucket=settings.storage_bucket,
@@ -64,7 +64,13 @@ def _build_object_store(app: FastAPI, settings: Settings) -> None:
     )
     if settings.storage_prefix:
         store = PrefixedStore(store, settings.storage_prefix)
-    app.state.object_store = store
+    return store
+
+
+def _build_object_store(app: FastAPI, settings: Settings) -> None:
+    """Set app.state.object_store when storage is configured and nothing built it yet."""
+    if app.state.object_store is None:
+        app.state.object_store = make_object_store(settings)
 
 
 def _publish_push_data_schemas(app: FastAPI) -> None:
