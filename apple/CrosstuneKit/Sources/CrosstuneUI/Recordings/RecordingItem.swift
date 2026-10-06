@@ -17,6 +17,9 @@ struct RecordingItem: View {
     var sort: RecordingSort?
     /// Opens the recording's tune from a tune line under the row's meta. Nil leaves the line out.
     var onOpenTune: (() -> Void)?
+    /// True where a tap opens the recording's practice view, paused, rather than playing or
+    /// stopping it from the row.
+    var opensScreen = false
     /// Retries a stuck upload or transcode; the row's tap and its Retry both land here.
     let onRetry: (RecordingText.Retry) -> Void
 
@@ -24,6 +27,7 @@ struct RecordingItem: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
+    @Environment(\.playerWindow) private var window
 
     var body: some View {
         let id = view.id
@@ -32,15 +36,17 @@ struct RecordingItem: View {
             recording: view.recording, file: view.file, tuneTitle: view.tuneTitle, tuneNamedAbove: tuneNamedAbove,
             loaded: player?.holds(.recording, id: id) ?? false, downloading: transfers?.isDownloading(id) ?? false,
             downloadFailed: transfers?.failedDownloads.contains(id) ?? false, offline: offline,
-            playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort)
+            playBlocked: recorders?.isCapturing ?? false, storage: storage, sort: sort, opensScreen: opensScreen)
         MediaRow(
             recording: row,
             sourceLine: MediaRow.SourceLine(recording: view.recording),
             tuneLine: onOpenTune.flatMap { open in view.tuneTitle.map { MediaRow.TuneLine(title: $0, action: open) } },
             perform: { tap in
+                let item = PlayerItem.recording(view.recording, tuneTitle: view.tuneTitle)
                 switch tap {
-                case .play: player?.play(.recording(view.recording, tuneTitle: view.tuneTitle), origin: .row)
+                case .play: player?.play(item, origin: .row)
                 case .close: player?.close()
+                case .open: player?.open(item, in: window, playing: false)
                 // Refused rather than disabled while offline, so the row keeps its tap and its
                 // name; Offline in the meta line says why.
                 case .download: if !offline { Task { await transfers?.download(id) } }

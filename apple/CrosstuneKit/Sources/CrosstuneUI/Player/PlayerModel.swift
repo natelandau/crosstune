@@ -204,10 +204,16 @@ public final class PlayerModel {
             expandedWindow = nil
             flushSettings()
             releaseHolds()
+            // Opened and closed without a play reads as browsing, so it leaves nothing loaded.
+            if opensUnplayed && transport?.isPlaying != true { close() }
         }
     }
     /// The window that asked for the player in full, or nil when any window may show it.
     public private(set) var expandedWindow: UUID?
+    /// True from a paused ``open(_:in:playing:)`` that loaded the item until its audio first plays.
+    private(set) var opensUnplayed = false
+    /// The recording screen whose visit is open.
+    @ObservationIgnored private var visitScreen: UUID?
     /// The loaded recording's loops, the selected one, and Repeat.
     public let loops: LoopPlayback
     /// Where the loaded recording's audio stands; nil unless a recording is loaded.
@@ -239,7 +245,7 @@ public final class PlayerModel {
     @ObservationIgnored public var audioSource: AudioSource? {
         didSet {
             guard let item, item.kind == .recording, recordingAudio != .loaded else { return }
-            loadAudio(item)
+            loadAudio(item, playing: !opensUnplayed)
         }
     }
     /// Where settled speed and pitch changes go. The shell sets it; without it they only play.
@@ -334,6 +340,7 @@ public final class PlayerModel {
         following = Task { [weak self] in
             for await snapshot in Observations({ @MainActor [weak self] in self?.activitySnapshot }) {
                 guard let snapshot else { continue }
+                if snapshot.playing, self?.opensUnplayed == true { self?.opensUnplayed = false }
                 self?.activity.feed(snapshot)
             }
         }
@@ -369,14 +376,18 @@ public final class PlayerModel {
         if queueHearsTrackEnds { queue?.playerTrackEnded(end) }
     }
 
-    /// The recording screen shows `recordingID`: its time there is one visit, logged as practice
-    /// or as a play once it closes.
-    func screenOpened(_ recordingID: String) {
+    /// The recording screen `screen` shows `recordingID`: its time there is one visit, logged as
+    /// practice or as a play once it closes.
+    func screenOpened(_ recordingID: String, by screen: UUID? = nil) {
+        visitScreen = screen
         activity.screenOpened(recordingID, loaded: loadedSubject, with: activitySnapshot)
     }
 
-    /// The recording screen has gone.
-    func screenClosed() {
+    /// The recording screen `screen` has gone. Only the screen that opened the visit last ends
+    /// it, since another window's screen can go after this one has taken the visit over.
+    func screenClosed(by screen: UUID? = nil) {
+        guard screen == visitScreen else { return }
+        visitScreen = nil
         activity.screenClosed(loaded: loadedSubject, with: activitySnapshot)
     }
 
@@ -391,15 +402,20 @@ public final class PlayerModel {
         item?.kind == kind && item?.id == id
     }
 
-    /// Loads an item and starts it, in place of whatever was loaded. Only a play tap calls this:
-    /// opening a screen never loads the player. A link in its embed opens in full, since its
-    /// provider's player is what plays it; a recording and a link MusicKit plays play from the
-    /// bar, and a tap on the one already loaded resumes it, carrying on its play. `origin` is
-    /// where the play is logged as asked for. Refused, returning false, while a take is being
-    /// recorded.
+    /// Loads an item and starts it, in place of whatever was loaded. Only a play tap, or a paused
+    /// ``open(_:in:playing:)`` of a recording, loads the player. A link in its embed opens in
+    /// full, since its provider's player is what plays it; a recording and a link MusicKit plays
+    /// play from the bar, and a tap on the one already loaded resumes it, carrying on its play.
+    /// `origin` is where the play is logged as asked for. Refused, returning false, while a take
+    /// is being recorded.
     @discardableResult
     public func play(_ item: PlayerItem, origin: PlayOrigin = .dock) -> Bool {
+        load(item, origin: origin, playing: true)
+    }
+
+    private func load(_ item: PlayerItem, origin: PlayOrigin, playing: Bool) -> Bool {
         guard !isCapturing() else { return false }
+        opensUnplayed = false
         let same = holds(item.kind, id: item.id)
         activity.begin(PlaySubject(kind: item.kind, id: item.id), origin: origin, keepsSame: same)
         // A queued song sits in a guard queue that reports to the queue; resuming it after the
@@ -417,7 +433,7 @@ public final class PlayerModel {
         expandedWindow = nil
         if item.kind == .recording {
             isExpanded = false
-            loadAudio(item)
+            loadAudio(item, playing: playing)
         } else {
             startLink(item)
         }
@@ -445,6 +461,7 @@ public final class PlayerModel {
         _ item: PlayerItem, nowPlaying: NowPlaying, autoplay: Bool, origin: PlayOrigin, keepsPlay: Bool
     ) -> Bool {
         guard !isCapturing() else { return false }
+        opensUnplayed = false
         let same = holds(item.kind, id: item.id)
         activity.begin(PlaySubject(kind: item.kind, id: item.id), origin: origin, keepsSame: keepsPlay)
         stopAudio()
@@ -502,12 +519,15 @@ public final class PlayerModel {
         detachQueue()
     }
 
-    /// Shows a recording's screen in `window`, starting the recording first when it
-    /// is not the one loaded. Refused, returning false, while a take is being recorded.
+    /// Shows a recording's screen in `window`, loading the recording first when it is not the
+    /// one loaded: started, or paused at its start when `playing` is false. One loaded paused
+    /// and closed before it ever plays is unloaded. Refused, returning false, while a take is
+    /// being recorded.
     @discardableResult
-    public func open(_ item: PlayerItem, in window: UUID? = nil) -> Bool {
+    public func open(_ item: PlayerItem, in window: UUID? = nil, playing: Bool = true) -> Bool {
         if !holds(item.kind, id: item.id) {
-            guard play(item) else { return false }
+            guard load(item, origin: .dock, playing: playing) else { return false }
+            opensUnplayed = !playing
         }
         expand(in: window)
         return true
@@ -540,13 +560,14 @@ public final class PlayerModel {
         stopAudio()
         loops.reset(forgettingRows: true)
         item = nil
+        opensUnplayed = false
         if !keepsExpansion { isExpanded = false }
     }
 
     /// Tries the loaded recording's audio again after it could not be found or fetched.
     public func retryAudio() {
         guard let item, item.kind == .recording, recordingAudio == .unavailable else { return }
-        loadAudio(item)
+        loadAudio(item, playing: !opensUnplayed)
     }
 
     /// Plays the loaded recording at `percent` of normal speed now, and writes it once it settles.
@@ -601,6 +622,9 @@ public final class PlayerModel {
         let id = item.id
         // A recording being deleted has nowhere to write its speed or pitch.
         cancelSettling()
+        // The delete decides whether the recording goes, so closing its screen must not.
+        let screen = (shown: isExpanded, window: expandedWindow, unplayed: opensUnplayed)
+        opensUnplayed = false
         isExpanded = false
         let position = audio.elapsed
         let wasPlaying = audio.isPlaying
@@ -617,6 +641,12 @@ public final class PlayerModel {
             guard holds(.recording, id: id) else { return }
             failure = ListModel.message(error)
             loadAudio(self.item ?? item, at: position, playing: wasPlaying)
+            // An unplayed open would otherwise stay loaded with no screen to close it, so its
+            // screen comes back, showing the failure, where the delete was asked for.
+            if screen.shown && screen.unplayed {
+                expand(in: screen.window)
+                opensUnplayed = true
+            }
         }
     }
 

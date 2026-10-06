@@ -51,37 +51,26 @@ struct SplitShell: View {
                     .clearsPlayer(playerFrame)
                 #endif
                 .navigationSplitViewColumnWidth(min: 300, ideal: 340)
-                .environment(\.detailTune, $place.detailTune)
+                .environment(\.detailTune, detailTune)
                 .environment(\.sidebarSelection, $place.sidebar)
         } detail: {
-            Group {
-                if let detailTune = place.detailTune {
-                    TuneScreen(tuneID: detailTune)
-                } else {
-                    TuneDetailPlaceholder()
-                }
-            }
-            #if os(macOS)
-                .playerDock(player, stage: stage)
-            #else
-                .clearsPlayer(playerFrame)
-            #endif
-            .environment(\.detailTune, $place.detailTune)
-            .environment(\.sidebarSelection, $place.sidebar)
+            detail
+                .environment(\.detailTune, detailTune)
+                .environment(\.sidebarSelection, $place.sidebar)
         }
         #if !os(macOS)
             .playerBar(player, stage: stage, frame: $playerFrame)
-        #endif
-        .sheet(
-            isPresented: Binding {
-                player.showsExpanded(in: window) && player.item?.kind == .recording
-            } set: {
-                player.isExpanded = $0
-            }
-        ) {
-            RecordingScreen(player: player)
+            .sheet(
+                isPresented: Binding {
+                    player.showsExpanded(in: window) && player.item?.kind == .recording
+                } set: {
+                    player.isExpanded = $0
+                }
+            ) {
+                RecordingScreen(player: player)
                 .presentationSizing(.page)
-        }
+            }
+        #endif
         // The panel always shows a link's player in full, so a play here must not leave the
         // iPhone's full player waiting to open if the window turns compact.
         .onChange(of: player.isExpanded, initial: true) {
@@ -104,6 +93,49 @@ struct SplitShell: View {
             .onChange(of: place.sidebar, initial: true) { syncSidebar(place: place, catalog: catalog) }
             .onChange(of: catalog?.status) { syncSidebar(place: place, catalog: catalog) }
         #endif
+    }
+
+    /// The detail column's tune as the screens see it. On a Mac, the practice view takes the
+    /// column, and opening any tune closes it.
+    private var detailTune: Binding<String?> {
+        #if os(macOS)
+            practiceAwareDetailTune(place, player: player, window: window)
+        #else
+            $place.detailTune
+        #endif
+    }
+
+    @ViewBuilder private var detail: some View {
+        #if os(macOS)
+            let practicing = MacDetail.pick(player, in: window, tune: place.detailTune) == .practice
+            ZStack {
+                // The page stays mounted under the practice view, so closing it returns to the
+                // page as it was left, scrolled where it was.
+                tunePage
+                    .playerDock(player, stage: stage)
+                    .opacity(practicing ? 0 : 1)
+                    .disabled(practicing)
+                    .accessibilityHidden(practicing)
+                if practicing {
+                    // The practice view is the player in full, so the dock under it is hidden too.
+                    // Its mode selector and controls hold a fixed width, so the column never
+                    // squeezes it narrower than they need.
+                    RecordingScreen(player: player)
+                        .frame(minWidth: RecordingScreen.minimumWidth)
+                }
+            }
+        #else
+            tunePage
+                .clearsPlayer(playerFrame)
+        #endif
+    }
+
+    @ViewBuilder private var tunePage: some View {
+        if let detailTune = place.detailTune {
+            TuneScreen(tuneID: detailTune)
+        } else {
+            TuneDetailPlaceholder()
+        }
     }
 
     /// A selecting screen's toolbar holds only what acts on the selection.

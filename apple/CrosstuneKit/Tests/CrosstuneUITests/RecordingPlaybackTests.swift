@@ -334,3 +334,138 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         #expect(PlayerTime.spoken(62, of: nil) == "1:02")
     }
 }
+
+/// What the player asks of the audio to load a recording at its row's defaults, paused.
+private let loadPaused = ["load", "setWindow", "setRate(100)", "setPitch(0)"]
+
+@MainActor
+@Suite struct PausedOpenTests {
+    private func player(_ audio: FakeAudio) -> PlayerModel {
+        let player = PlayerModel(audio: audio)
+        player.audioSource = { _ in playable() }
+        return player
+    }
+
+    @Test func opensARecordingPausedInTheAskingWindow() async throws {
+        let audio = FakeAudio()
+        let player = player(audio)
+        let window = UUID()
+
+        #expect(player.open(.recording(recording(), tuneTitle: nil), in: window, playing: false))
+        try await eventually { player.recordingAudio == .loaded }
+        #expect(audio.calls == loadPaused)
+        #expect(!audio.isPlaying)
+        #expect(player.showsExpanded(in: window))
+        #expect(!player.showsExpanded(in: UUID()))
+        #expect(player.opensUnplayed)
+    }
+
+    @Test func openingTheLoadedRecordingPausedOnlyExpandsIt() async throws {
+        let audio = FakeAudio()
+        let player = player(audio)
+        player.play(.recording(recording(), tuneTitle: nil))
+        try await eventually { player.recordingAudio == .loaded }
+
+        #expect(player.open(.recording(recording(), tuneTitle: nil), in: UUID(), playing: false))
+        #expect(audio.calls == loadAndPlay)
+        #expect(audio.isPlaying)
+        #expect(player.isExpanded)
+        #expect(!player.opensUnplayed)
+    }
+
+    @Test func closingAnUnplayedOpenUnloadsIt() async throws {
+        let audio = FakeAudio()
+        let player = player(audio)
+        player.open(.recording(recording(), tuneTitle: nil), playing: false)
+        try await eventually { player.recordingAudio == .loaded }
+
+        player.isExpanded = false
+        #expect(!player.isLoaded)
+    }
+
+    @Test func closingAfterPlayingKeepsTheRecording() async throws {
+        let audio = FakeAudio()
+        let player = player(audio)
+        player.open(.recording(recording(), tuneTitle: nil), playing: false)
+        try await eventually { player.recordingAudio == .loaded }
+
+        player.transport?.play()
+        try await eventually { !player.opensUnplayed }
+        player.isExpanded = false
+        #expect(player.isLoaded)
+        #expect(audio.isPlaying)
+    }
+
+    @Test func openingAnotherRecordingPausedSwapsInPlace() async throws {
+        let audio = FakeAudio()
+        let player = player(audio)
+        player.open(.recording(recording("r1"), tuneTitle: nil), playing: false)
+        try await eventually { player.recordingAudio == .loaded }
+
+        player.open(.recording(recording("r2"), tuneTitle: nil), playing: false)
+        try await eventually { player.item?.id == "r2" && player.recordingAudio == .loaded }
+        #expect(player.isExpanded)
+        #expect(player.opensUnplayed)
+        #expect(!audio.isPlaying)
+
+        player.isExpanded = false
+        #expect(!player.isLoaded)
+    }
+
+    @Test func aListPlayOverAnUnplayedOpenKeepsItsTrack() async throws {
+        let audio = FakeAudio()
+        let player = player(audio)
+        player.open(.recording(recording("r1"), tuneTitle: nil), playing: false)
+        try await eventually { player.recordingAudio == .loaded }
+
+        player.playQueued(
+            .recording(recording("r2"), tuneTitle: nil), nowPlaying: NowPlaying(title: "Jam", tuneTitle: nil))
+        #expect(!player.opensUnplayed)
+        player.isExpanded = false
+        #expect(player.holds(.recording, id: "r2"))
+    }
+
+    @Test func aFailedDeleteReopensTheUnplayedScreenItCameFrom() async throws {
+        struct Refused: Error {}
+        let audio = FakeAudio()
+        let player = player(audio)
+        let window = UUID()
+        player.open(.recording(recording(), tuneTitle: nil), in: window, playing: false)
+        try await eventually { player.recordingAudio == .loaded }
+
+        await player.deleteLoadedRecording { throw Refused() }
+        #expect(player.holds(.recording, id: "r1"))
+        #expect(player.failure != nil)
+        #expect(player.showsExpanded(in: window))
+        #expect(!player.showsExpanded(in: UUID()))
+        try await eventually { player.recordingAudio == .loaded }
+        #expect(!audio.isPlaying)
+
+        player.isExpanded = false
+        #expect(!player.isLoaded)
+    }
+
+    @Test func retryingAnUnplayedOpenStaysPaused() async throws {
+        let audio = FakeAudio()
+        let found = Mutex(false)
+        let player = PlayerModel(audio: audio)
+        player.audioSource = { _ in found.withLock { $0 } ? playable() : nil }
+        player.open(.recording(recording(), tuneTitle: nil), playing: false)
+        try await eventually { player.recordingAudio == .unavailable }
+
+        found.withLock { $0 = true }
+        player.retryAudio()
+        try await eventually { player.recordingAudio == .loaded }
+        #expect(!audio.isPlaying)
+        #expect(player.opensUnplayed)
+    }
+
+    @Test func refusesAPausedOpenWhileATakeIsRecorded() {
+        let player = player(FakeAudio())
+        player.isCapturing = { true }
+
+        #expect(!player.open(.recording(recording(), tuneTitle: nil), playing: false))
+        #expect(!player.isLoaded)
+        #expect(!player.isExpanded)
+    }
+}

@@ -12,6 +12,8 @@ public struct RecordingRowContent: Hashable, Sendable {
     public enum Tap: Hashable, Sendable {
         case play
         case close
+        /// Opens the recording's practice view, loading it paused when the player holds another.
+        case open
         case download
         /// A stuck row with nothing to play retries, so the row still answers a tap.
         case retry(RecordingText.Retry)
@@ -42,7 +44,7 @@ public struct RecordingRowContent: Hashable, Sendable {
         recording: Recording, file: RecordingFile?, tuneTitle: String?, tuneNamedAbove: Bool = false,
         loaded: Bool = false, downloading: Bool = false, downloadFailed: Bool = false, offline: Bool = false,
         playBlocked: Bool = false, storage: StorageFigures? = nil, sort: RecordingSort? = nil,
-        locale: Locale = .current, timeZone: TimeZone = .current
+        opensScreen: Bool = false, locale: Locale = .current, timeZone: TimeZone = .current
     ) {
         let title = RecordingText.title(
             recording, tuneTitle: tuneTitle, tuneNamedAbove: tuneNamedAbove, locale: locale, timeZone: timeZone)
@@ -71,6 +73,8 @@ public struct RecordingRowContent: Hashable, Sendable {
             (retry == .upload ? file?.error : nil)
             ?? (downloadFailed && control == .download ? RecordingText.downloadFailed : nil)
         switch control {
+        // A row that opens the practice view opens it whether or not the player holds it.
+        case .play where opensScreen, .close where opensScreen: (glyph, verb, tap) = (.play, MediaText.open, .open)
         case .play: (glyph, verb, tap) = (.play, MediaText.play, .play)
         case .close: (glyph, verb, tap) = (.stop, MediaText.closePlayer, .close)
         case .download: (glyph, verb, tap) = (.download, Self.download, .download)

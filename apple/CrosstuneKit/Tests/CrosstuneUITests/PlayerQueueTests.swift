@@ -65,6 +65,9 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         let music = FakeMusic()
         music.found = found
         let player = PlayerModel(audio: audio, appleMusic: AppleMusic(access: FakeAccess(state), player: music))
+        // A held load waits on the test, never on the clock, so a stalled runner cannot let the
+        // decision deadline fall back to the embed mid-test. The deadline's own test sets its own.
+        player.decisionTimeout = .seconds(86_400)
         player.audioSource = { _ in
             RecordingAudioFile(url: queuedAudio, file: RecordingFile(id: "r1", localState: .downloaded))
         }

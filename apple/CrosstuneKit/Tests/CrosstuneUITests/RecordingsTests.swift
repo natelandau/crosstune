@@ -1127,3 +1127,28 @@ private struct RefusingSyncAPI: SyncAPI {
                 == [.count])
     }
 }
+
+@Suite struct RecordingRowOpensScreenTests {
+    private let recording = Recording(id: "r1", tuneID: nil, source: "microphone", addedAt: noon, state: "ready")
+    private let held = RecordingFile(id: "r1", localState: .downloaded, fileName: "r1.m4a")
+
+    @Test func aRowThatOpensTheScreenSaysOpen() {
+        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, opensScreen: true)
+        #expect(row.verb == MediaText.open)
+        #expect(row.glyph == .play)
+        #expect(row.tap == .open)
+    }
+
+    @Test func theLoadedRowThatOpensTheScreenNeverShowsStop() {
+        let row = RecordingRowContent(recording: recording, file: held, tuneTitle: nil, loaded: true, opensScreen: true)
+        #expect(row.verb == MediaText.open)
+        #expect(row.glyph == .play)
+        #expect(row.tap == .open)
+    }
+
+    @Test func aDownloadRowThatOpensTheScreenStillDownloads() {
+        let row = RecordingRowContent(recording: recording, file: nil, tuneTitle: nil, opensScreen: true)
+        #expect(row.verb == RecordingRowContent.download)
+        #expect(row.tap == .download)
+    }
+}

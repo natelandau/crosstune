@@ -281,6 +281,16 @@ private func link(
         #expect(play.listenedMs == 12_000)
     }
 
+    @Test func aPausedOpenLogsNoPlay() async throws {
+        let rig = ActivityRig()
+        rig.player.open(.recording(loggedTake(), tuneTitle: nil), playing: false)
+        try await waitFor { rig.player.recordingAudio == .loaded }
+        try await rig.heard(playing: false)
+        rig.clock.advance(30_000)
+        rig.player.isExpanded = false
+        #expect(rig.recorded.plays.isEmpty)
+    }
+
     @Test func pauseAndResumeOnTheSameRecordingIsOnePlay() async throws {
         let rig = ActivityRig()
         try await rig.playRecording()
