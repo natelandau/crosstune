@@ -2,5 +2,5 @@
 // App Store version names the contract the app was generated from. Every upload needs a new
 // build number, so `just apple::testflight` sets its own, and so does the Organizer's
 // Distribute App.
-MARKETING_VERSION = 0.15.0
+MARKETING_VERSION = 0.16.0
 CURRENT_PROJECT_VERSION = 1

@@ -1,3 +1,10 @@
+## v0.16.0 (2026-10-06)
+
+### Feat
+
+- **apple**: give the iPad its own design (#146)
+- **apple**: open the Mac practice view in the detail column (#145)
+
 ## v0.15.0 (2026-10-05)
 
 ### Feat
