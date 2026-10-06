@@ -156,6 +156,12 @@ _e2e-db mode:
         echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
     fi
 
+# Seed the marketing account the site captures sign in to; safe to repeat
+[group('capture')]
+seed-marketing *args:
+    docker compose -f ../compose.yml up -d --wait postgres rustfs
+    uv run python -m crosstune.ops.seed_marketing {{ args }}
+
 # Export the OpenAPI schema every client generates its types from
 [group('contract')]
 contract:

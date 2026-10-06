@@ -1,8 +1,8 @@
-"""Clerk Backend API client, for deleting the Clerk half of an account."""
+"""Clerk Backend API client, for deleting the Clerk half of an account and finding a user."""
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx2
 
@@ -65,3 +65,72 @@ class ClerkBackendUsers:
         ):
             msg = f"Clerk answered {response.status_code} deleting {clerk_user_id}"
             raise ClerkUnavailableError(msg)
+
+    async def find_or_create_user(self, email: str) -> str:
+        """Return the id of the Clerk user with this address, creating one without a password if absent.
+
+        Lets a local tool stand up a known account on a development instance; a
+        `+clerk_test` address signs in with Clerk's fixed test code.
+
+        Args:
+            email: The address to look up, and to create the user with.
+
+        Returns:
+            str: The Clerk user id.
+
+        Raises:
+            ClerkUnavailableError: Clerk answered with anything but 2xx, the request
+                itself failed, or the answer is not a user with this address.
+        """
+        found = await self._send("GET", params={"email_address": email})
+        if not isinstance(found, list):
+            msg = "Clerk sent an unexpected user list payload"
+            raise ClerkUnavailableError(msg)
+        if found:
+            return _user_id(found[0], email)
+        created = await self._send(
+            "POST", json={"email_address": [email], "skip_password_requirement": True}
+        )
+        return _user_id(created, email)
+
+    async def _send(self, method: str, **kwargs: Any) -> Any:
+        try:
+            response = await self._client.request(
+                method,
+                f"{self._base_url}/v1/users",
+                headers={"Authorization": f"Bearer {self._secret_key}"},
+                timeout=self._timeout,
+                follow_redirects=False,
+                **kwargs,
+            )
+        except httpx2.HTTPError as exc:
+            raise ClerkUnavailableError from exc
+        if response.status_code not in _SUCCESS_STATUSES:
+            msg = f"Clerk answered {response.status_code} to {method} /v1/users"
+            raise ClerkUnavailableError(msg)
+        try:
+            return response.json()
+        except ValueError as exc:
+            msg = f"Clerk answered {method} /v1/users with a body that is not JSON"
+            raise ClerkUnavailableError(msg) from exc
+
+
+def _user_id(user: Any, email: str) -> str:
+    """The id of a Clerk user object, checked to carry `email`.
+
+    Raises:
+        ClerkUnavailableError: The object has no string id, or none of its addresses is
+            `email`.
+    """
+    if not isinstance(user, dict) or not isinstance(user.get("id"), str):
+        msg = "Clerk sent an unexpected user payload"
+        raise ClerkUnavailableError(msg)
+    addresses = [
+        entry.get("email_address")
+        for entry in user.get("email_addresses") or []
+        if isinstance(entry, dict)
+    ]
+    if email not in addresses:
+        msg = f"Clerk user {user['id']} does not have the address {email}"
+        raise ClerkUnavailableError(msg)
+    return user["id"]
