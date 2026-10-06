@@ -4,18 +4,21 @@ import XCTest
 final class FeatureCaptures: CaptureTestCase {
     func test_tunes_status() throws {
         let app = launchMarketing()
-        let learning = shown(app.scrollViews["Status"].buttons["Learning"])
+        // The catalog's title is the status menu.
+        let title = shown(app.navigationBars["Catalog"].buttons["Catalog"])
         let timeline = sceneStart()
-        timeline.tap(learning)
+        timeline.tap(title)
+        timeline.tap(shown(button(app, startingWith: "Learning")))
         shown(app.staticTexts["6 of 17 tunes"])
         sceneEnd(timeline)
     }
 
     func test_tunes_filter() throws {
         let app = launchMarketing()
-        let key = shown(app.otherElements["Key"].buttons["A"])
+        let key = shown(app.buttons["Key: Any"])
         let timeline = sceneStart()
         timeline.tap(key)
+        timeline.tap(shown(app.otherElements["Key"].buttons["A"]))
         shown(app.staticTexts["4 of 17 tunes"])
         sceneEnd(timeline)
     }
@@ -72,15 +75,11 @@ final class FeatureCaptures: CaptureTestCase {
     func test_tune_learned() throws {
         let app = launchMarketing()
         let learned = app.staticTexts["Learned from Joe at Clifftop on Aug 6, 2026"]
-        openSailAway(app, scrolledTo: learned)
-        // Lifts the notes card clear of the tab bar, so the clip opens on the whole note.
-        app.collectionViews.firstMatch.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.64))
-        Thread.sleep(forTimeInterval: 1)
+        // The page opens above the notes, and the scene scrolls down to them.
+        openSailAway(app, scrolledTo: app.buttons["Open lyrics"])
         let timeline = sceneStart()
-        // A screen recording holds frames only when the screen changes, so the scene ends on a
-        // scroll that settles the details mid-screen rather than on a still screen.
         timeline.drag(
-            app.collectionViews.firstMatch, from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.55))
+            app.scrollViews.firstMatch, from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.35))
         XCTAssertTrue(learned.isHittable, "the learned-from line scrolled off screen")
         sceneEnd(timeline)
     }
@@ -155,7 +154,7 @@ final class FeatureCaptures: CaptureTestCase {
         let app = launchMarketing()
         app.collectionViews.firstMatch.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.4))
         shown(row(app, "Lost Indian")).tap()
-        shown(app.staticTexts["Crooked"])
+        shown(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Crooked'")).firstMatch)
         captureStill()
     }
 
@@ -180,7 +179,7 @@ final class FeatureCaptures: CaptureTestCase {
         app.collectionViews.firstMatch.swipeUp()
         shown(row(app, "Sail Away Ladies")).tap()
         shown(app.staticTexts["Joe at Clifftop"])
-        let tune = app.collectionViews.firstMatch
+        let tune = app.scrollViews.firstMatch
         for _ in 0..<6 where !(target.exists && target.isHittable) {
             tune.pressAndDrag(from: CGVector(dx: 0.5, dy: 0.7), to: CGVector(dx: 0.5, dy: 0.45))
         }

@@ -1,4 +1,6 @@
 import CrosstuneStore
+import CrosstuneVocabulary
+import SwiftUI
 
 /// Words for the Play first setting.
 public enum PlayFirstText {
@@ -9,4 +11,15 @@ public enum PlayFirstText {
         UserSettings.playFirstRecordings: "Recordings",
         UserSettings.playFirstAppleMusic: "Apple Music",
     ]
+}
+
+/// Which version a list plays first.
+struct PlayFirstPicker: View {
+    let model: SettingsModel
+
+    var body: some View {
+        Picker(PlayFirstText.label, selection: Binding(get: { model.playFirst }, set: { model.setPlayFirst($0) })) {
+            ForEach(Vocabulary.playFirsts, id: \.self) { Text(PlayFirstText.names[$0] ?? $0).tag($0) }
+        }
+    }
 }

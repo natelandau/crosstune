@@ -19,16 +19,6 @@ struct CatalogFilterSheet: View {
     let model: CatalogModel
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    private var railsOnScreen: Bool {
-        #if os(macOS)
-            // The Mac's filter row keeps the key and type at every text size.
-            true
-        #else
-            CatalogFilterBar.railsOnScreen(dynamicTypeSize)
-        #endif
-    }
 
     var body: some View {
         NavigationStack {
@@ -42,7 +32,7 @@ struct CatalogFilterSheet: View {
     private func form(_ results: CatalogResults) -> some View {
         Form {
             Section {
-                ForEach(results.sheetFacets(railsOnScreen: railsOnScreen), id: \.self) { facet in
+                ForEach(results.sheetFacets, id: \.self) { facet in
                     Picker(facet.label, selection: selection(facet, results)) {
                         Text(Self.any).tag(String?.none)
                         ForEach(results.choices(facet), id: \.self) { value in
@@ -98,10 +88,9 @@ struct CatalogFilterSheet: View {
         .toolbar {
             ToolbarItem(placement: Self.resetPlacement) {
                 Button(Self.reset) {
-                    let railsOnScreen = railsOnScreen
-                    model.updateFilters { $0 = $0.sheetReset(railsOnScreen: railsOnScreen) }
+                    model.updateFilters { $0 = $0.sheetReset }
                 }
-                .disabled(results.filters.sheetCount(railsOnScreen: railsOnScreen) == 0)
+                .disabled(results.filters.sheetCount == 0)
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button(Self.done) { dismiss() }

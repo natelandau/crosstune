@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The loaded item and a close button: the iPhone tab bar's bottom accessory, where a tap on the
-/// item shows its player in full, and the header of the iPad player panel. A recording leads
+/// item shows its player in full and a sideways swipe skips through a playing list, and the
+/// header of the iPad player panel. A recording leads
 /// with its play and pause control. The Mac docks its own bar, ``PlayerDockBar``.
 public struct PlayerBar: View {
     public static let close = "Close player"
@@ -18,6 +19,8 @@ public struct PlayerBar: View {
 
     @Environment(\.playerWindow) private var window
     @Environment(ListPlayback.self) private var playback: ListPlayback?
+    /// How many tunes a swipe has skipped, which each skip's haptic follows.
+    @State private var swipeSkips = 0
 
     /// - Parameter isPanel: The bar heads the iPad panel, which shows the player in
     ///   full under it and puts the link out to the provider in the bar. The iPhone's full
@@ -82,6 +85,7 @@ public struct PlayerBar: View {
     public var body: some View {
         if player.isLoaded {
             loadedBar
+                .modifier(AccessoryRise(isEnabled: !isPanel))
         } else if let message = playback?.endMessage {
             messageBar(message)
         }
@@ -126,11 +130,13 @@ public struct PlayerBar: View {
                 } label: {
                     HStack(spacing: 8) {
                         itemLabel(glyph: glyph)
-                        // The tap shows the player in full, which rises from here.
-                        Image(systemName: "chevron.up")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .accessibilityHidden(true)
+                        // The panel's player rises from here; the accessory's zooms out of it.
+                        if isPanel {
+                            Image(systemName: "chevron.up")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
                     }
                     .contentShape(.rect)
                 }
@@ -163,6 +169,31 @@ public struct PlayerBar: View {
         }
         .padding(.leading, player.playsInBar ? 6 : 16)
         .padding(.trailing, 4)
+        .contentShape(.rect)
+        // Ahead of the title's button, so a swipe skips without also opening the player; the
+        // drag's least distance leaves taps to the buttons.
+        .highPriorityGesture(swipeToSkip, including: isPanel ? .subviews : .all)
+        .sensoryFeedback(.impact(weight: .light), trigger: swipeSkips)
+    }
+
+    /// A sideways swipe on the accessory skips through the playing list. A mostly vertical drag
+    /// is left alone.
+    private var swipeToSkip: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onEnded { value in
+                let moved = value.translation
+                guard abs(moved.width) > abs(moved.height), let playback, playback.endMessage == nil,
+                    let skip = AccessorySwipe.skip(translation: moved.width, isPlayingList: Self.showsNext(playback)),
+                    AccessorySwipe.hasPlace(
+                        for: skip, position: playback.position, count: playback.count,
+                        repeats: playback.repeatMode != .off)
+                else { return }
+                switch skip {
+                case .next: playback.next()
+                case .previous: playback.previous()
+                }
+                swipeSkips += 1
+            }
     }
 
     private func itemLabel(glyph: Bool) -> some View {
@@ -249,7 +280,7 @@ struct RepeatBadge: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: maxTextWidth)
-                    .foregroundStyle(.white)
+                    .onSlateLabel()
                     .padding(.horizontal, 8)
                     .frame(minHeight: 22)
                     .background(.tint, in: .capsule)
@@ -527,3 +558,25 @@ struct EmbedParking: ViewModifier {
         }
     }
 #endif
+
+/// The accessory eases in when it first shows: a spring that scales it up, or a fade under
+/// Reduce Motion. A scale shows inside the tab bar's container, which hosts the content and
+/// owns its position.
+private struct AccessoryRise: ViewModifier {
+    let isEnabled: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var risen = false
+
+    private var motion: PhoneMotion { isEnabled ? .resolve(reduceMotion: reduceMotion) : .none }
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(risen || motion != .full ? 1 : 0.92)
+            .opacity(risen || motion == .none ? 1 : 0)
+            .onAppear {
+                guard let animation = motion.animation(.spring(duration: 0.4, bounce: 0.25)) else { return }
+                withAnimation(animation) { risen = true }
+            }
+    }
+}

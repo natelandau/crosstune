@@ -1,3 +1,4 @@
+import CrosstuneStore
 import CrosstuneSync
 import SwiftUI
 
@@ -36,7 +37,6 @@ private struct CatalogContent: View {
     @Environment(\.detailTune) private var detailTune
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @Environment(\.openSheets) private var openSheets
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
     @Environment(ScanTunes.self) private var scanTunes: ScanTunes?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
@@ -49,6 +49,10 @@ private struct CatalogContent: View {
     @AccessibilityFocusState private var focusedRow: String?
     @FocusState private var searchFocused: Bool
     @Namespace private var zoom
+    #if os(iOS)
+        @Environment(\.store) private var store
+        @State private var counts: LiveQuery<CatalogCounts?>?
+    #endif
 
     var body: some View {
         let results = model.results
@@ -62,7 +66,7 @@ private struct CatalogContent: View {
                 // The search and the catalog's own actions share one pane bar. A selection's
                 // actions take the actions' place while it lasts; the search stays.
                 .paneBar {
-                    searchField(filterCount: nil)
+                    searchField
                 } _: {
                     if !selection.isActive {
                         addButton.labelStyle(.iconOnly).help(CatalogScreen.addTune)
@@ -73,19 +77,28 @@ private struct CatalogContent: View {
                 }
                 .columnTitled(title, alwaysShown: selection.isActive)
             #else
-                .safeAreaBar(edge: .top) {
-                    searchField(filterCount: selection.isActive ? nil : results.map(filterCount))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, spacing.stackGap)
-                }
+                .searchable(
+                    text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: CatalogScreen.searchPrompt
+                )
+                .searchFocused($searchFocused)
+                .onSubmit(of: .search, submitSearch)
+                .textInputAutocapitalization(.never)
                 .navigationTitle(title)
-            #endif
-            #if os(iOS)
+                // The title menu shows only on an inline title; the large styles draw no chevron.
+                .toolbarTitleDisplayMode(.inline)
+                .task(id: store?.userID) {
+                    counts = store.map { store in
+                        LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
+                    }
+                }
                 .toolbar {
+                    // Left out while selecting, since an empty title menu still draws its chevron.
                     if !selection.isActive {
+                        ToolbarTitleMenu { StatusTitleMenu(model: model, counts: counts?.value ?? nil) }
                         ToolbarItem(placement: .primaryAction) { addButton }
                         if results?.visible.isEmpty == false {
-                            ToolbarItem(placement: .secondaryAction) { selectButton }
+                            ToolbarItem(placement: .primaryAction) { moreMenu }
                         }
                     }
                 }
@@ -133,17 +146,24 @@ private struct CatalogContent: View {
     }
 
     private var title: String {
-        selection.isActive ? TuneSelection.title(selection.ids.count) : Destination.catalog.title
+        if selection.isActive { return TuneSelection.title(selection.ids.count) }
+        #if os(iOS)
+            return StatusScope.title(model.status)
+        #else
+            return Destination.catalog.title
+        #endif
     }
 
-    private func searchField(filterCount: Int?) -> some View {
-        FilterSearchField(
-            prompt: CatalogScreen.searchPrompt,
-            query: $model.query, isFocused: $searchFocused,
-            filterCount: filterCount,
-            onSubmit: submitSearch
-        ) { showsFilters = true }
-    }
+    #if os(macOS)
+        private var searchField: some View {
+            FilterSearchField(
+                prompt: CatalogScreen.searchPrompt,
+                query: $model.query, isFocused: $searchFocused,
+                filterCount: nil,
+                onSubmit: submitSearch
+            ) { showsFilters = true }
+        }
+    #endif
 
     private var addButton: some View {
         Button(CatalogScreen.addTune, systemImage: "plus") { form = model.newTune() }
@@ -153,14 +173,23 @@ private struct CatalogContent: View {
         Button(TuneRowActions.select, systemImage: "checkmark.circle") { selection.enter() }
     }
 
+    #if os(iOS)
+        /// The screen's More menu, an explicit menu like every other screen's, so its items keep
+        /// their order and roles.
+        private var moreMenu: some View {
+            Menu {
+                selectButton
+            } label: {
+                Label(TuneScreen.moreActions, systemImage: "ellipsis")
+                    .labelStyle(.iconOnly)
+            }
+        }
+    #endif
+
     private func announceCount() {
         // Asked even while hidden, so a tab coming back reads out only what changes after.
         guard let label = model.countToAnnounce(), isShown else { return }
         AccessibilityNotification.Announcement(label).post()
-    }
-
-    private func filterCount(_ results: CatalogResults) -> Int {
-        results.filters.sheetCount(railsOnScreen: CatalogFilterBar.railsOnScreen(dynamicTypeSize))
     }
 
     private func list(_ results: CatalogResults?) -> some View {
@@ -174,29 +203,21 @@ private struct CatalogContent: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .selectionDisabled()
-                if let results {
-                    MacFilterRow(results: results, model: model, isSelecting: selection.isActive) {
-                        showsFilters = true
-                    }
-                    .listRowInsets(MacStyle.columnRowInsets(top: 6, bottom: 6))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
-                }
-            #else
-                if let results {
-                    // The first row of the list rather than a bar pinned under the navigation bar,
-                    // which would take the rails' own scroll views for the screen's content.
-                    CatalogFilterBar(
-                        results: results, errors: [model.filterError, model.actionError].compactMap { $0 },
-                        onChange: model.updateFilters
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .selectionDisabled()
-                }
             #endif
+            if let results {
+                CatalogFilterRow(results: results, model: model, isSelecting: selection.isActive) {
+                    showsFilters = true
+                }
+                #if os(macOS)
+                    .listRowInsets(MacStyle.columnRowInsets(top: 6, bottom: 6))
+                #else
+                    .listRowInsets(
+                        EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16))
+                #endif
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .selectionDisabled()
+            }
             if let results, results.visible.isEmpty {
                 emptyState(results)
                     .frame(maxWidth: .infinity)
@@ -280,10 +301,10 @@ private struct CatalogContent: View {
             }
             if let offer = results.outcome.offerLabel, let typed = results.outcome.title {
                 Button(offer) { createFromSearch(typed) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.slateProminent)
             } else if noTunes {
                 Button(CatalogScreen.addTune) { form = model.newTune() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.slateProminent)
             }
         }
     }

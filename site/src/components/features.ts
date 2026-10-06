@@ -46,12 +46,12 @@ export const FEATURES: readonly Feature[] = [
       {
         text: 'Status for every tune: known, learning, or want to learn',
         capture: 'tunes-status',
-        alt: 'In the Crosstune tune list on iPhone, tapping Learning narrows the list to the tunes being learned.',
+        alt: 'In the Crosstune tune list on iPhone, choosing Learning from the title menu narrows the list to the tunes being learned.',
       },
       {
         text: 'Filter by key, mode, tuning, type, and more',
         capture: 'tunes-filter',
-        alt: 'Tapping the A key chip in Crosstune narrows the tune list to tunes in A.',
+        alt: 'Choosing A from the Key filter in Crosstune narrows the tune list to tunes in A.',
       },
       {
         text: 'Search by name',

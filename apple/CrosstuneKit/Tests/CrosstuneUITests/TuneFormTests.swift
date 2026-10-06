@@ -586,3 +586,41 @@ private func entry(_ tuning: String? = nil, capo: Int64? = nil) -> JSONValue {
         #expect(TuneFormModel.tuningInstruments([], tunings: [:]) == [])
     }
 }
+
+@Suite struct StatusFieldTests {
+    @Test func statusSegmentsAreTheThreeWordsInOrder() {
+        let segments = StatusField.segments
+        #expect(segments.map(\.value) == Vocabulary.statuses)
+        #expect(segments.map(\.label) == Vocabulary.statuses.map(StatusStyle.label))
+    }
+
+    @Test func aStatusThisBuildCannotReadShowsAsWantToLearn() {
+        #expect(StatusField.chosen("mastered") == "want_to_learn")
+        #expect(StatusField.chosen("known") == "known")
+    }
+
+    @Test func aBulkStatusShowsNoSegmentWhenTunesDisagreeOrHoldNone() {
+        let entries = [bulkEntry(status: "known"), bulkEntry(status: "learning")]
+        var form = BulkEditForm(entries: entries, instruments: [])
+        #expect(BulkStatusField.chosen(form) == nil)
+        form.touch(.status, .text("known"))
+        #expect(BulkStatusField.chosen(form) == "known")
+        let same = BulkEditForm(entries: [bulkEntry(status: "known")], instruments: [])
+        #expect(BulkStatusField.chosen(same) == "known")
+        #expect(!same.isEdited)
+    }
+
+    @Test func aBulkChoiceIsTouchedOnlyWhenItChangesATune() {
+        var form = BulkEditForm(entries: [bulkEntry(status: "known")], instruments: [])
+        BulkStatusField.choose("known", in: &form)
+        #expect(!form.isEdited)
+        BulkStatusField.choose("learning", in: &form)
+        #expect(form.touched[.status] == .text("learning"))
+    }
+
+    private func bulkEntry(status: String) -> CatalogEntry {
+        let id = UUID().uuidString
+        return CatalogEntry(
+            tune: tune("Tune \(id)", id: id), userTune: userTune(id, status: status))
+    }
+}

@@ -1,4 +1,5 @@
 import CrosstuneAudio
+import CrosstuneStore
 import Foundation
 import Observation
 import SwiftUI
@@ -51,6 +52,9 @@ public final class RecordSheetModel {
 
     public let recorder: Recorder
     public let tuneID: String?
+    /// The title of the tune the take is filed under, once read; nil for an unfiled take.
+    public private(set) var tuneTitle: String?
+    private let recentTake: RecentTake?
     /// Set once the sheet should close.
     public private(set) var outcome: Outcome?
     /// True while the discard confirmation is up.
@@ -65,9 +69,25 @@ public final class RecordSheetModel {
     /// Set by the first Stop or Cancel, so a second press in the same moment does nothing.
     private var ending = false
 
-    public init(recorder: Recorder, tuneID: String?) {
+    public init(recorder: Recorder, tuneID: String?, recentTake: RecentTake? = nil) {
         self.recorder = recorder
         self.tuneID = tuneID
+        self.recentTake = recentTake
+    }
+
+    /// Reads the title of the tune the take is filed under, for the sheet's "Filing under" line.
+    public func loadTuneTitle(from store: CrosstuneStore) async {
+        guard let tuneID else { return }
+        let title = try? await store.read { db in
+            try Tune.fetchOne(db, key: tuneID).flatMap { $0.deletedAt == nil ? $0.title : nil }
+        }
+        tuneTitle = title
+    }
+
+    /// Marks the saved take as the one to highlight where it landed. Nothing when none saved.
+    public func markRecent() {
+        guard phase == .saved, let id = recorder.savedRecordingID else { return }
+        recentTake?.mark(id)
     }
 
     public var phase: RecordPhase {
@@ -157,15 +177,6 @@ public final class RecordSheetModel {
         guard tuneID == nil else { return false }
         if case .saved = outcome { return true }
         return outcome == nil && phase == .saved
-    }
-
-    /// The haptic for a change of phase: start as capture begins, stop as it ends however the
-    /// save turns out, since a quick save can pass `.saving` between two frames.
-    nonisolated public static func feedback(from old: RecordPhase, to new: RecordPhase) -> SensoryFeedback? {
-        if old == .starting && new == .recording { return .start }
-        let wasCapturing = old == .recording || old == .interrupted
-        if wasCapturing && [.saving, .saved, .notRecording].contains(new) { return .stop }
-        return nil
     }
 
     /// Starts the take, filed under the sheet's tune. Call once, when the sheet opens.

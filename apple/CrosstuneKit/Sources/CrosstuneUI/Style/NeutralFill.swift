@@ -5,5 +5,15 @@ import SwiftUI
 func neutralFill(_ scheme: ColorScheme) -> AnyShapeStyle {
     scheme == .dark
         ? AnyShapeStyle(Color(.sRGB, red: 118 / 255, green: 118 / 255, blue: 128 / 255, opacity: 0.44))
-        : AnyShapeStyle(.fill.tertiary)
+        : lightNeutralFill
 }
+
+#if canImport(UIKit)
+    import UIKit
+
+    /// The tertiary fill as a fixed color: a hierarchical `.fill.tertiary` resolves a level
+    /// darker inside a menu's label than beside it.
+    private let lightNeutralFill = AnyShapeStyle(Color(uiColor: .tertiarySystemFill))
+#else
+    private let lightNeutralFill = AnyShapeStyle(.fill.tertiary)
+#endif

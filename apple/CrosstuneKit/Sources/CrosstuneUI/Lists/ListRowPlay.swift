@@ -138,9 +138,7 @@ struct ListRowPlayButton: View {
     @Environment(ListPlayback.self) private var listPlayback: ListPlayback?
     @Environment(RecorderHost.self) private var recorders: RecorderHost?
     @Environment(\.openURL) private var openURL
-    #if os(macOS)
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    #endif
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The square each state takes, so the row keeps its width whichever shows.
     private var slot: CGFloat {
@@ -231,14 +229,13 @@ struct ListRowPlayButton: View {
     }
 
     @ViewBuilder private func nowPlayingGlyph(isPlaying: Bool) -> some View {
-        let glyph = Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
-        #if os(macOS)
-            glyph
+        Image(systemName: ListRowPlay.nowPlayingSymbol(isPlaying: isPlaying))
+            #if os(macOS)
                 .foregroundStyle(MacStyle.accent)
-                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isPlaying && !reduceMotion)
-        #else
-            glyph
-        #endif
+            #else
+                .foregroundStyle(.tint)
+            #endif
+            .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isPlaying && !reduceMotion)
     }
 
     private func tapped(_ action: ListRowPlay.Action, loaded: Bool, listPlaying: Bool) {

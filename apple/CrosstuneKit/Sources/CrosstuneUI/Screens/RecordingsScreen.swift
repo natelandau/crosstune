@@ -52,8 +52,7 @@ struct StorageSummary: View {
     }
 }
 
-/// A group's title over its recordings: the platform's section header, or a plain heading on
-/// the Mac.
+/// A group's title over its recordings, as a plain heading with no card behind it.
 struct RecordingsGroupHeading: View {
     let title: String
 
@@ -66,6 +65,10 @@ struct RecordingsGroupHeading: View {
                 .accessibilityAddTraits(.isHeader)
         #else
             Text(title)
+                .font(PageStyle.sectionHeading)
+                .foregroundStyle(.primary)
+                .textCase(nil)
+                .accessibilityAddTraits(.isHeader)
         #endif
     }
 }
@@ -100,6 +103,11 @@ private struct RecordingsContent: View {
     @State private var discarding: RecordingFile?
     @Namespace private var zoom
 
+    /// Whether the empty state for an account with no recordings shows over the list.
+    private var hasNoRecordingsAtAll: Bool {
+        model.hasNoRecordings && model.unfinished.isEmpty
+    }
+
     /// The tune form opened from the add to tune sheet, and the recording it files once saved.
     private struct CreatingTune: Identifiable {
         let recordingID: String
@@ -118,59 +126,72 @@ private struct RecordingsContent: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             #endif
-            if model.filterCount > 0 {
-                RecordingsFilterBar(choice: model.choice) {
-                    Task { await model.resetSource() }
+            #if os(macOS)
+                if model.filterCount > 0 {
+                    RecordingsFilterBar(choice: model.choice) {
+                        Task { await model.resetSource() }
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-            if let storage = model.storage {
-                #if os(macOS)
+                if let storage = model.storage {
                     StorageSummary(storage: storage)
                         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 8, trailing: 8))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
-                #else
-                    Section {
-                        StorageSummary(storage: storage)
-                    }
-                #endif
-            }
-            if model.showsUnfinished {
-                Section {
-                    ForEach(model.unfinished, id: \.id) { capture in
-                        unfinishedRow(capture)
-                    }
-                } header: {
-                    heading(RecordingsScreen.unfinishedHeader)
                 }
-            }
-            if let arrangement {
-                if arrangement.isEmpty && !model.hasNoRecordings {
-                    Section {
-                    } header: {
-                        ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
-                            .textCase(nil)
-                            .macHeaderInset()
-                    }
+            #else
+                RecordingsFilterRow(
+                    choice: model.choice, filtersGate: model.filtersGate,
+                    onFilters: { showsFilters = true }, onReset: { Task { await model.resetSource() } }
+                )
+                .listRowInsets(
+                    EdgeInsets(top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16)
+                )
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            #endif
+            #if os(macOS)
+                if model.showsUnfinished { unfinishedSection }
+                if let arrangement {
+                    if arrangement.isEmpty && !model.hasNoRecordings { countSection(arrangement) }
+                    if !arrangement.unfiled.isEmpty { unfiledSection(arrangement) }
+                    filedSection(
+                        arrangement.filed, listHeader: arrangement.unfiled.isEmpty ? arrangement : nil)
                 }
-                if !arrangement.unfiled.isEmpty {
-                    Section {
-                        ForEach(arrangement.unfiled) { view in
-                            row(view)
+            #else
+                let order = RecordingArrangement.sectionOrder(
+                    hasUnfinished: model.showsUnfinished, hasUnfiled: arrangement?.unfiled.isEmpty == false,
+                    tuneCount: arrangement.map(Self.filedCount) ?? 0,
+                    narrowedToNothing: arrangement.map { $0.isEmpty && !model.hasNoRecordings } ?? false,
+                    showsEmptyState: hasNoRecordingsAtAll || model.showsNothingMatches(arrangement))
+                ForEach(order, id: \.self) { section in
+                    switch section {
+                    case .unfinished: unfinishedSection
+                    case .count: arrangement.map(countSection)
+                    case .unfiled: arrangement.map(unfiledSection)
+                    case .tunes:
+                        arrangement.map { filedSection($0.filed, listHeader: $0.unfiled.isEmpty ? $0 : nil) }
+                    case .storage:
+                        if let storage = model.storage {
+                            StorageSummary(storage: storage)
+                                .listRowInsets(
+                                    EdgeInsets(
+                                        top: spacing.stackGap, leading: 16, bottom: spacing.stackGap, trailing: 16)
+                                )
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                         }
-                    } header: {
-                        sectionHeader(RecordingsListText.unfiled, listHeader: arrangement)
                     }
                 }
-                filedSection(
-                    arrangement.filed, listHeader: arrangement.unfiled.isEmpty ? arrangement : nil)
-            }
+            #endif
         }
+        #if os(iOS)
+            .listStyle(.plain)
+        #endif
         .overlay {
             Group {
-                if model.hasNoRecordings && model.unfinished.isEmpty {
+                if hasNoRecordingsAtAll {
                     ContentUnavailableView {
                         Label(RecordingsScreen.emptyTitle, systemImage: Destination.recordings.systemImage)
                     } description: {
@@ -210,13 +231,18 @@ private struct RecordingsContent: View {
             }
             .columnTitled(Destination.recordings.title)
         #else
-            .safeAreaBar(edge: .top) {
-                searchField
-                .padding(.horizontal, 16)
-                .padding(.bottom, spacing.stackGap)
-            }
+            .searchable(
+                text: $model.query, placement: .navigationBarDrawer(displayMode: .always),
+                prompt: RecordingsListText.search
+            )
+            .searchFocused($searchFocused)
+            .onSubmit(of: .search) { searchFocused = false }
+            .textInputAutocapitalization(.never)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) { uploadButton }
+                ToolbarItem(placement: .primaryAction) {
+                    Button(RecordingImport.upload, systemImage: "plus") { importing = true }
+                    .accessibilityLabel(RecordingImport.uploadAudio)
+                }
             }
         #endif
         .coversShell(importing)
@@ -302,6 +328,43 @@ private struct RecordingsContent: View {
         }
     }
 
+    /// How many tune groups or flat filed rows the filed section shows.
+    private static func filedCount(_ arrangement: RecordingArrangement) -> Int {
+        switch arrangement.filed {
+        case .flat(let views): views.count
+        case .byTune(let tunes): tunes.count
+        }
+    }
+
+    private var unfinishedSection: some View {
+        Section {
+            ForEach(model.unfinished, id: \.id) { capture in
+                unfinishedRow(capture)
+            }
+        } header: {
+            heading(RecordingsScreen.unfinishedHeader)
+        }
+    }
+
+    private func countSection(_ arrangement: RecordingArrangement) -> some View {
+        Section {
+        } header: {
+            ListHeader<RecordingSort>(count: model.countLabel(arrangement), choice: nil)
+                .textCase(nil)
+                .macHeaderInset()
+        }
+    }
+
+    private func unfiledSection(_ arrangement: RecordingArrangement) -> some View {
+        Section {
+            ForEach(arrangement.unfiled) { view in
+                row(view)
+            }
+        } header: {
+            sectionHeader(RecordingsListText.unfiled, listHeader: arrangement)
+        }
+    }
+
     /// The filed recordings in one section: flat, each row naming its tune, or under a line per
     /// tune.
     @ViewBuilder private func filedSection(
@@ -357,18 +420,20 @@ private struct RecordingsContent: View {
             .macHeaderInset()
     }
 
-    private var searchField: some View {
-        FilterSearchField(
-            prompt: RecordingsListText.search, query: $model.query, isFocused: $searchFocused,
-            filterCount: model.filterCount, filtersGate: model.filtersGate,
-            onSubmit: { searchFocused = false }, onFilters: { showsFilters = true })
-    }
+    #if os(macOS)
+        private var searchField: some View {
+            FilterSearchField(
+                prompt: RecordingsListText.search, query: $model.query, isFocused: $searchFocused,
+                filterCount: model.filterCount, filtersGate: model.filtersGate,
+                onSubmit: { searchFocused = false }, onFilters: { showsFilters = true })
+        }
 
-    private var uploadButton: some View {
-        Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { importing = true }
-            .help(RecordingImport.uploadAudio)
-            .accessibilityLabel(RecordingImport.uploadAudio)
-    }
+        private var uploadButton: some View {
+            Button(RecordingImport.upload, systemImage: "square.and.arrow.down") { importing = true }
+                .help(RecordingImport.uploadAudio)
+                .accessibilityLabel(RecordingImport.uploadAudio)
+        }
+    #endif
 
     /// A recording's row. A filed one names its tune in a tune line when `opensTune`, and
     /// otherwise sits under a line naming it; either way its title never falls back to the tune.
@@ -380,6 +445,7 @@ private struct RecordingsContent: View {
         ) { kind in
             retry(view.id, kind)
         }
+        .newTakeHighlight(view.id)
         .mediaRowInsets()
         .recordingRowActions(
             filed: view.tuneID != nil,

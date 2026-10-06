@@ -178,6 +178,16 @@ private func catalogEntry(_ title: String) -> CatalogEntry {
         #expect(many.details(now: SampleCatalog.now.date) == "5 tunes · Edited today")
     }
 
+    @Test func listRowSecondLineReadsCountAndEdited() throws {
+        let now = try #require(Timestamp(iso: "2026-10-05T12:00:00Z")).date
+        let today = try #require(Timestamp(iso: "2026-10-05T09:00:00Z"))
+        #expect(ListRow.detail(count: 12, edited: today, now: now) == "12 tunes · Edited today")
+        let earlier = try #require(Timestamp(iso: "2026-03-04T12:00:00Z"))
+        #expect(ListRow.detail(count: 1, edited: earlier, now: now) == "1 tune · Edited Mar 4")
+        let lastYear = try #require(Timestamp(iso: "2025-03-04T12:00:00Z"))
+        #expect(ListRow.detail(count: 2, edited: lastYear, now: now) == "2 tunes · Edited Mar 4, 2025")
+    }
+
     @Test func wordsTheDeleteConfirmationAsTheWebDoes() {
         #expect(DeleteListMessage.title("Waltzes") == "Delete \"Waltzes\"?")
         #expect(DeleteListMessage.message == "Its tunes stay in the catalog.")

@@ -70,24 +70,6 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         }
     }
 
-    @Test func putsTheKeyFirstThenEveryFacetTheTuneHoldsInTheWebsOrder() {
-        let tune = Tune(
-            createdAt: noon, title: "Kitchen Girl", genre: "Old-time", tuneType: "Reel", key: " A ",
-            modes: ["mixolydian", "dorian"], timeSignature: "2/4", partStructure: "AABB", isCrooked: true,
-            tunings: tunings(["violin": ("Cross A (AEAE)", nil)]))
-        #expect(
-            detail(tune, status: "learning", archived: true).facets == [
-                .key("A"), .text("mixolydian"), .text("dorian"), .status("learning"), .text("Violin: Cross A (AEAE)"),
-                .text("2/4"),
-                .text(TuneDetail.crooked), .text("Reel"), .text("Old-time"), .text("AABB"), .archived,
-            ])
-    }
-
-    @Test func leavesOutEveryUnsetFacetButAlwaysShowsTheStatus() {
-        let tune = Tune(createdAt: noon, title: "A tune with no key yet", genre: "", key: "  ")
-        #expect(detail(tune).facets == [.status("known")])
-    }
-
     @Test func showsEveryTuningStandardIncludedAndAlwaysNamesTheInstrument() {
         let tune = Tune(
             createdAt: noon, title: "Cluck Old Hen",
@@ -210,7 +192,6 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         try await eventually { model.shown != nil }
         await model.setArchived(true)
         try await eventually { model.shown?.isArchived == true }
-        #expect(model.shown?.facets.last == .archived)
         await model.setArchived(false)
         try await eventually { model.shown?.isArchived == false }
         #expect(model.failure == nil)
@@ -297,5 +278,40 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         let untitled = PlayerItem.recording(recording(label: nil), tuneTitle: nil, locale: locale, timeZone: .gmt)
         // No recorded date, so the title falls back to the day it was added.
         #expect(untitled.title == "Recording, Sep 25, 2026")
+    }
+}
+
+@Suite struct TunePageTests {
+    private func detail(_ tune: Tune) -> TuneDetail {
+        TuneDetail(tune: tune, userTune: SampleCatalog.entries[0].userTune)
+    }
+
+    @Test func facetLineJoinsWhatTheTuneHolds() {
+        var tune = SampleCatalog.entries[0].tune
+        tune.key = "A"
+        tune.modes = ["modal"]
+        tune.tuneType = "Breakdown"
+        tune.genre = nil
+        // The key shows as its pill before the line, so the line starts at the mode.
+        #expect(TunePage.facetLine(detail(tune)) == "modal · Breakdown · 2/4 · AABB")
+
+        let sparse = Tune(id: "sparse", createdAt: SampleCatalog.now, title: "Sparse", tuneType: "Reel")
+        #expect(TunePage.facetLine(detail(sparse)) == "Reel")
+    }
+
+    @Test func facetLineKeepsGenreAndCrookedBesideTheirNeighbors() {
+        var tune = SampleCatalog.entries[0].tune
+        tune.isCrooked = true
+        #expect(TunePage.facetLine(detail(tune)) == "major · Reel · Old-time · 2/4 · Crooked · AABB")
+    }
+
+    @Test func emptySectionsShowOnlyTheirHeadingOnPhone() {
+        for showsEmptyNotes in [true, false] {
+            #expect(!TunePageColumn.showsEmptyNote(isEmpty: false, showsEmptyNotes: showsEmptyNotes))
+        }
+        // The Mac says so under the heading; iPhone leaves the heading and its add control.
+        #expect(TunePageColumn.showsEmptyNote(isEmpty: true, showsEmptyNotes: true))
+        #expect(!TunePageColumn.showsEmptyNote(isEmpty: true, showsEmptyNotes: false))
+        #expect(TunePageColumn.showsEmptyNote(isEmpty: true) == PageStyle.showsEmptyNotes)
     }
 }

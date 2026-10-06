@@ -35,14 +35,14 @@ import Testing
         snapshot("status") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 16) {
-                    StatusDot("known")
-                    StatusDot("learning")
-                    StatusDot("want_to_learn")
+                    ForEach(["known", "learning", "want_to_learn"], id: \.self) { status in
+                        HStack(spacing: 6) {
+                            StatusGlyph(status)
+                            Text(StatusStyle.label(status))
+                        }
+                    }
                 }
                 .font(.subheadline)
-                StatusRail(status: .constant("learning"))
-                StatusRail(filter: .constant(nil))
-                StatusRail(filter: .constant("want_to_learn"))
             }
         }
     }
@@ -51,7 +51,7 @@ import Testing
         snapshot("tune-rows") { tuneRows(instruments: SampleCatalog.instruments) }
     }
 
-    @Test(arguments: [DynamicTypeSize.small, .large, .xxLarge, .accessibility2])
+    @Test(arguments: [DynamicTypeSize.small, .large, .xxLarge, .accessibility2, .accessibility3])
     func tuneRowsAtEachSize(size: DynamicTypeSize) {
         snapshot("tune-rows-sized", size: size) { tuneRows(instruments: SampleCatalog.instruments) }
     }
@@ -60,7 +60,6 @@ import Testing
     func railsAtEachSize(size: DynamicTypeSize) {
         snapshot("rails", size: size) {
             VStack(alignment: .leading, spacing: 0) {
-                StatusRail(filter: .constant("learning"))
                 Rail(chosen: "D") {
                     ForEach(keys, id: \.self) { KeyPill($0, chosen: $0 == "D").id($0) }
                 }
@@ -80,6 +79,29 @@ import Testing
         }
     }
 
+    /// The iPhone list page: the list's name, Play and Shuffle over the line that says what
+    /// plays, then the numbered rows.
+    @Test func listPage() {
+        let entries = Array(SampleCatalog.entries.prefix(5).enumerated())
+        let report = PlaylistReport(
+            playable: entries.prefix(4).map(\.element.tune.id), skipped: [.nothing: [entries[4].element.tune.id]],
+            total: entries.count)
+        snapshot("list-page-phone") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(SampleCatalog.lists[0].name)
+                    .font(.largeTitle.bold())
+                ListPlayControls(
+                    offer: ListPlayOffer(report: report, canStart: true, onPlay: {}, onShuffle: {}, onWhatPlays: {}))
+                rows(entries, id: \.element.tune.id) { index, entry in
+                    TuneRow(
+                        tune: entry.tune, userTune: entry.userTune, instruments: ["violin"], position: index + 1,
+                        stacked: true)
+                }
+            }
+            .tint(BrandStyle.accent)
+        }
+    }
+
     @Test func mediaRows() {
         snapshot("media-rows") {
             rows(SampleCatalog.recordingRows.map(Row.recording) + SampleCatalog.linkRows.map(Row.link), id: \.self) {
@@ -88,6 +110,18 @@ import Testing
                 case .link(let row): MediaRow(link: row) { _ in }
                 }
             }
+        }
+    }
+
+    /// The tune page in a narrow column, holding everything a tune can, archived. The test host
+    /// draws with the Mac's sizes, so the iPhone page shows only on a simulator.
+    @Test func tunePageNarrow() async throws {
+        let pages = try await TunePageSamples.load()
+        snapshot("tune-page-narrow", width: 390) {
+            TunePageSamples.column(model: pages.full.model, detail: pages.full.detail)
+                .tint(BrandStyle.accent)
+                // Outside a navigation stack a list token's link draws disabled.
+                .environment(\.sidebarSelection, .constant(.catalog))
         }
     }
 
@@ -129,34 +163,9 @@ import Testing
         /// The tune page holding everything a tune can, archived, then a tune holding only its
         /// title and type.
         @Test func macTunePage() async throws {
-            let root = TemporaryRoot()
-            let store = try await SampleCatalog.makeStore(root: root.url)
-            try await SampleScans.add(to: store)
-            let entry = SampleCatalog.entries[0]
-            let model = TuneModel(store: store, tuneID: entry.tune.id)
-            #expect(try await poll { model.shown != nil && model.scans.scans.count == 3 })
-
-            var archived = entry.userTune
-            archived.archivedAt = SampleCatalog.now
-            archived.playLinkID = SampleCatalog.links[0].id
-            let full = TuneDetail(
-                tune: entry.tune, userTune: archived, links: SampleCatalog.links,
-                recordings: [0, 1, 2, 5].map {
-                    let sample = SampleCatalog.recordings[$0]
-                    return TuneRecording(recording: sample.recording, file: sample.file)
-                },
-                lists: SampleCatalog.lists.enumerated().map { TuneMembership(list: $1, itemID: "item_\($0)") },
-                instruments: SampleCatalog.instruments)
-            page("mac-tune-page", model: model, detail: full)
-
-            let empty = SampleCatalog.entries[10]
-            let sparseModel = TuneModel(store: store, tuneID: empty.tune.id)
-            #expect(try await poll { sparseModel.shown != nil })
-            let sparse = TuneDetail(
-                tune: Tune(
-                    id: empty.tune.id, createdAt: SampleCatalog.now, title: "Ways of the World", tuneType: "Reel"),
-                userTune: empty.userTune)
-            page("mac-tune-page-sparse", model: sparseModel, detail: sparse)
+            let pages = try await TunePageSamples.load()
+            page("mac-tune-page", model: pages.full.model, detail: pages.full.detail)
+            page("mac-tune-page-sparse", model: pages.sparse.model, detail: pages.sparse.detail)
         }
 
         @Test func macTunePlaceholder() {
@@ -191,6 +200,40 @@ import Testing
         /// selected, then Speed and Pitch set off their defaults.
         @Test(arguments: PracticeMode.allCases)
         func macRecordingScreen(mode: PracticeMode) async throws {
+            let width: CGFloat = 560
+            let screen = try await practiceScreen(mode: mode, width: width - 2 * MacStyle.sheetMargin)
+            await sheetSnapshot("mac-recording-screen-\(mode.rawValue)") {
+                // The stack and Close as `RecordingScreen` wraps the content.
+                NavigationStack {
+                    screen
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(RecordingScreenText.close) {}
+                            }
+                        }
+                }
+                .frame(width: width, height: 720)
+                .tint(MacStyle.accent)
+            }
+        }
+
+        /// The iPhone's practice screen on its ground, from the light and the dark appearance, with
+        /// a loop selected. The test host draws with the Mac's sizes and toolbar, so only the
+        /// ground, waveform, playhead, handles, and transport show as the phone has them.
+        @Test func practicePhone() async throws {
+            let width: CGFloat = 390
+            let screen = try await practiceScreen(mode: .loops, width: width - 2 * MacStyle.sheetMargin)
+            await windowSnapshot("practice-phone", size: CGSize(width: width, height: 844)) {
+                PracticeGroundStandIn {
+                    NavigationStack { screen }
+                }
+                .tint(BrandStyle.accent)
+            }
+        }
+
+        /// The sample's playable recording loaded with two loops, at `width`, peaks drawn as a
+        /// tune's swell and fall so the bars read as music rather than noise.
+        private func practiceScreen(mode: PracticeMode, width: CGFloat) async throws -> RecordingScreenContent {
             let entry = SampleCatalog.playable
             let file = try #require(entry.file)
             let seconds = Double(entry.recording.durationMs ?? 184_000) / 1000
@@ -224,9 +267,7 @@ import Testing
                 player: player, recording: entry.recording, file: file, writer: noWrites, mode: mode)
             practice.partStructure = "AABB"
             if mode == .loops { practice.select("loop_a") }
-            let width: CGFloat = 560
-            practice.setWidth(Double(width - 2 * MacStyle.sheetMargin))
-            // A tune's swell and fall, so the bars read as music rather than noise.
+            practice.setWidth(Double(width))
             let values = (0..<Int(seconds) * 50).map { index -> UInt8 in
                 let t = Double(index) / 50
                 let swell = 0.55 + 0.35 * sin(t / 9) * sin(t / 2.3)
@@ -236,22 +277,8 @@ import Testing
             let rows = ScreenRows(
                 recording: entry.recording, file: file, tuneID: entry.recording.tuneID, tuneTitle: entry.tuneTitle,
                 partStructure: "AABB")
-            await sheetSnapshot("mac-recording-screen-\(mode.rawValue)") {
-                // The stack and Close as `RecordingScreen` wraps the content.
-                NavigationStack {
-                    RecordingScreenContent(
-                        player: player, rows: rows, path: .constant([]), practice: practice,
-                        peaks: Peaks(values: values)
-                    )
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button(RecordingScreenText.close) {}
-                        }
-                    }
-                }
-                .frame(width: width, height: 720)
-                .tint(MacStyle.accent)
-            }
+            return RecordingScreenContent(
+                player: player, rows: rows, path: .constant([]), practice: practice, peaks: Peaks(values: values))
         }
 
         /// Each Settings tab over the sample catalog, at the Settings window's width. Its own
@@ -264,6 +291,18 @@ import Testing
                 MacSettingsTabs.content(pane, version: "0.7.0")
                     .environment(\.store, store)
                     .tint(MacStyle.accent)
+            }
+        }
+
+        /// The iPhone Settings root over the sample catalog. The test host draws with the Mac's
+        /// sizes, so the iPhone page shows only on a simulator.
+        @Test func settingsRootPhone() async throws {
+            let root = TemporaryRoot()
+            let store = try await SampleCatalog.makeStore(root: root.url)
+            await windowSnapshot("settings-root-phone", size: CGSize(width: 390, height: 600)) {
+                NavigationStack { SettingsRoot(version: "0.7.0") }
+                    .environment(\.store, store)
+                    .tint(BrandStyle.accent)
             }
         }
 
@@ -342,20 +381,12 @@ import Testing
         /// The page's column at the detail pane's usual width, margins included.
         private func page(_ name: String, model: TuneModel, detail: TuneDetail) {
             snapshot(name, width: 780) {
-                MacTunePageColumn(
-                    model: model, detail: detail, editing: .constant(nil), deleting: .constant(nil),
-                    addingScans: .constant(nil), deletingScan: .constant(nil)
-                )
-                .frame(maxWidth: MacStyle.pageMaxWidth, alignment: .leading)
-                .padding(MacStyle.pageMargin)
-                .frame(maxWidth: .infinity)
-                .tint(MacStyle.accent)
-                .environment(\.sidebarSelection, .constant(.catalog))
-                .environment(
-                    \.tuneScreenActions,
-                    TuneScreenActions(
-                        addToList: { _ in }, addLink: { _ in }, findRecordings: { _, _ in }, record: { _ in },
-                        readLyrics: { _ in }, viewScans: { _, _, _ in }))
+                TunePageSamples.column(model: model, detail: detail)
+                    .frame(maxWidth: PageStyle.pageMaxWidth, alignment: .leading)
+                    .padding(PageStyle.pageMargin)
+                    .frame(maxWidth: .infinity)
+                    .tint(MacStyle.accent)
+                    .environment(\.sidebarSelection, .constant(.catalog))
             }
         }
     #endif
@@ -378,7 +409,7 @@ import Testing
         snapshot("facets", width: 320) {
             FlowLayout {
                 KeyPill("A", suffix: " mix")
-                StatusDot("learning").font(.subheadline)
+                StatusGlyph("learning").font(.subheadline)
                 Text("Reel")
                 Text("Old-time")
                 Text("4/4")
@@ -578,6 +609,75 @@ private struct RowStack<Item, ID: Hashable, Row: View>: View {
                     .padding(.vertical, 4)
                 }
             }
+        }
+    }
+#endif
+
+/// A tune page holding everything a tune can, archived, and one holding only its title and type,
+/// read from the sample catalog with its scans.
+@MainActor
+private struct TunePageSamples {
+    let root: TemporaryRoot
+    let full: (model: TuneModel, detail: TuneDetail)
+    let sparse: (model: TuneModel, detail: TuneDetail)
+
+    static func load() async throws -> TunePageSamples {
+        let root = TemporaryRoot()
+        let store = try await SampleCatalog.makeStore(root: root.url)
+        try await SampleScans.add(to: store)
+        let entry = SampleCatalog.entries[0]
+        let model = TuneModel(store: store, tuneID: entry.tune.id)
+        #expect(try await poll { model.shown != nil && model.scans.scans.count == 3 })
+
+        var archived = entry.userTune
+        archived.archivedAt = SampleCatalog.now
+        archived.playLinkID = SampleCatalog.links[0].id
+        let full = TuneDetail(
+            tune: entry.tune, userTune: archived, links: SampleCatalog.links,
+            recordings: [0, 1, 2, 5].map {
+                let sample = SampleCatalog.recordings[$0]
+                return TuneRecording(recording: sample.recording, file: sample.file)
+            },
+            lists: SampleCatalog.lists.enumerated().map { TuneMembership(list: $1, itemID: "item_\($0)") },
+            instruments: SampleCatalog.instruments)
+
+        let empty = SampleCatalog.entries[10]
+        let sparseModel = TuneModel(store: store, tuneID: empty.tune.id)
+        #expect(try await poll { sparseModel.shown != nil })
+        let sparse = TuneDetail(
+            tune: Tune(id: empty.tune.id, createdAt: SampleCatalog.now, title: "Ways of the World", tuneType: "Reel"),
+            userTune: empty.userTune)
+        return TunePageSamples(root: root, full: (model, full), sparse: (sparseModel, sparse))
+    }
+
+    /// The page's column with every action on offer.
+    static func column(model: TuneModel, detail: TuneDetail) -> some View {
+        TunePageColumn(
+            model: model, detail: detail, editing: .constant(nil), deleting: .constant(nil),
+            addingScans: .constant(nil), deletingScan: .constant(nil)
+        )
+        .environment(
+            \.tuneScreenActions,
+            TuneScreenActions(
+                addToList: { _ in }, addLink: { _ in }, findRecordings: { _, _ in }, record: { _ in },
+                readLyrics: { _ in }, viewScans: { _, _, _ in }))
+    }
+}
+
+#if os(macOS)
+    /// Stands `content` on the practice ground for the window's own appearance, as the iPhone's
+    /// cover does for the appearance outside it.
+    private struct PracticeGroundStandIn<Content: View>: View {
+        @ViewBuilder let content: Content
+
+        @Environment(\.colorScheme) private var scheme
+
+        var body: some View {
+            content
+                .practiceGround(scheme)
+                // A Mac window draws its own background behind the stack, which the cover's
+                // ground does not reach.
+                .background(PhoneStyle.practiceGround(scheme))
         }
     }
 #endif

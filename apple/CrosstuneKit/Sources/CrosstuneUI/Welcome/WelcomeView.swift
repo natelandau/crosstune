@@ -107,7 +107,7 @@ public struct WelcomeView: View {
                 Text(WelcomeCopy.signIn)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.slateProminent)
             Button {
                 openURL(WelcomeCopy.waitlistURL)
             } label: {

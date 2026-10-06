@@ -55,6 +55,11 @@ final class WaveformFeed {
 /// Motion stay in place and change height. It holds still while `paused`.
 struct LiveWaveform: View {
     static let height: CGFloat = 128
+    #if os(iOS)
+        static let barStyle = AnyShapeStyle(Color.recordingRed)
+    #else
+        static let barStyle = AnyShapeStyle(.tint)
+    #endif
 
     let levels: [Float]
     let levelCount: Int
@@ -75,7 +80,7 @@ struct LiveWaveform: View {
                 feed.advance(to: time, capacity: WaveformBars.count(forWidth: size.width))
                 for bar in feed.bars.layout(width: size.width, height: size.height) {
                     context.fill(
-                        Path(roundedRect: bar, cornerRadius: WaveformBars.barWidth / 2), with: .style(.tint))
+                        Path(roundedRect: bar, cornerRadius: WaveformBars.barWidth / 2), with: .style(Self.barStyle))
                 }
             }
         }

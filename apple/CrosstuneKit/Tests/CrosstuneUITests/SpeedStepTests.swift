@@ -2,6 +2,7 @@ import Testing
 
 @testable import CrosstuneUI
 
+@MainActor
 @Suite struct SpeedStepTests {
     @Test(arguments: [
         (70, -5, 65),

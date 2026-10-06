@@ -51,6 +51,11 @@ public enum StatsCopy {
         .joined(separator: " · ")
     }
 
+    /// The button that opens a breakdown past its first rows: `Show all 12`.
+    nonisolated public static func showAll(_ count: Int) -> String {
+        "Show all \(groupedThousands(count))"
+    }
+
     /// The recorded total: `37 recordings · 9 h 12 m`.
     nonisolated public static func recordedLine(recordings: Int, ms: Int) -> String {
         "\(countRecordings(recordings)) · \(formatRecorded(ms))"

@@ -3,6 +3,7 @@ import CrosstuneStore
 import CrosstuneTestSupport
 import Foundation
 import Observation
+import Synchronization
 import Testing
 
 @testable import CrosstuneUI
@@ -255,8 +256,8 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         let audio = FakeAudio()
         let player = PlayerModel(audio: audio)
         player.audioSource = { _ in playable() }
-        var capturing = true
-        player.isCapturing = { capturing }
+        let capturing = Mutex(true)
+        player.isCapturing = { capturing.withLock { $0 } }
 
         #expect(!player.play(.recording(recording(), tuneTitle: nil)))
         var link = RecordingLink(id: "l1", tuneID: "t1", url: "https://example.com/x", provider: "youtube")
@@ -265,7 +266,7 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         #expect(!player.isLoaded)
         #expect(audio.calls.isEmpty)
 
-        capturing = false
+        capturing.withLock { $0 = false }
         #expect(player.play(.recording(recording(), tuneTitle: nil)))
         try await eventually { player.recordingAudio == .loaded }
         #expect(audio.calls == loadAndPlay)
@@ -276,11 +277,11 @@ private func recording(_ id: String = "r1", label: String? = "Jam at Mike's") ->
         let source = HeldSource()
         let player = PlayerModel(audio: audio)
         player.audioSource = source.fetch
-        var capturing = false
-        player.isCapturing = { capturing }
+        let capturing = Mutex(false)
+        player.isCapturing = { capturing.withLock { $0 } }
         player.play(.recording(recording(), tuneTitle: nil))
         try await eventually { source.asked.count == 1 }
-        capturing = true
+        capturing.withLock { $0 = true }
         source.answer("r1", with: audioURL)
         try await eventually { player.recordingAudio == .loaded }
         #expect(audio.calls == Array(loadAndPlay.dropLast()))

@@ -215,10 +215,17 @@ private struct LyricsRequest: Identifiable {
 struct LyricsScreens: ViewModifier {
     @State private var request: LyricsRequest?
     @Environment(\.tuneScreenActions) private var tuneScreenActions
+    #if os(iOS)
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Namespace private var zoom
+    #endif
 
     func body(content: Content) -> some View {
         content
             .environment(\.tuneScreenActions, withReadLyrics)
+            #if os(iOS)
+                .environment(\.lyricsZoom, reduceMotion ? nil : zoom)
+            #endif
             #if os(macOS)
                 .sheet(item: $request) { request in
                     LyricsReader(tuneID: request.tuneID)
@@ -227,6 +234,7 @@ struct LyricsScreens: ViewModifier {
             #else
                 .fullScreenCover(item: $request) { request in
                     LyricsReader(tuneID: request.tuneID)
+                    .zooms(from: request.tuneID, in: reduceMotion ? nil : zoom)
                 }
             #endif
     }

@@ -34,7 +34,13 @@ struct BulkEditSheet: View {
                     Text(BulkEditForm.footnote)
                 }
                 Section {
-                    row(.status)
+                    BulkStatusPicker(form: $form)
+                } header: {
+                    Text(TuneFieldLabels.status)
+                } footer: {
+                    if form.isMixed(.status) {
+                        Text(BulkEditForm.mixed)
+                    }
                 }
                 Section {
                     KeyChooser(key: keyBinding, isMixed: form.isMixed(.key))
@@ -94,11 +100,9 @@ struct BulkEditSheet: View {
 
     @ViewBuilder private func row(_ field: EditField) -> some View {
         switch field {
-        case .status:
-            BulkChoiceRow(
-                field: field, form: $form, options: Vocabulary.statuses, name: StatusStyle.label)
-        case .key:
-            // Never a row: the key is the pill grid in its own section above.
+        case .status, .key:
+            // Never rows: `details` leaves out the status and the key, which have sections of
+            // their own above.
             EmptyView()
         case .mode:
             BulkChoiceRow(field: field, form: $form, options: Vocabulary.modes, emptyChoice: BulkEditForm.clear)
@@ -166,8 +170,6 @@ private struct BulkChoiceRow: View {
     let options: [String]
     /// The row's visible label, where a section header already names half the field.
     var rowLabel: String?
-    /// What a choice reads as, where the stored value is not the word shown.
-    var name: (String) -> String = { $0 }
     var emptyChoice: String?
     var allowsOther = false
     var maxLength: Int?
@@ -185,7 +187,7 @@ private struct BulkChoiceRow: View {
                     }
                 }
                 ForEach(SuggestionPicker.choices(options, value: current), id: \.self) { option in
-                    choice(name(option), isCurrent: !typing && option == current) {
+                    choice(option, isCurrent: !typing && option == current) {
                         form.touch(field, value(option))
                         typing = false
                     }

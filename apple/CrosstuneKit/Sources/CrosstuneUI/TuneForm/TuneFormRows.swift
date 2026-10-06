@@ -1,6 +1,75 @@
 import CrosstuneVocabulary
 import SwiftUI
 
+/// The status field's choices, one segment per word. A system segment shows an image or a
+/// word, never both, and the words are what a musician chooses by.
+enum StatusField {
+    static var segments: [(value: String, label: String)] {
+        Vocabulary.statuses.map { ($0, StatusStyle.label($0)) }
+    }
+
+    /// The segment shown as chosen. A stored status this build cannot read shows as want to learn.
+    static func chosen(_ status: String) -> String {
+        StatusStyle.normalized(status)
+    }
+}
+
+/// The tune form's status field.
+struct StatusPicker: View {
+    @Binding var status: String
+
+    var body: some View {
+        Picker(
+            TuneFieldLabels.status,
+            selection: Binding {
+                StatusField.chosen(status)
+            } set: {
+                status = $0
+            }
+        ) {
+            ForEach(StatusField.segments, id: \.value) { segment in
+                Text(segment.label).tag(segment.value)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+}
+
+/// The bulk edit sheet's status row. It shows the status every tune shares, and no segment when
+/// they disagree or none holds one. Only a segment that changes a tune touches the row.
+enum BulkStatusField {
+    static func chosen(_ form: BulkEditForm) -> String? {
+        if case .text(let status) = form.value(.status) { status } else { nil }
+    }
+
+    static func choose(_ choice: String, in form: inout BulkEditForm) {
+        form.touch(.status, .text(choice))
+    }
+}
+
+struct BulkStatusPicker: View {
+    @Binding var form: BulkEditForm
+
+    var body: some View {
+        Picker(
+            TuneFieldLabels.status,
+            selection: Binding<String?> {
+                BulkStatusField.chosen(form)
+            } set: { choice in
+                // Every segment is tagged with a status, so the picker never sets none.
+                if let choice { BulkStatusField.choose(choice, in: &form) }
+            }
+        ) {
+            ForEach(StatusField.segments, id: \.value) { segment in
+                Text(segment.label).tag(Optional(segment.value))
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+}
+
 /// One mode row per part, closed to the modes the API knows, with a row to add the next part's.
 /// A part's row is removed by swiping it or from its menu; the first always stays.
 struct ModeRows: View {

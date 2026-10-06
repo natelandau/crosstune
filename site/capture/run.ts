@@ -59,13 +59,13 @@ const DOT_OFFSET: Record<string, number> = {}
  * the spec allows fits the screen's whole width.
  */
 export const CROP: Record<string, Crop> = {
-  'tunes-status': { zoom: 1.4495, x: 0, y: 0.1183 },
+  'tunes-status': { zoom: 1.2, x: 0, y: 0.07 },
   'tunes-filter': { zoom: 1.4495, x: 0, y: 0.1183 },
-  'tunes-search': { zoom: 1.4495, x: 0, y: 0.1183 },
+  'tunes-search': { zoom: 1.38, x: 0, y: 0.065 },
   'tune-links': { zoom: 1.2, x: 0.0066, y: 0.0641 },
   'tune-scans': { zoom: 1.283, x: 0, y: 0.1251 },
   'tune-lyrics': { zoom: 1.283, x: 0, y: 0.1251 },
-  'tune-learned': { zoom: 1.283, x: 0, y: 0.1251 },
+  'tune-learned': { zoom: 1.283, x: 0.03, y: 0.1251 },
   'practice-speed': { zoom: 1.3195, x: 0, y: 0.2098 },
   'practice-pitch': { zoom: 1.325, x: 0.2455, y: 0.2083 },
   'practice-loops': { zoom: 1.2, x: 0.0249, y: 0.1526 },

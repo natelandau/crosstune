@@ -10,6 +10,7 @@ struct OverviewStrip: View {
     let peaks: ShownPeaks?
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.practiceGround) private var ground
     @State private var width: Double = 0
 
     private static let waveHeight: CGFloat = 24
@@ -42,11 +43,11 @@ struct OverviewStrip: View {
         let wave = CGRect(x: 0, y: 0, width: size.width, height: Self.waveHeight)
         let length = Double(model.lengthMs)
         guard length > 0 else {
-            context.fillPeakBars(nil, in: wave, style: .tertiary)
+            context.fillPeakBars(nil, in: wave, with: .style(.tertiary))
             return
         }
         func x(_ trimmedMs: Double) -> CGFloat { CGFloat(trimmedMs / length) * size.width }
-        context.fillPeakBars(peaks, in: wave, style: .tertiary)
+        context.fillPeakBars(peaks, in: wave, with: .style(.tertiary))
         let selected = model.selectedID
         for loop in model.placedLoops {
             let x0 = x(Double(loop.span.startMs - model.trimStartMs))
@@ -58,7 +59,8 @@ struct OverviewStrip: View {
         }
         let playhead = x(Double(model.centerMs))
         context.fillPlayhead(
-            CGRect(x: min(max(0, playhead - 1), size.width - 2), y: 0, width: 2, height: Self.waveHeight))
+            CGRect(x: min(max(0, playhead - 1), size.width - 2), y: 0, width: 2, height: Self.waveHeight),
+            onGround: ground != nil)
         if let view = model.laneView {
             let box = CGRect(
                 x: x(view.startMs), y: 1, width: x(view.endMs) - x(view.startMs), height: Self.waveHeight - 2)

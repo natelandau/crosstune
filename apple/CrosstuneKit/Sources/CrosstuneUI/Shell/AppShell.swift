@@ -21,13 +21,14 @@ public struct AppShell: View {
     @State private var recordings: RecordingsModel?
     @State private var take: RecordTake?
     @State private var openSheets = ShellCover()
-    /// Above the layout, so the shell's own sheets hide the iPhone record dome too.
-    @State private var domeCover = ShellCover()
+    /// Above the layout, so the shell's own sheets stand down the iPhone record slot too.
+    @State private var recordCover = ShellCover()
     @State private var selecting = ShellCover()
     /// Bumped to bring the Recordings screen forward.
     @State private var recordingsShown = 0
     @State private var place = ShellPlace()
     @State private var playerWindow = UUID()
+    @State private var recentTake = RecentTake()
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
         @SceneStorage("shell.tab") private var savedTab: Destination = .catalog
@@ -67,10 +68,11 @@ public struct AppShell: View {
             .environment(\.commands, Commands(store: store))
             .environment(player)
             .environment(recorders)
+            .environment(recentTakeForPlatform)
             .environment(catalog)
             .environment(recordings)
             .environment(\.openSheets, openSheets)
-            .environment(\.domeCover, domeCover)
+            .environment(\.recordCover, recordCover)
             .environment(\.selecting, selecting)
             .environment(\.playerWindow, playerWindow)
             .environment(\.openCatalogRoot, MenuAction { showRoot(.catalog) })
@@ -105,6 +107,15 @@ public struct AppShell: View {
                     usesTabs = compact
                 }
             #endif
+    }
+
+    /// The highlight is the iPhone and iPad list's; the Mac's rows stay as they are.
+    private var recentTakeForPlatform: RecentTake? {
+        #if os(iOS)
+            recentTake
+        #else
+            nil
+        #endif
     }
 
     private var canRecord: Bool {
@@ -142,7 +153,12 @@ public struct AppShell: View {
         guard RecordTake.mayReplace(take), recorders.isFree(for: store) else { return }
         // Playback would be recorded along with the instrument.
         PlayerBar.closePlayer(player, listPlayback)
-        take = RecordTake(model: RecordSheetModel(recorder: recorders.recorder(for: store), tuneID: tuneID))
+        let model = RecordSheetModel(
+            recorder: recorders.recorder(for: store), tuneID: tuneID, recentTake: recentTakeForPlatform)
+        take = RecordTake(model: model)
+        #if os(iOS)
+            Task { await model.loadTuneTitle(from: store) }
+        #endif
     }
 
     @ViewBuilder private var layout: some View {

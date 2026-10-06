@@ -9,8 +9,8 @@ import Testing
 @testable import CrosstuneUI
 
 /// Renders the shell's chrome to PNG for review. An image renderer draws no tab bar, split
-/// view, list, or glass, so each frame is laid out from stand-ins around the real dome, player
-/// bar, toolbar button, sync badge, and placeholder screens.
+/// view, list, or glass, so each frame is laid out from stand-ins around the real player bar,
+/// toolbar button, sync badge, and placeholder screens.
 @MainActor
 @Suite struct ShellSnapshotTests {
     @Test func phone() {
@@ -180,18 +180,24 @@ import Testing
         }
     }
 
-    /// Five equal slots with the dome over the middle one, as the tab bar lays them out.
+    /// Four tabs in one capsule and Record in its own circle at the trailing end, as the tab bar
+    /// lays them out.
     private var tabBar: some View {
-        HStack(spacing: 0) {
-            tab(.catalog, chosen: true)
-            tab(.lists)
-            Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
-            tab(.recordings)
-            tab(.settings)
+        HStack(spacing: 8) {
+            HStack(spacing: 0) {
+                tab(.catalog, chosen: true)
+                tab(.lists)
+                tab(.recordings)
+                tab(.settings)
+            }
+            .frame(height: 62)
+            .modifier(GlassCapsule())
+            Image(systemName: "circle.fill")
+                .font(.title)
+                .foregroundStyle(Color.recordingRed)
+                .frame(width: 62, height: 62)
+                .modifier(GlassCapsule())
         }
-        .frame(height: 62)
-        .modifier(GlassCapsule())
-        .overlay { RecordDome {} }
     }
 
     private func tab(_ destination: Destination, chosen: Bool = false) -> some View {
@@ -232,7 +238,7 @@ import Testing
     /// soft pill as an inactive window draws it.
     struct MacSidebarStandIn: View {
         let selection: SidebarItem
-        private let counts = SidebarCounts(
+        private let counts = CatalogCounts(
             catalog: 10, byStatus: ["known": 3, "learning": 7, "want_to_learn": 0], recordings: 6)
 
         @Environment(\.colorScheme) private var scheme

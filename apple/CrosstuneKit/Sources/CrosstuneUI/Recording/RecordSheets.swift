@@ -43,6 +43,7 @@ struct RecordSheets: ViewModifier {
     private func dismissed() {
         guard let shown else { return }
         release(shown)
+        shown.markRecent()
         if shown.landsOnRecordings { showRecordings() }
         self.shown = nil
     }

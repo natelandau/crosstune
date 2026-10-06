@@ -27,6 +27,7 @@ struct PracticeWaveform: View {
     var accessibilityFocus: AccessibilityFocusState<Bool>.Binding
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.practiceGround) private var ground
     /// Whether the drag under way has begun scrubbing, so its first move holds playback.
     @State private var isScrubbing = false
     /// True while Option is held on the Mac, which turns off snapping to the playhead.
@@ -102,7 +103,7 @@ struct PracticeWaveform: View {
 
     private var timelineBar: some View {
         Canvas { context, size in
-            context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), style: .tertiary)
+            context.fillPeakBars(nil, in: CGRect(origin: .zero, size: size), with: .style(.tertiary))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityHidden(true)
@@ -121,8 +122,8 @@ struct PracticeWaveform: View {
                 if let row = model.selected, let span = model.shownSpan(row.id) {
                     ForEach([LoopModel.Edge.start, .end], id: \.self) { edge in
                         handle(
-                            edge, at: view.x(ofSourceMs: Double(edge == .start ? span.startMs : span.endMs)),
-                            color: row.color, view: view)
+                            edge, at: view.x(ofSourceMs: Double(edge == .start ? span.startMs : span.endMs)), view: view
+                        )
                     }
                 }
             }
@@ -190,8 +191,21 @@ struct PracticeWaveform: View {
         let x1 = (drawEnd - view.startMs) / 1000 * view.pointsPerSecond
         if x1 > x0 {
             let slice = peaks?.sliced(fromMs: Int64(drawStart), toMs: Int64(drawEnd.rounded(.up)))
-            context.fillPeakBars(
-                slice, in: CGRect(x: x0, y: 0, width: x1 - x0, height: Double(size.height)), style: .tertiary)
+            let bars = CGRect(x: x0, y: 0, width: x1 - x0, height: Double(size.height))
+            if ground != nil {
+                // What has played, left of the fixed playhead, is white; what is to come is silver.
+                let played = CGRect(x: 0, y: 0, width: width / 2, height: Double(size.height))
+                context.drawLayer { layer in
+                    layer.clip(to: Path(played))
+                    layer.fillPeakBars(slice, in: bars, with: .color(BrandStyle.color(hex: PhoneStyle.wavePlayed)))
+                }
+                context.drawLayer { layer in
+                    layer.clip(to: Path(played), options: .inverse)
+                    layer.fillPeakBars(slice, in: bars, with: .color(BrandStyle.color(hex: PhoneStyle.waveUnplayed)))
+                }
+            } else {
+                context.fillPeakBars(slice, in: bars, with: .style(.tertiary))
+            }
         }
         let selectedID = model.selectedID
         for loop in model.placedLoops {
@@ -203,7 +217,8 @@ struct PracticeWaveform: View {
                 Path(CGRect(x: start, y: 0, width: end - start, height: Double(size.height))),
                 with: .color(loop.id == selectedID ? tint : tint.opacity(0.5)))
         }
-        context.fillPlayhead(CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)))
+        context.fillPlayhead(
+            CGRect(x: width / 2 - 1, y: 0, width: 2, height: Double(size.height)), onGround: ground != nil)
     }
 
     private func drawRuler(in context: inout GraphicsContext, size: CGSize, view: LaneView) {
@@ -246,14 +261,17 @@ struct PracticeWaveform: View {
 
     // MARK: Handles
 
-    private func handle(_ edge: LoopModel.Edge, at x: Double, color: Int, view: LaneView) -> some View {
+    private func handle(_ edge: LoopModel.Edge, at x: Double, view: LaneView) -> some View {
         let inView = x >= 0 && x <= view.width
         let name = edge == .start ? PracticeText.loopStart : PracticeText.loopEnd
-        return HandleMark(edge: edge, color: Self.handleColor(LoopColor.color(color, scheme: colorScheme)))
+        return HandleMark(edge: edge, color: Self.handleColor(isTrim: false))
             .frame(width: PracticeModel.handleReach * 2)
             .frame(maxHeight: .infinity)
             .contentShape(.rect)
             .offset(x: min(max(x, 0), view.width) - PracticeModel.handleReach)
+            // Keyed on the snap, so only a jump onto or off a snap point eases; a drag's own
+            // moves and the waveform's scroll stay locked to the finger and the playhead.
+            .phoneAnimation(.spring(duration: 0.3, bounce: 0.3), reduced: nil, value: model.handleDrag?.snappedTo)
             .opacity(inView ? 1 : 0)
             .allowsHitTesting(inView)
             // The target reaches past the loop's edge, so a tap on it is a tap on the waveform.
@@ -292,14 +310,11 @@ struct PracticeWaveform: View {
             .accessibilityAction(named: PracticeText.earlierBySecond) { step(edge, by: -PracticeModel.largeNudgeMs) }
     }
 
-    /// The Mac draws every loop's handles in coral, its one color for what marks a position, and
-    /// leaves the loop's own color to its band and tab.
-    private static func handleColor(_ loopColor: Color) -> Color {
-        #if os(macOS)
-            MacStyle.coral
-        #else
-            loopColor
-        #endif
+    /// A handle's color: every loop's in coral, the one color for what marks a position, which
+    /// leaves the loop's own color to its band and tab; trim's plain white on the practice ground,
+    /// so editing reads apart from practice.
+    static func handleColor(isTrim: Bool) -> Color {
+        isTrim ? .white : BrandStyle.coral
     }
 
     /// One VoiceOver step: a change of its own, written at once.
@@ -309,23 +324,27 @@ struct PracticeWaveform: View {
     }
 }
 
-/// What sits over the waveform's bottom corners: the playhead to the tenth of a second (or why
-/// the screen cannot be used yet) at the left, and Zoom out, Fit, and Zoom in at the right. Each
+/// What sits over the waveform's bottom corners: the readout at the left, unless it sits under
+/// the waveform, and Zoom out, Fit, and Zoom in at the right. Each
 /// sits on a backing that blocks the waveform under it, so a press here never scrubs, taps, or
 /// grabs a handle; the gap between them stays the waveform's.
 struct WaveformOverlay: View {
     let model: PracticeModel
     /// Why the waveform, transport, and modes cannot be used yet, shown in place of the readout.
     let blocker: String?
+    /// False where the readout sits under the waveform instead.
+    var showsReadout = true
 
     @Environment(\.spacing) private var spacing
 
     var body: some View {
         HStack(alignment: .bottom, spacing: spacing(8)) {
-            readout
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .backing()
+            if showsReadout {
+                PracticeReadout(model: model, blocker: blocker)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .modifier(Backing())
+            }
             Spacer(minLength: 0)
             HStack(spacing: 0) {
                 iconButton(RecordingScreenText.zoomOut, systemImage: "minus.magnifyingglass") {
@@ -350,25 +369,9 @@ struct WaveformOverlay: View {
             }
             .buttonStyle(.borderless)
             .disabled(blocker != nil)
-            .backing()
+            .modifier(Backing())
         }
         .padding(4)
-    }
-
-    @ViewBuilder private var readout: some View {
-        if let blocker {
-            Text(blocker)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-        } else {
-            TimelineView(.animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying)) { _ in
-                Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
-                    .font(.title3.weight(.semibold))
-                    .monospacedDigit()
-            }
-            .accessibilityHidden(true)
-        }
     }
 
     private func iconButton(_ name: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -383,20 +386,50 @@ struct WaveformOverlay: View {
     }
 }
 
-extension View {
-    /// The page's background, mostly opaque on iOS and fully on the Mac, so text and buttons read
-    /// over bars and loop tints.
-    /// Its shape takes every press, so none falls through to the waveform.
-    fileprivate func backing() -> some View {
+/// The playhead's time to the tenth of a second, or why the screen cannot be used yet.
+struct PracticeReadout: View {
+    let model: PracticeModel
+    let blocker: String?
+
+    var body: some View {
+        if let blocker {
+            Text(blocker)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        } else {
+            TimelineView(.animation(minimumInterval: 0.1, paused: !model.player.audio.isPlaying)) { _ in
+                Text(RecordingScreenText.preciseTime(milliseconds: Int64(model.shownCenterMs(at: model.clock()))))
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+            }
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+/// The page's background, or the practice ground where the screen stands on it, mostly opaque on
+/// iOS and fully on the Mac, so text and buttons read over bars and loop tints.
+/// Its shape takes every press, so none falls through to the waveform.
+private struct Backing: ViewModifier {
+    @Environment(\.practiceGround) private var ground
+
+    func body(content: Content) -> some View {
         #if os(macOS)
             // Opaque with a hairline, so a loop's tint and handle lines stop at its edge.
-            background(.background, in: .rect(cornerRadius: 8))
+            content
+                .background(.background, in: .rect(cornerRadius: 8))
                 .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(.separator) }
                 .contentShape(.rect(cornerRadius: 8))
         #else
-            background(.background.opacity(0.8), in: .rect(cornerRadius: 8))
+            content
+                .background(fill.opacity(0.8), in: .rect(cornerRadius: 8))
                 .contentShape(.rect(cornerRadius: 8))
         #endif
+    }
+
+    private var fill: AnyShapeStyle {
+        ground.map { AnyShapeStyle(PhoneStyle.practiceGround($0)) } ?? AnyShapeStyle(.background)
     }
 }
 
@@ -447,12 +480,13 @@ private struct HandleMark: View {
 }
 
 extension GraphicsContext.Shading {
-    /// The recording screen's playhead line: coral on the Mac, beside the loop handles.
-    static var playhead: Self {
+    /// The recording screen's playhead line: coral beside the loop handles on the Mac and on the
+    /// practice ground, plain otherwise.
+    static func playhead(onGround: Bool) -> Self {
         #if os(macOS)
             .color(MacStyle.coral)
         #else
-            .style(.primary)
+            onGround ? .color(BrandStyle.coral) : .style(.primary)
         #endif
     }
 }
@@ -467,17 +501,17 @@ extension GraphicsContext.Shading {
 
 extension GraphicsContext {
     /// Draws the playhead line in `rect`, outlined on the Mac as its loop handles are.
-    func fillPlayhead(_ rect: CGRect) {
+    func fillPlayhead(_ rect: CGRect, onGround: Bool) {
         #if os(macOS)
             fill(Path(rect.insetBy(dx: -1, dy: 0)), with: .color(.markOutline))
         #endif
-        fill(Path(rect), with: .playhead)
+        fill(Path(rect), with: .playhead(onGround: onGround))
     }
 }
 
 extension GraphicsContext {
     /// Draws `peaks` as bars across `rect`, or a plain timeline bar when there are none.
-    func fillPeakBars(_ peaks: ShownPeaks?, in rect: CGRect, style: HierarchicalShapeStyle) {
+    func fillPeakBars(_ peaks: ShownPeaks?, in rect: CGRect, with shading: Shading) {
         let barWidth: CGFloat = 2
         let step: CGFloat = 3
         let levels = peaks?.bars(Int(rect.width / step)) ?? []
@@ -495,6 +529,6 @@ extension GraphicsContext {
                     cornerSize: CGSize(width: 1, height: 1))
             }
         }
-        fill(path, with: .style(style))
+        fill(path, with: shading)
     }
 }

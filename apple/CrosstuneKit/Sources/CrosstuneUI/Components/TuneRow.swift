@@ -1,15 +1,17 @@
 import CrosstuneStore
 import SwiftUI
 
-/// The one tune row, wherever tunes are listed: the title, then a line of its key, status,
-/// tunings, and whether it is archived. An archived row is dimmed as a whole. In a list the row
-/// leads with its position. The Mac shows the same row on one line, as ``MacTuneRow``.
+/// The one tune row, wherever tunes are listed. On iPhone and iPad it is one line: status glyph,
+/// title, and the key at the trailing edge, with a second line only for tunings, capos, or
+/// archived. At the accessibility text sizes the key moves under the title so nothing clips. An
+/// archived row is dimmed as a whole. In a list the row leads with its position. The Mac shows
+/// the same row on one line, as ``MacTuneRow``.
 public struct TuneRow: View {
     private let text: TuneRowText
     private let position: Int?
     private let stacked: Bool
 
-    @ScaledMetric(relativeTo: .subheadline) private var positionWidth: CGFloat = 24
+    @ScaledMetric(relativeTo: .subheadline) private var positionWidth: CGFloat = 28
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.spacing) private var spacing
 
@@ -20,7 +22,9 @@ public struct TuneRow: View {
 
     /// `stacked` draws the iPhone and iPad row on every platform, for a snapshot of those screens
     /// rendered on a Mac.
-    init(tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil, stacked: Bool) {
+    init(
+        tune: Tune, userTune: UserTune, instruments: Set<String>, position: Int? = nil, stacked: Bool
+    ) {
         text = TuneRowText(tune: tune, userTune: userTune, instruments: instruments)
         self.position = position
         self.stacked = stacked
@@ -29,17 +33,17 @@ public struct TuneRow: View {
     public var body: some View {
         #if os(macOS)
             if stacked {
-                stackedRow
+                phoneRow
             } else {
                 MacTuneRow(text: text, position: position)
             }
         #else
-            stackedRow
+            phoneRow
         #endif
     }
 
-    private var stackedRow: some View {
-        HStack(spacing: spacing(12)) {
+    private var phoneRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: spacing(12)) {
             if let position {
                 Text(position, format: .number)
                     .font(.subheadline)
@@ -47,11 +51,16 @@ public struct TuneRow: View {
                     .foregroundStyle(.secondary)
                     .frame(minWidth: positionWidth, alignment: .trailing)
             }
-            VStack(alignment: .leading, spacing: spacing.rowLineGap) {
-                Text(text.title)
-                    .font(.headline)
-                    .rowLineLimit()
-                details
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: spacing.rowLineGap) {
+                    titleLine
+                    secondLine
+                    keyPill
+                }
+            } else {
+                titleLine
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                keyPill
             }
         }
         .opacity(text.isArchived ? 0.6 : 1)
@@ -59,41 +68,45 @@ public struct TuneRow: View {
         .accessibilityLabel(text.accessibilityLabel(position: position))
     }
 
-    private var details: some View {
-        // The accessibility text sizes wrap the line, so the status and tunings still show.
-        let layout =
-            dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(FlowLayout(spacing: spacing(12), lineSpacing: spacing.rowLineGap))
-            : AnyLayout(HStackLayout(spacing: spacing(12)))
-        return layout {
-            if let key = text.key {
-                KeyPill(key.key, suffix: key.suffix, size: .compact)
-            }
-            StatusDot(text.status)
-            if let tunings = text.tunings {
-                Text(tunings)
-                    .monospacedDigit()
+    private var titleLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: spacing(8)) {
+            StatusGlyph(text.status)
+            VStack(alignment: .leading, spacing: spacing.rowLineGap) {
+                Text(text.title)
+                    .font(.body)
                     .rowLineLimit()
-                    .truncationMode(.tail)
-            }
-            if text.isArchived {
-                Text(TuneRowText.archived)
-                    .fixedSize()
+                if !dynamicTypeSize.isAccessibilitySize { secondLine }
             }
         }
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder private var secondLine: some View {
+        if let line = text.secondLine {
+            Text(line)
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .rowLineLimit()
+        }
+    }
+
+    @ViewBuilder private var keyPill: some View {
+        if let key = text.key {
+            KeyPill(key.key, suffix: key.suffix, size: .compact)
+                .fixedSize()
+        }
     }
 }
 
 extension View {
-    /// A tune row's place in a list. The Mac row sets its own height and draws no separator.
+    /// A tune row's place in a list, with no separator. The Mac row sets its own height.
     func tuneRowInsets() -> some View {
         #if os(macOS)
             listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
         #else
             scaledRowInsets()
+                .listRowSeparator(.hidden)
         #endif
     }
 }

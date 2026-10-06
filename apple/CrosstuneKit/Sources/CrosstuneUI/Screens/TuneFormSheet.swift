@@ -115,9 +115,7 @@ private struct TuneFormContent: View {
             }
             titleSection
             Section(TuneFieldLabels.status) {
-                StatusRail(status: $model.values.status)
-                    .chipRowInsets()
-                    .listRowBackground(Color.clear)
+                StatusPicker(status: $model.values.status)
             }
             Section(TuneFieldLabels.key) {
                 KeyChooser(key: $model.values.key)

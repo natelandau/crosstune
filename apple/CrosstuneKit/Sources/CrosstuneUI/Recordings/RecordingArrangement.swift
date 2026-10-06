@@ -63,6 +63,16 @@ public enum RecordingsListText {
     }
 }
 
+/// One block of the iPhone recordings list, top to bottom.
+public enum RecordingsSection: Equatable, Sendable {
+    case unfinished
+    /// The count line over a list that a search or filter has emptied.
+    case count
+    case unfiled
+    case tunes
+    case storage
+}
+
 /// The recordings screen's two sections: those with no tune, and those filed under one.
 public struct RecordingArrangement: Equatable, Sendable {
     public let unfiled: [RecordingView]
@@ -83,6 +93,21 @@ public struct RecordingArrangement: Equatable, Sendable {
         case .flat(let views): unfiled.count + views.count
         case .byTune(let tunes): unfiled.count + tunes.reduce(0) { $0 + $1.views.count }
         }
+    }
+
+    /// The sections the iPhone list shows, in order: absent ones left out, storage last. While
+    /// an empty state shows over the list, the storage row stands aside so it never sits under
+    /// the empty state's words.
+    public static func sectionOrder(
+        hasUnfinished: Bool, hasUnfiled: Bool, tuneCount: Int, narrowedToNothing: Bool = false,
+        showsEmptyState: Bool = false
+    ) -> [RecordingsSection] {
+        var order: [RecordingsSection] = []
+        if hasUnfinished { order.append(.unfinished) }
+        if narrowedToNothing { order.append(.count) }
+        if hasUnfiled { order.append(.unfiled) }
+        if tuneCount > 0 { order.append(.tunes) }
+        return showsEmptyState ? order : order + [.storage]
     }
 
     nonisolated private static let folding: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]

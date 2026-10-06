@@ -16,6 +16,11 @@ public struct RecordSheet: View {
         self.claim = claim
     }
 
+    /// The line naming the tune a take is filed under.
+    public static func filingUnder(_ title: String) -> String {
+        "Filing under \(title)"
+    }
+
     public var body: some View {
         NavigationStack {
             RecordSheetBody(model: model)
@@ -46,9 +51,6 @@ public struct RecordSheet: View {
         } message: {
             Text(RecordSheetModel.discardMessage)
         }
-        .sensoryFeedback(trigger: model.phase) { old, new in
-            RecordSheetModel.feedback(from: old, to: new)
-        }
         .task { await model.open(claim: claim) }
         .onChange(of: model.recorder.savedRecordingID) { model.settle() }
         .onChange(of: model.outcome) {
@@ -72,6 +74,7 @@ struct RecordSheetBody: View {
     var body: some View {
         VStack(spacing: 24) {
             status
+            filing
             Spacer(minLength: 0)
             VStack(spacing: 16) {
                 if model.isLive {
@@ -111,6 +114,19 @@ struct RecordSheetBody: View {
         .accessibilityAddTraits(.updatesFrequently)
     }
 
+    /// Only the iPhone sheet names the tune; the Mac panel keeps its layout.
+    @ViewBuilder private var filing: some View {
+        #if os(iOS)
+            if let title = model.tuneTitle {
+                Text(RecordSheet.filingUnder(title))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            }
+        #endif
+    }
+
     private var timer: some View {
         Text(RecordingText.duration(milliseconds: model.elapsedMilliseconds) ?? "")
             .font(.system(size: timerSize, weight: .light).monospacedDigit())
@@ -141,15 +157,39 @@ struct RecordSheetBody: View {
 
     @ViewBuilder private var controls: some View {
         if model.isLive {
-            HStack(spacing: 24) {
-                StopButton(disabled: !model.hasStarted) { Task { await model.stop() } }
-                if model.canResume {
-                    Button(RecordSheetModel.resume, systemImage: "record.circle") { Task { await model.resume() } }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
-                        .transition(.opacity)
+            #if os(iOS)
+                // A hidden copy of Resume on the leading side keeps Stop centered; where the
+                // three do not fit across, Resume stacks under Stop.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 24) {
+                        resume.hidden().accessibilityHidden(true)
+                        stop
+                        resume
+                    }
+                    VStack(spacing: 16) {
+                        stop
+                        resume
+                    }
                 }
-            }
+            #else
+                HStack(spacing: 24) {
+                    StopButton(disabled: !model.hasStarted) { Task { await model.stop() } }
+                    resume
+                }
+            #endif
+        }
+    }
+
+    private var stop: some View {
+        StopButton(disabled: !model.hasStarted) { Task { await model.stop() } }
+    }
+
+    @ViewBuilder private var resume: some View {
+        if model.canResume {
+            Button(RecordSheetModel.resume, systemImage: "record.circle") { Task { await model.resume() } }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .transition(.opacity)
         }
     }
 }
@@ -159,7 +199,7 @@ private struct StopButton: View {
     #if os(macOS)
         static let diameter = MacStyle.stopDiameter
     #else
-        static let diameter: CGFloat = 96
+        static let diameter = PhoneStyle.stopDiameter
     #endif
 
     let disabled: Bool

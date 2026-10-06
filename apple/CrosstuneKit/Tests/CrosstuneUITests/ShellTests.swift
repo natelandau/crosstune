@@ -94,24 +94,19 @@ import Testing
 }
 
 @Suite struct TabSlotTests {
+    @Test @MainActor func theRecordSlotStandsDownOnlyWhileTheShellIsCovered() {
+        #expect(TabSlot.recordIsEnabled(cover: nil))
+        let cover = ShellCover()
+        #expect(TabSlot.recordIsEnabled(cover: cover))
+        cover.claim()
+        #expect(!TabSlot.recordIsEnabled(cover: cover))
+        cover.release()
+        #expect(TabSlot.recordIsEnabled(cover: cover))
+    }
+
     @Test func choosingTheRecordSlotRecordsAndKeepsTheTab() {
         #expect(TabSlot.record.resolved(current: .lists) == (.lists, true))
         #expect(TabSlot.destination(.settings).resolved(current: .lists) == (.settings, false))
-    }
-}
-
-@Suite struct RecordDomeTests {
-    @Test func keepsItsFullSizeWhenItsSlotHasRoom() {
-        #expect(RecordDome.diameter(forWidth: 402) == RecordDome.diameter)
-        #expect(RecordDome.diameter(forWidth: .infinity) == RecordDome.diameter)
-    }
-
-    @Test func narrowsToItsSlotInANarrowWindow() {
-        let width: CGFloat = 320
-        let slot = (width - 2 * RecordDome.barInset) / 5
-        #expect(RecordDome.diameter(forWidth: width) == slot)
-        #expect(slot < RecordDome.diameter)
-        #expect(RecordDome.diameter(forWidth: 0) == 0)
     }
 }
 

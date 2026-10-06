@@ -37,7 +37,7 @@
 
             var sections: SettingsScreen.Sections {
                 switch self {
-                case .general: [.appearance, .recording, .sync, .storage, .about]
+                case .general: [.appearance, .recording, .downloads, .sync, .storage, .about]
                 case .account: [.account, .stats]
                 case .instruments: [.instruments]
                 case .musicServices: [.musicServices, .appleMusic]

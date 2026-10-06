@@ -1096,3 +1096,34 @@ private struct RefusingSyncAPI: SyncAPI {
         #expect(EditRecordingText.clearDate == "Clear date")
     }
 }
+
+@Suite struct RecordingsSectionOrderTests {
+    @Test func storageSummaryFollowsTheGroups() {
+        #expect(
+            RecordingArrangement.sectionOrder(hasUnfinished: true, hasUnfiled: true, tuneCount: 2)
+                == [.unfinished, .unfiled, .tunes, .storage])
+        #expect(
+            RecordingArrangement.sectionOrder(hasUnfinished: false, hasUnfiled: true, tuneCount: 0)
+                == [.unfiled, .storage])
+        #expect(
+            RecordingArrangement.sectionOrder(hasUnfinished: true, hasUnfiled: false, tuneCount: 1)
+                == [.unfinished, .tunes, .storage])
+        #expect(
+            RecordingArrangement.sectionOrder(hasUnfinished: false, hasUnfiled: false, tuneCount: 0) == [.storage])
+        #expect(
+            RecordingArrangement.sectionOrder(
+                hasUnfinished: true, hasUnfiled: false, tuneCount: 0, narrowedToNothing: true)
+                == [.unfinished, .count, .storage])
+    }
+
+    @Test func theStorageRowStandsAsideForAnEmptyState() {
+        #expect(
+            RecordingArrangement.sectionOrder(
+                hasUnfinished: false, hasUnfiled: false, tuneCount: 0, showsEmptyState: true)
+                == [])
+        #expect(
+            RecordingArrangement.sectionOrder(
+                hasUnfinished: false, hasUnfiled: false, tuneCount: 0, narrowedToNothing: true, showsEmptyState: true)
+                == [.count])
+    }
+}

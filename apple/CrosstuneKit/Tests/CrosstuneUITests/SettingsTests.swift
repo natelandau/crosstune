@@ -430,6 +430,57 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
     }
 }
 
+@Suite struct SettingsRootTests {
+    @Test func everySettingsSectionHasOneHomeOnPhone() {
+        // Cards and footer, then what each category's page declares.
+        var homes: [SettingsScreen.Sections] = SettingsCategory.allCases.flatMap { [$0.sections, $0.pageRows] }
+        homes += [[.account], [.stats], [.about]]
+        var seen: SettingsScreen.Sections = []
+        for home in homes {
+            #expect(seen.isDisjoint(with: home), "\(home) repeats a section")
+            seen.formUnion(home)
+        }
+        #expect(seen == .all)
+    }
+
+    @Test func syncLineSaysWhatNeedsAttentionFirst() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let en = Locale(identifier: "en_US")
+        #expect(
+            SettingsRoot.syncLine(attention: .offline, lastSynced: now, now: now, locale: en)
+                == SyncStatus.offline.label)
+        #expect(
+            SettingsRoot.syncLine(attention: nil, lastSynced: now.addingTimeInterval(-120), now: now, locale: en)
+                == "Synced 2 minutes ago")
+        #expect(
+            SettingsRoot.syncLine(attention: nil, lastSynced: now.addingTimeInterval(-10), now: now, locale: en)
+                == "Synced just now")
+        #expect(SettingsRoot.syncLine(attention: nil, lastSynced: nil, now: now, locale: en) == "Not synced yet")
+    }
+
+    @Test @MainActor func statusBarLabelsEveryStatusAndHidesEmptyOnes() {
+        let counts = ["known": 4, "learning": 0, "want_to_learn": 9]
+        #expect(StatusBar.accessibilityText(counts) == "Known 4, Learning 0, Unknown 9")
+        #expect(StatusBar.segments(counts).map(\.status) == ["known", "want_to_learn"])
+    }
+
+    /// The Settings stats card and the stats screen draw the bar from the one count, so the
+    /// card's line and its bar always agree on archived tunes.
+    @Test func statusBarCountsComeFromTheStats() {
+        let counts = Stats.Counts(
+            known: 4, learning: 2, wantToLearn: 9, tunes: 15, archived: 3, lists: 0, recordings: 0, links: 0,
+            scans: 0, scanTunes: 0)
+        #expect(StatusBar.byStatus(counts) == ["known": 4, "learning": 2, "want_to_learn": 9])
+    }
+
+    @Test func categoriesNameTheirPages() {
+        #expect(
+            SettingsCategory.allCases.map(\.title) == [
+                "Instruments", "Music services", "Recording", Appearance.title, "Sync and storage",
+            ])
+    }
+}
+
 #if os(macOS)
     @Suite struct MacSettingsTabsTests {
         @Test func everySectionShowsInExactlyOneTab() {
@@ -439,6 +490,11 @@ private func storedSettings(_ store: CrosstuneStore) async throws -> UserSetting
                 seen.formUnion(pane.sections)
             }
             #expect(seen == .all)
+        }
+
+        @Test func macGeneralTabIsUnchanged() {
+            #expect(
+                MacSettingsTabs.Pane.general.sections == [.appearance, .recording, .downloads, .sync, .storage, .about])
         }
     }
 #endif

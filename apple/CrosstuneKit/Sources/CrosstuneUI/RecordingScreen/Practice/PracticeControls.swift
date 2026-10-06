@@ -31,6 +31,7 @@ struct PracticeControls: View {
     let blocker: String?
 
     @Environment(\.spacing) private var spacing
+    @Environment(\.practiceGround) private var ground
 
     private var player: PlayerModel { model.player }
 
@@ -56,21 +57,29 @@ struct PracticeControls: View {
         return Button {
             player.audio.toggle()
         } label: {
-            Image(systemName: face.systemImage)
-                #if os(macOS)
-                    .font(.system(size: 24))
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(minWidth: 40, minHeight: 40)
-                #else
-                    .font(.largeTitle)
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(minWidth: 64, minHeight: 64)
-                #endif
-                .contentShape(.rect)
+            if let ground {
+                GroundPlayFace(face: face, ground: ground)
+            } else {
+                standardPlayFace(face)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(face.label)
         .help(face.label)
+    }
+
+    private func standardPlayFace(_ face: PlayFace) -> some View {
+        Image(systemName: face.systemImage)
+            #if os(macOS)
+                .font(.system(size: 24))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(minWidth: 40, minHeight: 40)
+            #else
+                .font(.largeTitle)
+                .contentTransition(.symbolEffect(.replace))
+                .frame(minWidth: 64, minHeight: 64)
+            #endif
+            .contentShape(.rect)
     }
 
     private func skip(_ seconds: TimeInterval, systemImage: String, name: (TimeInterval) -> String) -> some View {
@@ -89,5 +98,26 @@ struct PracticeControls: View {
         }
         .buttonStyle(.plain)
         .help(name(abs(seconds)))
+    }
+}
+
+/// Play on the practice ground: the glyph in the ground's color on a white disc, at a fixed size
+/// so the transport stays put as its labels scale.
+private struct GroundPlayFace: View {
+    let face: PlayFace
+    /// The appearance whose ground the glyph takes.
+    let ground: ColorScheme
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        Image(systemName: face.systemImage)
+            .font(.system(size: 30, weight: .semibold))
+            .contentTransition(.symbolEffect(.replace))
+            .foregroundStyle(PhoneStyle.practiceGround(ground))
+            .frame(width: PhoneStyle.transportPlayDiameter, height: PhoneStyle.transportPlayDiameter)
+            .background(.white, in: .circle)
+            .opacity(isEnabled ? 1 : 0.4)
+            .contentShape(.circle)
     }
 }

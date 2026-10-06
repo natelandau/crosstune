@@ -248,15 +248,17 @@ private func migrator(plus identifier: String, _ body: @escaping @Sendable (Data
 @Test func aCloseThatFailsLeavesTheStoreOpen() throws {
     let root = TemporaryRoot()
     let store = try root.open("user_a")
-    // A statement still alive on the writer keeps SQLite from closing the connection.
-    var statement: Statement? = try store.database.writeWithoutTransaction { db in
-        try db.makeStatement(sql: "SELECT 1")
+    do {
+        // A statement still alive on the writer keeps SQLite from closing the connection.
+        let statement = try store.database.writeWithoutTransaction { db in
+            try db.makeStatement(sql: "SELECT 1")
+        }
+        withExtendedLifetime(statement) {
+            #expect(throws: DatabaseError.self) { try store.close() }
+            #expect(!store.isClosed)
+        }
     }
 
-    #expect(throws: DatabaseError.self) { try store.close() }
-    #expect(!store.isClosed)
-
-    statement = nil
     try store.close()
     #expect(store.isClosed)
 }

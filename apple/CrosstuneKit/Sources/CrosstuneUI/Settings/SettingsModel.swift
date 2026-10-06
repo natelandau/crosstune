@@ -75,6 +75,7 @@ public final class SettingsModel {
     nonisolated public static let recordings = "Recordings"
     nonisolated public static let lastSynced = "Last synced"
     nonisolated public static let justNow = "Just now"
+    nonisolated static let justNowInSentence = "just now"
     nonisolated public static let syncNow = "Sync now"
     nonisolated public static let oneRejected = "1 change was rejected by the server and is only on this device."
     nonisolated public static let storage = "Storage"
@@ -349,9 +350,12 @@ public final class SettingsModel {
     }
 
     /// How long ago the last sync finished, in words.
-    nonisolated public static func lastSyncedText(_ date: Date, now: Date, locale: Locale = .current) -> String {
-        if now.timeIntervalSince(date) < 60 { return justNow }
+    nonisolated public static func lastSyncedText(
+        _ date: Date, now: Date, locale: Locale = .current, inSentence: Bool = false
+    ) -> String {
+        if now.timeIntervalSince(date) < 60 { return inSentence ? justNowInSentence : justNow }
         let formatter = RelativeDateTimeFormatter()
+        if inSentence { formatter.formattingContext = .middleOfSentence }
         formatter.locale = locale
         formatter.dateTimeStyle = .named
         formatter.unitsStyle = .full

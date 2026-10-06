@@ -217,7 +217,7 @@ private func countsOnce(_ onDevice: Int, _ total: Int) -> @Sendable () -> AsyncT
         await gate.finish(.success(zip))
         await run.value
         #expect(model?.exported == zip)
-        weak var gone = model
+        weak let gone = model
         model = nil
         for _ in 0..<1000 where gone != nil { await Task.yield() }
         #expect(gone == nil)

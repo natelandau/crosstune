@@ -5,6 +5,7 @@ import CrosstuneTestSupport
 import Foundation
 import GRDB
 import MediaPlayer
+import Synchronization
 import Testing
 
 @testable import CrosstuneAudio
@@ -496,8 +497,8 @@ private func eventually(_ condition: () -> Bool) async throws {
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
         let url = root.url.appending(path: "tone.aac")
         try writeTone(to: url, seconds: 1)
-        var capturing = true
-        let player = AudioPlayer(isCapturing: { capturing }, rendersOffline: true)
+        let capturing = Mutex(true)
+        let player = AudioPlayer(isCapturing: { capturing.withLock { $0 } }, rendersOffline: true)
         var published: [PublishedPlayback] = []
         player.publishes = { published.append($0) }
         player.load(url, nowPlaying: NowPlaying(title: "Take", tuneTitle: nil))
@@ -509,7 +510,7 @@ private func eventually(_ condition: () -> Bool) async throws {
         #expect(published.map(\.isPlaying) == [false])
 
         // Refused for a file that failed.
-        capturing = false
+        capturing.withLock { $0 = false }
         let broken = root.url.appending(path: "broken.m4a")
         try Data("not audio".utf8).write(to: broken)
         player.load(broken, nowPlaying: NowPlaying(title: "Broken", tuneTitle: nil))

@@ -8,6 +8,7 @@ struct MonthBarsView: View {
     var allTime = false
 
     @Environment(\.spacing) private var spacing
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var shown: [Stats.Month] { allTime && months.hasAllTime ? months.allTime : months.last12 }
 
@@ -27,6 +28,8 @@ struct MonthBarsView: View {
                 .accessibilityHidden(true)
             }
         }
+        // Only the All time choice moves the bars; the ones on arrival are already in place.
+        .animation(reduceMotion ? nil : .default, value: allTime)
     }
 
     private func strip(_ label: String, count: KeyPath<Stats.Month, Int>) -> some View {
@@ -44,7 +47,7 @@ struct MonthBarsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay(alignment: .bottom) {
                             UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2)
-                                .fill(.tint)
+                                .fill(BrandStyle.accent)
                                 .frame(height: 64 * CGFloat(n) / CGFloat(max))
                         }
                         .accessibilityElement()

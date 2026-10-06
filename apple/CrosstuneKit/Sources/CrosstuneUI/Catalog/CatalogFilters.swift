@@ -191,22 +191,13 @@ public struct CatalogFilters: Hashable, Sendable {
 
     /// How many of the sheet's filters are set: the count on the Filters button and the gate on
     /// Reset. Status, key, and type sit on the screen, so they are not among them.
-    public var sheetCount: Int { sheetCount(railsOnScreen: true) }
-
-    /// ``sheetCount`` with the key and type rails on the screen or, when `railsOnScreen` is
-    /// false, in the sheet.
-    public func sheetCount(railsOnScreen: Bool) -> Int {
-        facets.keys.count { $0.isInSheet(railsOnScreen: railsOnScreen) } + (archived ? 1 : 0)
-            + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
+    public var sheetCount: Int {
+        facets.keys.count(where: \.isInSheet) + (archived ? 1 : 0) + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
     }
 
     /// These filters with the sheet's cleared and the screen's kept.
-    public var sheetReset: CatalogFilters { sheetReset(railsOnScreen: true) }
-
-    /// ``sheetReset`` with the key and type rails on the screen or, when `railsOnScreen` is
-    /// false, in the sheet.
-    public func sheetReset(railsOnScreen: Bool) -> CatalogFilters {
-        CatalogFilters(status: status, facets: facets.filter { !$0.key.isInSheet(railsOnScreen: railsOnScreen) })
+    public var sheetReset: CatalogFilters {
+        CatalogFilters(status: status, facets: facets.filter { !$0.key.isInSheet })
     }
 }
 

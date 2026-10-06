@@ -13,12 +13,17 @@ public struct ListRow: View {
         self.summary = summary
     }
 
+    /// "12 tunes · Edited today", the row's second line.
+    nonisolated static func detail(count: Int, edited: Timestamp, now: Date = .now) -> String {
+        "\(CatalogSearch.tunes(count)) · \(EditedText.label(edited, now: now))"
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: spacing.rowLineGap) {
             Text(summary.name)
                 .font(.headline)
                 .rowLineLimit()
-            Text(summary.details())
+            Text(Self.detail(count: summary.count, edited: summary.lastEditedAt))
                 .font(.subheadline)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)

@@ -30,7 +30,9 @@ public struct ChoiceCapsule<Label: View>: View {
             #else
                 label
                     .font(.subheadline)
-                    .foregroundStyle(isChosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                    .foregroundStyle(
+                        isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)
+                    )
                     .padding(.horizontal, spacing(14))
                     .padding(.vertical, spacing.chipVertical)
                     .background(isChosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
@@ -39,6 +41,37 @@ public struct ChoiceCapsule<Label: View>: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isChosen ? .isSelected : [])
+    }
+}
+
+/// A capsule's look without its button, for a chip inside a button of its own.
+struct ChoiceCapsuleLabel: View {
+    let text: String
+    let chosen: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.spacing) private var spacing
+
+    var body: some View {
+        #if os(macOS)
+            Text(text)
+                .font(MacStyle.body)
+                .lineLimit(1)
+                .foregroundStyle(chosen ? AnyShapeStyle(MacStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary))
+                .padding(.horizontal, spacing(14))
+                .padding(.vertical, spacing.chipVertical)
+                .background(chosen ? AnyShapeStyle(MacStyle.accent) : neutralFill(colorScheme), in: .capsule)
+                .contentShape(.capsule)
+        #else
+            Text(text)
+                .font(.subheadline)
+                .lineLimit(1)
+                .foregroundStyle(chosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary))
+                .padding(.horizontal, spacing(14))
+                .padding(.vertical, spacing.chipVertical)
+                .background(chosen ? AnyShapeStyle(.tint) : neutralFill(colorScheme), in: .capsule)
+                .tapTarget()
+        #endif
     }
 }
 

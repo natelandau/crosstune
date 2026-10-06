@@ -29,7 +29,7 @@ struct SplitShell: View {
     #endif
     @State private var columns = NavigationSplitViewVisibility.automatic
     #if os(macOS)
-        @State private var counts: LiveQuery<SidebarCounts?>?
+        @State private var counts: LiveQuery<CatalogCounts?>?
     #endif
 
     /// The lists the sidebar shows, in the musician's order.
@@ -90,7 +90,7 @@ struct SplitShell: View {
         .task(id: store.userID) {
             lists = LiveQuery(store, initial: nil) { try Self.sidebarLists($0) }
             #if os(macOS)
-                counts = LiveQuery(store, initial: nil) { try SidebarCounts.fetch($0) }
+                counts = LiveQuery(store, initial: nil) { try CatalogCounts.fetch($0) }
             #endif
         }
         .onChange(of: recordingsShown) {
@@ -224,8 +224,8 @@ struct SplitShell: View {
     /// never clears a status the musician set.
     @MainActor
     func pickSidebarRow(_ item: SidebarItem, place: ShellPlace, catalog: CatalogModel?) {
-        if case .some(let status) = item.statusFilter, let catalog, catalog.status != status {
-            catalog.updateFilters { $0.status = status }
+        if case .some(let status) = item.statusFilter, let catalog {
+            StatusScope.choose(status, in: catalog)
         }
         place.sidebar = item
         syncSidebar(place: place, catalog: catalog)

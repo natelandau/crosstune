@@ -22,6 +22,13 @@ public struct TuneRowText: Hashable, Sendable {
         isArchived = userTune.archivedAt != nil
     }
 
+    /// The line under the title on iPhone and iPad, or nil when there is nothing beyond the
+    /// glyph, title, and key to say: the tunings and capos, then whether it is archived.
+    public var secondLine: String? {
+        let parts = [tunings, isArchived ? Self.archived : nil].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
     /// The second line's parts as a screen reader hears them.
     public var spokenDetails: [String] {
         var parts: [String] = []

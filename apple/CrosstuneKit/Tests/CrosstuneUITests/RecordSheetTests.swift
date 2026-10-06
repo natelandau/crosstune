@@ -158,6 +158,84 @@ final class ToneInput: AudioInput {
 }
 
 @MainActor
+@Suite struct RecordSheetFilingTests {
+    @Test func filingLineNamesTheTune() {
+        #expect(RecordSheet.filingUnder("Soldier's Joy") == "Filing under Soldier's Joy")
+    }
+
+    @Test func recentTakeMarksAndClears() {
+        let take = RecentTake()
+        #expect(take.id == nil)
+        take.mark("a")
+        #expect(take.id == "a")
+        take.mark("b")
+        #expect(take.id == "b")
+        take.clear()
+        #expect(take.id == nil)
+    }
+
+    @Test func aLateRowNeverClearsANewerTake() {
+        let take = RecentTake()
+        take.mark("a")
+        take.mark("b")
+        take.clear(ifID: "a")
+        #expect(take.id == "b")
+        take.clear(ifID: "b")
+        #expect(take.id == nil)
+    }
+
+    @Test func aMarkExpiresAfterItsLifetime() {
+        var clock = Date(timeIntervalSince1970: 1000)
+        let take = RecentTake(now: { clock })
+        take.mark("a")
+        clock += RecentTake.lifetime.seconds - 0.1
+        #expect(take.id == "a")
+        clock += 0.2
+        #expect(take.id == nil)
+        take.mark("b")
+        #expect(take.id == "b")
+    }
+
+    /// Runs a highlight whose `cancelAt`th wait, counting from zero, is cancelled, and returns
+    /// each lit change with its duration and whether the mark was cleared.
+    private func highlight(cancelAt: Int?) async -> (steps: [(Bool, Duration)], cleared: Bool) {
+        var steps: [(Bool, Duration)] = []
+        var cleared = false
+        var waits = 0
+        await HighlightRun(
+            set: { steps.append(($0, $1)) },
+            sleep: { _ in
+                defer { waits += 1 }
+                if waits == cancelAt { throw CancellationError() }
+            },
+            clear: { cleared = true }
+        ).run()
+        return (steps, cleared)
+    }
+
+    @Test func aHighlightLightsHoldsFadesAndClearsTheMark() async {
+        let (steps, cleared) = await highlight(cancelAt: nil)
+        #expect(steps.map(\.0) == [true, false])
+        #expect(steps.map(\.1) == [HighlightTiming.fadeIn, HighlightTiming.fadeOut])
+        #expect(cleared)
+    }
+
+    @Test func aHighlightCutShortFadesOutRatherThanSnappingOff() async {
+        for cancelAt in [0, 1] {
+            let (steps, cleared) = await highlight(cancelAt: cancelAt)
+            #expect(steps.last?.0 == false)
+            #expect(steps.last?.1 == HighlightTiming.fadeOut)
+            // A newer take or an expired mark is not this row's to clear.
+            #expect(!cleared)
+        }
+    }
+
+    @Test func theHighlightPhasesSumToTheConstant() {
+        #expect(HighlightTiming.fadeIn + HighlightTiming.hold + HighlightTiming.fadeOut == PhoneStyle.newTakeHighlight)
+    }
+}
+
+@MainActor
 @Suite struct RecordSheetModelTests {
     private let root = TemporaryRoot()
     private let input = ToneInput()
@@ -192,7 +270,10 @@ final class ToneInput: AudioInput {
     @Test func recordsAndStopsSavingUnderTheTuneAndCloses() async throws {
         let (tuneID, _) = try await Commands(store: store).createTune(
             TuneInput(title: "Soldier's Joy"), userTune: UserTuneInput(status: "known"))
-        let model = RecordSheetModel(recorder: recorder, tuneID: tuneID)
+        let recent = RecentTake()
+        let model = RecordSheetModel(recorder: recorder, tuneID: tuneID, recentTake: recent)
+        await model.loadTuneTitle(from: store)
+        #expect(model.tuneTitle == "Soldier's Joy")
         await model.begin()
         try input.play(seconds: 1)
 
@@ -206,6 +287,8 @@ final class ToneInput: AudioInput {
         let saved = try #require(try await recordings().first)
         #expect(saved.tuneID == tuneID)
         #expect(model.outcome == .saved(recordingID: saved.id))
+        model.markRecent()
+        #expect(recent.id == saved.id)
     }
 
     @Test func aSaveWithSomethingToSayStaysOpenUntilDone() async throws {
@@ -370,23 +453,6 @@ final class ToneInput: AudioInput {
         await model.abandon()
         #expect(try await recordings().count == 1)
         #expect(recorder.state == .idle)
-    }
-}
-
-@Suite struct RecordFeedbackTests {
-    @Test func startsAsCaptureBegins() {
-        #expect(RecordSheetModel.feedback(from: .starting, to: .recording) == .start)
-        #expect(RecordSheetModel.feedback(from: .interrupted, to: .recording) == nil)
-    }
-
-    @Test func stopsAsCaptureEndsWhateverTheSaveCameTo() {
-        for old in [RecordPhase.recording, .interrupted] {
-            for new in [RecordPhase.saving, .saved, .notRecording] {
-                #expect(RecordSheetModel.feedback(from: old, to: new) == .stop)
-            }
-        }
-        #expect(RecordSheetModel.feedback(from: .saving, to: .saved) == nil)
-        #expect(RecordSheetModel.feedback(from: .starting, to: .notRecording) == nil)
     }
 }
 
