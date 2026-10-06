@@ -12,6 +12,7 @@ on:
       - ".pre-commit-config.yaml"
       - ".typos.toml"
       - "compose.yml"
+      - "justfile"
   workflow_call:
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
@@ -49,7 +50,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(api/|scripts/|\.github/|\.pre-commit-config\.yaml$|\.typos\.toml$|compose\.yml$)'
+          pattern: '^(api/|scripts/|\.github/|\.pre-commit-config\.yaml$|\.typos\.toml$|compose\.yml$|justfile$)'
 
   lint:
     needs: changes
@@ -70,15 +71,10 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: uv sync --all-groups
       - run: just lint
-      - name: prek
+      # The module hooks it skips run in `just lint` here and in the web, site, and Apple
+      # workflows, whose toolchains this runner lacks.
+      - run: just lint-repo
         working-directory: .
-        run: |
-          uv run --project api prek run --all-files --config .pre-commit-config.yaml
-        env:
-          # Hooks another job already runs: ty in `just lint`, and the web, site, and Swift
-          # hooks in their own workflows, whose toolchains this runner lacks. A new hook of
-          # that kind belongs here.
-          PREK_SKIP: pytest,ty,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format
 
   test:
     needs: changes

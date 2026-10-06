@@ -103,7 +103,7 @@ removes the Postgres and RustFS volumes; `just dev-down` keeps them.
 
 | Command                       | Runs                                                                                                                  |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `just lint`                   | Every linter in every module, then a spell check.                                                                     |
+| `just lint`                   | Every linter in every module, then the hooks no module covers, such as the spell check and the workflow linters.      |
 | `just test`                   | API tests on databases of their own in the compose Postgres, web unit and browser tests, and the Swift package tests. |
 | `just api::test [args]`       | API tests. Args narrow the run and drop coverage.                                                                     |
 | `just web::test [args]`       | Web tests. Args go to vitest.                                                                                         |

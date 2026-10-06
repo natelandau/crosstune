@@ -92,7 +92,7 @@ stress runs *args:
         pnpm vitest run --sequence.shuffle --sequence.seed="$seed" {{ args }} || failed+=("$seed")
     done
     if (( ${#failed[@]} )); then
-        echo "${#failed[@]} of {{ runs }} runs failed; replay one with SEED=<seed> just stress 1 {{ args }}"
+        echo "${#failed[@]} of {{ runs }} runs failed; replay one with SEED=<seed> just web::stress 1 {{ args }}"
         printf '  %s\n' "${failed[@]}"
         exit 1
     fi

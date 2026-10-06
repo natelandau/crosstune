@@ -17,8 +17,15 @@ e2e_api_port := "8001"
 default:
     @just --list
 
-# Run every linter in every module, then spell check the whole repository
-lint: api::lint web::lint site::lint apple::lint typos
+# The prek hooks that only call a module's lint recipe, which `just lint` and CI run directly
+module_hooks := "ty,ruff-check,ruff-format,web-eslint,web-prettier,web-tsc,site-eslint,site-prettier,site-tsc,apple-swift-format"
+
+# Run every linter in every module, then the hooks no module covers
+lint: api::lint web::lint site::lint apple::lint lint-repo
+
+# Run the prek hooks no module lint covers, such as the spell check, yamllint, and actionlint
+lint-repo:
+    PREK_SKIP=pytest,{{ module_hooks }} uv run --project api prek run --all-files --config .pre-commit-config.yaml
 
 # Spell check the whole repository, or only the given paths
 typos *paths:
@@ -54,14 +61,8 @@ e2e *args:
     just api::e2e-db-reset
     just api::storage-reset crosstune-e2e
     echo "starting the e2e API on :{{ e2e_api_port }}, logging to $log"
-    just api::run-e2e > "$log" 2>&1 &
-    # The recipe creates and migrates the database before it serves, so this waits for
-    # more than a process start.
-    for _ in $(seq 1 90); do
-        curl -fsS "$health" > /dev/null 2>&1 && break
-        sleep 1
-    done
-    curl -fsS "$health" > /dev/null 2>&1 || { cat "$log"; echo "the e2e API did not start" >&2; exit 1; }
+    just api::_serve-e2e > "$log" 2>&1 &
+    just api::wait-e2e "$!" "$log"
     just web::e2e {{ args }}
 
 # Remove build artifacts and caches everywhere
@@ -77,17 +78,18 @@ smoke api_origin web_origin site_origin="":
 # Install every module's dependencies and create missing .env files from their examples
 setup: api::setup web::setup site::setup apple::setup
 
-# Install dependencies, git hooks, and start local services; run it in the main checkout,
-# since the hooks every worktree shares call the prek of the checkout that installed them
+# The hooks every worktree shares call the prek of the checkout that installed them.
+
+# Install dependencies, git hooks, and local services; run it in the main checkout only
 dev-setup: setup
     uv run --project api prek install --config .pre-commit-config.yaml
     docker compose up -d
 
-# Create .worktrees/<branch> on a new branch from the main checkout's HEAD, copy in its .env
-# files, install its dependencies, and give it its own copy of main's database and bucket
+# Create .worktrees/<branch> with main's .env files, its dependencies, and its own database and bucket
 worktree branch:
     #!/usr/bin/env bash
     set -euo pipefail
+    # The branch starts from the main checkout's HEAD, wherever this runs from.
     main="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
     path="$main/.worktrees/{{ branch }}"
     git -C "$main" worktree add "$path" -b '{{ branch }}'
@@ -116,19 +118,25 @@ worktree-env:
         echo "copied ${env#"$main"/}"
     done
 
-# Start Postgres, apply migrations, then run the API, web client, and site together
+# Start Postgres and RustFS, apply migrations, then run the API, web client, and site together
 dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
     scripts/dev-ports.sh 8000 5173 4321
     docker compose up -d --wait
     just api::storage-setup
     # A worktree's api/.env names main's database again after `just worktree-env` copies it.
-    if [ "$(git rev-parse --absolute-git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ]; then just api::worktree-db; fi
-    just api::migrate
-    @echo 'Open http://localhost:4321 (site) or http://localhost:5173 (app)'
+    # worktree-db points it back at the worktree's own copy and migrates that.
+    if [ "$(git rev-parse --absolute-git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ]; then
+        just api::worktree-db
+    else
+        just api::migrate
+    fi
+    echo 'Open http://localhost:4321 (site) or http://localhost:5173 (app)'
     # Ctrl-C ends the session with 130, which is the normal way out, not a failure
     uv run --project api honcho start -f Procfile.dev || [ $? -eq 130 ]
 
-# Stop Postgres; the API, web client, and site stop with Ctrl-C in `just dev`
+# Stop Postgres and RustFS; the API, web client, and site stop with Ctrl-C in `just dev`
 dev-down:
     docker compose down
 

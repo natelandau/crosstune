@@ -1,0 +1,42 @@
+---
+name: Set up a Node module
+description: Install pnpm, Node, just, and a module's locked packages, and Chromium on request
+
+inputs:
+  module:
+    description: The directory that holds the package.json and lockfile, web or site
+    required: true
+  chromium:
+    description: "'true' to install Playwright's Chromium, whose download is cached between runs"
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+      with:
+        package_json_file: ${{ inputs.module }}/package.json
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: ${{ inputs.module }}/.node-version
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.module }}/pnpm-lock.yaml
+    - uses: extractions/setup-just@v4
+    - shell: bash
+      working-directory: ${{ inputs.module }}
+      run: pnpm install --frozen-lockfile
+    - id: playwright
+      if: inputs.chromium == 'true'
+      shell: bash
+      working-directory: ${{ inputs.module }}
+      run: printf 'version=%s\n' "$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+    - if: inputs.chromium == 'true'
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+    # The cache holds only the browser, so the system libraries it needs install every run.
+    - if: inputs.chromium == 'true'
+      shell: bash
+      working-directory: ${{ inputs.module }}
+      run: pnpm exec playwright install --with-deps chromium

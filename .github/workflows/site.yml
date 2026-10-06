@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths: ["site/**", "brand/**", ".github/workflows/site.yml", "justfile"]
+    paths: ["site/**", "brand/**", ".github/workflows/site.yml", ".github/actions/setup-node/**", "justfile"]
 
 # A push to a pull request cancels that PR's previous run. Every other run, including a
 # push to main, falls back to its own run ID and is never canceled.
@@ -41,7 +41,7 @@ jobs:
       - id: changes
         uses: ./.github/actions/changes
         with:
-          pattern: '^(site/|brand/|\.github/workflows/site\.yml$|justfile$)'
+          pattern: '^(site/|brand/|\.github/workflows/site\.yml$|\.github/actions/setup-node/|justfile$)'
 
   check:
     needs: changes
@@ -56,17 +56,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@v6
+      - uses: ./.github/actions/setup-node
         with:
-          package_json_file: site/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: site/.node-version
-          cache: pnpm
-          cache-dependency-path: site/pnpm-lock.yaml
+          module: site
       - uses: astral-sh/setup-uv@v7
-      - uses: extractions/setup-just@v4
-      - run: pnpm install --frozen-lockfile
       - run: just lint
       - run: just test
       - run: just build

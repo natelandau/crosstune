@@ -43,17 +43,9 @@ ty:
 typos:
     uv run typos --config ../.typos.toml
 
-# Run every prek hook against all files (CI runs prek as its own step)
-[group('lint')]
-precommit:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    case "${CI:-}" in 1|true|yes) echo "skipping prek hooks: CI runs them as their own step"; exit 0 ;; esac
-    cd .. && PREK_SKIP=pytest uv run --project api prek run --all-files --config .pre-commit-config.yaml
-
 # Run all linters
 [group('lint')]
-lint: ruff format ty typos contract-check precommit
+lint: ruff format ty typos contract-check
 
 # Run the test suite on its own databases in the compose Postgres; args narrow the run and drop coverage
 [group('test')]
@@ -69,10 +61,29 @@ run:
 
 # Run the API against the end-to-end database, for `just web::e2e`
 [group('run')]
-run-e2e: e2e-db
-    just storage-setup
+run-e2e: e2e-db storage-setup _serve-e2e
+
+# Serve the end-to-end database as it stands; `just e2e` prepares it first
+[private]
+_serve-e2e:
     @echo "serving {{ e2e_db }} on :{{ e2e_port }}"
     {{ e2e_env }} uv run uvicorn crosstune.main:app --port {{ e2e_port }}
+
+# Wait for the e2e API at `pid` to answer, or print `log` and fail once it exits or 90 seconds pass
+[group('run')]
+wait-e2e pid log:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    health="http://localhost:{{ e2e_port }}/healthz"
+    for _ in $(seq 1 90); do
+        curl -fsS "$health" > /dev/null 2>&1 && exit 0
+        kill -0 '{{ pid }}' 2> /dev/null || break
+        sleep 1
+    done
+    curl -fsS "$health" > /dev/null 2>&1 && exit 0
+    cat '{{ log }}'
+    echo "the e2e API did not start" >&2
+    exit 1
 
 # Create the local RustFS buckets and their CORS rules; safe to repeat
 [group('storage')]
@@ -135,55 +146,11 @@ prune-worktree-dbs:
 # _e2e-db also takes "drop", which leaves no database behind. It has no recipe of its own,
 # because `just e2e` drops what it created and nothing else has a database to drop.
 
-
 [private]
 _e2e-db mode:
     #!/usr/bin/env bash
     set -euo pipefail
-    uv run python - '{{ e2e_database_url }}' '{{ mode }}' <<'PY'
-    import asyncio
-    import sys
-    from urllib.parse import urlsplit, urlunsplit
-
-    import asyncpg
-
-    url, mode = sys.argv[1], sys.argv[2]
-    parts = urlsplit(url)
-    name = parts.path.lstrip("/")
-    # The one guard between a reset and a developer's own data.
-    if not name.endswith("_e2e"):
-        sys.exit(f"refusing to act on {name}: these recipes own a _e2e database and nothing else")
-    admin_url = urlunsplit(("postgresql", parts.netloc, "/postgres", "", ""))
-    # A quoted identifier ends at its first quote, so every quote in the name is doubled.
-    identifier = name.replace('"', '""')
-
-
-    async def prepare() -> None:
-        try:
-            conn = await asyncpg.connect(admin_url)
-        except OSError as exc:
-            server = parts.netloc.rsplit("@", 1)[-1]
-            sys.exit(f"no Postgres at {server}: {exc}. Start it with `docker compose up -d`")
-        try:
-            if mode in {"recreate", "drop"}:
-                # Postgres refuses to drop a database that still has sessions on it, and a
-                # drop follows a run whose API may still hold its pool open.
-                existed = await conn.fetchval("select 1 from pg_database where datname = $1", name)
-                await conn.execute(f'drop database if exists "{identifier}" with (force)')
-                print(f"dropped {name}" if existed else f"{name} was not there")
-            if mode == "drop":
-                return
-            if await conn.fetchval("select 1 from pg_database where datname = $1", name):
-                print(f"{name} is already there")
-            else:
-                await conn.execute(f'create database "{identifier}"')
-                print(f"created {name}")
-        finally:
-            await conn.close()
-
-
-    asyncio.run(prepare())
-    PY
+    uv run python -m crosstune.ops.local_e2e_db '{{ mode }}' '{{ e2e_database_url }}'
     if [ '{{ mode }}' != "drop" ]; then
         {{ e2e_env }} uv run alembic upgrade head
         echo "{{ e2e_db }} is at head. The development database crosstune is untouched."
@@ -195,7 +162,6 @@ contract:
     #!/usr/bin/env bash
     set -euo pipefail
     out=openapi.json
-    mkdir -p "$(dirname "$out")"
     # Written aside and moved into place, so a failed export leaves the committed
     # contract intact instead of truncating it.
     staged="$out.tmp"
