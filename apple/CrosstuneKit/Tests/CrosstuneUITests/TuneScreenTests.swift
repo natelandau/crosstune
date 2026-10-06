@@ -178,13 +178,11 @@ private func file(_ state: LocalFileState) -> RecordingFile {
         #expect(model.phase == .loading)
     }
 
-    #if os(macOS)
-        @Test func theNextTuneArrivesOnceReadOrFailed() {
-            #expect(!TuneScreen.arrivalSettled(phase: .loading, readFailed: false))
-            #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: true))
-            #expect(TuneScreen.arrivalSettled(phase: .gone, readFailed: false))
-        }
-    #endif
+    @Test func theNextTuneArrivesOnceReadOrFailed() {
+        #expect(!TuneScreen.arrivalSettled(phase: .loading, readFailed: false))
+        #expect(TuneScreen.arrivalSettled(phase: .loading, readFailed: true))
+        #expect(TuneScreen.arrivalSettled(phase: .gone, readFailed: false))
+    }
 
     @Test func writesTheArchive() async throws {
         let root = TemporaryRoot()

@@ -31,28 +31,43 @@ public struct TuneScreen: View {
     private let tuneID: String
 
     @Environment(\.store) private var store
+    @Environment(\.inPadSplit) private var inPadSplit
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: TuneModel?
-    #if os(macOS)
-        /// The next tune's model while it reads, so the page on screen stays until the next one
-        /// can cross-fade over it.
-        @State private var arriving: TuneModel?
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    #endif
+    /// The next tune's model while it reads, so the page on screen stays until the next one
+    /// can cross-fade over it.
+    @State private var arriving: TuneModel?
 
     public init(tuneID: String) {
         self.tuneID = tuneID
     }
 
-    #if os(macOS)
-        /// Whether the next tune can replace the page on screen: once it has read, or once its
-        /// read has failed, so a failure never leaves the last tune standing.
-        nonisolated static func arrivalSettled(phase: TuneModel.Phase, readFailed: Bool) -> Bool {
-            phase != .loading || readFailed
-        }
-    #endif
+    /// Whether the next tune can replace the page on screen: once it has read, or once its
+    /// read has failed, so a failure never leaves the last tune standing.
+    nonisolated static func arrivalSettled(phase: TuneModel.Phase, readFailed: Bool) -> Bool {
+        phase != .loading || readFailed
+    }
+
+    /// The Mac and the iPad's split hold the page on screen until the next tune reads; a page
+    /// pushed on the iPhone's stack keeps its push.
+    private var holdsPage: Bool {
+        #if os(macOS)
+            true
+        #else
+            inPadSplit
+        #endif
+    }
+
+    private var arrivalAnimation: Animation? {
+        #if os(macOS)
+            reduceMotion ? nil : .spring(duration: 0.25)
+        #else
+            PhoneMotion.resolve(reduceMotion: reduceMotion).animation(.spring(duration: 0.25))
+        #endif
+    }
 
     public var body: some View {
-        #if os(macOS)
+        if holdsPage {
             ZStack {
                 if let model {
                     TuneContent(model: model)
@@ -74,10 +89,10 @@ public struct TuneScreen: View {
             ) {
                 guard let arriving, Self.arrivalSettled(phase: arriving.phase, readFailed: arriving.readFailed)
                 else { return }
-                withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { model = arriving }
+                withAnimation(arrivalAnimation) { model = arriving }
                 self.arriving = nil
             }
-        #else
+        } else {
             Group {
                 if let model, model.tuneID == tuneID {
                     TuneContent(model: model)
@@ -93,26 +108,24 @@ public struct TuneScreen: View {
                 guard let store else { return }
                 model = TuneModel(store: store, tuneID: tuneID)
             }
-        #endif
+        }
     }
 }
 
-#if os(macOS)
-    extension EnvironmentValues {
-        /// True while the next tune reads under the page on screen.
-        @Entry var tunePageLeaving = false
-    }
+extension EnvironmentValues {
+    /// True while the next tune reads under the page on screen.
+    @Entry var tunePageLeaving = false
+}
 
-    /// A page's cross-fade. The page fading out takes no clicks, so its pane bar never answers
-    /// over the arriving page's.
-    private struct PageFade: Transition {
-        func body(content: Content, phase: TransitionPhase) -> some View {
-            content
-                .opacity(phase.isIdentity ? 1 : 0)
-                .allowsHitTesting(phase.isIdentity)
-        }
+/// A page's cross-fade. The page fading out takes no hits, so a tap during the fade lands on
+/// the arriving page.
+private struct PageFade: Transition {
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content
+            .opacity(phase.isIdentity ? 1 : 0)
+            .allowsHitTesting(phase.isIdentity)
     }
-#endif
+}
 
 private struct TuneContent: View {
     let model: TuneModel
@@ -123,23 +136,17 @@ private struct TuneContent: View {
     @Environment(SyncEngine.self) private var engine: SyncEngine?
     @State private var form: TuneFormTarget?
     @State private var confirmsDelete = false
-    #if os(macOS)
-        @Environment(\.tunePageLeaving) private var leaving
-    #endif
+    @Environment(\.tunePageLeaving) private var leaving
 
     var body: some View {
         switch model.phase {
         case .loading:
-            #if os(macOS)
-                if model.readFailed {
-                    ContentUnavailableView(TuneScreen.gone, systemImage: "music.note")
-                        .navigationTitle(TuneScreen.fallbackTitle)
-                } else {
-                    Color.clear
-                }
-            #else
+            if model.readFailed {
+                ContentUnavailableView(TuneScreen.gone, systemImage: "music.note")
+                    .navigationTitle(TuneScreen.fallbackTitle)
+            } else {
                 Color.clear
-            #endif
+            }
         case .gone:
             ContentUnavailableView(TuneScreen.gone, systemImage: "music.note")
                 .navigationTitle(TuneScreen.fallbackTitle)
@@ -193,9 +200,11 @@ private struct TuneContent: View {
             Button(TuneRowActions.edit) {
                 form = .edit(tuneID: detail.tune.id, userTuneID: detail.userTune.id)
             }
+            .disabled(leaving)
         }
         ToolbarItem(placement: .primaryAction) {
             TuneMoreMenu(model: model, detail: detail) { confirmsDelete = true }
+                .disabled(leaving)
         }
     }
 
