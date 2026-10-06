@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-from crosstune.errors import UnauthorizedError
+from crosstune.auth.jwks import SigningKeysUnavailableError
+from crosstune.errors import ServiceUnavailableError, UnauthorizedError
 
 if TYPE_CHECKING:
     from crosstune.auth.jwks import JwksCache
@@ -43,9 +44,10 @@ async def verify_clerk_token(
 
     try:
         key = await jwks.get_key(kid)
-    except Exception as exc:
+    except SigningKeysUnavailableError as exc:
+        # An outage on the issuer's side, not a bad token: a 401 would send clients to sign in.
         msg = "Signing keys unavailable"
-        raise UnauthorizedError(msg) from exc
+        raise ServiceUnavailableError(msg) from exc
     if key is None:
         msg = "Unknown signing key"
         raise UnauthorizedError(msg)
@@ -64,6 +66,11 @@ async def verify_clerk_token(
     except jwt.PyJWTError as exc:
         msg = "Invalid token"
         raise UnauthorizedError(msg) from exc
+    # Clerk marks a session that still owes a task, such as a required password reset,
+    # as pending, and its own SDKs treat that session as signed out.
+    if claims.get("sts") == "pending":
+        msg = "Session is pending"
+        raise UnauthorizedError(msg)
 
     # Clerk sets azp from the browser's Origin, so a native SDK's tokens carry none. Clerk
     # checks the claim only when present, and so does this: an azp must be an allowed party.

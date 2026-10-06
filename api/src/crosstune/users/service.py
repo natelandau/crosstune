@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
+from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.locks import lock_clerk_user
 from crosstune.errors import AccountDeletedError
 from crosstune.models import DeletedAccount, User
-from crosstune.models.user import new_uuid7, utc_now
 
 if TYPE_CHECKING:
     import uuid

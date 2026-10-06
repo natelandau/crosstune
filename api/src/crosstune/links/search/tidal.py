@@ -11,7 +11,6 @@ import httpx2
 
 from crosstune.http import BlockedAddressError
 from crosstune.links.fetch import get_json
-from crosstune.links.search.backoff import wait_seconds
 from crosstune.links.search.types import (
     AdapterAnswer,
     SearchHit,
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-_RATE_LIMITED = 429
 
 SEARCH_URL = "https://openapi.tidal.com/v2/searchResults"
 TRACKS_URL = "https://openapi.tidal.com/v2/tracks"
@@ -130,9 +128,8 @@ async def _artist_names(
                 timeout=max(deadline - asyncio.get_running_loop().time(), 0.0),
             )
     except httpx2.HTTPStatusError as error:
-        if error.response.status_code == _RATE_LIMITED:
-            seconds = wait_seconds(error.response.headers.get("Retry-After"))
-            backoff.hold(Provider.TIDAL, seconds)
+        seconds = backoff.hold_if_limited(Provider.TIDAL, error)
+        if seconds is not None:
             log.warning("TIDAL artist lookup rate limited", extra={"seconds": seconds})
         else:
             log.warning("TIDAL artist lookup failed", extra={"error": type(error).__name__})

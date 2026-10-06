@@ -9,9 +9,9 @@ import pytest
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 
+from crosstune.db.base import utc_now
 from crosstune.files.quota import slot_for_scan, used_bytes
 from crosstune.models import Recording, Scan, UploadSlot
-from crosstune.models.user import utc_now
 from tests.helpers import T0, change, push, recording, uid
 
 pytestmark = pytest.mark.anyio

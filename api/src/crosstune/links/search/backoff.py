@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+import httpx2
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -46,6 +48,18 @@ class Backoff:
     def hold(self, provider: Provider, seconds: float) -> None:
         """Leave the service alone for the given number of seconds from now."""
         self._until[provider] = max(self._until.get(provider, 0.0), self._clock() + seconds)
+
+    def hold_if_limited(self, provider: Provider, error: httpx2.HTTPStatusError) -> float | None:
+        """Hold the service for its Retry-After when the error is a 429.
+
+        Returns:
+            float | None: The seconds held, or None when the error is not a rate limit.
+        """
+        if error.response.status_code != httpx2.codes.TOO_MANY_REQUESTS:
+            return None
+        seconds = wait_seconds(error.response.headers.get("Retry-After"))
+        self.hold(provider, seconds)
+        return seconds
 
     def held(self, provider: Provider) -> bool:
         """Whether the service is still waiting out a limit."""

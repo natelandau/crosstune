@@ -49,23 +49,23 @@ RETRY_AFTER_HEADER: dict[str, Any] = {
     }
 }
 
+type OpenApiResponses = dict[int | str, dict[str, Any]]
+
 # Routes that validate input answer 422 with a problem, not FastAPI's own envelope.
-VALIDATION_RESPONSE: dict[int | str, dict[str, Any]] = {
-    422: {"model": Problem, "description": "Validation Error"}
-}
+VALIDATION_RESPONSE: OpenApiResponses = {422: {"model": Problem, "description": "Validation Error"}}
 
 
-def problem_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+def problem_responses(*statuses: int) -> OpenApiResponses:
     """Document the problem details a route answers with, alongside the 422 every route has.
 
     Args:
         statuses: The HTTP statuses the route can fail with.
 
     Returns:
-        dict[int | str, dict[str, Any]]: OpenAPI responses, so the generated
+        OpenApiResponses: OpenAPI responses, so the generated
         client has a type for each state it must branch on.
     """
-    documented: dict[int | str, dict[str, Any]] = {
+    documented: OpenApiResponses = {
         status: {"model": Problem, "description": _reason_phrase(status)} for status in statuses
     }
     if HTTPStatus.TOO_MANY_REQUESTS in documented:
@@ -142,6 +142,13 @@ class FileTooLargeError(AppError):
 
     def __init__(self, detail: str = "File is too large") -> None:
         super().__init__(413, "Content Too Large", detail, type_="urn:crosstune:file-too-large")
+
+
+class ServiceUnavailableError(AppError):
+    """A service the request depends on is down or not configured; trying later may work."""
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(503, "Service Unavailable", detail)
 
 
 class TooManyRequestsError(AppError):

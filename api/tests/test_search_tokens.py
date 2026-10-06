@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from typing import TYPE_CHECKING
 
@@ -125,6 +126,20 @@ async def test_tidal_token_cached_until_shortly_before_expiry(mock_http: MockHtt
     assert request.method == "POST"
     assert request.headers["authorization"] == f"Basic {expected}"
     assert request.content == b"grant_type=client_credentials"
+
+
+async def test_concurrent_tidal_lookups_request_one_token(mock_http: MockHttp) -> None:
+    _answer(mock_http)
+
+    async def slow(request: httpx2.Request) -> httpx2.Response:
+        await asyncio.sleep(0.01)
+        return mock_http.handler(request)
+
+    tidal = _tidal(FakeClock(0.0))
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(slow)) as client:
+        tokens = await asyncio.gather(*(tidal.get(client, 5.0) for _ in range(3)))
+    assert tokens == ["a", "a", "a"]
+    assert len(_token_calls(mock_http)) == 1
 
 
 async def test_tidal_invalidate_forces_a_new_request(mock_http: MockHttp) -> None:

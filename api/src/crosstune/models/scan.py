@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +25,8 @@ class Scan(SyncColumns, Base):
             name="ck_scans_state",
         ),
         Index("ix_scans_user_id_server_seq", "user_id", "server_seq"),
+        # The purge sweep reads tombstones on every runner pass, across every user.
+        Index("ix_scans_tombstones", "id", postgresql_where=text("deleted_at is not null")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)

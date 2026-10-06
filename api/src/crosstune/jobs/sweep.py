@@ -9,11 +9,9 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import ARRAY, Uuid, and_, any_, delete, exists, literal, or_, select
 
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import advisory_lock_key, lock_user
 from crosstune.models import Recording, Scan, UploadSlot, User
-from crosstune.models.user import utc_now
-from crosstune.recordings.service import bump_server_seq
-from crosstune.scans.service import bump_scan_server_seq
 from crosstune.storage.store import (
     LEGACY_SCAN_SEGMENT,
     SCAN_SEGMENT,
@@ -436,5 +434,5 @@ async def purge_deleted_scans(
                 scan.file_key = None
                 scan.file_bytes = None
                 scan.state = ScanState.PENDING_UPLOAD.value
-                bump_scan_server_seq(scan)
+                bump_server_seq(scan)
         return len(rows)

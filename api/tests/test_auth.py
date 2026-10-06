@@ -145,3 +145,24 @@ async def test_an_unreadable_jwks_entry_does_not_hide_the_readable_ones(
         cache = JwksCache(settings.clerk_jwks_url, http)
         assert await cache.get_key("test-kid") is not None
         assert await cache.get_key("broken") is None
+
+
+async def test_an_unreachable_jwks_is_503_and_logged(
+    app, client: httpx2.AsyncClient, auth_headers, settings, mock_http, caplog
+) -> None:
+    mock_http.add(settings.clerk_jwks_url, httpx2.Response(500))
+    async with mock_http.client() as http:
+        app.state.jwks = JwksCache(settings.clerk_jwks_url, http)
+        with caplog.at_level("WARNING", logger=jwks_module.__name__):
+            first = await client.get("/v1/me", headers=auth_headers("user_a"))
+        # Inside the cooldown no fetch runs, and the key is still unknown for the same reason.
+        second = await client.get("/v1/me", headers=auth_headers("user_a"))
+    assert (first.status_code, second.status_code) == (503, 503)
+    assert len(mock_http.calls) == 1
+    assert "could not fetch the signing keys" in caplog.text
+
+
+async def test_a_pending_session_token_is_401(client: httpx2.AsyncClient, make_token) -> None:
+    token = make_token("user_a", sts="pending")
+    response = await client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401

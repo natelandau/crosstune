@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 import httpx2
 
-from crosstune.links.search.backoff import wait_seconds
 from crosstune.links.search.registry import search_url
 from crosstune.links.search.types import SearchAuthError
 from crosstune.vocabulary import SEARCHABLE_PROVIDERS, Provider, SearchStatus
@@ -19,8 +18,6 @@ if TYPE_CHECKING:
     from crosstune.links.search.types import Adapter, AdapterAnswer, SearchHit
 
 log = logging.getLogger(__name__)
-
-_RATE_LIMITED = 429
 
 
 @dataclass
@@ -48,11 +45,10 @@ async def _run(
         async with asyncio.timeout(timeout):
             return await adapter(query, country, client, timeout)
     except httpx2.HTTPStatusError as error:
-        if error.response.status_code != _RATE_LIMITED:
+        seconds = backoff.hold_if_limited(provider, error)
+        if seconds is None:
             log.warning("music search failed", extra={"provider": provider.value}, exc_info=True)
             return None
-        seconds = wait_seconds(error.response.headers.get("Retry-After"))
-        backoff.hold(provider, seconds)
         log.warning(
             "music search rate limited", extra={"provider": provider.value, "seconds": seconds}
         )
