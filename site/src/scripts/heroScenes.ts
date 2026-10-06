@@ -7,7 +7,7 @@ export const HERO_SCENES = [
   {
     label: 'Find tunes',
     name: 'hero-jam',
-    alt: 'Crosstune on iPhone: the D key filter narrows the tune list to Backstep Cindy, which opens and starts playing its recording.',
+    alt: 'Crosstune on iPhone: choosing D from the Key filter narrows the tune list to 9 tunes, then Backstep Cindy opens and its Saturday session recording starts playing.',
   },
   {
     label: 'Record',
