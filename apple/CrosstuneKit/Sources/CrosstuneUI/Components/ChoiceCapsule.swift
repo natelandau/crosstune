@@ -29,6 +29,8 @@ public struct ChoiceCapsule<Label: View>: View {
                     .contentShape(.capsule)
             #else
                 label
+                    .lineLimit(1)
+                    .fixedSize()
                     .font(.subheadline)
                     .foregroundStyle(
                         isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)

@@ -31,24 +31,45 @@ struct PracticeControls: View {
     let blocker: String?
 
     @Environment(\.spacing) private var spacing
+
+    var body: some View {
+        let ready = model.isLoaded && blocker == nil
+        VStack(spacing: spacing.stackGap) {
+            Transport(model: model)
+                .disabled(!ready)
+                #if os(iOS)
+                    // The transport keeps its size at every text size, as the waveform's overlay
+                    // does, and leaves the route picker's width clear on each side so the skips
+                    // never meet it.
+                    .dynamicTypeSize(...DynamicTypeSize.large)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, PhoneStyle.minTarget)
+                    .overlay(alignment: .trailing) {
+                        AudioRoutePicker().dynamicTypeSize(...DynamicTypeSize.large)
+                    }
+                #else
+                    .frame(maxWidth: .infinity)
+                #endif
+            LoopSwitcher(model: model, blocker: blocker)
+        }
+    }
+}
+
+/// Skip back, play, and skip forward. Its own view so its spacing reads the text size the
+/// transport is held to.
+private struct Transport: View {
+    let model: PracticeModel
+
+    @Environment(\.spacing) private var spacing
     @Environment(\.practiceGround) private var ground
 
     private var player: PlayerModel { model.player }
 
     var body: some View {
-        let ready = model.isLoaded && blocker == nil
-        VStack(spacing: spacing.stackGap) {
-            HStack(spacing: spacing(32)) {
-                skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
-                playButton
-                skip(AudioPlayer.skipInterval, systemImage: "goforward.15", name: RecordingPlayerText.skipForward)
-            }
-            .disabled(!ready)
-            .frame(maxWidth: .infinity)
-            #if os(iOS)
-                .overlay(alignment: .trailing) { AudioRoutePicker() }
-            #endif
-            LoopSwitcher(model: model, blocker: blocker)
+        HStack(spacing: spacing(32)) {
+            skip(-AudioPlayer.skipInterval, systemImage: "gobackward.15", name: RecordingPlayerText.skipBack)
+            playButton
+            skip(AudioPlayer.skipInterval, systemImage: "goforward.15", name: RecordingPlayerText.skipForward)
         }
     }
 
