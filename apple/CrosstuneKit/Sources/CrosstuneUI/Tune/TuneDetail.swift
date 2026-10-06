@@ -99,16 +99,9 @@ public struct TuneDetail: Hashable, Sendable {
     /// A stored `YYYY-MM-DD` as a date, read as a local calendar day so no time zone moves it.
     /// Anything else shows as stored.
     static func learnedOn(_ value: String, locale: Locale) -> String {
-        let parts = value.split(separator: "-", omittingEmptySubsequences: false)
-        guard parts.count == 3, parts.map(\.count) == [4, 2, 2],
-            let year = Int(parts[0]), let month = Int(parts[1]), let day = Int(parts[2])
-        else { return value }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
-        guard
-            let date = calendar.date(from: DateComponents(year: year, month: month, day: day)),
-            calendar.component(.day, from: date) == day
-        else { return value }
+        guard let date = CalendarDay.date(value, calendar: calendar) else { return value }
         return date.formatted(
             Date.FormatStyle(locale: locale, calendar: calendar, timeZone: .gmt).month(.abbreviated).day().year())
     }
