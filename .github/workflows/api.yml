@@ -117,7 +117,7 @@ jobs:
     if: >-
       needs.changes.outputs.image == 'true'
       && !(github.event_name == 'push' && github.ref_type == 'branch')
-    name: API image
+    name: API Docker Image
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
