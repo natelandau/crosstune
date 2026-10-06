@@ -208,10 +208,7 @@ extension StoreWriter {
         guard var file = try RecordingFile.fetchOne(db, key: recordingID),
             file.localState == .failedUpload || file.localState == .captured
         else { return }
-        file.localState = .captured
-        file.error = nil
-        file.uploadAttempts = 0
-        file.nextAttemptAt = nil
+        file.leaveRetryLoop(.captured)
         file.updatedAt = time
         try file.update(db)
     }

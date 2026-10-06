@@ -276,6 +276,17 @@ public struct StoreWriter {
         return stamped
     }
 
+    /// Changes this device's file row for a recording and stamps it `time`. A recording with no
+    /// file row here is left as it is. File rows are local, so nothing is queued.
+    public func updateFile(
+        _ id: String, at time: Timestamp = .now, _ change: (inout RecordingFile) throws -> Void
+    ) throws {
+        guard var file = try RecordingFile.fetchOne(db, key: id) else { return }
+        try change(&file)
+        file.updatedAt = time
+        try file.update(db)
+    }
+
     /// Stores an event, such as a play, and queues its insert, stamped with its creation time.
     public func record(_ event: some EventRecord) throws {
         try event.upsert(db)

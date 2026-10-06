@@ -118,3 +118,14 @@ extension CrosstuneStore {
         }
     }
 }
+
+extension RecordingFile {
+    /// Takes the file out of the upload retry loop in `state`, so a later failure counts its
+    /// tries from the start.
+    public mutating func leaveRetryLoop(_ state: LocalFileState, error: String? = nil) {
+        localState = state
+        self.error = error
+        uploadAttempts = 0
+        nextAttemptAt = nil
+    }
+}

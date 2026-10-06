@@ -249,14 +249,13 @@ struct Transfers {
     private func scheduleRetry(_ id: String, after error: any Error) async throws {
         let message = transferMessage(error)
         try await store.write { writer in
-            guard var file = try RecordingFile.fetchOne(writer.db, key: id) else { return }
             let now = Timestamp.now
-            file.localState = .captured
-            file.error = message
-            file.nextAttemptAt = nextUploadAttempt(attempts: file.uploadAttempts, from: now)
-            file.uploadAttempts += 1
-            file.updatedAt = now
-            try file.update(writer.db)
+            try writer.updateFile(id, at: now) { file in
+                file.localState = .captured
+                file.error = message
+                file.nextAttemptAt = nextUploadAttempt(attempts: file.uploadAttempts, from: now)
+                file.uploadAttempts += 1
+            }
         }
     }
 
@@ -264,13 +263,7 @@ struct Transfers {
     /// its count fresh.
     private func settleUpload(_ id: String, _ state: LocalFileState, error: String? = nil) async throws {
         try await store.write { writer in
-            guard var file = try RecordingFile.fetchOne(writer.db, key: id) else { return }
-            file.localState = state
-            file.error = error
-            file.uploadAttempts = 0
-            file.nextAttemptAt = nil
-            file.updatedAt = .now
-            try file.update(writer.db)
+            try writer.updateFile(id) { $0.leaveRetryLoop(state, error: error) }
         }
     }
 
@@ -281,13 +274,7 @@ struct Transfers {
             if let row = try Recording.fetchOne(writer.db, key: id), row.deletedAt == nil {
                 try writer.put(row)
             }
-            guard var file = try RecordingFile.fetchOne(writer.db, key: id) else { return }
-            file.localState = .captured
-            file.error = nil
-            file.uploadAttempts = 0
-            file.nextAttemptAt = nil
-            file.updatedAt = .now
-            try file.update(writer.db)
+            try writer.updateFile(id) { $0.leaveRetryLoop(.captured) }
         }
     }
 
@@ -471,11 +458,10 @@ struct Transfers {
 
     private func setFileState(_ id: String, _ state: LocalFileState, error: String? = nil) async throws {
         try await store.write { writer in
-            guard var file = try RecordingFile.fetchOne(writer.db, key: id) else { return }
-            file.localState = state
-            file.error = error
-            file.updatedAt = .now
-            try file.update(writer.db)
+            try writer.updateFile(id) { file in
+                file.localState = state
+                file.error = error
+            }
         }
     }
 }
