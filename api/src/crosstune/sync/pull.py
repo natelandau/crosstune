@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 
+from crosstune.db.locks import share_user_lock
 from crosstune.models import StatusChange
 from crosstune.schemas.common import (
     PULL_ROWS,
@@ -53,6 +54,7 @@ async def pull_since(
     sources = [
         (spec.model, spec.owned_by(user_id), spec) for spec in TABLES.values() if spec.pulled
     ]
+    await share_user_lock(session, user_id)
     page, next_since, has_more = await _merged_page(session, sources, since, limit)
     return [_pull_row(spec, row) for spec, row in page], next_since, has_more
 
@@ -73,6 +75,7 @@ async def events_since(
         for spec in TABLES.values()
         if spec.append_only
     )
+    await share_user_lock(session, user_id)
     page, next_since, has_more = await _merged_page(session, sources, since, limit)
     return [_event_row(name, row) for name, row in page], next_since, has_more
 
@@ -83,9 +86,24 @@ async def _merged_page[T](
     since: int,
     limit: int,
 ) -> tuple[list[tuple[T, Any]], int, bool]:
-    """Merge the oldest rows above `since` from every source into one page."""
+    """Merge the oldest rows above `since` from every source into one page.
+
+    One probe first finds the sources with any row above `since`, so a poll with nothing
+    new costs one round trip and a busy one reads only the tables that changed. The
+    caller holds the user's shared lock, so no write commits between these statements:
+    one landing after a table was read would hold a seq the cursor then skips past.
+    """
+    probe = select(
+        *(
+            select(model.id).where(model.server_seq > since, owned).exists()
+            for model, owned, _ in sources
+        )
+    )
+    changed = (await session.execute(probe)).one()
     candidates: list[tuple[int, T, Any]] = []
-    for model, owned, tag in sources:
+    for (model, owned, tag), has_rows in zip(sources, changed, strict=True):
+        if not has_rows:
+            continue
         stmt = (
             select(model)
             .where(model.server_seq > since, owned)

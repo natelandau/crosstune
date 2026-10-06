@@ -563,3 +563,29 @@ async def test_a_write_refused_as_bad_data_is_invalid(
     assert rejection is not None
     assert rejection.status == "invalid"
     assert rejection.reason == f"invalid data: {refused_by}"
+
+
+async def test_a_push_reads_each_tables_parents_in_one_query(client, auth_headers, engine) -> None:
+    tunes = [uid() for _ in range(20)]
+    await push(
+        client,
+        auth_headers("user_a"),
+        *(change("tunes", t, T0, title=f"T{i}") for i, t in enumerate(tunes)),
+    )
+    statements: list[str] = []
+
+    def record(_conn, _cursor, statement: str, *_args) -> None:
+        statements.append(" ".join(statement.split()).lower())
+
+    event.listen(engine.sync_engine, "before_cursor_execute", record)
+    try:
+        results = await push(
+            client,
+            auth_headers("user_a"),
+            *(change("user_tunes", uid(), T0, tune_id=t, status="known") for t in tunes),
+        )
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", record)
+    assert {r["status"] for r in results} == {"applied"}
+    tune_reads = [sql for sql in statements if sql.startswith("select") and "from tunes" in sql]
+    assert len(tune_reads) == 1

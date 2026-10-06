@@ -4,55 +4,32 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import asyncpg
 from pydantic import ValidationError
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from crosstune.db.base import next_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import request_runner_wake
-from crosstune.links.detect import detect_provider, normalize_url, valid_slippery_hill_ref
-from crosstune.links.resolve import unresolved_link
-from crosstune.models import (
-    List,
-    ListItem,
-    Recording,
-    RecordingLink,
-    RecordingLoop,
-    Scan,
-    StatusChange,
-    UserTune,
-)
-from crosstune.recordings.loops import (
-    clamp_loop,
-    clamp_span,
-    largest_free_stretch,
-    loop_bounds,
-    reclamp_recording_loops,
-)
-from crosstune.recordings.service import ensure_trim_job, start_import
-from crosstune.recordings.trim import clamp_trim
+from crosstune.models import List, ListItem
 from crosstune.schemas.common import CHANGE_RESULTS, Change, ChangeResult
-from crosstune.sync.tables import TABLE_ORDER, TABLES, TableSpec, row_to_dict
-from crosstune.vocabulary import (
-    MAX_LOOPS_PER_RECORDING,
-    MAX_SCANS_PER_TUNE,
-    MIN_LOOP_MS,
-    RecordingSource,
-    TableName,
-)
+from crosstune.sync.rules import RULES, RowRules
+from crosstune.sync.tables import TABLE_ORDER, TABLES, SyncedRow, TableSpec, row_to_dict
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping
     from datetime import datetime
 
+    from pydantic import BaseModel
+    from sqlalchemy import Select
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from crosstune.links.resolve import ResolvedLink
+    from crosstune.vocabulary import TableName
 
 
 async def apply_push(
@@ -84,8 +61,10 @@ async def apply_push(
     for table in TABLE_ORDER:
         spec = TABLES[table]
         entries = grouped.get(table, [])
-        if table == "recording_loops":
-            await _apply_loops(session, spec, user_id, entries, results)
+        # Held for the group: the identity map keeps rows only while something refers to them.
+        _held = await _prefetch(session, spec, [change for _, change in entries])
+        if RULES.get(table, RowRules).defers_overlaps:
+            await _apply_deferring_overlaps(session, spec, user_id, entries, results)
             continue
         for index, change in entries:
             if spec.append_only:
@@ -97,18 +76,51 @@ async def apply_push(
     return [results[i] for i in range(len(changes))]
 
 
-async def _apply_loops(
+async def _prefetch(session: AsyncSession, spec: TableSpec, changes: list[Change]) -> list[object]:
+    """Load the group's stored rows and the parents its changes name, one query per table.
+
+    The ownership checks and table rules read rows one id at a time through `session.get`,
+    which the identity map then answers without a round trip each. Earlier groups have
+    already written, so a parent this push created or changed loads as it now stands.
+    """
+    wanted: dict[TableName, set[uuid.UUID]] = defaultdict(set)
+    if not changes:
+        return []
+    wanted[spec.name].update(change.id for change in changes)
+    for change in changes:
+        for column, parent_table in spec.parents:
+            parent_id = _as_uuid((change.data or {}).get(column))
+            if parent_id is not None:
+                wanted[parent_table].add(parent_id)
+    loaded: list[object] = []
+    for table, ids in wanted.items():
+        model: Any = TABLES[table].model
+        loaded.extend(await session.scalars(select(model).where(model.id.in_(ids))))
+    return loaded
+
+
+def _as_uuid(value: object) -> uuid.UUID | None:
+    """The value as a UUID, or None when it is not one; validation reports it later."""
+    if isinstance(value, uuid.UUID):
+        return value
+    try:
+        return uuid.UUID(str(value)) if value is not None else None
+    except ValueError:
+        return None
+
+
+async def _apply_deferring_overlaps(
     session: AsyncSession,
     spec: TableSpec,
     user_id: uuid.UUID,
     entries: list[tuple[int, Change]],
     results: dict[int, ChangeResult],
 ) -> None:
-    """Apply a batch's loop changes so a loop never loses room another change in it frees.
+    """Apply a batch's changes so a row never loses room another change in it frees.
 
     An outbox entry keeps its first position when its row is written again, so a loop can
     arrive ahead of the delete or the shrink that made room for it. Deletes go first, then
-    each upsert that still overlaps a live loop waits while the others land; once a pass
+    each upsert that still overlaps a live row waits while the others land; once a pass
     makes no progress, the rest are applied and cut to their free stretch.
     """
     for index, change in entries:
@@ -118,7 +130,7 @@ async def _apply_loops(
     while pending:
         waiting: list[tuple[int, Change]] = []
         for index, change in pending:
-            if await _overlaps_live_loop(session, user_id, change):
+            if await _overlaps(session, spec, user_id, change):
                 waiting.append((index, change))
             else:
                 results[index] = await _upsert(session, spec, user_id, change, None)
@@ -129,24 +141,24 @@ async def _apply_loops(
         pending = waiting
 
 
-async def _overlaps_live_loop(session: AsyncSession, user_id: uuid.UUID, change: Change) -> bool:
-    """Whether a pushed loop's span, before any clamp, overlaps another of the user's live loops."""
-    data, rejection = _validated(TABLES["recording_loops"].data_schema, change)
+async def _overlaps(
+    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change
+) -> bool:
+    """Whether a pushed row's own rules say it overlaps a live row, judged before any clamp."""
+    data, rejection = _validated(spec.data_schema, change)
     if rejection:
         return False
-    hit = await session.scalar(
-        select(RecordingLoop.id)
-        .where(
-            RecordingLoop.recording_id == data["recording_id"],
-            RecordingLoop.user_id == user_id,
-            RecordingLoop.deleted_at.is_(None),
-            RecordingLoop.id != change.id,
-            RecordingLoop.start_ms < data["end_ms"],
-            RecordingLoop.end_ms > data["start_ms"],
-        )
-        .limit(1)
-    )
-    return hit is not None
+    return await _rules(session, spec.name, user_id, change, None).overlaps(data)
+
+
+def _rules(
+    session: AsyncSession,
+    table: TableName,
+    user_id: uuid.UUID,
+    change: Change,
+    resolved_links: Mapping[str, ResolvedLink] | None,
+) -> RowRules:
+    return RULES.get(table, RowRules)(session, user_id, change, resolved_links)
 
 
 def _invalid(change: Change, reason: str) -> ChangeResult:
@@ -154,7 +166,7 @@ def _invalid(change: Change, reason: str) -> ChangeResult:
     return result(table=change.table, id=change.id, status="invalid", reason=reason)
 
 
-def _result(spec: TableSpec, change: Change, status: str, current: Any) -> ChangeResult:
+def _result(spec: TableSpec, change: Change, status: str, current: SyncedRow) -> ChangeResult:
     # The result and row types vary by table at runtime, so their fields aren't statically known.
     row_schema: Any = spec.row_schema
     result: Any = CHANGE_RESULTS[change.table]
@@ -168,16 +180,16 @@ def _result(spec: TableSpec, change: Change, status: str, current: Any) -> Chang
 
 async def _fetch_owned(
     session: AsyncSession, spec: TableSpec, row_id: uuid.UUID, user_id: uuid.UUID
-) -> Any | None:
+) -> SyncedRow | None:
     """The row with this id if the caller owns it, else None."""
-    # spec.model varies by table at runtime, so its columns aren't statically known here.
-    row: Any = await session.get(spec.model, row_id)
+    # spec.model varies by table at runtime; every synced model carries the SyncedRow columns.
+    row = cast("SyncedRow | None", await session.get(spec.model, row_id))
     if row is None:
         return None
     if spec.owner_column is not None:
         return row if getattr(row, spec.owner_column) == user_id else None
     # list_items: owned when its list is owned.
-    parent: Any = await session.get(TABLES["lists"].model, row.list_id)
+    parent = await session.get(List, cast("ListItem", row).list_id)
     return row if parent is not None and parent.user_id == user_id else None
 
 
@@ -201,216 +213,9 @@ async def _parents_owned(
     return None
 
 
-def _enrich_recording_link(
-    data: dict[str, Any], resolved_links: Mapping[str, ResolvedLink] | None
-) -> None:
-    """Bring a pushed link to the shape the online paste path stores, in place.
-
-    Args:
-        data: The validated link fields; url, provider, provider_ref, title, and
-            artwork_url may be rewritten.
-        resolved_links: What untitled URLs resolved to, or None when nothing was fetched.
-    """
-    if resolved_links is not None and data.get("title") is None:
-        resolved = resolved_links.get(data["url"]) or unresolved_link(data["url"])
-        # Store what the online paste path would have stored: the canonical url and the
-        # provider the resolver identified, not the raw string the client happened to hold.
-        data["url"] = resolved.url
-        data["provider"] = resolved.provider
-        data["provider_ref"] = resolved.provider_ref or data.get("provider_ref")
-        data["title"] = resolved.title
-        data["artwork_url"] = data.get("artwork_url") or resolved.artwork_url
-
-    if data["provider"] == "other":
-        # A client that predates a provider saves its links as other, and a titled link is
-        # never resolved, so detect it here, without a fetch.
-        provider, ref = detect_provider(data["url"])
-        if provider != "other":
-            data["url"] = normalize_url(data["url"], provider, ref)
-            data["provider"] = provider
-            data["provider_ref"] = ref
-
-    # A client-sent ref is appended to the site origin, so only a valid one is kept.
-    if data["provider"] == "slippery_hill" and not valid_slippery_hill_ref(
-        data.get("provider_ref") or ""
-    ):
-        data["provider_ref"] = None
-
-
-def _clamp_recording_trim(stored: Recording | None, data: dict[str, Any]) -> None:
-    """Keep a pushed trim inside the stored row's playback range, in place.
-
-    Uses the row already in the database rather than the pushed values, so a stale
-    push (rejected by the upsert's timestamp check below) never has its rewritten
-    trim mistaken for what was actually written.
-    """
-    low = (stored.playback_start_ms or 0) if stored else 0
-    high = stored.playback_end_ms if stored else None
-    source_end = stored.source_duration_ms if stored else None
-    end = data["trim_end_ms"]
-    # A null end means the source end, which a playback file cut short no longer
-    # reaches, so it is clamped as that end and only stays null where it still fits.
-    if end is None and source_end is not None:
-        end = source_end
-    start, end = clamp_trim(data["trim_start_ms"], end, low=low, high=high)
-    if data["trim_end_ms"] is None and end == source_end:
-        end = None
-    data["trim_start_ms"], data["trim_end_ms"] = start, end
-
-
-async def _clamp_loop(
-    session: AsyncSession, user_id: uuid.UUID, loop_id: uuid.UUID, data: dict[str, Any]
-) -> bool:
-    """Keep a pushed loop inside its recording's trim and off its other live loops, in place.
-
-    Returns:
-        bool: True when the loop fits, in which case `data` holds the longest stretch of the
-            clamped span that no other live loop takes. False when too little of the loop
-            remains or its recording is deleted, in which case `data` holds the clamped span
-            and the loop must be stored deleted.
-    """
-    recording = await session.get(Recording, data["recording_id"])
-    if recording is None:
-        return True
-    if recording.deleted_at is not None:
-        return False
-    low, high = loop_bounds(recording)
-    fits = clamp_loop(data["start_ms"], data["end_ms"], low=low, high=high) is not None
-    data["start_ms"], data["end_ms"] = clamp_span(
-        data["start_ms"], data["end_ms"], low=low, high=high
-    )
-    if not fits:
-        return False
-    taken = await session.execute(
-        select(RecordingLoop.start_ms, RecordingLoop.end_ms).where(
-            RecordingLoop.recording_id == data["recording_id"],
-            RecordingLoop.user_id == user_id,
-            RecordingLoop.deleted_at.is_(None),
-            RecordingLoop.id != loop_id,
-        )
-    )
-    free = largest_free_stretch(
-        data["start_ms"], data["end_ms"], [(start, end) for start, end in taken]
-    )
-    if free is None or free[1] - free[0] < MIN_LOOP_MS:
-        return False
-    data["start_ms"], data["end_ms"] = free
-    return True
-
-
-async def _loop_cap_reached(
-    session: AsyncSession, user_id: uuid.UUID, loop_id: uuid.UUID, recording_id: uuid.UUID
-) -> bool:
-    """Whether the recording already holds the most live loops, not counting this one."""
-    live = await session.scalar(
-        select(func.count())
-        .select_from(RecordingLoop)
-        .where(
-            RecordingLoop.recording_id == recording_id,
-            RecordingLoop.user_id == user_id,
-            RecordingLoop.deleted_at.is_(None),
-            RecordingLoop.id != loop_id,
-        )
-    )
-    return (live or 0) >= MAX_LOOPS_PER_RECORDING
-
-
-async def _prepare_loop(
-    session: AsyncSession, user_id: uuid.UUID, change: Change, data: dict[str, Any]
-) -> ChangeResult | None:
-    """Clamp a pushed loop and enforce the cap in place, returning a rejection if any.
-
-    A loop that no longer fits gets `deleted_at` set in `data`, so it is stored deleted.
-    """
-    fits = await _clamp_loop(session, user_id, change.id, data)
-    if not fits:
-        data["deleted_at"] = change.updated_at
-        return None
-    if not await _write_keeps_live_count(
-        session, user_id, change, data["recording_id"]
-    ) and await _loop_cap_reached(session, user_id, change.id, data["recording_id"]):
-        return _invalid(change, "loop limit reached")
-    return None
-
-
-async def _write_keeps_live_count(
-    session: AsyncSession, user_id: uuid.UUID, change: Change, recording_id: uuid.UUID
-) -> bool:
-    """Whether this write cannot add a live loop to `recording_id`, so the cap does not apply.
-
-    True when the stored loop's timestamp is not older than the change, so last-write-wins
-    writes nothing, or when the stored loop is already live on that recording.
-    """
-    stored: RecordingLoop | None = await session.get(RecordingLoop, change.id)
-    if stored is None or stored.user_id != user_id:
-        return False
-    if stored.updated_at >= change.updated_at:
-        return True
-    return stored.deleted_at is None and stored.recording_id == recording_id
-
-
-async def _prepare_scan(
-    session: AsyncSession, user_id: uuid.UUID, change: Change, data: dict[str, Any]
-) -> ChangeResult | None:
-    """Refuse a scan that would move to another tune or exceed the tune's scan limit."""
-    stored: Scan | None = await session.get(Scan, change.id)
-    if stored is not None and stored.user_id == user_id:
-        if stored.tune_id != data["tune_id"]:
-            return _invalid(change, "tune_id is fixed")
-        if stored.updated_at >= change.updated_at or stored.deleted_at is None:
-            return None
-    live = await session.scalar(
-        select(func.count())
-        .select_from(Scan)
-        .where(
-            Scan.tune_id == data["tune_id"],
-            Scan.user_id == user_id,
-            Scan.deleted_at.is_(None),
-            Scan.id != change.id,
-        )
-    )
-    if (live or 0) >= MAX_SCANS_PER_TUNE:
-        return _invalid(change, "scan limit reached")
-    return None
-
-
-async def _after_recording_write(
-    session: AsyncSession, current: Recording, at: datetime, *, is_new: bool
-) -> None:
-    # Queued from the row as committed by the upsert, in the same transaction as the push.
-    await ensure_trim_job(session, current)
-    await reclamp_recording_loops(session, current, at)
-    # Only a row this push created starts an import, so an update never queues a second
-    # fetch and an existing recording can't be turned into one.
-    if is_new and current.source == RecordingSource.IMPORT:
-        await start_import(session, current)
-        # The result is serialized from this row, and server_seq is still a SQL expression.
-        await session.flush()
-        await session.refresh(current)
-
-
-async def _prepare(
-    session: AsyncSession,
-    spec: TableSpec,
-    user_id: uuid.UUID,
-    change: Change,
-    data: dict[str, Any],
-    resolved_links: Mapping[str, ResolvedLink] | None,
-    stored_recording: Recording | None,
-) -> ChangeResult | None:
-    """Apply a table's pre-write rules to `data` in place, returning a rejection if any."""
-    if spec.name == "recording_links":
-        _enrich_recording_link(data, resolved_links)
-    elif spec.name == "recordings":
-        _clamp_recording_trim(stored_recording, data)
-    elif spec.name == "recording_loops":
-        return await _prepare_loop(session, user_id, change, data)
-    elif spec.name == "scans":
-        return await _prepare_scan(session, user_id, change, data)
-    return None
-
-
-def _validated(data_schema: Any, change: Change) -> tuple[dict[str, Any], ChangeResult | None]:
+def _validated(
+    data_schema: type[BaseModel], change: Change
+) -> tuple[dict[str, Any], ChangeResult | None]:
     try:
         return data_schema.model_validate(change.data or {}).model_dump(), None
     except ValidationError as exc:
@@ -437,7 +242,7 @@ def _owner(spec: TableSpec, user_id: uuid.UUID) -> dict[str, uuid.UUID]:
 
 async def _write(
     session: AsyncSession, change: Change, stmt: Any, **execution_options: Any
-) -> tuple[Any, ChangeResult | None]:
+) -> tuple[SyncedRow | None, ChangeResult | None]:
     """Run a write in a savepoint: the row it returned, or a rejection on a constraint or bad data.
 
     A value the database refuses comes back invalid rather than failing the push, since the
@@ -481,15 +286,10 @@ async def _upsert(
     data, rejection = await _checked(session, spec, user_id, change)
     if rejection:
         return rejection
-
-    stored_recording: Recording | None = (
-        await session.get(Recording, change.id) if spec.name == "recordings" else None
-    )
-    rejection = await _prepare(
-        session, spec, user_id, change, data, resolved_links, stored_recording
-    )
-    if rejection:
-        return rejection
+    rules = _rules(session, spec.name, user_id, change, resolved_links)
+    reason = await rules.prepare(data)
+    if reason:
+        return _invalid(change, reason)
 
     values = {
         "deleted_at": None,
@@ -498,13 +298,6 @@ async def _upsert(
         "updated_at": change.updated_at,
         **_owner(spec, user_id),
     }
-
-    prior_status: str | None = None
-    if spec.name == "user_tunes":
-        # A scalar read, never an instance: populate_existing below would overwrite it.
-        prior_status = await session.scalar(
-            select(UserTune.status).where(UserTune.id == change.id, UserTune.user_id == user_id)
-        )
 
     model: Any = spec.model
     stmt = insert(model).values(**values, server_seq=next_server_seq())
@@ -529,55 +322,18 @@ async def _upsert(
     if rejection:
         return rejection
 
-    if spec.name == "user_tunes" and written is not None:
-        await _record_status_change(
-            session, user_id, change.id, prior_status, written, change.updated_at
-        )
+    if written is not None:
+        await rules.written(written)
 
     resolved = await _current_and_status(session, spec, user_id, change, written)
     if resolved is None:
         return _invalid(change, "id is not yours")
     current, status = resolved
 
-    if spec.name == "recordings" and status == "applied":
-        await _after_recording_write(
-            session, current, change.updated_at, is_new=stored_recording is None
-        )
+    if status == "applied":
+        await rules.applied(current)
 
     return _result(spec, change, status, current)
-
-
-async def _record_status_change(
-    session: AsyncSession,
-    user_id: uuid.UUID,
-    user_tune_id: uuid.UUID,
-    prior: str | None,
-    written: UserTune,
-    changed_at: datetime,
-) -> None:
-    """Add a history row when a written user tune holds a different status than before.
-
-    Args:
-        session: The request's session.
-        user_id: The pushing user.
-        user_tune_id: The user tune that was written.
-        prior: The status stored before the write, or None when the row did not exist.
-        written: The row the upsert returned.
-        changed_at: The change's timestamp.
-    """
-    if written.status == prior:
-        return
-    session.add(
-        StatusChange(
-            id=uuid.uuid4(),
-            user_id=user_id,
-            user_tune_id=user_tune_id,
-            from_status=prior,
-            to_status=written.status,
-            changed_at=changed_at,
-            server_seq=next_server_seq(),
-        )
-    )
 
 
 async def _insert(
@@ -608,8 +364,12 @@ async def _insert(
 
 
 async def _current_and_status(
-    session: AsyncSession, spec: TableSpec, user_id: uuid.UUID, change: Change, written: Any
-) -> tuple[Any, str] | None:
+    session: AsyncSession,
+    spec: TableSpec,
+    user_id: uuid.UUID,
+    change: Change,
+    written: SyncedRow | None,
+) -> tuple[SyncedRow, str] | None:
     """The row now in place and whether the change applied, or None when the id isn't the caller's.
 
     A row the write skipped is either newer or someone else's, and only a read tells which.
@@ -652,57 +412,41 @@ async def _delete(
             execution_options={"populate_existing": True},
         )
     ).scalar_one()
-    await _cascade(session, spec.name, change.id, change.updated_at, user_id)
-    if spec.name in ("recordings", "scans", "tunes"):
-        # A deleted recording, or one a tune delete cascades to, has files only the
+    await _cascade(session, spec, [change.id], change.updated_at, user_id)
+    if _reaches_files(spec):
+        # A deleted row that owns files, or one the cascade reached, has files only the
         # runner's purge removes, and a purge has no due time to wake it.
         request_runner_wake(session)
     return _result(spec, change, "applied", current)
 
 
 async def _cascade(
-    session: AsyncSession, table: TableName, row_id: uuid.UUID, at: datetime, user_id: uuid.UUID
+    session: AsyncSession,
+    spec: TableSpec,
+    parent_ids: Iterable[uuid.UUID] | Select[tuple[uuid.UUID]],
+    at: datetime,
+    user_id: uuid.UUID,
 ) -> None:
-    """A parent delete is authoritative: dependents are soft-deleted regardless of their own timestamps."""
+    """A parent delete is authoritative: dependents are soft-deleted regardless of their own timestamps.
 
-    async def mark(model, where) -> None:  # noqa: ANN001
+    Grandchildren are marked before their parents, depth first in `children` order.
+    Every statement carries the caller's ownership, so no cascade can reach another
+    account's rows even if a parent row ever slipped past the ownership checks above.
+    """
+    for child_name, fk_column in spec.children:
+        child = TABLES[child_name]
+        model: Any = child.model
+        child_ids = select(model.id).where(
+            getattr(model, fk_column).in_(parent_ids), child.owned_by(user_id)
+        )
+        await _cascade(session, child, child_ids, at, user_id)
         await session.execute(
             update(model)
-            .where(where, model.deleted_at.is_(None))
+            .where(model.id.in_(child_ids), model.deleted_at.is_(None))
             .values(deleted_at=at, updated_at=at, server_seq=next_server_seq())
         )
 
-    # Every statement carries the caller's ownership, so no cascade can reach another
-    # account's rows even if a parent row ever slipped past the ownership checks above.
-    owned_items = ListItem.list_id.in_(select(List.id).where(List.user_id == user_id))
-    if table == "tunes":
-        user_tune_ids = select(UserTune.id).where(
-            UserTune.tune_id == row_id, UserTune.user_id == user_id
-        )
-        await mark(ListItem, ListItem.user_tune_id.in_(user_tune_ids) & owned_items)
-        await mark(UserTune, (UserTune.tune_id == row_id) & (UserTune.user_id == user_id))
-        await mark(
-            RecordingLink,
-            (RecordingLink.tune_id == row_id) & (RecordingLink.added_by_user_id == user_id),
-        )
-        tune_recording_ids = select(Recording.id).where(
-            Recording.tune_id == row_id, Recording.user_id == user_id
-        )
-        await mark(
-            RecordingLoop,
-            RecordingLoop.recording_id.in_(tune_recording_ids) & (RecordingLoop.user_id == user_id),
-        )
-        await mark(Recording, (Recording.tune_id == row_id) & (Recording.user_id == user_id))
-        await mark(
-            Scan,
-            (Scan.tune_id == row_id) & (Scan.user_id == user_id),
-        )
-    elif table == "user_tunes":
-        await mark(ListItem, (ListItem.user_tune_id == row_id) & owned_items)
-    elif table == "lists":
-        await mark(ListItem, (ListItem.list_id == row_id) & owned_items)
-    elif table == "recordings":
-        await mark(
-            RecordingLoop,
-            (RecordingLoop.recording_id == row_id) & (RecordingLoop.user_id == user_id),
-        )
+
+def _reaches_files(spec: TableSpec) -> bool:
+    """Whether deleting a row of this table can delete a row that owns bucket files."""
+    return spec.owns_files or any(_reaches_files(TABLES[child]) for child, _ in spec.children)

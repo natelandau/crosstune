@@ -172,6 +172,27 @@ def test_every_table_has_a_schema_and_a_spec() -> None:
     assert set(DATA_SCHEMAS) == set(TABLE_ORDER) == set(TABLES)
 
 
+# A merged tune points at the tune it merged into; deleting that tune keeps the pointer.
+NOT_CASCADED = {("tunes", "merged_into_id")}
+
+
+def test_every_foreign_key_between_synced_tables_cascades_a_delete() -> None:
+    by_table = {spec.model.__tablename__: name for name, spec in TABLES.items()}
+    foreign_keys = {
+        (by_table[fk.column.table.name], name, column.name)
+        for name, spec in TABLES.items()
+        for column in spec.model.__table__.columns
+        for fk in column.foreign_keys
+        if fk.column.table.name in by_table and (name, column.name) not in NOT_CASCADED
+    }
+    declared = {
+        (parent, child, column)
+        for parent, spec in TABLES.items()
+        for child, column in spec.children
+    }
+    assert foreign_keys == declared
+
+
 def test_tune_rejects_the_retired_tuning_field() -> None:
     with pytest.raises(ValidationError):
         TuneData(title="Sally Ann", tuning="AEAE", created_at=NOW)

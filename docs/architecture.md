@@ -50,7 +50,7 @@ Cloudflare also hosts the DNS zone for the product domain.
   token and scopes every query to the caller.
 - A request body is read only after its token verifies, and never past a
   size limit: 32 MiB for `/v1` routes, 64 KiB for the webhook. Anything
-  else is a 401 or a 413 before the body is buffered.
+  else is a 401, 413, or 503 before the body is buffered.
 - The API has no CORS. Browsers reach it same-origin, through the Vite proxy
   locally and the Worker when hosted. The Apple app calls the API origin
   directly, which CORS does not govern. A token's `azp` claim, when present,
@@ -69,7 +69,7 @@ Cloudflare also hosts the DNS zone for the product domain.
 | Question                 | Answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Which write wins         | The client's `updated_at`. Last write wins, per row.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order and a cursor never skips a row.                                                                                                                                                                                                                                                                               |
+| What to pull next        | `server_seq`, one Postgres sequence. Every writer that bumps it, push and the job runner alike, holds a per-user advisory lock so numbers commit in order, and a pull holds it shared so no write lands between its reads. A cursor never skips a row.                                                                                                                                                                                                                  |
 | Who owns a row           | The token.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Is a row deleted         | `deleted_at`. Deletes are soft and tombstones are kept forever, so a deletion reaches every device.                                                                                                                                                                                                                                                                                                                                                                     |
 | Which tables sync        | User settings, tunes, user-tune, recording links, recordings, scans, recording loops (a labeled range on a recording's source timeline, a child of the recording), lists, list items. Four history tables, kept out of the main pull: plays, practice sessions, and scan views, which clients push once and never edit, and status changes, which the server writes when a user tune's status changes. Server-only, never synced: users, upload slots, background jobs. |
@@ -159,7 +159,10 @@ same triggers. A return to the foreground stands in for a visible tab.
   refetches on an unknown key at most once a minute. A valid token is RS256,
   names the issuer, and carries `exp`, `iat`, `sub`, and `sid`. The `sid`
   claim limits it to session tokens: a JWT template token from the same
-  instance has none.
+  instance has none. A pending session (`sts` of `pending`) is refused.
+- When the JWKS fetch fails and the token's key is not cached, the API
+  answers 503, not 401, so a client never asks the user to sign in again
+  over an outage at Clerk.
 - Clerk sets `azp` from the browser's `Origin`. A browser token must carry
   an allowed `azp`. A native SDK sends no `Origin`, so the Apple app's
   tokens carry no `azp`, and the API accepts a session token without one.
@@ -176,9 +179,9 @@ same triggers. A return to the foreground stands in for a visible tab.
   deletion can never recreate the row. The API answers that token with a
   401 of type `urn:crosstune:account-deleted`, and a client that receives
   it wipes its local data as if it had made the delete itself.
-- Bucket files are removed after the response, and an hourly sweep deletes
-  any user prefix whose row is gone. A deleted row still exists in Neon's
-  point-in-time recovery history until that window ends.
+- Bucket files are removed after the response, and a sweep every 12 hours
+  deletes any user prefix whose row is gone. A deleted row still exists in
+  Neon's point-in-time recovery history until that window ends.
 - Offline: the client remembers the last user ID in local storage. With no
   connection, or when Clerk fails to load within 5 seconds, the app opens on
   that user's local database. Sync reports offline until Clerk loads, then
