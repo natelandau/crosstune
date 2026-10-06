@@ -30,7 +30,6 @@ from crosstune.main import make_object_store
 from crosstune.models import Recording, Scan
 from crosstune.models.user import utc_now
 from crosstune.recordings.service import bump_server_seq, enqueue_transcode
-from crosstune.scans.service import bump_scan_server_seq
 from crosstune.schemas.common import Change
 from crosstune.schemas.rows import DATA_SCHEMAS, ROW_SCHEMAS
 from crosstune.storage.store import PLAYBACK_MIME, SCAN_MIME, scan_key, upload_key
@@ -179,7 +178,7 @@ async def _attach_scan(
     scan.file_bytes = await store.upload(path, key, content_type=SCAN_MIME)
     scan.file_key = key
     scan.state = ScanState.READY.value
-    bump_scan_server_seq(scan)
+    bump_server_seq(scan)
 
 
 async def seed(
