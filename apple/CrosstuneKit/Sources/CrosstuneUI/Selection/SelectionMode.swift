@@ -70,8 +70,7 @@ private struct SelectionMode: ViewModifier {
                         .padding(.vertical, spacing.stackGap)
                 }
             }
-            .sensoryFeedback(.selection, trigger: selection.isActive) { was, now in !was && now }
-            // The selection's bottom toolbar takes the tab bar's place, dome and all.
+            // The selection's bottom toolbar takes the tab bar's place, record slot and all.
             .claimsSelection(selection.isActive)
             .onChange(of: selection.isActive) { _, active in
                 modeChanged(active)

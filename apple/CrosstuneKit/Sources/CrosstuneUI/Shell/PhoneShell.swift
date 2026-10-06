@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A place in the iPhone tab bar. The record slot never stays selected: it holds the dome's place.
+/// A place in the iPhone tab bar. The record slot never stays selected: choosing it records.
 enum TabSlot: Hashable {
     case destination(Destination)
     case record
@@ -13,12 +13,18 @@ enum TabSlot: Hashable {
         case .record: (current, true)
         }
     }
+
+    /// Whether the record slot takes a press: not while a sheet, dialog, or selection covers
+    /// the shell. Outside a shell nothing covers it.
+    @MainActor static func recordIsEnabled(cover: ShellCover?) -> Bool {
+        cover?.isCovered != true
+    }
 }
 
 #if os(iOS)
 
-    /// The iPhone frame: four tabs, the record dome over the middle of the bar, and the player
-    /// in the bar's bottom accessory while something is loaded.
+    /// The iPhone frame: four tabs, Record in its own circle at the bar's trailing end, and the
+    /// player in the bar's bottom accessory while something is loaded.
     struct PhoneShell: View {
         let player: PlayerModel
         let stage: EmbedStage
@@ -28,28 +34,24 @@ enum TabSlot: Hashable {
         let onRecord: @MainActor () -> Void
 
         @State private var selection: TabSlot = .destination(.catalog)
-        @State private var width: CGFloat = .infinity
-        @Environment(\.domeCover) private var domeCover
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Environment(\.recordCover) private var recordCover
 
         var body: some View {
             TabView(selection: $selection) {
                 destinationTab(.catalog)
                 destinationTab(.lists)
-                // The bar gives each slot an equal share, so an empty middle slot centers the
-                // dome between the second and third tabs.
-                Tab(value: TabSlot.record) {
-                    Color.clear
-                } label: {
-                    Image(systemName: RecordControl.systemImage)
-                }
-                .accessibilityLabel(RecordControl.label)
                 destinationTab(.recordings)
                 destinationTab(.settings)
+                Tab(value: TabSlot.record, role: Self.recordRole) {
+                    Color.clear
+                } label: {
+                    Image(uiImage: recordIsEnabled ? Self.recordDot : Self.coveredRecordDot)
+                }
+                .accessibilityLabel(RecordControl.label)
+                .disabled(!recordIsEnabled)
             }
-            // The record slot can still be chosen, by VoiceOver or at the dome's edge. The choice
-            // lands in state and is put back to the current tab here, so the bar never shows
-            // the empty slot's page.
+            // Choosing the record slot lands in state and is put back to the current tab here,
+            // so the bar never shows the slot's empty page.
             .onChange(of: selection) {
                 let (destination, records) = selection.resolved(current: place.tab)
                 place.tab = destination
@@ -65,38 +67,31 @@ enum TabSlot: Hashable {
                 place.tab = .recordings
             }
             .tabBarMinimizeBehavior(.never)
-            .overlay(alignment: .bottom) {
-                let isCovered = domeCover?.isCovered == true
-                ZStack {
-                    if !isCovered {
-                        RecordDome(diameter: domeDiameter, action: onRecord)
-                            // The slot under the dome carries its name and action, and VoiceOver cannot
-                            // skip a tab, so the dome stays out of its way rather than doubling it.
-                            .accessibilityHidden(true)
-                            // A smaller dome keeps its center where the full one has it.
-                            .padding(.bottom, Self.domeLift + (RecordDome.diameter - domeDiameter) / 2)
-                            .transition(.opacity)
-                    }
-                }
-                // The bar stays put under the keyboard, so the dome must too. The frame fills the
-                // overlay so its bottom edge meets the keyboard's safe area and can ignore it.
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .ignoresSafeArea(.keyboard)
-                .animation(reduceMotion ? nil : .default, value: isCovered)
-            }
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.width
-            } action: {
-                width = $0
-            }
             .modifier(PlayerAccessory(player: player, stage: stage))
         }
 
-        /// Where the dome's bottom edge sits against the bottom safe area. Its top rises a few
-        /// points above the bar and stays clear of the bottom accessory above it.
-        private static let domeLift: CGFloat = -4
+        /// The role that sets a tab apart in its own circle at the bar's trailing end.
+        private static var recordRole: TabRole {
+            if #available(iOS 27, *) { .prominent } else { .search }
+        }
 
-        private var domeDiameter: CGFloat { RecordDome.diameter(forWidth: width) }
+        private var recordIsEnabled: Bool { TabSlot.recordIsEnabled(cover: recordCover) }
+
+        /// The bar redraws a template glyph in its own colors, so the dot is drawn red up front.
+        private static let recordDot = dot(UIColor(Color.recordingRed))
+        /// The bar draws an original image the same whether or not its tab is disabled, so a
+        /// covered slot shows its standing down with a dimmed dot of its own.
+        private static let coveredRecordDot = dot(UIColor(Color.recordingRed).withAlphaComponent(0.35))
+
+        private static func dot(_ color: UIColor) -> UIImage {
+            if let glyph = UIImage(systemName: "circle.fill") {
+                return glyph.withTintColor(color, renderingMode: .alwaysOriginal)
+            }
+            return UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { context in
+                color.setFill()
+                context.cgContext.fillEllipse(in: CGRect(x: 2, y: 2, width: 20, height: 20))
+            }
+        }
 
         private func destinationTab(_ destination: Destination) -> some TabContent<TabSlot> {
             Tab(destination.title, systemImage: destination.systemImage, value: TabSlot.destination(destination)) {
@@ -120,9 +115,9 @@ enum TabSlot: Hashable {
         }
 
         private var root: some View {
-            DestinationScreen(destination: destination)
+            DestinationScreen(destination: destination, usesSettingsRoot: true)
                 .toolbarTitleDisplayMode(.inlineLarge)
-                .syncBadgeToolbar()
+                .syncBadgeToolbar(leading: destination == .catalog)
                 .environment(
                     \.stackTune,
                     Binding {
@@ -142,23 +137,32 @@ enum TabSlot: Hashable {
     }
 
     /// The player in the tab bar's bottom accessory, only while something is loaded, and the
-    /// player in full in a sheet over it: a recording's screen at full height, or a link's
-    /// player. Pulling the sheet down leaves the bar playing.
+    /// player in full over it: a recording's screen as a full-screen cover on the practice
+    /// ground, zooming out of the accessory, or a link's player in a sheet. Pulling either down
+    /// leaves the bar playing.
     private struct PlayerAccessory: ViewModifier {
         let player: PlayerModel
         let stage: EmbedStage
 
+        private static let zoomID = "player"
+
         @Environment(\.playerWindow) private var window
         @Environment(ListPlayback.self) private var playback: ListPlayback?
+        @Environment(\.colorScheme) private var colorScheme
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Namespace private var zoom
 
         func body(content: Content) -> some View {
             content
                 .tabViewBottomAccessory(isEnabled: PlayerBar.isShown(player, playback)) {
                     PlayerBar(player: player)
+                        .matchedTransitionSource(id: Self.zoomID, in: zoom)
                 }
-                .sheet(isPresented: expanded(.recording)) {
+                .fullScreenCover(isPresented: expanded(.recording)) {
                     RecordingScreen(player: player)
-                        .presentationDetents([.large])
+                        // Read out here, since the screen's own appearance is always dark.
+                        .practiceGround(colorScheme)
+                        .zooms(from: Self.zoomID, in: reduceMotion ? nil : zoom)
                 }
                 .modifier(EmbedParking(player: player, stage: stage))
                 .sheet(isPresented: expanded(.link)) {

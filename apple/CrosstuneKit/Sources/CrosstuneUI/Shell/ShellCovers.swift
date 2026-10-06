@@ -19,10 +19,9 @@ final class ShellCover {
 }
 
 extension EnvironmentValues {
-    /// Covers the iPhone tab bar's record dome: a selecting screen's toolbar takes the bar's
-    /// place, and a sheet's glass would show the red dome through it. Supplied by the shell;
-    /// nil outside it.
-    @Entry var domeCover: ShellCover?
+    /// Covers the iPhone tab bar's record slot, which stands down while a sheet or dialog is up
+    /// or a screen is selecting. Supplied by the shell; nil outside it.
+    @Entry var recordCover: ShellCover?
     /// Counts the sheets, dialogs, and file pickers up over the shell, so a menu command that
     /// would open another stands down meanwhile. Supplied by the shell; nil outside it.
     @Entry var openSheets: ShellCover?
@@ -32,12 +31,12 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Marks this view as a sheet over the shell while it shows: the record dome hides and the
-    /// menu commands that open sheets stand down.
+    /// Marks this view as a sheet over the shell while it shows: the record slot and the menu
+    /// commands that open sheets stand down.
     func shellSheet() -> some View {
-        // The dome comes back as the sheet starts down rather than once it has gone, so the bar
-        // is whole when the sheet clears it.
-        modifier(Covers(cover: \.domeCover, isCovering: true, endsAsDismissed: true))
+        // The record slot comes back as the sheet starts down rather than once it has gone, so
+        // the bar is whole when the sheet clears it.
+        modifier(Covers(cover: \.recordCover, isCovering: true, endsAsDismissed: true))
             .modifier(Covers(cover: \.openSheets, isCovering: true))
     }
 
@@ -51,14 +50,14 @@ extension View {
     /// presents a dialog, alert, file picker, or share sheet, which have no root view of their own
     /// to mark.
     func coversShell(_ isPresenting: Bool) -> some View {
-        modifier(Covers(cover: \.domeCover, isCovering: isPresenting))
+        modifier(Covers(cover: \.recordCover, isCovering: isPresenting))
             .modifier(Covers(cover: \.openSheets, isCovering: isPresenting))
     }
 
-    /// Marks this screen as selecting while `isSelecting` is true: the record dome and record
+    /// Marks this screen as selecting while `isSelecting` is true: the record slot and record
     /// button give way to the selection's toolbar, and New tune stands down.
     func claimsSelection(_ isSelecting: Bool) -> some View {
-        modifier(Covers(cover: \.domeCover, isCovering: isSelecting))
+        modifier(Covers(cover: \.recordCover, isCovering: isSelecting))
             .modifier(Covers(cover: \.selecting, isCovering: isSelecting))
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 
 /// Every sheet, dialog, and file or photo picker in the UI covers the shell while it is up, so the record
-/// dome hides and the menu commands stand down. A sheet's root view marks itself with
+/// slot and the menu commands stand down. A sheet's root view marks itself with
 /// `.shellSheet()` or `.partHeightSheet()`; a dialog, alert, file picker, or share sheet has no
 /// root view of its own, so the view presenting it carries `.coversShell(_:)` on the line before.
 @Suite struct PresentationClaimTests {

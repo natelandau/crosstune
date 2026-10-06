@@ -64,33 +64,39 @@ public struct SyncBadge: View {
 
 extension View {
     /// Adds the sync badge to this screen's toolbar, reading the session and engine from the
-    /// environment. Nothing is added while sync needs no attention.
-    func syncBadgeToolbar() -> some View {
+    /// environment. Nothing is added while sync needs no attention. `leading` puts it at the
+    /// bar's leading edge on iPhone, for a screen whose two verbs fill the trailing edge and
+    /// whose centered title would give way to a large one under a third trailing item. A
+    /// leading badge stands aside while the screen is selecting, whose Select All takes that edge.
+    func syncBadgeToolbar(leading: Bool = false) -> some View {
         toolbar {
-            ToolbarItem(placement: Self.badgePlacement) {
-                SyncBadgeItem()
+            ToolbarItem(placement: Self.badgePlacement(leading: leading)) {
+                SyncBadgeItem(hidesWhileSelecting: leading)
             }
             .sharedBackgroundVisibility(.hidden)
         }
     }
 
-    private static var badgePlacement: ToolbarItemPlacement {
+    private static func badgePlacement(leading: Bool) -> ToolbarItemPlacement {
         #if os(macOS)
             .status
         #else
-            .topBarTrailing
+            leading ? .topBarLeading : .topBarTrailing
         #endif
     }
 }
 
 private struct SyncBadgeItem: View {
+    let hidesWhileSelecting: Bool
+
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(SyncEngine.self) private var engine: SyncEngine?
+    @Environment(\.selecting) private var selecting
 
     var body: some View {
         let shown = SyncBadge.attention(
             status: engine?.status, isOffline: session?.isOffline ?? false, needsSignIn: session?.needsSignIn ?? false)
-        if let shown {
+        if let shown, !(hidesWhileSelecting && selecting?.isCovered == true) {
             SyncBadge(status: shown)
         }
     }

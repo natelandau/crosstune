@@ -10,7 +10,7 @@
         @Binding var selection: SidebarItem?
         /// Nil until the first read.
         let lists: [ListSummary]?
-        let counts: SidebarCounts?
+        let counts: CatalogCounts?
         let canRecord: Bool
         let onRecord: @MainActor () -> Void
         let newList: () -> Void
