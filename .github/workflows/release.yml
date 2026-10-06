@@ -60,6 +60,11 @@ jobs:
   apple:
     name: Apple
     needs: guard
+    # A called workflow holds no permission its caller lacks, and the Apple workflow's cache
+    # prune job asks for actions: write. That job runs only for pushes to `main`, never here.
+    permissions:
+      contents: read
+      actions: write
     uses: ./.github/workflows/apple.yml
     with:
       skip_build: true
