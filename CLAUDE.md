@@ -39,6 +39,9 @@ every label. The glossary in `docs/product.md` has the reasons.
   failed check. Every worktree shares one installed copy, so the keychain
   trusts it once; `run` waits while another worktree holds it, and
   `just apple::status` shows who. Never launch a build from DerivedData.
+- Build the Apple app with the `apple` recipes. An `xcodebuild` no recipe
+  covers runs from `apple/` with `-derivedDataPath .build/DerivedData`, never a folder of
+  its own: nothing deletes a one-off folder, and each holds gigabytes.
 - To see or drive a running app, use Peekaboo for the Mac app and
   Maestro for the iOS simulators. Run `peekaboo learn` and
   `maestro --help` for their commands. Peekaboo: target the app with

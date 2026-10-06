@@ -384,3 +384,14 @@ prune-derived-data:
             echo "removed ${dir##*/} (${project})"
         fi
     done
+
+# Delete simulators whose runtime is gone, and runtimes that are unusable or superseded
+[group('maintenance')]
+prune-sims:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    xcrun simctl delete unavailable
+    for which in --unusable --outdated; do
+        # Status 2 means no runtime matched
+        xcrun simctl runtime delete "$which" || [ $? -eq 2 ]
+    done

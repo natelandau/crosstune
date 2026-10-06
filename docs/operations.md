@@ -30,6 +30,10 @@ URL (`https://<slug>.clerk.accounts.dev`) and the publishable key
    `crosstune-local` and `crosstune-e2e` buckets.
 3. In `api/.env`, set `CROSSTUNE_CLERK_ISSUER` to the Frontend API URL.
 4. In `web/.env`, set `VITE_CLERK_PUBLISHABLE_KEY` to the publishable key.
+5. In Xcode > Settings > Locations, set Derived Data to Relative,
+   `.build/DerivedData`. Xcode then builds into the folder the `apple`
+   recipes use, inside the checkout, so removing a worktree removes its
+   build.
 
 Migrations run every time `just dev` starts. Nothing is created by hand.
 
@@ -50,6 +54,9 @@ the worktree's `api/.env` at both. `just worktree` runs it, and so does
 `just api::worktree-db reset` replaces it with a fresh one.
 `just worktree` also runs `just api::prune-worktree-dbs`, which drops the
 database and bucket of every worktree that no longer exists.
+
+After an Xcode update, run `just apple::prune-sims`. An update adds a
+new set of simulators and never removes the old ones.
 
 ## Run
 
