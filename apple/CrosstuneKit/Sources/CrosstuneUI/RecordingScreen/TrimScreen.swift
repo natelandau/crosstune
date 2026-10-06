@@ -297,6 +297,7 @@ private struct TrimStrip: View {
     /// drag always lets go of the stretch it held.
     @GestureState private var gesture: StripGesture?
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.practiceGround) private var ground
 
     private struct StripGesture: Equatable {
         let handle: TrimModel.Handle?
@@ -338,7 +339,7 @@ private struct TrimStrip: View {
         let raw = fraction(Double(model.value(handle)), in: range)
         // A handle being dragged stays on the strip, pinned to its edge, so its finger does.
         if gesture?.handle == handle || (0...1).contains(raw) {
-            let mark = HandleMark(handle: handle)
+            let mark = HandleMark(handle: handle, color: markStyle)
                 .frame(width: Self.handleWidth, height: height)
                 .contentShape(.rect)
                 .position(x: min(max(raw, 0), 1) * width, y: height / 2)
@@ -443,8 +444,17 @@ private struct TrimStrip: View {
         let playhead = fraction(playheadMs, in: range)
         if (0...1).contains(playhead) {
             let x = min(max(0, playhead * size.width - 1), size.width - 2)
-            context.fill(Path(CGRect(x: x, y: 0, width: 2, height: size.height)), with: .style(.primary))
+            context.fill(Path(CGRect(x: x, y: 0, width: 2, height: size.height)), with: .style(playheadStyle))
         }
+    }
+
+    /// Plain marks: the tint off the practice ground, white on it.
+    private var markStyle: AnyShapeStyle {
+        ground != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.tint)
+    }
+
+    private var playheadStyle: AnyShapeStyle {
+        ground != nil ? AnyShapeStyle(PracticeWaveform.handleColor(isTrim: true)) : AnyShapeStyle(.primary)
     }
 }
 
@@ -452,14 +462,15 @@ private struct TrimStrip: View {
 /// the bottom for the end, so the two read apart where they meet.
 private struct HandleMark: View {
     let handle: TrimModel.Handle
+    let color: AnyShapeStyle
 
     var body: some View {
         Rectangle()
-            .fill(.tint)
+            .fill(color)
             .frame(width: 2)
             .overlay(alignment: handle == .start ? .top : .bottom) {
                 Circle()
-                    .fill(.tint)
+                    .fill(color)
                     .frame(width: 12, height: 12)
                     .offset(y: handle == .start ? -6 : 6)
             }

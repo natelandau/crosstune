@@ -440,3 +440,57 @@ private final class Writes {
         #expect(ShownPeaks(row, peaks: nil, peaksRev: nil) == nil)
     }
 }
+
+@Suite struct PracticeSubtitleTests {
+    private let gmt = TimeZone.gmt
+    private let locale = Locale(identifier: "en_US")
+
+    private func subtitle(_ recording: Recording, tuneTitle: String?, lengthMs: Int64? = 125_000) -> String {
+        RecordingScreenText.subtitle(recording, tuneTitle: tuneTitle, lengthMs: lengthMs, locale: locale, timeZone: gmt)
+    }
+
+    private func date(_ recording: Recording) -> String {
+        RecordingText.date(recording, locale: locale, timeZone: gmt)
+    }
+
+    @Test func aLabeledTakeNamesTheTuneItIsFiledUnder() {
+        let labeled = Recording(tuneID: "t1", source: "microphone", addedAt: noon, label: "Jam at Mike's")
+        #expect(subtitle(labeled, tuneTitle: "Soldier's Joy") == "Soldier's Joy · 2:05")
+    }
+
+    @Test func aTakeTitledByItsTuneReadsTheSiteItCameFromOrItsDate() {
+        let imported = Recording(tuneID: "t1", source: "import", origin: "slippery_hill", addedAt: noon)
+        #expect(subtitle(imported, tuneTitle: "Soldier's Joy") == "Slippery-Hill · 2:05")
+        let own = Recording(tuneID: "t1", source: "microphone", addedAt: noon)
+        #expect(subtitle(own, tuneTitle: "Soldier's Joy") == "\(date(own)) · 2:05")
+    }
+
+    @Test func aTakeTitledByItsDateDoesNotRepeatIt() {
+        let unfiled = Recording(tuneID: nil, source: "microphone", addedAt: noon)
+        #expect(subtitle(unfiled, tuneTitle: nil) == "2:05")
+        #expect(subtitle(unfiled, tuneTitle: nil, lengthMs: nil).isEmpty)
+    }
+}
+
+@Suite struct PracticeSwipeTests {
+    private let down = CGSize(width: 10, height: 200)
+
+    @Test func aLongMostlyVerticalDragFromTheHeaderOrWaveformCloses() {
+        #expect(PracticeSwipe.closes(startY: 40, translation: down, areaBottom: 400))
+        #expect(PracticeSwipe.closes(startY: 390, translation: down, areaBottom: 400))
+    }
+
+    @Test func aDragFromTheControlsUnderTheWaveformNeverCloses() {
+        #expect(!PracticeSwipe.closes(startY: 410, translation: down, areaBottom: 400))
+    }
+
+    @Test func aScrubOrAShortDragNeverCloses() {
+        #expect(!PracticeSwipe.closes(startY: 40, translation: CGSize(width: 200, height: 150), areaBottom: 400))
+        #expect(!PracticeSwipe.closes(startY: 40, translation: CGSize(width: 0, height: 60), areaBottom: 400))
+        #expect(!PracticeSwipe.closes(startY: 40, translation: CGSize(width: 0, height: -200), areaBottom: 400))
+    }
+
+    @Test func beforeTheControlsAreLaidOutAnywhereCloses() {
+        #expect(PracticeSwipe.closes(startY: 700, translation: down, areaBottom: nil))
+    }
+}

@@ -42,10 +42,51 @@ struct ScreenRows: Equatable, Sendable {
     }
 }
 
+extension EnvironmentValues {
+    /// The appearance outside the recording screen whose practice ground the screen stands on,
+    /// or nil where it draws on the window's own background.
+    @Entry var practiceGround: ColorScheme?
+}
+
+extension View {
+    /// Stands the recording screen on the practice ground for `scheme`, the appearance outside
+    /// it, and draws everything on it in dark so it reads on the ground in every appearance.
+    func practiceGround(_ scheme: ColorScheme) -> some View {
+        environment(\.practiceGround, scheme)
+            .environment(\.colorScheme, .dark)
+    }
+}
+
+/// Fills a screen of the recording screen's stack with the practice ground, where it has one.
+private struct PracticeGroundFill: ViewModifier {
+    @Environment(\.practiceGround) private var ground
+
+    func body(content: Content) -> some View {
+        if let ground {
+            content.stackBackground(PhoneStyle.practiceGround(ground))
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    /// Fills the navigation stack's screen behind this view with `color`.
+    fileprivate func stackBackground(_ color: Color) -> some View {
+        #if os(iOS)
+            containerBackground(color, for: .navigation)
+        #else
+            // The Mac stands on the ground only to preview the phone's screen.
+            background(color)
+        #endif
+    }
+}
+
 /// The expanded player for the loaded recording: the overview, the waveform under a fixed
 /// playhead with the readout and zoom over it, the Loops, Speed, and Pitch selector, the
 /// transport, and the chosen mode's controls, with Trim and the recording's other actions in its
-/// menu. The recorded date and length are the title's subtitle. It drives the player the bar
+/// menu. Where the recording came from and its length are the title's subtitle on iPhone; the
+/// Mac's heading reads its date and length. It drives the player the bar
 /// shows, so what plays here is what the bar plays. Reads the store from the environment.
 public struct RecordingScreen: View {
     private let player: PlayerModel
@@ -53,6 +94,8 @@ public struct RecordingScreen: View {
     @Environment(\.store) private var store
     @State private var rows: LiveQuery<ScreenRows?>?
     @State private var path: [RecordingRoute] = []
+    /// The top of the practice controls, below which a swipe down never closes the screen.
+    @State private var controlsTop: CGFloat?
 
     public init(player: PlayerModel) {
         self.player = player
@@ -62,13 +105,14 @@ public struct RecordingScreen: View {
         NavigationStack(path: $path) {
             Group {
                 if let loaded = rows?.value ?? nil {
-                    RecordingScreenContent(player: player, rows: loaded, path: $path)
+                    RecordingScreenContent(player: player, rows: loaded, path: $path, controlsTop: $controlsTop)
                         .id(loaded.recording.id)
                 } else {
                     // Loading is silence.
                     Color.clear
                 }
             }
+            .modifier(PracticeGroundFill())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
@@ -88,6 +132,7 @@ public struct RecordingScreen: View {
                 }
             }
         }
+        .closesPracticeBySwipe(areaBottom: controlsTop, isEnabled: path.isEmpty) { player.isExpanded = false }
         #if os(macOS)
             .frame(minWidth: 480, idealWidth: 560, minHeight: 600, idealHeight: 720)
         #endif
@@ -116,6 +161,8 @@ struct RecordingScreenContent: View {
     let player: PlayerModel
     let rows: ScreenRows
     @Binding var path: [RecordingRoute]
+    /// Where the controls under the waveform start, in the screen's swipe space.
+    @Binding var controlsTop: CGFloat?
 
     @Environment(\.store) private var store
     @Environment(\.commands) private var commands
@@ -126,6 +173,7 @@ struct RecordingScreenContent: View {
     @Environment(AccountSession.self) private var session: AccountSession?
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(\.openURL) private var openURL
+    @Environment(\.practiceGround) private var ground
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
@@ -168,12 +216,13 @@ struct RecordingScreenContent: View {
     ///   - practice: The screen's model when it is made ahead of showing, as for a snapshot.
     ///   - peaks: Peaks to show before any load, as for a snapshot.
     init(
-        player: PlayerModel, rows: ScreenRows, path: Binding<[RecordingRoute]>, practice: PracticeModel? = nil,
-        peaks: Peaks? = nil
+        player: PlayerModel, rows: ScreenRows, path: Binding<[RecordingRoute]>,
+        controlsTop: Binding<CGFloat?> = .constant(nil), practice: PracticeModel? = nil, peaks: Peaks? = nil
     ) {
         self.player = player
         self.rows = rows
         _path = path
+        _controlsTop = controlsTop
         _practice = State(initialValue: practice)
         _peaks = State(initialValue: peaks.map { LoadedPeaks(peaks: $0, rev: nil) })
     }
@@ -188,7 +237,9 @@ struct RecordingScreenContent: View {
         }
         .navigationTitle(player.title ?? "")
         #if os(iOS)
-            .navigationSubtitle(subtitle)
+            .navigationSubtitle(
+                RecordingScreenText.subtitle(rows.recording, tuneTitle: rows.tuneTitle, lengthMs: rows.trimmedLengthMs)
+            )
             .navigationBarTitleDisplayMode(.inline)
         #else
             // The sheet's window keeps the title as its accessible name; the heading in the
@@ -203,6 +254,7 @@ struct RecordingScreenContent: View {
             case .trim:
                 if let trim {
                     TrimScreen(model: trim, player: player, peaks: shownPeaks, onDone: leaveTrim)
+                        .modifier(PracticeGroundFill())
                 }
             }
         }
@@ -308,9 +360,19 @@ struct RecordingScreenContent: View {
             .opacity(blocker != nil ? 0.5 : 1)
             .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
             // Outside the dimming, so the reason the screen is blocked reads at full strength.
-            .overlay(alignment: .bottom) { WaveformOverlay(model: practice, blocker: blocker) }
+            .overlay(alignment: .bottom) {
+                WaveformOverlay(model: practice, blocker: blocker, showsReadout: ground == nil)
+            }
+            // On the ground the readout sits under the playhead rather than over the wave.
+            if ground != nil {
+                PracticeReadout(model: practice, blocker: blocker)
+            }
             ScrollView {
                 VStack(spacing: spacing.sectionGap) {
+                    // On the ground the transport leads, right under the waveform it plays.
+                    if ground != nil {
+                        PracticeControls(model: practice, blocker: blocker)
+                    }
                     modeWidth(ModePicker(model: practice))
                         .disabled(blocker != nil)
                         .opacity(blocker != nil ? 0.5 : 1)
@@ -318,7 +380,9 @@ struct RecordingScreenContent: View {
                             // Clear of the waveform's zoom controls, which sit on its bottom edge.
                             .padding(.top, MacStyle.headingGap)
                         #endif
-                    PracticeControls(model: practice, blocker: blocker)
+                    if ground == nil {
+                        PracticeControls(model: practice, blocker: blocker)
+                    }
                     modeWidth(ModeControls(model: practice, onDeleted: focusWaveform))
                         .disabled(blocker != nil)
                         .opacity(blocker != nil ? 0.5 : 1)
@@ -330,6 +394,11 @@ struct RecordingScreenContent: View {
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
+            .onGeometryChange(for: CGFloat.self) {
+                $0.frame(in: .named(PracticeSwipe.space)).minY
+            } action: {
+                controlsTop = $0
+            }
             // Laid out first, so it takes its natural height and the waveform the rest; only once
             // the waveform is at its floor does this region shrink and scroll.
             .frame(maxHeight: controlsHeight.map { CGFloat($0) })
@@ -399,6 +468,7 @@ struct RecordingScreenContent: View {
         peaks.flatMap { ShownPeaks(rows.recording, peaks: $0.peaks, peaksRev: $0.rev) }
     }
 
+    /// The Mac heading's second line.
     private var subtitle: String {
         let date = RecordingText.date(rows.recording)
         guard let length = RecordingText.duration(milliseconds: rows.trimmedLengthMs) else { return date }

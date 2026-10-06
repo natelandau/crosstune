@@ -45,6 +45,28 @@ public enum RecordingScreenText {
         "Trim to \(RecordingText.duration(milliseconds: milliseconds) ?? "")?"
     }
 
+    /// The practice screen's subtitle: where the recording came from, then its length. The
+    /// source is the tune it is filed under when its own label is the title, else the site it
+    /// was imported from, else its date, which a title that is already the date leaves out. A
+    /// take with neither a source nor a length has no subtitle.
+    public static func subtitle(
+        _ recording: Recording, tuneTitle: String?, lengthMs: Int64?, locale: Locale = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        let date = RecordingText.date(recording, locale: locale, timeZone: timeZone)
+        let source: String? =
+            if recording.label != nil, let tuneTitle {
+                tuneTitle
+            } else if let site = RecordingText.originLabel(recording.origin) {
+                site
+            } else if RecordingText.titleIsDate(recording, tuneTitle: tuneTitle) {
+                nil
+            } else {
+                date
+            }
+        return [source, RecordingText.duration(milliseconds: lengthMs)].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// `m:ss.t`, for placing a trim handle to the tenth of a second.
     public static func preciseTime(milliseconds: Int64) -> String {
         let tenths = Int64((Double(max(0, milliseconds)) / 100).rounded())

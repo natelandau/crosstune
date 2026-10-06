@@ -582,3 +582,21 @@ private final class QuietTrackCommands: TrackCommands {
         #expect(!PlayerBar.isShown(player, playback))
     }
 }
+
+@Suite struct AccessorySwipeTests {
+    @Test func swipeSkipsOnlyPastTheThresholdWhileAListPlays() {
+        #expect(AccessorySwipe.skip(translation: -61, isPlayingList: true) == .next)
+        #expect(AccessorySwipe.skip(translation: 61, isPlayingList: true) == .previous)
+        #expect(AccessorySwipe.skip(translation: -59, isPlayingList: true) == nil)
+        #expect(AccessorySwipe.skip(translation: 59, isPlayingList: true) == nil)
+        #expect(AccessorySwipe.skip(translation: -200, isPlayingList: false) == nil)
+    }
+
+    @Test func swipeSkipsOnlyWhereTheListHasATuneToGoTo() {
+        #expect(AccessorySwipe.hasPlace(for: .next, position: 1, count: 3, repeats: false))
+        #expect(!AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: false))
+        #expect(AccessorySwipe.hasPlace(for: .next, position: 3, count: 3, repeats: true))
+        #expect(AccessorySwipe.hasPlace(for: .previous, position: 2, count: 3, repeats: false))
+        #expect(!AccessorySwipe.hasPlace(for: .previous, position: 1, count: 3, repeats: true))
+    }
+}
