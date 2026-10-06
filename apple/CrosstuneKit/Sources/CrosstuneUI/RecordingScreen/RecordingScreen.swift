@@ -112,6 +112,37 @@ public struct RecordingScreen: View {
     #endif
 
     public var body: some View {
+        // Around the stack, so the header, a pushed trim screen, and the swipe that closes the
+        // screen belong to practice alone, and the reading pane keeps the window's full height.
+        Stand(player: player) {
+            practice
+        }
+        .task(id: loadedID) {
+            // A trim screen belongs to the recording it opened on.
+            path = []
+            guard let store, let id = loadedID else { return }
+            rows = LiveQuery(store, initial: nil) { try ScreenRows.fetch($0, id: id) }
+        }
+        .onChange(of: (rows?.value ?? nil) == nil) { _, isGone in
+            // The pushed screen went with the row, so a row that returns opens on the recording.
+            if isGone { path = [] }
+        }
+        // Here rather than on the recording's own view, which also goes while the trim screen
+        // is pushed over it.
+        .onDisappear {
+            player.screenClosed(by: screen)
+            #if os(macOS)
+                // Still asked for in this window means the window itself went, leaving nothing
+                // that could ever close the practice view.
+                if let window, player.isExpanded, player.expandedWindow == window { player.isExpanded = false }
+            #endif
+        }
+        #if os(iOS)
+            .shellSheet()
+        #endif
+    }
+
+    private var practice: some View {
         NavigationStack(path: $path) {
             Group {
                 if let loaded = rows?.value ?? nil {
@@ -142,29 +173,6 @@ public struct RecordingScreen: View {
             #endif
         }
         .closesPracticeBySwipe(areaBottom: controlsTop, isEnabled: path.isEmpty) { player.isExpanded = false }
-        .task(id: loadedID) {
-            // A trim screen belongs to the recording it opened on.
-            path = []
-            guard let store, let id = loadedID else { return }
-            rows = LiveQuery(store, initial: nil) { try ScreenRows.fetch($0, id: id) }
-        }
-        .onChange(of: (rows?.value ?? nil) == nil) { _, isGone in
-            // The pushed screen went with the row, so a row that returns opens on the recording.
-            if isGone { path = [] }
-        }
-        // Here rather than on the recording's own view, which also goes while the trim screen
-        // is pushed over it.
-        .onDisappear {
-            player.screenClosed(by: screen)
-            #if os(macOS)
-                // Still asked for in this window means the window itself went, leaving nothing
-                // that could ever close the practice view.
-                if let window, player.isExpanded, player.expandedWindow == window { player.isExpanded = false }
-            #endif
-        }
-        #if os(iOS)
-            .shellSheet()
-        #endif
     }
 
     private var loadedID: String? {
@@ -191,6 +199,7 @@ struct RecordingScreenContent: View {
     @Environment(RecordingTransferActions.self) private var transfers: RecordingTransferActions?
     @Environment(\.openURL) private var openURL
     @Environment(\.practiceGround) private var ground
+    @Environment(\.standHasReading) private var standHasReading
     /// The mode last used on this device, kept here; the screen's model is what the panel reads.
     @AppStorage(PracticeMode.storageKey) private var mode: PracticeMode = .loops
     @State private var peaks: LoadedPeaks?
@@ -208,6 +217,12 @@ struct RecordingScreenContent: View {
     @State private var practice: PracticeModel?
     /// The natural height of everything under the waveform, which the waveform leaves room for.
     @State private var controlsHeight: Double?
+    /// The waveform's and the controls region's laid-out heights, which tell the iPad's Stand
+    /// how short practice can go before its controls clip.
+    @State private var waveformHeight: CGFloat?
+    @State private var controlsRegionHeight: CGFloat?
+    @Environment(\.standsWithReading) private var standsWithReading
+    @Environment(ListPlayback.self) private var playback: ListPlayback?
     @FocusState private var focus: PracticeFocus?
     @AccessibilityFocusState private var waveformFocused: Bool
 
@@ -246,6 +261,12 @@ struct RecordingScreenContent: View {
         _peaks = State(initialValue: peaks.map { LoadedPeaks(peaks: $0, rev: nil) })
     }
 
+    private var headerSubtitle: String? {
+        StandHeader.subtitle(
+            recording: rows.recording, tuneTitle: rows.tuneTitle, lengthMs: rows.trimmedLengthMs,
+            playback: playback, standsWithReading: standsWithReading)
+    }
+
     var body: some View {
         Group {
             if let practice {
@@ -256,11 +277,12 @@ struct RecordingScreenContent: View {
         }
         .navigationTitle(player.title ?? "")
         #if os(iOS)
-            .navigationSubtitle(
-                RecordingScreenText.subtitle(rows.recording, tuneTitle: rows.tuneTitle, lengthMs: rows.trimmedLengthMs)
-            )
+            .navigationSubtitle(headerSubtitle ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if standHasReading {
+                    ToolbarItem(placement: .primaryAction) { StandReadingToggle() }
+                }
                 ToolbarItem(placement: .primaryAction) { menu }
             }
         #else
@@ -382,6 +404,11 @@ struct RecordingScreenContent: View {
             .disabled(blocker != nil)
             .opacity(blocker != nil ? 0.5 : 1)
             .frame(minHeight: PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight), maxHeight: .infinity)
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                waveformHeight = $0
+            }
             // Outside the dimming, so the reason the screen is blocked reads at full strength.
             .overlay(alignment: .bottom) {
                 WaveformOverlay(model: practice, blocker: blocker, showsReadout: ground == nil)
@@ -425,6 +452,11 @@ struct RecordingScreenContent: View {
             // Laid out first, so it takes its natural height and the waveform the rest; only once
             // the waveform is at its floor does this region shrink and scroll.
             .frame(maxHeight: controlsHeight.map { CGFloat($0) })
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                controlsRegionHeight = $0
+            }
             .layoutPriority(1)
         }
         #if os(macOS)
@@ -432,6 +464,7 @@ struct RecordingScreenContent: View {
             .padding(.top, MacStyle.headingGap)
         #else
             .padding(16)
+            .modifier(StandPracticeWidth())
         #endif
         // The keyboard covers the controls rather than squeezing the waveform, so opening a name
         // field leaves the waveform as it is.
@@ -446,6 +479,16 @@ struct RecordingScreenContent: View {
                 onClose: close)
         )
         .onChange(of: focus) { _, _ in practice.commitNudge() }
+        .preference(key: StandPracticeSlack.self, value: standsWithReading ? practiceSlack : nil)
+    }
+
+    /// The height practice could give up before the controls under the waveform clip, or how
+    /// much more it needs when negative: the waveform's room above its floor, less what the
+    /// controls region lacks of its natural height.
+    private var practiceSlack: CGFloat? {
+        guard let waveformHeight, let controlsRegionHeight, let controlsHeight else { return nil }
+        return waveformHeight - PracticeLayout.waveformFloor(isCompactHeight: isCompactHeight)
+            + controlsRegionHeight - CGFloat(controlsHeight)
     }
 
     #if os(macOS)
