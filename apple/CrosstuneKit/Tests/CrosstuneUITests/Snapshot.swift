@@ -47,7 +47,23 @@ func snapshot(
 #if os(macOS)
     import AppKit
 
-    /// Renders `content` in an offscreen window to `<name>-light.png` and `<name>-dark.png`, for
+    /// A see-through window below every other app's windows, so a test run never covers the
+    /// developer's screen. An offscreen origin does not hold: AppKit moves a titled window, and a
+    /// window presenting a sheet, back onto a screen. A sheet takes its parent's level. Drawing
+    /// with `cacheDisplay` ignores the window's alpha.
+    @MainActor
+    private func hiddenWindow(size: CGSize, styleMask: NSWindow.StyleMask, appearance: NSAppearance.Name) -> NSWindow {
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: size), styleMask: styleMask, backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: appearance)
+        window.alphaValue = 0
+        window.ignoresMouseEvents = true
+        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+        return window
+    }
+
+    /// Renders `content` in a hidden window to `<name>-light.png` and `<name>-dark.png`, for
     /// views the image renderer cannot draw: AppKit-backed controls, scroll views, and canvases
     /// inside a timeline view. Glass is off, as in ``snapshot(_:width:size:_:)``.
     @MainActor
@@ -60,11 +76,7 @@ func snapshot(
                     .background(.background)
                     .environment(\.drawsGlass, false))
             view.frame = CGRect(origin: .zero, size: size)
-            let window = NSWindow(
-                contentRect: CGRect(origin: CGPoint(x: -20_000, y: -20_000), size: size), styleMask: [.borderless],
-                backing: .buffered, defer: false)
-            window.isReleasedWhenClosed = false
-            window.appearance = NSAppearance(named: appearance)
+            let window = hiddenWindow(size: size, styleMask: [.borderless], appearance: appearance)
             window.contentView = view
             window.orderFrontRegardless()
             // A few turns of the run loop let geometry reads and their state changes settle.
@@ -78,18 +90,14 @@ func snapshot(
         }
     }
 
-    /// Presents `content` as a real sheet over an offscreen window and renders the sheet with its
+    /// Presents `content` as a real sheet over a hidden window and renders the sheet with its
     /// toolbar to `<name>-light.png` and `<name>-dark.png`.
     @MainActor
     func sheetSnapshot(_ name: String, @ViewBuilder _ content: @escaping () -> some View) async {
         try? FileManager.default.createDirectory(at: snapshotFolder, withIntermediateDirectories: true)
         for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
             let size = CGSize(width: 800, height: 700)
-            let window = NSWindow(
-                contentRect: CGRect(origin: CGPoint(x: -20_000, y: -20_000), size: size),
-                styleMask: [.titled], backing: .buffered, defer: false)
-            window.isReleasedWhenClosed = false
-            window.appearance = NSAppearance(named: appearance)
+            let window = hiddenWindow(size: size, styleMask: [.titled], appearance: appearance)
             window.contentView = NSHostingView(
                 rootView: Color.clear
                     .frame(width: size.width, height: size.height)
@@ -100,6 +108,7 @@ func snapshot(
                 try? await Task.sleep(for: .milliseconds(50))
                 sheet = window.attachedSheet
             }
+            sheet?.alphaValue = 0
             // Let the sheet's own layout and geometry reads settle.
             try? await Task.sleep(for: .milliseconds(400))
             if let frame = sheet?.contentView?.superview {
