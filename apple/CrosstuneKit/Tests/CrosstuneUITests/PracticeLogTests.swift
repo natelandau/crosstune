@@ -144,6 +144,26 @@ private func loop(_ id: String) -> RecordingLoop {
         #expect(session.durationMs == 20_000)
     }
 
+    @Test func onlyTheLatestScreenToOpenClosesTheVisit() async throws {
+        let rig = ActivityRig()
+        try await rig.playRecording()
+        let first = UUID()
+        let second = UUID()
+        rig.player.screenOpened("r1", by: first)
+        rig.player.setSpeed(80)
+        try await rig.fed { $0.speedPercent == 80 }
+        rig.clock.advance(5_000)
+        // A second window shows the same recording, then the first window's screen goes.
+        rig.player.screenOpened("r1", by: second)
+        rig.player.screenClosed(by: first)
+        rig.clock.advance(15_000)
+        #expect(rig.recorded.sessions.isEmpty)
+
+        rig.player.screenClosed(by: second)
+        let session = try #require(rig.recorded.sessions.only)
+        #expect(session.durationMs == 20_000)
+    }
+
     @Test func anotherRecordingPlayingWhileTheScreenShowsCountsTowardNoVisit() async throws {
         let rig = ActivityRig()
         try await rig.playRecording("r1")
