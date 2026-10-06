@@ -431,13 +431,26 @@ private final class Writes {
         row.playbackStartMs = 500
 
         let local = ShownPeaks(row, peaks: peaks, peaksRev: nil)
-        #expect(local?.peaks.values == Array(values[50..<150]))
+        #expect(local.map { Array($0.values) } == Array(values[50..<150]))
         #expect(local?.loudest == 199)
 
         let server = ShownPeaks(row, peaks: peaks, peaksRev: "p1")
-        #expect(server?.peaks.values == Array(values[25..<125]))
+        #expect(server.map { Array($0.values) } == Array(values[25..<125]))
         #expect(ShownPeaks(row, peaks: peaks, peaksRev: "old") == nil)
         #expect(ShownPeaks(row, peaks: nil, peaksRev: nil) == nil)
+    }
+
+    @Test func slicingShownPeaksFloorsOffsetsToPointIndicesWithinTheTrim() throws {
+        let values = (0..<200).map { UInt8($0 % 256) }
+        let shown = try #require(ShownPeaks(take(), peaks: Peaks(values: values), peaksRev: nil))
+        let trimmed = Array(shown.values)
+
+        let sliced = shown.sliced(fromMs: 400, toMs: 1000)
+
+        #expect(Array(sliced.values) == Array(trimmed[20..<50]))
+        #expect(sliced.loudest == shown.loudest)
+        #expect(Array(sliced.sliced(fromMs: 20, toMs: 60).values) == Array(trimmed[21..<23]))
+        #expect(shown.sliced(fromMs: 500, toMs: 500).values.isEmpty)
     }
 }
 

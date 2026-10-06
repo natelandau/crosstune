@@ -194,19 +194,20 @@ struct PracticeWaveform: View {
         if x1 > x0 {
             let slice = peaks?.sliced(fromMs: Int64(drawStart), toMs: Int64(drawEnd.rounded(.up)))
             let bars = CGRect(x: x0, y: 0, width: x1 - x0, height: Double(size.height))
+            let path = Path.peakBars(slice, in: bars)
             if ground != nil {
                 // What has played, left of the fixed playhead, is white; what is to come is silver.
                 let played = CGRect(x: 0, y: 0, width: width / 2, height: Double(size.height))
                 context.drawLayer { layer in
                     layer.clip(to: Path(played))
-                    layer.fillPeakBars(slice, in: bars, with: .color(BrandStyle.color(hex: PhoneStyle.wavePlayed)))
+                    layer.fill(path, with: .color(BrandStyle.color(hex: PhoneStyle.wavePlayed)))
                 }
                 context.drawLayer { layer in
                     layer.clip(to: Path(played), options: .inverse)
-                    layer.fillPeakBars(slice, in: bars, with: .color(BrandStyle.color(hex: PhoneStyle.waveUnplayed)))
+                    layer.fill(path, with: .color(BrandStyle.color(hex: PhoneStyle.waveUnplayed)))
                 }
             } else {
-                context.fillPeakBars(slice, in: bars, with: .style(.tertiary))
+                context.fill(path, with: .style(.tertiary))
             }
         }
         let selectedID = model.selectedID
@@ -516,6 +517,13 @@ extension GraphicsContext {
 extension GraphicsContext {
     /// Draws `peaks` as bars across `rect`, or a plain timeline bar when there are none.
     func fillPeakBars(_ peaks: ShownPeaks?, in rect: CGRect, with shading: Shading) {
+        fill(.peakBars(peaks, in: rect), with: shading)
+    }
+}
+
+extension Path {
+    /// `peaks` as bars across `rect`, or a plain timeline bar when there are none.
+    static func peakBars(_ peaks: ShownPeaks?, in rect: CGRect) -> Path {
         let barWidth: CGFloat = 2
         let step: CGFloat = 3
         let levels = peaks?.bars(Int(rect.width / step)) ?? []
@@ -533,6 +541,6 @@ extension GraphicsContext {
                     cornerSize: CGSize(width: 1, height: 1))
             }
         }
-        fill(path, with: shading)
+        return path
     }
 }

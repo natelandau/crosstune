@@ -42,19 +42,6 @@ public struct Peaks: Equatable, Sendable {
         return data
     }
 
-    /// Cuts this file down to the `fromMs` to `toMs` range of its own timeline, offsets floored
-    /// to point indices.
-    public func sliced(fromMs: Int64, toMs: Int64) -> Peaks {
-        let start = clampedIndex(fromMs)
-        let end = clampedIndex(toMs)
-        guard start < end else { return Peaks(pointsPerSecond: pointsPerSecond, values: []) }
-        return Peaks(pointsPerSecond: pointsPerSecond, values: Array(values[start..<end]))
-    }
-
-    private func clampedIndex(_ ms: Int64) -> Int {
-        min(max(Int(ms) * pointsPerSecond / 1000, 0), values.count)
-    }
-
     /// Resamples captured peak bytes to `round(durationMs / 20)` points, taking the max of each
     /// target window. Capture ticks drift from the ideal 20 ms cadence, so the raw count rarely
     /// lines up with the final duration.

@@ -25,15 +25,6 @@ import Testing
         #expect(throws: (any Error).self) { try Peaks(file: Data([1, 0, 25, 10, 20])) }
     }
 
-    @Test func slicedFloorsOffsetsToPointIndices() {
-        let peaks = Peaks(values: (0..<100).map { UInt8($0) })
-
-        let sliced = peaks.sliced(fromMs: 400, toMs: 1000)
-
-        #expect(sliced.values == (20..<50).map { UInt8($0) })
-        #expect(sliced.pointsPerSecond == peaks.pointsPerSecond)
-    }
-
     @Test func fittedResamplesToTheFinalDurationTakingTheLoudestOfEachWindow() {
         let fitted = Peaks.fitted([10, 200, 30, 5], durationMs: 40)
 
