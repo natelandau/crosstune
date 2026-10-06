@@ -54,11 +54,24 @@ func baseContentType(_ contentType: String?) -> String {
     return base.lowercased()
 }
 
+/// A value the server sent, such as an ID or a revision, refused as part of a local file name.
+struct UnsafeFileNamePart: Error {
+    let value: String
+}
+
+/// `value` as part of a local file name. Only letters, digits, `-` and `_` pass, so no
+/// server-sent value can name a path outside the folder the file goes in.
+func fileNamePart(_ value: String) throws -> String {
+    guard !value.isEmpty, value.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") })
+    else { throw UnsafeFileNamePart(value: value) }
+    return value
+}
+
 /// The name a downloaded recording's file takes in the audio folder, tagged with the revision it
 /// was downloaded for so a re-download after a trim writes a new file rather than overwriting one
 /// a player may still hold open. The extension lets the player tell the container without
 /// sniffing it.
-func downloadedFileName(_ recordingID: String, rev: String, contentType: String?) -> String {
+func downloadedFileName(_ recordingID: String, rev: String, contentType: String?) throws -> String {
     let ext =
         switch baseContentType(contentType) {
         case "audio/mpeg": "mp3"
@@ -67,13 +80,15 @@ func downloadedFileName(_ recordingID: String, rev: String, contentType: String?
         case "audio/wav", "audio/x-wav": "wav"
         default: "m4a"
         }
-    return "\(recordingID)-\(rev).\(ext)"
+    return "\(try fileNamePart(recordingID))-\(try fileNamePart(rev)).\(ext)"
 }
 
 /// The name a fetched waveform takes in the audio folder, tagged with the revision it was
 /// fetched for. A capture-time waveform (`CaptureFiles.peaksName`, never revisioned) is never
 /// this shape, so the two can never collide or be mistaken for one another.
-func peaksFileName(_ recordingID: String, rev: String) -> String { "\(recordingID)-\(rev).peaks" }
+func peaksFileName(_ recordingID: String, rev: String) throws -> String {
+    "\(try fileNamePart(recordingID))-\(try fileNamePart(rev)).peaks"
+}
 
 /// A downloaded audio file whose revision no longer matches the recording's current playback
 /// file, as after a trim. A file never downloaded from the server (the raw capture or an import,
@@ -384,7 +399,7 @@ struct Transfers {
             // from under.
             let signed = try await api.downloadURL(recordingID: id)
             try checkStopped()
-            let name = downloadedFileName(id, rev: signed.playbackRev, contentType: row.playbackMime)
+            let name = try downloadedFileName(id, rev: signed.playbackRev, contentType: row.playbackMime)
             let newDestination = store.audioFolder.appending(path: name)
             destination = newDestination
             try await api.getObject(signed.url, to: newDestination)
@@ -432,7 +447,7 @@ struct Transfers {
         // with this row's own peaksRev, which can already be behind it.
         let signed = try await api.peaksURL(recordingID: id)
         try checkStopped()
-        let name = peaksFileName(id, rev: signed.peaksRev)
+        let name = try peaksFileName(id, rev: signed.peaksRev)
         let destination = store.audioFolder.appending(path: name)
         try await api.getObject(signed.url, to: destination)
         try await store.writeDroppingFiles { writer in

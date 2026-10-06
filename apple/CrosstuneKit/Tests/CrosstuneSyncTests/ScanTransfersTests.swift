@@ -212,7 +212,7 @@ import Testing
         #expect(api.transfers == ["scan-url p1", "get p1"])
         let file = try #require(try await file("p1"))
         #expect(file.origin == .downloaded)
-        #expect(file.fileName == downloadedScanName("p1"))
+        #expect(try file.fileName == downloadedScanName("p1"))
         #expect(exists(store.scansFolder.appending(path: file.fileName)))
     }
 
