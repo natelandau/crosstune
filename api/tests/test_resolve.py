@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx2
 import pytest
@@ -13,6 +15,9 @@ from crosstune.links.opengraph import PageMeta, parse_open_graph
 from crosstune.links.resolve import MAX_PAGE_BYTES, resolve_link
 from crosstune.vocabulary import LIMITS
 from tests.helpers import OEMBED, T0, change, og_html, push, uid
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 pytestmark = pytest.mark.anyio
 
@@ -634,3 +639,20 @@ async def test_slippery_hill_page_with_an_overlong_file_path_resolves_no_ref(moc
         link = await resolve_link(SLIPPERY_HILL_PAGE, client, timeout=5.0)
     assert link.provider == "slippery_hill"
     assert link.provider_ref is None
+
+
+async def test_a_page_that_never_finishes_resolves_untitled_within_its_deadline(mock_http) -> None:
+    async def drip() -> AsyncIterator[bytes]:
+        yield b"<html><head>"
+        while True:
+            await asyncio.sleep(0.01)
+            yield b" "
+
+    mock_http.add("https://fiddler.bandcamp.com/track/slow", httpx2.Response(200, content=drip()))
+    async with mock_http.client() as client:
+        link = await asyncio.wait_for(
+            resolve_link("https://fiddler.bandcamp.com/track/slow", client, timeout=0.05),
+            timeout=5,
+        )
+    assert link.title is None
+    assert link.url == "https://fiddler.bandcamp.com/track/slow"

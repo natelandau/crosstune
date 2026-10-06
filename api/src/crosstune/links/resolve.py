@@ -27,6 +27,8 @@ ITUNES_LOOKUP = "https://itunes.apple.com/lookup"
 ARCHIVE_METADATA = "https://archive.org/metadata/{identifier}/metadata"
 ARCHIVE_ARTWORK = "https://archive.org/services/img/{identifier}"
 MAX_PAGE_BYTES = 512_000
+# How many per-phase timeouts one whole resolve may take, redirects and all.
+RESOLVE_DEADLINE_TIMEOUTS = 3
 LINK_LIMITS = LIMITS["recording_links"]
 
 
@@ -58,32 +60,18 @@ async def resolve_link(
     client: httpx2.AsyncClient,
     timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
 ) -> ResolvedLink:
-    """Detect the provider, canonicalize the URL, and try to fetch metadata."""
+    """Detect the provider, canonicalize the URL, and try to fetch metadata.
+
+    `timeout` bounds each network phase, which a server can stretch forever by
+    trickling bytes, so the whole fetch also runs under a deadline of a few of them.
+    """
     link = unresolved_link(url)
     title: str | None = None
     artwork: str | None = None
     ref = link.provider_ref
     try:
-        if link.provider in OEMBED_ENDPOINTS:
-            title, artwork = await _oembed(
-                client, OEMBED_ENDPOINTS[link.provider], link.url, timeout
-            )
-        elif link.provider == "apple_music" and link.provider_ref:
-            title, artwork = await _itunes(client, link.provider_ref, timeout)
-        elif link.provider == "internet_archive" and link.provider_ref:
-            title, artwork = await _internet_archive(client, link.provider_ref, timeout)
-        elif link.provider == "slippery_hill":
-            # A file URL already carries its ref; only a page URL needs fetching.
-            if ref is None:
-                tune = await asyncio.to_thread(
-                    parse_tune_page, await _read_page(client, link.url, timeout)
-                )
-                title, ref = tune.title, tune.ref
-        else:
-            page = await _open_graph(client, link.url, timeout)
-            title, artwork = page.title, page.image
-            if link.provider == "bandcamp":
-                ref = page.bandcamp_ref
+        async with asyncio.timeout(timeout * RESOLVE_DEADLINE_TIMEOUTS):
+            title, artwork, ref = await _fetch_metadata(client, link, timeout)
     except Exception:  # noqa: BLE001  -- any upstream failure degrades to an untitled link
         log.warning("link resolution failed", extra={"url": link.url, "provider": link.provider})
     return replace(
@@ -96,6 +84,34 @@ async def resolve_link(
         else None,
         provider_ref=ref if ref is None or len(ref) <= LINK_LIMITS["provider_ref"] else None,
     )
+
+
+async def _fetch_metadata(
+    client: httpx2.AsyncClient,
+    link: ResolvedLink,
+    timeout: float,  # noqa: ASYNC109 -- forwarded to httpx2's per-request timeout, not asyncio cancellation
+) -> tuple[str | None, str | None, str | None]:
+    """Fetch the title, artwork, and provider ref the link's provider publishes."""
+    ref = link.provider_ref
+    if link.provider in OEMBED_ENDPOINTS:
+        title, artwork = await _oembed(client, OEMBED_ENDPOINTS[link.provider], link.url, timeout)
+        return title, artwork, ref
+    if link.provider == "apple_music" and link.provider_ref:
+        title, artwork = await _itunes(client, link.provider_ref, timeout)
+        return title, artwork, ref
+    if link.provider == "internet_archive" and link.provider_ref:
+        title, artwork = await _internet_archive(client, link.provider_ref, timeout)
+        return title, artwork, ref
+    if link.provider == "slippery_hill":
+        # A file URL already carries its ref; only a page URL needs fetching.
+        if ref is not None:
+            return None, None, ref
+        tune = await asyncio.to_thread(parse_tune_page, await _read_page(client, link.url, timeout))
+        return tune.title, None, tune.ref
+    page = await _open_graph(client, link.url, timeout)
+    if link.provider == "bandcamp":
+        ref = page.bandcamp_ref
+    return page.title, page.image, ref
 
 
 async def _oembed(
