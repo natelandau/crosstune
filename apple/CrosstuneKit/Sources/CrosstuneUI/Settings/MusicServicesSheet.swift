@@ -12,16 +12,7 @@ struct MusicServicesSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    ForEach(searchableProviders, id: \.self) { provider in
-                        Toggle(
-                            Vocabulary.providerLabels[provider] ?? provider,
-                            isOn: Binding(
-                                get: { model.searches(provider) }, set: { model.setSearches(provider, $0) }))
-                    }
-                } footer: {
-                    SettingsFooter(help: SettingsModel.musicServicesHelp, failure: model.searchProvidersFailure)
-                }
+                MusicServicesChoices(model: model)
             }
             .formStyle(.grouped)
             .navigationTitle(SettingsModel.musicServices)
@@ -35,5 +26,22 @@ struct MusicServicesSheet: View {
             }
         }
         .partHeightSheet()
+    }
+}
+
+/// The service toggles and their help, as the sheet and the iPhone page both show them.
+struct MusicServicesChoices: View {
+    let model: SettingsModel
+
+    var body: some View {
+        Section {
+            ForEach(searchableProviders, id: \.self) { provider in
+                Toggle(
+                    Vocabulary.providerLabels[provider] ?? provider,
+                    isOn: Binding(get: { model.searches(provider) }, set: { model.setSearches(provider, $0) }))
+            }
+        } footer: {
+            SettingsFooter(help: SettingsModel.musicServicesHelp, failure: model.searchProvidersFailure)
+        }
     }
 }

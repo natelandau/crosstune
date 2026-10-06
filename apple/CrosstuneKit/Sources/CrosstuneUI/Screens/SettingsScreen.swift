@@ -27,10 +27,11 @@ public struct SettingsScreen: View {
         static let storage = Sections(rawValue: 1 << 7)
         static let account = Sections(rawValue: 1 << 8)
         static let about = Sections(rawValue: 1 << 9)
+        static let downloads = Sections(rawValue: 1 << 10)
 
         static let all: Sections = [
-            .stats, .instruments, .musicServices, .appleMusic, .appearance, .recording, .sync, .storage, .account,
-            .about,
+            .stats, .instruments, .musicServices, .appleMusic, .appearance, .recording, .downloads, .sync, .storage,
+            .account, .about,
         ]
     }
 
@@ -38,6 +39,7 @@ public struct SettingsScreen: View {
     private let sections: Sections
     private let title: String
     private let opensStatsInSheet: Bool
+    private let registersStats: Bool
     @AppStorage(Appearance.storageKey) private var appearance: Appearance = .system
     @AppStorage(TextSize.storageKey) private var textSizeOffset = 0
     @Environment(\.systemDynamicTypeSize) private var systemTextSize
@@ -68,7 +70,10 @@ public struct SettingsScreen: View {
     ///   - title: The navigation title.
     ///   - opensStatsInSheet: Shows the stats screen in a sheet rather than pushing it, for a
     ///     form with no stack to push onto.
-    init(version: String?, sections: Sections, title: String, opensStatsInSheet: Bool) {
+    ///   - registersStats: Whether the form registers the stats screen's destination. A page
+    ///     pushed from a root that registers it once leaves this off.
+    init(version: String?, sections: Sections, title: String, opensStatsInSheet: Bool, registersStats: Bool = true) {
+        self.registersStats = registersStats
         self.version = version
         self.sections = sections
         self.title = title
@@ -104,6 +109,7 @@ public struct SettingsScreen: View {
             }
             if let model, model.isLoaded {
                 if sections.contains(.recording) { recordingSections(model) }
+                if sections.contains(.downloads) { downloadsSections(model) }
                 if sections.contains(.sync) { syncSection(model) }
                 if sections.contains(.storage) { storageSection(model) }
             }
@@ -133,7 +139,7 @@ public struct SettingsScreen: View {
                 StatsSheet()
             }
         #endif
-        .modifier(StatsDestination(isPushed: !opensStatsInSheet))
+        .modifier(StatsDestination(isPushed: !opensStatsInSheet && registersStats))
         .navigationTitle(title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
@@ -208,12 +214,7 @@ public struct SettingsScreen: View {
                 musicServicesShowing = true
                 showsMusicServices = true
             }
-            Picker(
-                PlayFirstText.label,
-                selection: Binding(get: { model.playFirst }, set: { model.setPlayFirst($0) })
-            ) {
-                ForEach(Vocabulary.playFirsts, id: \.self) { Text(PlayFirstText.names[$0] ?? $0).tag($0) }
-            }
+            PlayFirstPicker(model: model)
         } footer: {
             SettingsFooter(
                 help: "\(SettingsModel.musicServicesHelp) \(PlayFirstText.help)",
@@ -254,6 +255,9 @@ public struct SettingsScreen: View {
         } footer: {
             SettingsFooter(help: SettingsModel.channelsFooter, failure: nil)
         }
+    }
+
+    @ViewBuilder private func downloadsSections(_ model: SettingsModel) -> some View {
         Section {
             Toggle(
                 SettingsModel.keepOffline,
@@ -325,7 +329,7 @@ public struct SettingsScreen: View {
 }
 
 /// The stats screen as a push from the summary row, where the form sits in a stack.
-private struct StatsDestination: ViewModifier {
+struct StatsDestination: ViewModifier {
     let isPushed: Bool
 
     func body(content: Content) -> some View {

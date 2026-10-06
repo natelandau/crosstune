@@ -60,7 +60,7 @@ public struct AccountSections: View {
 
     public var body: some View {
         Section {
-            Text(identity)
+            Text(Self.identity(session))
             Button(Self.signOut, role: .destructive) {
                 run(failure: $signOutFailure) { try await session.signOut() }
             }
@@ -85,10 +85,10 @@ public struct AccountSections: View {
     }
 
     /// Clerk has no user until it loads, so offline the row says so instead of an email.
-    private var identity: String {
+    static func identity(_ session: AccountSession) -> String {
         if let email = session.email { return email }
         if !session.isOffline, case .signedIn(let userID, _) = session.phase { return userID }
-        return Self.signedInOffline
+        return signedInOffline
     }
 
     /// Opens at once and counts in the background: the delete itself runs on the server, so a

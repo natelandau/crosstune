@@ -13,15 +13,7 @@ struct InstrumentsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    ForEach(Vocabulary.instruments, id: \.self) { instrument in
-                        Toggle(
-                            Vocabulary.instrumentLabels[instrument] ?? instrument,
-                            isOn: Binding(get: { model.plays(instrument) }, set: { model.setPlays(instrument, $0) }))
-                    }
-                } footer: {
-                    SettingsFooter(help: SettingsModel.instrumentsHelp, failure: model.instrumentsFailure)
-                }
+                InstrumentsChoices(model: model)
             }
             .formStyle(.grouped)
             .navigationTitle(SettingsModel.instruments)
@@ -35,6 +27,23 @@ struct InstrumentsSheet: View {
             }
         }
         .partHeightSheet()
+    }
+}
+
+/// The instrument toggles and their help, as the sheet and the iPhone page both show them.
+struct InstrumentsChoices: View {
+    let model: SettingsModel
+
+    var body: some View {
+        Section {
+            ForEach(Vocabulary.instruments, id: \.self) { instrument in
+                Toggle(
+                    Vocabulary.instrumentLabels[instrument] ?? instrument,
+                    isOn: Binding(get: { model.plays(instrument) }, set: { model.setPlays(instrument, $0) }))
+            }
+        } footer: {
+            SettingsFooter(help: SettingsModel.instrumentsHelp, failure: model.instrumentsFailure)
+        }
     }
 }
 
