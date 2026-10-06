@@ -62,6 +62,9 @@ database and bucket of every worktree that no longer exists.
 | `just site::dev`    | The site alone, on Astro's dev server.                                                                                                                                                                                                                                                                                |
 | `just web::preview` | A production build on 4173 with the same `/v1` proxy.                                                                                                                                                                                                                                                                 |
 
+To re-record the app screens the site shows, run `just site::capture
+[names…]`; see [Refresh the site's captures](#refresh-the-sites-captures).
+
 Open http://localhost:5173 and sign in with an email address. The API
 answers `{"status":"ok"}` at http://localhost:8000/healthz. Every checkout
 and worktree shares one Postgres container, and each worktree has its own
