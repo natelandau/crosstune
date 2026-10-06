@@ -20,16 +20,6 @@ public struct TuneMembership: Hashable, Sendable, Identifiable {
     public var id: String { list.id }
 }
 
-/// One fact a tune's screen shows in its wrapping row of facets.
-public enum TuneFacet: Hashable, Sendable {
-    case key(String)
-    case text(String)
-    /// The musician's status for the tune, as its dot and label.
-    case status(String)
-    /// The tune is archived, in the cautionary tone.
-    case archived
-}
-
 /// Everything the tune screen shows about one tune, read in one pass so it never shows a tune
 /// beside another moment's links or recordings.
 public struct TuneDetail: Hashable, Sendable {
@@ -72,25 +62,6 @@ public struct TuneDetail: Hashable, Sendable {
             guard instruments.contains(instrument) || entry.tuning != nil || entry.capo != nil else { return nil }
             return tuningDisplay(tune.tunings, instrument: instrument, withInstrument: true)
         }
-    }
-
-    /// What the tune is, in one wrapping row: the key first, then each part's mode, the status,
-    /// the tunings, time signature, crooked, type, genre, parts, and archived, each left out when
-    /// unset.
-    public var facets: [TuneFacet] {
-        var facets: [TuneFacet] = []
-        if let key = tune.key?.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty {
-            facets.append(.key(key))
-        }
-        facets += tune.modes.map(TuneFacet.text)
-        facets.append(.status(userTune.status))
-        facets += tunings.map(TuneFacet.text)
-        let labels = [
-            tune.timeSignature, tune.isCrooked ? Self.crooked : nil, tune.tuneType, tune.genre, tune.partStructure,
-        ]
-        facets += labels.compactMap { $0.flatMap { $0.isEmpty ? nil : TuneFacet.text($0) } }
-        if isArchived { facets.append(.archived) }
-        return facets
     }
 
     /// The tune's other names, joined, or nil when it has none.

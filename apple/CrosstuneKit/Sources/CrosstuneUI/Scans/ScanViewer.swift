@@ -124,19 +124,22 @@ public struct ScanViewer: View {
 
     private let tuneID: String
     private let startIndex: Int
+    private let onShow: (Int) -> Void
 
     @Environment(\.store) private var store
     @State private var model: ScanViewerModel?
 
-    public init(tuneID: String, startIndex: Int) {
+    /// `onShow` hears the position of each scan the viewer turns to, the first included.
+    public init(tuneID: String, startIndex: Int, onShow: @escaping (Int) -> Void = { _ in }) {
         self.tuneID = tuneID
         self.startIndex = startIndex
+        self.onShow = onShow
     }
 
     public var body: some View {
         Group {
             if let model {
-                ScanViewerContent(model: model, startIndex: startIndex)
+                ScanViewerContent(model: model, startIndex: startIndex, onShow: onShow)
             } else {
                 Color.clear
             }
@@ -152,6 +155,7 @@ public struct ScanViewer: View {
 private struct ScanViewerContent: View {
     let model: ScanViewerModel
     let startIndex: Int
+    let onShow: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
@@ -163,7 +167,7 @@ private struct ScanViewerContent: View {
             // A tune deleted, or emptied of scans, while open has nothing left to show.
             Color.clear.onAppear { dismiss() }
         case .shown(let title, let scans):
-            ScanViewerBody(model: model, title: title, scans: scans, startIndex: startIndex)
+            ScanViewerBody(model: model, title: title, scans: scans, startIndex: startIndex, onShow: onShow)
         }
     }
 }
@@ -173,6 +177,7 @@ private struct ScanViewerBody: View {
     let model: ScanViewerModel
     let title: String
     let scans: [Scan]
+    let onShow: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(ScanViewer.invertStorageKey) private var invert = false
@@ -195,10 +200,11 @@ private struct ScanViewerBody: View {
         withAnimation(.snappy) { shown = ids[index] }
     }
 
-    init(model: ScanViewerModel, title: String, scans: [Scan], startIndex: Int) {
+    init(model: ScanViewerModel, title: String, scans: [Scan], startIndex: Int, onShow: @escaping (Int) -> Void) {
         self.model = model
         self.title = title
         self.scans = scans
+        self.onShow = onShow
         _shown = State(initialValue: ScanPager.initialScan(ids: scans.map(\.id), startIndex: startIndex))
     }
 
@@ -239,6 +245,7 @@ private struct ScanViewerBody: View {
                 }
             }
             .onChange(of: shown) { scale = ScanZoom.fit }
+            .onChange(of: shownIndex, initial: true) { onShow(shownIndex) }
             .navigationTitle(ScanPager.indicator(shown: shown, ids: ids))
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -464,15 +471,38 @@ struct ScanRequest: Identifiable, Equatable {
 /// foreground, so each window counts its own viewer.
 struct ScanScreens: ViewModifier {
     @State private var request: ScanRequest?
+    /// The position of the scan the open viewer shows, which its close zooms back into.
+    @State private var shownIndex: Int?
     @State private var tunes: ScanTunes?
     @State private var log = ScanViewLog()
     @Environment(\.tuneScreenActions) private var tuneScreenActions
     @Environment(\.store) private var store
     @Environment(\.scenePhase) private var scenePhase
+    #if os(iOS)
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Namespace private var zoom
+    #endif
+
+    /// The zoom source a tune page's thumbnail marks, so the viewer opened on that scan zooms
+    /// out of it and back into it.
+    static func sourceID(tuneID: String, index: Int) -> String {
+        "\(tuneID)#\(index)"
+    }
+
+    /// The thumbnail the viewer for `request` zooms out of and back into: the scan showing
+    /// now, once the viewer has said, else the one it opened on. Only the tune page marks its
+    /// thumbnails; a row's Scans action has none.
+    static func zoomSourceID(_ request: ScanRequest, shownIndex: Int?) -> String? {
+        guard request.origin == .tune else { return nil }
+        return sourceID(tuneID: request.tuneID, index: shownIndex ?? request.startIndex)
+    }
 
     func body(content: Content) -> some View {
         content
             .environment(\.tuneScreenActions, withViewScans)
+            #if os(iOS)
+                .environment(\.scanZoom, reduceMotion ? nil : zoom)
+            #endif
             .environment(tunes)
             .task(id: store.map(ObjectIdentifier.init)) {
                 tunes = store.map(ScanTunes.init(store:))
@@ -481,6 +511,7 @@ struct ScanScreens: ViewModifier {
             }
             .onChange(of: request) { old, new in
                 log.follow(from: old, to: new)
+                shownIndex = nil
             }
             .onChange(of: scenePhase, initial: true) {
                 log.foreground(scenePhase != .background)
@@ -493,8 +524,9 @@ struct ScanScreens: ViewModifier {
                 }
             #else
                 .fullScreenCover(item: $request) { request in
-                    ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
+                    ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex) { shownIndex = $0 }
                     .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
+                    .zooms(from: Self.zoomSourceID(request, shownIndex: shownIndex), in: reduceMotion ? nil : zoom)
                 }
             #endif
     }

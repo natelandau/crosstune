@@ -153,11 +153,10 @@ private struct TuneContent: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            // The inset grouped list's content margin, fixed so the text lines up with it.
             .padding(20)
             .navigationTitle(title)
         case .shown(let detail):
-            TuneBody(model: model, detail: detail)
+            TunePage(model: model, detail: detail)
                 .modifier(RefreshesBySync(engine: engine))
                 .navigationTitle(detail.tune.title)
                 #if os(macOS)
@@ -247,80 +246,7 @@ private struct TuneMoreMenu: View {
     }
 }
 
-private struct TuneBody: View {
-    let model: TuneModel
-    let detail: TuneDetail
-
-    #if os(macOS)
-        var body: some View {
-            MacTunePage(model: model, detail: detail)
-        }
-    #else
-        @Environment(\.tuneScreenActions) private var actions
-        @State private var deleting: RecordingView?
-        @State private var editing: RecordingView?
-        @State private var addingScans: ScanAddChoice?
-        @State private var deletingScan: Scan?
-        @Environment(\.spacing) private var spacing
-
-        var body: some View {
-            list
-                .modifier(
-                    TunePresentations(
-                        model: model, editing: $editing, deleting: $deleting, addingScans: $addingScans,
-                        deletingScan: $deletingScan))
-        }
-
-        private var list: some View {
-            List {
-                Section {
-                    TuneHeader(model: model, detail: detail)
-                        .listRowInsets(
-                            EdgeInsets(top: spacing.rowInset, leading: 4, bottom: spacing.rowInset, trailing: 4)
-                        )
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-                TuneMediaSection(model: model, detail: detail, editing: $editing, deleting: $deleting)
-                ScansSection(
-                    model: model.scans, tuneID: detail.tune.id, adding: $addingScans, deleting: $deletingScan)
-                if detail.hasLyrics {
-                    Section {
-                        Button(TuneScreen.openLyrics, systemImage: "text.quote") {
-                            actions.readLyrics?(detail.tune.id)
-                        }
-                        .disabled(actions.readLyrics == nil)
-                    }
-                }
-                TuneListsSection(model: model, detail: detail)
-                if detail.notes != nil || detail.learned() != nil {
-                    Section {
-                        VStack(alignment: .leading, spacing: spacing(6)) {
-                            if let learned = detail.learned() {
-                                Text(learned)
-                                    .font(.footnote)
-                                    .monospacedDigit()
-                                    .foregroundStyle(.secondary)
-                            }
-                            if let notes = detail.notes {
-                                Text(notes)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .padding(.vertical, spacing(4))
-                    } header: {
-                        SectionTitle(TuneScreen.notesHeader)
-                    }
-                    .headerProminence(.increased)
-                }
-            }
-            .listStyle(.insetGrouped)
-        }
-    #endif
-}
-
-/// The tune body's sheets and confirmations, shared by the iPad and iPhone list and the Mac page
-/// so both present the same ones from the same state.
+/// The tune page's sheets and confirmations, presented from the page's own state.
 struct TunePresentations: ViewModifier {
     let model: TuneModel
     @Binding var editing: RecordingView?
@@ -372,8 +298,6 @@ struct TunePresentations: ViewModifier {
             } message: { scan in
                 Text(ScanCopy.deleteMessage(scan))
             }
-            // Only a new move, never a failed one taking its announcement back.
-            .sensoryFeedback(.impact(weight: .light), trigger: model.scans.announcement) { _, new in new != nil }
             .onChange(of: model.scans.announcement) { _, announcement in
                 if let announcement { AccessibilityNotification.Announcement(announcement.text).post() }
             }
@@ -385,110 +309,6 @@ struct TunePresentations: ViewModifier {
         Task { await model.runMediaAction { try await commands?.deleteRecording(view.id) } }
     }
 }
-
-#if os(iOS)
-    /// Everything above the rows: the tune's other names and composer, and its facets in one
-    /// wrapping row, key first. Status shows here but is set only in the edit sheet.
-    private struct TuneHeader: View {
-        let model: TuneModel
-        let detail: TuneDetail
-
-        @Environment(\.spacing) private var spacing
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: spacing(12)) {
-                if detail.alternateTitles != nil || detail.tune.composer != nil {
-                    VStack(alignment: .leading, spacing: spacing.rowLineGap) {
-                        // Another name for the tune sits with the title rather than among the facets.
-                        if let alternateTitles = detail.alternateTitles {
-                            Text(alternateTitles)
-                        }
-                        if let composer = detail.tune.composer {
-                            Text("\(TuneScreen.composerLabel): \(composer)")
-                        }
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                }
-                FlowLayout {
-                    ForEach(Array(detail.facets.enumerated()), id: \.offset) { _, facet in
-                        FacetView(facet: facet)
-                    }
-                }
-                if let failure = model.failure(at: .screen) {
-                    FailureText(failure)
-                }
-            }
-        }
-    }
-
-    /// One facet: the key as its colored pill, the status as its dot and label, anything else as a
-    /// plain capsule, archived in the cautionary tone.
-    private struct FacetView: View {
-        let facet: TuneFacet
-
-        @Environment(\.colorScheme) private var colorScheme
-        @Environment(\.spacing) private var spacing
-
-        var body: some View {
-            switch facet {
-            case .key(let key):
-                KeyPill(key)
-                    .accessibilityLabel("\(TuneRowText.keyPrefix) \(key)")
-            case .text(let text):
-                capsule(Text(text), fill: neutralFill(colorScheme), ink: AnyShapeStyle(.primary))
-            case .status(let status):
-                capsule(StatusDot(status), fill: neutralFill(colorScheme), ink: AnyShapeStyle(.primary))
-            case .archived:
-                capsule(
-                    Text(TuneRowText.archived), fill: AnyShapeStyle(Color.orange.opacity(0.18)),
-                    ink: AnyShapeStyle(Color.orange))
-            }
-        }
-
-        private func capsule(_ content: some View, fill: AnyShapeStyle, ink: AnyShapeStyle) -> some View {
-            content
-                .font(.subheadline)
-                .foregroundStyle(ink)
-                .rowLineLimit()
-                .padding(.horizontal, spacing(12))
-                .padding(.vertical, spacing.chipVertical)
-                .background(fill, in: .capsule)
-        }
-    }
-
-    /// How the tune sounds: the musician's recordings first, then the links, under one header whose
-    /// add control offers both ways to add one.
-    private struct TuneMediaSection: View {
-        let model: TuneModel
-        let detail: TuneDetail
-        @Binding var editing: RecordingView?
-        @Binding var deleting: RecordingView?
-
-        var body: some View {
-            Section {
-                if detail.recordings.isEmpty && detail.links.isEmpty {
-                    ContentUnavailableView {
-                        Label(TuneScreen.noMediaTitle, systemImage: "waveform")
-                    } description: {
-                        Text(TuneScreen.noMediaHint)
-                    }
-                }
-                TuneMediaRows(model: model, detail: detail, editing: $editing, deleting: $deleting)
-            } header: {
-                SectionTitle(TuneScreen.recordingsHeader) {
-                    TuneMediaAddMenu(model: model, detail: detail)
-                }
-            } footer: {
-                if let failure = model.failure(at: .media) {
-                    FailureText(failure)
-                }
-            }
-            .headerProminence(.increased)
-        }
-    }
-
-#endif
 
 /// The Recordings header's add control: record, paste a link, or find a recording.
 struct TuneMediaAddMenu: View {
@@ -553,7 +373,7 @@ struct TuneMediaAddMenu: View {
     }
 }
 
-/// The tune's recordings, then its links, one row each with its swipe and context actions.
+/// The tune's recordings, then its links, one row each with its context actions.
 struct TuneMediaRows: View {
     let model: TuneModel
     let detail: TuneDetail
@@ -569,12 +389,10 @@ struct TuneMediaRows: View {
     var body: some View {
         ForEach(detail.recordings) { recording in
             recordingRow(recording)
-                .scaledRowInsets()
                 .pageRowWidth()
         }
         ForEach(detail.links) { link in
             linkRow(link)
-                .scaledRowInsets()
                 .pageRowWidth()
         }
     }
@@ -590,6 +408,7 @@ struct TuneMediaRows: View {
             }
             if pinned { PinnedMark() }
         }
+        .newTakeHighlight(view.id)
         .recordingRowActions(
             filed: true, pinned: pinned,
             onTogglePin: { Task { await model.setPlaySource(.recording(id: view.id), pinned: pinned) } },
@@ -633,14 +452,6 @@ struct TuneMediaRows: View {
             }
             if pinned { PinnedMark() }
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            remove
-            PinAction(pinned: pinned, onTogglePin: togglePin, short: true).tint(.indigo)
-            if let addToRecordings {
-                Button(TuneScreen.addToRecordings, systemImage: "square.and.arrow.down", action: addToRecordings)
-                    .tint(.teal)
-            }
-        }
         .contextMenu {
             PinAction(pinned: pinned, onTogglePin: togglePin)
             if let addToRecordings {
@@ -662,63 +473,6 @@ extension View {
         #endif
     }
 }
-
-#if os(iOS)
-    /// The lists the tune is in, each opening its list, with an add control on the header.
-    private struct TuneListsSection: View {
-        let model: TuneModel
-        let detail: TuneDetail
-
-        @Environment(\.tuneScreenActions) private var actions
-
-        var body: some View {
-            Section {
-                ForEach(detail.lists) { membership in
-                    listRow(membership)
-                }
-            } header: {
-                SectionTitle(TuneScreen.listsHeader) {
-                    Button(TuneScreen.addToList, systemImage: "plus") {
-                        actions.addToList?(detail.userTune.id)
-                    }
-                    .disabled(actions.addToList == nil)
-                }
-            } footer: {
-                if let failure = model.failure(at: .lists) {
-                    FailureText(failure)
-                } else if detail.lists.isEmpty {
-                    Text(TuneScreen.notInList)
-                }
-            }
-            .headerProminence(.increased)
-        }
-
-        private func listRow(_ membership: TuneMembership) -> some View {
-            let list = membership.list
-            let remove = RemoveFromListButton(model: model, membership: membership)
-            return OpensList(listID: list.id) { inSplitView in
-                if inSplitView {
-                    HStack {
-                        Label(list.name, systemImage: Destination.lists.systemImage)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                            .accessibilityHidden(true)
-                    }
-                    .contentShape(.rect)
-                } else {
-                    Label(list.name, systemImage: Destination.lists.systemImage)
-                }
-            }
-            .rowLineLimit()
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) { remove }
-            .contextMenu { remove }
-        }
-    }
-
-#endif
 
 /// Opens a list from the tune it holds: in the split view's content column, or pushed where
 /// there is no split view. `label` is told which, since a pushed link draws its own chevron.
@@ -755,37 +509,6 @@ struct RemoveFromListButton: View {
         Button(TuneScreen.remove, systemImage: "text.badge.xmark", role: .destructive) {
             Task { await model.removeFromList(itemID: membership.itemID) }
         }
-    }
-}
-
-/// A section header that names what its rows belong to, with an optional control at its
-/// trailing edge.
-struct SectionTitle<Accessory: View>: View {
-    let title: String
-    let accessory: Accessory
-
-    init(_ title: String, @ViewBuilder accessory: () -> Accessory) {
-        self.title = title
-        self.accessory = accessory()
-    }
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .accessibilityAddTraits(.isHeader)
-            Spacer()
-            accessory
-                .labelStyle(.iconOnly)
-                .font(.title3)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.rect)
-        }
-    }
-}
-
-extension SectionTitle where Accessory == EmptyView {
-    init(_ title: String) {
-        self.init(title) { EmptyView() }
     }
 }
 

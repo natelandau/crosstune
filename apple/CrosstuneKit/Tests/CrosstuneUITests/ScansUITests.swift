@@ -54,6 +54,7 @@ private func jpeg(width: Int, height: Int) -> Data {
     return output as Data
 }
 
+@MainActor
 @Suite struct ScansUITests {
     // MARK: Section
 
@@ -419,5 +420,19 @@ extension Database {
         ScanRecord.sorted(
             try ScanRecord.filter(Column("tune_id") == tuneID && Column("deleted_at") == nil).fetchAll(self)
         ).map(\.id)
+    }
+}
+
+@MainActor
+@Suite struct ScanZoomSourceTests {
+    @Test func theViewerClosesIntoTheThumbnailOfTheScanShowingNow() {
+        let request = ScanRequest(tuneID: "t1", startIndex: 1, origin: .tune)
+        #expect(ScanScreens.zoomSourceID(request, shownIndex: nil) == ScanScreens.sourceID(tuneID: "t1", index: 1))
+        #expect(ScanScreens.zoomSourceID(request, shownIndex: 3) == ScanScreens.sourceID(tuneID: "t1", index: 3))
+    }
+
+    @Test func aRowOpensTheViewerWithoutAZoom() {
+        let request = ScanRequest(tuneID: "t1", startIndex: 0, origin: .row)
+        #expect(ScanScreens.zoomSourceID(request, shownIndex: 2) == nil)
     }
 }

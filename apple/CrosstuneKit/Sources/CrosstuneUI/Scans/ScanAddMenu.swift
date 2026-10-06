@@ -62,14 +62,18 @@ struct ScanAddMenu: View {
         let choices = ScanAddChoice.onThisDevice
         Group {
             if choices.count == 1, let only = choices.first {
-                Button(ScanCopy.addScans, systemImage: "plus") { choice = only }
+                Button {
+                    choice = only
+                } label: {
+                    label
+                }
             } else {
                 Menu {
                     ForEach(choices) { option in
                         Button(option.label, systemImage: option.systemImage) { choice = option }
                     }
                 } label: {
-                    Label(ScanCopy.addScans, systemImage: "plus")
+                    label
                 }
             }
         }
@@ -77,6 +81,12 @@ struct ScanAddMenu: View {
         #if os(macOS)
             .help(ScanCopy.addScans)
         #endif
+    }
+
+    /// Glyph only, on the label itself, since on the menu the style would reach its items too.
+    private var label: some View {
+        Label(ScanCopy.addScans, systemImage: "plus")
+            .labelStyle(.iconOnly)
     }
 }
 
