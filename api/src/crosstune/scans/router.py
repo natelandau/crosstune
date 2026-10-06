@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import uuid  # noqa: TC003 -- FastAPI resolves path parameter annotations at runtime
-from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
@@ -13,28 +12,15 @@ from pydantic import BaseModel, Field
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
+from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import ConflictError, QuotaExceededError, problem_responses
-from crosstune.files.quota import slot_for_scan, used_bytes
-from crosstune.files.urls import (
-    UPLOAD_SIZE_TOLERANCE,
-    UPLOAD_URL_TTL_SECONDS,
-    SignedUrl,
-    file_too_large,
-    presign_get,
-    require_store,
-)
-from crosstune.models import UploadSlot
-from crosstune.models.user import utc_now
-from crosstune.scans.service import (
-    bump_scan_server_seq,
-    owned_scan,
-    require_live,
-    require_state,
-)
+from crosstune.errors import ConflictError, problem_responses
+from crosstune.files.quota import reserve_slot, slot_for_scan, verify_upload
+from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
+from crosstune.scans.service import owned_scan, require_live, require_state
 from crosstune.storage.store import delete_best_effort, legacy_scan_key, scan_key
 from crosstune.vocabulary import ScanState
 
@@ -64,32 +50,14 @@ async def upload_slot(
     await lock_user(session, user.id)
     scan = await owned_scan(session, user.id, scan_id)
     require_state(scan, ScanState.PENDING_UPLOAD)
-    if body.bytes > settings.scan_max_file_bytes:
-        raise file_too_large(settings.scan_max_file_bytes)
-
-    now = utc_now()
-    existing = await slot_for_scan(session, scan.id)
-    # This scan's own open slot is what the new PUT replaces.
-    used = await used_bytes(session, user.id, now, exclude=scan.id)
-    if used + body.bytes > settings.storage_quota_bytes:
-        msg = f"{used} of {settings.storage_quota_bytes} bytes used"
-        raise QuotaExceededError(msg)
-
-    expires_at = now + timedelta(seconds=UPLOAD_URL_TTL_SECONDS)
-    if existing is None:
-        session.add(
-            UploadSlot(
-                scan_id=scan.id,
-                user_id=user.id,
-                declared_bytes=body.bytes,
-                content_type=body.content_type,
-                expires_at=expires_at,
-            )
-        )
-    else:
-        existing.declared_bytes = body.bytes
-        existing.content_type = body.content_type
-        existing.expires_at = expires_at
+    expires_at = await reserve_slot(
+        session,
+        scan,
+        declared_bytes=body.bytes,
+        content_type=body.content_type,
+        max_file_bytes=settings.scan_max_file_bytes,
+        quota_bytes=settings.storage_quota_bytes,
+    )
     await session.flush()
     url = store.presign_put(
         scan_key(user.id, scan.id), body.content_type, body.bytes, UPLOAD_URL_TTL_SECONDS
@@ -124,24 +92,12 @@ async def upload_finished(
         # A retried call after a lost response: the first one consumed the slot.
         return Response(status_code=204)
     require_state(scan, ScanState.PENDING_UPLOAD)
-    if slot is None or slot.expires_at <= utc_now():
-        msg = "No open upload slot; request a new one"
-        raise ConflictError(msg)
-    if info is None:
-        msg = "No file was uploaded"
-        raise ConflictError(msg)
-    if info.size > settings.scan_max_file_bytes:
-        await store.delete(key)
-        raise file_too_large(settings.scan_max_file_bytes)
-    if info.size > slot.declared_bytes * (1 + UPLOAD_SIZE_TOLERANCE):
-        await store.delete(key)
-        msg = f"Uploaded {info.size} bytes but declared {slot.declared_bytes}"
-        raise QuotaExceededError(msg)
+    size = await verify_upload(store, key, info, slot, max_file_bytes=settings.scan_max_file_bytes)
 
     scan.state = ScanState.READY.value
     scan.file_key = key
-    scan.file_bytes = info.size
-    bump_scan_server_seq(scan)
+    scan.file_bytes = size
+    bump_server_seq(scan)
     await session.delete(slot)
     await session.flush()
     # A PUT under a slot issued for the legacy key was never confirmed, so no row names

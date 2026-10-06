@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid  # noqa: TC003 -- FastAPI resolves path parameter annotations at runtime
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Request, Response
@@ -12,24 +12,15 @@ from pydantic import BaseModel, Field
 from crosstune.auth.deps import (
     CurrentUser,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
+from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.db.session import (
     DbSession,  # noqa: TC001 -- FastAPI resolves this annotation at route registration
 )
-from crosstune.errors import ConflictError, QuotaExceededError, problem_responses
-from crosstune.files.quota import slot_for_recording, used_bytes
-from crosstune.files.urls import (
-    UPLOAD_SIZE_TOLERANCE,
-    UPLOAD_URL_TTL_SECONDS,
-    SignedUrl,
-    file_too_large,
-    presign_get,
-    require_store,
-)
-from crosstune.models import UploadSlot
-from crosstune.models.user import utc_now
+from crosstune.errors import ConflictError, NotFoundError, problem_responses
+from crosstune.files.quota import reserve_slot, slot_for_recording, verify_upload
+from crosstune.files.urls import UPLOAD_URL_TTL_SECONDS, SignedUrl, presign_get, require_store
 from crosstune.recordings.service import (
-    bump_server_seq,
     enqueue_transcode,
     owned_recording,
     require_state,
@@ -94,32 +85,14 @@ async def upload_slot(
     await lock_user(session, user.id)
     recording = await owned_recording(session, user.id, recording_id)
     require_state(recording, *SLOT_STATES)
-    if body.bytes > settings.recording_max_file_bytes:
-        raise file_too_large(settings.recording_max_file_bytes)
-
-    now = utc_now()
-    existing = await slot_for_recording(session, recording.id)
-    # This recording's own slot or failed upload is what the new PUT replaces.
-    used = await used_bytes(session, user.id, now, exclude=recording.id)
-    if used + body.bytes > settings.storage_quota_bytes:
-        msg = f"{used} of {settings.storage_quota_bytes} bytes used"
-        raise QuotaExceededError(msg)
-
-    expires_at = now + timedelta(seconds=UPLOAD_URL_TTL_SECONDS)
-    if existing is None:
-        session.add(
-            UploadSlot(
-                recording_id=recording.id,
-                user_id=user.id,
-                declared_bytes=body.bytes,
-                content_type=body.content_type,
-                expires_at=expires_at,
-            )
-        )
-    else:
-        existing.declared_bytes = body.bytes
-        existing.content_type = body.content_type
-        existing.expires_at = expires_at
+    expires_at = await reserve_slot(
+        session,
+        recording,
+        declared_bytes=body.bytes,
+        content_type=body.content_type,
+        max_file_bytes=settings.recording_max_file_bytes,
+        quota_bytes=settings.storage_quota_bytes,
+    )
     if recording.state == "failed":
         # playback_bytes stays: it is the object still at the upload key, which counts
         # again if this slot expires unused and is replaced once the new PUT is confirmed.
@@ -150,31 +123,24 @@ async def upload_finished(
     # The bucket round trip happens before the lock so it never holds up the caller's other writes.
     info = await store.head(key)
     await lock_user(session, user.id)
-    # Re-read under the lock: another request may have confirmed or failed this recording meanwhile.
+    # Re-read under the lock: another request may have confirmed, failed, or deleted this
+    # recording meanwhile.
     await session.refresh(recording)
+    if recording.deleted_at is not None:
+        raise NotFoundError
     slot = await slot_for_recording(session, recording.id)
     if recording.state in CONFIRMED_STATES and slot is None:
         # A retried call after a lost response: the first one consumed the slot
         # and queued the job.
         return Response(status_code=204)
     require_state(recording, "pending_upload")
-    if slot is None or slot.expires_at <= utc_now():
-        msg = "No open upload slot; request a new one"
-        raise ConflictError(msg)
-    if info is None:
-        msg = "No file was uploaded"
-        raise ConflictError(msg)
-    if info.size > settings.recording_max_file_bytes:
-        await store.delete(key)
-        raise file_too_large(settings.recording_max_file_bytes)
-    if info.size > slot.declared_bytes * (1 + UPLOAD_SIZE_TOLERANCE):
-        await store.delete(key)
-        msg = f"Uploaded {info.size} bytes but declared {slot.declared_bytes}"
-        raise QuotaExceededError(msg)
+    size = await verify_upload(
+        store, key, info, slot, max_file_bytes=settings.recording_max_file_bytes
+    )
 
     recording.state = "uploaded"
     # The upload counts against quota from this moment; the transcoder replaces the figure.
-    recording.playback_bytes = info.size
+    recording.playback_bytes = size
     await session.delete(slot)
     bump_server_seq(recording)
     await enqueue_transcode(session, recording)
