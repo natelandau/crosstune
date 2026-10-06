@@ -15,6 +15,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -73,6 +74,8 @@ class Recording(SyncColumns, Base):
             name="ck_recordings_pitch_cents",
         ),
         Index("ix_recordings_user_id_server_seq", "user_id", "server_seq"),
+        # The purge sweep reads tombstones on every runner pass, across every user.
+        Index("ix_recordings_tombstones", "id", postgresql_where=text("deleted_at is not null")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
