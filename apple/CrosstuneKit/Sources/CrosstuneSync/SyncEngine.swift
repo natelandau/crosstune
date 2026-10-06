@@ -133,7 +133,7 @@ public final class SyncEngine {
         } catch is RunStopped {
             return
         } catch {
-            logger.warning("Events pull failed: \(String(describing: error), privacy: .public)")
+            logger.warning("Events pull failed: \(logDescription(of: error), privacy: .public)")
         }
     }
 
@@ -306,7 +306,7 @@ public final class SyncEngine {
             try await store.setMeta(.lastSyncedAt, to: finished)
         } catch {
             // Only the next launch's first reading depends on it; the run itself landed.
-            logger.error("Could not save the last sync time: \(String(describing: error), privacy: .public)")
+            logger.error("Could not save the last sync time: \(logDescription(of: error), privacy: .public)")
         }
     }
 
