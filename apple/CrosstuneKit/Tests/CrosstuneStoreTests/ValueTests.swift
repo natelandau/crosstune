@@ -17,7 +17,7 @@ func readsTheAPIsTimesAtMillisecondPrecision(_ input: String, _ expected: String
     #expect(try #require(Timestamp(iso: input)).iso == expected)
 }
 
-@Test(arguments: ["", "2026-09-25", "2026-09-25T12:00:00", "not a time"])
+@Test(arguments: ["", "2026-09-25", "2026-09-25T12:00:00", "not a time", "2026-09-25T12:00:00.\u{0663}Z"])
 func refusesTextThatIsNotATime(_ input: String) {
     #expect(Timestamp(iso: input) == nil)
 }
