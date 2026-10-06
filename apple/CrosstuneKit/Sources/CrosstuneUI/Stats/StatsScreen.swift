@@ -127,11 +127,28 @@ struct CatalogTapThrough {
 private struct StatsContent: View {
     let view: StatsView
 
+    var body: some View {
+        ScrollView {
+            StatsDocument(view: view)
+                .frame(maxWidth: PageStyle.pageMaxWidth, alignment: .leading)
+                .padding(PageStyle.pageMargin)
+                .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// The stats as a document: one plain section per block, laid out at its full height so a
+/// snapshot can draw it without the scroll view.
+struct StatsDocument: View {
+    let view: StatsView
+
     @Environment(CatalogModel.self) private var catalog: CatalogModel?
     @Environment(\.openCatalogRoot) private var openCatalogRoot
     @Environment(\.detailTune) private var detailTune
     @Environment(\.commands) private var commands
     @State private var allTime = false
+    /// The breakdown blocks, by id, opened past their first rows.
+    @State private var expanded: Set<String> = []
 
     /// Nil outside the shell, as in the Mac Settings window, where values only count.
     private var tapThrough: CatalogTapThrough? {
@@ -140,131 +157,170 @@ private struct StatsContent: View {
     }
 
     var body: some View {
-        Form {
+        VStack(alignment: .leading, spacing: PageStyle.sectionGap) {
+            if PageStyle.pageHeadsItself {
+                Text(StatsCopy.title)
+                    .font(PageStyle.pageTitle)
+                    .accessibilityAddTraits(.isHeader)
+            }
             ForEach(StatsBlock.blocks(view.stats)) { block in
                 section(block)
             }
         }
-        .formStyle(.grouped)
-        #if os(macOS)
-            // The grouped form adds its own inset, which the page margin already counts.
-            .contentMargins(.horizontal, MacStyle.pageMargin - MacStyle.groupedFormInset, for: .scrollContent)
-            .frame(maxWidth: MacStyle.pageMaxWidth)
-            .frame(maxWidth: .infinity)
-        #endif
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private func section(_ block: StatsBlock) -> some View {
         let stats = view.stats
         switch block {
         case .counts:
-            Section {
-                countRow(StatsCopy.tunesLabel, stats.counts.tunes)
-                countRow(StatsCopy.knownLabel, stats.counts.known)
-                countRow(StatsCopy.learningLabel, stats.counts.learning)
-                countRow(StatsCopy.unknownLabel, stats.counts.wantToLearn)
-                countRow(StatsCopy.listsLabel, stats.counts.lists)
-                countRow(StatsCopy.recordingsLabel, stats.counts.recordings)
-                countRow(StatsCopy.linksLabel, stats.counts.links)
-                if stats.counts.scans > 0 {
-                    Text(StatsCopy.scansLine(scans: stats.counts.scans, tunes: stats.counts.scanTunes))
-                        .monospacedDigit()
-                }
-            } header: {
-                #if os(macOS)
-                    // The page title tops the first block, since a section with no rows draws
-                    // no header of its own.
-                    VStack(alignment: .leading, spacing: MacStyle.sectionGap / 2) {
-                        Text(StatsCopy.title)
-                            .font(MacStyle.pageTitle)
-                            .foregroundStyle(.primary)
-                            .accessibilityAddTraits(.isHeader)
-                        Text(block.header)
-                    }
-                #else
-                    Text(block.header)
-                #endif
-            } footer: {
-                if stats.counts.archived > 0 { Text(StatsCopy.archivedLine(stats.counts.archived)) }
-            }
+            PageSection(block.header) { countsBlock(stats.counts) }
         case .recorded:
-            Section {
-                Text(StatsCopy.recordedLine(recordings: stats.recorded.count, ms: stats.recorded.totalMs))
-                    .monospacedDigit()
-            } header: {
-                Text(block.header)
-            } footer: {
-                if let equivalence = stats.equivalence {
-                    Text(equivalenceText(equivalence, tuneTitle: equivalence.tuneID.flatMap { view.tuneTitles[$0] }))
+            PageSection(block.header) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(StatsCopy.recordedLine(recordings: stats.recorded.count, ms: stats.recorded.totalMs))
+                        .font(PageStyle.body)
+                        .monospacedDigit()
+                    if let equivalence = stats.equivalence {
+                        Text(
+                            equivalenceText(equivalence, tuneTitle: equivalence.tuneID.flatMap { view.tuneTitles[$0] })
+                        )
+                        .font(PageStyle.secondary)
+                        .foregroundStyle(.secondary)
+                    }
                 }
             }
         case .months:
-            Section {
-                MonthBarsView(months: stats.months, allTime: allTime)
-                    .padding(.vertical, 8)
-            } header: {
-                HStack {
-                    Text(block.header)
-                    Spacer()
-                    if stats.months.hasAllTime {
-                        ChoiceCapsule(chosen: allTime) {
-                            allTime.toggle()
-                        } label: {
-                            Text(StatsCopy.allTime)
-                        }
+            PageSection(block.header) {
+                if stats.months.hasAllTime {
+                    ChoiceCapsule(chosen: allTime) {
+                        allTime.toggle()
+                    } label: {
+                        Text(StatsCopy.allTime)
                     }
                 }
-                .textCase(nil)
+            } content: {
+                MonthBarsView(months: stats.months, allTime: allTime)
             }
         case .activity:
-            Section(block.header) {
+            PageSection(block.header) {
                 HeatmapView(heatmap: stats.heatmap, today: view.today)
-                    .padding(.vertical, 8)
             }
         case .onThisDay:
-            Section(block.header) {
-                ForEach(Array(stats.onThisDay.enumerated()), id: \.offset) { _, line in
-                    Text(StatsCopy.onThisDayLine(line, title: view.title(for: line)))
+            PageSection(block.header) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(stats.onThisDay.enumerated()), id: \.offset) { _, line in
+                        Text(StatsCopy.onThisDayLine(line, title: view.title(for: line)))
+                            .font(PageStyle.body)
+                    }
                 }
             }
         case .keys:
-            Section(block.header) {
+            PageSection(block.header) {
                 KeyGridView(rows: stats.breakdowns.key, open: tapThrough)
             }
         case .values(let header, let values, let facet):
-            Section(header) {
-                ForEach(values, id: \.value) { value in
-                    valueRow(value, facet: facet)
-                }
-            }
+            PageSection(header) { breakdown(id: block.id, values, facet: facet) }
         case .rarities:
-            Section(block.header) {
-                ForEach(Array(stats.rarities.enumerated()), id: \.offset) { _, rarity in
-                    rarityRow(rarity)
+            PageSection(block.header) {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(stats.rarities.enumerated()), id: \.offset) { _, rarity in
+                        rarityRow(rarity)
+                    }
                 }
             }
         }
     }
 
-    private func countRow(_ label: String, _ n: Int) -> some View {
-        LabeledContent(label) {
-            Text(groupedThousands(n)).monospacedDigit()
+    /// Lists, recordings, and links, then scans when there are any, on one line.
+    static func tallyLine(_ counts: Stats.Counts) -> String {
+        let parts =
+            [
+                (StatsCopy.listsLabel, counts.lists), (StatsCopy.recordingsLabel, counts.recordings),
+                (StatsCopy.linksLabel, counts.links),
+            ]
+            .map { "\($0.0) \(groupedThousands($0.1))" }
+            + (counts.scans > 0 ? [StatsCopy.scansLine(scans: counts.scans, tunes: counts.scanTunes)] : [])
+        return parts.joined(separator: " · ")
+    }
+
+    private func countsBlock(_ counts: Stats.Counts) -> some View {
+        let byStatus = StatusBar.byStatus(counts)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(groupedThousands(counts.tunes))
+                    .font(.title2.weight(.semibold))
+                    .monospacedDigit()
+                Text(StatsCopy.tunesLabel)
+                    .font(PageStyle.body)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            // The rows under it say each count, so the bar would say them twice.
+            StatusBar(counts: byStatus)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Vocabulary.statuses, id: \.self) { status in
+                    HStack(spacing: 8) {
+                        // The word beside it names the status.
+                        StatusGlyph(status)
+                            .accessibilityHidden(true)
+                        Text(StatusStyle.label(status))
+                        Spacer(minLength: 8)
+                        Text(groupedThousands(byStatus[status] ?? 0)).monospacedDigit()
+                    }
+                    .font(PageStyle.body)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+            Text(Self.tallyLine(counts))
+                .font(PageStyle.body)
+                .monospacedDigit()
+            if counts.archived > 0 {
+                Text(StatsCopy.archivedLine(counts.archived))
+                    .font(PageStyle.secondary)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
-    @ViewBuilder private func valueRow(_ value: Stats.Value, facet: CatalogFacet?) -> some View {
-        if let facet, let tapThrough, let link = StatsLink.value(value.value, facet: facet) {
-            SettingsFieldRow(title: value.value, value: groupedThousands(value.count)) {
-                tapThrough(link)
+    @ViewBuilder private func breakdown(id: String, _ values: [Stats.Value], facet: CatalogFacet?) -> some View {
+        let isOpen = expanded.contains(id)
+        let parts = StatsBreakdown.visible(values, expanded: isOpen)
+        let peak = values.map(\.count).max() ?? 0
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(parts.shown, id: \.value) { value in
+                valueRow(value, max: peak, facet: facet)
             }
+            if parts.hidden > 0 {
+                Button(StatsCopy.showAll(values.count)) { expanded.insert(id) }
+                    .font(PageStyle.secondary.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: PageStyle.minTarget, alignment: .leading)
+                    .contentShape(.rect)
+            }
+        }
+    }
+
+    @ViewBuilder private func valueRow(_ value: Stats.Value, max: Int, facet: CatalogFacet?) -> some View {
+        if let facet, let tapThrough, let link = StatsLink.value(value.value, facet: facet) {
+            Button {
+                tapThrough(link)
+            } label: {
+                ShareBarRow(value: value, max: max, link: true)
+            }
+            .buttonStyle(PressedOpacityStyle())
         } else {
-            countRow(value.value, value.count)
+            ShareBarRow(value: value, max: max, link: false)
         }
     }
 
     @ViewBuilder private func rarityRow(_ rarity: Stats.Rarity) -> some View {
         let label = VStack(alignment: .leading) {
             Text(StatsCopy.rarityLine(rarity))
+                .font(PageStyle.body)
             if let title = view.tuneTitles[rarity.tuneID] {
                 Text(title).font(.footnote).foregroundStyle(.secondary)
             }
@@ -274,15 +330,7 @@ private struct StatsContent: View {
             Button {
                 detailTune.wrappedValue = rarity.tuneID
             } label: {
-                HStack {
-                    label.foregroundStyle(.primary)
-                    Spacer()
-                    Image(systemName: "chevron.forward")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                }
-                .contentShape(.rect)
+                chevronRow(label)
             }
             .buttonStyle(.plain)
         } else if commands != nil {
@@ -290,12 +338,23 @@ private struct StatsContent: View {
                 TuneScreen(tuneID: rarity.tuneID)
                     .environment(\.stackTune, nil)
             } label: {
-                label
+                chevronRow(label)
             }
+            .buttonStyle(.plain)
         } else {
             // The Mac Settings window has no shell to show a tune in.
             label.accessibilityElement(children: .combine)
         }
+    }
+
+    private func chevronRow(_ label: some View) -> some View {
+        HStack {
+            label.foregroundStyle(.primary)
+            Spacer()
+            RowChevron()
+        }
+        .frame(minHeight: PageStyle.minTarget)
+        .contentShape(.rect)
     }
 }
 
@@ -304,8 +363,6 @@ private struct StatsContent: View {
 struct KeyGridView: View {
     let rows: [Stats.KeyRow]
     let open: CatalogTapThrough?
-    /// False only for a snapshot, which cannot render a scroll view.
-    var scrolls = true
 
     /// The modes some tune in a key holds, in vocabulary order, then any this build does not know.
     private var modes: [String] {
@@ -315,19 +372,13 @@ struct KeyGridView: View {
 
     var body: some View {
         Group {
-            if scrolls {
-                #if os(macOS)
-                    // The grid spreads across the row whenever it fits, rather than hugging
-                    // the leading edge.
-                    ViewThatFits(in: .horizontal) {
-                        grid.frame(maxWidth: .infinity)
-                        scrolling
-                    }
-                #else
+            if PageStyle.keyGridSpreads {
+                ViewThatFits(in: .horizontal) {
+                    grid.frame(maxWidth: .infinity)
                     scrolling
-                #endif
+                }
             } else {
-                grid
+                scrolling
             }
         }
         .accessibilityElement(children: .contain)
@@ -385,11 +436,11 @@ struct KeyGridView: View {
         _ label: String, facets: [CatalogFacet: String]?, alignment: Alignment = .center,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        #if os(macOS)
-            let content = content().frame(minWidth: 44, maxWidth: .infinity, minHeight: 44, alignment: alignment)
-        #else
-            let content = content().frame(minWidth: 44, minHeight: 44)
-        #endif
+        let spreads = PageStyle.keyGridSpreads
+        let content = content()
+            .frame(
+                minWidth: 44, maxWidth: spreads ? .infinity : nil, minHeight: 44,
+                alignment: spreads ? alignment : .center)
         if let open, let facets {
             Button {
                 open(facets)

@@ -222,6 +222,46 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
         #expect(place.sidebar == .catalog)
     }
 
+    @Test func breakdownShowsTopEightThenShowAll() {
+        func values(_ n: Int) -> [Stats.Value] { (0..<n).map { Stats.Value(value: "v\($0)", count: n - $0) } }
+
+        let twelve = StatsBreakdown.visible(values(12), expanded: false)
+        #expect(twelve.shown.count == 8)
+        #expect(twelve.hidden == 4)
+        #expect(twelve.shown.map(\.value) == values(8).map(\.value))
+
+        let opened = StatsBreakdown.visible(values(12), expanded: true)
+        #expect(opened.shown.count == 12)
+        #expect(opened.hidden == 0)
+
+        let eight = StatsBreakdown.visible(values(8), expanded: false)
+        #expect(eight.shown.count == 8)
+        #expect(eight.hidden == 0)
+    }
+
+    @Test func shareBarIsCountOverMaxWithinZeroToOne() {
+        #expect(ShareBarRow.share(count: 5, max: 10) == 0.5)
+        #expect(ShareBarRow.share(count: 12, max: 10) == 1)
+        #expect(ShareBarRow.share(count: -1, max: 10) == 0)
+        #expect(ShareBarRow.share(count: 3, max: 0) == 0)
+    }
+
+    @Test func tallyLineJoinsListsRecordingsLinksAndScans() {
+        func counts(scans: Int) -> Stats.Counts {
+            Stats.Counts(
+                known: 0, learning: 0, wantToLearn: 0, tunes: 0, archived: 0, lists: 2, recordings: 6, links: 3,
+                scans: scans, scanTunes: 1)
+        }
+        #expect(StatsDocument.tallyLine(counts(scans: 0)) == "Lists 2 · Recordings 6 · Links 3")
+        #expect(
+            StatsDocument.tallyLine(counts(scans: 4))
+                == "Lists 2 · Recordings 6 · Links 3 · \(StatsCopy.scansLine(scans: 4, tunes: 1))")
+    }
+
+    @Test func showAllNamesTheTotal() {
+        #expect(StatsCopy.showAll(12) == "Show all 12")
+    }
+
     @Test func dayDetailNamesOnlyNonzeroParts() {
         let day = Stats.Day(
             date: "2026-03-14", musicMs: 1, plays: 12, practiceSessions: 2, scanViews: 0, tunesAdded: 3,
@@ -409,13 +449,12 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
         }
         let model = try await loaded(store)
         let view = try #require(model.view)
-        for (name, width) in [("stats-phone", 390.0), ("stats-wide", 820.0)] {
-            snapshot(name, width: width) {
-                VStack(alignment: .leading, spacing: 24) {
-                    MonthBarsView(months: view.stats.months)
-                    HeatmapView(heatmap: view.stats.heatmap, today: view.today)
-                    KeyGridView(rows: view.stats.breakdowns.key, open: nil, scrolls: false)
-                }
+        for (name, width, size) in [
+            ("stats-phone", 390.0, DynamicTypeSize.large), ("stats-phone", 390.0, .accessibility3),
+            ("stats-wide", 820.0, .large),
+        ] {
+            snapshot(name, width: width, size: size) {
+                StatsDocument(view: view)
             }
         }
     }
