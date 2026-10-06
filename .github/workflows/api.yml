@@ -42,6 +42,7 @@ jobs:
       pull-requests: read
     outputs:
       relevant: ${{ steps.changes.outputs.relevant }}
+      image: ${{ steps.image.outputs.relevant }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,6 +52,10 @@ jobs:
         uses: ./.github/actions/changes
         with:
           pattern: '^(api/|scripts/|\.github/|\.pre-commit-config\.yaml$|\.typos\.toml$|compose\.yml$|justfile$)'
+      - id: image
+        uses: ./.github/actions/changes
+        with:
+          pattern: '^(\.github/workflows/api\.yml|api/(Dockerfile|\.dockerignore|pyproject\.toml|uv\.lock|alembic\.ini))$'
 
   lint:
     needs: changes
@@ -102,6 +107,26 @@ jobs:
         working-directory: .
         run: scripts/ci-media-tools.sh
       - run: just test
+
+  # Railway builds the full image only after merge, and production's build only after
+  # Release has promoted, so this is the one check that the image builds and imports
+  # without the dev groups. A push to main skips it because its pull request ran it;
+  # a Release call runs it so a broken image never reaches promote.
+  image:
+    needs: changes
+    if: >-
+      needs.changes.outputs.image == 'true'
+      && !(github.event_name == 'push' && github.ref_type == 'branch')
+    name: API Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: docker build --tag crosstune-api api
+      - run: docker run --rm --entrypoint python crosstune-api -c "import crosstune.main"
+      - run: docker run --rm --entrypoint alembic crosstune-api heads
 
   contract:
     needs: changes
