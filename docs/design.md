@@ -199,8 +199,8 @@ Everywhere the app lists tunes it uses one row.
   dot, learning a filled warning dot, want to learn a hollow ring.
 - Status is a rail of capsules wherever it is set or filtered. A filter rail
   leads with All.
-- The tune screen shows the status as a facet and never sets it. Only the
-  tune's edit form sets it.
+- The tune screen shows the status and never sets it. Only the tune's edit
+  form sets it.
 - A required field never clears: pressing the chosen capsule leaves it
   chosen. An optional field does the opposite.
 - An unrecognized status value shows as want to learn.
@@ -554,47 +554,51 @@ native SwiftUI controls, SF Symbols, system materials and fonts, Dynamic
 Type. Every rule above holds, words and behavior alike. Where a rule above
 describes Ionic's web chrome, the Apple app replaces it with the native
 equivalent below. The Mac's presentation rules are in
-[Mac design rules](design-macos.md), and they hold on the Mac where the two
-pages differ.
+[Mac design rules](design-macos.md), and iPhone's and iPad's are in
+[iOS design rules](design-ios.md). Each holds on its platform where it and
+this page differ.
 
-- iPhone: a tab bar (Catalog, Lists, Recordings, Settings) with the record
-  dome centered over its middle, replacing the web's tab bar. The dome is
-  the bar's own glass with a solid recording-red dot filling most of it,
-  the web dome's shape, not a red button. iPad and Mac
-  use a split view (sidebar, content, detail) instead; an iPad in a compact
-  window falls back to the iPhone layout.
+- iPhone has a tab bar in place of the web's. iPad and Mac use a split view
+  (sidebar, content, detail) instead. An iPad in a compact window takes the
+  iPhone layout.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
   Undo button replaces the web's toast.
-- Native search replaces the web's toolbar search field, except on the
-  catalog and Recordings. There the field is the app's own, pinned under
-  the navigation bar with the filter control at its trailing edge, because
-  the system field takes no accessory.
-- On iPhone, a top-level screen's large title shares a row with its
-  toolbar buttons and stays in place on scroll, instead of sitting in its
-  own row under them.
-- A segmented control is allowed for a short closed choice. Status still
-  stays a rail of capsules, because each carries its own dot color.
-- A long press opens the native context menu. Its Select item, and a
-  Select toolbar button, enter selection, replacing the web's long-press
-  gesture.
+- Native search replaces the web's toolbar search field.
+- A window or scene root carries `.tint(BrandStyle.accent)`, so slate tints
+  the selection, chosen controls, and primary buttons on every Apple
+  platform.
+- SwiftUI's tint does not reach what AppKit and UIKit draw themselves, such
+  as list selection, focus rings, default buttons, alerts, menus, and the
+  Mac's Settings tabs. The `AccentColor` asset colors those on every Apple
+  platform.
+- A segmented control is allowed for a short closed choice. A tune's status
+  is set with one, a segment per word. A system segment shows an image or a
+  word, never both, and the words are what a musician chooses by. When
+  tunes disagree, no segment is chosen.
+- A long press opens the native context menu. Its Select item, and the
+  screen's own Select action, enter selection, replacing the web's
+  long-press gesture.
 - A screen's filters are its list's first row and scroll with it, not a
-  bar pinned under the navigation bar. At accessibility text sizes only the
-  status rail stays in the list. The other rails move into the filter sheet.
-- Text follows Dynamic Type. A Text size stepper in Settings shifts it in
-  whole Dynamic Type steps from the system's size, and reads "System" or
-  body text's size as a percentage of the system's. Spacing scales with the
-  text. System alerts and confirmation dialogs follow the system's size.
-  The catalog's filter bar stays at the default size, because larger chips
-  push their labels off the screen.
-- Native motion (SwiftUI transitions, symbol effects, haptics) is allowed
-  beyond the record control and the waveform, but nothing animates under
-  Reduce Motion.
+  bar pinned under the navigation bar.
+- A filter control is a quiet capsule at rest and takes the slate wash once
+  it narrows the list.
+- A facet filter is a pull-down that reads its facet and value: "Key: Any",
+  "Key: D". A facet whose values carry color opens a popover of pills,
+  because a menu draws its images in one color. Choosing a value closes it.
+- Native motion (SwiftUI transitions and symbol effects) is allowed beyond
+  the record control and the waveform. Under Reduce Motion nothing moves:
+  a change cross-fades or happens at once.
 - A link that the app plays itself, such as an Apple Music link through
   MusicKit, starts in the bar like a recording and does not open in full. A
   link in its provider's embed opens in full, because the embed holds its
   only controls.
+- Stats is a document page. Each block is the simplest chart that shows
+  its point: the status split as one bar in the status colors, and each
+  breakdown value over a thin slate bar sized by its share.
+- A stats breakdown of more than 8 values shows the top 8 and a "Show all"
+  row with the full count, which expands it in place.
 - In the recording sheet, a Stop that cannot run dims as a whole disc,
   never only its label.
-- The record dome and the menu commands that open a sheet stand down while
-  a sheet, dialog, or file picker is up. The record control and the Record
-  command also stand down while a screen is selecting.
+- The record control and the menu commands that open a sheet stand down
+  while a sheet, dialog, or file picker is up. The record control and the
+  Record command also stand down while a screen is selecting.

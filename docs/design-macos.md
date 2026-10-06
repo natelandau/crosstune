@@ -8,16 +8,13 @@ view never changes how iPhone or iPad draw it.
 
 ## Tokens
 
-`MacStyle` is the one source of Mac color, type, and size. A Mac view never
-types a color value, a text size, or a row height of its own. A glyph's
-size is not a text size.
+`MacStyle` is the one source of Mac type and size, and takes its colors
+from `BrandStyle`, which every platform shares. A Mac view never types a
+color value, a text size, or a row height of its own. A glyph's size is not
+a text size.
 
 - Slate is the accent, lighter in dark mode. It marks every chosen state,
   the selection, focus rings, and default buttons.
-- A window or scene root carries `.tint(MacStyle.accent)`. SwiftUI's tint
-  does not reach what AppKit draws, such as list selection, focus rings,
-  default buttons, and the Settings tabs. The macOS-only `AccentColor`
-  asset colors those.
 - A label on a slate fill is white in light mode and near-black in dark
   mode, because the dark slate is a light color.
 - Coral marks only the selected sidebar row's glyph, the playhead of
@@ -72,6 +69,8 @@ toolbar is unified and shows no window title text.
   scrolls away, so the bar adds no empty band at rest.
 - View > Sort By carries the sort of the screen that shows, when it has
   one.
+- A pane bar's search field is the app's own, so it can carry the filter
+  control at its trailing edge. The system field takes no accessory.
 
 ## Sidebar
 
@@ -102,11 +101,7 @@ sort header, rows.
 - Groups take plain headings in the section heading role, never inset
   cards.
 - A filter control is a capsule a step lower than the pane bar, so the bar
-  stays the column's chrome. It is a quiet fill at rest and slate once it
-  narrows the list.
-- A facet filter is a pull-down that reads its facet and value: "Key: Any",
-  "Key: D". A facet whose values carry color opens a popover of pills,
-  because a Mac menu draws its images in one color.
+  stays the column's chrome.
 - A set sheet filter is a slate token that removes it. Tokens trail the
   controls on one row while it fits and wrap under them when it does not.
 - Nothing scrolls sideways where it can wrap or spread, because a mouse

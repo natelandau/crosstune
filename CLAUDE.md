@@ -14,6 +14,8 @@ and `docs/hosting.md`.
 - A screen, row, form, gesture, or label: `docs/design.md`.
 - A Mac screen, row, control, or window: `docs/design.md`, then
   `docs/design-macos.md`.
+- An iPhone or iPad screen, row, control, or sheet: `docs/design.md`, then
+  `docs/design-ios.md`.
 - Deployment, CI, or a host setting: `docs/hosting.md` and
   `docs/operations.md`.
 
@@ -93,7 +95,7 @@ every label. The glossary in `docs/product.md` has the reasons.
   a sheet's root view carries `.shellSheet()` or `.partHeightSheet()`; a
   dialog, alert, or file picker has no root view of its own, so the view
   presenting it carries `.coversShell(_:)` on the line before. A test in
-  `CrosstuneUITests` enforces both, so the record dome hides and the shell's
+  `CrosstuneUITests` enforces both, so the record control and the shell's
   menu commands stand down behind every presentation.
 
 ## Web tests
