@@ -22,10 +22,6 @@ public struct Spacing: Equatable, Sendable {
     public var rowLineGap: CGFloat { self(2) }
     /// Between the chips of a rail.
     public var railGap: CGFloat { self(8) }
-    /// Above the catalog's filter bar.
-    public var filterBarPadding: CGFloat { self(8) }
-    /// Below the catalog's filter bar, more than above so the last rail clears the first tune.
-    public var filterBarBottom: CGFloat { self(14) }
     /// Above and below a chip's label, inside its fill.
     public var chipVertical: CGFloat { self(6) }
     /// Between items of one group.
@@ -47,16 +43,16 @@ let minimumTapTarget: CGFloat = 44
 /// tap target before the chip lays out.
 let defaultChipHeight: CGFloat = 32
 
-/// How far a control `visibleHeight` tall reaches past each edge to be `minimumTapTarget` tall.
-func tapOutset(visibleHeight: CGFloat) -> CGFloat {
-    max(0, (minimumTapTarget - visibleHeight) / 2)
+/// How far a control `visibleHeight` tall reaches past each edge to be `minimum` tall.
+func tapOutset(visibleHeight: CGFloat, minimum: CGFloat = minimumTapTarget) -> CGFloat {
+    max(0, (minimum - visibleHeight) / 2)
 }
 
 extension View {
-    /// Makes a control `visibleHeight` tall take taps across `minimumTapTarget` points without
-    /// taking that height in the layout.
-    func tapTarget(visibleHeight: CGFloat) -> some View {
-        let outset = tapOutset(visibleHeight: visibleHeight)
+    /// Makes a control `visibleHeight` tall take taps across `minimum` points without taking that
+    /// height in the layout.
+    func tapTarget(visibleHeight: CGFloat, minimum: CGFloat = minimumTapTarget) -> some View {
+        let outset = tapOutset(visibleHeight: visibleHeight, minimum: minimum)
         return padding(.vertical, outset)
             .contentShape(.rect)
             .padding(.vertical, -outset)

@@ -33,9 +33,7 @@ struct CrosstuneApp: App {
         WindowGroup(id: AppCommands.mainWindow) {
             content
                 .followsDisplaySettings()
-                #if os(macOS)
-                    .tint(MacStyle.accent)
-                #endif
+                .tint(BrandStyle.accent)
         }
         .commands {
             SidebarCommands()
@@ -54,7 +52,7 @@ struct CrosstuneApp: App {
                     .environment(session)
                     .environment(player)
                     .followsDisplaySettings()
-                    .tint(MacStyle.accent)
+                    .tint(BrandStyle.accent)
             }
         #endif
     }

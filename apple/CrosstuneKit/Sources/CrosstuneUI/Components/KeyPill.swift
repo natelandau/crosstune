@@ -67,7 +67,7 @@ public struct KeyPill: View {
 
     private var ink: AnyShapeStyle {
         if let swatch { return AnyShapeStyle(swatch.ink.color) }
-        return isChosen ? AnyShapeStyle(.white) : AnyShapeStyle(.primary)
+        return isChosen ? AnyShapeStyle(BrandStyle.onAccent(colorScheme)) : AnyShapeStyle(.primary)
     }
 }
 

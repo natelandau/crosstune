@@ -4,56 +4,42 @@
 
     /// The Mac app's accent, type, and spacing tokens.
     public enum MacStyle {
-        public static let accentLight = "#4F5D75"
-        public static let accentDark = "#8E9BB3"
-        public static let coralHex = "#EF8354"
+        /// Slate's light-mode hex, from ``BrandStyle``.
+        public static let accentLight = BrandStyle.accentLight
+        /// Slate's dark-mode hex, from ``BrandStyle``.
+        public static let accentDark = BrandStyle.accentDark
+        /// Coral's hex, from ``BrandStyle``.
+        public static let coralHex = BrandStyle.coralHex
+        /// The light-mode label on slate, from ``BrandStyle``.
+        public static let onAccentLight = BrandStyle.onAccentLight
+        /// The dark-mode label on slate, from ``BrandStyle``.
+        public static let onAccentDark = BrandStyle.onAccentDark
 
         /// Slate, lighter in dark mode so text on the window keeps its contrast.
-        public static var accent: Color {
-            Color(
-                nsColor: NSColor(name: nil) { appearance in
-                    let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                    return NSColor(hex: dark ? accentDark : accentLight)
-                })
-        }
+        public static var accent: Color { BrandStyle.accent }
+        /// Coral, the mark's color.
+        public static var coral: Color { BrandStyle.coral }
 
-        public static var coral: Color { Color(nsColor: NSColor(hex: coralHex)) }
-
-        public static let onAccentLight = "#FFFFFF"
-        public static let onAccentDark = "#16181D"
-
-        /// A label on a slate fill: white on the light slate, near-black on the dark slate, which
-        /// is a light color.
-        public static func onAccent(_ scheme: ColorScheme) -> Color {
-            Color(nsColor: NSColor(hex: scheme == .dark ? onAccentDark : onAccentLight))
-        }
-
+        /// A label on a slate fill in `scheme`.
+        public static func onAccent(_ scheme: ColorScheme) -> Color { BrandStyle.onAccent(scheme) }
         /// How strongly a set filter's slate wash shows over the window.
         public static func setFillOpacity(_ scheme: ColorScheme) -> Double {
-            scheme == .dark ? 0.28 : 0.14
+            BrandStyle.setFillOpacity(scheme)
         }
-
-        /// Whether a set filter's label is slate. Over a dark window the wash leaves slate text
-        /// short of 4.5:1, so in dark mode the label takes the primary label color.
+        /// Whether a set filter's label is slate rather than the primary label color.
         public static func setLabelIsSlate(_ scheme: ColorScheme) -> Bool {
-            scheme != .dark
+            BrandStyle.setLabelIsSlate(scheme)
         }
-
         /// A set filter's wash, the fill of a filter control or token once it narrows the list.
-        public static func setFill(_ scheme: ColorScheme) -> Color {
-            accent.opacity(setFillOpacity(scheme))
-        }
-
+        public static func setFill(_ scheme: ColorScheme) -> Color { BrandStyle.setFill(scheme) }
         /// A set filter's label on its wash.
-        public static func setLabel(_ scheme: ColorScheme) -> Color {
-            setLabelIsSlate(scheme) ? accent : .primary
-        }
+        public static func setLabel(_ scheme: ColorScheme) -> Color { BrandStyle.setLabel(scheme) }
 
         /// The wash over the sidebar pane.
         public static func sidebarTint(_ scheme: ColorScheme) -> Color {
             scheme == .dark
-                ? Color(nsColor: NSColor(hex: accentDark)).opacity(0.20)
-                : Color(nsColor: NSColor(hex: accentLight)).opacity(0.15)
+                ? BrandStyle.color(hex: accentDark).opacity(0.20)
+                : BrandStyle.color(hex: accentLight).opacity(0.15)
         }
 
         public static let body = Font.system(size: 13)
@@ -99,13 +85,6 @@
         /// its own side padding, so the row starts where the tune rows do.
         public static func columnRowInsets(top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
             EdgeInsets(top: top, leading: 0, bottom: bottom, trailing: 0)
-        }
-    }
-
-    extension NSColor {
-        fileprivate convenience init(hex: String) {
-            let rgb = KeyColor.RGB(hex: hex)
-            self.init(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
         }
     }
 

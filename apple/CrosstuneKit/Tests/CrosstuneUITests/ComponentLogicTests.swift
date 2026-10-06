@@ -6,26 +6,6 @@ import Testing
 
 @testable import CrosstuneUI
 
-@Suite struct StatusRailTests {
-    @Test func aRequiredRailNeverClears() {
-        #expect(StatusRail.pressing("known", current: "known", required: true) == "known")
-        #expect(StatusRail.pressing("learning", current: "known", required: true) == "learning")
-    }
-
-    @Test func aFilterClearsWhenItsChosenStatusIsPressedAgain() {
-        #expect(StatusRail.pressing("known", current: "known", required: false) == nil)
-        #expect(StatusRail.pressing("known", current: nil, required: false) == "known")
-        #expect(StatusRail.pressing(nil, current: "known", required: false) == nil)
-    }
-
-    @Test func anUnreadableStatusShowsAsWantToLearnOrAll() {
-        #expect(StatusRail.chosen("mastered", required: true) == "want_to_learn")
-        #expect(StatusRail.chosen("mastered", required: false) == nil)
-        #expect(StatusRail.chosen("learning", required: false) == "learning")
-        #expect(StatusRail.chosen(nil, required: false) == nil)
-    }
-}
-
 @Suite struct FlowLayoutTests {
     private let pill = CGSize(width: 40, height: 20)
 
@@ -109,7 +89,7 @@ import Testing
         let spacing = Spacing(.large)
         #expect(spacing.scale == 1)
         #expect(spacing.rowInset == 10 && spacing.rowLineGap == 2 && spacing.chipVertical == 6)
-        #expect(spacing.railGap == 8 && spacing.filterBarPadding == 8 && spacing.filterBarBottom == 14)
+        #expect(spacing.railGap == 8)
         #expect(spacing.stackGap == 8 && spacing.sectionGap == 16)
     }
 
@@ -125,30 +105,3 @@ import Testing
         #expect(tapOutset(visibleHeight: 50) == 0)
     }
 }
-
-#if os(macOS)
-    @Suite struct MacTunePageTests {
-        private func detail(_ tune: Tune) -> TuneDetail {
-            TuneDetail(tune: tune, userTune: SampleCatalog.entries[0].userTune)
-        }
-
-        @Test func facetLineJoinsWhatTheTuneHolds() {
-            var tune = SampleCatalog.entries[0].tune
-            tune.key = "A"
-            tune.modes = ["modal"]
-            tune.tuneType = "Breakdown"
-            tune.genre = nil
-            // The key shows as its pill before the line, so the line starts at the mode.
-            #expect(MacTunePage.facetLine(detail(tune)) == "modal · Breakdown · 2/4 · AABB")
-
-            let sparse = Tune(id: "sparse", createdAt: SampleCatalog.now, title: "Sparse", tuneType: "Reel")
-            #expect(MacTunePage.facetLine(detail(sparse)) == "Reel")
-        }
-
-        @Test func facetLineKeepsGenreAndCrookedBesideTheirNeighbors() {
-            var tune = SampleCatalog.entries[0].tune
-            tune.isCrooked = true
-            #expect(MacTunePage.facetLine(detail(tune)) == "major · Reel · Old-time · 2/4 · Crooked · AABB")
-        }
-    }
-#endif

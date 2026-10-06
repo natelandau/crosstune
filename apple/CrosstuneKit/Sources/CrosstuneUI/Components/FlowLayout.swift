@@ -78,7 +78,7 @@ public struct FlowLayout: Layout {
 #Preview("Flow layout") {
     FlowLayout {
         KeyPill("D")
-        StatusDot("learning").font(.subheadline)
+        StatusGlyph("learning").font(.subheadline)
         Text("Reel")
         Text("Old-time")
         Text("4/4")
