@@ -13,7 +13,7 @@ enum StandText {
 
 extension EnvironmentValues {
     /// Whether the practice screen sets the playing tune's scans and lyrics beside practice, as
-    /// the iPad's practice cover does. Everywhere else practice stands alone, as before.
+    /// the iPad's practice cover does. Everywhere else practice stands alone.
     @Entry var standsWithReading = false
     /// Whether the practice screen around this view has scans or lyrics to show, so its header
     /// offers to hide or show them.
@@ -29,7 +29,7 @@ extension StandArrangement {
 
 /// Practice beside the playing tune's scans and lyrics on the iPad, in the arrangement
 /// ``StandArrangement`` picks for the window. Passes `practice` through unchanged wherever
-/// ``EnvironmentValues/standsWithReading`` is false, so the iPhone and the Mac draw as before.
+/// ``EnvironmentValues/standsWithReading`` is false, as on the iPhone and the Mac.
 struct Stand<Practice: View>: View {
     private let player: PlayerModel
     private let source: Source
