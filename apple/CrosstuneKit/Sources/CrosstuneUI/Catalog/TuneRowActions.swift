@@ -108,7 +108,12 @@ struct TunePreview: View {
                 if let key = text.key {
                     KeyPill(key.key, suffix: key.suffix)
                 }
-                StatusDot(text.status)
+                HStack(spacing: 6) {
+                    // The word beside it names the status.
+                    StatusGlyph(text.status).accessibilityHidden(true)
+                    Text(StatusStyle.label(text.status)).lineLimit(1)
+                }
+                .fixedSize()
                 ForEach(Array(details.enumerated()), id: \.offset) { Text($0.element) }
             }
             .font(.subheadline)

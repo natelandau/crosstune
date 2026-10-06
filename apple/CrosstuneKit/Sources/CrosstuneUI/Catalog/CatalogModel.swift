@@ -47,13 +47,7 @@ public struct CatalogResults: Sendable {
     }
 
     /// The visible facets the filter sheet sets.
-    public var sheetFacets: [CatalogFacet] { sheetFacets(railsOnScreen: true) }
-
-    /// The visible facets the filter sheet sets, with the key and type rails on the screen or,
-    /// when `railsOnScreen` is false, in the sheet.
-    public func sheetFacets(railsOnScreen: Bool) -> [CatalogFacet] {
-        facets.filter { $0.isInSheet(railsOnScreen: railsOnScreen) }
-    }
+    public var sheetFacets: [CatalogFacet] { facets.filter(\.isInSheet) }
 }
 
 /// What the catalog says as a whole, worked out when the stored tunes or the instruments change

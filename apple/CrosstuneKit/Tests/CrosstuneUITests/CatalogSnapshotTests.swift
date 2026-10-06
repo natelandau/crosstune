@@ -4,9 +4,9 @@ import Testing
 
 @testable import CrosstuneUI
 
-/// The catalog laid out from stand-ins, since an image renderer draws no list: the real search
-/// field, filter bar, list header, tune rows, hidden match note, and add row, stacked as the list shows
-/// them.
+/// The catalog laid out from stand-ins, since an image renderer draws no list: a search field
+/// standing in for the system's, the real filter row, list header, tune rows, hidden match note,
+/// and add row, stacked as the list shows them.
 struct CatalogStandIn: View {
     var filters = CatalogFilters(
         status: "learning", facets: [.key: "A", .genre: "Old-time", .tuning("violin"): "Cross A (AEAE)"])
@@ -15,9 +15,7 @@ struct CatalogStandIn: View {
     @FocusState private var searchFocused: Bool
 
     /// The sample catalog's results under `filters` and `query`, as the model works them out.
-    /// `rails` false leaves out the key and type facets, whose rails overflow a phone's width
-    /// into a scroll view that an image renderer leaves blank.
-    static func results(filters: CatalogFilters, query: String, rails: Bool = true) -> CatalogResults {
+    static func results(filters: CatalogFilters, query: String) -> CatalogResults {
         let entries = SampleCatalog.entries.map { CatalogEntry(tune: $0.tune, userTune: $0.userTune) }
         let visible = CatalogSearch.filter(entries, by: filters, query: query)
         let outcome = SearchOutcome(entries: entries, visible: visible, query: query, archivedShown: filters.archived)
@@ -25,24 +23,21 @@ struct CatalogStandIn: View {
         let total = CatalogSearch.hidingArchived(entries, shown: filters.archived).count
         return CatalogResults(
             entries: entries, instruments: SampleCatalog.instruments, filters: filters, facetValues: values,
-            facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments).filter {
-                rails || ($0 != .key && $0 != .tuneType)
-            }, visible: visible,
+            facets: CatalogSearch.visibleFacets(values, instruments: SampleCatalog.instruments), visible: visible,
             outcome: outcome, total: total, archivedCount: entries.count(where: \.isArchived),
             missingChoices: CatalogSearch.missingChoices(entries))
     }
 
     var body: some View {
-        let results = Self.results(filters: filters, query: query, rails: false)
+        let results = Self.results(filters: filters, query: query)
         let visible = results.visible
         let outcome = results.outcome
         VStack(alignment: .leading, spacing: 8) {
             FilterSearchField(
                 prompt: CatalogScreen.searchPrompt,
                 query: .constant(query), isFocused: $searchFocused,
-                filterCount: filters.sheetCount, onSubmit: {}, onFilters: {})
-            CatalogFilterBar(results: results, errors: [], onChange: { _ in })
-                .padding(.horizontal, -16)
+                filterCount: nil, onSubmit: {}, onFilters: {})
+            CatalogFilterRow(results: results, errors: [], onChange: { _ in }, onFilters: {})
             ListHeader(count: results.countLabel, choice: .constant(CatalogSortChoice.default))
             ForEach(visible) { entry in
                 TuneRow(
@@ -125,7 +120,7 @@ struct CatalogStandIn: View {
                 .padding(.bottom, 8)
                 ColumnTitle(Destination.catalog.title)
                     .padding(.top, 4)
-                MacFilterRow(results: results, errors: [], onChange: { _ in }, onFilters: {})
+                CatalogFilterRow(results: results, errors: [], onChange: { _ in }, onFilters: {})
                     .padding(.vertical, 6)
                 ListHeader(
                     count: results.countLabel, choice: selected == nil ? .constant(CatalogSortChoice.default) : nil)
@@ -153,6 +148,18 @@ struct CatalogStandIn: View {
 @Suite struct CatalogSnapshotTests {
     @Test func filtered() {
         snapshot("catalog-filtered") { CatalogStandIn() }
+    }
+
+    /// The filter row with a key and two sheet filters set, at the default text size and at an
+    /// accessibility size, where the controls wrap rather than clip.
+    @Test func filterRow() {
+        let filters = CatalogFilters(facets: [.key: "D", .genre: "Old-time"], unheard: true)
+        let results = CatalogStandIn.results(filters: filters, query: "")
+        for size in [DynamicTypeSize.large, .accessibility3] {
+            snapshot("catalog-filter-row", size: size) {
+                CatalogFilterRow(results: results, errors: [], onChange: { _ in }, onFilters: {})
+            }
+        }
     }
 
     @Test func searchingForAHiddenTitle() {

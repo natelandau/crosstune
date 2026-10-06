@@ -20,18 +20,12 @@ public enum CatalogFacet: Hashable, Sendable {
         [.key, .tuneType, .mode] + Vocabulary.instruments.map(CatalogFacet.tuning)
         + [.genre, .composer, .learnedFrom]
 
-    /// The facets with their own rail on the catalog screen. Every other visible facet is in the
-    /// filter sheet.
+    /// The facets with their own control in the catalog's filter row. Every other visible facet
+    /// is in the filter sheet.
     nonisolated public static let onScreen: [CatalogFacet] = [.key, .tuneType]
 
     /// Whether this facet is set in the filter sheet rather than on the screen.
-    public var isInSheet: Bool { isInSheet(railsOnScreen: true) }
-
-    /// Whether this facet is set in the filter sheet. `railsOnScreen` false puts every facet
-    /// there, as at the accessibility text sizes, where rails would crowd out the tunes.
-    public func isInSheet(railsOnScreen: Bool) -> Bool {
-        !railsOnScreen || !Self.onScreen.contains(self)
-    }
+    public var isInSheet: Bool { !Self.onScreen.contains(self) }
 
     /// The key the facet is stored under in the catalog filters, the web client's own.
     public var storageKey: String {

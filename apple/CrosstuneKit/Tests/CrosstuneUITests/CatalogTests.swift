@@ -183,16 +183,9 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogFacet.tuning("violin").isInSheet && CatalogFacet.mode.isInSheet && CatalogFacet.genre.isInSheet)
     }
 
-    @Test func movesKeyAndTypeIntoTheSheetAtTheAccessibilityTextSizes() {
-        #expect(CatalogFilterBar.railsOnScreen(.xxxLarge))
-        #expect(!CatalogFilterBar.railsOnScreen(.accessibility1))
-        #expect(CatalogFacet.key.isInSheet(railsOnScreen: false))
+    @Test func showsASetKeyOrTypeOnItsControlRatherThanAsAToken() {
         let filters = CatalogFilters(status: "learning", facets: [.key: "D", .tuneType: "Reel", .genre: "Irish"])
-        #expect(filters.sheetCount(railsOnScreen: false) == 3)
-        #expect(filters.sheetReset(railsOnScreen: false) == CatalogFilters(status: "learning"))
-        // A set key or type still shows as a removable capsule.
-        #expect(CatalogFilterBar.setFilters(filters, railsOnScreen: false).map(\.label) == ["D", "Reel", "Irish"])
-        #expect(CatalogFilterBar.setFilters(filters).map(\.label) == ["Irish"])
+        #expect(CatalogFilterRow.setFilters(filters).map(\.label) == ["Irish"])
     }
 
     @Test func keepsAStaleSetValueAsAChoiceWithoutDuplicatingAHeldOne() {
@@ -223,7 +216,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     @Test func showsEachSetFilterAsARemovableCapsule() {
         let filters = CatalogFilters(
             status: "known", facets: [.key: "D", .genre: "Irish", .tuning("violin"): "Cross A (AEAE)"], archived: true)
-        let set = CatalogFilterBar.setFilters(filters)
+        let set = CatalogFilterRow.setFilters(filters)
         #expect(set.map(\.label) == ["Violin: Cross A (AEAE)", "Irish", "Archived shown"])
         #expect(set.map(\.id) == ["tuning:violin", "genre", "archived"])
         var removed = filters
@@ -236,7 +229,7 @@ private let blankAndSentinel = CatalogSearch.entries(
     @Test func namesTheFieldOnAComposerOrLearnedFromCapsuleSoOnePersonStaysApart() {
         let filters = CatalogFilters(facets: [.composer: "Ed Haley", .learnedFrom: "Ed Haley"])
         #expect(
-            CatalogFilterBar.setFilters(filters).map(\.label) == [
+            CatalogFilterRow.setFilters(filters).map(\.label) == [
                 "\(TuneFieldLabels.composer): Ed Haley", "\(TuneFieldLabels.learnedFrom): Ed Haley",
             ])
     }
@@ -263,7 +256,7 @@ private let blankAndSentinel = CatalogSearch.entries(
         #expect(CatalogFacet.key.valueLabel(CatalogFilters.noKey) == KeyChooser.unknownKey)
         #expect(CatalogFacet.key.valueLabel("D") == "D")
         let filters = CatalogFilters(facets: [.key: CatalogFilters.noKey])
-        #expect(CatalogFilterBar.setFilters(filters, railsOnScreen: false).map(\.label) == [KeyChooser.unknownKey])
+        #expect(CatalogFacet.key.capsuleLabel(CatalogFilters.noKey) == KeyChooser.unknownKey)
         #expect(CatalogFilters(stored: filters.stored) == filters)
     }
 
@@ -417,10 +410,10 @@ private let blankAndSentinel = CatalogSearch.entries(
     }
 
     @Test func showsCapsulesForBoth() {
-        let set = CatalogFilterBar.setFilters(CatalogFilters(unheard: true, missing: .tuning("violin")))
+        let set = CatalogFilterRow.setFilters(CatalogFilters(unheard: true, missing: .tuning("violin")))
         #expect(
             set.map(\.label) == [
-                CatalogFilterBar.unheardShown, "\(CatalogFilterSheet.missing) Violin tuning",
+                CatalogFilterRow.unheardShown, "\(CatalogFilterSheet.missing) Violin tuning",
             ])
         var removed = CatalogFilters(unheard: true, missing: .key)
         set[0].remove(&removed)

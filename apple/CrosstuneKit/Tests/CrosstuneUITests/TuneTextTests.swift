@@ -91,6 +91,18 @@ import Testing
         #expect(row.accessibilityLabel() == "Elzic's Farewell, Known")
     }
 
+    @Test func rowSecondLineOnlyForTuningsCaposOrArchived() {
+        let tuning: JSONObject = ["violin": .object(["tuning": .string("Cross A (AEAE)")])]
+        #expect(text().secondLine == nil)
+        #expect(
+            text(tunings: ["violin": .object(["tuning": .string("Standard (GDAE)")])], instruments: ["violin"])
+                .secondLine == nil)
+        #expect(text(tunings: tuning, instruments: ["violin"]).secondLine == "Cross A (AEAE)")
+        #expect(text(archived: true).secondLine == "Archived")
+        #expect(
+            text(archived: true, tunings: tuning, instruments: ["violin"]).secondLine == "Cross A (AEAE) · Archived")
+    }
+
     @Test func showsAnUnrecognizedStatusAsWantToLearn() {
         #expect(text(status: "mastered").status == "want_to_learn")
     }
