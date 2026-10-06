@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crosstune.auth.jwks import JwksCache
 from crosstune.config import Settings
+from crosstune.db.base import Base
 from crosstune.db.engine import make_engine, make_sessionmaker
 from crosstune.http import PublicOnlyTransport
 from crosstune.main import create_app
@@ -528,15 +529,9 @@ async def verify_session(engine, truncate_all: None) -> AsyncIterator[AsyncSessi
 async def truncate_all(engine) -> AsyncIterator[None]:
     """Wipe every table after each test so API writes never leak between tests."""
     yield
+    tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
     async with engine.begin() as conn:
-        await conn.execute(
-            text(
-                "truncate status_changes, play_events, practice_sessions, scan_views, "
-                "upload_slots, jobs, recordings, list_items, lists, recording_links, "
-                "recording_loops, user_tunes, tunes, user_settings, users, deleted_accounts "
-                "cascade"
-            )
-        )
+        await conn.execute(text(f"truncate {tables} cascade"))
 
 
 @pytest.fixture
