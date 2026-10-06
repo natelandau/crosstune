@@ -187,9 +187,11 @@ and fails instead in CI, where the `API` workflow always starts it.
   the backstop for a failed prefix deletion. If cleanup fails, run the
   workflow from the Actions tab with the PR number.
 - CI runs on every pull request and push to `main`. `API` lints, type
-  checks, tests on Postgres 18, and checks the OpenAPI contract. Its lint
-  job also runs actionlint and zizmor on the workflows and shellcheck on
-  the scripts, so it starts for any change under `.github/`. `Web`
+  checks, tests on Postgres 18, and checks the OpenAPI contract. It
+  builds the API image only when the workflow, the Dockerfile, or the
+  API's dependencies change, and on every release. Its lint job also
+  runs actionlint and zizmor on the workflows and shellcheck on the
+  scripts, so it starts for any change under `.github/`. `Web`
   lints, type checks, tests, builds, and checks the generated types.
   `Site` lints, type checks, tests the built pages, and validates the
   Worker config with a dry run.
