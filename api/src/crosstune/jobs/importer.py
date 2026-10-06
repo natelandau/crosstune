@@ -29,7 +29,6 @@ MAX_REDIRECTS = 5
 DOWNLOAD_TIMEOUT_SECONDS = 300.0
 GONE_STATUSES = frozenset({404, 410})
 NO_AUDIO = "Couldn't find the audio on Slippery-Hill"
-NOT_IMPORTABLE = "Can't import from this address."
 TOO_LARGE = "File too large"
 OVER_QUOTA = "Storage quota exceeded"
 UNREACHABLE = "Couldn't reach Slippery-Hill"

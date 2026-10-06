@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crosstune.db.base import next_server_seq
 from crosstune.errors import ConflictError, NotFoundError
 from crosstune.models import Scan, Tune
 
@@ -61,8 +60,3 @@ def require_state(scan: Scan, expected: ScanState) -> None:
     if scan.state != expected:
         msg = f"Scan is {scan.state}, not {expected}"
         raise ConflictError(msg)
-
-
-def bump_scan_server_seq(scan: Scan) -> None:
-    """Take a new server_seq so every device pulls the change. updated_at stays the client's."""
-    scan.server_seq = next_server_seq()

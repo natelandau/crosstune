@@ -1,4 +1,4 @@
-"""Search the Apple Music catalog for songs."""
+"""Search the Apple Music catalog for tune recordings."""
 
 from __future__ import annotations
 
@@ -55,14 +55,15 @@ def adapter(token: AppleMusicToken) -> Adapter:
 
         with auth_errors(token):
             body, served = await with_region_fallback(country, fetch)
-        songs = field(field(field(body, "results"), "songs"), "data")
-        return AdapterAnswer(collect(_hit(song) for song in items(songs)), served)
+        # "songs" is Apple's name for the catalog type, not ours.
+        tracks = field(field(field(body, "results"), "songs"), "data")
+        return AdapterAnswer(collect(_hit(track) for track in items(tracks)), served)
 
     return search
 
 
-def _hit(song: object) -> SearchHit | None:
-    attributes = field(song, "attributes")
+def _hit(track: object) -> SearchHit | None:
+    attributes = field(track, "attributes")
     artist, album = text(field(attributes, "artistName")), text(field(attributes, "albumName"))
     artwork = text(field(field(attributes, "artwork"), "url"))
     return build_hit(

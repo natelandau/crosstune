@@ -6,8 +6,8 @@ import uuid
 
 import pytest
 
+from crosstune.db.base import utc_now
 from crosstune.models import Recording
-from crosstune.models.user import utc_now
 from crosstune.recordings.trim import clamp_trim, needs_trim
 
 

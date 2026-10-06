@@ -6,10 +6,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from crosstune.db.base import bump_server_seq
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import playback_bitrate, probe
 from crosstune.jobs.recut import recut_playback
-from crosstune.recordings.service import attach_playback, bump_server_seq
+from crosstune.recordings.service import attach_playback
 from crosstune.storage.store import delete_best_effort
 
 if TYPE_CHECKING:

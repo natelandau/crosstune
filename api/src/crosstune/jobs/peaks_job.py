@@ -6,12 +6,12 @@ import logging
 from functools import partial
 from typing import TYPE_CHECKING
 
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import probe
 from crosstune.jobs.peaks import build_peaks
-from crosstune.models.user import utc_now
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import attach_peaks, bump_server_seq
+from crosstune.recordings.service import attach_peaks
 from crosstune.recordings.trim import clamp_stored_trim
 from crosstune.storage.store import PEAKS_MIME, delete_best_effort, peaks_key, upload_revision
 

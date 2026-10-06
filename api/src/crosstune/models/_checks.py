@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 
+def _quoted(values: tuple[str, ...]) -> str:
+    """The values as a comma-separated list of SQL string literals."""
+    return ", ".join("'{}'".format(value.replace("'", "''")) for value in values)
+
+
 def in_list(column: str, values: tuple[str, ...], *, nullable: bool = True) -> str:
     """Build a CHECK constraint clause restricting `column` to one of `values`.
 
@@ -14,8 +19,7 @@ def in_list(column: str, values: tuple[str, ...], *, nullable: bool = True) -> s
     Returns:
         str: The SQL expression for the constraint.
     """
-    escaped = (value.replace("'", "''") for value in values)
-    quoted = ", ".join(f"'{value}'" for value in escaped)
+    quoted = _quoted(values)
     if nullable:
         return f"{column} is null or {column} in ({quoted})"
     return f"{column} in ({quoted})"
@@ -46,6 +50,5 @@ def within_list(column: str, values: tuple[str, ...], max_items: int) -> str:
     Returns:
         str: The SQL expression for the constraint.
     """
-    escaped = (value.replace("'", "''") for value in values)
-    quoted = ", ".join(f"'{value}'" for value in escaped)
+    quoted = _quoted(values)
     return f"cardinality({column}) <= {max_items} and {column} <@ array[{quoted}]::varchar[]"

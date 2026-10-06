@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
+from crosstune.db.base import bump_server_seq, utc_now
 from crosstune.db.locks import lock_user
 from crosstune.jobs.media import cut, encode, needs_encode, probe, remux
 from crosstune.jobs.peaks import build_peaks
-from crosstune.models.user import utc_now
 from crosstune.recordings.loops import reclamp_recording_loops
-from crosstune.recordings.service import attach_peaks, attach_playback, bump_server_seq
+from crosstune.recordings.service import attach_peaks, attach_playback
 from crosstune.recordings.trim import clamp_stored_trim, clamp_trim
 from crosstune.storage.store import (
     PEAKS_MIME,

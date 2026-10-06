@@ -14,9 +14,11 @@ from botocore.exceptions import ClientError
 from crosstune.storage.store import ListedObject, ObjectInfo
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from types_boto3_s3 import S3Client
+    from types_boto3_s3.type_defs import ObjectTypeDef
 
 
 # The S3 API's ceiling on one batch delete.
@@ -48,6 +50,9 @@ def s3_client(endpoint_url: str, access_key_id: str, secret_access_key: str) -> 
             connect_timeout=CONNECT_TIMEOUT_SECONDS,
             read_timeout=READ_TIMEOUT_SECONDS,
             retries={"mode": "standard", "total_max_attempts": TOTAL_ATTEMPTS},
+            # Every call runs on asyncio's default thread pool, which allows up to 32
+            # workers; a smaller pool drops connections and pays for new TLS handshakes.
+            max_pool_connections=32,
         ),
     )
 
@@ -189,30 +194,27 @@ class R2Store:
 
     async def list_keys(self, prefix: str = "") -> list[str]:
         """Every key under `prefix`, each in full, or every key in the bucket."""
-        scope = {"Prefix": prefix} if prefix else {}
 
         def run() -> list[str]:
-            paginator = self._client.get_paginator("list_objects_v2")
-            return [
-                obj["Key"]
-                for page in paginator.paginate(Bucket=self._bucket, **scope)
-                for obj in page.get("Contents", [])
-                if "Key" in obj
-            ]
+            return [obj["Key"] for obj in self._contents(prefix)]
 
         return await asyncio.to_thread(run)
 
     async def list_objects(self, prefix: str = "") -> list[ListedObject]:
         """Every object under `prefix`, or in the bucket, with its last write time."""
-        scope = {"Prefix": prefix} if prefix else {}
 
         def run() -> list[ListedObject]:
-            paginator = self._client.get_paginator("list_objects_v2")
             return [
                 ListedObject(key=obj["Key"], modified=obj["LastModified"])
-                for page in paginator.paginate(Bucket=self._bucket, **scope)
-                for obj in page.get("Contents", [])
-                if "Key" in obj and "LastModified" in obj
+                for obj in self._contents(prefix)
+                if "LastModified" in obj
             ]
 
         return await asyncio.to_thread(run)
+
+    def _contents(self, prefix: str) -> Iterator[ObjectTypeDef]:
+        """Walk every listing page under `prefix`, yielding each entry that has a key."""
+        scope = {"Prefix": prefix} if prefix else {}
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self._bucket, **scope):
+            yield from (obj for obj in page.get("Contents", []) if "Key" in obj)
