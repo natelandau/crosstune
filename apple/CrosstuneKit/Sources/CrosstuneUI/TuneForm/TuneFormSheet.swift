@@ -49,9 +49,7 @@ public struct TuneFormSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
             #endif
         }
-        #if os(macOS)
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 560, idealHeight: 720)
-        #endif
+        .macSheetFrame(.longForm)
         .task {
             guard model == nil, let store else { return }
             let model = TuneFormModel(store: store, target: target)

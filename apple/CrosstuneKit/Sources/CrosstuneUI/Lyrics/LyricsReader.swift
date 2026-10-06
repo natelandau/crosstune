@@ -246,7 +246,7 @@ struct LyricsScreens: ViewModifier {
             #if os(macOS)
                 .sheet(item: $request) { request in
                     LyricsReader(tuneID: request.tuneID)
-                    .frame(minWidth: 640, idealWidth: 720, minHeight: 640, idealHeight: 760)
+                    .macSheetFrame(MacSheetSize(minWidth: 640, idealWidth: 720, minHeight: 640, idealHeight: 760))
                 }
             #else
                 .fullScreenCover(item: $request) { request in

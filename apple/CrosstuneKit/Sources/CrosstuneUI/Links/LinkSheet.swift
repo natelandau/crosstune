@@ -43,7 +43,7 @@ public struct LinkSheet: View {
         #if os(iOS)
             .partHeightSheet()
         #else
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 240)
+            .macSheetFrame(.form(minHeight: 240))
             .shellSheet()
         #endif
         .task {

@@ -87,9 +87,7 @@ struct WhatPlaysSheet: View {
                 }
             }
         }
-        #if os(macOS)
-            .frame(minWidth: 420, idealWidth: 480, minHeight: 420, idealHeight: 520)
-        #endif
+        .macSheetFrame(MacSheetSize(minWidth: 420, minHeight: 420, idealHeight: 520))
         .shellSheet()
     }
 

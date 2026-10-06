@@ -528,7 +528,7 @@ struct ScanScreens: ViewModifier {
             #if os(macOS)
                 .sheet(item: $request) { request in
                     ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
-                    .frame(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900)
+                    .macSheetFrame(MacSheetSize(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900))
                     .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
                 }
             #else

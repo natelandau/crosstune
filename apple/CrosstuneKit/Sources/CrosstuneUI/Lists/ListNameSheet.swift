@@ -125,7 +125,7 @@ public struct ListNameSheet: View {
         #if os(iOS)
             .partHeightSheet()
         #else
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 200)
+            .macSheetFrame(.form(minHeight: 200))
             .shellSheet()
         #endif
         .task {
