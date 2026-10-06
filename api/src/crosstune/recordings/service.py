@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, Literal, overload
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
-from crosstune.db.base import next_server_seq
+from crosstune.db.base import bump_server_seq
 from crosstune.db.session import request_runner_wake
 from crosstune.errors import ConflictError, NotFoundError
-from crosstune.jobs.importer import NOT_IMPORTABLE
 from crosstune.links.detect import detect_provider
 from crosstune.models import Job, Recording
 from crosstune.recordings.trim import needs_trim
@@ -23,6 +22,10 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from crosstune.storage.store import Revision
+
+
+# The recording error an import gets when its address is not on a host the server imports from.
+NOT_IMPORTABLE = "Can't import from this address."
 
 
 async def owned_recording(
@@ -144,11 +147,6 @@ def attach_peaks(recording: Recording, peaks: Revision) -> None:
     recording.peaks_key = peaks.key
     recording.peaks_rev = peaks.rev
     recording.peaks_bytes = peaks.size
-
-
-def bump_server_seq(recording: Recording) -> None:
-    """Take a new server_seq so every device pulls the change. updated_at stays the client's."""
-    recording.server_seq = next_server_seq()
 
 
 def require_state(recording: Recording, *expected: str) -> None:

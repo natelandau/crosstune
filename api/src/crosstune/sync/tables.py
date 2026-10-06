@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
-from sqlalchemy import inspect, select
+from sqlalchemy import select
+from sqlalchemy.orm import object_mapper
 
 from crosstune.models import (
     List,
@@ -52,12 +53,22 @@ from crosstune.schemas.rows import (
 
 if TYPE_CHECKING:
     import uuid
+    from datetime import datetime
 
     from pydantic import BaseModel
     from sqlalchemy import ColumnElement
 
     from crosstune.db.base import Base
     from crosstune.vocabulary import TableName
+
+
+class SyncedRow(Protocol):
+    """What the sync engine reads on a stored row of any synced table."""
+
+    id: uuid.UUID
+    updated_at: datetime
+    deleted_at: datetime | None
+    server_seq: int
 
 
 @dataclass(frozen=True)
@@ -72,11 +83,15 @@ class TableSpec:
     write after another device deleted the parent.
     append_only marks an event table: a row is written once and never edited or deleted.
     pulled is False for a table the main pull leaves out.
+    children lists (child table, foreign key column on the child) pairs a delete of this
+    table's row soft-deletes in turn, grandchildren included.
+    owns_files marks a table whose rows name bucket files, which only the runner's purge
+    removes once a row is deleted.
     """
 
     name: TableName
     model: type[Base]
-    data_schema: type
+    data_schema: type[BaseModel]
     row_schema: type[BaseModel]
     owner_column: str | None
     parents: tuple[tuple[str, TableName], ...]
@@ -84,6 +99,8 @@ class TableSpec:
     accepts_deleted_parents: bool = False
     append_only: bool = False
     pulled: bool = True
+    children: tuple[tuple[TableName, str], ...] = ()
+    owns_files: bool = False
 
     def owned_by(self, user_id: uuid.UUID) -> ColumnElement[bool]:
         """A filter matching the stored rows of this table that `user_id` owns."""
@@ -112,11 +129,32 @@ TABLE_ORDER: tuple[TableName, ...] = (
 )
 
 TABLES: dict[TableName, TableSpec] = {
-    "tunes": TableSpec("tunes", Tune, TuneData, TuneRow, "owner_user_id", ()),
-    "user_tunes": TableSpec(
-        "user_tunes", UserTune, UserTuneData, UserTuneRow, "user_id", (("tune_id", "tunes"),)
+    "tunes": TableSpec(
+        "tunes",
+        Tune,
+        TuneData,
+        TuneRow,
+        "owner_user_id",
+        (),
+        children=(
+            ("user_tunes", "tune_id"),
+            ("recording_links", "tune_id"),
+            ("recordings", "tune_id"),
+            ("scans", "tune_id"),
+        ),
     ),
-    "lists": TableSpec("lists", List, ListData, ListRow, "user_id", ()),
+    "user_tunes": TableSpec(
+        "user_tunes",
+        UserTune,
+        UserTuneData,
+        UserTuneRow,
+        "user_id",
+        (("tune_id", "tunes"),),
+        children=(("list_items", "user_tune_id"),),
+    ),
+    "lists": TableSpec(
+        "lists", List, ListData, ListRow, "user_id", (), children=(("list_items", "list_id"),)
+    ),
     "list_items": TableSpec(
         "list_items",
         ListItem,
@@ -143,6 +181,8 @@ TABLES: dict[TableName, TableSpec] = {
         # Provenance decides whether the server fetches the file, so it is fixed at creation,
         # as is the date the recording was added.
         insert_only=frozenset({"source", "origin", "origin_url", "added_at"}),
+        children=(("recording_loops", "recording_id"),),
+        owns_files=True,
     ),
     "scans": TableSpec(
         "scans",
@@ -151,6 +191,7 @@ TABLES: dict[TableName, TableSpec] = {
         ScanRow,
         "user_id",
         (("tune_id", "tunes"),),
+        owns_files=True,
     ),
     "recording_loops": TableSpec(
         "recording_loops",
@@ -207,6 +248,6 @@ TABLES: dict[TableName, TableSpec] = {
 assert set(TABLES) == set(DATA_SCHEMAS) == set(ROW_SCHEMAS)  # noqa: S101
 
 
-def row_to_dict(obj: Base) -> dict[str, Any]:
+def row_to_dict(obj: object) -> dict[str, Any]:
     """Every mapped column of an ORM row, ready for jsonable_encoder."""
-    return {attr.key: getattr(obj, attr.key) for attr in inspect(obj).mapper.column_attrs}
+    return {attr.key: getattr(obj, attr.key) for attr in object_mapper(obj).column_attrs}

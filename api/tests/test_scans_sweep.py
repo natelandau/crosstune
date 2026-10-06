@@ -9,12 +9,13 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import func, select, update
 
+from crosstune.db.base import new_uuid7, utc_now
 from crosstune.db.engine import make_sessionmaker
 from crosstune.files.quota import slot_for_scan
 from crosstune.jobs import sweep as sweep_module
-from crosstune.jobs.runner import ABANDONED_SLOT_GRACE, JobRunner
+from crosstune.jobs.runner import JobRunner
+from crosstune.jobs.sweep import ABANDONED_SLOT_GRACE
 from crosstune.models import Scan, Tune, UploadSlot, User
-from crosstune.models.user import new_uuid7, utc_now
 from crosstune.storage.store import SCAN_MIME, SCAN_SEGMENT, legacy_scan_key, scan_key
 from tests.fakes import FakeObjectStore
 from tests.helpers import T1, change, push

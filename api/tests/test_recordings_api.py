@@ -285,6 +285,29 @@ async def test_uploaded_deletes_an_object_over_the_declared_size(
     assert await object_store.head(key) is None
 
 
+async def test_uploaded_is_404_when_recording_is_tombstoned_while_the_bucket_is_checked(
+    client, auth_headers, object_store, verify_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rec = uid()
+    await push(client, auth_headers("user_a"), recording(rec))
+    await slot(client, auth_headers("user_a"), rec, bytes_=100)
+    object_store.put_bytes(object_store.presigned[-1][1], b"x" * 100, "audio/mp4")
+    head = object_store.head
+
+    async def tombstone_then_head(key: str) -> ObjectInfo | None:
+        await verify_session.execute(
+            update(Recording).where(Recording.id == rec).values(deleted_at=datetime.now(UTC))
+        )
+        await verify_session.commit()
+        return await head(key)
+
+    monkeypatch.setattr(object_store, "head", tombstone_then_head)
+    assert (await uploaded(client, auth_headers("user_a"), rec)).status_code == 404
+    stored = await verify_session.scalar(select(Recording).where(Recording.id == rec))
+    assert stored.state == "pending_upload"
+    assert await verify_session.scalar(select(Job).where(Job.recording_id == rec)) is None
+
+
 async def test_uploaded_deletes_an_object_over_the_file_cap(
     client, app, auth_headers, object_store
 ) -> None:

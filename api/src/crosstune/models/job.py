@@ -19,9 +19,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from crosstune.db.base import Base
+from crosstune.db.base import Base, new_uuid7, utc_now
 from crosstune.models._checks import in_list
-from crosstune.models.user import new_uuid7, utc_now
 from crosstune.vocabulary import JobKind
 
 

@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
+import asyncio
+import uuid
 
+import pytest
+from sqlalchemy import event, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from crosstune.db.locks import lock_user
+from crosstune.sync.pull import events_since, pull_since
 from tests.helpers import T0, T1, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
@@ -234,3 +241,40 @@ async def test_pull_answers_in_tune_names_without_being_asked(client, auth_heade
     response = await client.get("/v1/sync/pull?since=0", headers=auth_headers("user_a"))
     assert response.status_code == 200, response.text
     assert {r["table"] for r in response.json()["rows"]} == {"tunes"}
+
+
+async def test_pulls_read_only_the_tables_with_changes(session, engine) -> None:
+    statements: list[str] = []
+
+    def record(_conn, _cursor, statement: str, *_args: object) -> None:
+        if statement.startswith("SELECT") and "pg_advisory" not in statement:
+            statements.append(statement)
+
+    user_id = uuid.uuid4()
+    event.listen(engine.sync_engine, "before_cursor_execute", record)
+    try:
+        assert await pull_since(session, user_id, since=0, limit=10) == ([], 0, False)
+        assert await events_since(session, user_id, since=0, limit=10) == ([], 0, False)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", record)
+    assert len(statements) == 2
+
+
+async def test_pull_waits_for_a_write_in_progress(engine) -> None:
+    """A write that commits between a pull's statements would hold a seq its cursor skips."""
+    user_id = uuid.uuid4()
+    async with AsyncSession(engine) as writer, AsyncSession(engine) as reader:
+        await lock_user(writer, user_id)
+        reader_pid = await reader.scalar(text("select pg_backend_pid()"))
+        pulling = asyncio.create_task(pull_since(reader, user_id, since=0, limit=10))
+        blocked = text(
+            "select count(*) from pg_locks"
+            " where locktype = 'advisory' and not granted and pid = :pid"
+        ).bindparams(pid=reader_pid)
+        async with AsyncSession(engine) as observer:
+            while not await observer.scalar(blocked):
+                assert not pulling.done()
+                await observer.rollback()
+        await writer.rollback()
+        assert await pulling == ([], 0, False)
+        await reader.rollback()

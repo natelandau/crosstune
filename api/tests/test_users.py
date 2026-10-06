@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from crosstune.db.base import utc_now
 from crosstune.models import DeletedAccount, User
-from crosstune.models.user import utc_now
 from crosstune.users.service import purge_account
 
 pytestmark = pytest.mark.anyio

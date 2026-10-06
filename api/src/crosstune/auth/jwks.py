@@ -17,6 +17,10 @@ log = logging.getLogger(__name__)
 REFRESH_COOLDOWN_SECONDS = 60
 
 
+class SigningKeysUnavailableError(Exception):
+    """The JWKS endpoint failed, so a token's key can't be told apart from a forged one."""
+
+
 def _usable_keys(entries: list[object]) -> dict[str, jwt.PyJWK]:
     """Build the keys of a JWKS by kid, skipping any entry the library cannot read.
 
@@ -51,13 +55,20 @@ class JwksCache:
         # Never fetched. A freshly booted host's monotonic clock starts near zero, which
         # would otherwise read as a fetch inside the cooldown.
         self._last_fetch = float("-inf")
+        self._last_fetch_failed = False
 
     async def get_key(self, kid: str) -> jwt.PyJWK | None:
-        """Return the cached key for `kid`, refreshing from the JWKS endpoint if needed."""
+        """Return the cached key for `kid`, refreshing from the JWKS endpoint if needed.
+
+        Raises:
+            SigningKeysUnavailableError: When `kid` is not cached and the latest fetch failed.
+        """
         key = self._keys.get(kid)
         if key is None and time.monotonic() - self._last_fetch > REFRESH_COOLDOWN_SECONDS:
             await self._refresh()
             key = self._keys.get(kid)
+        if key is None and self._last_fetch_failed:
+            raise SigningKeysUnavailableError
         return key
 
     async def _refresh(self) -> None:
@@ -70,6 +81,11 @@ class JwksCache:
                 response = await self._client.get(self._url, timeout=5.0)
                 response.raise_for_status()
                 self._keys = _usable_keys(response.json().get("keys", []))
+            except Exception:
+                self._last_fetch_failed = True
+                log.warning("could not fetch the signing keys", exc_info=True)
+            else:
+                self._last_fetch_failed = False
             finally:
                 # Recorded even for a failed attempt, so a broken endpoint is not hammered.
                 self._last_fetch = time.monotonic()

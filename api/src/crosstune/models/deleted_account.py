@@ -7,8 +7,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from crosstune.db.base import Base
-from crosstune.models.user import utc_now
+from crosstune.db.base import Base, utc_now
 
 
 class DeletedAccount(Base):

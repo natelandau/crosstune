@@ -23,6 +23,15 @@ async def lock_user(session: AsyncSession, user_id: uuid.UUID) -> None:
     await session.execute(select(func.pg_advisory_xact_lock(advisory_lock_key(user_id))))
 
 
+async def share_user_lock(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Hold off this user's writes for the rest of the transaction, alongside other readers.
+
+    A read that spans several statements sees each one's own commits under read
+    committed; holding this keeps every write of the user's out until it ends.
+    """
+    await session.execute(select(func.pg_advisory_xact_lock_shared(advisory_lock_key(user_id))))
+
+
 async def lock_clerk_user(session: AsyncSession, clerk_user_id: str) -> None:
     """Serialize account creation and purge for one Clerk id; released with the transaction.
 

@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select, update
 
+from crosstune.db.base import utc_now
 from crosstune.models import Job, Recording
-from crosstune.models.user import utc_now
 from tests.helpers import T0, T1, T2, change, pull, push, recording, uid
 
 pytestmark = pytest.mark.anyio
