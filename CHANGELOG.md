@@ -1,3 +1,14 @@
+## v0.15.0 (2026-10-05)
+
+### Feat
+
+- **apple**: redesign the iPhone app around native iOS patterns (#144)
+- **site**: redesign the public facing web site (#143)
+
+### Fix
+
+- **api**: stop skipped sync rows, endless job retries, and sign-outs (#140)
+
 ## v0.14.0 (2026-10-05)
 
 ### Feat
