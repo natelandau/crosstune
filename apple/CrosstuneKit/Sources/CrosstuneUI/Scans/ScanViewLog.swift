@@ -147,7 +147,7 @@ public final class ScanViewLog {
 
     private func finish(_ ended: Open) {
         guard let since = ended.since else { return }
-        let viewedMs = milliseconds(since.instant.duration(to: clock()))
+        let viewedMs = since.instant.duration(to: clock()).milliseconds
         guard viewedMs >= scanViewThresholdMs else { return }
         let createdAt = Timestamp(now())
         writer?.write(
@@ -155,10 +155,5 @@ public final class ScanViewLog {
                 id: newID(at: createdAt), createdAt: createdAt, tuneID: ended.tuneID,
                 context: ended.origin.context.rawValue, listID: ended.origin.listID,
                 startedAt: Timestamp(since.date), viewedMs: viewedMs))
-    }
-
-    private func milliseconds(_ duration: Duration) -> Int64 {
-        let (seconds, attoseconds) = duration.components
-        return seconds * 1000 + attoseconds / 1_000_000_000_000_000
     }
 }

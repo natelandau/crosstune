@@ -65,7 +65,7 @@ struct AudibleSpan {
     mutating func take(at instant: SuspendingClock.Instant) -> Int64 {
         guard let since else { return 0 }
         self.since = instant
-        return milliseconds(since.duration(to: instant))
+        return since.duration(to: instant).milliseconds
     }
 
     /// The milliseconds since the last start or take, and stops timing.
@@ -73,11 +73,6 @@ struct AudibleSpan {
         let ms = take(at: instant)
         since = nil
         return ms
-    }
-
-    private func milliseconds(_ duration: Duration) -> Int64 {
-        let (seconds, attoseconds) = duration.components
-        return seconds * 1000 + attoseconds / 1_000_000_000_000_000
     }
 }
 
@@ -170,5 +165,13 @@ final class PlayLog {
     /// Closes the open play without writing it.
     func drop() {
         open = nil
+    }
+}
+
+extension Duration {
+    /// Whole milliseconds, rounded toward zero.
+    var milliseconds: Int64 {
+        let (seconds, attoseconds) = components
+        return seconds * 1000 + attoseconds / 1_000_000_000_000_000
     }
 }

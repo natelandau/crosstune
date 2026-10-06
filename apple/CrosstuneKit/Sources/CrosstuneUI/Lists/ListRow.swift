@@ -114,11 +114,7 @@ private struct ConfirmsListDelete: ViewModifier {
             .coversShell(list != nil)
             .confirmationDialog(
                 list.map { DeleteListMessage.title($0.name) } ?? "",
-                isPresented: Binding {
-                    list != nil
-                } set: {
-                    if !$0 { list = nil }
-                },
+                isPresented: $list.isPresent(),
                 titleVisibility: .visible, presenting: list
             ) { list in
                 Button(DeleteListMessage.delete, role: .destructive) {
@@ -130,11 +126,7 @@ private struct ConfirmsListDelete: ViewModifier {
             .coversShell(failure != nil)
             .alert(
                 CatalogModel.actionFailed,
-                isPresented: Binding {
-                    failure != nil
-                } set: {
-                    if !$0 { failure = nil }
-                }
+                isPresented: $failure.isPresent()
             ) {
             } message: {
                 Text(failure ?? "")

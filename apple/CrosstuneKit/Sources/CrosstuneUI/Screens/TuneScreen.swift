@@ -274,11 +274,7 @@ struct TunePresentations: ViewModifier {
             .coversShell(deleting != nil)
             .confirmationDialog(
                 RecordingsModel.deleteTitle,
-                isPresented: Binding {
-                    deleting != nil
-                } set: {
-                    if !$0 { deleting = nil }
-                },
+                isPresented: $deleting.isPresent(),
                 titleVisibility: .visible, presenting: deleting
             ) { view in
                 Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
@@ -294,11 +290,7 @@ struct TunePresentations: ViewModifier {
             .coversShell(deletingScan != nil)
             .confirmationDialog(
                 ScanCopy.deleteTitle,
-                isPresented: Binding {
-                    deletingScan != nil
-                } set: {
-                    if !$0 { deletingScan = nil }
-                },
+                isPresented: $deletingScan.isPresent(),
                 titleVisibility: .visible, presenting: deletingScan
             ) { scan in
                 Button(ScanCopy.delete, role: .destructive) {
@@ -518,20 +510,5 @@ struct RemoveFromListButton: View {
         Button(TuneScreen.remove, systemImage: "text.badge.xmark", role: .destructive) {
             Task { await model.removeFromList(itemID: membership.itemID) }
         }
-    }
-}
-
-/// A failed write's message, in red beside the control that made it.
-struct FailureText: View {
-    let message: String
-
-    init(_ message: String) {
-        self.message = message
-    }
-
-    var body: some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
     }
 }

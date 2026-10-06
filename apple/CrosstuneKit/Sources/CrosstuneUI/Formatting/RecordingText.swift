@@ -169,12 +169,13 @@ public enum RecordingText {
         let waiting = file?.localState == .captured || file?.localState == .uploading
         let attempts = file?.uploadAttempts ?? 0
         let tries = waiting && attempts > 0 ? failedTries(attempts) : nil
-        var storageUsed: String?
-        if file?.localState == .blockedQuota, let storage {
-            storageUsed =
-                "\(bytes(Int64(storage.usedBytes))) of \(bytes(Int64(storage.quotaBytes))) used"
-        }
-        return [length, status, tries, storageUsed].compactMap { $0 }
+        let used = file?.localState == .blockedQuota ? storage.map(storageUsed) : nil
+        return [length, status, tries, used].compactMap { $0 }
+    }
+
+    /// The account's storage figures as `48.2 MB of 1 GB used`.
+    public static func storageUsed(_ figures: StorageFigures) -> String {
+        "\(bytes(Int64(figures.usedBytes))) of \(bytes(Int64(figures.quotaBytes))) used"
     }
 
     /// The origin of a recording made on a device of the account's own.

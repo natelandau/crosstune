@@ -279,11 +279,7 @@ private struct ScanViewerBody: View {
         .coversShell(deleting != nil)
         .confirmationDialog(
             ScanCopy.deleteTitle,
-            isPresented: Binding {
-                deleting != nil
-            } set: {
-                if !$0 { deleting = nil }
-            },
+            isPresented: $deleting.isPresent(),
             titleVisibility: .visible, presenting: deleting
         ) { scan in
             Button(ScanCopy.delete, role: .destructive) {
