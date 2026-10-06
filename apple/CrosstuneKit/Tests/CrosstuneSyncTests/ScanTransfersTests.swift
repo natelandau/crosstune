@@ -130,8 +130,8 @@ import Testing
     @Test func aScanPendingBeforeTheRenameStillUploads() async throws {
         let oldRoot = TemporaryRoot()
         let folder = try CrosstuneStore.folder(for: "user_a", in: oldRoot.url)
-        let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
+        let scans = folder.appending(path: "scans", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: scans, withIntermediateDirectories: true)
         let pool = try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
         try Schema.migrator.migrate(pool, upTo: "v11")
         let queued = try ScanRecord(id: "p1", createdAt: noon, tuneID: "t1", width: 600, height: 800).changeData()
@@ -162,7 +162,7 @@ import Testing
                 arguments: [noon.iso, queuedJSON])
         }
         try pool.close()
-        try Data("old image".utf8).write(to: legacy.appending(path: "p1-a.jpg"))
+        try Data("old image".utf8).write(to: scans.appending(path: "p1-a.jpg"))
 
         let migrated = try oldRoot.open()
         // The server answers a stored scan row with the upload state it sets.

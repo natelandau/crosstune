@@ -238,34 +238,11 @@ public final class CrosstuneStore: Sendable {
     }
 
     private static func openDatabase(in folder: URL) throws -> DatabasePool {
-        try moveLegacyScansFolder(in: folder)
         for name in ["audio", "scans"] {
             try FileManager.default.createDirectory(
                 at: folder.appending(path: name, directoryHint: .isDirectory), withIntermediateDirectories: true)
         }
         return try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
-    }
-
-    /// Builds before the `v13` migration kept scan images in `notation/`. Every scan file row
-    /// names its image relative to the folder, so moving the folder keeps each one reachable,
-    /// a captured image that exists only here included.
-    static func moveLegacyScansFolder(in folder: URL) throws {
-        let manager = FileManager.default
-        let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
-        guard manager.fileExists(atPath: legacy.path(percentEncoded: false)) else { return }
-        let scans = folder.appending(path: "scans", directoryHint: .isDirectory)
-        guard manager.fileExists(atPath: scans.path(percentEncoded: false)) else {
-            try manager.moveItem(at: legacy, to: scans)
-            return
-        }
-        // Both folders exist only if something wrote `scans/` before the move, so merge them
-        // and keep the copy already in `scans/` where a name is in both.
-        for name in try manager.contentsOfDirectory(atPath: legacy.path(percentEncoded: false)) {
-            let target = scans.appending(path: name)
-            guard !manager.fileExists(atPath: target.path(percentEncoded: false)) else { continue }
-            try manager.moveItem(at: legacy.appending(path: name), to: target)
-        }
-        try manager.removeItem(at: legacy)
     }
 
     private static func removeIfPresent(_ url: URL) throws {

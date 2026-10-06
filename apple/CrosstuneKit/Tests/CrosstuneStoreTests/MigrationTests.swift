@@ -508,8 +508,8 @@ private struct V4Fixture {
 @Test func migratingToV13KeepsAPendingScanItsImageAndItsQueuedChange() async throws {
     let root = TemporaryRoot()
     let folder = try CrosstuneStore.folder(for: "user_a", in: root.url)
-    let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
-    try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
+    let scans = folder.appending(path: "scans", directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: scans, withIntermediateDirectories: true)
     let pool = try DatabasePool(path: folder.appending(path: "crosstune.sqlite").path(percentEncoded: false))
     try Schema.migrator.migrate(pool, upTo: "v12")
     let time = "2026-09-25T12:00:00.000Z"
@@ -544,7 +544,7 @@ private struct V4Fixture {
     let outbox = "SELECT seq, row_id, op, updated_at, data, table_name FROM outbox ORDER BY seq"
     let before = try await pool.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
     try pool.close()
-    try Data([1]).write(to: legacy.appending(path: "p-1-a.jpg"))
+    try Data([1]).write(to: scans.appending(path: "p-1-a.jpg"))
 
     let store = try root.open()
     await store.deleteUnnamedFiles()
@@ -556,7 +556,6 @@ private struct V4Fixture {
     #expect(file == ScanFile(scanID: "p-1", fileName: "p-1-a.jpg", origin: .captured))
     let image = store.scansFolder.appending(path: "p-1-a.jpg")
     #expect(FileManager.default.fileExists(atPath: image.path(percentEncoded: false)))
-    #expect(!FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
     #expect(try await store.notUploadedScanCount() == 1)
 
     let after = try await store.read { db in try Row.fetchAll(db, sql: outbox).map { Array($0.databaseValues) } }
@@ -566,23 +565,6 @@ private struct V4Fixture {
     let queued = try await store.pendingChanges(limit: 10)
     #expect(queued.map(\.tableName) == [.tunes, .scans, .scans, .lists])
     #expect(try await store.meta(.pullCursor, as: Int.self) == 4, "the rows move, so nothing is pulled again")
-}
-
-@Test func openingAStoreMergesALeftoverNotationFolderIntoScans() throws {
-    let root = TemporaryRoot()
-    let folder = try CrosstuneStore.folder(for: "user_a", in: root.url)
-    let legacy = folder.appending(path: "notation", directoryHint: .isDirectory)
-    let scans = folder.appending(path: "scans", directoryHint: .isDirectory)
-    for url in [legacy, scans] { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true) }
-    try Data("old".utf8).write(to: legacy.appending(path: "a.jpg"))
-    try Data("kept".utf8).write(to: legacy.appending(path: "b.jpg"))
-    try Data("new".utf8).write(to: scans.appending(path: "a.jpg"))
-
-    try CrosstuneStore.moveLegacyScansFolder(in: folder)
-
-    #expect(!FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
-    #expect(try Data(contentsOf: scans.appending(path: "a.jpg")) == Data("new".utf8))
-    #expect(try Data(contentsOf: scans.appending(path: "b.jpg")) == Data("kept".utf8))
 }
 
 /// Same promise as `v4`'s, for the migration that renames notation pages to scans.

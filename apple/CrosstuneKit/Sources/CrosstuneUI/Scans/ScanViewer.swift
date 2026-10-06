@@ -111,16 +111,6 @@ final class ScanViewerModel {
 /// it is up. Full screen on iPhone and iPad; a window-filling sheet on Mac, closed by Escape.
 public struct ScanViewer: View {
     public static let invertStorageKey = "crosstune.scanInvert"
-    /// Where builds that called scans notation kept the Invert choice.
-    static let legacyInvertStorageKey = "crosstune.notationInvert"
-
-    /// Carries the Invert choice over from ``legacyInvertStorageKey``. Call at launch, before
-    /// any viewer reads it.
-    public static func moveLegacyInvert(in defaults: UserDefaults = .standard) {
-        guard let value = defaults.object(forKey: legacyInvertStorageKey) else { return }
-        if defaults.object(forKey: invertStorageKey) == nil { defaults.set(value, forKey: invertStorageKey) }
-        defaults.removeObject(forKey: legacyInvertStorageKey)
-    }
 
     private let tuneID: String
     private let startIndex: Int
