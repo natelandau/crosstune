@@ -15,6 +15,8 @@ public enum PhoneStyle {
     public static let transportPlayDiameter: CGFloat = 72
     public static let stopDiameter: CGFloat = 80
     public static let filterControlHeight: CGFloat = 32
+    /// The widest a line of lyrics runs, so a long line stays easy to follow across.
+    public static let lyricsMaxWidth: CGFloat = 600
     /// The smallest tap target.
     public static let minTarget: CGFloat = 44
     /// How far a horizontal drag must travel to skip.

@@ -3,8 +3,17 @@ import SwiftUI
 
 /// A tune's scans on its page: the thumbnails' sizes, and how a thumbnail opens the viewer.
 enum ScansSection {
-    static let thumbnailHeight: CGFloat = 120
+    private static let compactThumbnailHeight: CGFloat = 120
     static let rowThumbnailHeight: CGFloat = 44
+
+    /// The page's thumbnail height: taller at regular width on iOS, where the page has room.
+    static func thumbnailHeight(regular: Bool) -> CGFloat {
+        #if os(iOS)
+            regular ? PadStyle.scanThumbnailHeight : compactThumbnailHeight
+        #else
+            compactThumbnailHeight
+        #endif
+    }
 
     /// Opens the viewer on the scan at `index`, logged as opened from the tune screen.
     @MainActor
@@ -46,27 +55,36 @@ struct ScanStrip: View {
     @Environment(\.tuneScreenActions) private var actions
     @Environment(\.scanZoom) private var scanZoom
     @Environment(\.spacing) private var spacing
+    /// The split's columns report a compact width even on a wide iPad.
+    @Environment(\.inPadSplit) private var inPadSplit
 
     var body: some View {
-        FlowLayout(spacing: spacing(12), lineSpacing: spacing(12)) { tiles }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(ScanCopy.scans)
-    }
-
-    private var tiles: some View {
-        ForEach(Array(model.scans.enumerated()), id: \.element.id) { index, scan in
-            tile(scan, index: index)
+        let height = tileHeight
+        FlowLayout(spacing: spacing(12), lineSpacing: spacing(12)) {
+            ForEach(Array(model.scans.enumerated()), id: \.element.id) { index, scan in
+                tile(scan, index: index, height: height)
+            }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(ScanCopy.scans)
     }
 
-    private func tile(_ scan: Scan, index: Int) -> some View {
+    private var tileHeight: CGFloat {
+        #if os(iOS)
+            ScansSection.thumbnailHeight(regular: inPadSplit)
+        #else
+            ScansSection.thumbnailHeight(regular: false)
+        #endif
+    }
+
+    private func tile(_ scan: Scan, index: Int, height: CGFloat) -> some View {
         let status = ScanCopy.status(for: scan)
-        let width = ScansSection.thumbnailHeight * scan.aspectRatio
+        let width = height * scan.aspectRatio
         return VStack(alignment: .leading, spacing: spacing(4)) {
             Button {
                 ScansSection.open(tuneID: tuneID, index: index, actions: actions)
             } label: {
-                ScanThumbnail(scan: scan, index: index, height: ScansSection.thumbnailHeight)
+                ScanThumbnail(scan: scan, index: index, height: height)
                     .clipShape(.rect(cornerRadius: 6))
                     .contentShape(.rect)
             }

@@ -28,22 +28,33 @@ extension EnvironmentValues {
     /// Counts the screens that are selecting, whose toolbar replaces the commands that make
     /// things. Supplied by the shell; nil outside it.
     @Entry var selecting: ShellCover?
+    /// Whether the shell's window is regular width. A sheet's own environment carries the
+    /// presentation's size class rather than the window's, so the shell hands the window's down.
+    @Entry var windowIsRegular = false
 }
 
 extension View {
     /// Marks this view as a sheet over the shell while it shows: the record slot and the menu
-    /// commands that open sheets stand down.
+    /// commands that open sheets stand down. In a regular-width iOS window the sheet is a
+    /// centered form rather than page-sized.
     func shellSheet() -> some View {
-        // The record slot comes back as the sheet starts down rather than once it has gone, so
-        // the bar is whole when the sheet clears it.
-        modifier(Covers(cover: \.recordCover, isCovering: true, endsAsDismissed: true))
-            .modifier(Covers(cover: \.openSheets, isCovering: true))
+        claimsShellAsSheet()
+            #if os(iOS)
+                .modifier(FormSizing())
+            #endif
     }
 
     /// A ``shellSheet()`` that opens part way and drags to full height.
     func partHeightSheet() -> some View {
         presentationDetents([.medium, .large])
-            .shellSheet()
+            .claimsShellAsSheet()
+    }
+
+    private func claimsShellAsSheet() -> some View {
+        // The record slot comes back as the sheet starts down rather than once it has gone, so
+        // the bar is whole when the sheet clears it.
+        modifier(Covers(cover: \.recordCover, isCovering: true, endsAsDismissed: true))
+            .modifier(Covers(cover: \.openSheets, isCovering: true))
     }
 
     /// Covers the shell while `isPresenting` is true and this view shows. Put it on the view that
@@ -209,3 +220,19 @@ enum MenuGates {
         !sheetsOpen
     }
 }
+
+#if os(iOS)
+    /// Sizes a sheet as a centered form in a regular-width window; compact keeps the system's
+    /// full height. A full-screen cover ignores the sizing.
+    private struct FormSizing: ViewModifier {
+        @Environment(\.windowIsRegular) private var windowIsRegular
+
+        func body(content: Content) -> some View {
+            if windowIsRegular {
+                content.presentationSizing(.form)
+            } else {
+                content
+            }
+        }
+    }
+#endif

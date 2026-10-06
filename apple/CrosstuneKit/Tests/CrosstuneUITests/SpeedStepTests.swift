@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 
 @testable import CrosstuneUI
@@ -21,3 +22,25 @@ import Testing
         #expect(SpeedPanel.stepped(percent, by: delta) == expected)
     }
 }
+
+#if os(macOS)
+    import AppKit
+
+    @MainActor
+    @Suite struct SpeedPresetRowTests {
+        private func height(at size: DynamicTypeSize, width: CGFloat) -> CGFloat {
+            let host = NSHostingController(
+                rootView: SpeedPresetRow(value: 100, onChange: { _ in }).environment(\.dynamicTypeSize, size))
+            return host.sizeThatFits(in: CGSize(width: width, height: 10_000)).height
+        }
+
+        @Test func staysOneLineAtTheDefaultSize() {
+            #expect(height(at: .large, width: 358) <= PracticeLayout.target + 24)
+        }
+
+        @Test func wrapsAsAWholeAtAccessibilitySizes() {
+            let line = height(at: .large, width: 358)
+            #expect(height(at: .accessibility5, width: 358) > line * 2)
+        }
+    }
+#endif

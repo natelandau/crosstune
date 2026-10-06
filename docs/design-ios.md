@@ -1,7 +1,9 @@
 # Crosstune iOS design rules
 
-Rules every iPhone and iPad screen follows, beside the rules in `design.md`.
-Where the two pages disagree, this page holds on iPhone and iPad. The Mac
+Rules every iPhone screen and every compact iPad window follows, beside the
+rules in `design.md`. Where the two pages disagree, this page holds on the
+iPhone and in a compact iPad window. An iPad at regular width takes this
+page, then `design-ipad.md`, which holds where the two disagree. The Mac
 never takes a rule from this page. A view built only for iPhone lives in
 `apple/CrosstuneKit/Sources/CrosstuneUI/Phone/`.
 
@@ -160,6 +162,9 @@ musician where it is.
 - A swipe down or the chevron closes the practice screen, under Reduce
   Motion too.
 - The transport keeps its size at every text size.
+- A practice value, such as a speed preset or a loop action, keeps its
+  label on one line at every text size. A row of them wraps rather than
+  squeeze a capsule.
 
 ## Recording
 
@@ -202,16 +207,3 @@ musician where it is.
   steps from the system's size. It reads "System", or body text's size as
   a percentage of the system's.
 - System alerts and confirmation dialogs follow the system's size.
-
-## iPad
-
-- In a compact window, iPad takes the iPhone design.
-- At regular width, iPad takes the Mac's structure at touch sizes: a
-  sidebar whose status rows are the catalog scope, a content column with
-  the iPhone's rows and filter row, and the tune page as the detail
-  document.
-- At regular width, the player docks across the foot of the detail column
-  and Record sits at the sidebar's foot. The practice screen and the
-  record sheet are the iPhone's.
-- Every target is at least 44pt. With a pointer, a row's actions show on
-  hover.

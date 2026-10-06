@@ -47,6 +47,13 @@ import Testing
         }
     }
 
+    @Test(arguments: [DynamicTypeSize.large, .accessibility3, .accessibility5])
+    func speedPresetRow(size: DynamicTypeSize) {
+        snapshot("speed-panel", size: size) {
+            SpeedPresetRow(value: 100, onChange: { _ in })
+        }
+    }
+
     @Test func tuneRows() {
         snapshot("tune-rows") { tuneRows(instruments: SampleCatalog.instruments) }
     }
@@ -226,6 +233,29 @@ import Testing
             await windowSnapshot("practice-phone", size: CGSize(width: width, height: 844)) {
                 PracticeGroundStandIn {
                     NavigationStack { screen }
+                }
+                .tint(BrandStyle.accent)
+            }
+        }
+
+        /// The iPad's practice screen beside a tune's lyrics in landscape and over them in
+        /// portrait, and practice alone with nothing to read, each on its ground from the light
+        /// and the dark appearance. A stand-in marks where practice lays out.
+        @Test(arguments: [
+            ("stand-landscape", CGSize(width: 1194, height: 834), true),
+            ("stand-portrait", CGSize(width: 834, height: 1194), true),
+            ("stand-practice-only", CGSize(width: 1194, height: 834), false),
+        ])
+        func stand(name: String, size: CGSize, hasReading: Bool) async throws {
+            let lyrics = try #require(SampleCatalog.entries[0].tune.lyrics)
+            let reading = StandReading(tuneID: SampleCatalog.entries[0].tune.id, scans: [], lyrics: lyrics)
+            let player = PlayerModel(audio: FakeAudio())
+            await windowSnapshot(name, size: size) {
+                PracticeGroundStandIn {
+                    Stand(player: player, reading: hasReading ? reading : nil) {
+                        PracticeStandIn()
+                    }
+                    .environment(\.standsWithReading, true)
                 }
                 .tint(BrandStyle.accent)
             }
@@ -665,6 +695,17 @@ private struct TunePageSamples {
 }
 
 #if os(macOS)
+    /// Where the practice screen lays out, at the width the Stand gives it.
+    private struct PracticeStandIn: View {
+        var body: some View {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.fill.tertiary)
+                .overlay { Text(verbatim: "Practice").font(.title) }
+                .padding(16)
+                .modifier(StandPracticeWidth())
+        }
+    }
+
     /// Stands `content` on the practice ground for the window's own appearance, as the iPhone's
     /// cover does for the appearance outside it.
     private struct PracticeGroundStandIn<Content: View>: View {

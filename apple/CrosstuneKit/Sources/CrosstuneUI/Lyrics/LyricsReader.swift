@@ -73,7 +73,6 @@ private struct LyricsReaderPage: View {
     // reading sizes onto this device's Dynamic Type setting rather than replacing them with it.
     @ScaledMetric(relativeTo: .body) private var dynamicTypeScale: CGFloat = 1
 
-    private var verses: [[String]] { LyricLines.lines(lyrics) }
     private var clampedStep: Int { LyricsSize.clamp(step) }
     private var pointSize: CGFloat { LyricsSize.pointSize(for: clampedStep) * dynamicTypeScale }
     private var atSmallest: Bool { clampedStep <= 1 }
@@ -83,22 +82,13 @@ private struct LyricsReaderPage: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: pointSize * 0.9) {
-                    ForEach(Array(verses.enumerated()), id: \.offset) { _, verse in
-                        // The same gap the paragraph style below puts between a line's own
-                        // wrapped rows, so a wrapped continuation and a new lyric line read at
-                        // the same distance from the row above them.
-                        VStack(alignment: .leading, spacing: pointSize * 0.3) {
-                            ForEach(Array(verse.enumerated()), id: \.offset) { _, line in
-                                LyricLineText(text: line, pointSize: pointSize, lineSpacing: pointSize * 0.3)
-                            }
-                        }
-                    }
+                    LyricsBody(lyrics: lyrics)
                     // After the words, not in the toolbar: a musician who has read to the end is
                     // already here, and a scroll mid-tune never reaches it.
                     Button(LyricsReader.editLyrics) { editing = true }
                         .buttonStyle(.bordered)
                 }
-                .frame(maxWidth: 600, alignment: .leading)
+                .frame(maxWidth: PhoneStyle.lyricsMaxWidth, alignment: .leading)
                 .frame(maxWidth: .infinity)
                 .padding(24)
                 // Leaves room for the last verse to sit mid-screen, where a propped phone is
@@ -132,6 +122,33 @@ private struct LyricsReaderPage: View {
         #if os(macOS)
             .onExitCommand { dismiss() }
         #endif
+    }
+}
+
+/// A tune's verses at the reader's stored size, which the musician sets in the reader.
+struct LyricsBody: View {
+    let lyrics: String
+
+    @AppStorage(LyricsSize.storageKey) private var step = LyricsSize.defaultStep
+    // A scale factor, not a point size: multiplying each fixed step by it maps the web's fixed
+    // reading sizes onto this device's Dynamic Type setting rather than replacing them with it.
+    @ScaledMetric(relativeTo: .body) private var dynamicTypeScale: CGFloat = 1
+
+    private var pointSize: CGFloat { LyricsSize.pointSize(for: LyricsSize.clamp(step)) * dynamicTypeScale }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: pointSize * 0.9) {
+            ForEach(Array(LyricLines.lines(lyrics).enumerated()), id: \.offset) { _, verse in
+                // The same gap the paragraph style puts between a line's own wrapped rows, so a
+                // wrapped continuation and a new lyric line read at the same distance from the
+                // row above them.
+                VStack(alignment: .leading, spacing: pointSize * 0.3) {
+                    ForEach(Array(verse.enumerated()), id: \.offset) { _, line in
+                        LyricLineText(text: line, pointSize: pointSize, lineSpacing: pointSize * 0.3)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -364,6 +364,16 @@ struct KeyGridView: View {
     let rows: [Stats.KeyRow]
     let open: CatalogTapThrough?
 
+    @Environment(\.inPadSplit) private var inPadSplit
+
+    /// Whether the grid spreads across the row rather than hugging its leading edge. The iPad's
+    /// detail column has room for it.
+    nonisolated static func spreads(inPadSplit: Bool) -> Bool {
+        PageStyle.keyGridSpreads || inPadSplit
+    }
+
+    private var spreads: Bool { Self.spreads(inPadSplit: inPadSplit) }
+
     /// The modes some tune in a key holds, in vocabulary order, then any this build does not know.
     private var modes: [String] {
         let used = Set(rows.flatMap { $0.modes.map(\.value) })
@@ -372,7 +382,7 @@ struct KeyGridView: View {
 
     var body: some View {
         Group {
-            if PageStyle.keyGridSpreads {
+            if spreads {
                 ViewThatFits(in: .horizontal) {
                     grid.frame(maxWidth: .infinity)
                     scrolling
@@ -436,7 +446,7 @@ struct KeyGridView: View {
         _ label: String, facets: [CatalogFacet: String]?, alignment: Alignment = .center,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        let spreads = PageStyle.keyGridSpreads
+        let spreads = spreads
         let content = content()
             .frame(
                 minWidth: 44, maxWidth: spreads ? .infinity : nil, minHeight: 44,

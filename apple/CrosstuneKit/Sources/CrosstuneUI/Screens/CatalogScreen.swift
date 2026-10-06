@@ -57,6 +57,7 @@ private struct CatalogContent: View {
     var body: some View {
         let results = model.results
         list(results)
+            .keepsScrollAnchor(rows: results?.visible.map(\.id) ?? [])
             #if os(macOS)
                 .macColumnList()
             #else
@@ -270,6 +271,8 @@ private struct CatalogContent: View {
                 .matchedTransitionSource(id: entry.tune.id, in: zoom)
             }
         }
+        // Inside the row insets, which a wrapper around them would hide from the list.
+        .scrollAnchorRow(entry.id)
         .tuneRowInsets()
         .catalogRowActions(
             entry, instruments: instruments, isSelecting: selection.isActive,

@@ -555,13 +555,15 @@ native SwiftUI controls, SF Symbols, system materials and fonts, Dynamic
 Type. Every rule above holds, words and behavior alike. Where a rule above
 describes Ionic's web chrome, the Apple app replaces it with the native
 equivalent below. The Mac's presentation rules are in
-[Mac design rules](design-macos.md), and iPhone's and iPad's are in
-[iOS design rules](design-ios.md). Each holds on its platform where it and
-this page differ.
+[Mac design rules](design-macos.md), iPhone's and a compact iPad window's
+are in [iOS design rules](design-ios.md), and the iPad's at regular width
+are in [iPad design rules](design-ipad.md). Each holds on its platform where
+it and this page differ.
 
-- iPhone has a tab bar in place of the web's. iPad and Mac use a split view
-  (sidebar, content, detail) instead. An iPad in a compact window takes the
-  iPhone layout.
+- iPhone has a tab bar in place of the web's. The Mac uses a split view
+  (sidebar, content, detail) instead. An iPad at regular width uses a tab
+  view that becomes a sidebar, each tab a split of content and detail. An
+  iPad in a compact window takes the iPhone layout.
 - System undo (Cmd-Z, the Edit menu, shake) plus a short banner with an
   Undo button replaces the web's toast.
 - Native search replaces the web's toolbar search field.

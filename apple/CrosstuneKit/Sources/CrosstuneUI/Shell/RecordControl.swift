@@ -8,13 +8,14 @@ public enum RecordControl {
     public static let label = "Start a new recording"
     /// The short name, for menus and toolbars. It says the press starts recording at once.
     public static let title = "Start recording"
-    /// The shortest name, for the Mac sidebar's capsule, whose help tag gives the full one.
+    /// The shortest name, for the Mac sidebar's capsule and the iPad's foot capsule, whose help
+    /// tag or VoiceOver name gives the full one.
     public static let shortLabel = "Record"
     public static let systemImage = "record.circle"
 }
 
-/// The record button that leads the iPad toolbar, and the Mac toolbar while the sidebar, which
-/// holds the Mac's own, is collapsed.
+/// The record button in the Mac toolbar while the sidebar, which holds the Mac's own, is
+/// collapsed.
 public struct RecordToolbarButton: View {
     private let action: @MainActor () -> Void
 

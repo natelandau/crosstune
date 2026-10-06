@@ -47,19 +47,10 @@ extension View {
         self
             // A long swipe only reveals the actions; no swipe acts on its own.
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                // The first action sits at the trailing edge, so Edit reads first from the left.
-                Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
-                    onDelete()
-                }
-                Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-                    .tint(.gray)
+                ListRowSwipeButtons(onEdit: onEdit, onDelete: onDelete)
             }
             .contextMenu {
-                Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
-                Divider()
-                Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
-                    onDelete()
-                }
+                ListRowMenuItems(onEdit: onEdit, onDelete: onDelete)
             }
     }
 
@@ -67,6 +58,48 @@ extension View {
     /// an alert, since the row that asked has no line of its own to show it on.
     func confirmsListDelete(_ list: Binding<ListSummary?>) -> some View {
         modifier(ConfirmsListDelete(list: list))
+    }
+}
+
+#if os(iOS)
+    extension TabContent {
+        /// Gives a sidebar list row the same actions as ``SwiftUI/View/listRowActions(onEdit:onDelete:)``.
+        func listRowActions(onEdit: @escaping () -> Void, onDelete: @escaping () -> Void) -> some TabContent<TabValue> {
+            self
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    ListRowSwipeButtons(onEdit: onEdit, onDelete: onDelete)
+                }
+                .contextMenu {
+                    ListRowMenuItems(onEdit: onEdit, onDelete: onDelete)
+                }
+        }
+    }
+#endif
+
+private struct ListRowSwipeButtons: View {
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        // The first action sits at the trailing edge, so Edit reads first from the left.
+        Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
+            onDelete()
+        }
+        Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
+            .tint(.gray)
+    }
+}
+
+private struct ListRowMenuItems: View {
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        Button(ListRowActions.edit, systemImage: TuneRowActions.editSystemImage, action: onEdit)
+        Divider()
+        Button(ListRowActions.delete, systemImage: ListRowActions.deleteSystemImage, role: .destructive) {
+            onDelete()
+        }
     }
 }
 

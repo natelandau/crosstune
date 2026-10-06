@@ -254,24 +254,40 @@ private func jpeg(width: Int, height: Int) -> Data {
 
     // MARK: Thumbnails
 
-    @Test func thumbnailsDecodeAt240TallAndNeverUpscale() throws {
+    @Test func regularWidthScansGrow() {
+        #if os(iOS)
+            #expect(ScansSection.thumbnailHeight(regular: true) == PadStyle.scanThumbnailHeight)
+            #expect(ScansSection.thumbnailHeight(regular: true) > ScansSection.thumbnailHeight(regular: false))
+        #else
+            #expect(ScansSection.thumbnailHeight(regular: true) == 120)
+        #endif
+        #expect(ScansSection.thumbnailHeight(regular: false) == 120)
+    }
+
+    @Test func thumbnailsDecodeAtTheirPixelHeightAndNeverUpscale() throws {
         let root = TemporaryRoot()
         try FileManager.default.createDirectory(at: root.url, withIntermediateDirectories: true)
         let tall = root.url.appending(path: "tall.jpg")
         try jpeg(width: 600, height: 900).write(to: tall)
-        let image = try #require(ScanThumbnail.decode(tall, height: ScanThumbnail.pixelHeight))
+        // A 120 pt row and a 180 pt tile, on a 2x screen.
+        #expect(ScanThumbnail.pixelHeight(height: 120, scale: 2) == 240)
+        #expect(ScanThumbnail.pixelHeight(height: 180, scale: 2) == 360)
+        let image = try #require(ScanThumbnail.decode(tall, height: 240))
         #expect(image.height == 240)
         #expect(image.width == 160)
+        let large = try #require(ScanThumbnail.decode(tall, height: 360))
+        #expect(large.height == 360)
+        #expect(large.width == 240)
 
         let small = root.url.appending(path: "small.jpg")
         try jpeg(width: 100, height: 50).write(to: small)
-        let kept = try #require(ScanThumbnail.decode(small, height: ScanThumbnail.pixelHeight))
+        let kept = try #require(ScanThumbnail.decode(small, height: 240))
         #expect(kept.height == 50)
         #expect(kept.width == 100)
 
         let broken = root.url.appending(path: "broken.jpg")
         try Data([0x00, 0x01]).write(to: broken)
-        #expect(ScanThumbnail.decode(broken, height: ScanThumbnail.pixelHeight) == nil)
+        #expect(ScanThumbnail.decode(broken, height: 240) == nil)
     }
 
     @MainActor
@@ -282,10 +298,10 @@ private func jpeg(width: Int, height: Int) -> Data {
         try jpeg(width: 300, height: 400).write(to: url)
         let cache = ThumbnailCache(countLimit: 10)
 
-        let first = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, cache: cache))
+        let first = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
         // A second load is a cache hit, and still hands back the image for the view to keep.
         try FileManager.default.removeItem(at: url)
-        let hit = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, cache: cache))
+        let hit = try #require(await ScanThumbnail.load(key: "p/scan.jpg", url: url, pixelHeight: 240, cache: cache))
         #expect(hit === first)
 
         cache.removeAll()
@@ -304,6 +320,10 @@ private func jpeg(width: Int, height: Int) -> Data {
         // A file row that changes only its upload bookkeeping keeps its decoded image.
         #expect(ScanThumbnail.key(scan: scan, file: first) == ScanThumbnail.key(scan: scan, file: retried))
         #expect(ScanThumbnail.key(scan: scan, file: first) != ScanThumbnail.key(scan: scan, file: downloaded))
+        // The same file at another decoded size is another image.
+        #expect(
+            ScanThumbnail.thumbnailKey(scan: scan, file: first, pixelHeight: 240)
+                != ScanThumbnail.thumbnailKey(scan: scan, file: first, pixelHeight: 360))
     }
 
     // MARK: Adding, moving, deleting

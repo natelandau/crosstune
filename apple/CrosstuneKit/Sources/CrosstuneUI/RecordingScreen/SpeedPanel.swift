@@ -38,8 +38,8 @@ struct SpeedPanel: View {
                 PanelStepButton(name: RecordingScreenText.faster, systemImage: "plus") { step(by: Self.step) }
                     .disabled(value >= Self.range.upperBound)
             }
-            HStack(spacing: 8) {
-                #if os(macOS)
+            #if os(macOS)
+                HStack(spacing: 8) {
                     // Segmented, so the chosen preset still shows while the window is inactive.
                     Picker(
                         RecordingScreenText.speedPresets,
@@ -56,20 +56,14 @@ struct SpeedPanel: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .fixedSize()
-                #else
-                    ForEach(Self.presets, id: \.self) { preset in
-                        ChoiceCapsule(chosen: value == preset) {
-                            onChange(preset)
-                        } label: {
-                            Text(RecordingScreenText.speedBadge(preset)).monospacedDigit()
-                        }
-                    }
-                #endif
-                Spacer(minLength: 0)
-                Button(RecordingScreenText.reset) { onChange(100) }
-                    .disabled(value == 100)
-                    .frame(minHeight: PracticeLayout.target)
-            }
+                    Spacer(minLength: 0)
+                    Button(RecordingScreenText.reset) { onChange(100) }
+                        .disabled(value == 100)
+                        .frame(minHeight: PracticeLayout.target)
+                }
+            #else
+                SpeedPresetRow(value: value, onChange: onChange)
+            #endif
         }
     }
 
@@ -88,6 +82,50 @@ struct SpeedPanel: View {
 
     private static func clamped(_ percent: Int) -> Int {
         min(max(percent, range.lowerBound), range.upperBound)
+    }
+}
+
+/// The iOS presets and Reset. One line while it fits, with Reset trailing; at larger text sizes
+/// the whole row wraps, so no capsule is squeezed and no label breaks inside itself. Compiles on
+/// every platform so a snapshot can draw it.
+struct SpeedPresetRow: View {
+    let value: Int
+    let onChange: (Int) -> Void
+
+    @Environment(\.spacing) private var spacing
+
+    var body: some View {
+        // ViewThatFits picks the first layout whose ideal size fits, so the single line keeps
+        // Reset at the trailing edge, which a flow layout cannot.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: spacing.railGap) {
+                presets
+                Spacer(minLength: 0)
+                reset
+            }
+            FlowLayout(spacing: spacing.railGap, lineSpacing: spacing(12)) {
+                presets
+                reset
+            }
+        }
+        // A wrapped row is as wide as its longest line; without this the parent centers it.
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var presets: some View {
+        ForEach(SpeedPanel.presets, id: \.self) { preset in
+            ChoiceCapsule(chosen: value == preset) {
+                onChange(preset)
+            } label: {
+                Text(RecordingScreenText.speedBadge(preset)).monospacedDigit()
+            }
+        }
+    }
+
+    private var reset: some View {
+        Button(RecordingScreenText.reset) { onChange(100) }
+            .disabled(value == 100)
+            .frame(minHeight: PracticeLayout.target)
     }
 }
 

@@ -406,55 +406,13 @@ private func link(_ provider: String, _ providerRef: String?, url: String = "htt
     }
 #endif
 
-@Suite struct PlayerPanelSizeTests {
-    private let video = Embed.for(link("youtube", "dQw4w9WgXcQ"))!
-    private let spotify = Embed.for(link("spotify", "track:1"))!
-
-    @Test func keepsTheFullSizeWhenTheWindowHasRoom() {
-        let size = PlayerPanel.embedSize(video, windowHeight: 1000)
-        #expect(size.height == 200)
-        #expect(size.width == 356)
-        #expect(PlayerPanel.embedSize(spotify, windowHeight: 1000).height == 152)
-        #expect(PlayerPanel.embedSize(spotify, windowHeight: 1000).width == nil)
-    }
-
-    @Test func shrinksToFortyPercentOfAShortWindowKeepingAVideosShape() {
-        // A landscape iPhone Pro Max: 440 points tall.
-        let size = PlayerPanel.embedSize(video, windowHeight: 440)
-        let panel = size.height + PlayerPanel.chrome
-        #expect(abs(panel - 440 * 0.4) < 0.001)
-        #expect(abs(size.width! / size.height - 356.0 / 200.0) < 0.001)
-        #expect(PlayerPanel.embedSize(spotify, windowHeight: 300).height == 300 * 0.4 - PlayerPanel.chrome)
-    }
-
-    @Test func keepsTheFullSizeBeforeTheWindowIsMeasured() {
-        let size = PlayerPanel.embedSize(video, windowHeight: .infinity)
-        #expect(size.height == 200)
-        #expect(size.width == 356)
-        #expect(PlayerPanel.embedSize(spotify, windowHeight: .infinity).height == 152)
-    }
-
-    @Test func leavesOnlyTheBarInAWindowTooShortForAPlayer() {
-        #expect(PlayerPanel.embedSize(video, windowHeight: 100).height == 0)
-    }
-
-    @Test func sizesTheAppleMusicCardAsTheAppleMusicEmbed() throws {
-        let embed = try #require(
-            Embed.for(link("apple_music", "1", url: "https://music.apple.com/us/album/x/1?i=2")))
-        for windowHeight: CGFloat in [1000, 440, 300, 100, .infinity] {
-            let embedHeight = PlayerPanel.embedSize(embed, windowHeight: windowHeight).height
-            #expect(PlayerPanel.cardHeight(windowHeight: windowHeight) == embedHeight)
-        }
-    }
-}
-
 #if os(macOS)
     @Suite struct PlayerDockTests {
         @Test func dockEmbedStaysWithinShare() {
             #expect(PlayerDock.chrome == MacStyle.dockHeight + PlayerDock.inset)
             let height = PlayerDock.embedHeight(columnHeight: 500, wanted: 400)
-            #expect(height == 500 * PlayerPanel.maxShare - PlayerDock.chrome)
-            #expect(height + PlayerDock.chrome <= 500 * PlayerPanel.maxShare)
+            #expect(height == 500 * PlayerDock.maxShare - PlayerDock.chrome)
+            #expect(height + PlayerDock.chrome <= 500 * PlayerDock.maxShare)
             #expect(PlayerDock.embedHeight(columnHeight: 1000, wanted: 152) == 152)
         }
 

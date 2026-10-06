@@ -1,74 +1,62 @@
 import Observation
 
 /// Where the musician is in one window: the destination, the list, and the tune on screen. The
-/// shell keeps it above the layout switch, so resizing an iPad window between the tab bar and
-/// the split view keeps the same destination, list, and tune wherever the new layout can show
-/// them.
+/// shell keeps it above the layout switch, and the iPhone and iPad shells read the same tab
+/// fields, so resizing an iPad window between them keeps the same tab, list, and tune. The Mac
+/// split view reads the sidebar and detail fields.
 @MainActor @Observable
 final class ShellPlace {
-    /// The split view's sidebar row.
+    /// The Mac split view's sidebar row.
     var sidebar: SidebarItem = .catalog
-    /// The tune in the split view's detail column.
+    /// The tune in the Mac split view's detail column.
     var detailTune: String?
-    /// The tab bar's tab.
+    /// The iPhone and iPad shells' tab.
     var tab: Destination = .catalog
-    /// The list pushed on the Lists tab.
+    /// The list open on the Lists tab.
     var tabList: String? {
         didSet {
-            // A tune pushed over one list does not belong over the next.
-            if tabList != oldValue { tabTunes[.lists] = nil }
+            // A tune pushed over one list, or a place scrolled to in it, does not belong to the next.
+            if tabList != oldValue {
+                tabTunes[.lists] = nil
+                scrollAnchors[.lists] = nil
+            }
         }
     }
-    /// The tune pushed on each tab, over its list on the Lists tab.
+    /// The tune each tab shows: pushed on iPhone, in the detail column on iPad.
     var tabTunes: [Destination: String] = [:]
-    /// What the split view's Settings column has pushed, kept while another row is chosen so
-    /// coming back finds it, as the iPhone's Settings tab keeps its stack.
-    var settingsPath: [StatsRoute] = []
+    /// The row each destination's list keeps at its top, which every iPad tab showing that
+    /// destination shares.
+    var scrollAnchors: [Destination: String] = [:]
 
-    /// Shows `destination` at its root: in the tab bar, its tab with nothing pushed; in the split
-    /// view, its sidebar row. The Lists tab's root has no sidebar row, so it falls back to the
-    /// catalog.
-    func showRoot(_ destination: Destination, inTabs: Bool) {
-        if inTabs {
-            tabTunes[destination] = nil
-            if destination == .lists { tabList = nil }
-            tab = destination
-        } else {
-            sidebar =
-                switch destination {
-                case .catalog, .lists: .catalog
-                case .recordings: .recordings
-                case .settings: .settings
-                }
-        }
+    /// The page open in the iPad Settings tab's detail column.
+    var settingsPage: SettingsPage?
+
+    /// Shows `destination` in the iPhone and iPad tabs: its tab, with nothing open.
+    func showTabRoot(_ destination: Destination) {
+        tabTunes[destination] = nil
+        if destination == .lists { tabList = nil }
+        if destination == .settings { settingsPage = nil }
+        tab = destination
     }
 
-    /// Carries the split view's place into the tab bar.
-    func enterTabs() {
-        if case .list(let id) = sidebar {
-            tab = .lists
-            tabList = id
-        } else {
-            tab = sidebar.destination ?? .catalog
-            tabList = nil
-        }
-        tabTunes = detailTune.map { [tab: $0] } ?? [:]
+    /// Shows `destination`'s row in the Mac sidebar. The Lists root and Settings, which the Mac
+    /// keeps in its own window, have no row, so they fall back to the catalog.
+    func showSidebarRoot(_ destination: Destination) {
+        sidebar =
+            switch destination {
+            case .catalog, .lists, .settings: .catalog
+            case .recordings: .recordings
+            }
     }
 
-    /// Carries the tab bar's place into the split view. The Lists tab with no list open has no
-    /// sidebar row, so it falls back to the catalog.
-    func enterSplit() {
-        switch tab {
-        case .catalog: sidebar = .catalog
-        case .recordings: sidebar = .recordings
-        case .settings: sidebar = .settings
-        case .lists: sidebar = tabList.map { .list(id: $0) } ?? .catalog
-        }
-        detailTune = tabTunes[tab]
+    /// The Lists tab's stack: the open list, or nothing pushed.
+    var listPath: [ListRoute] {
+        get { tabList.map { [ListRoute(id: $0)] } ?? [] }
+        set { tabList = newValue.last?.id }
     }
 }
 
-/// A list pushed on the iPhone Lists tab.
+/// A list pushed on the iPhone and iPad Lists tab.
 struct ListRoute: Hashable {
     let id: String
 }

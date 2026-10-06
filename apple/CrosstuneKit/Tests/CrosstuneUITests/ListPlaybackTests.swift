@@ -146,6 +146,27 @@ private func eventually(_ condition: @MainActor () -> Bool) async throws {
         rig.audio.calls.filter { $0 == "load" }.count
     }
 
+    @Test func standHeaderFollowsASkip() async throws {
+        let rig = rig()
+        start(rig)
+        try await playing(rig, "ra")
+        let own = RecordingScreenText.subtitle(
+            Recording(id: "ra", tuneID: "a", source: "microphone", addedAt: noon, label: "Take a", state: "ready"),
+            tuneTitle: "Tune a", lengthMs: nil)
+        func header() -> String? {
+            StandHeader.subtitle(
+                recording: Recording(
+                    id: "ra", tuneID: "a", source: "microphone", addedAt: noon, label: "Take a", state: "ready"),
+                tuneTitle: "Tune a", lengthMs: nil, playback: rig.playback, standsWithReading: true)
+        }
+        #expect(header() == "\(listName) \u{B7} 1 of 3")
+        #expect(header() != own)
+
+        rig.playback.next()
+        try await playing(rig, "rb")
+        #expect(header() == "\(listName) \u{B7} 2 of 3")
+    }
+
     @Test func playsInOrderAndAdvancesOnFinish() async throws {
         let rig = rig()
         start(rig)

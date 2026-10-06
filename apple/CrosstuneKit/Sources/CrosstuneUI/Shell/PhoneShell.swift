@@ -108,14 +108,14 @@ enum TabSlot: Hashable {
 
         var body: some View {
             if destination == .lists {
-                NavigationStack(path: listPath) { root }
+                NavigationStack(path: $place.listPath) { root }
             } else {
                 NavigationStack { root }
             }
         }
 
         private var root: some View {
-            DestinationScreen(destination: destination, usesSettingsRoot: true)
+            DestinationScreen(destination: destination)
                 .toolbarTitleDisplayMode(.inlineLarge)
                 .syncBadgeToolbar(leading: destination == .catalog)
                 .environment(
@@ -126,29 +126,15 @@ enum TabSlot: Hashable {
                         place.tabTunes[destination] = $0
                     })
         }
-
-        private var listPath: Binding<[ListRoute]> {
-            Binding {
-                place.tabList.map { [ListRoute(id: $0)] } ?? []
-            } set: {
-                place.tabList = $0.last?.id
-            }
-        }
     }
 
-    /// The player in the tab bar's bottom accessory, only while something is loaded, and the
-    /// player in full over it: a recording's screen as a full-screen cover on the practice
-    /// ground, zooming out of the accessory, or a link's player in a sheet. Pulling either down
-    /// leaves the bar playing.
+    /// The player in the tab bar's bottom accessory, only while something is loaded, with the
+    /// player in full zooming out of it.
     private struct PlayerAccessory: ViewModifier {
         let player: PlayerModel
         let stage: EmbedStage
 
-        private static let zoomID = "player"
-
-        @Environment(\.playerWindow) private var window
         @Environment(ListPlayback.self) private var playback: ListPlayback?
-        @Environment(\.colorScheme) private var colorScheme
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @Namespace private var zoom
 
@@ -156,26 +142,9 @@ enum TabSlot: Hashable {
             content
                 .tabViewBottomAccessory(isEnabled: PlayerBar.isShown(player, playback)) {
                     PlayerBar(player: player)
-                        .matchedTransitionSource(id: Self.zoomID, in: zoom)
+                        .matchedTransitionSource(id: PlayerPresentations.zoomID, in: zoom)
                 }
-                .fullScreenCover(isPresented: expanded(.recording)) {
-                    RecordingScreen(player: player)
-                        // Read out here, since the screen's own appearance is always dark.
-                        .practiceGround(colorScheme)
-                        .zooms(from: Self.zoomID, in: reduceMotion ? nil : zoom)
-                }
-                .modifier(EmbedParking(player: player, stage: stage))
-                .sheet(isPresented: expanded(.link)) {
-                    LinkPlayerSheet(player: player, stage: stage)
-                }
-        }
-
-        private func expanded(_ kind: PlayerItem.Kind) -> Binding<Bool> {
-            Binding {
-                player.showsExpanded(in: window) && player.item?.kind == kind
-            } set: {
-                player.isExpanded = $0
-            }
+                .modifier(PlayerPresentations(player: player, stage: stage, zoom: reduceMotion ? nil : zoom))
         }
     }
 #endif

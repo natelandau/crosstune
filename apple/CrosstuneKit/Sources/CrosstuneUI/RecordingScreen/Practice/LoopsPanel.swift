@@ -14,19 +14,11 @@ struct LoopsPanel: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let reason = model.newLoopReason
-        let canDelete = model.canDeleteSelected
         VStack(spacing: spacing.stackGap) {
-            HStack(spacing: spacing(8)) {
-                textButton(PracticeText.newLoop, systemImage: "plus", action: model.newLoop)
-                    .disabled(reason != nil || !model.isLoaded)
-                    .accessibilityHint(reason ?? "")
-                textButton(PracticeText.deleteLoop, systemImage: "trash", role: .destructive) {
-                    if model.deleteSelected() { onDeleted() }
-                }
-                // A plain button takes no color from its role.
-                .foregroundStyle(canDelete ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
-                .disabled(!canDelete)
+            // Side by side while both fit, stacked when the labels outgrow the width.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: spacing(8)) { actions }
+                VStack(spacing: spacing(8)) { actions }
             }
             .frame(maxWidth: .infinity)
             Text(PracticeText.loopsEmptyHint)
@@ -39,6 +31,20 @@ struct LoopsPanel: View {
         }
     }
 
+    @ViewBuilder private var actions: some View {
+        let reason = model.newLoopReason
+        let canDelete = model.canDeleteSelected
+        textButton(PracticeText.newLoop, systemImage: "plus", action: model.newLoop)
+            .disabled(reason != nil || !model.isLoaded)
+            .accessibilityHint(reason ?? "")
+        textButton(PracticeText.deleteLoop, systemImage: "trash", role: .destructive) {
+            if model.deleteSelected() { onDeleted() }
+        }
+        // A plain button takes no color from its role.
+        .foregroundStyle(canDelete ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
+        .disabled(!canDelete)
+    }
+
     private func textButton(
         _ title: String, systemImage: String, role: ButtonRole? = nil, action: @escaping () -> Void
     ) -> some View {
@@ -49,12 +55,18 @@ struct LoopsPanel: View {
             .buttonStyle(.bordered)
         #else
             Button(role: role, action: action) {
-                Label(title, systemImage: systemImage)
-                    .font(.subheadline)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .background(neutralFill(colorScheme), in: .capsule)
-                    .contentShape(.capsule)
+                // An explicit row, because a Label stacks its icon over its title at accessibility sizes.
+                HStack(spacing: spacing(6)) {
+                    Image(systemName: systemImage).accessibilityHidden(true)
+                    Text(title).lineLimit(1)
+                }
+                .font(.subheadline)
+                .fixedSize()
+                .padding(.horizontal, spacing(12))
+                .padding(.vertical, spacing.chipVertical)
+                .frame(minHeight: 44)
+                .background(neutralFill(colorScheme), in: .capsule)
+                .contentShape(.capsule)
             }
             .buttonStyle(.plain)
         #endif

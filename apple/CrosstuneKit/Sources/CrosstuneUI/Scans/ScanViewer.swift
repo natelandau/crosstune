@@ -308,10 +308,10 @@ private struct ScanViewerBody: View {
     }
 }
 
-/// One scan at full size: fitted to the screen, zoomed by a pinch or a double tap, and panned
+/// One scan at full size: fitted to its container, zoomed by a pinch or a double tap, and panned
 /// while zoomed. A scan whose file has not arrived shows its placeholder; one that will not
-/// decode says so and offers Delete.
-private struct ScanSlide: View {
+/// decode says so, and offers Delete where there is `onDelete`.
+struct ScanSlide: View {
     let scan: Scan
     let index: Int
     let folder: URL
@@ -319,7 +319,9 @@ private struct ScanSlide: View {
     let isNear: Bool
     @Binding var scale: CGFloat
     let onBroken: () -> Void
-    let onDelete: () -> Void
+    let onDelete: (() -> Void)?
+    /// A single tap, where there is one. It waits out a double tap, which zooms.
+    var onTap: (() -> Void)?
 
     @State private var decoded: (key: String, image: CGImage?)?
     @State private var pinchStart: CGFloat?
@@ -332,11 +334,11 @@ private struct ScanSlide: View {
         let image = decoded?.key == key ? decoded?.image : nil
         Group {
             if scan.file == nil {
-                placeholder
+                placeholder.modifier(SlideTap(onTap: onTap))
             } else if let image, isNear {
                 scanImage(image)
             } else if key != nil && decoded?.key == key && image == nil {
-                broken
+                broken.modifier(SlideTap(onTap: onTap))
             } else {
                 ProgressView()
             }
@@ -380,6 +382,8 @@ private struct ScanSlide: View {
             .onTapGesture(count: 2) {
                 withAnimation(.snappy) { scale = ScanZoom.toggled(scale) }
             }
+            // After the double tap, so a single tap waits until it is not the first of two.
+            .modifier(SlideTap(onTap: onTap))
             .gesture(
                 MagnifyGesture()
                     .onChanged { value in
@@ -435,11 +439,26 @@ private struct ScanSlide: View {
             Text(ScanCopy.unreadableScan)
                 .font(.headline)
                 .foregroundStyle(invert ? Color.white : Color.primary)
-            Button(ScanCopy.delete, role: .destructive, action: onDelete)
-                .buttonStyle(.bordered)
-                .accessibilityLabel(ScanCopy.deleteScan(index))
+            if let onDelete {
+                Button(ScanCopy.delete, role: .destructive, action: onDelete)
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel(ScanCopy.deleteScan(index))
+            }
         }
         .padding(32)
+    }
+}
+
+/// A scan slide's single tap, where it has one.
+private struct SlideTap: ViewModifier {
+    let onTap: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onTap {
+            content.onTapGesture(perform: onTap)
+        } else {
+            content
+        }
     }
 }
 
@@ -465,11 +484,15 @@ struct ScanRequest: Identifiable, Equatable {
     var id: String { tuneID }
 }
 
-/// The scan viewer the tune screen and tune rows ask for, presented once, over the whole
-/// shell, and the one read of which tunes have scans that every row's Scans action follows.
+/// The scan viewer the tune screen and tune rows ask for, presented over the whole shell, and
+/// the read of which tunes have scans that every row's Scans action follows. The iPad's practice
+/// cover applies its own, since the shell's cannot present over that cover.
 /// Each look at the scans is logged into the shell's store, timed while this window is in the
 /// foreground, so each window counts its own viewer.
 struct ScanScreens: ViewModifier {
+    /// Whether the viewer zooms out of the thumbnail it opened on, where one is marked.
+    var zooms = true
+
     @State private var request: ScanRequest?
     /// The position of the scan the open viewer shows, which its close zooms back into.
     @State private var shownIndex: Int?
@@ -501,7 +524,7 @@ struct ScanScreens: ViewModifier {
         content
             .environment(\.tuneScreenActions, withViewScans)
             #if os(iOS)
-                .environment(\.scanZoom, reduceMotion ? nil : zoom)
+                .environment(\.scanZoom, zoomNamespace)
             #endif
             .environment(tunes)
             .task(id: store.map(ObjectIdentifier.init)) {
@@ -526,10 +549,16 @@ struct ScanScreens: ViewModifier {
                 .fullScreenCover(item: $request) { request in
                     ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex) { shownIndex = $0 }
                     .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
-                    .zooms(from: Self.zoomSourceID(request, shownIndex: shownIndex), in: reduceMotion ? nil : zoom)
+                    .zooms(from: Self.zoomSourceID(request, shownIndex: shownIndex), in: zoomNamespace)
                 }
             #endif
     }
+
+    #if os(iOS)
+        private var zoomNamespace: Namespace.ID? {
+            zooms && !reduceMotion ? zoom : nil
+        }
+    #endif
 
     /// The tune screen's actions as set further out, with the viewer opening on a scan.
     private var withViewScans: TuneScreenActions {

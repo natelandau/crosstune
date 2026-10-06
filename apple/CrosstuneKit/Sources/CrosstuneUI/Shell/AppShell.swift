@@ -4,9 +4,10 @@ import CrosstuneStore
 import CrosstuneSync
 import SwiftUI
 
-/// The frame every screen lives in: a tab bar on iPhone and in compact width on iPad, a split
-/// view on iPad in regular width and on Mac. It hands its screens the store, the commands,
-/// and the player, presents the record sheet, and publishes the menu commands it can perform.
+/// The frame every screen lives in: a tab bar on iPhone and in compact width on iPad, the iPad
+/// shell in regular width, and a split view on the Mac. It hands its screens the store, the
+/// commands, and the player, presents the record sheet, and publishes the menu commands it can
+/// perform.
 ///
 /// Reads the `AccountSession` and `SyncEngine` from the environment when they are there.
 public struct AppShell: View {
@@ -32,9 +33,6 @@ public struct AppShell: View {
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
         @SceneStorage("shell.tab") private var savedTab: Destination = .catalog
-        /// The layout on show, which follows the size class only once the place has been carried
-        /// over, so the new layout opens on it. Nil only before the shell first appears.
-        @State private var usesTabs: Bool?
     #endif
 
     /// - Parameters:
@@ -75,7 +73,7 @@ public struct AppShell: View {
             .environment(\.recordCover, recordCover)
             .environment(\.selecting, selecting)
             .environment(\.playerWindow, playerWindow)
-            .environment(\.openCatalogRoot, MenuAction { showRoot(.catalog) })
+            .environment(\.openCatalogRoot, MenuAction { showCatalogRoot() })
             .focusedSceneValue(\.recordAction, canRecord ? MenuAction(record) : nil)
             .focusedSceneValue(\.syncNowAction, engine.map { engine in MenuAction { Task { await engine.sync() } } })
             .modifier(
@@ -96,16 +94,9 @@ public struct AppShell: View {
                 player.isCapturing = { [recorders] in recorders.isCapturing || Recorder.hasActiveCapture }
             }
             #if os(iOS)
-                .onAppear {
-                    place.tab = savedTab
-                    // Set now, so the first switch after launch converts before the new layout draws.
-                    usesTabs = sizeClass == .compact
-                }
+                .environment(\.windowIsRegular, sizeClass == .regular)
+                .onAppear { place.tab = savedTab }
                 .onChange(of: place.tab) { savedTab = place.tab }
-                .onChange(of: sizeClass == .compact) { _, compact in
-                    if compact { place.enterTabs() } else { place.enterSplit() }
-                    usesTabs = compact
-                }
             #endif
     }
 
@@ -126,19 +117,17 @@ public struct AppShell: View {
 
     private func show(_ destination: Destination) {
         #if os(iOS)
-            if usesTabs == true {
-                place.tab = destination
-                return
-            }
+            place.tab = destination
+        #else
+            place.sidebar = destination == .recordings ? .recordings : .catalog
         #endif
-        place.sidebar = destination == .recordings ? .recordings : .catalog
     }
 
-    private func showRoot(_ destination: Destination) {
+    private func showCatalogRoot() {
         #if os(iOS)
-            place.showRoot(destination, inTabs: usesTabs == true)
+            place.showTabRoot(.catalog)
         #else
-            place.showRoot(destination, inTabs: false)
+            place.showSidebarRoot(.catalog)
         #endif
     }
 
@@ -163,21 +152,19 @@ public struct AppShell: View {
 
     @ViewBuilder private var layout: some View {
         #if os(iOS)
-            if usesTabs ?? (sizeClass == .compact) {
+            // Both shells read the same tab fields, so a size change keeps the tab, list, and tune.
+            if sizeClass == .compact {
                 PhoneShell(
                     player: player, stage: stage, place: place, recordingsShown: recordingsShown, onRecord: record)
             } else {
-                split
+                PadShell(
+                    player: player, stage: stage, place: place, recordingsShown: recordingsShown, onRecord: record)
             }
         #else
-            split
+            SplitShell(
+                store: store, player: player, stage: stage, place: place, recordingsShown: recordingsShown,
+                onRecord: record)
         #endif
-    }
-
-    private var split: some View {
-        SplitShell(
-            store: store, player: player, stage: stage, place: place, recordingsShown: recordingsShown,
-            onRecord: record)
     }
 }
 

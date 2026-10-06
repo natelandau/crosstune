@@ -199,7 +199,7 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
         let place = ShellPlace()
         place.tab = .settings
         place.tabTunes[.catalog] = "t2"
-        let open = CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showRoot(.catalog, inTabs: true) })
+        let open = CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })
 
         open(StatsLink.key("D")!)
         #expect(catalog.query.isEmpty)
@@ -217,8 +217,8 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
 
     @Test func splitViewOpensTheCatalogRow() {
         let place = ShellPlace()
-        place.sidebar = .settings
-        place.showRoot(.catalog, inTabs: false)
+        place.sidebar = .recordings
+        place.showSidebarRoot(.catalog)
         #expect(place.sidebar == .catalog)
     }
 
@@ -417,7 +417,7 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
         try await store.write { try addTune($0, "t1", "Sally Ann", key: "D", modes: ["major"]) }
         let catalog = CatalogModel(store: store)
         let place = ShellPlace()
-        CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showRoot(.catalog, inTabs: true) })(
+        CatalogTapThrough(catalog: catalog, showRoot: MenuAction { place.showTabRoot(.catalog) })(
             StatsLink.key("D")!)
         try await eventually {
             let stored = try await store.meta(.catalogFilters, as: JSONValue.self)
@@ -457,5 +457,17 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
                 StatsDocument(view: view)
             }
         }
+    }
+}
+
+@Suite("Key grid spreading")
+struct KeyGridSpreadTests {
+    @Test func spreadsInASplitDetailColumnOnly() {
+        #if os(iOS)
+            #expect(KeyGridView.spreads(inPadSplit: true))
+            #expect(!KeyGridView.spreads(inPadSplit: false))
+        #else
+            #expect(KeyGridView.spreads(inPadSplit: false))
+        #endif
     }
 }

@@ -6,8 +6,8 @@ import CrosstuneVocabulary
 import Foundation
 import SwiftUI
 
-/// This device's settings and the account: the iPhone Settings tab, a sidebar row on iPad,
-/// and the Settings window on Mac. Every setting saves as it changes; there is no Save.
+/// This device's settings and the account: the Mac Settings window's tabs, and the pages the
+/// iPhone and iPad Settings root opens. Every setting saves as it changes; there is no Save.
 public struct SettingsScreen: View {
     nonisolated public static let about = "About"
 

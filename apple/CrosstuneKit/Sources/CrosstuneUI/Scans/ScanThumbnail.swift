@@ -6,20 +6,24 @@ import SwiftUI
 /// A scan at a fixed height: its image downsampled once and cached, a broken-scan mark, or a
 /// placeholder of its size while its file is still to come.
 struct ScanThumbnail: View {
-    /// The decoded height in pixels: twice the section's 120 pt row, for a sharp image on a
-    /// Retina screen.
-    nonisolated static let pixelHeight = 240
+    /// The decoded height in pixels for a tile `height` points tall on a screen of `scale`, so
+    /// the image is never stretched on screen.
+    nonisolated static func pixelHeight(height: CGFloat, scale: CGFloat) -> Int {
+        Int((height * scale).rounded(.up))
+    }
 
     let scan: Scan
     let index: Int
     let height: CGFloat
 
     @Environment(\.store) private var store
+    @Environment(\.displayScale) private var displayScale
     @State private var decoded: (key: String, image: CGImage?)?
 
     var body: some View {
         let size = CGSize(width: height * scan.aspectRatio, height: height)
-        let key = scan.file.map { Self.key(scan: scan.record, file: $0) }
+        let pixelHeight = Self.pixelHeight(height: height, scale: displayScale)
+        let key = scan.file.map { Self.thumbnailKey(scan: scan.record, file: $0, pixelHeight: pixelHeight) }
         Group {
             if let key, let image = image(for: key) {
                 Image(decorative: image, scale: 1)
@@ -46,7 +50,7 @@ struct ScanThumbnail: View {
         .task(id: key) {
             guard let key, let file = scan.file, let store else { return }
             let url = store.scansFolder.appending(path: file.fileName)
-            let image = await Self.load(key: key, url: url, cache: Self.cache)
+            let image = await Self.load(key: key, url: url, pixelHeight: pixelHeight, cache: Self.cache)
             guard !Task.isCancelled else { return }
             decoded = (key, image)
         }
@@ -64,7 +68,7 @@ struct ScanThumbnail: View {
     }
 
     /// The cached image for `key`, or the file at `url` decoded off the main actor and cached.
-    static func load(key: String, url: URL, cache: ThumbnailCache) async -> CGImage? {
+    static func load(key: String, url: URL, pixelHeight: Int, cache: ThumbnailCache) async -> CGImage? {
         if let cached = cache.image(for: key) { return cached }
         let image = await Task.detached(priority: .utility) { decode(url, height: pixelHeight) }.value
         if let image { cache.insert(image, for: key) }
@@ -81,6 +85,11 @@ struct ScanThumbnail: View {
     /// changes while a file uploads, so an upload's bookkeeping never decodes it again.
     static func key(scan: ScanRecord, file: ScanFile) -> String {
         "\(scan.id)/\(file.fileName)"
+    }
+
+    /// `key` plus the decoded size, so a tile that grows decodes again rather than stretching.
+    static func thumbnailKey(scan: ScanRecord, file: ScanFile, pixelHeight: Int) -> String {
+        "\(key(scan: scan, file: file))/\(pixelHeight)"
     }
 
     // Twenty scans a tune, a few tunes' worth.

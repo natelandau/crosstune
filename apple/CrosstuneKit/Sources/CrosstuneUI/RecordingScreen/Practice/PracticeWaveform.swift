@@ -114,6 +114,8 @@ struct PracticeWaveform: View {
             Canvas { context, size in
                 drawRuler(in: &context, size: size, view: view)
             }
+            // The ruler has a fixed height and tick spacing, so its labels stop growing at the default size.
+            .dynamicTypeSize(...DynamicTypeSize.large)
             .frame(height: Self.rulerHeight)
             .accessibilityHidden(true)
             ZStack(alignment: .topLeading) {
@@ -369,6 +371,8 @@ struct WaveformOverlay: View {
             }
             .buttonStyle(.borderless)
             .disabled(blocker != nil)
+            // Capped so the cluster stays a corner control that never reaches the playhead.
+            .dynamicTypeSize(...DynamicTypeSize.large)
             .modifier(Backing())
         }
         .padding(4)

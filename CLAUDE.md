@@ -14,8 +14,10 @@ and `docs/hosting.md`.
 - A screen, row, form, gesture, or label: `docs/design.md`.
 - A Mac screen, row, control, or window: `docs/design.md`, then
   `docs/design-macos.md`.
-- An iPhone or iPad screen, row, control, or sheet: `docs/design.md`, then
+- An iPhone screen, or an iPad in a compact window: `docs/design.md`, then
   `docs/design-ios.md`.
+- An iPad screen at regular width: `docs/design.md`, `docs/design-ios.md`,
+  then `docs/design-ipad.md`.
 - Deployment, CI, or a host setting: `docs/hosting.md` and
   `docs/operations.md`.
 
