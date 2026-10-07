@@ -42,6 +42,15 @@ enum PracticeZoom {
         Int64((-velocity * glideTauMs / pointsPerSecond).rounded())
     }
 
+    /// Where a glide from `from` to `to` that runs `runMs` has got to `elapsedMs` in: an
+    /// exponential decay whose time constant is a third of the run, so the run covers 95% of
+    /// the distance, stretched to land exactly on `to` as the run ends.
+    static func glidePosition(from: Int64, to: Int64, elapsedMs: Double, runMs: Double) -> Int64 {
+        guard elapsedMs < runMs else { return to }
+        let share = (1 - exp(-max(0, elapsedMs) / (runMs / 3))) / (1 - exp(-3.0))
+        return from + Int64((Double(to - from) * share).rounded())
+    }
+
     /// A view centered on `centerMs`, never clamped, so the ends of the recording show blank.
     static func view(pointsPerSecond: Double, centerMs: Int64, width: Double, trimStartMs: Int64) -> LaneView {
         LaneView(

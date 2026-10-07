@@ -61,8 +61,8 @@ struct LiveWaveform: View {
         static let barStyle = AnyShapeStyle(.tint)
     #endif
 
-    let levels: [Float]
-    let levelCount: Int
+    /// Read here rather than by the sheet, so each new buffer of levels redraws only the bars.
+    let recorder: Recorder
     let paused: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -71,17 +71,14 @@ struct LiveWaveform: View {
 
     var body: some View {
         let feed = reduceMotion ? fixed : scrolling
-        let levels = levels
-        let levelCount = levelCount
+        let levels = recorder.levels
+        let levelCount = recorder.levelCount
         TimelineView(.animation(paused: paused)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             Canvas { context, size in
                 feed.receive(levels, total: levelCount)
                 feed.advance(to: time, capacity: WaveformBars.count(forWidth: size.width))
-                for bar in feed.bars.layout(width: size.width, height: size.height) {
-                    context.fill(
-                        Path(roundedRect: bar, cornerRadius: WaveformBars.barWidth / 2), with: .style(Self.barStyle))
-                }
+                context.fill(feed.bars.path(width: size.width, height: size.height), with: .style(Self.barStyle))
             }
         }
         .frame(height: Self.height)

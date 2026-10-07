@@ -28,6 +28,12 @@ private func loop(_ id: String, _ startMs: Int64, _ endMs: Int64, label: String?
         color: 0)
 }
 
+/// A clock a test moves by hand.
+@MainActor
+private final class Now {
+    var instant = ContinuousClock.now
+}
+
 /// The recording's loops as the store would hold them: each write lands in `rows` and is fed
 /// back to the player, as the live observation does.
 @MainActor
@@ -658,6 +664,30 @@ private final class FakeLoops {
         #expect(store.calls == ["update(a, 5100-15000)", "update(a, 5200-15000)"])
     }
 
+    @Test func placedLoopsShowDraftsAndANewLoopAheadOfTheirRowsByStart() async throws {
+        try await load()
+        let model = practice()
+        store.put([loop("b", 30_000, 40_000), loop("a", 5000, 10_000)])
+        store.paused = true
+        audio.elapsed = 20
+        model.newLoop()
+        await model.settle()
+        model.write("a", LoopSpan(startMs: 2000, endMs: 12_000))
+        await model.settle()
+        #expect(
+            model.placedLoops == [
+                PlacedLoop(id: "a", span: LoopSpan(startMs: 2000, endMs: 12_000), color: 0),
+                PlacedLoop(id: "n1", span: LoopSpan(startMs: 16_000, endMs: 24_000), color: 0),
+                PlacedLoop(id: "b", span: LoopSpan(startMs: 30_000, endMs: 40_000), color: 0),
+            ])
+        #expect(Set(model.rowsByID.keys) == ["a", "b", "n1"])
+        #expect(model.shownSpan("n1") == LoopSpan(startMs: 16_000, endMs: 24_000))
+
+        store.resume()
+        #expect(model.placedLoops.map(\.id) == ["a", "n1", "b"])
+        #expect(model.placedLoops.first?.span == LoopSpan(startMs: 2000, endMs: 12_000))
+    }
+
     @Test func anEarlierWriteLandingNeverShowsOverALaterOneStillPending() async throws {
         try await load()
         let model = practice()
@@ -834,6 +864,61 @@ private final class FakeLoops {
         #expect(audio.elapsed == Double(shown) / 1000)
         await model.settle()
         #expect(store.calls == ["add(\(shown - 4000)-\(shown + 4000))"])
+    }
+
+    @Test func aGlideShowsWhereTheClockSaysItHasGot() async throws {
+        try await load()
+        let now = Now()
+        let model = PracticeModel(
+            player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
+        model.setWidth(300)
+        model.glideRun = .seconds(10)
+        audio.elapsed = 10
+        model.beginScrub()
+        model.scrub(dx: -50)
+        model.endScrub(predictedDx: -400)
+        #expect(model.gliding != nil)
+        #expect(model.scrubbingMs == 15_000)
+
+        now.instant += .milliseconds(2500)
+        let expected = PracticeZoom.glidePosition(from: 15_000, to: 50_000, elapsedMs: 2500, runMs: 10_000)
+        #expect(expected > 15_000 && expected < 50_000)
+        #expect(model.scrubbingMs == expected)
+        #expect(model.centerMs == expected)
+        #expect(model.shownCenterMs(at: now.instant) == Double(expected))
+        #expect(model.laneView?.startMs == Double(expected) - 15_000)
+
+        now.instant += .seconds(10)
+        #expect(model.scrubbingMs == 50_000)
+        model.settleGlide()
+        #expect(model.gliding == nil)
+        #expect(model.scrubbingMs == nil)
+        #expect(audio.elapsed == 50)
+    }
+
+    @Test func aDragThatCatchesAGlideTakesOverWhereItHasGot() async throws {
+        try await load()
+        let now = Now()
+        let model = PracticeModel(
+            player: player, recording: take(), file: nil, writer: store.writer, clock: { now.instant })
+        model.setWidth(300)
+        model.glideRun = .seconds(10)
+        audio.elapsed = 10
+        model.beginScrub()
+        model.scrub(dx: -50)
+        model.endScrub(predictedDx: -400)
+        now.instant += .milliseconds(1000)
+        let caught = try #require(model.scrubbingMs)
+        model.beginScrub()
+        #expect(model.gliding == nil)
+        #expect(model.glide == nil)
+        now.instant += .seconds(5)
+        #expect(model.scrubbingMs == caught)
+        model.scrub(dx: 10)
+        #expect(model.scrubbingMs == caught - 1000)
+        model.endScrub(predictedDx: 10)
+        #expect(audio.elapsed == Double(caught - 1000) / 1000)
+        #expect(audio.isPlaying)
     }
 
     @Test func aSeekFromTheOverviewStopsAGlide() async throws {

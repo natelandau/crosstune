@@ -36,9 +36,14 @@ public enum RecordingText {
 
     /// `m:ss`, rounded to the nearest second.
     public static func duration(of milliseconds: Int64) -> String {
-        let total = Int64((Double(milliseconds) / 1000).rounded())
+        let total = wholeSeconds(of: milliseconds)
         let seconds = total % 60
         return "\(total / 60):\(seconds < 10 ? "0" : "")\(seconds)"
+    }
+
+    /// `milliseconds` rounded to the nearest second, the second ``duration(of:)`` shows.
+    public static func wholeSeconds(of milliseconds: Int64) -> Int64 {
+        Int64((Double(milliseconds) / 1000).rounded())
     }
 
     /// How many times in a row an upload has failed, as `2 failed tries`.

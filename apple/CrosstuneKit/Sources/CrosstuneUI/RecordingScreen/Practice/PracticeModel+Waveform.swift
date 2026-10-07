@@ -150,9 +150,11 @@ extension PracticeModel {
         saveOpenRename()
         guard scale != nil else { return }
         if glide != nil, var caught = activeScrub {
+            caught.originMs = scrubbingMs ?? caught.originMs
             glide?.cancel()
             glide = nil
-            caught.originMs = scrubbingMs ?? caught.originMs
+            gliding = nil
+            draggedMs = caught.originMs
             caught.pinch = pinches
             activeScrub = caught
             return
@@ -210,35 +212,25 @@ extension PracticeModel {
     func settleScrub(at ms: Int64?) {
         glide?.cancel()
         glide = nil
+        gliding = nil
         let held = activeScrub
         activeScrub = nil
         if let ms { player.audio.seek(to: Double(min(max(ms, 0), lengthMs)) / 1000) }
-        scrubbingMs = nil
+        draggedMs = nil
         if held?.wasPlaying == true, (ms ?? 0) < lengthMs { player.audio.play() }
     }
 
-    /// Coasts from `from` to `to` on an exponential decay, then settles there.
+    /// Coasts from `from` to `to` on ``PracticeZoom/glidePosition(from:to:elapsedMs:runMs:)``,
+    /// then settles there.
     private func glide(from: Int64, to: Int64) {
-        let runParts = glideRun.components
-        let runMs = Double(runParts.seconds) * 1000 + Double(runParts.attoseconds) / 1e15
-        // The decay's time constant, a third of the run, so the run covers 95% of the distance;
-        // the curve is stretched to land exactly on `to`.
-        let tau = runMs / 3
-        let span = 1 - exp(-3.0)
-        let start = ContinuousClock.now
+        let run = glideRun
+        let parts = run.components
+        let runMs = Double(parts.seconds) * 1000 + Double(parts.attoseconds) / 1e15
+        gliding = Glide(from: from, to: to, start: clock(), runMs: runMs)
         glide = Task { [weak self] in
-            while !Task.isCancelled {
-                let parts = (ContinuousClock.now - start).components
-                let elapsed = Double(parts.seconds) * 1000 + Double(parts.attoseconds) / 1e15
-                guard let self else { return }
-                if elapsed >= runMs {
-                    self.settleScrub(at: to)
-                    return
-                }
-                let share = (1 - exp(-elapsed / tau)) / span
-                self.scrubbingMs = from + Int64((Double(to - from) * share).rounded())
-                try? await Task.sleep(for: .milliseconds(16))
-            }
+            try? await Task.sleep(for: run)
+            guard !Task.isCancelled else { return }
+            self?.settleScrub(at: to)
         }
     }
 

@@ -14,7 +14,7 @@ extension PracticeModel {
     var placedLoops: [PlacedLoop] {
         var rows = loops
         if let selected, !rows.contains(where: { $0.id == selected.id }) { rows.append(selected) }
-        return rows.map { PlacedLoop(id: $0.id, span: shownSpan($0.id) ?? Self.span($0), color: $0.color) }
+        return rows.map { PlacedLoop(id: $0.id, span: shownSpan(of: $0), color: $0.color) }
             .sorted { $0.span.startMs < $1.span.startMs }
     }
 
