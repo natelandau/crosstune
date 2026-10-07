@@ -36,14 +36,46 @@ public func foldText(_ text: String) -> String {
     return (String(bare) as NSString).lowercased.replacingOccurrences(of: "\u{3C2}", with: "\u{3C3}", options: .literal)
 }
 
+/// A value's ``foldText(_:)`` key as UTF-16 code units, folded once so it can be compared with
+/// many others without folding it again.
+public struct FoldedText: Hashable, Sendable {
+    public let units: [UInt16]
+
+    public init(_ text: String) {
+        units = Array(foldText(text).utf16)
+    }
+
+    /// Whether the value folds to nothing, as blank or combining marks alone do.
+    public var isEmpty: Bool { units.isEmpty }
+}
+
 /// True when two values fold to the same key.
 public func sameText(_ a: String, _ b: String) -> Bool {
-    foldText(a).utf16.elementsEqual(foldText(b).utf16)
+    sameText(FoldedText(a), FoldedText(b))
+}
+
+/// ``sameText(_:_:)`` for values already folded.
+public func sameText(_ a: FoldedText, _ b: FoldedText) -> Bool {
+    a.units == b.units
 }
 
 /// True when the folded needle appears anywhere in the folded haystack.
 public func containsText(_ haystack: String, _ needle: String) -> Bool {
-    let key = foldText(needle)
+    let key = FoldedText(needle)
+    return key.isEmpty || containsText(FoldedText(haystack), key)
+}
+
+/// ``containsText(_:_:)`` for values already folded.
+public func containsText(_ haystack: FoldedText, _ needle: FoldedText) -> Bool {
     // Searched by code unit, as JavaScript's `includes` searches, never by canonical equivalence.
-    return key.isEmpty || foldText(haystack).utf16.firstRange(of: key.utf16) != nil
+    // A plain scan, since the generic `firstRange(of:)` costs far more on these short arrays.
+    let (units, key) = (haystack.units, needle.units)
+    guard let first = key.first else { return true }
+    guard key.count <= units.count else { return false }
+    for start in 0...(units.count - key.count) where units[start] == first {
+        var offset = 1
+        while offset < key.count, units[start + offset] == key[offset] { offset += 1 }
+        if offset == key.count { return true }
+    }
+    return false
 }

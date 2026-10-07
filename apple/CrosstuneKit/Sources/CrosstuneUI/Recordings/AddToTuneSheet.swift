@@ -40,14 +40,15 @@ public final class AddToTuneModel {
     public private(set) var isFiling = false
 
     private let store: CrosstuneStore
-    private let entries: LiveQuery<[CatalogEntry]?>
+    private let entries: LiveQuery<[SearchableEntry]?>
     private let storedInstruments: LiveQuery<Set<String>?>
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "add-to-tune")
 
     public init(store: CrosstuneStore, recordingID: String) {
         self.store = store
         self.recordingID = recordingID
-        entries = LiveQuery(store, initial: nil, fetch: CatalogModel.fetchEntries)
+        // Folded on the store's reader rather than on each keystroke.
+        entries = LiveQuery(store, initial: nil) { try CatalogModel.fetchEntries($0).map(SearchableEntry.init) }
         let settingsRow = settingsID(clerkUserID: store.userID)
         storedInstruments = LiveQuery(store, initial: nil) { db in
             guard let row = try UserSettings.fetchOne(db, key: settingsRow), row.deletedAt == nil else { return [] }
@@ -65,9 +66,9 @@ public final class AddToTuneModel {
     /// would offer to start a tune that is already there.
     public var results: Results? {
         guard let entries = entries.value else { return nil }
-        let matches = isIdle ? [] : CatalogSearch.filter(entries, by: CatalogFilters(archived: true), query: query)
+        let matches = isIdle ? [] : CatalogSearch.matching(entries, query: query)
         return Results(
-            rows: Array(matches.prefix(Self.maxResults)), matches: matches,
+            rows: matches.prefix(Self.maxResults).map(\.entry), matches: matches.map(\.entry),
             outcome: SearchOutcome(entries: entries, visible: matches, query: query, archivedShown: true))
     }
 

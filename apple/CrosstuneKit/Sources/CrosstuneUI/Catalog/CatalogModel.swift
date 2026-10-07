@@ -5,7 +5,8 @@ import GRDB
 import Observation
 import os
 
-/// Everything the catalog screen shows at one moment, worked out once per redraw.
+/// Everything the catalog screen shows at one moment, worked out again only when something it
+/// reads changes.
 public struct CatalogResults: Sendable {
     /// Every tune in the catalog, archived included.
     public let entries: [CatalogEntry]
@@ -54,6 +55,8 @@ public struct CatalogResults: Sendable {
 /// rather than on every keystroke of a search.
 struct CatalogOverview: Sendable {
     let entries: [CatalogEntry]
+    /// The entries in the same order, with the text a search reads already folded.
+    let searchable: [SearchableEntry]
     let instruments: Set<String>
     let facetValues: [CatalogFacet: [String]]
     let facets: [CatalogFacet]
@@ -62,6 +65,7 @@ struct CatalogOverview: Sendable {
 
     init(entries: [CatalogEntry], instruments: Set<String>) {
         self.entries = entries
+        searchable = entries.map(SearchableEntry.init)
         self.instruments = instruments
         facetValues = CatalogSearch.facetValues(entries)
         facets = CatalogSearch.visibleFacets(facetValues, instruments: instruments)
@@ -108,11 +112,17 @@ public final class CatalogModel {
     /// The filters as the screen shows them: a change is applied here at once and written after.
     private var filters: CatalogFilters?
     private var writesInFlight = 0
+    /// The latest filter write, which the next one waits for.
+    @ObservationIgnored private var lastWrite: Task<Void, Never>?
     private var overview: CatalogOverview?
+    /// The catalog narrowed by the filters, kept while only the query or the order changes.
+    @ObservationIgnored private var narrowed: (revision: Int, filters: CatalogFilters, entries: [SearchableEntry])?
+    @ObservationIgnored private var cachedResults: (key: ResultsKey, results: CatalogResults)?
     /// Counts each time the stored tunes or instruments are read anew, so a screen can tell a
     /// catalog change from a search.
     public private(set) var catalogRevision = 0
     @ObservationIgnored private var following: [Task<Void, Never>] = []
+    @ObservationIgnored private var overviewBuild = 0
     /// The count as last read out, or as first loaded.
     @ObservationIgnored private var spokenCount: String?
     private static let logger = Logger(subsystem: "app.crosstune.Crosstune", category: "catalog")
@@ -141,8 +151,7 @@ public final class CatalogModel {
             Task { [weak self] in
                 for await (entries, instruments) in Observations({ @MainActor in (entries.value, instruments.value) }) {
                     guard let entries, let instruments else { continue }
-                    self?.overview = CatalogOverview(entries: entries, instruments: instruments)
-                    self?.catalogRevision += 1
+                    self?.buildOverview(entries: entries, instruments: instruments)
                 }
             },
         ]
@@ -151,6 +160,21 @@ public final class CatalogModel {
 
     isolated deinit {
         for task in following { task.cancel() }
+    }
+
+    /// Works out the overview off the main actor. Only the latest build lands, so a slow build
+    /// of an older catalog never replaces a newer one.
+    private func buildOverview(entries: [CatalogEntry], instruments: Set<String>) {
+        overviewBuild += 1
+        let build = overviewBuild
+        Task { [weak self] in
+            let overview = await Task.detached(priority: .userInitiated) {
+                CatalogOverview(entries: entries, instruments: instruments)
+            }.value
+            guard let self, build == overviewBuild else { return }
+            self.overview = overview
+            catalogRevision += 1
+        }
     }
 
     private func followLastPlayed() {
@@ -181,9 +205,18 @@ public final class CatalogModel {
                     RecordingLink.filter(RecordingLink.CodingKeys.deletedAt == nil)
                         .select(RecordingLink.CodingKeys.tuneID)))
         }
+        // Read in nearly title order, so the locale-aware sort that decides the order finds long
+        // sorted runs and makes few comparisons.
+        let (tunes, userTunes) = (Tune.databaseTableName, UserTune.databaseTableName)
+        let byTitle = """
+            (SELECT \(tunes).\(Tune.CodingKeys.title.rawValue) FROM \(tunes)
+            WHERE \(tunes).\(Tune.CodingKeys.id.rawValue) = \(userTunes).\(UserTune.CodingKeys.tuneID.rawValue))
+            """
         return CatalogSearch.entries(
             tunes: try Tune.filter(Tune.CodingKeys.deletedAt == nil).fetchAll(db),
-            userTunes: try UserTune.filter(UserTune.CodingKeys.deletedAt == nil).fetchAll(db), heard: heard)
+            userTunes: try UserTune.filter(UserTune.CodingKeys.deletedAt == nil)
+                .order(sql: "\(byTitle) COLLATE NOCASE").fetchAll(db),
+            heard: heard)
     }
 
     /// A stored change from elsewhere, such as another window, replaces what the screen shows.
@@ -198,24 +231,47 @@ public final class CatalogModel {
     public var isSavingFilters: Bool { writesInFlight > 0 }
 
     /// The status filter in force, nil for every status or before the filters are read. Cheaper
-    /// to watch than ``results``, which filters and sorts the catalog on each read.
+    /// to watch than ``results``, which also changes with the query, the order, and the catalog.
     public var status: String? { filters?.status }
 
-    /// Nil until the catalog, the filters, and the instruments have all been read.
+    /// What ``results`` was worked out from.
+    private struct ResultsKey: Equatable {
+        let revision: Int
+        let filters: CatalogFilters
+        let query: String
+        let sort: CatalogSortChoice
+        let lastPlayed: [String: Timestamp]
+    }
+
+    /// Nil until the catalog, the filters, and the instruments have all been read. Every read
+    /// still touches what it depends on, so a view reading it redraws when any of them changes,
+    /// but the catalog is filtered and sorted again only then.
     public var results: CatalogResults? {
         guard let overview, let filters else { return nil }
+        let key = ResultsKey(
+            revision: catalogRevision, filters: filters, query: query, sort: sort,
+            lastPlayed: sort.sort == .played ? lastPlayed?.value ?? [:] : [:])
+        if let cachedResults, cachedResults.key == key { return cachedResults.results }
         let entries = overview.entries
         let effective = filters.clearingHidden(visible: overview.facets)
-        let visible = CatalogSearch.sorted(
-            CatalogSearch.filter(entries, by: effective, query: query), by: sort,
-            lastPlayed: sort.sort == .played ? lastPlayed?.value ?? [:] : [:])
-        return CatalogResults(
+        let narrowed =
+            if let narrowed = self.narrowed, narrowed.revision == key.revision, narrowed.filters == effective {
+                narrowed.entries
+            } else {
+                CatalogSearch.narrowed(overview.searchable, by: effective)
+            }
+        self.narrowed = (key.revision, effective, narrowed)
+        let matches = CatalogSearch.matching(narrowed, query: query)
+        let visible = CatalogSearch.sorted(matches.map(\.entry), by: sort, lastPlayed: key.lastPlayed)
+        let results = CatalogResults(
             entries: entries, instruments: overview.instruments, filters: effective,
             facetValues: overview.facetValues, facets: overview.facets, visible: visible,
             outcome: SearchOutcome(
-                entries: entries, visible: visible, query: query, archivedShown: effective.archived),
+                entries: overview.searchable, visible: matches, query: query, archivedShown: effective.archived),
             total: effective.archived ? entries.count : entries.count - overview.archivedCount,
             archivedCount: overview.archivedCount, missingChoices: overview.missingChoices)
+        cachedResults = (key, results)
+        return results
     }
 
     /// The count to read out after the filters or the stored tunes change, or nil when its
@@ -255,7 +311,11 @@ public final class CatalogModel {
     private func write(_ apply: @escaping @Sendable (CatalogFilters) -> CatalogFilters, showing shown: CatalogFilters) {
         filters = shown
         writesInFlight += 1
-        Task {
+        // The store runs each write off the main actor, so two started together could land in
+        // either order; waiting for the one before keeps the last change the one that stays.
+        let previous = lastWrite
+        lastWrite = Task {
+            await previous?.value
             do {
                 // Merged onto the row read inside the transaction, so each write builds on the
                 // one before it rather than on a value read before it.

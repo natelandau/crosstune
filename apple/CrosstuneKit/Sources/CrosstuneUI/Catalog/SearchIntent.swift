@@ -1,3 +1,4 @@
+import CrosstuneVocabulary
 import Foundation
 
 /// An exact title match that search found but a filter or the archived setting hides.
@@ -34,16 +35,25 @@ public enum SearchOutcome: Hashable, Sendable {
     /// looked for across the whole catalog so a tune hidden by a filter is pointed to before a
     /// second one is added.
     public init(entries: [CatalogEntry], visible: [CatalogEntry], query: String, archivedShown: Bool) {
+        self.init(
+            entries: entries.map(SearchableEntry.init), visible: visible.map(SearchableEntry.init), query: query,
+            archivedShown: archivedShown)
+    }
+
+    /// ``init(entries:visible:query:archivedShown:)`` over entries whose titles are already
+    /// folded. Only membership in `visible` counts, so its order does not matter.
+    public init(entries: [SearchableEntry], visible: [SearchableEntry], query: String, archivedShown: Bool) {
         let title = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else {
             self = .none
             return
         }
-        if visible.contains(where: { CatalogSearch.titleMatches($0.tune, query: title) }) {
+        let key = FoldedText(title)
+        if visible.contains(where: { CatalogSearch.titleMatches($0, key) }) {
             self = .create(title: title, another: true, hidden: nil)
             return
         }
-        guard let entry = entries.first(where: { CatalogSearch.titleMatches($0.tune, query: title) }) else {
+        guard let entry = entries.first(where: { CatalogSearch.titleMatches($0, key) })?.entry else {
             self = .create(title: title, another: false, hidden: nil)
             return
         }
