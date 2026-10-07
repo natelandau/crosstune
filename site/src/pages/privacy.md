@@ -7,7 +7,7 @@ path: /privacy
 
 # Privacy policy
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 Crosstune is run by Nathaniel Landau, an individual. This page explains what data the service holds and who handles it. Questions go to [support@crosstune.app](mailto:support@crosstune.app).
 
@@ -41,7 +41,7 @@ There are no ads and no analytics on Crosstune. We do not sell your data.
 
 ## Storage limit
 
-Free accounts hold 1 GB of recordings and scans together.
+Free accounts hold 50 MB of recordings and scans together. Premium accounts hold 5 GB.
 
 ## Deleting your account
 

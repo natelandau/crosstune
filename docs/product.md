@@ -86,7 +86,7 @@ for Android and every browser. The parts that matter:
   it is ready. Every recording reaches the musician's other devices. A
   recording can be trimmed for good, and plays at a slower or faster speed
   and a shifted pitch on every device. A recording keeps labeled practice
-  loops that repeat. Free accounts hold 1 GB.
+  loops that repeat. Free accounts hold 50 MB and Premium accounts 5 GB.
 - Lyrics. A full-screen reading view that keeps the screen awake.
 - Browse. The catalog filtered by status and attributes, with text search.
   Filters persist.

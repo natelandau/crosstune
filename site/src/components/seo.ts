@@ -1,12 +1,29 @@
-// The home page's search title, description, and schema.org description of the site.
+// The home page's search title, description, and schema.org description of the site, its
+// plans, and its questions.
 // Search copy says fiddle, the word players type.
 import { APP_URL, SUPPORT_EMAIL } from './actions'
+import { FAQ } from './faq'
+import { PLAN_FREE, PLAN_PREMIUM, PRICES } from './pricing'
 
 export const HOME_TITLE = 'Crosstune: your tune list, recordings, and practice tools'
 export const HOME_DESCRIPTION =
   'Tunes with the recordings you learn from. Slow them down, loop, record your own. Free tune list for fiddle and banjo: old-time, bluegrass, Irish, folk, by ear.'
 
 const SITE = 'https://crosstune.app/'
+
+const amount = (price: string) => price.replace(/^\$/, '')
+const premium = (price: string, unitCode: 'MON' | 'ANN') => ({
+  '@type': 'Offer',
+  name: PLAN_PREMIUM.name,
+  price: amount(price),
+  priceCurrency: 'USD',
+  priceSpecification: {
+    '@type': 'UnitPriceSpecification',
+    price: amount(price),
+    priceCurrency: 'USD',
+    referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode },
+  },
+})
 
 export const STRUCTURED_DATA = {
   '@context': 'https://schema.org',
@@ -25,13 +42,26 @@ export const STRUCTURED_DATA = {
       name: 'Crosstune',
       url: APP_URL,
       applicationCategory: 'MusicApplication',
-      operatingSystem: 'Any web browser',
+      operatingSystem: 'iOS, iPadOS, macOS, Android, any web browser',
       description: HOME_DESCRIPTION,
+      offers: [
+        { '@type': 'Offer', name: PLAN_FREE.name, price: '0', priceCurrency: 'USD' },
+        premium(PRICES.monthly, 'MON'),
+        premium(PRICES.yearly, 'ANN'),
+      ],
       publisher: { '@id': `${SITE}#organization` },
       audience: {
         '@type': 'Audience',
         audienceType: 'Old-time, bluegrass, Irish, and folk musicians who learn by ear',
       },
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: FAQ.map(({ question, answer }) => ({
+        '@type': 'Question',
+        name: question,
+        acceptedAnswer: { '@type': 'Answer', text: answer },
+      })),
     },
   ],
 }

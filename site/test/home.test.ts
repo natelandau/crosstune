@@ -24,6 +24,7 @@ import {
   PLAN_FREE,
   PLAN_PREMIUM,
   PRICE_LINE,
+  PRICES,
   PRICING_LEDE,
   PRICING_TITLE,
 } from '../src/components/pricing'
@@ -563,7 +564,27 @@ describe('home page head', () => {
       'WebSite',
       'Organization',
       'WebApplication',
+      'FAQPage',
     ])
+  })
+
+  it('prices the plans as the pricing section does', () => {
+    const app = STRUCTURED_DATA['@graph'].find((node) => node['@type'] === 'WebApplication')
+    const shown = doc.querySelector('#pricing')?.textContent ?? ''
+    const prices = (app?.offers ?? []).map((offer) => offer.price)
+    expect(prices.map((price) => `$${price}`)).toEqual(['$0', PRICES.monthly, PRICES.yearly])
+    for (const price of prices.slice(1)) expect(shown).toContain(`$${price}`)
+  })
+
+  it('answers the questions the page shows, in order', () => {
+    const faq = STRUCTURED_DATA['@graph'].find((node) => node['@type'] === 'FAQPage')
+    const shown = [...doc.querySelectorAll('#questions details')].map((item) => ({
+      name: text(item.querySelector('summary') as Element),
+      text: text(item.querySelector('.answer') as Element),
+    }))
+    expect(
+      (faq?.mainEntity ?? []).map((q) => ({ name: q.name, text: q.acceptedAnswer.text })),
+    ).toEqual(shown)
   })
 })
 

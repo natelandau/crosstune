@@ -1,0 +1,4 @@
+# The X-Robots-Tag header keeps every page out of search results, and a
+# crawler sees that header only on pages it may fetch.
+User-agent: *
+Allow: /

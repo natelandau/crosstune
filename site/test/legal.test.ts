@@ -30,7 +30,7 @@ describe('/privacy', () => {
     expect(text).toContain(phrase)
   })
 
-  it.each(['no ads', 'no analytics', '1 GB'])('states "%s"', (phrase) => {
+  it.each(['no ads', 'no analytics', '50 MB', '5 GB'])('states "%s"', (phrase) => {
     expect(text.toLowerCase()).toContain(phrase.toLowerCase())
   })
 })
