@@ -449,7 +449,7 @@ struct KeyGridView: View {
         let spreads = spreads
         let content = content()
             .frame(
-                minWidth: 44, maxWidth: spreads ? .infinity : nil, minHeight: 44,
+                minWidth: minimumTapTarget, maxWidth: spreads ? .infinity : nil, minHeight: minimumTapTarget,
                 alignment: spreads ? alignment : .center)
         if let open, let facets {
             Button {

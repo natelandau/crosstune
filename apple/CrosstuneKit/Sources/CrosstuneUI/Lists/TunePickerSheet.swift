@@ -41,9 +41,7 @@ public struct TunePickerSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
             #endif
         }
-        #if os(macOS)
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 480, idealHeight: 560)
-        #endif
+        .macSheetFrame(.picker)
         .task {
             guard model == nil, let store else { return }
             model = TunePickerModel(store: store, listID: listID, onLateFailure: onLateFailure)

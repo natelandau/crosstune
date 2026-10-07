@@ -113,7 +113,7 @@ public final class EditRecordingModel {
             return true
         } catch {
             Self.logger.warning("A recording edit failed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             return false
         }
     }
@@ -150,7 +150,7 @@ public struct EditRecordingSheet: View {
             .presentationDetents([.large])
             .shellSheet()
         #else
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 380)
+            .macSheetFrame(.form(minHeight: 380))
             .shellSheet()
         #endif
         .task {

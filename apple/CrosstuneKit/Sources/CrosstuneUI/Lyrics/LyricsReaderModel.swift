@@ -57,7 +57,7 @@ final class LyricsReaderModel {
             return true
         } catch {
             Self.logger.warning("A lyrics save failed: \(error)")
-            failure = (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
+            failure = failureMessage(error)
             return false
         }
     }

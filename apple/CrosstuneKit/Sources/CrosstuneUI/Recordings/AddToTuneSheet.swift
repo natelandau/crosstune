@@ -89,7 +89,7 @@ public final class AddToTuneModel {
             return true
         } catch {
             Self.logger.warning("A recording could not be filed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             isFiling = false
             return false
         }
@@ -143,9 +143,7 @@ public struct AddToTuneSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
             #endif
         }
-        #if os(macOS)
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 480, idealHeight: 560)
-        #endif
+        .macSheetFrame(.picker)
         .task {
             guard model == nil, let store else { return }
             model = AddToTuneModel(store: store, recordingID: recordingID)

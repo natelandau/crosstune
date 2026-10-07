@@ -156,7 +156,7 @@ public final class CatalogModel {
     private func followLastPlayed() {
         guard lastPlayed == nil else { return }
         lastPlayed = LiveQuery(store, initial: nil) { db in
-            CatalogSearch.lastPlayed(plays: try PlayEvent.fetchAll(db), sessions: try PracticeSession.fetchAll(db))
+            try CatalogSearch.lastPlayed(db)
         }
     }
 
@@ -289,7 +289,7 @@ public final class CatalogModel {
         do {
             try await Commands(store: store).setArchived(entry.userTune.id, archived: archived)
         } catch {
-            actionError = (error as? LocalizedError)?.errorDescription ?? Self.actionFailed
+            actionError = failureMessage(error)
         }
     }
 }

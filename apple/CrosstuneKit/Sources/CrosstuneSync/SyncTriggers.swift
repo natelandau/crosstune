@@ -134,7 +134,7 @@ public final class SyncTriggers {
                         onChange(value)
                     }
                 } catch {
-                    logger.error("Sync trigger watch failed: \(String(describing: error), privacy: .public)")
+                    logger.error("Sync trigger watch failed: \(logDescription(of: error), privacy: .public)")
                 }
             })
     }

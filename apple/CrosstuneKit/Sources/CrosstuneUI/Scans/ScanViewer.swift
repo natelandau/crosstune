@@ -93,7 +93,7 @@ final class ScanViewerModel {
             try await Commands(store: store).deleteScan(scanID)
         } catch {
             Self.logger.warning("Deleting a scan from the viewer failed: \(error)")
-            failure = (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
+            failure = failureMessage(error)
         }
     }
 
@@ -111,16 +111,6 @@ final class ScanViewerModel {
 /// it is up. Full screen on iPhone and iPad; a window-filling sheet on Mac, closed by Escape.
 public struct ScanViewer: View {
     public static let invertStorageKey = "crosstune.scanInvert"
-    /// Where builds that called scans notation kept the Invert choice.
-    static let legacyInvertStorageKey = "crosstune.notationInvert"
-
-    /// Carries the Invert choice over from ``legacyInvertStorageKey``. Call at launch, before
-    /// any viewer reads it.
-    public static func moveLegacyInvert(in defaults: UserDefaults = .standard) {
-        guard let value = defaults.object(forKey: legacyInvertStorageKey) else { return }
-        if defaults.object(forKey: invertStorageKey) == nil { defaults.set(value, forKey: invertStorageKey) }
-        defaults.removeObject(forKey: legacyInvertStorageKey)
-    }
 
     private let tuneID: String
     private let startIndex: Int
@@ -289,11 +279,7 @@ private struct ScanViewerBody: View {
         .coversShell(deleting != nil)
         .confirmationDialog(
             ScanCopy.deleteTitle,
-            isPresented: Binding {
-                deleting != nil
-            } set: {
-                if !$0 { deleting = nil }
-            },
+            isPresented: $deleting.isPresent(),
             titleVisibility: .visible, presenting: deleting
         ) { scan in
             Button(ScanCopy.delete, role: .destructive) {
@@ -542,7 +528,7 @@ struct ScanScreens: ViewModifier {
             #if os(macOS)
                 .sheet(item: $request) { request in
                     ScanViewer(tuneID: request.tuneID, startIndex: request.startIndex)
-                    .frame(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900)
+                    .macSheetFrame(MacSheetSize(minWidth: 640, idealWidth: 820, minHeight: 640, idealHeight: 900))
                     .onDisappear { log.viewerDisappeared(tuneID: request.tuneID) }
                 }
             #else

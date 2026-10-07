@@ -37,6 +37,10 @@ public struct TuneDetail: Hashable, Sendable {
     public let instruments: Set<String>
     /// The music services the musician searches for recordings, in the order they list.
     public let searchProviders: [String]
+    /// Whether the lyrics hold words: whitespace alone would open the reading view on a blank page.
+    public let hasLyrics: Bool
+    /// The lyrics' first line, or nil when they have none.
+    public let lyricsOpening: String?
 
     public init(
         tune: Tune, userTune: UserTune, links: [RecordingLink] = [], recordings: [TuneRecording] = [],
@@ -49,6 +53,9 @@ public struct TuneDetail: Hashable, Sendable {
         self.lists = lists
         self.instruments = instruments
         self.searchProviders = searchProviders
+        let verses = LyricLines.lines(tune.lyrics)
+        hasLyrics = !verses.isEmpty
+        lyricsOpening = verses.first?.first.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     public var isArchived: Bool { userTune.archivedAt != nil }
@@ -67,11 +74,6 @@ public struct TuneDetail: Hashable, Sendable {
     /// The tune's other names, joined, or nil when it has none.
     public var alternateTitles: String? {
         tune.alternateTitles.isEmpty ? nil : tune.alternateTitles.joined(separator: ", ")
-    }
-
-    /// Whether the lyrics hold words: whitespace alone would open the reading view on a blank page.
-    public var hasLyrics: Bool {
-        !LyricLines.lines(tune.lyrics).isEmpty
     }
 
     /// The musician's notes, or nil when they hold only whitespace.
@@ -99,16 +101,9 @@ public struct TuneDetail: Hashable, Sendable {
     /// A stored `YYYY-MM-DD` as a date, read as a local calendar day so no time zone moves it.
     /// Anything else shows as stored.
     static func learnedOn(_ value: String, locale: Locale) -> String {
-        let parts = value.split(separator: "-", omittingEmptySubsequences: false)
-        guard parts.count == 3, parts.map(\.count) == [4, 2, 2],
-            let year = Int(parts[0]), let month = Int(parts[1]), let day = Int(parts[2])
-        else { return value }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .gmt
-        guard
-            let date = calendar.date(from: DateComponents(year: year, month: month, day: day)),
-            calendar.component(.day, from: date) == day
-        else { return value }
+        guard let date = CalendarDay.date(value, calendar: calendar) else { return value }
         return date.formatted(
             Date.FormatStyle(locale: locale, calendar: calendar, timeZone: .gmt).month(.abbreviated).day().year())
     }

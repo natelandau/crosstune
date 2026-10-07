@@ -14,7 +14,7 @@
                         Button(AccountView.done) { dismiss() }
                     }
                 }
-                .frame(minWidth: 520, idealWidth: 560, minHeight: 480, idealHeight: 640)
+                .macSheetFrame(MacSheetSize(minWidth: 520, idealWidth: 560, minHeight: 480, idealHeight: 640))
                 .shellSheet()
         }
     }

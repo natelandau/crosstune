@@ -256,7 +256,7 @@ public final class RecordingsModel {
                 try await RecordingImport.add(url, to: store, tuneID: nil)
             } catch {
                 Self.logger.warning("An audio import failed: \(error)")
-                let message = ListModel.message(error)
+                let message = failureMessage(error)
                 refusal =
                     refusal ?? (urls.count > 1 ? RecordingImport.refused(url.lastPathComponent, message) : message)
             }
@@ -273,7 +273,7 @@ public final class RecordingsModel {
     /// Keeps the failure of a write made elsewhere on this screen, such as a Retry.
     public func report(_ error: any Error) {
         Self.logger.warning("A recordings write failed: \(error)")
-        failure = ListModel.message(error)
+        failure = failureMessage(error)
     }
 
     /// Runs a write the screen started, keeping its failure's message to show.

@@ -157,7 +157,7 @@ struct PanelStepButton: View {
             Label(name, systemImage: systemImage)
                 .labelStyle(.iconOnly)
                 .font(.body.weight(.semibold))
-                .frame(width: 44, height: 44)
+                .frame(width: minimumTapTarget, height: minimumTapTarget)
                 .background(neutralFill(colorScheme), in: .circle)
                 .contentShape(.circle)
         }

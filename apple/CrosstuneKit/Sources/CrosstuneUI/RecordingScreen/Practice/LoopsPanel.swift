@@ -64,7 +64,7 @@ struct LoopsPanel: View {
                 .fixedSize()
                 .padding(.horizontal, spacing(12))
                 .padding(.vertical, spacing.chipVertical)
-                .frame(minHeight: 44)
+                .frame(minHeight: minimumTapTarget)
                 .background(neutralFill(colorScheme), in: .capsule)
                 .contentShape(.capsule)
             }

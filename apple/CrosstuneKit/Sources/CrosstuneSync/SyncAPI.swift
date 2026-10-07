@@ -74,6 +74,12 @@ public struct PulledRow: Hashable, Sendable {
     }
 }
 
+/// A page of a cursor-paged read: rows, the cursor after them, and whether more follow.
+protocol CursorPage: Sendable {
+    var nextSince: Int64 { get }
+    var hasMore: Bool { get }
+}
+
 public struct PullPage: Hashable, Sendable {
     public var rows: [PulledRow]
     /// The cursor the next page starts after.
@@ -273,3 +279,6 @@ public struct TransferError: Error, Equatable {
 
     public var message: String { "Object transfer failed with status \(status)" }
 }
+
+extension PullPage: CursorPage {}
+extension EventsPage: CursorPage {}

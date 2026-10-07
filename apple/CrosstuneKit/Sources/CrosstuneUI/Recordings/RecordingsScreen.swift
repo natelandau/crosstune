@@ -38,7 +38,7 @@ struct StorageSummary: View {
     @Environment(\.spacing) private var spacing
 
     var body: some View {
-        let text = SettingsModel.storageText(storage)
+        let text = RecordingText.storageUsed(storage)
         VStack(alignment: .leading, spacing: spacing(6)) {
             Text(text)
                 .font(.footnote)
@@ -289,11 +289,7 @@ private struct RecordingsContent: View {
         .coversShell(deleting != nil)
         .confirmationDialog(
             RecordingsModel.deleteTitle,
-            isPresented: Binding {
-                deleting != nil
-            } set: {
-                if !$0 { deleting = nil }
-            },
+            isPresented: $deleting.isPresent(),
             titleVisibility: .visible, presenting: deleting
         ) { view in
             Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
@@ -317,11 +313,7 @@ private struct RecordingsContent: View {
         .coversShell(discarding != nil)
         .confirmationDialog(
             RecordingsModel.deleteTitle,
-            isPresented: Binding {
-                discarding != nil
-            } set: {
-                if !$0 { discarding = nil }
-            },
+            isPresented: $discarding.isPresent(),
             titleVisibility: .visible, presenting: discarding
         ) { capture in
             Button(RecordingRowActions.delete, role: .destructive) {
@@ -512,7 +504,7 @@ private struct RecordingsContent: View {
             #else
                 .font(.footnote.bold())
                 .foregroundStyle(.secondary)
-                .frame(minHeight: 44)
+                .frame(minHeight: minimumTapTarget)
             #endif
             .contentShape(.rect)
         }

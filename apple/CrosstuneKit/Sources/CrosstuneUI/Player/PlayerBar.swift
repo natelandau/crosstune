@@ -92,7 +92,7 @@ public struct PlayerBar: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
             closeButton
         }
         .padding(.leading, 16)
@@ -104,7 +104,7 @@ public struct PlayerBar: View {
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
             .contentShape(.rect)
     }
 
@@ -134,7 +134,7 @@ public struct PlayerBar: View {
                 Button(PlaylistControlText.next, systemImage: "forward.fill") { playback.next() }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.plain)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                     .contentShape(.rect)
                     .help(PlaylistControlText.next)
             }
@@ -190,7 +190,7 @@ public struct PlayerBar: View {
                     PlayerFailureText(failure).lineLimit(1)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: minimumTapTarget, alignment: .leading)
             if player.item?.kind == .recording {
                 SettingsBadge(speedPercent: player.speedPercent, pitchCents: player.pitchCents)
             }
@@ -256,7 +256,7 @@ struct RepeatBadge: View {
                     .padding(.horizontal, 8)
                     .frame(minHeight: 22)
                     .background(.tint, in: .capsule)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -266,7 +266,7 @@ struct RepeatBadge: View {
                 Label(PracticeText.repeatLoop(name), systemImage: "repeat")
                     .labelStyle(.iconOnly)
                     .foregroundStyle(.tint)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)

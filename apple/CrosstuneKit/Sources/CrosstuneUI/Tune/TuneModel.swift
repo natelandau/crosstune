@@ -155,7 +155,7 @@ public final class TuneModel {
         } catch {
             Self.logger.warning("A tune screen write failed: \(error)")
             failure = Failure(
-                message: (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed, place: place)
+                message: failureMessage(error), place: place)
             return false
         }
     }

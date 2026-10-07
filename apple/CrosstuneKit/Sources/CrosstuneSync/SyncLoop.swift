@@ -106,7 +106,7 @@ final class SyncLoop<Status: LoopStatus> {
             let next = classify(error)
             // Once per streak: a retry that fails the same way adds nothing.
             if next != .offline && failures == 0 {
-                logger.error("Run failed: \(String(describing: error), privacy: .public)")
+                logger.error("Run failed: \(logDescription(of: error), privacy: .public)")
             }
             status = next
             if !isStopped() { scheduleRetry() }

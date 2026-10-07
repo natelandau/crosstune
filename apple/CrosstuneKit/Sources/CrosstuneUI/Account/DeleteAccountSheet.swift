@@ -140,7 +140,7 @@ public struct DeleteAccountSheet: View {
             .presentationDetents([.large])
             .shellSheet()
         #else
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 480)
+            .macSheetFrame(.form(minHeight: 480))
             .shellSheet()
         #endif
         .interactiveDismissDisabled(pending)
@@ -155,7 +155,7 @@ public struct DeleteAccountSheet: View {
                 try await session.deleteAccount()
                 dismiss()
             } catch {
-                failure = error.localizedDescription
+                failure = failureMessage(error)
             }
         }
     }

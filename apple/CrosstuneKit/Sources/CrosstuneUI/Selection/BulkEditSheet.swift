@@ -80,9 +80,7 @@ struct BulkEditSheet: View {
                 }
             }
         }
-        #if os(macOS)
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 560, idealHeight: 720)
-        #endif
+        .macSheetFrame(.longForm)
         // A touched row leaves only through Cancel, and nothing leaves while the save runs.
         .interactiveDismissDisabled(form.isEdited || bulk.isPending)
         .onAppear { bulk.clearEditFailure() }

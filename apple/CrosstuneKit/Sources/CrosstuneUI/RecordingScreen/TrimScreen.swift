@@ -29,16 +29,25 @@ struct TrimScreen: View {
     private static let commandModifiers: EventModifiers = [.command, .control, .option]
 
     /// One reading of the player, which Play selection watches to stop on the end handle.
-    private struct Reading: Equatable {
+    fileprivate struct Reading: Equatable {
         let playing: Bool
         let elapsed: TimeInterval
     }
 
+    /// Where the playhead is on the source, in ms: the start of the bounds until audio loads.
+    fileprivate static func playheadMs(_ player: PlayerModel, in model: TrimModel) -> Double {
+        Double(model.bounds.lowerBound) + (isReady(player) ? player.audio.elapsed * 1000 : 0)
+    }
+
+    /// Whether the recording's audio is loaded and playable.
+    private static func isReady(_ player: PlayerModel) -> Bool {
+        player.recordingAudio == .loaded && !player.audio.hasFailed
+    }
+
     var body: some View {
         @Bindable var model = model
-        let ready = player.recordingAudio == .loaded && !player.audio.hasFailed
+        let ready = Self.isReady(player)
         let playing = ready && player.audio.isPlaying
-        let playheadMs = Double(model.bounds.lowerBound) + (ready ? player.audio.elapsed * 1000 : 0)
         ScrollView {
             VStack(spacing: 20) {
                 if let message = player.failure ?? failure {
@@ -46,10 +55,10 @@ struct TrimScreen: View {
                 }
                 TrimStrip(
                     model: model, range: Double(model.bounds.lowerBound)...Double(model.bounds.upperBound),
-                    peaks: peaks, playheadMs: playheadMs, height: 56, announced: true, keyboard: $keyboard,
+                    peaks: peaks, player: player, height: 56, announced: true, keyboard: $keyboard,
                     onSeek: seek)
                 TrimStrip(
-                    model: model, range: model.detailWindow(), peaks: peaks, playheadMs: playheadMs, height: 96,
+                    model: model, range: model.detailWindow(), peaks: peaks, player: player, height: 96,
                     announced: false, keyboard: $keyboard, onSeek: seek
                 )
                 // The overview's handles and the readouts reach everything this does.
@@ -135,9 +144,7 @@ struct TrimScreen: View {
         .onChange(of: isPinching) { _, pinching in
             if !pinching { model.endPinch() }
         }
-        .onChange(of: Reading(playing: player.audio.isPlaying, elapsed: player.audio.elapsed)) { _, reading in
-            follow(reading)
-        }
+        .background { ReadingWatch(player: player, onChange: follow) }
         .onDisappear {
             stop.disarm()
             model.leave()
@@ -276,6 +283,21 @@ struct TrimScreen: View {
     }
 }
 
+/// Watches the player's position for the trim screen. It reads the position in a body of its
+/// own, so the playback tick re-runs this and not the screen around it.
+private struct ReadingWatch: View {
+    let player: PlayerModel
+    let onChange: (TrimScreen.Reading) -> Void
+
+    var body: some View {
+        Color.clear
+            .onChange(of: TrimScreen.Reading(playing: player.audio.isPlaying, elapsed: player.audio.elapsed)) {
+                _, reading in
+                onChange(reading)
+            }
+    }
+}
+
 /// Bars for `range` of the source with the selection lit and a handle at each end of it. The
 /// overview's handles are what VoiceOver and the keyboard reach; the detail's repeat them for
 /// touch and the pointer alone, so each handle is announced once. Tap or drag the bars to move
@@ -286,7 +308,8 @@ private struct TrimStrip: View {
     let range: ClosedRange<Double>
     /// Peaks from the start of `model.bounds`.
     let peaks: ShownPeaks?
-    let playheadMs: Double
+    /// Read in this strip's own body, so the playback tick redraws the strips alone.
+    let player: PlayerModel
     let height: CGFloat
     let announced: Bool
     var keyboard: FocusState<TrimKeyboardFocus?>.Binding
@@ -307,17 +330,18 @@ private struct TrimStrip: View {
     }
 
     /// A touch target around a thin line.
-    private static let handleWidth: CGFloat = 44
+    private static let handleWidth = minimumTapTarget
     private static let barWidth: CGFloat = 2
     private static let barGap: CGFloat = 1
 
     var body: some View {
         let shown = gesture?.range ?? range
+        let playheadMs = TrimScreen.playheadMs(player, in: model)
         GeometryReader { geometry in
             let width = geometry.size.width
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
-                    draw(in: &context, size: size, range: shown)
+                    draw(in: &context, size: size, range: shown, playheadMs: playheadMs)
                 }
                 .accessibilityHidden(true)
                 ForEach(TrimModel.Handle.allCases, id: \.self) { handle in
@@ -410,7 +434,9 @@ private struct TrimStrip: View {
         return span > 0 ? CGFloat((ms - range.lowerBound) / span) : 0
     }
 
-    private func draw(in context: inout GraphicsContext, size: CGSize, range: ClosedRange<Double>) {
+    private func draw(
+        in context: inout GraphicsContext, size: CGSize, range: ClosedRange<Double>, playheadMs: Double
+    ) {
         let low = Double(model.bounds.lowerBound)
         let startX = fraction(Double(model.start), in: range) * size.width
         let endX = fraction(Double(model.end), in: range) * size.width

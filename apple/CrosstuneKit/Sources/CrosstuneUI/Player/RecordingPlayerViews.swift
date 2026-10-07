@@ -70,13 +70,13 @@ struct RecordingPlayButton: View {
         case .fetching:
             ProgressView()
                 .controlSize(.small)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .accessibilityLabel(RecordingText.downloading)
         default:
             Image(systemName: "exclamationmark.circle")
                 .font(font)
                 .foregroundStyle(.secondary)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .accessibilityHidden(true)
         }
     }
@@ -95,7 +95,7 @@ struct TransportToggle: View {
             Image(systemName: playing ? "pause.fill" : "play.fill")
                 .font(font)
                 .contentTransition(.symbolEffect(.replace))
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
@@ -238,7 +238,7 @@ struct RecordingPlayerStatus: View {
                     .buttonStyle(.bordered)
             }
         }
-        .frame(minHeight: 44)
+        .frame(minHeight: minimumTapTarget)
         .accessibilityElement(children: .contain)
     }
 }
@@ -266,7 +266,7 @@ struct PlayerFailureText: View {
     struct AudioRoutePicker: View {
         var body: some View {
             RoutePickerRepresentable()
-                .frame(width: PhoneStyle.minTarget, height: PhoneStyle.minTarget)
+                .frame(width: minimumTapTarget, height: minimumTapTarget)
         }
     }
 

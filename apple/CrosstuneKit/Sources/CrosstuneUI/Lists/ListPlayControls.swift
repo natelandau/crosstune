@@ -59,7 +59,7 @@ struct ListPlayControls: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: 44, alignment: .leading)
+                    .frame(minHeight: minimumTapTarget, alignment: .leading)
                     .contentShape(.rect)
             }
             .buttonStyle(.plain)

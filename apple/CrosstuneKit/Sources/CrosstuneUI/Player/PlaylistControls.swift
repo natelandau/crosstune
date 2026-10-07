@@ -71,7 +71,7 @@ public struct PlaylistControls: View {
             Image(systemName: symbol)
                 .imageScale(.large)
                 .foregroundStyle(highlighted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

@@ -135,21 +135,6 @@ private func jpeg(width: Int, height: Int) -> Data {
         #expect(ScanCopy.notUploaded == "Not uploaded yet")
     }
 
-    @Test func theInvertChoiceCarriesOverFromItsOldKey() throws {
-        let suite = "scan-invert-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(true, forKey: "crosstune.notationInvert")
-
-        ScanViewer.moveLegacyInvert(in: defaults)
-
-        #expect(defaults.object(forKey: ScanViewer.invertStorageKey) as? Bool == true)
-        #expect(defaults.object(forKey: "crosstune.notationInvert") == nil)
-        defaults.set(false, forKey: "crosstune.notationInvert")
-        ScanViewer.moveLegacyInvert(in: defaults)
-        #expect(defaults.object(forKey: ScanViewer.invertStorageKey) as? Bool == true, "a choice made since wins")
-    }
-
     // The web adds scans through one file picker, so these choices have no web counterpart.
     @Test func addChoiceLabels() {
         #expect(ScanAddChoice.scan.label == "Scan")

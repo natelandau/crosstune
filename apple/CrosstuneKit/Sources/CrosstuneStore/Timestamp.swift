@@ -41,12 +41,12 @@ extension Timestamp {
     /// Parses an ISO 8601 time, keeping the first three fraction digits as JavaScript does.
     public init?(iso string: String) {
         // The API writes microseconds and drops a zero fraction; either may carry an offset.
-        let pattern = #/(.+T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})/#
+        let pattern = #/(.+T\d{2}:\d{2}:\d{2})(?:\.([0-9]+))?(Z|[+-]\d{2}:\d{2})/#
         guard let match = string.wholeMatch(of: pattern),
-            let seconds = try? Self.whole.parse(String(match.1 + match.3))
+            let seconds = try? Self.whole.parse(String(match.1 + match.3)),
+            let fraction = Int64(String((match.2 ?? "").prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0))
         else { return nil }
-        let fraction = String((match.2 ?? "").prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0)
-        milliseconds = Int64(seconds.timeIntervalSince1970) * 1000 + Int64(fraction)!
+        milliseconds = Int64(seconds.timeIntervalSince1970) * 1000 + fraction
     }
 
     public var iso: String {

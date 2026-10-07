@@ -112,9 +112,23 @@ extension RecordingFile {
 extension CrosstuneStore {
     /// How many recordings exist only on this device, their audio not yet on the server.
     public func notUploadedRecordingCount() async throws -> Int {
-        try await read { db in
-            try RecordingFile.filter(LocalFileState.notUploaded.contains(RecordingFile.CodingKeys.localState))
-                .fetchCount(db)
-        }
+        try await read { db in try RecordingFile.notUploadedCount(db) }
+    }
+}
+
+extension RecordingFile {
+    static func notUploadedCount(_ db: Database) throws -> Int {
+        try filter(LocalFileState.notUploaded.contains(CodingKeys.localState)).fetchCount(db)
+    }
+}
+
+extension RecordingFile {
+    /// Takes the file out of the upload retry loop in `state`, so a later failure counts its
+    /// tries from the start.
+    public mutating func leaveRetryLoop(_ state: LocalFileState, error: String? = nil) {
+        localState = state
+        self.error = error
+        uploadAttempts = 0
+        nextAttemptAt = nil
     }
 }

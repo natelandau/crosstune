@@ -7,7 +7,7 @@ let scanContentType = "image/jpeg"
 
 /// The name a downloaded scan image takes in the scans folder. A captured image's name
 /// carries a UUID after the scan ID, so the two never collide.
-func downloadedScanName(_ scanID: String) -> String { "\(scanID).jpg" }
+func downloadedScanName(_ scanID: String) throws -> String { "\(try fileNamePart(scanID)).jpg" }
 
 /// One run's scan work: uploads every captured image whose scan row has reached the
 /// server, and downloads every ready scan with no image here. Scans download whatever keep
@@ -222,10 +222,10 @@ struct ScanTransfers {
     }
 
     private func downloadOne(_ id: String) async throws {
+        let name = try downloadedScanName(id)
         try checkStopped()
         let signed = try await api.scanDownload(scanID: id)
         try checkStopped()
-        let name = downloadedScanName(id)
         let destination = store.scansFolder.appending(path: name)
         do {
             try await api.getObject(signed.url, to: destination)

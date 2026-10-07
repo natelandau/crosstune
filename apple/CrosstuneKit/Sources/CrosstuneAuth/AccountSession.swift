@@ -307,6 +307,10 @@ public final class AccountSession {
     /// closes. It then syncs and refuses while any edit is still only on this device, since the
     /// folder takes it along. Unsent events, such as plays and scan views, go with it: a little
     /// history is not worth blocking sign-out.
+    ///
+    /// The store stays writable while sync stops and the session ends, so the check runs again
+    /// after each. An edit that lands while the session ends keeps the folder, signed out, for
+    /// the same account to sync on its next sign-in.
     static func leave(
         userID: String, store: CrosstuneStore?, root: URL, sync: (any LeavingSync)?,
         settle: () async -> Void = {}, endSession: () async throws -> Void
@@ -314,20 +318,30 @@ public final class AccountSession {
         await settle()
         if let store {
             await sync?.sync()
-            if try await store.pendingEditCount() > 0 { throw LeaveError.unsyncedChanges }
-            if try await store.notUploadedRecordingCount() > 0 { throw LeaveError.unuploadedRecordings }
-            if try await store.notUploadedScanCount() > 0 { throw LeaveError.unuploadedScans }
+            try await refuseUnsent(in: store)
         }
         // Stopped, no trigger can start a sync against the folder being deleted.
         await sync?.stop()
         do {
+            if let store { try await refuseUnsent(in: store) }
             try await endSession()
         } catch {
             sync?.resume()
             throw error
         }
+        // Sealed, the store refuses any write still on its way, so the check holds until the
+        // folder goes.
+        var keepsFolder = false
+        if let store { keepsFolder = (try? await store.sealUnlessUnsent()) != true }
         try? store?.close()
-        try CrosstuneStore.delete(userID: userID, root: root)
+        if !keepsFolder { try CrosstuneStore.delete(userID: userID, root: root) }
+    }
+
+    /// Throws the ``LeaveError`` for the first kind of work still only on this device.
+    private static func refuseUnsent(in store: CrosstuneStore) async throws {
+        if try await store.pendingEditCount() > 0 { throw LeaveError.unsyncedChanges }
+        if try await store.notUploadedRecordingCount() > 0 { throw LeaveError.unuploadedRecordings }
+        if try await store.notUploadedScanCount() > 0 { throw LeaveError.unuploadedScans }
     }
 
     /// Deletes the account remotely, then this device's folder regardless of whether ending the

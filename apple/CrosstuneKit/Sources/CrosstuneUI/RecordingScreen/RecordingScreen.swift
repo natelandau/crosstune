@@ -351,11 +351,7 @@ struct RecordingScreenContent: View {
         .coversShell(deleting != nil)
         .confirmationDialog(
             RecordingsModel.deleteTitle,
-            isPresented: Binding {
-                deleting != nil
-            } set: {
-                if !$0 { deleting = nil }
-            },
+            isPresented: $deleting.isPresent(),
             titleVisibility: .visible, presenting: deleting
         ) { view in
             Button(RecordingRowActions.delete, role: .destructive) { delete(view) }
@@ -669,7 +665,7 @@ struct RecordingScreenContent: View {
         do {
             try await write(commands)
         } catch {
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
         }
     }
 }

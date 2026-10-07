@@ -313,7 +313,7 @@ public struct SettingsScreen: View {
 
     @ViewBuilder private func storageSection(_ model: SettingsModel) -> some View {
         if let figures = model.storage {
-            let text = SettingsModel.storageText(figures)
+            let text = RecordingText.storageUsed(figures)
             Section(SettingsModel.storage) {
                 VStack(alignment: .leading, spacing: spacing.stackGap) {
                     Text(text)
@@ -325,34 +325,5 @@ public struct SettingsScreen: View {
                 .padding(.vertical, spacing(4))
             }
         }
-    }
-}
-
-/// The stats screen as a push from the summary row, where the form sits in a stack.
-struct StatsDestination: ViewModifier {
-    let isPushed: Bool
-
-    func body(content: Content) -> some View {
-        if isPushed {
-            content.navigationDestination(for: StatsRoute.self) { _ in
-                StatsScreen()
-                    // A tune opened from the stats screen is not the tab's own pushed tune.
-                    .environment(\.stackTune, nil)
-            }
-        } else {
-            content
-        }
-    }
-}
-
-/// What the model is made for: a new store or engine, as after signing in as someone else,
-/// needs a new one.
-struct ModelKey: Equatable {
-    let store: ObjectIdentifier?
-    let engine: ObjectIdentifier?
-
-    init(store: CrosstuneStore?, engine: SyncEngine?) {
-        self.store = store.map(ObjectIdentifier.init)
-        self.engine = engine.map(ObjectIdentifier.init)
     }
 }

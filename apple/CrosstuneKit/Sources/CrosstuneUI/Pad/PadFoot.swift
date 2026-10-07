@@ -38,7 +38,7 @@ struct PadFoot: View {
                 // The plain style dims nothing, so the whole label dims while Record stands down.
                 .opacity(isEnabled ? 1 : 0.35)
                 .padding(.horizontal, PadStyle.footRecordPadding)
-                .frame(minHeight: PhoneStyle.minTarget)
+                .frame(minHeight: minimumTapTarget)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)

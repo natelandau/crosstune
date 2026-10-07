@@ -110,7 +110,7 @@ struct TunePageColumn: View {
             media
             scans
             if detail.hasLyrics {
-                lyrics(LyricLines.lines(detail.tune.lyrics).first?.first.flatMap { $0.isEmpty ? nil : $0 })
+                lyrics(detail.lyricsOpening)
             }
             lists
             if detail.notes != nil || detail.learned() != nil {

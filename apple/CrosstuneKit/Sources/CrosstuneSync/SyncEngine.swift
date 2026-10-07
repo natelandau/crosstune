@@ -133,7 +133,7 @@ public final class SyncEngine {
         } catch is RunStopped {
             return
         } catch {
-            logger.warning("Events pull failed: \(String(describing: error), privacy: .public)")
+            logger.warning("Events pull failed: \(logDescription(of: error), privacy: .public)")
         }
     }
 
@@ -306,7 +306,7 @@ public final class SyncEngine {
             try await store.setMeta(.lastSyncedAt, to: finished)
         } catch {
             // Only the next launch's first reading depends on it; the run itself landed.
-            logger.error("Could not save the last sync time: \(String(describing: error), privacy: .public)")
+            logger.error("Could not save the last sync time: \(logDescription(of: error), privacy: .public)")
         }
     }
 
@@ -336,26 +336,28 @@ public final class SyncEngine {
     }
 
     private func pull() async throws {
-        var since = try await store.meta(.pullCursor, as: Int64.self) ?? 0
-        while true {
-            try checkStopped()
-            let page = try await api.pull(since: since)
-            try await store.write { writer in
-                try writer.applyPullPage(rows: page.rows.map { ($0.table, $0.row) }, nextSince: page.nextSince)
-            }
-            since = page.nextSince
-            if !page.hasMore { return }
+        try await pullPages(from: .pullCursor, fetch: api.pull(since:)) { writer, page in
+            try writer.applyPullPage(rows: page.rows.map { ($0.table, $0.row) }, nextSince: page.nextSince)
         }
     }
 
     private func pullEventPages() async throws {
-        var since = try await store.meta(.eventsCursor, as: Int64.self) ?? 0
+        try await pullPages(from: .eventsCursor, fetch: api.events(since:)) { writer, page in
+            try writer.applyEventsPage(rows: page.rows.map { ($0.table, $0.row) }, nextSince: page.nextSince)
+        }
+    }
+
+    /// Fetches pages after the cursor stored under `cursor` until the server has no more,
+    /// writing each page, which stores its own next cursor, before asking for the one after it.
+    private func pullPages<Page: CursorPage>(
+        from cursor: MetaKey, fetch: (Int64) async throws -> Page,
+        apply: @escaping @Sendable (StoreWriter, Page) throws -> Void
+    ) async throws {
+        var since = try await store.meta(cursor, as: Int64.self) ?? 0
         while true {
             try checkStopped()
-            let page = try await api.events(since: since)
-            try await store.write { writer in
-                try writer.applyEventsPage(rows: page.rows.map { ($0.table, $0.row) }, nextSince: page.nextSince)
-            }
+            let page = try await fetch(since)
+            try await store.write { writer in try apply(writer, page) }
             since = page.nextSince
             if !page.hasMore { return }
         }

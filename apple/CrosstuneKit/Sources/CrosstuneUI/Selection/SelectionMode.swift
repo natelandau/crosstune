@@ -314,11 +314,7 @@ private struct SelectionMode: ViewModifier {
     }
 
     private var isDeleting: Binding<Bool> {
-        Binding {
-            deleting != nil
-        } set: {
-            if !$0 { deleting = nil }
-        }
+        $deleting.isPresent()
     }
 
     private var offer: Binding<UndoOffer?> {

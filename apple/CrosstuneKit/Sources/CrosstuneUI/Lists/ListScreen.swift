@@ -82,7 +82,7 @@ private struct ListContent: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 if let failure = model.failure {
-                    FailureLine(failure)
+                    FailureText(failure)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -155,7 +155,7 @@ private struct ListTunes: View {
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 if let failure = model.failure {
-                    FailureLine(failure)
+                    FailureText(failure)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 20)
                         .padding(.vertical, spacing.stackGap)
@@ -518,21 +518,6 @@ private struct ListTunes: View {
     private func openCreated() {
         form = creating
         creating = nil
-    }
-}
-
-/// A failed write's message, in red above the rows.
-private struct FailureLine: View {
-    let message: String
-
-    init(_ message: String) {
-        self.message = message
-    }
-
-    var body: some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
     }
 }
 

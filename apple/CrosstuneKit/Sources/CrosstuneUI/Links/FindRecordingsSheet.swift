@@ -81,9 +81,7 @@ public struct FindRecordingsSheet: View {
                 .navigationBarTitleDisplayMode(.inline)
             #endif
         }
-        #if !os(iOS)
-            .frame(minWidth: 480, idealWidth: 520, minHeight: 420)
-        #endif
+        .macSheetFrame(MacSheetSize(idealWidth: 520, minHeight: 420))
         // Full height from the start on iOS: the results and the keyboard both need the room.
         .shellSheet()
         .task {

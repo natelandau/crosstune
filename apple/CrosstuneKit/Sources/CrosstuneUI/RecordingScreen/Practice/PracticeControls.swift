@@ -43,7 +43,7 @@ struct PracticeControls: View {
                     // never meet it.
                     .dynamicTypeSize(...DynamicTypeSize.large)
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, PhoneStyle.minTarget)
+                    .padding(.horizontal, minimumTapTarget)
                     .overlay(alignment: .trailing) {
                         AudioRoutePicker().dynamicTypeSize(...DynamicTypeSize.large)
                     }

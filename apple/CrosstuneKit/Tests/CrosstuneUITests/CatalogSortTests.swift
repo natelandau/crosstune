@@ -127,7 +127,7 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
             ])
     }
 
-    @Test func keepsEachTuneItsLatestPlayOrPracticeSession() {
+    @Test func keepsEachTuneItsLatestPlayOrPracticeSession() async throws {
         let plays = [
             PlayEvent(context: "row", startedAt: at("2026-02-01T10:00:00Z"), listenedMs: 1, tuneID: "t1"),
             PlayEvent(context: "row", startedAt: at("2026-04-01T10:00:00Z"), listenedMs: 1, tuneID: "t1"),
@@ -141,8 +141,14 @@ private func choice(_ sort: CatalogSort, _ descending: Bool) -> CatalogSortChoic
                 recordingID: "r", tuneID: "t2", startedAt: at("2026-05-01T10:00:00Z"), durationMs: 1,
                 speedPercent: 100, pitchCents: 0),
         ]
+        let root = TemporaryRoot()
+        let store = try root.open()
+        try await store.write { writer in
+            for play in plays { try writer.record(play) }
+            for session in sessions { try writer.record(session) }
+        }
         #expect(
-            CatalogSearch.lastPlayed(plays: plays, sessions: sessions) == [
+            try await store.read { db in try CatalogSearch.lastPlayed(db) } == [
                 "t1": at("2026-04-01T10:00:00Z"), "t2": at("2026-05-01T10:00:00Z"),
             ])
     }

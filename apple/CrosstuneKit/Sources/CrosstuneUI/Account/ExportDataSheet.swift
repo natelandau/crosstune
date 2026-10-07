@@ -87,7 +87,7 @@ public struct ExportDataSheet: View {
             .presentationDetents([.large])
             .shellSheet()
         #else
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 320)
+            .macSheetFrame(.form(minHeight: 320))
             .shellSheet()
         #endif
         .interactiveDismissDisabled(model.isRunning)

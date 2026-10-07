@@ -106,7 +106,7 @@ struct MusicPlayerBody: View {
         Button(action: action) {
             Label(label, systemImage: symbol)
                 .labelStyle(.iconOnly)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: minimumTapTarget, minHeight: minimumTapTarget)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

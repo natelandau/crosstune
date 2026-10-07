@@ -37,7 +37,7 @@ public struct ListPickerSheet: View {
         #if os(iOS)
             .partHeightSheet()
         #else
-            .frame(minWidth: 480, idealWidth: 480, minHeight: 320)
+            .macSheetFrame(.form(minHeight: 320))
             .shellSheet()
         #endif
         .task {

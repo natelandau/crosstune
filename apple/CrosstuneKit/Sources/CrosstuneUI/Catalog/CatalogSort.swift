@@ -1,5 +1,6 @@
 import CrosstuneStore
 import Foundation
+import GRDB
 
 public enum CatalogSort: String, SortKind {
     case title
@@ -54,12 +55,24 @@ extension CatalogSearch {
         }
     }
 
-    /// Each tune's latest play or practice session.
-    public static func lastPlayed(plays: [PlayEvent], sessions: [PracticeSession]) -> [String: Timestamp] {
+    /// Each tune's latest play or practice session, found in SQL so the reader decodes one row
+    /// per tune however long the history grows. `started_at` is fixed-width ISO text, so its
+    /// largest value as text is its latest as a time.
+    public static func lastPlayed(_ db: Database) throws -> [String: Timestamp] {
+        let rows = try Row.fetchCursor(
+            db,
+            sql: """
+                SELECT tune_id, MAX(started_at) AS started_at FROM (
+                    SELECT tune_id, started_at FROM \(SyncTable.playEvents.rawValue) WHERE tune_id IS NOT NULL
+                    UNION ALL
+                    SELECT tune_id, started_at FROM \(SyncTable.practiceSessions.rawValue) WHERE tune_id IS NOT NULL
+                ) GROUP BY tune_id
+                """)
         var latest: [String: Timestamp] = [:]
-        let starts = plays.map { ($0.tuneID, $0.startedAt) } + sessions.map { ($0.tuneID, $0.startedAt) }
-        for case (let tuneID?, let startedAt) in starts where latest[tuneID].map({ startedAt > $0 }) ?? true {
-            latest[tuneID] = startedAt
+        while let row = try rows.next() {
+            // The throwing decode, since the subscript traps on a time that does not parse.
+            latest[try row.decode(String.self, forColumn: "tune_id")] = try row.decode(
+                Timestamp.self, forColumn: "started_at")
         }
         return latest
     }
