@@ -104,6 +104,11 @@
             .onChange(of: lists?.value) {
                 PadTab.closeDeletedList(place: place, lists: loadedLists?.map(\.id))
             }
+            // A status set outside the sidebar, as from the filter row or a stats link, opens
+            // another status row, where the last status's place does not belong.
+            .onChange(of: catalog?.status) {
+                place.scrollAnchors[.catalog] = nil
+            }
             // Out of the sidebar the status and list rows hide, or the top bar keeps the last one
             // chosen as an extra item that crowds out the tabs. They hide a turn after the form
             // change, since hiding them within it leaves the columns' top inset under the bar.
