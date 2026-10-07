@@ -51,7 +51,7 @@ public struct SettingsScreen: View {
     @Environment(PlayerModel.self) private var player: PlayerModel?
     @State private var model: SettingsModel?
     /// Reads no history, so opening Settings never starts the events pull.
-    @State private var summary: StatsModel?
+    @State private var summary: LiveQuery<StatsSummary?>?
     @State private var showsInstruments = false
     /// The sheet's toggles report a refusal while it is up; the row takes it once it is gone.
     @State private var instrumentsShowing = false
@@ -143,7 +143,7 @@ public struct SettingsScreen: View {
         .navigationTitle(title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
-            summary = sections.contains(.stats) ? store.map { StatsModel(store: $0, engine: nil, history: false) } : nil
+            summary = sections.contains(.stats) ? store.map(StatsSummary.live) : nil
         }
     }
 
@@ -178,7 +178,7 @@ public struct SettingsScreen: View {
     @ViewBuilder private var statsSection: some View {
         if store != nil {
             Section {
-                if let line = summary?.summaryLine {
+                if let line = (summary?.value ?? nil)?.line {
                     if opensStatsInSheet {
                         SettingsFieldRow(title: line, value: "") { showsStats = true }
                             .monospacedDigit()

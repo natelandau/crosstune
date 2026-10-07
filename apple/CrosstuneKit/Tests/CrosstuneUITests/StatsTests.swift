@@ -1,7 +1,9 @@
 import CrosstuneCommands
 import CrosstuneStore
 import CrosstuneTestSupport
+import CrosstuneVocabulary
 import Foundation
+import GRDB
 import SwiftUI
 import Synchronization
 import Testing
@@ -66,13 +68,63 @@ private func addTune(
         UserTune(id: "u-\(id)", createdAt: created, tuneID: id, status: "known", learnedFrom: learnedFrom))
 }
 
+/// The stats from every row of every table, whole, as the stats were once read: what the
+/// narrower reads must still produce.
+private func statsFromEveryRow(_ db: Database, settingsRow: String, today: String, zone: TimeZone) throws -> Stats {
+    let settings = try UserSettings.fetchOne(db, key: settingsRow).flatMap { $0.deletedAt == nil ? $0 : nil }
+    let played = Set(settings?.instruments ?? [])
+    return computeStats(
+        StatsInput(
+            today: today, timeZone: zone.identifier, instruments: Vocabulary.instruments.filter(played.contains),
+            tunes: try Tune.fetchAll(db).map {
+                StatsInput.Tune(
+                    id: $0.id, title: $0.title, key: $0.key, modes: $0.modes, tuneType: $0.tuneType, genre: $0.genre,
+                    timeSignature: $0.timeSignature, composer: $0.composer, tunings: .object($0.tunings),
+                    deletedAt: $0.deletedAt?.iso)
+            },
+            userTunes: try UserTune.fetchAll(db).map {
+                StatsInput.UserTune(
+                    id: $0.id, tuneID: $0.tuneID, status: $0.status, learnedFrom: $0.learnedFrom,
+                    learnedOn: $0.learnedOn, archivedAt: $0.archivedAt?.iso, createdAt: $0.createdAt.iso,
+                    deletedAt: $0.deletedAt?.iso)
+            },
+            recordings: try Recording.fetchAll(db).map {
+                StatsInput.Recording(
+                    id: $0.id, tuneID: $0.tuneID, recordedAt: $0.addedAt.iso, durationMs: $0.durationMs.map(Int.init),
+                    trimStartMs: Int($0.trimStartMs), trimEndMs: $0.trimEndMs.map(Int.init),
+                    deletedAt: $0.deletedAt?.iso)
+            },
+            recordingLinks: try RecordingLink.fetchAll(db).map {
+                StatsInput.Row(id: $0.id, deletedAt: $0.deletedAt?.iso)
+            },
+            lists: try TuneList.fetchAll(db).map { StatsInput.Row(id: $0.id, deletedAt: $0.deletedAt?.iso) },
+            scans: try ScanRecord.fetchAll(db).map {
+                StatsInput.Scan(id: $0.id, tuneID: $0.tuneID, deletedAt: $0.deletedAt?.iso)
+            },
+            scanViews: try ScanView.fetchAll(db).map { StatsInput.ScanView(id: $0.id, startedAt: $0.startedAt.iso) },
+            playEvents: try PlayEvent.fetchAll(db).map {
+                StatsInput.PlayEvent(id: $0.id, startedAt: $0.startedAt.iso, listenedMs: Int($0.listenedMs))
+            },
+            practiceSessions: try PracticeSession.fetchAll(db).map {
+                StatsInput.PracticeSession(id: $0.id, startedAt: $0.startedAt.iso, durationMs: Int($0.durationMs))
+            },
+            statusChanges: try StatusChange.fetchAll(db).map {
+                StatsInput.StatusChange(id: $0.id, fromStatus: $0.fromStatus, changedAt: $0.changedAt.iso)
+            }))
+}
+
 @MainActor
-private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history: Bool = true) async throws
-    -> StatsModel
-{
-    let model = StatsModel(store: store, engine: engine, now: opened, timeZone: utc, history: history)
+private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil) async throws -> StatsModel {
+    let model = StatsModel(store: store, engine: engine, now: opened, timeZone: utc)
     try await eventually { model.view != nil }
     return model
+}
+
+@MainActor
+private func loadedSummary(_ store: CrosstuneStore) async throws -> LiveQuery<StatsSummary?> {
+    let summary = StatsSummary.live(store)
+    try await eventually { summary.value != nil }
+    return summary
 }
 
 @MainActor
@@ -88,8 +140,8 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
             try writer.put(
                 Recording(tuneID: "t1", source: "recorded", addedAt: noon, durationMs: 33_120_000))
         }
-        let model = try await loaded(store, history: false)
-        #expect(model.summaryLine == "2 tunes · 1 list · 1 recording · 9 h 12 m")
+        let summary = try await loadedSummary(store)
+        #expect(summary.value?.line == "2 tunes · 1 list · 1 recording · 9 h 12 m")
         #expect(
             StatsCopy.summaryLine(tunes: 1, lists: 0, recordings: 2, scans: 0, ms: 0)
                 == "1 tune · 0 lists · 2 recordings · 0 m")
@@ -104,8 +156,9 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
             try addTune(writer, "t1", "Sally Ann")
             try addTune(writer, "t2", "Cluck Old Hen")
         }
-        let model = try await loaded(store, history: false)
-        #expect(model.summaryLine == "2 tunes · 0 lists · 0 recordings · 0 m")
+        let summary = try await loadedSummary(store)
+        #expect(summary.value?.line == "2 tunes · 0 lists · 0 recordings · 0 m")
+        let model = try await loaded(store)
         #expect(model.stats?.counts.scans == 0)
 
         try await store.write { writer in
@@ -114,7 +167,8 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
             }
         }
         try await eventually { model.stats?.counts.scans == 3 }
-        #expect(model.summaryLine == "2 tunes · 0 lists · 0 recordings · 3 scans · 0 m")
+        try await eventually { summary.value?.scans == 3 }
+        #expect(summary.value?.line == "2 tunes · 0 lists · 0 recordings · 3 scans · 0 m")
         let counts = try #require(model.stats?.counts)
         #expect(StatsCopy.scansLine(scans: counts.scans, tunes: counts.scanTunes) == "3 scans across 2 tunes")
     }
@@ -387,19 +441,103 @@ private func loaded(_ store: CrosstuneStore, engine: SyncEngine? = nil, history:
         }
     #endif
 
-    @Test func summaryNeverPullsHistory() async throws {
+    @Test func summaryCountsWhatTheStatsCount() async throws {
         let root = TemporaryRoot()
         let store = try root.open()
-        let api = FailingEventsAPI()
-        let engine = SyncEngine(store: store, api: api, isOffline: { false }, sleep: { _ in })
-        let summary = try await loaded(store, engine: engine, history: false)
-        #expect(summary.appeared() == nil)
-        let screen = try await loaded(store, engine: engine)
-        await screen.appeared()?.value
-        #expect(screen.appeared() == nil)
-        // The screen's one pull is the only one the server saw.
-        #expect(api.eventCalls.value.withLock { $0 } == 1)
-        await engine.stopAndWait()
+        try await store.write { writer in
+            for (id, status) in [("t1", "known"), ("t2", "learning"), ("t3", "want_to_learn"), ("t4", "someday")] {
+                try writer.put(Tune(id: id, createdAt: noon, title: id))
+                try writer.put(UserTune(id: "u-\(id)", createdAt: noon, tuneID: id, status: status))
+            }
+            try writer.put(Tune(id: "archived", createdAt: noon, title: "Archived"))
+            try writer.put(
+                UserTune(id: "u-archived", createdAt: noon, tuneID: "archived", status: "known", archivedAt: noon))
+            try writer.put(Tune(id: "dropped", createdAt: noon, title: "Dropped"))
+            try writer.put(
+                UserTune(id: "u-dropped", createdAt: noon, deletedAt: noon, tuneID: "dropped", status: "known"))
+            try writer.put(Tune(id: "gone", createdAt: noon, deletedAt: noon, title: "Gone"))
+            try writer.put(UserTune(id: "u-gone", createdAt: noon, tuneID: "gone", status: "learning"))
+            try writer.put(TuneList(name: "Jam"))
+            try writer.put(TuneList(deletedAt: noon, name: "Old"))
+            try writer.put(
+                Recording(tuneID: "t1", source: "recorded", addedAt: noon, durationMs: 60_000, trimStartMs: 5_000))
+            try writer.put(
+                Recording(tuneID: "t2", source: "recorded", addedAt: noon, durationMs: 90_000, trimEndMs: 30_000))
+            try writer.put(
+                Recording(tuneID: nil, source: "recorded", addedAt: noon, trimStartMs: 40_000, trimEndMs: 30_000))
+            try writer.put(Recording(tuneID: "t3", source: "recorded", addedAt: noon))
+            try writer.put(
+                Recording(deletedAt: noon, tuneID: "t1", source: "recorded", addedAt: noon, durationMs: 120_000))
+            for (index, tuneID) in ["t1", "t1", "t2", "archived", "dropped", "gone"].enumerated() {
+                try writer.put(ScanRecord(id: "s\(index)", tuneID: tuneID, width: 600, height: 800))
+            }
+            try writer.put(ScanRecord(id: "s-deleted", deletedAt: noon, tuneID: "t3", width: 600, height: 800))
+        }
+        let stats = try #require(try await loaded(store).stats)
+        let summary = try #require(try await loadedSummary(store).value ?? nil)
+        #expect(
+            summary
+                == StatsSummary(
+                    tunes: stats.counts.tunes, lists: stats.counts.lists, recordings: stats.counts.recordings,
+                    scans: stats.counts.scans, recordedMs: stats.recorded.totalMs,
+                    byStatus: StatusBar.byStatus(stats.counts)))
+        #expect(summary.tunes == 4)
+        #expect(summary.scans == 3)
+        #expect(summary.recordedMs == 85_000)
+    }
+
+    @Test(arguments: ["UTC", "Pacific/Kiritimati", "Pacific/Pago_Pago", "America/New_York", "Australia/Lord_Howe"])
+    func narrowReadsMatchEveryRow(_ zoneID: String) async throws {
+        let zone = try #require(TimeZone(identifier: zoneID))
+        let today = "2026-10-04"
+        let start = "2025-10-05"
+        let root = TemporaryRoot()
+        let store = try root.open()
+        // Instants on and around the heatmap's first and last days, where a zone moves a row
+        // across the edge, plus rows long before it and after today.
+        let instants = [
+            "2024-01-01T12:00:00.000Z", "2025-10-03T23:30:00.000Z", "2025-10-04T10:00:00.000Z",
+            "2025-10-04T13:30:00.000Z", "2025-10-05T00:30:00.000Z", "2025-10-05T11:00:00.000Z",
+            "2026-03-08T07:30:00.000Z", "2026-10-04T00:15:00.000Z", "2026-10-04T23:45:00.000Z",
+            "2026-10-05T09:00:00.000Z", "2026-10-06T12:00:00.000Z", "2027-01-01T00:00:00.000Z",
+        ].map { Timestamp(iso: $0)! }
+        try await store.write { writer in
+            try addTune(writer, "t1", "Sally Ann", key: "D", modes: ["major"], genre: "Old-time", created: instants[1])
+            try addTune(writer, "t2", "Kesh", key: "G", modes: ["major"], genre: "Irish", created: instants[4])
+            try addTune(writer, "t3", "Cluck Old Hen", created: instants[8])
+            for (index, at) in instants.enumerated() {
+                try writer.put(
+                    Recording(
+                        id: "r\(index)", tuneID: index.isMultiple(of: 2) ? "t1" : nil, source: "recorded",
+                        addedAt: at, label: "Take \(index)", durationMs: Int64(60_000 * (index + 1)),
+                        trimStartMs: 1_000))
+                try writer.record(
+                    PlayEvent(context: "tune", startedAt: at, listenedMs: Int64(30_000 * (index + 1)), tuneID: "t1"))
+                try writer.record(
+                    PracticeSession(
+                        recordingID: "r\(index)", startedAt: at, durationMs: Int64(90_000 * (index + 1)),
+                        speedPercent: 100, pitchCents: 0))
+                try writer.record(ScanView(tuneID: "t2", context: "tune", startedAt: at, viewedMs: 4_000))
+            }
+        }
+        try await store.database.write { db in
+            for (index, at) in instants.enumerated() {
+                try StatusChange(
+                    id: "c\(index)", serverSeq: Int64(index + 1), userTuneID: "u-t1",
+                    fromStatus: index.isMultiple(of: 3) ? nil : "learning", toStatus: "known", changedAt: at
+                ).insert(db)
+            }
+        }
+        let settingsRow = settingsID(clerkUserID: store.userID)
+        let (narrow, whole) = try await store.database.read { db in
+            (
+                try StatsView.fetch(db, settingsRow: settingsRow, today: today, timeZone: zone).stats,
+                try statsFromEveryRow(db, settingsRow: settingsRow, today: today, zone: zone)
+            )
+        }
+        #expect(narrow.heatmap.start == start)
+        #expect(narrow.heatmap.days.contains { $0.plays > 0 })
+        #expect(narrow == whole)
     }
 
     @Test func aValueTheCatalogWouldReadAsAnyOrNoKeyOnlyReads() {

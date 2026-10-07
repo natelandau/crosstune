@@ -24,22 +24,27 @@ public struct StatsView: Equatable, Sendable {
         }
     }
 
-    /// Reads every row stats needs and computes them. Without `history` the event tables are left
-    /// unread, so a summary neither waits on nor redraws for them.
+    /// Reads every row stats needs and computes them.
     nonisolated static func fetch(
-        _ db: Database, settingsRow: String, today: String, timeZone: TimeZone, history: Bool
+        _ db: Database, settingsRow: String, today: String, timeZone: TimeZone
     ) throws -> StatsView {
-        let tunes = try Tune.fetchAll(db)
-        let userTunes = try UserTune.fetchAll(db)
-        let recordings = try Recording.fetchAll(db)
-        let links = try RecordingLink.fetchAll(db)
-        let lists = try TuneList.fetchAll(db)
-        let scans = try ScanRecord.fetchAll(db)
+        let tunes = try StatsRows.Tune.fetchAll(db)
+        let userTunes = try StatsRows.UserTune.fetchAll(db)
+        let recordings = try StatsRows.Recording.fetchAll(db)
+        let links = try StatsRows.Live.fetchAll(db, sql: StatsRows.Live.sql(RecordingLink.databaseTableName))
+        let lists = try StatsRows.Live.fetchAll(db, sql: StatsRows.Live.sql(TuneList.databaseTableName))
+        let scans = try StatsRows.Scan.fetchAll(db)
         let settings = try UserSettings.fetchOne(db, key: settingsRow).flatMap { $0.deletedAt == nil ? $0 : nil }
-        let plays = history ? try PlayEvent.fetchAll(db) : []
-        let sessions = history ? try PracticeSession.fetchAll(db) : []
-        let views = history ? try ScanView.fetchAll(db) : []
-        let changes = history ? try StatusChange.fetchAll(db) : []
+        // Only the heatmap reads the history, so a row its weeks cannot hold is never read.
+        let bounds = heatmapInstantBounds(today: today)
+        func inWindow<Row: TableRecord>(_ row: Row.Type, _ column: Column) -> QueryInterfaceRequest<Row> {
+            guard let bounds else { return Row.none() }
+            return Row.filter(column >= bounds.from && column < bounds.to)
+        }
+        let plays = try inWindow(StatsRows.Play.self, Column("started_at")).fetchAll(db)
+        let sessions = try inWindow(StatsRows.Session.self, Column("started_at")).fetchAll(db)
+        let views = try inWindow(StatsRows.View.self, Column("started_at")).fetchAll(db)
+        let changes = try inWindow(StatsRows.Change.self, Column("changed_at")).fetchAll(db)
         let played = Set(settings?.instruments ?? [])
         let input = StatsInput(
             today: today, timeZone: timeZone.identifier,
@@ -88,8 +93,174 @@ public struct StatsView: Equatable, Sendable {
     }
 }
 
-/// The stats screen's state, and the Settings summary row's: the stats for the rows on the
-/// device, redrawn whenever a table they read changes.
+/// The columns of each table stats read, so a write to any other column leaves the stats alone.
+/// The catalog tables read in row order, as a whole-row read does, for the ties the stats keep in
+/// the order rows come.
+private enum StatsRows {
+    struct Tune: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = SyncTable.tunes.rawValue
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+        static func fetchAll(_ db: Database) throws -> [Self] { try all().order(Column.rowID).fetchAll(db) }
+
+        var id: String
+        var title: String
+        var key: String?
+        var modes: [String]
+        var tuneType: String?
+        var genre: String?
+        var timeSignature: String?
+        var composer: String?
+        var tunings: JSONObject
+        var deletedAt: Timestamp?
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id, title, key, modes, genre, composer, tunings
+            case tuneType = "tune_type"
+            case timeSignature = "time_signature"
+            case deletedAt = "deleted_at"
+        }
+    }
+
+    struct UserTune: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = SyncTable.userTunes.rawValue
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+        static func fetchAll(_ db: Database) throws -> [Self] { try all().order(Column.rowID).fetchAll(db) }
+
+        var id: String
+        var tuneID: String
+        var status: String
+        var learnedFrom: String?
+        var learnedOn: String?
+        var archivedAt: Timestamp?
+        var createdAt: Timestamp
+        var deletedAt: Timestamp?
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id, status
+            case tuneID = "tune_id"
+            case learnedFrom = "learned_from"
+            case learnedOn = "learned_on"
+            case archivedAt = "archived_at"
+            case createdAt = "created_at"
+            case deletedAt = "deleted_at"
+        }
+    }
+
+    struct Recording: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = SyncTable.recordings.rawValue
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+        static func fetchAll(_ db: Database) throws -> [Self] { try all().order(Column.rowID).fetchAll(db) }
+
+        var id: String
+        var tuneID: String?
+        var label: String?
+        var addedAt: Timestamp
+        var durationMs: Int64?
+        var trimStartMs: Int64
+        var trimEndMs: Int64?
+        var deletedAt: Timestamp?
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id, label
+            case tuneID = "tune_id"
+            case addedAt = "added_at"
+            case durationMs = "duration_ms"
+            case trimStartMs = "trim_start_ms"
+            case trimEndMs = "trim_end_ms"
+            case deletedAt = "deleted_at"
+        }
+    }
+
+    /// A link or a list, which stats only count.
+    struct Live: Decodable, FetchableRecord {
+        var id: String
+        var deletedAt: Timestamp?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case deletedAt = "deleted_at"
+        }
+
+        static func sql(_ table: String) -> String { "SELECT id, deleted_at FROM \(table) ORDER BY rowid" }
+    }
+
+    struct Scan: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = ScanRecord.databaseTableName
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+        static func fetchAll(_ db: Database) throws -> [Self] { try all().order(Column.rowID).fetchAll(db) }
+
+        var id: String
+        var tuneID: String
+        var deletedAt: Timestamp?
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id
+            case tuneID = "tune_id"
+            case deletedAt = "deleted_at"
+        }
+    }
+
+    struct Play: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = PlayEvent.databaseTableName
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+
+        var id: String
+        var startedAt: Timestamp
+        var listenedMs: Int64
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id
+            case startedAt = "started_at"
+            case listenedMs = "listened_ms"
+        }
+    }
+
+    struct Session: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = PracticeSession.databaseTableName
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+
+        var id: String
+        var startedAt: Timestamp
+        var durationMs: Int64
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id
+            case startedAt = "started_at"
+            case durationMs = "duration_ms"
+        }
+    }
+
+    struct View: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = ScanView.databaseTableName
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+
+        var id: String
+        var startedAt: Timestamp
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id
+            case startedAt = "started_at"
+        }
+    }
+
+    struct Change: Decodable, FetchableRecord, TableRecord {
+        static let databaseTableName = StatusChange.databaseTableName
+        static var databaseSelection: [any SQLSelectable] { CodingKeys.allCases }
+
+        var id: String
+        var fromStatus: String?
+        var changedAt: Timestamp
+
+        enum CodingKeys: String, CodingKey, CaseIterable, ColumnExpression {
+            case id
+            case fromStatus = "from_status"
+            case changedAt = "changed_at"
+        }
+    }
+}
+
+/// The stats screen's state: the stats for the rows on the device, redrawn whenever a table they
+/// read changes.
 @MainActor
 @Observable
 public final class StatsModel {
@@ -101,16 +272,12 @@ public final class StatsModel {
     ///   - engine: Pulls the history once the screen appears. Nil where there is no account.
     ///   - now: The moment the screen opened. Its local date stays put while the screen is up,
     ///     even past midnight.
-    ///   - history: False for a summary, which reads no history and never pulls it.
-    public init(
-        store: CrosstuneStore, engine: SyncEngine?, now: Date = Date(), timeZone: TimeZone = .current,
-        history: Bool = true
-    ) {
-        self.engine = history ? engine : nil
+    public init(store: CrosstuneStore, engine: SyncEngine?, now: Date = Date(), timeZone: TimeZone = .current) {
+        self.engine = engine
         let settingsRow = settingsID(clerkUserID: store.userID)
         let today = localDate(Timestamp(now).iso, in: timeZone) ?? ""
         live = LiveQuery(store, initial: nil) { db in
-            try StatsView.fetch(db, settingsRow: settingsRow, today: today, timeZone: timeZone, history: history)
+            try StatsView.fetch(db, settingsRow: settingsRow, today: today, timeZone: timeZone)
         }
     }
 
@@ -118,15 +285,6 @@ public final class StatsModel {
     public var view: StatsView? { live.value }
 
     public var stats: Stats? { view?.stats }
-
-    /// The Settings row's one line, nil until the rows have been read.
-    public var summaryLine: String? {
-        view.map {
-            StatsCopy.summaryLine(
-                tunes: $0.stats.counts.tunes, lists: $0.stats.counts.lists, recordings: $0.stats.counts.recordings,
-                scans: $0.stats.counts.scans, ms: $0.stats.recorded.totalMs)
-        }
-    }
 
     /// Starts the history pull, once per model. The screen keeps drawing from what is stored and
     /// redraws as pages land; a failure leaves the screen as it was.

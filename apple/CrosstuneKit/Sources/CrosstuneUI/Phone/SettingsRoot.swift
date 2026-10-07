@@ -28,7 +28,7 @@ struct SettingsRoot: View {
     @Environment(\.store) private var store
     @Environment(\.colorScheme) private var colorScheme
     @State private var model: SettingsModel?
-    @State private var summary: StatsModel?
+    @State private var summary: LiveQuery<StatsSummary?>?
 
     /// - Parameter version: The app's marketing version, which the footer names.
     init(version: String? = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) {
@@ -64,7 +64,7 @@ struct SettingsRoot: View {
         .navigationTitle(Destination.settings.title)
         .task(id: ModelKey(store: store, engine: engine)) {
             model = store.map { SettingsModel(store: $0, engine: engine) }
-            summary = store.map { StatsModel(store: $0, engine: nil, history: false) }
+            summary = store.map(StatsSummary.live)
         }
     }
 
@@ -102,11 +102,11 @@ struct SettingsRoot: View {
 
     private var statsCard: some View {
         Section {
-            if let line = summary?.summaryLine, let counts = summary?.stats?.counts {
+            if let summary = summary?.value ?? nil {
                 SettingsPageLink(SettingsPage.stats) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(line).monospacedDigit()
-                        let byStatus = StatusBar.byStatus(counts)
+                        Text(summary.line).monospacedDigit()
+                        let byStatus = summary.byStatus
                         if byStatus.values.contains(where: { $0 > 0 }) {
                             StatusBar(counts: byStatus)
                         }
