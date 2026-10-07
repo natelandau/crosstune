@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro'
 import { APP_URL, SUPPORT_EMAIL } from '../../components/actions'
-import { JOINED_KEY, THANKS_PATH } from '../../scripts/waitlist'
+import { JOINED_KEY, JOIN_EVENT_KEY, THANKS_PATH } from '../../scripts/waitlist'
 ---
 
 <Base
@@ -10,11 +10,15 @@ import { JOINED_KEY, THANKS_PATH } from '../../scripts/waitlist'
   path={THANKS_PATH}
   noindex
 >
-  <script slot="head" is:inline define:vars={{ key: JOINED_KEY }}>
+  <script slot="head" is:inline define:vars={{ key: JOINED_KEY, eventKey: JOIN_EVENT_KEY }}>
     // Runs before paint so a reload, bookmark, or shared link lands on the home page instead.
     try {
-      if (sessionStorage.getItem(key) === null) location.replace('/')
-      else sessionStorage.removeItem(key)
+      const joined = sessionStorage.getItem(key)
+      if (joined === null) location.replace('/')
+      else {
+        sessionStorage.removeItem(key)
+        sessionStorage.setItem(eventKey, joined)
+      }
     } catch {
       location.replace('/')
     }
@@ -32,6 +36,11 @@ import { JOINED_KEY, THANKS_PATH } from '../../scripts/waitlist'
       <a href="/">Back to the home page</a>
     </p>
   </main>
+  <script>
+    import { reportJoin } from '../../scripts/waitlist'
+
+    reportJoin(import.meta.env.PUBLIC_POSTHOG_TOKEN)
+  </script>
 </Base>
 
 <style>

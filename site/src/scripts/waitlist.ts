@@ -1,10 +1,17 @@
+import { startAnalytics, trackWaitlistJoined } from './analytics'
+
 export const JOINED = "You're on the list. We'll email you when your account is ready."
 export const UNREACHABLE =
   "The waitlist can't be reached right now. Try again, or email support@crosstune.app."
 export const PENDING = 'Joining…'
 export const THANKS_PATH = '/waitlist/thanks'
-// Set on join and cleared by the thanks page, so the page shows once per join.
+// Set on join and cleared by the thanks page, so the page shows once per join. It holds the
+// join's acquisition, which the thanks page moves to JOIN_EVENT_KEY until analytics sends it.
 export const JOINED_KEY = 'crosstune:waitlist-joined'
+export const JOIN_EVENT_KEY = 'crosstune:waitlist-join-event'
+
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']
+const ACQUISITION_KEYS = ['$referrer', '$referring_domain', ...UTM_KEYS]
 
 export interface WaitlistClient {
   join(params: { emailAddress: string }): Promise<unknown>
@@ -19,13 +26,74 @@ function messageFor(error: unknown): string {
   return first?.longMessage ?? first?.message ?? UNREACHABLE
 }
 
+// Analytics keeps nothing between pages, so the thanks page would otherwise credit the join to
+// this page. The values match what PostHog reads from the page itself.
+function acquisition(): Record<string, string> {
+  const referrer = document.referrer
+  let domain = '$direct'
+  try {
+    if (referrer) domain = new URL(referrer).hostname
+  } catch {
+    domain = referrer
+  }
+  const found: Record<string, string> = {
+    $referrer: referrer || '$direct',
+    $referring_domain: domain,
+  }
+  const params = new URLSearchParams(location.search)
+  for (const key of UTM_KEYS) {
+    const value = params.get(key)
+    if (value) found[key] = value
+  }
+  return found
+}
+
 // Storage can be blocked; without the flag the thanks page would bounce the visitor home.
 function rememberJoin(): boolean {
   try {
-    sessionStorage.setItem(JOINED_KEY, '1')
+    sessionStorage.setItem(JOINED_KEY, JSON.stringify(acquisition()))
     return true
   } catch {
     return false
+  }
+}
+
+// Only acquisition keys leave the marker, so nothing else stored there reaches analytics.
+function readAcquisition(stored: string): Record<string, string> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(stored)
+  } catch {
+    return {}
+  }
+  if (typeof parsed !== 'object' || parsed === null) return {}
+  const found: Record<string, string> = {}
+  for (const key of ACQUISITION_KEYS) {
+    const value = (parsed as Record<string, unknown>)[key]
+    if (typeof value === 'string') found[key] = value
+  }
+  return found
+}
+
+// Sends the join the thanks page was opened for. The form page cannot: it unloads on the
+// navigation, often before analytics has loaded.
+export async function reportJoin(token: string | undefined): Promise<void> {
+  let stored: string | null
+  try {
+    stored = sessionStorage.getItem(JOIN_EVENT_KEY)
+  } catch {
+    return
+  }
+  if (stored === null) return
+  try {
+    await startAnalytics(token)
+    await trackWaitlistJoined(readAcquisition(stored))
+  } finally {
+    try {
+      sessionStorage.removeItem(JOIN_EVENT_KEY)
+    } catch {
+      // Storage that was readable a moment ago failing now leaves nothing more to do.
+    }
   }
 }
 
@@ -93,6 +161,8 @@ export function mountWaitlist(
       form.replaceWith(status)
       status.focus()
       if (rememberJoin()) navigate(THANKS_PATH)
+      // Without the marker the thanks page never sends it, and this page stays, so it can.
+      else void trackWaitlistJoined(acquisition())
     } catch (error) {
       showError(messageFor(error))
       button.disabled = false

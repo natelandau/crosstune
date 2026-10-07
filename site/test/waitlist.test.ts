@@ -4,13 +4,21 @@ import { JOIN_WAITLIST } from '../src/components/actions'
 import {
   JOINED,
   JOINED_KEY,
+  JOIN_EVENT_KEY,
   PENDING,
   THANKS_PATH,
   UNREACHABLE,
   loadClerk,
   mountWaitlist,
+  reportJoin,
   type WaitlistClient,
 } from '../src/scripts/waitlist'
+
+const analytics = vi.hoisted(() => ({
+  startAnalytics: vi.fn(async () => {}),
+  trackWaitlistJoined: vi.fn(async () => {}),
+}))
+vi.mock('../src/scripts/analytics', () => analytics)
 
 let form: HTMLFormElement
 let input: HTMLInputElement
@@ -21,6 +29,10 @@ let navigate: ReturnType<typeof vi.fn<(path: string) => void>>
 beforeEach(() => {
   sessionStorage.clear()
   vi.restoreAllMocks()
+  analytics.startAnalytics.mockClear()
+  analytics.trackWaitlistJoined.mockClear()
+  history.replaceState(null, '', '/')
+  Object.defineProperty(document, 'referrer', { value: '', configurable: true })
   navigate = vi.fn()
   document.body.innerHTML = `
     <form data-waitlist>
@@ -90,8 +102,42 @@ describe('mountWaitlist', () => {
     setup(vi.fn(async () => ({})))
     submit()
     await settle()
-    expect(sessionStorage.getItem(JOINED_KEY)).toBe('1')
+    expect(sessionStorage.getItem(JOINED_KEY)).not.toBeNull()
     expect(navigate).toHaveBeenCalledWith(THANKS_PATH)
+  })
+
+  it("carries the visit's referrer and UTM to the thanks page, and nothing else", async () => {
+    history.replaceState(null, '', '/?utm_source=newsletter&utm_campaign=fall&ref=x#waitlist')
+    Object.defineProperty(document, 'referrer', {
+      value: 'https://forum.example/thread/1',
+      configurable: true,
+    })
+    setup(vi.fn(async () => ({})))
+    submit('private@example.com')
+    await settle()
+    expect(JSON.parse(sessionStorage.getItem(JOINED_KEY)!)).toEqual({
+      $referrer: 'https://forum.example/thread/1',
+      $referring_domain: 'forum.example',
+      utm_source: 'newsletter',
+      utm_campaign: 'fall',
+    })
+  })
+
+  it('marks a visit with no referrer as direct', async () => {
+    setup(vi.fn(async () => ({})))
+    submit()
+    await settle()
+    expect(JSON.parse(sessionStorage.getItem(JOINED_KEY)!)).toEqual({
+      $referrer: '$direct',
+      $referring_domain: '$direct',
+    })
+  })
+
+  it('leaves tracking to the thanks page, which outlives the navigation', async () => {
+    setup(vi.fn(async () => ({})))
+    submit()
+    await settle()
+    expect(analytics.trackWaitlistJoined).not.toHaveBeenCalled()
   })
 
   it('stays on the inline confirmation when storage is blocked', async () => {
@@ -105,6 +151,22 @@ describe('mountWaitlist', () => {
     expect(status.textContent).toBe(JOINED)
   })
 
+  it('tracks the join itself when storage is blocked, since nothing navigates', async () => {
+    history.replaceState(null, '', '/?utm_source=newsletter')
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    setup(vi.fn(async () => ({})))
+    submit('private@example.com')
+    await settle()
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledTimes(1)
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledWith({
+      $referrer: '$direct',
+      $referring_domain: '$direct',
+      utm_source: 'newsletter',
+    })
+  })
+
   it('does not leave the page when the join fails', async () => {
     setup(
       vi.fn(async () => {
@@ -115,6 +177,7 @@ describe('mountWaitlist', () => {
     await settle()
     expect(navigate).not.toHaveBeenCalled()
     expect(sessionStorage.getItem(JOINED_KEY)).toBeNull()
+    expect(analytics.trackWaitlistJoined).not.toHaveBeenCalled()
   })
 
   it("shows Clerk's message, marks the input, and re-enables the button", async () => {
@@ -192,6 +255,46 @@ const clerkMock = vi.hoisted(() => ({
   joinWaitlist: vi.fn(async () => ({})),
   key: '',
 }))
+describe('reportJoin', () => {
+  const acquisition = { $referrer: 'https://forum.example/', utm_source: 'newsletter' }
+
+  it('sends the pending join once analytics starts, then clears it', async () => {
+    sessionStorage.setItem(JOIN_EVENT_KEY, JSON.stringify(acquisition))
+    await reportJoin('phc_x')
+    expect(analytics.startAnalytics).toHaveBeenCalledWith('phc_x')
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledTimes(1)
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledWith(acquisition)
+    expect(sessionStorage.getItem(JOIN_EVENT_KEY)).toBeNull()
+  })
+
+  it('sends a join only once, however often the page runs', async () => {
+    sessionStorage.setItem(JOIN_EVENT_KEY, JSON.stringify(acquisition))
+    await reportJoin('phc_x')
+    await reportJoin('phc_x')
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends nothing without a pending join', async () => {
+    await reportJoin('phc_x')
+    expect(analytics.trackWaitlistJoined).not.toHaveBeenCalled()
+  })
+
+  it('sends only acquisition properties from the marker', async () => {
+    sessionStorage.setItem(
+      JOIN_EVENT_KEY,
+      JSON.stringify({ ...acquisition, email: 'private@example.com', utm_term: 3 }),
+    )
+    await reportJoin('phc_x')
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledWith(acquisition)
+  })
+
+  it('sends the join without properties when the marker is unreadable', async () => {
+    sessionStorage.setItem(JOIN_EVENT_KEY, 'not json')
+    await reportJoin('phc_x')
+    expect(analytics.trackWaitlistJoined).toHaveBeenCalledWith({})
+  })
+})
+
 vi.mock('@clerk/clerk-js', () => ({
   Clerk: class {
     constructor(key: string) {
