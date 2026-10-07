@@ -179,7 +179,7 @@ public final class ListPickerModel {
             return addition
         } catch {
             Self.logger.warning("A list pick failed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             return nil
         }
     }

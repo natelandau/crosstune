@@ -201,7 +201,7 @@ public final class TuneFormModel {
             }
         } catch {
             Self.logger.warning("A tune form save failed: \(error)")
-            failure = (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
+            failure = failureMessage(error)
             return nil
         }
     }

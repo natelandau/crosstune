@@ -146,7 +146,7 @@ private struct ConfirmsListDelete: ViewModifier {
         do {
             try await commands.deleteList(listID)
         } catch {
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
         }
     }
 }

@@ -639,7 +639,7 @@ public final class PlayerModel {
             if holds(.recording, id: id) { close() }
         } catch {
             guard holds(.recording, id: id) else { return }
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             loadAudio(self.item ?? item, at: position, playing: wasPlaying)
             // An unplayed open would otherwise stay loaded with no screen to close it, so its
             // screen comes back, showing the failure, where the delete was asked for.

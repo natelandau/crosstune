@@ -93,7 +93,7 @@ final class ScanViewerModel {
             try await Commands(store: store).deleteScan(scanID)
         } catch {
             Self.logger.warning("Deleting a scan from the viewer failed: \(error)")
-            failure = (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
+            failure = failureMessage(error)
         }
     }
 

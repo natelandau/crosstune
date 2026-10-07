@@ -155,7 +155,7 @@ public struct DeleteAccountSheet: View {
                 try await session.deleteAccount()
                 dismiss()
             } catch {
-                failure = error.localizedDescription
+                failure = failureMessage(error)
             }
         }
     }

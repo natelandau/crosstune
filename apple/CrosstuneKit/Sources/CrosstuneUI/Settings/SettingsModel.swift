@@ -160,7 +160,7 @@ public final class SettingsModel {
         } settled: { model, error in
             if let error {
                 model.pendingInstruments[instrument]?.fail(token)
-                model.instrumentsFailure = Self.message(error)
+                model.instrumentsFailure = failureMessage(error)
             } else {
                 model.pendingInstruments[instrument]?.land(
                     token, stored: model.stored.value?.instruments.contains(instrument))
@@ -200,7 +200,7 @@ public final class SettingsModel {
         } settled: { model, error in
             if let error {
                 model.pendingSearchProviders[provider]?.fail(token)
-                model.searchProvidersFailure = Self.message(error)
+                model.searchProvidersFailure = failureMessage(error)
             } else {
                 model.pendingSearchProviders[provider]?.land(
                     token, stored: model.stored.value?.searchProviders.contains(provider))
@@ -229,7 +229,7 @@ public final class SettingsModel {
         } settled: { model, error in
             if let error {
                 model.pendingPlayFirst.fail(token)
-                model.playFirstFailure = Self.message(error)
+                model.playFirstFailure = failureMessage(error)
             } else {
                 model.pendingPlayFirst.land(token, stored: model.stored.value?.playFirst)
             }
@@ -252,7 +252,7 @@ public final class SettingsModel {
         } settled: { model, error in
             if let error {
                 model.pendingQuality.fail(token)
-                model.qualityFailure = Self.message(error)
+                model.qualityFailure = failureMessage(error)
             } else {
                 model.pendingQuality.land(token, stored: model.stored.value?.audioQuality)
             }
@@ -291,7 +291,7 @@ public final class SettingsModel {
         } settled: { model, error in
             if let error {
                 model.pendingKeepOffline.fail(token)
-                model.keepOfflineFailure = Self.message(error)
+                model.keepOfflineFailure = failureMessage(error)
                 return
             }
             model.pendingKeepOffline.land(token, stored: model.stored.value?.keepsOffline)
@@ -322,7 +322,7 @@ public final class SettingsModel {
             try await Commands(store: store).clearDownloadedAudio()
         } settled: { model, error in
             model.isRemovingDownloads = false
-            if let error { model.removeDownloadsFailure = Self.message(error) }
+            if let error { model.removeDownloadsFailure = failureMessage(error) }
         }
     }
 
@@ -410,9 +410,5 @@ public final class SettingsModel {
         pendingQuality.storeChanged()
         pendingPlayFirst.storeChanged()
         pendingKeepOffline.storeChanged()
-    }
-
-    private static func message(_ error: any Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
     }
 }

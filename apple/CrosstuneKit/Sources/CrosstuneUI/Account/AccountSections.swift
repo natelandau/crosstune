@@ -119,7 +119,7 @@ public struct AccountSections: View {
             do {
                 try await action()
             } catch {
-                failure.wrappedValue = error.localizedDescription
+                failure.wrappedValue = failureMessage(error)
             }
         }
     }

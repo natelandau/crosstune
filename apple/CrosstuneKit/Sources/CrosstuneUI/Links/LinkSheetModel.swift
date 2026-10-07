@@ -132,7 +132,7 @@ public final class LinkSheetModel {
             return true
         } catch {
             Self.logger.warning("A link save failed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             return false
         }
     }

@@ -89,7 +89,7 @@ public final class AddToTuneModel {
             return true
         } catch {
             Self.logger.warning("A recording could not be filed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             isFiling = false
             return false
         }

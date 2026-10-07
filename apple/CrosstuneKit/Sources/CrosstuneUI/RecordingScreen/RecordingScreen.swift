@@ -669,7 +669,7 @@ struct RecordingScreenContent: View {
         do {
             try await write(commands)
         } catch {
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
         }
     }
 }

@@ -319,7 +319,7 @@ public final class FindRecordingsModel {
         } catch {
             Self.logger.warning("A found recording's link failed: \(error)")
             claimed.remove(result.url)
-            linkFailure = ListModel.message(error)
+            linkFailure = failureMessage(error)
         }
     }
 

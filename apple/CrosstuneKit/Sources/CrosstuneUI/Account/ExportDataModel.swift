@@ -76,7 +76,7 @@ final class ExportDataModel {
             for try await update in exporter.counts() { counts = update }
         } catch {
             Self.logger.error("Could not count recordings to export: \(error, privacy: .public)")
-            failure = error.localizedDescription
+            failure = failureMessage(error)
         }
     }
 
@@ -108,7 +108,7 @@ final class ExportDataModel {
             } catch {
                 guard mine == generation else { return }
                 Self.logger.error("Could not export: \(error, privacy: .public)")
-                failure = error.localizedDescription
+                failure = failureMessage(error)
             }
             isRunning = false
             run = nil

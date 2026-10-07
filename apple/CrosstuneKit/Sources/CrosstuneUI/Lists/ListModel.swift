@@ -224,7 +224,7 @@ public final class ListModel {
                 moves.drop(handle)
                 // The tune is back where it was, so this move's announcement would still claim it moved.
                 if announcement == spoken { announcement = nil }
-                failure = Self.message(error)
+                failure = failureMessage(error)
                 return
             }
             // Taken before the read, or a read landing inside it would leave these two describing
@@ -268,7 +268,7 @@ public final class ListModel {
             try await store.setMeta(.listShowArchived, to: show)
         } catch {
             Self.logger.warning("Could not save the list archived setting: \(error)")
-            failure = Self.message(error)
+            failure = failureMessage(error)
         }
     }
 
@@ -297,12 +297,8 @@ public final class ListModel {
             return true
         } catch {
             Self.logger.warning("A list screen write failed: \(error)")
-            failure = Self.message(error)
+            failure = failureMessage(error)
             return false
         }
-    }
-
-    static func message(_ error: any Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
     }
 }

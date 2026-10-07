@@ -80,7 +80,7 @@ public final class ListNameModel {
             return listID
         } catch {
             Self.logger.warning("A list name save failed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             return nil
         }
     }

@@ -167,7 +167,7 @@ public final class ScansModel {
                 room = 0
             } catch {
                 Self.logger.warning("Adding a scan failed: \(error)")
-                stopped = Self.message(error)
+                stopped = failureMessage(error)
                 break
             }
         }
@@ -183,7 +183,7 @@ public final class ScansModel {
     /// Shows why a picker could not hand over its images.
     func report(_ error: any Error) {
         Self.logger.warning("A scan picker failed: \(error)")
-        failure = Self.message(error)
+        failure = failureMessage(error)
     }
 
     /// Deletes a scan and its image on this device.
@@ -193,7 +193,7 @@ public final class ScansModel {
             try await Commands(store: store).deleteScan(scanID)
         } catch {
             Self.logger.warning("Deleting a scan failed: \(error)")
-            failure = Self.message(error)
+            failure = failureMessage(error)
         }
     }
 
@@ -233,7 +233,7 @@ public final class ScansModel {
                 Self.logger.warning("A scan move failed: \(error)")
                 moves.drop(handle)
                 if announcement == spoken { announcement = nil }
-                failure = Self.message(error)
+                failure = failureMessage(error)
                 return
             }
             let shownRevision = revision
@@ -246,10 +246,6 @@ public final class ScansModel {
             moves.settle(handle, revision: shownRevision, storedOrder: stored)
             moves.retire(order: read.map(\.id), revision: revision)
         }
-    }
-
-    private static func message(_ error: any Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? CatalogModel.actionFailed
     }
 }
 

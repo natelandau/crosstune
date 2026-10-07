@@ -289,7 +289,7 @@ public final class CatalogModel {
         do {
             try await Commands(store: store).setArchived(entry.userTune.id, archived: archived)
         } catch {
-            actionError = (error as? LocalizedError)?.errorDescription ?? Self.actionFailed
+            actionError = failureMessage(error)
         }
     }
 }

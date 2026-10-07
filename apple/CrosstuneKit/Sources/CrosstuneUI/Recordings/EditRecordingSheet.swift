@@ -113,7 +113,7 @@ public final class EditRecordingModel {
             return true
         } catch {
             Self.logger.warning("A recording edit failed: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             return false
         }
     }

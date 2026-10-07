@@ -118,9 +118,9 @@ public final class TunePickerModel {
         } catch {
             Self.logger.warning("A tune pick failed: \(error)")
             if isClosed {
-                onLateFailure(ListModel.message(error))
+                onLateFailure(failureMessage(error))
             } else {
-                failure = ListModel.message(error)
+                failure = failureMessage(error)
             }
         }
     }

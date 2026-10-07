@@ -214,7 +214,7 @@ public final class BulkActions {
             files = try await store.read { db in try Self.recordingFiles(db, tuneIDs: tuneIDs) }
         } catch {
             Self.logger.warning("Could not read the recordings a delete takes: \(error)")
-            failure = ListModel.message(error)
+            failure = failureMessage(error)
             return nil
         }
         let only = entries.count == 1 ? entries.first : nil
@@ -266,7 +266,7 @@ public final class BulkActions {
             return true
         } catch {
             Self.logger.warning("A bulk action failed: \(error)")
-            self[keyPath: keyPath] = ListModel.message(error)
+            self[keyPath: keyPath] = failureMessage(error)
             return false
         }
     }
@@ -332,7 +332,7 @@ private final class UndoChain {
                 try await step(Commands(store: store))
             } catch {
                 BulkActions.logger.warning("An undo or redo failed: \(error)")
-                onFailure(ListModel.message(error))
+                onFailure(failureMessage(error))
             }
         }
     }
