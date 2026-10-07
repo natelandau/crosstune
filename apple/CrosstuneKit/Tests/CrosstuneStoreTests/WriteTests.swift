@@ -1,6 +1,7 @@
 import CrosstuneTestSupport
 import Foundation
 import GRDB
+import Synchronization
 import Testing
 
 @testable import CrosstuneStore
@@ -235,4 +236,21 @@ import Testing
     #expect(try await fetch(recording)?.durationMs == 5)
     #expect(try await fetch(settings)?.instruments == ["violin", "banjo"])
     #expect(try await store.pendingChangeCount() == 7)
+}
+
+@Test func aMetaWriteThatChangesNothingNotifiesNoObserver() async throws {
+    let root = TemporaryRoot()
+    let store = try root.open()
+    let commits = Mutex(0)
+    let observer = try DatabaseRegionObservation(tracking: Table("meta"))
+        .start(in: store.database, onError: { _ in }, onChange: { _ in commits.withLock { $0 += 1 } })
+
+    try await store.setMeta(.recordingsOrigin, to: "own")
+    try await store.setMeta(.recordingsOrigin, to: "own")
+    #expect(commits.withLock { $0 } == 1)
+
+    try await store.setMeta(.recordingsOrigin, to: "all")
+    #expect(commits.withLock { $0 } == 2)
+    #expect(try await store.meta(.recordingsOrigin, as: String.self) == "all")
+    observer.cancel()
 }
