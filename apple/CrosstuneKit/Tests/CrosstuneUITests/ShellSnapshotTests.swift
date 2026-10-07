@@ -64,7 +64,7 @@ import Testing
                             Spacer()
                             SyncBadge(status: .error)
                         }
-                        CatalogStandIn().frame(maxHeight: .infinity, alignment: .top)
+                        CatalogStandIn(showsStatus: false).frame(maxHeight: .infinity, alignment: .top)
                     }
                     .padding(.horizontal, 12)
                     .frame(width: 360)

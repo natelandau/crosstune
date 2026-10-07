@@ -4,10 +4,9 @@ import XCTest
 final class FeatureCaptures: CaptureTestCase {
     func test_tunes_status() throws {
         let app = launchMarketing()
-        // The catalog's title is the status menu.
-        let title = shown(app.navigationBars["Catalog"].buttons["Catalog"])
+        let status = shown(app.buttons["Status: Any"])
         let timeline = sceneStart()
-        timeline.tap(title)
+        timeline.tap(status)
         timeline.tap(shown(button(app, startingWith: "Learning")))
         shown(app.staticTexts["6 of 17 tunes"])
         sceneEnd(timeline)

@@ -171,21 +171,22 @@ private let blankAndSentinel = CatalogSearch.entries(
         let filters = CatalogFilters(
             status: "learning", facets: [.key: "D", .tuneType: "Reel", .genre: "Irish", .mode: "dorian"],
             archived: true)
-        #expect(filters.sheetCount == 3)
-        #expect(filters.sheetReset == CatalogFilters(status: "learning", facets: [.key: "D", .tuneType: "Reel"]))
-        #expect(CatalogFilters(status: "known", facets: [.key: "D", .tuneType: "Reel"]).sheetCount == 0)
+        #expect(filters.sheetCount == 4)
+        #expect(filters.sheetReset == CatalogFilters(status: "learning", facets: [.key: "D"]))
+        #expect(CatalogFilters(status: "known", facets: [.key: "D"]).sheetCount == 0)
         #expect(FiltersButton.name(setCount: 0) == "Filters")
         #expect(FiltersButton.name(setCount: 2) == "Filters, 2 set")
     }
 
-    @Test func keepsKeyAndTypeOnTheScreenAndTheRestInTheSheet() {
-        #expect(CatalogFacet.all.filter { !$0.isInSheet } == [.key, .tuneType])
-        #expect(CatalogFacet.tuning("violin").isInSheet && CatalogFacet.mode.isInSheet && CatalogFacet.genre.isInSheet)
+    @Test func keepsKeyOnTheScreenAndTheRestInTheSheet() {
+        #expect(CatalogFacet.all.filter { !$0.isInSheet } == [.key])
+        #expect(CatalogFacet.tuneType.isInSheet && CatalogFacet.tuning("violin").isInSheet)
+        #expect(CatalogFacet.mode.isInSheet && CatalogFacet.genre.isInSheet)
     }
 
-    @Test func showsASetKeyOrTypeOnItsControlRatherThanAsAToken() {
+    @Test func showsASetKeyOnItsControlAndASetTypeAsAToken() {
         let filters = CatalogFilters(status: "learning", facets: [.key: "D", .tuneType: "Reel", .genre: "Irish"])
-        #expect(CatalogFilterRow.setFilters(filters).map(\.label) == ["Irish"])
+        #expect(CatalogFilterRow.setFilters(filters).map(\.label) == ["Reel", "Irish"])
     }
 
     @Test func keepsAStaleSetValueAsAChoiceWithoutDuplicatingAHeldOne() {

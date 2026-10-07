@@ -67,9 +67,10 @@ because the sidebar breaks its rows' words there.
   actions and its context menu.
 - The sync badge leads the sidebar's header in the sidebar form, and the
   catalog's toolbar in the top-bar form.
-- The catalog's title is the status menu in both forms. The status rows and
-  the title menu write the one stored status filter that stats links and
-  the Mac sidebar use, so a status set from anywhere shows as both.
+- The catalog's filter row keeps its Status capsule in both forms. The
+  sidebar's status rows and the capsule write the one stored status filter
+  that stats links and the Mac sidebar use, so a status set from anywhere
+  shows as both.
 - A form change, a rotation, or a resize keeps the tab, the open list, the
   tune in each detail column, the playing item, and each destination's
   scroll place.

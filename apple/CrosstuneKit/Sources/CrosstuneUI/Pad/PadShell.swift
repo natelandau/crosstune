@@ -47,7 +47,7 @@
                 ) {
                     split(.catalog)
                 }
-                // Every choice after the Catalog is a status, whose id is that status.
+                // Every choice after Any is a status, whose id is that status.
                 ForEach(StatusScope.choices(counts?.value ?? nil).dropFirst()) { choice in
                     Tab(choice.label, systemImage: choice.systemImage, value: Slot.tab(.status(choice.id))) {
                         split(.catalog)

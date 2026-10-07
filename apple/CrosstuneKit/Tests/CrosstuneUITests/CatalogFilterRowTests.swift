@@ -4,6 +4,11 @@ import Testing
 
 @MainActor
 @Suite struct CatalogFilterRowTests {
+    @Test func statusLabelNamesTheChosenStatusOrAny() {
+        #expect(CatalogFilterRow.statusLabel(nil) == "Status: Any")
+        #expect(CatalogFilterRow.statusLabel("want_to_learn") == "Status: Unknown")
+    }
+
     @Test func keyLabelNamesTheChosenKeyOrAny() {
         #expect(CatalogFilterRow.keyLabel(nil) == "Key: Any")
         #expect(CatalogFilterRow.keyLabel("D") == "Key: D")
@@ -19,21 +24,22 @@ import Testing
         #expect(KeyFilterPopover.choice(picking: "D", selected: "D") == nil)
     }
 
-    @Test func typeLabelNamesTheChosenTypeOrAny() {
-        #expect(CatalogFilterRow.typeLabel("Reel") == "Type: Reel")
-        #expect(CatalogFilterRow.typeLabel(nil) == "Type: Any")
-    }
-
     @Test func rowOmitsAControlForAFacetTheCatalogLacks() {
         let full = CatalogStandIn.results(filters: CatalogFilters(), query: "")
-        #expect(CatalogFilterRow.controls(full) == [.key, .tuneType, .filters])
+        #expect(CatalogFilterRow.controls(full, showsStatus: false) == [.key, .filters])
         let keyless = results(full, facets: full.facets.filter { $0 != .key })
-        #expect(CatalogFilterRow.controls(keyless) == [.tuneType, .filters])
-        #expect(CatalogFilterRow.controls(results(full, facets: [])) == [.filters])
+        #expect(CatalogFilterRow.controls(keyless, showsStatus: false) == [.filters])
+        #expect(CatalogFilterRow.controls(results(full, facets: []), showsStatus: false) == [.filters])
     }
 
-    @Test func sheetCountNeverCountsKeyOrType() {
-        let filters = CatalogFilters(status: "learning", facets: [.key: "D", .tuneType: "Reel"])
+    @Test func statusLeadsTheRowWhereItShows() {
+        let full = CatalogStandIn.results(filters: CatalogFilters(), query: "")
+        #expect(CatalogFilterRow.controls(full, showsStatus: true) == [.status, .key, .filters])
+        #expect(CatalogFilterRow.controls(results(full, facets: []), showsStatus: true) == [.status, .filters])
+    }
+
+    @Test func sheetCountNeverCountsStatusOrKey() {
+        let filters = CatalogFilters(status: "learning", facets: [.key: "D"])
         #expect(filters.sheetCount == 0)
         #expect(CatalogFilterRow.setFilters(filters).isEmpty)
     }

@@ -190,7 +190,7 @@ public struct CatalogFilters: Hashable, Sendable {
     }
 
     /// How many of the sheet's filters are set: the count on the Filters button and the gate on
-    /// Reset. Status, key, and type sit on the screen, so they are not among them.
+    /// Reset. Status and key sit on the screen, so they are not among them.
     public var sheetCount: Int {
         facets.keys.count(where: \.isInSheet) + (archived ? 1 : 0) + (unheard ? 1 : 0) + (missing != nil ? 1 : 0)
     }
